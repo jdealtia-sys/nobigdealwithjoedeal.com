@@ -7,19 +7,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <script type="module">
   import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth,
-           onAuthStateChanged,
-           signOut }          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore,
-           collection,
-           addDoc,
-           getDocs,
-           orderBy,
-           query,
-           serverTimestamp }  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -34,334 +27,505 @@
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  // Auth guard — not logged in → back to login
   onAuthStateChanged(auth, user => {
     if (!user) { window.location.href = "index.html"; return; }
     document.getElementById('userName').textContent   = user.displayName || user.email.split('@')[0];
     document.getElementById('userAvatar').textContent = (user.displayName || user.email)[0].toUpperCase();
+    document.getElementById('dashName').textContent   = user.displayName || user.email.split('@')[0];
     window._user = user;
     loadLeads();
+    loadPins();
   });
 
   window._auth    = auth;
   window._db      = db;
   window._signOut = () => signOut(auth).then(() => window.location.href = "index.html");
 
-  // Load leads from Firestore
   async function loadLeads(){
     try{
-      const q    = query(collection(db,'leads'), orderBy('createdAt','desc'));
+      const q = query(collection(db,'leads'), orderBy('createdAt','desc'));
       const snap = await getDocs(q);
-      const leads = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const leads = snap.docs.map(d=>({id:d.id,...d.data()}));
       window._leads = leads;
-      renderLeads(leads);
-      updatePipeline(leads);
-    }catch(e){
-      console.warn('Firestore not ready yet — demo mode active');
-      window._leads = [];
-      renderLeads([]);
-      updatePipeline([]);
-    }
+      renderLeads(leads); updatePipeline(leads);
+    }catch(e){ window._leads=[]; renderLeads([]); updatePipeline([]); }
   }
 
-  // Save lead to Firestore
+  async function loadPins(){
+    try{
+      const snap = await getDocs(collection(db,'pins'));
+      window._pins = snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(window._mapReady) window._pins.forEach(p => addPinToMap(p));
+    }catch(e){ window._pins=[]; }
+  }
+
   window._saveLead = async function(data){
     try{
-      await addDoc(collection(db,'leads'),{
-        ...data,
-        createdAt: serverTimestamp(),
-        userId: window._user?.uid || 'demo'
-      });
+      await addDoc(collection(db,'leads'),{...data, createdAt:serverTimestamp(), userId:window._user?.uid||'demo'});
       await loadLeads();
     }catch(e){
-      // Demo fallback — store in memory
-      const demo = window._leads || [];
+      const demo=window._leads||[];
       demo.unshift({id:'demo-'+Date.now(),...data,createdAt:new Date()});
-      window._leads = demo;
-      renderLeads(demo);
-      updatePipeline(demo);
+      window._leads=demo; renderLeads(demo); updatePipeline(demo);
     }
+  };
+
+  window._savePin = async function(data){
+    try{
+      const ref = await addDoc(collection(db,'pins'),{...data, createdAt:serverTimestamp()});
+      return ref.id;
+    }catch(e){ return 'demo-'+Date.now(); }
+  };
+
+  window._deletePin = async function(id){
+    try{ await deleteDoc(doc(db,'pins',id)); }catch(e){}
   };
 </script>
 
 <style>
 :root{
-  --orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.2);
+  --orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.25);
   --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;
   --br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;
   --blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px);pointer-events:none;z-index:0;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;overflow:hidden;}
 
 /* HEADER */
-header{position:sticky;top:0;z-index:200;background:rgba(10,12,15,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;}
-.logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
+header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(10,12,15,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:54px;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
 .logo span{color:var(--orange);}
-.hbadge{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:3px 10px;border-radius:2px;margin-left:12px;}
-.hright{display:flex;align-items:center;gap:16px;}
-.upill{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--br);border-radius:24px;padding:6px 14px 6px 8px;}
-.av{width:28px;height:28px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;}
-.uname{font-size:13px;font-weight:500;}
-.so{font-size:12px;color:var(--m);background:none;border:none;cursor:pointer;letter-spacing:.04em;transition:color .2s;}
+.hbadge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 8px;border-radius:2px;margin-left:10px;}
+.hright{display:flex;align-items:center;gap:12px;}
+.upill{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:4px 12px 4px 6px;}
+.av{width:26px;height:26px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;}
+.uname{font-size:12px;font-weight:500;}
+.so{font-size:11px;color:var(--m);background:none;border:none;cursor:pointer;transition:color .2s;}
 .so:hover{color:var(--orange);}
 
-/* LAYOUT */
-.layout{display:flex;min-height:calc(100vh - 60px);position:relative;z-index:1;}
+/* NAV TABS */
+.nav-tabs{display:flex;align-items:center;gap:2px;background:var(--s2);border-radius:8px;padding:3px;}
+.ntab{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px;border-radius:6px;border:none;background:none;color:var(--m);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.ntab.active{background:var(--orange);color:#fff;}
+.ntab:hover:not(.active){color:var(--t);}
 
-/* SIDEBAR */
-aside{width:220px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);padding:24px 0;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;}
-.nlabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--m);padding:0 20px;margin-bottom:8px;margin-top:20px;}
-.nlabel:first-child{margin-top:0;}
-.ni{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:14px;color:var(--m);cursor:pointer;transition:color .15s,background .15s;border-left:2px solid transparent;text-decoration:none;}
-.ni:hover{color:var(--t);background:var(--s2);}
-.ni.active{color:var(--orange);background:rgba(200,84,26,.08);border-left-color:var(--orange);font-weight:500;}
-.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 7px;}
+/* MAIN AREA */
+.app{position:fixed;top:54px;left:0;right:0;bottom:0;display:flex;}
 
-/* MAIN */
-main{flex:1;padding:32px 36px;overflow-y:auto;}
-.views>div{display:none;}
-.views>div.active-view{display:block;}
+/* SIDEBAR PANEL */
+.sidebar{width:300px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-body{flex:1;overflow-y:auto;padding:14px;}
+.sidebar-body::-webkit-scrollbar{width:4px;}
+.sidebar-body::-webkit-scrollbar-track{background:transparent;}
+.sidebar-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
 
-/* PAGE HEADER */
-.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;animation:fu .5s ease both;}
-@keyframes fu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-.pt h2{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
-.pt p{font-size:13px;color:var(--m);margin-top:4px;}
-.btn-new{display:flex;align-items:center;gap:8px;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:11px 20px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .1s;box-shadow:0 4px 16px var(--og);}
-.btn-new:hover{background:var(--ob);transform:translateY(-1px);}
+/* MAP AREA */
+.map-area{flex:1;position:relative;}
+#mainMap{width:100%;height:100%;}
 
-/* STAT CARDS */
-.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
-.sc{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:20px 22px;display:flex;align-items:center;gap:16px;transition:border-color .2s,transform .15s;animation:fu .5s ease both;}
-.sc:nth-child(1){animation-delay:.05s}.sc:nth-child(2){animation-delay:.1s}.sc:nth-child(3){animation-delay:.15s}.sc:nth-child(4){animation-delay:.2s}
-.sc:hover{border-color:rgba(255,255,255,.14);transform:translateY(-2px);}
-.si{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+/* SEARCH BAR */
+.search-bar{display:flex;gap:8px;margin-bottom:14px;}
+.search-bar input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;transition:border-color .2s;}
+.search-bar input:focus{border-color:var(--orange);}
+.search-bar input::placeholder{color:#3a3f48;}
+.btn-search{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:background .2s;white-space:nowrap;}
+.btn-search:hover{background:var(--ob);}
+
+/* SECTION LABEL */
+.slabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;margin-top:16px;}
+.slabel:first-child{margin-top:0;}
+
+/* PROPERTY CARD */
+.prop-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:12px;}
+.prop-card .addr{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:8px;}
+.prop-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;}
+.prop-row:last-child{border-bottom:none;}
+.prop-row .key{color:var(--m);}
+.prop-row .val{color:var(--t);font-weight:500;}
+
+/* DISPOSITION PINS */
+.pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+.pin-btn{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;cursor:pointer;transition:border-color .2s,background .2s;font-size:12px;font-weight:500;color:var(--t);}
+.pin-btn:hover{border-color:var(--orange);background:var(--s3);}
+.pin-btn.active{border-color:var(--orange);background:rgba(200,84,26,.1);}
+.pin-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+
+/* DRAWING PANEL */
+.line-types{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+.lt-btn{display:flex;align-items:center;gap:8px;background:var(--s2);border:2px solid var(--br);border-radius:7px;padding:8px 10px;cursor:pointer;transition:all .2s;font-size:12px;font-weight:600;color:var(--t);}
+.lt-btn:hover{border-color:rgba(255,255,255,.2);}
+.lt-btn.active{background:var(--s3);}
+.lt-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+.draw-controls{display:flex;gap:6px;margin-bottom:12px;}
+.dc-btn{flex:1;padding:9px 6px;border:1px solid var(--br);border-radius:7px;background:var(--s2);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.dc-btn:hover{border-color:var(--orange);color:var(--orange);}
+.dc-btn.primary{background:var(--green);border-color:var(--green);color:#0A0C0F;}
+.dc-btn.primary:hover{background:#25b87a;}
+.dc-btn.danger{background:rgba(224,82,82,.15);border-color:var(--red);color:var(--red);}
+
+/* LINE LIST */
+.line-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;max-height:200px;overflow-y:auto;}
+.line-item{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 10px;font-size:12px;}
+.line-item-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.line-item-name{flex:1;font-weight:500;}
+.line-item-len{color:var(--orange);font-weight:600;font-family:'Barlow Condensed',sans-serif;font-size:13px;}
+.line-item-del{background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:2px 4px;transition:color .2s;margin-left:auto;}
+.line-item-del:hover{color:var(--red);}
+
+/* ROOF CALC */
+.calc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.calc-select{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 10px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);outline:none;width:100%;transition:border-color .2s;}
+.calc-select:focus{border-color:var(--orange);}
+.calc-result{background:var(--s3);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:10px;}
+.cr-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);}
+.cr-row:last-child{border-bottom:none;font-weight:700;font-size:13px;}
+.cr-row .key{color:var(--m);}
+.cr-row .val{color:var(--t);}
+.cr-row.highlight .val{color:var(--orange);font-family:'Barlow Condensed',sans-serif;font-size:16px;}
+
+/* EXPORT BTN */
+.btn-export{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .1s;box-shadow:0 4px 16px var(--og);display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;}
+.btn-export:hover{background:var(--ob);transform:translateY(-1px);}
+.btn-export.secondary{background:var(--s2);border:1px solid var(--br);color:var(--t);box-shadow:none;}
+.btn-export.secondary:hover{border-color:var(--orange);color:var(--orange);}
+
+/* MAP OVERLAYS */
+.map-mode-badge{position:absolute;top:12px;right:12px;z-index:800;background:rgba(10,12,15,.85);backdrop-filter:blur(8px);border:1px solid var(--br);border-radius:6px;padding:6px 12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);}
+
+/* PIN POPUP */
+.pin-popup{min-width:180px;}
+.pin-popup h4{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;color:#111;}
+.pin-popup select{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #ccc;margin-bottom:6px;font-size:12px;}
+.pin-popup textarea{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #ccc;font-size:12px;resize:none;height:60px;margin-bottom:6px;}
+.pin-popup button{padding:5px 12px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600;}
+.pin-popup .save-pp{background:#C8541A;color:#fff;margin-right:4px;}
+.pin-popup .del-pp{background:#E05252;color:#fff;}
+
+/* VIEWS */
+.view{display:none;}
+.view.active{display:flex;width:100%;height:100%;}
+
+/* STATS VIEW */
+.stats-layout{flex:1;padding:24px;overflow-y:auto;}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.sc{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px;}
+.sc:hover{border-color:rgba(255,255,255,.14);}
+.si{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
 .si.o{background:rgba(200,84,26,.15)}.si.b{background:rgba(74,158,255,.12)}.si.p{background:rgba(155,109,255,.12)}.si.g{background:rgba(46,204,138,.12)}
-.sv{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;line-height:1;letter-spacing:.02em;}
-.sl{font-size:12px;color:var(--m);margin-top:3px;letter-spacing:.04em;}
-
-/* TWO COL */
-.two{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
-.one{margin-bottom:20px;}
-
-/* PANEL */
-.panel{background:var(--s);border:1px solid var(--br);border-radius:10px;overflow:hidden;animation:fu .5s ease both;}
-.ph2{padding:18px 22px 14px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
+.sv{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;line-height:1;}
+.sl{font-size:11px;color:var(--m);margin-top:2px;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.panel{background:var(--s);border:1px solid var(--br);border-radius:10px;overflow:hidden;}
+.ph2{padding:16px 20px 12px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
 .plabel{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:2px;}
-.ptitle{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;}
-.pa{font-size:12px;color:var(--orange);background:none;border:none;cursor:pointer;letter-spacing:.04em;transition:opacity .2s;}
-.pa:hover{opacity:.7;}
-.pb{padding:20px 22px;}
-
-/* PIPELINE */
-.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.sb{border-radius:8px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(255,255,255,.06);}
+.ptitle{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;}
+.pb{padding:16px 20px;}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.sb{border-radius:7px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.06);}
 .sb.nl{background:var(--s3)}.sb.ct2{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.2)}.sb.es{background:rgba(212,160,23,.1);border-color:rgba(212,160,23,.25)}.sb.ng{background:rgba(155,109,255,.08);border-color:rgba(155,109,255,.2)}.sb.cw{background:rgba(46,204,138,.08);border-color:rgba(46,204,138,.2)}.sb.cl{background:rgba(224,82,82,.08);border-color:rgba(224,82,82,.2)}
-.sc2{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;}
+.sc2{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;}
 .sc2.blue{color:var(--blue)}.sc2.gold{color:var(--gold)}.sc2.purple{color:var(--purple)}.sc2.green{color:var(--green)}.sc2.red{color:var(--red)}
-.sn{font-size:11px;letter-spacing:.06em;color:var(--m);text-transform:uppercase;font-weight:600;text-align:center;}
-
-/* QUICK ACTIONS */
-.qg{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.qb{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s,background .2s;text-align:left;}
-.qb:hover{border-color:var(--orange);background:rgba(200,84,26,.06);}
-.qi{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.qt{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:2px;}
-.qd{font-size:11px;color:var(--m);}
-
-/* PROPERTIES */
-.pi{display:flex;align-items:center;gap:14px;padding:13px 8px;border-bottom:1px solid var(--br);transition:background .15s;cursor:pointer;border-radius:6px;}
-.pi:last-child{border-bottom:none}
-.pi:hover{background:var(--s2)}
-.pico{width:36px;height:36px;background:var(--s3);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-.pa2{font-size:14px;font-weight:500;color:var(--blue);margin-bottom:3px;}
-.pm{font-size:12px;color:var(--m);}
-.pal{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:3px 8px;flex-shrink:0;}
-
-/* LEADS TABLE */
-.ltable{width:100%;border-collapse:collapse;}
-.ltable th{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);padding:10px 14px;text-align:left;border-bottom:1px solid var(--br);}
-.ltable td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04);}
-.ltable tr:hover td{background:var(--s2)}
-.stage-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;}
+.sn{font-size:10px;letter-spacing:.06em;color:var(--m);text-transform:uppercase;font-weight:600;text-align:center;}
+.pi2{display:flex;align-items:center;gap:12px;padding:10px 8px;border-bottom:1px solid var(--br);cursor:pointer;border-radius:6px;transition:background .15s;}
+.pi2:last-child{border-bottom:none}.pi2:hover{background:var(--s2)}
+.pa2{font-size:13px;font-weight:500;color:var(--blue);margin-bottom:2px;}
+.pm{font-size:11px;color:var(--m);}
+.stage-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:20px;margin-left:auto;flex-shrink:0;}
 .tag-new{background:var(--s3);color:var(--m)}.tag-contacted{background:rgba(74,158,255,.12);color:var(--blue)}.tag-estimate{background:rgba(212,160,23,.12);color:var(--gold)}.tag-negotiating{background:rgba(155,109,255,.12);color:var(--purple)}.tag-won{background:rgba(46,204,138,.12);color:var(--green)}.tag-lost{background:rgba(224,82,82,.12);color:var(--red)}
-.empty{text-align:center;padding:40px 20px;color:var(--m);}
-.empty-icon{font-size:36px;margin-bottom:10px;opacity:.4;}
-
-/* STORM MAP */
-#stormMap{height:480px;border-radius:8px;overflow:hidden;border:1px solid var(--br);}
-.map-controls{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.mctl{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:border-color .2s,color .2s;}
-.mctl:hover,.mctl.on{border-color:var(--orange);color:var(--orange);}
-.alerts-strip{margin-top:16px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;}
-.alert-card{background:var(--s2);border:1px solid rgba(224,82,82,.3);border-radius:8px;padding:12px 16px;border-left:3px solid var(--red);}
-.alert-title{font-size:13px;font-weight:600;color:var(--red);margin-bottom:4px;}
-.alert-desc{font-size:12px;color:var(--m);line-height:1.4;}
+.empty{text-align:center;padding:32px 20px;color:var(--m);}
+.ltable{width:100%;border-collapse:collapse;}
+.ltable th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);padding:8px 12px;text-align:left;border-bottom:1px solid var(--br);}
+.ltable td{padding:10px 12px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);}
+.ltable tr:hover td{background:var(--s2)}
+.pa-btn{font-size:12px;color:var(--orange);background:none;border:none;cursor:pointer;}
+.pa-btn:hover{opacity:.7}
 
 /* MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;}
 .modal-bg.open{display:flex;}
-.modal{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:36px 32px;width:100%;max-width:500px;box-shadow:0 32px 64px rgba(0,0,0,.5);position:relative;animation:fu .3s ease both;max-height:90vh;overflow-y:auto;}
+.modal{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:32px;width:100%;max-width:480px;position:relative;max-height:90vh;overflow-y:auto;}
 .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
-.mclose{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--m);font-size:20px;cursor:pointer;transition:color .2s;}
+.mclose{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;}
 .mclose:hover{color:var(--t);}
-.mfield{margin-bottom:16px;}
-.mfield label{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:7px;}
-.mfield input,.mfield select,.mfield textarea{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px 14px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;}
-.mfield input:focus,.mfield select:focus,.mfield textarea:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--og);}
+.mfield{margin-bottom:14px;}
+.mfield label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:6px;}
+.mfield input,.mfield select,.mfield textarea{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;transition:border-color .2s;}
+.mfield input:focus,.mfield select:focus,.mfield textarea:focus{border-color:var(--orange);}
 .mfield select option{background:var(--s2);}
-.mfield textarea{resize:vertical;min-height:80px;}
-.mrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.msave{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .1s;margin-top:8px;}
-.msave:hover{background:var(--ob);transform:translateY(-1px);}
-.msave:disabled{opacity:.6;cursor:not-allowed;transform:none;}
-.merr{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:9px 13px;font-size:12px;color:#ff7070;margin-bottom:14px;display:none;}
-.mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:9px 13px;font-size:12px;color:#2ecc8a;margin-bottom:14px;display:none;}
+.mfield textarea{resize:vertical;min-height:70px;}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.msave{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;transition:background .2s;}
+.msave:hover{background:var(--ob);}
+.merr{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:8px 12px;font-size:12px;color:#ff7070;margin-bottom:12px;display:none;}
+.mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:8px 12px;font-size:12px;color:#2ecc8a;margin-bottom:12px;display:none;}
 
-/* DISCLAIMER */
-.disc{font-size:11px;color:var(--m);display:flex;align-items:center;gap:6px;padding:12px 22px;border-top:1px solid var(--br);background:var(--s);margin-top:24px;border-radius:8px;}
+/* EXPORT CANVAS (hidden) */
+#exportCanvas{display:none;}
 
-/* RESPONSIVE */
-@media(max-width:1100px){.sgrid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
-@media(max-width:768px){aside{display:none}main{padding:20px 16px}.sgrid{grid-template-columns:repeat(2,1fr)}}
+/* MEASUREMENT LABELS on map */
+.meas-label{background:rgba(10,12,15,.85);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
+
+@media(max-width:768px){
+  .sidebar{width:260px;}
+  .sgrid{grid-template-columns:repeat(2,1fr);}
+  .two{grid-template-columns:1fr;}
+}
 </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <header>
   <div style="display:flex;align-items:center;">
     <div class="logo">No Big Deal <span>Home Solutions</span></div>
     <span class="hbadge">Pro</span>
   </div>
   <div class="hright">
+    <nav class="nav-tabs">
+      <button class="ntab active" onclick="switchTab('map',this)">🗺 Map</button>
+      <button class="ntab" onclick="switchTab('draw',this)">✏️ Draw</button>
+      <button class="ntab" onclick="switchTab('crm',this)">👥 CRM</button>
+      <button class="ntab" onclick="switchTab('dash',this)">📊 Stats</button>
+    </nav>
     <div class="upill">
       <div class="av" id="userAvatar">J</div>
       <span class="uname" id="userName">...</span>
     </div>
-    <button class="so" onclick="window._signOut()">Sign Out →</button>
+    <button class="so" onclick="window._signOut()">Out →</button>
   </div>
 </header>
 
-<div class="layout">
-  <aside>
-    <div class="nlabel">Main</div>
-    <a class="ni active" onclick="showView('dash',this)">📊 Dashboard</a>
-    <a class="ni" onclick="showView('leads',this)">👥 CRM Leads <span class="nbadge" id="leadCount">0</span></a>
-    <a class="ni" onclick="showView('storm',this)">⛈️ Storm Map</a>
-    <div class="nlabel">Tools</div>
-    <a class="ni" href="#">🗺️ Property Map</a>
-    <a class="ni" href="#">📋 Estimates</a>
-    <a class="ni" href="#">🏆 Leaderboard</a>
-    <a class="ni" href="#">📸 Damage Photos</a>
-    <div class="nlabel">Account</div>
-    <a class="ni" href="#">⚙️ Settings</a>
-    <a class="ni" href="#">💡 Pro Tips</a>
-  </aside>
+<div class="app">
 
-  <main>
-    <div class="views">
-
-      <!-- DASHBOARD -->
-      <div id="view-dash" class="active-view">
-        <div class="ph">
-          <div class="pt"><h2>Welcome Back, <span id="dashName">Jonathan</span></h2><p>Here's your roofing operations overview</p></div>
-          <button class="btn-new" onclick="openLeadModal()">＋ New Lead</button>
+  <!-- ══════════════════════════════════════
+       MAP VIEW
+  ══════════════════════════════════════ -->
+  <div id="view-map" class="view active" style="width:100%;height:100%;position:relative;">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-body">
+        <div class="slabel">Property Search</div>
+        <div class="search-bar">
+          <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter')searchAddress()">
+          <button class="btn-search" onclick="searchAddress()">Go</button>
         </div>
 
-        <div class="sgrid">
-          <div class="sc"><div class="si o">🗺️</div><div><div class="sv">2</div><div class="sl">Total Properties</div></div></div>
-          <div class="sc"><div class="si b">👥</div><div><div class="sv" id="statLeads" style="color:var(--m)">0</div><div class="sl">Active Leads</div></div></div>
-          <div class="sc"><div class="si p">📋</div><div><div class="sv">8</div><div class="sl">Estimates Created</div></div></div>
-          <div class="sc"><div class="si g">📈</div><div><div class="sv" style="color:var(--green)">$100K</div><div class="sl">Total Estimate Value</div></div></div>
+        <!-- Property Data Card -->
+        <div id="propCard" style="display:none;">
+          <div class="slabel">Property Data</div>
+          <div class="prop-card" id="propCardInner"></div>
         </div>
 
-        <div class="two">
-          <div class="panel">
-            <div class="ph2"><div><div class="plabel">CRM Pipeline</div><div class="ptitle">Lead Stages</div></div><button class="pa" onclick="showView('leads',null)">View All →</button></div>
-            <div class="pb">
-              <div class="pgrid">
-                <div class="sb nl"><div class="sc2" id="p-new">0</div><div class="sn">New Lead</div></div>
-                <div class="sb ct2"><div class="sc2 blue" id="p-contacted">0</div><div class="sn">Contacted</div></div>
-                <div class="sb es"><div class="sc2 gold" id="p-estimate">0</div><div class="sn">Estimate Sent</div></div>
-                <div class="sb ng"><div class="sc2 purple" id="p-negotiating">0</div><div class="sn">Negotiating</div></div>
-                <div class="sb cw"><div class="sc2 green" id="p-won">0</div><div class="sn">Closed Won</div></div>
-                <div class="sb cl"><div class="sc2 red" id="p-lost">0</div><div class="sn">Closed Lost</div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="ph2"><div><div class="plabel">Tools</div><div class="ptitle">Quick Actions</div></div></div>
-            <div class="pb">
-              <div class="qg">
-                <button class="qb"><div class="qi" style="background:rgba(74,158,255,.1)">🗺️</div><div><div class="qt">Search Property</div><div class="qd">Look up any address</div></div></button>
-                <button class="qb"><div class="qi" style="background:rgba(155,109,255,.1)">📋</div><div><div class="qt">New Estimate</div><div class="qd">Build Xactimate estimate</div></div></button>
-                <button class="qb" onclick="openLeadModal()"><div class="qi" style="background:rgba(200,84,26,.12)">👥</div><div><div class="qt">Add Lead</div><div class="qd">Create CRM lead</div></div></button>
-                <button class="qb" onclick="showView('storm',null)"><div class="qi" style="background:rgba(224,82,82,.1)">⛈️</div><div><div class="qt">Storm Map</div><div class="qd">View storm events</div></div></button>
-              </div>
-            </div>
-          </div>
+        <!-- Disposition Pins -->
+        <div class="slabel">Door Knock Status</div>
+        <div class="pin-grid">
+          <button class="pin-btn active" onclick="selectPin('not-home','#9CA3AF',this)" id="pin-not-home">
+            <div class="pin-dot" style="background:#9CA3AF"></div>Not Home
+          </button>
+          <button class="pin-btn" onclick="selectPin('interested','#2ECC8A',this)" id="pin-interested">
+            <div class="pin-dot" style="background:#2ECC8A"></div>Interested
+          </button>
+          <button class="pin-btn" onclick="selectPin('not-interested','#E05252',this)" id="pin-not-interested">
+            <div class="pin-dot" style="background:#E05252"></div>Not Interested
+          </button>
+          <button class="pin-btn" onclick="selectPin('signed','#D4A017',this)" id="pin-signed">
+            <div class="pin-dot" style="background:#D4A017"></div>⭐ Signed
+          </button>
+          <button class="pin-btn" onclick="selectPin('callback','#4A9EFF',this)" id="pin-callback">
+            <div class="pin-dot" style="background:#4A9EFF"></div>Callback
+          </button>
+          <button class="pin-btn" onclick="selectPin('do-not-knock','#1F2937',this)" id="pin-dnk">
+            <div class="pin-dot" style="background:#374151"></div>Do Not Knock
+          </button>
+          <button class="pin-btn" onclick="selectPin('left-material','#9B6DFF',this)" id="pin-material">
+            <div class="pin-dot" style="background:#9B6DFF"></div>Left Material
+          </button>
+          <button class="pin-btn" onclick="selectPin('follow-up','#C8541A',this)" id="pin-followup">
+            <div class="pin-dot" style="background:#C8541A"></div>Follow Up
+          </button>
         </div>
 
-        <div class="two">
-          <div class="panel">
-            <div class="ph2"><div><div class="plabel">Properties</div><div class="ptitle">Recent Properties</div></div><button class="pa">View All →</button></div>
-            <div class="pb" style="padding-top:8px;padding-bottom:8px;">
-              <div class="pi"><div class="pico">🗺️</div><div><div class="pa2">1054 Klondyke Rd, Milford, OH 45150</div><div class="pm">HARTMAN, DAVID &amp; SARAH · Built 2002</div></div></div>
-              <div class="pi"><div class="pico">🗺️</div><div><div class="pa2">1115 Klondyke Rd, Milford, OH 45150</div><div class="pm">CHEN, WEI &amp; LI · Built 2000</div></div><div class="pal">⚠ 2</div></div>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="ph2"><div><div class="plabel">CRM</div><div class="ptitle">Recent Leads</div></div><button class="pa" onclick="openLeadModal()">Add Lead →</button></div>
-            <div id="recentLeadsPanel"><div class="empty"><div class="empty-icon">👥</div><p>No leads yet.<br>Create a lead from any property.</p></div></div>
-          </div>
-        </div>
-        <div class="disc">⚠️ Estimates are AI-assisted and not a binding contract. Always verify measurements on-site.</div>
+        <p style="font-size:11px;color:var(--m);margin-bottom:12px;">Select a status above, then click the map to drop a pin.</p>
+
+        <button class="btn-export secondary" onclick="clearAllPins()" style="margin-bottom:6px;">🗑 Clear All Pins</button>
+        <button class="btn-export secondary" onclick="openLeadModal()">＋ Add CRM Lead</button>
       </div>
-
-      <!-- LEADS -->
-      <div id="view-leads">
-        <div class="ph">
-          <div class="pt"><h2>CRM Leads</h2><p>Full lead pipeline management</p></div>
-          <button class="btn-new" onclick="openLeadModal()">＋ Add Lead</button>
-        </div>
-        <div class="panel one">
-          <div class="ph2"><div><div class="plabel">CRM Pipeline</div><div class="ptitle">All Leads</div></div></div>
-          <div id="leadsTableWrap"><div class="empty"><div class="empty-icon">👥</div><p>No leads yet. Hit "+ Add Lead" to start your pipeline.</p></div></div>
-        </div>
-      </div>
-
-      <!-- STORM MAP -->
-      <div id="view-storm">
-        <div class="ph">
-          <div class="pt"><h2>Storm Map</h2><p>Live NOAA weather alerts &amp; storm intel</p></div>
-        </div>
-        <div class="panel one">
-          <div class="ph2"><div><div class="plabel">Live NOAA Feed</div><div class="ptitle">Active Weather Alerts — Ohio Region</div></div><button class="pa" onclick="loadStorm()">↻ Refresh</button></div>
-          <div class="pb">
-            <div class="map-controls">
-              <button class="mctl on" onclick="toggleRadar()">🌧 Radar Overlay</button>
-            </div>
-            <div id="stormMap"></div>
-            <div class="alerts-strip" id="alertsStrip">
-              <div style="color:var(--m);font-size:13px;text-align:center;padding:12px;">Click Storm Map in sidebar to load alerts.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
-  </main>
-</div>
+
+    <!-- Map -->
+    <div class="map-area">
+      <div id="mainMap"></div>
+      <div class="map-mode-badge" id="mapModeBadge">📍 PIN MODE — NOT HOME</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       DRAW VIEW
+  ══════════════════════════════════════ -->
+  <div id="view-draw" class="view" style="width:100%;height:100%;position:relative;">
+    <div class="sidebar">
+      <div class="sidebar-body">
+
+        <div class="slabel">Property</div>
+        <div class="search-bar">
+          <input type="text" id="drawSearch" placeholder="Property address..." onkeydown="if(event.key==='Enter')searchDrawAddress()">
+          <button class="btn-search" onclick="searchDrawAddress()">Go</button>
+        </div>
+
+        <div class="slabel">Line Type</div>
+        <div class="line-types" id="lineTypes">
+          <button class="lt-btn active" onclick="selectLineType(0,this)"><div class="lt-dot" style="background:#22C55E"></div>Ridge</button>
+          <button class="lt-btn" onclick="selectLineType(1,this)"><div class="lt-dot" style="background:#86EFAC"></div>Ridge Vent</button>
+          <button class="lt-btn" onclick="selectLineType(2,this)"><div class="lt-dot" style="background:#06B6D4"></div>Hip</button>
+          <button class="lt-btn" onclick="selectLineType(3,this)"><div class="lt-dot" style="background:#3B82F6"></div>Valley</button>
+          <button class="lt-btn" onclick="selectLineType(4,this)"><div class="lt-dot" style="background:#EC4899"></div>Rake</button>
+          <button class="lt-btn" onclick="selectLineType(5,this)"><div class="lt-dot" style="background:#BE185D"></div>Eave</button>
+          <button class="lt-btn" onclick="selectLineType(6,this)"><div class="lt-dot" style="background:#F97316"></div>Flashing</button>
+          <button class="lt-btn" onclick="selectLineType(7,this)"><div class="lt-dot" style="background:#EAB308"></div>Step Flash</button>
+          <button class="lt-btn" onclick="selectLineType(8,this)"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
+          <button class="lt-btn" onclick="selectLineType(9,this)"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
+        </div>
+
+        <div class="slabel">Drawing Controls</div>
+        <div class="draw-controls">
+          <button class="dc-btn primary" id="drawToggle" onclick="toggleDrawing()">▶ Start Drawing</button>
+          <button class="dc-btn" onclick="undoLastLine()">↩ Undo</button>
+          <button class="dc-btn danger" onclick="clearDrawing()">✕ Clear</button>
+        </div>
+
+        <div class="slabel">Lines Drawn</div>
+        <div class="line-list" id="lineList">
+          <p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No lines yet. Select a type and start drawing.</p>
+        </div>
+
+        <div class="slabel">Roof Calculator</div>
+        <div class="calc-row">
+          <div>
+            <div style="font-size:10px;color:var(--m);margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase;">Pitch</div>
+            <select class="calc-select" id="pitchSelect" onchange="recalc()">
+              <option value="1.0">Flat (1.00×)</option>
+              <option value="1.054">4/12 (1.054×)</option>
+              <option value="1.083" selected>5/12 (1.083×)</option>
+              <option value="1.118">6/12 (1.118×)</option>
+              <option value="1.158">7/12 (1.158×)</option>
+              <option value="1.202">8/12 (1.202×)</option>
+              <option value="1.25">9/12 (1.250×)</option>
+              <option value="1.302">10/12 (1.302×)</option>
+              <option value="1.357">11/12 (1.357×)</option>
+              <option value="1.414">12/12 (1.414×)</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--m);margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase;">Waste</div>
+            <select class="calc-select" id="wasteSelect" onchange="recalc()">
+              <option value="1.10">10% Waste</option>
+              <option value="1.15" selected>15% Waste</option>
+              <option value="1.20">20% Waste</option>
+              <option value="1.25">25% Waste</option>
+              <option value="1.30">30% Waste</option>
+            </select>
+          </div>
+        </div>
+        <div class="calc-result" id="calcResult">
+          <div class="cr-row"><span class="key">Base Area</span><span class="val" id="cr-base">0 sq ft</span></div>
+          <div class="cr-row"><span class="key">Pitched Area</span><span class="val" id="cr-pitched">0 sq ft</span></div>
+          <div class="cr-row"><span class="key">With Waste</span><span class="val" id="cr-waste">0 sq ft</span></div>
+          <div class="cr-row highlight"><span class="key">Squares Needed</span><span class="val" id="cr-squares">0.0 sq</span></div>
+        </div>
+
+        <button class="btn-export" onclick="exportDrawing()">📤 Export Report</button>
+        <button class="btn-export secondary" onclick="exportPDF()">📄 Export PDF</button>
+      </div>
+    </div>
+
+    <!-- Draw Map -->
+    <div class="map-area" style="position:relative;">
+      <div id="drawMap" style="width:100%;height:100%;"></div>
+      <div class="map-mode-badge" id="drawModeBadge" style="background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4);color:#22C55E;">✏️ CLICK TO DRAW</div>
+      <!-- Export target overlay -->
+      <div id="exportOverlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:center;justify-content:center;flex-direction:column;gap:12px;">
+        <div style="color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;">Generating Export...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CRM VIEW
+  ══════════════════════════════════════ -->
+  <div id="view-crm" class="view" style="flex-direction:column;overflow-y:auto;padding:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">CRM Leads</div>
+        <div style="font-size:12px;color:var(--m);margin-top:3px;">Full pipeline management</div>
+      </div>
+      <button class="btn-export" style="width:auto;padding:10px 20px;" onclick="openLeadModal()">＋ Add Lead</button>
+    </div>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="ph2"><div><div class="plabel">Pipeline</div><div class="ptitle">Lead Stages</div></div></div>
+      <div class="pb">
+        <div class="pgrid">
+          <div class="sb nl"><div class="sc2" id="p-new">0</div><div class="sn">New Lead</div></div>
+          <div class="sb ct2"><div class="sc2 blue" id="p-contacted">0</div><div class="sn">Contacted</div></div>
+          <div class="sb es"><div class="sc2 gold" id="p-estimate">0</div><div class="sn">Estimate Sent</div></div>
+          <div class="sb ng"><div class="sc2 purple" id="p-negotiating">0</div><div class="sn">Negotiating</div></div>
+          <div class="sb cw"><div class="sc2 green" id="p-won">0</div><div class="sn">Closed Won</div></div>
+          <div class="sb cl"><div class="sc2 red" id="p-lost">0</div><div class="sn">Closed Lost</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph2"><div><div class="plabel">CRM</div><div class="ptitle">All Leads</div></div></div>
+      <div id="leadsTableWrap"><div class="empty">No leads yet.</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       STATS VIEW
+  ══════════════════════════════════════ -->
+  <div id="view-dash" class="view stats-layout">
+    <div style="width:100%;">
+      <div style="margin-bottom:20px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;">Welcome Back, <span id="dashName">Jonathan</span></div>
+        <div style="font-size:12px;color:var(--m);margin-top:4px;">Roofing operations overview</div>
+      </div>
+      <div class="sgrid">
+        <div class="sc"><div class="si o">🗺️</div><div><div class="sv">2</div><div class="sl">Properties</div></div></div>
+        <div class="sc"><div class="si b">👥</div><div><div class="sv" id="statLeads">0</div><div class="sl">Active Leads</div></div></div>
+        <div class="sc"><div class="si p">📋</div><div><div class="sv">8</div><div class="sl">Estimates</div></div></div>
+        <div class="sc"><div class="si g">📈</div><div><div class="sv" style="color:var(--green)">$100K</div><div class="sl">Est. Value</div></div></div>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <div class="ph2"><div><div class="plabel">Pipeline</div><div class="ptitle">Lead Stages</div></div></div>
+          <div class="pb">
+            <div class="pgrid">
+              <div class="sb nl"><div class="sc2" id="dp-new">0</div><div class="sn">New</div></div>
+              <div class="sb ct2"><div class="sc2 blue" id="dp-contacted">0</div><div class="sn">Contacted</div></div>
+              <div class="sb es"><div class="sc2 gold" id="dp-estimate">0</div><div class="sn">Est. Sent</div></div>
+              <div class="sb ng"><div class="sc2 purple" id="dp-negotiating">0</div><div class="sn">Negotiating</div></div>
+              <div class="sb cw"><div class="sc2 green" id="dp-won">0</div><div class="sn">Won</div></div>
+              <div class="sb cl"><div class="sc2 red" id="dp-lost">0</div><div class="sn">Lost</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph2"><div><div class="plabel">Recent</div><div class="ptitle">Latest Leads</div></div><button class="pa-btn" onclick="switchTab('crm',null)">View All →</button></div>
+          <div id="recentLeadsPanel"><div class="empty">No leads yet.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
 
 <!-- LEAD MODAL -->
 <div class="modal-bg" id="leadModal">
   <div class="modal">
     <button class="mclose" onclick="closeLeadModal()">✕</button>
-    <div class="plabel" style="margin-bottom:4px;">CRM</div>
-    <div class="ptitle" style="margin-bottom:20px;">Add New Lead</div>
+    <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">CRM</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:18px;">Add New Lead</div>
     <div class="merr" id="mErr"></div>
     <div class="mok"  id="mOk"></div>
     <div class="mrow">
@@ -375,34 +539,469 @@ main{flex:1;padding:32px 36px;overflow-y:auto;}
     </div>
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
-        <select id="lStage">
-          <option>New Lead</option><option>Contacted</option><option>Estimate Sent</option>
-          <option>Negotiating</option><option>Closed Won</option><option>Closed Lost</option>
-        </select>
+        <select id="lStage"><option>New Lead</option><option>Contacted</option><option>Estimate Sent</option><option>Negotiating</option><option>Closed Won</option><option>Closed Lost</option></select>
       </div>
       <div class="mfield"><label>Source</label>
-        <select id="lSource">
-          <option>Door Knock</option><option>Storm Canvass</option><option>Referral</option>
-          <option>Online</option><option>Other</option>
-        </select>
+        <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
       </div>
     </div>
-    <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage details, homeowner interest level..."></textarea></div>
+    <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage notes, interest level..."></textarea></div>
     <button class="msave" onclick="saveLead()" id="saveBtn">Save Lead</button>
   </div>
 </div>
 
+<canvas id="exportCanvas"></canvas>
+
 <script>
-// VIEW SWITCHING
-function showView(name,el){
-  document.querySelectorAll('.views>div').forEach(d=>d.classList.remove('active-view'));
-  document.getElementById('view-'+name).classList.add('active-view');
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+// ══════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════
+let mapsInited = {map:false, draw:false};
+
+function switchTab(name, el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.ntab').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
-  if(name==='storm') initStormMap();
+
+  if(name==='map' && !mapsInited.map){ initMainMap(); mapsInited.map=true; }
+  if(name==='draw' && !mapsInited.draw){ initDrawMap(); mapsInited.draw=true; }
 }
 
-// MODAL
+// Init map tab on load
+window.addEventListener('load',()=>{ initMainMap(); mapsInited.map=true; });
+
+// ══════════════════════════════════════════════
+// MAIN MAP — PINS & PROPERTY DATA
+// ══════════════════════════════════════════════
+let mainMap, currentPinStatus='not-home', currentPinColor='#9CA3AF';
+let mapPinMarkers = {};
+
+const PIN_COLORS = {
+  'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252',
+  'signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151',
+  'left-material':'#9B6DFF','follow-up':'#C8541A'
+};
+const PIN_LABELS = {
+  'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested',
+  'signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock',
+  'left-material':'Left Material','follow-up':'Follow Up'
+};
+
+function initMainMap(){
+  mainMap = L.map('mainMap',{zoomControl:true}).setView([39.07,-84.17],13);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'© Esri',maxZoom:20}).addTo(mainMap);
+
+  mainMap.on('click', e => {
+    dropPin(e.latlng.lat, e.latlng.lng, currentPinStatus, currentPinColor, null, '');
+  });
+
+  window._mapReady = true;
+  if(window._pins) window._pins.forEach(p => addPinToMap(p));
+}
+
+function makePinIcon(color, status){
+  const emoji = status==='signed'?'⭐':'📍';
+  return L.divIcon({
+    html:`<div style="font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${
+      status==='signed'?'⭐':
+      `<svg viewBox="0 0 24 32" width="22" height="30" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="12" cy="8" r="3" fill="white"/>
+      </svg>`
+    }</div>`,
+    iconSize:[22,30], iconAnchor:[11,30], popupAnchor:[0,-30], className:''
+  });
+}
+
+async function dropPin(lat, lng, status, color, existingId, notes){
+  const id = existingId || await window._savePin({lat,lng,status,color,notes});
+  addPinToMap({id,lat,lng,status,color,notes});
+}
+
+function addPinToMap(p){
+  if(!mainMap) return;
+  const marker = L.marker([p.lat,p.lng], {icon: makePinIcon(p.color||PIN_COLORS[p.status]||'#9CA3AF', p.status)});
+
+  const popupHTML = `<div class="pin-popup">
+    <h4>${PIN_LABELS[p.status]||p.status}</h4>
+    <select id="pp-status-${p.id}" onchange="updatePinStatus('${p.id}',this.value)">
+      ${Object.entries(PIN_LABELS).map(([k,v])=>`<option value="${k}" ${k===p.status?'selected':''}>${v}</option>`).join('')}
+    </select>
+    <textarea id="pp-notes-${p.id}" placeholder="Notes...">${p.notes||''}</textarea>
+    <button class="save-pp" onclick="savePinNote('${p.id}')">Save</button>
+    <button class="del-pp" onclick="deletePin('${p.id}')">Delete</button>
+  </div>`;
+
+  marker.bindPopup(popupHTML);
+  marker.addTo(mainMap);
+  mapPinMarkers[p.id] = marker;
+}
+
+function selectPin(status, color, el){
+  document.querySelectorAll('.pin-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  currentPinStatus = status;
+  currentPinColor  = color;
+  document.getElementById('mapModeBadge').textContent = '📍 PIN MODE — '+(PIN_LABELS[status]||status).toUpperCase();
+}
+
+function deletePin(id){
+  if(mapPinMarkers[id]){ mainMap.removeLayer(mapPinMarkers[id]); delete mapPinMarkers[id]; }
+  window._deletePin(id);
+}
+
+function savePinNote(id){ /* notes saved inline */ }
+function updatePinStatus(id, status){ /* update marker */ }
+function clearAllPins(){
+  Object.values(mapPinMarkers).forEach(m=>mainMap.removeLayer(m));
+  mapPinMarkers={};
+}
+
+async function searchAddress(){
+  const q = document.getElementById('mapSearch').value.trim();
+  if(!q) return;
+  try{
+    const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const data = await res.json();
+    if(!data.length){ alert('Address not found.'); return; }
+    const {lat,lon,display_name} = data[0];
+    mainMap.setView([lat,lon],18);
+    fetchPropertyData(q, lat, lon);
+  }catch(e){ console.error(e); }
+}
+
+async function fetchPropertyData(address, lat, lon){
+  // Show card with available free data
+  const card = document.getElementById('propCard');
+  const inner = document.getElementById('propCardInner');
+  card.style.display='block';
+  inner.innerHTML=`<div class="addr">${address}</div>
+    <div class="prop-row"><span class="key">Latitude</span><span class="val">${parseFloat(lat).toFixed(5)}</span></div>
+    <div class="prop-row"><span class="key">Longitude</span><span class="val">${parseFloat(lon).toFixed(5)}</span></div>
+    <div class="prop-row"><span class="key">Status</span><span class="val" style="color:var(--green)">✓ Located</span></div>
+    <div class="prop-row"><span class="key">Source</span><span class="val">OpenStreetMap / Nominatim</span></div>
+    <div style="margin-top:8px;font-size:11px;color:var(--m);">💡 Connect a county assessor API for owner name, parcel ID, year built & assessed value.</div>`;
+
+  // Drop a location marker
+  L.marker([lat,lon]).addTo(mainMap).bindPopup(`<b>${address}</b>`).openPopup();
+}
+
+// ══════════════════════════════════════════════
+// DRAW MAP — FULL DRAWING TOOL
+// ══════════════════════════════════════════════
+let drawMap, isDrawing=false, currentStart=null, currentLineType=0;
+let drawnLines=[], tempLine=null, tempLabel=null, clickMarkers=[];
+let drawingPoints=[];
+
+const LINE_TYPES = [
+  {name:'Ridge',      color:'#22C55E'},
+  {name:'Ridge Vent', color:'#86EFAC'},
+  {name:'Hip',        color:'#06B6D4'},
+  {name:'Valley',     color:'#3B82F6'},
+  {name:'Rake',       color:'#EC4899'},
+  {name:'Eave',       color:'#BE185D'},
+  {name:'Flashing',   color:'#F97316'},
+  {name:'Step Flash', color:'#EAB308'},
+  {name:'Drip Edge',  color:'#1D4ED8'},
+  {name:'Parapet',    color:'#92400E'},
+];
+
+function initDrawMap(){
+  drawMap = L.map('drawMap',{zoomControl:true}).setView([39.07,-84.17],18);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'© Esri',maxZoom:21}).addTo(drawMap);
+
+  drawMap.on('click', e => {
+    if(!isDrawing) return;
+    const pt = e.latlng;
+
+    if(!currentStart){
+      // First point
+      currentStart = pt;
+      const dot = L.circleMarker(pt,{radius:5,color:'#fff',fillColor:LINE_TYPES[currentLineType].color,fillOpacity:1,weight:2}).addTo(drawMap);
+      clickMarkers.push(dot);
+    } else {
+      // Second point — finalize line
+      finalizeLine(currentStart, pt);
+      currentStart = null;
+      // Remove last dot
+    }
+  });
+
+  drawMap.on('mousemove', e => {
+    if(!isDrawing || !currentStart) return;
+    if(tempLine) drawMap.removeLayer(tempLine);
+    if(tempLabel) drawMap.removeLayer(tempLabel);
+    tempLine = L.polyline([currentStart, e.latlng],{
+      color: LINE_TYPES[currentLineType].color,
+      weight:3, dashArray:'6,4', opacity:.7
+    }).addTo(drawMap);
+    const dist = haversine(currentStart,e.latlng);
+    tempLabel = L.marker(midpoint(currentStart,e.latlng),{
+      icon:L.divIcon({html:`<div class="meas-label">${dist.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})
+    }).addTo(drawMap);
+  });
+
+  recalc();
+}
+
+function selectLineType(idx, el){
+  document.querySelectorAll('.lt-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  el.style.borderColor = LINE_TYPES[idx].color;
+  currentLineType = idx;
+}
+
+function toggleDrawing(){
+  isDrawing = !isDrawing;
+  const btn = document.getElementById('drawToggle');
+  const badge = document.getElementById('drawModeBadge');
+  if(isDrawing){
+    btn.textContent='⏹ Stop Drawing';
+    btn.style.background='var(--red)';
+    btn.style.borderColor='var(--red)';
+    badge.textContent='✏️ CLICK TO PLACE POINTS';
+    drawMap.getContainer().style.cursor='crosshair';
+  } else {
+    btn.textContent='▶ Start Drawing';
+    btn.style.background='';
+    btn.style.borderColor='';
+    badge.textContent='✏️ CLICK TO DRAW';
+    drawMap.getContainer().style.cursor='';
+    currentStart=null;
+    if(tempLine){ drawMap.removeLayer(tempLine); tempLine=null; }
+    if(tempLabel){ drawMap.removeLayer(tempLabel); tempLabel=null; }
+  }
+}
+
+function finalizeLine(p1, p2){
+  const lt = LINE_TYPES[currentLineType];
+  const dist = haversine(p1, p2);
+  const line = L.polyline([p1,p2],{color:lt.color,weight:4,opacity:.95}).addTo(drawMap);
+  const mid  = midpoint(p1,p2);
+  const label = L.marker(mid,{
+    icon: L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${dist.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})
+  }).addTo(drawMap);
+
+  const id = Date.now();
+  drawnLines.push({id, type:currentLineType, name:lt.name, color:lt.color, dist, line, label, p1, p2});
+  renderLineList();
+  recalc();
+
+  if(tempLine){ drawMap.removeLayer(tempLine); tempLine=null; }
+  if(tempLabel){ drawMap.removeLayer(tempLabel); tempLabel=null; }
+}
+
+function deleteLine(id){
+  const idx = drawnLines.findIndex(l=>l.id===id);
+  if(idx<0) return;
+  const ln = drawnLines[idx];
+  drawMap.removeLayer(ln.line);
+  drawMap.removeLayer(ln.label);
+  drawnLines.splice(idx,1);
+  renderLineList(); recalc();
+}
+
+function undoLastLine(){
+  if(!drawnLines.length) return;
+  deleteLine(drawnLines[drawnLines.length-1].id);
+}
+
+function clearDrawing(){
+  drawnLines.forEach(l=>{ drawMap.removeLayer(l.line); drawMap.removeLayer(l.label); });
+  drawnLines=[];
+  clickMarkers.forEach(m=>drawMap.removeLayer(m)); clickMarkers=[];
+  if(tempLine){ drawMap.removeLayer(tempLine); tempLine=null; }
+  if(tempLabel){ drawMap.removeLayer(tempLabel); tempLabel=null; }
+  currentStart=null;
+  renderLineList(); recalc();
+}
+
+function renderLineList(){
+  const el = document.getElementById('lineList');
+  if(!drawnLines.length){
+    el.innerHTML='<p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No lines yet.</p>';
+    return;
+  }
+  el.innerHTML = drawnLines.map(l=>`
+    <div class="line-item">
+      <div class="line-item-dot" style="background:${l.color}"></div>
+      <span class="line-item-name">${l.name}</span>
+      <span class="line-item-len">${l.dist.toFixed(1)} ft</span>
+      <button class="line-item-del" onclick="deleteLine(${l.id})">✕</button>
+    </div>`).join('');
+}
+
+// ROOF CALCULATOR
+function recalc(){
+  // Use eave + rake lines as perimeter for area estimation
+  // For simplicity: sum all line lengths for linear totals, use eave lines for area base
+  const pitch = parseFloat(document.getElementById('pitchSelect')?.value||1.083);
+  const waste = parseFloat(document.getElementById('wasteSelect')?.value||1.15);
+
+  // Area estimation: use polygon if we have eave lines, else rough from total footage
+  const eaveLines = drawnLines.filter(l=>l.type===5); // Eave
+  const rakeLines = drawnLines.filter(l=>l.type===4); // Rake
+  const ridgeLines= drawnLines.filter(l=>l.type===0); // Ridge
+
+  let baseArea = 0;
+  if(eaveLines.length>=2 && rakeLines.length>=1){
+    const eaveFt = eaveLines.reduce((s,l)=>s+l.dist,0);
+    const rakeFt = rakeLines.reduce((s,l)=>s+l.dist,0)/rakeLines.length;
+    baseArea = eaveFt * rakeFt;
+  } else if(drawnLines.length>0){
+    // Rough: treat total footprint as a rectangle estimate
+    const totalFt = drawnLines.reduce((s,l)=>s+l.dist,0);
+    baseArea = (totalFt/4)*(totalFt/4); // rough square
+  }
+
+  const pitched = baseArea * pitch;
+  const withWaste = pitched * waste;
+  const squares = withWaste / 100;
+
+  document.getElementById('cr-base').textContent    = baseArea.toFixed(0)+' sq ft';
+  document.getElementById('cr-pitched').textContent = pitched.toFixed(0)+' sq ft';
+  document.getElementById('cr-waste').textContent   = withWaste.toFixed(0)+' sq ft';
+  document.getElementById('cr-squares').textContent = squares.toFixed(2)+' sq';
+}
+
+// GEOMETRY HELPERS
+function haversine(a,b){
+  const R=20902231; // Earth radius in feet
+  const dLat=(b.lat-a.lat)*Math.PI/180;
+  const dLon=(b.lng-a.lng)*Math.PI/180;
+  const aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));
+}
+
+function midpoint(a,b){ return L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2); }
+
+// SEARCH ON DRAW MAP
+async function searchDrawAddress(){
+  const q = document.getElementById('drawSearch').value.trim();
+  if(!q) return;
+  try{
+    const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const data = await res.json();
+    if(!data.length){ alert('Address not found.'); return; }
+    drawMap.setView([data[0].lat,data[0].lon],19);
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════
+async function exportDrawing(){
+  const addr = document.getElementById('drawSearch').value||'No Address Entered';
+  const pitch = document.getElementById('pitchSelect').options[document.getElementById('pitchSelect').selectedIndex].text;
+  const waste = document.getElementById('wasteSelect').options[document.getElementById('wasteSelect').selectedIndex].text;
+  const baseArea  = document.getElementById('cr-base').textContent;
+  const pitched   = document.getElementById('cr-pitched').textContent;
+  const withWaste = document.getElementById('cr-waste').textContent;
+  const squares   = document.getElementById('cr-squares').textContent;
+
+  // Build a printable HTML page and open it
+  const lineRows = drawnLines.map(l=>`
+    <tr>
+      <td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${l.color};margin-right:6px;vertical-align:middle;"></span>${l.name}</td>
+      <td style="text-align:right;font-weight:600;">${l.dist.toFixed(1)} ft</td>
+    </tr>`).join('');
+
+  const totalFt = drawnLines.reduce((s,l)=>s+l.dist,0);
+  const groupedTypes = {};
+  drawnLines.forEach(l=>{
+    if(!groupedTypes[l.name]) groupedTypes[l.name]={color:l.color,total:0,count:0};
+    groupedTypes[l.name].total+=l.dist;
+    groupedTypes[l.name].count++;
+  });
+  const summaryRows = Object.entries(groupedTypes).map(([name,v])=>`
+    <tr>
+      <td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${v.color};margin-right:6px;vertical-align:middle;"></span>${name}</td>
+      <td style="text-align:center;">${v.count}</td>
+      <td style="text-align:right;font-weight:600;">${v.total.toFixed(1)} ft</td>
+    </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>NBD Roof Report — ${addr}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Barlow',sans-serif;background:#fff;color:#111;padding:32px;max-width:850px;margin:0 auto;}
+    .header{display:flex;align-items:center;justify-content:space-between;padding-bottom:20px;border-bottom:3px solid #C8541A;margin-bottom:24px;}
+    .brand{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+    .brand span{color:#C8541A;}
+    .badge{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:3px 10px;border-radius:2px;margin-top:4px;display:inline-block;}
+    .addr-block{text-align:right;}
+    .addr-block .addr{font-size:16px;font-weight:600;color:#111;margin-bottom:4px;}
+    .addr-block .date{font-size:12px;color:#666;}
+    h2{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin-bottom:12px;margin-top:24px;padding-bottom:4px;border-bottom:1px solid #eee;}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+    th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:8px 12px;text-align:left;}
+    td{padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+    tr:nth-child(even) td{background:#fafafa;}
+    .calc-box{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;}
+    .calc-card{background:#f8f8f8;border:1px solid #eee;border-radius:8px;padding:14px;text-align:center;}
+    .calc-card .val{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#C8541A;}
+    .calc-card .key{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+    .calc-card.highlight{background:#C8541A;border-color:#C8541A;}
+    .calc-card.highlight .val{color:#fff;font-size:28px;}
+    .calc-card.highlight .key{color:rgba(255,255,255,.8);}
+    .footer{margin-top:32px;padding-top:16px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:11px;color:#999;}
+    .total-row td{font-weight:700;border-top:2px solid #eee;background:#f0f0f0!important;}
+    @media print{body{padding:16px;}@page{margin:1cm;}}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="brand">No Big Deal <span>Home Solutions</span></div>
+      <div class="badge">Roof Measurement Report</div>
+    </div>
+    <div class="addr-block">
+      <div class="addr">${addr}</div>
+      <div class="date">Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+    </div>
+  </div>
+
+  <h2>Calculation Summary</h2>
+  <div class="calc-box">
+    <div class="calc-card"><div class="val">${baseArea}</div><div class="key">Base Area</div></div>
+    <div class="calc-card"><div class="val">${pitched}</div><div class="key">Pitched Area (${pitch})</div></div>
+    <div class="calc-card"><div class="val">${withWaste}</div><div class="key">With Waste (${waste})</div></div>
+    <div class="calc-card highlight"><div class="val">${squares}</div><div class="key">Squares Needed</div></div>
+  </div>
+
+  <h2>Line Summary by Type</h2>
+  <table>
+    <thead><tr><th>Line Type</th><th style="text-align:center;">Count</th><th style="text-align:right;">Total Length</th></tr></thead>
+    <tbody>${summaryRows}
+      <tr class="total-row"><td><strong>TOTAL</strong></td><td style="text-align:center;"><strong>${drawnLines.length}</strong></td><td style="text-align:right;"><strong>${totalFt.toFixed(1)} ft</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Individual Line Measurements</h2>
+  <table>
+    <thead><tr><th>Line Type</th><th style="text-align:right;">Length</th></tr></thead>
+    <tbody>${lineRows}</tbody>
+  </table>
+
+  <div class="footer">
+    <div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div>
+    <div>Measurements are estimates based on satellite imagery. Always verify on-site.</div>
+  </div>
+  <script>window.print();<\/script>
+  </body></html>`;
+
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function exportPDF(){ exportDrawing(); }
+
+// ══════════════════════════════════════════════
+// CRM
+// ══════════════════════════════════════════════
 function openLeadModal(){document.getElementById('leadModal').classList.add('open');}
 function closeLeadModal(){
   document.getElementById('leadModal').classList.remove('open');
@@ -416,99 +1015,64 @@ async function saveLead(){
   const mErr=document.getElementById('mErr');
   const mOk=document.getElementById('mOk');
   const btn=document.getElementById('saveBtn');
-  mErr.style.display='none';mOk.style.display='none';
+  mErr.style.display='none'; mOk.style.display='none';
   const fname=document.getElementById('lFname').value.trim();
   const addr=document.getElementById('lAddr').value.trim();
   if(!fname||!addr){mErr.textContent='First name and address are required.';mErr.style.display='block';return;}
-  btn.disabled=true;btn.textContent='Saving...';
+  btn.disabled=true; btn.textContent='Saving...';
   await window._saveLead({
-    name: fname+' '+document.getElementById('lLname').value.trim(),
-    address: addr,
-    phone: document.getElementById('lPhone').value.trim(),
-    email: document.getElementById('lEmail').value.trim(),
-    stage: document.getElementById('lStage').value,
-    source: document.getElementById('lSource').value,
-    notes: document.getElementById('lNotes').value.trim(),
+    name:fname+' '+document.getElementById('lLname').value.trim(),
+    address:addr, phone:document.getElementById('lPhone').value.trim(),
+    email:document.getElementById('lEmail').value.trim(),
+    stage:document.getElementById('lStage').value, source:document.getElementById('lSource').value,
+    notes:document.getElementById('lNotes').value.trim(),
   });
-  btn.disabled=false;btn.textContent='Save Lead';
-  mOk.textContent='Lead saved!';mOk.style.display='block';
-  setTimeout(closeLeadModal,1000);
+  btn.disabled=false; btn.textContent='Save Lead';
+  mOk.textContent='Lead saved!'; mOk.style.display='block';
+  setTimeout(closeLeadModal,900);
 }
 
-// RENDER LEADS
 function renderLeads(leads){
   const n=leads.length;
-  document.getElementById('leadCount').textContent=n;
   document.getElementById('statLeads').textContent=n;
 
-  const rp=document.getElementById('recentLeadsPanel');
-  if(!n){rp.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>No leads yet.<br>Create a lead from any property.</p></div>';
+  // CRM table
+  const tw=document.getElementById('leadsTableWrap');
+  if(!n){tw.innerHTML='<div class="empty">No leads yet.</div>';
   }else{
-    rp.innerHTML='<div style="padding:4px 22px;">'+leads.slice(0,4).map(l=>`
-      <div class="pi"><div class="pico">👤</div><div><div class="pa2">${l.name}</div><div class="pm">${l.address}</div></div>
-      <span class="stage-tag ${stageClass(l.stage)}">${l.stage}</span></div>`).join('')+'</div>';
+    tw.innerHTML=`<table class="ltable"><thead><tr>
+      <th>Name</th><th>Address</th><th>Phone</th><th>Source</th><th>Stage</th>
+    </tr></thead><tbody>${leads.map(l=>`<tr>
+      <td>${l.name}</td><td style="color:var(--blue)">${l.address}</td>
+      <td>${l.phone||'—'}</td><td>${l.source||'—'}</td>
+      <td><span class="stage-tag ${stageClass(l.stage)}">${l.stage}</span></td>
+    </tr>`).join('')}</tbody></table>`;
   }
 
-  const tw=document.getElementById('leadsTableWrap');
-  if(!n){tw.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>No leads yet.</p></div>';return;}
-  tw.innerHTML=`<table class="ltable"><thead><tr>
-    <th>Name</th><th>Address</th><th>Phone</th><th>Source</th><th>Stage</th><th>Notes</th>
-  </tr></thead><tbody>${leads.map(l=>`<tr>
-    <td>${l.name}</td><td style="color:var(--blue)">${l.address}</td>
-    <td>${l.phone||'—'}</td><td>${l.source||'—'}</td>
-    <td><span class="stage-tag ${stageClass(l.stage)}">${l.stage}</span></td>
-    <td style="color:var(--m);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.notes||'—'}</td>
-  </tr>`).join('')}</tbody></table>`;
+  // Recent panel
+  const rp=document.getElementById('recentLeadsPanel');
+  if(!n){ rp.innerHTML='<div class="empty">No leads yet.</div>'; }
+  else{
+    rp.innerHTML='<div style="padding:4px 16px;">'+leads.slice(0,5).map(l=>`
+      <div class="pi2"><div><div class="pa2">${l.name}</div><div class="pm">${l.address}</div></div>
+      <span class="stage-tag ${stageClass(l.stage)}">${l.stage}</span></div>`).join('')+'</div>';
+  }
 }
 
 function updatePipeline(leads){
   const c={'New Lead':0,'Contacted':0,'Estimate Sent':0,'Negotiating':0,'Closed Won':0,'Closed Lost':0};
   leads.forEach(l=>{if(c[l.stage]!==undefined)c[l.stage]++;});
-  document.getElementById('p-new').textContent=c['New Lead'];
-  document.getElementById('p-contacted').textContent=c['Contacted'];
-  document.getElementById('p-estimate').textContent=c['Estimate Sent'];
-  document.getElementById('p-negotiating').textContent=c['Negotiating'];
-  document.getElementById('p-won').textContent=c['Closed Won'];
-  document.getElementById('p-lost').textContent=c['Closed Lost'];
+  ['p-new','p-contacted','p-estimate','p-negotiating','p-won','p-lost'].forEach((id,i)=>{
+    const key=Object.keys(c)[i];
+    document.getElementById(id).textContent=c[key];
+    const dp='dp-'+id.split('-').slice(1).join('-');
+    const el2=document.getElementById(dp);
+    if(el2) el2.textContent=c[key];
+  });
 }
 
 function stageClass(s){
   return({'New Lead':'tag-new','Contacted':'tag-contacted','Estimate Sent':'tag-estimate','Negotiating':'tag-negotiating','Closed Won':'tag-won','Closed Lost':'tag-lost'}[s]||'tag-new');
-}
-
-// STORM MAP
-let map=null,radarLayer=null,mapInited=false,radarOn=false;
-function initStormMap(){
-  if(mapInited)return;
-  mapInited=true;
-  map=L.map('stormMap').setView([39.4,-84.2],8);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri'}).addTo(map);
-  radarLayer=L.tileLayer.wms('https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows',{layers:'conus_bref_qcd',format:'image/png',transparent:true,opacity:0.6,attribution:'NOAA'});
-  loadStorm();
-}
-
-async function loadStorm(){
-  const strip=document.getElementById('alertsStrip');
-  strip.innerHTML='<div style="color:var(--m);font-size:13px;text-align:center;padding:12px;">Fetching live alerts...</div>';
-  try{
-    const res=await fetch('https://api.weather.gov/alerts/active?area=OH',{headers:{'User-Agent':'NBDPro/1.0 (nobigdealwithjoedeal.com)'}});
-    const data=await res.json();
-    const alerts=(data.features||[]).slice(0,10);
-    if(!alerts.length){strip.innerHTML='<div style="color:var(--green);font-size:13px;text-align:center;padding:12px;">✓ No active weather alerts for Ohio</div>';return;}
-    strip.innerHTML=alerts.map(a=>{
-      const p=a.properties;
-      return`<div class="alert-card"><div class="alert-title">⚠️ ${p.event} — ${p.areaDesc}</div><div class="alert-desc">${(p.headline||p.description||'').substring(0,220)}</div></div>`;
-    }).join('');
-    if(map) alerts.forEach(a=>{if(a.geometry)L.geoJSON(a.geometry,{style:{color:'#E05252',weight:2,fillOpacity:.12}}).addTo(map);});
-  }catch(e){
-    strip.innerHTML='<div style="color:var(--m);font-size:13px;text-align:center;padding:12px;">Could not load alerts. Check your connection.</div>';
-  }
-}
-
-function toggleRadar(){
-  if(!map)return;
-  if(radarOn){map.removeLayer(radarLayer);radarOn=false;}
-  else{map.addLayer(radarLayer);radarOn=true;}
 }
 </script>
 </body>
