@@ -702,7 +702,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="aci-icon">📧</div>
         <div class="aci-text">
           <strong>Email Joe</strong>
-          <a href="/cdn-cgi/l/email-protection#f49e90b49a9b969d9390919598839d809c9e9b9190919598da979b99"><span class="__cf_email__" data-cfemail="3f555b7f51505d56585b5a5e5348564b5755505a5b5a5e53115c5052">[email&#160;protected]</span></a>
+          <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
         </div>
       </div>
       <div class="areas-contact-item">
@@ -795,10 +795,10 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
               <span>Call or text Joe directly</span>
             </div>
           </a>
-          <a href="mailto:joe@nobigdealwithjoedeal.com" class="contact-method">
+          <a href="mailto:jd@nobigdealwithjoedeal.com" class="contact-method">
             <div class="cm-icon">📧</div>
             <div class="cm-text">
-              <strong>joe@nobigdealwithjoedeal.com</strong>
+              <strong>jd@nobigdealwithjoedeal.com</strong>
               <span>Email Joe anytime</span>
             </div>
           </a>
@@ -839,11 +839,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
             </div>
             <div class="form-group">
               <label>Address / Zip Code</label>
-              <input type="text" id="fieldAddress" placeholder="Your address or zip code">
+              <input type="text" placeholder="Your address or zip code">
             </div>
             <div class="form-group">
               <label>Service Needed</label>
-              <select id="fieldService">
+              <select>
                 <option value="">— Select a Service —</option>
                 <option>Roof Replacement</option>
                 <option>Roof Repair</option>
@@ -856,7 +856,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
             </div>
             <div class="form-group">
               <label>Tell Us About Your Project</label>
-              <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
+              <textarea placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
             <button class="form-submit" onclick="submitForm()">Send My Free Estimate Request →</button>
             <p class="form-note">🔒 No spam, no pressure. Joe will reach out personally — usually same day.</p>
@@ -926,7 +926,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="footer-col-title">Contact</div>
         <ul class="footer-links">
           <li><a href="tel:8594207382">(859) 420-7382</a></li>
-          <li><a href="/cdn-cgi/l/email-protection#f19b95b19f9e9398969594909d869885999b9e949594909ddf929e9c"><span class="__cf_email__" data-cfemail="573d33173938353e303332363b203e233f3d38323332363b7934383a">[email&#160;protected]</span></a></li>
+          <li><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></li>
           <li><a href="#areas">Goshen / Cincinnati, OH</a></li>
           <li style="color:rgba(255,255,255,.3);font-size:.78rem;margin-top:8px">Mon–Sat 7AM–6PM</li>
           <li style="color:rgba(255,255,255,.3);font-size:.78rem">Sunday available</li>
@@ -945,7 +945,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 <!-- BACK TO TOP -->
 <button class="back-to-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // Announcement bar rotation
 (function(){
   const slides = document.querySelectorAll('.ann-slide');
@@ -993,41 +993,24 @@ function closeMobileNav(){
   document.getElementById('hamburger').querySelectorAll('span').forEach(b=>b.style.cssText='');
 }
 
-// ── ESTIMATE FORM SUBMIT ──
-function submitForm(){
-  const first   = (document.getElementById('fieldFirst')?.value   || '').trim();
-  const last    = (document.getElementById('fieldLast')?.value    || '').trim();
-  const phone   = (document.getElementById('fieldPhone')?.value   || '').trim();
-  const email   = (document.getElementById('fieldEmail')?.value   || '').trim();
-  const address = (document.getElementById('fieldAddress')?.value || '').trim();
-  const service = (document.getElementById('fieldService')?.value || '').trim();
-  const message = (document.getElementById('fieldMessage')?.value || '').trim();
-
-  // Basic validation — require at minimum a name and a way to reach them
-  if(!first && !last){ alert('Please enter your name so Joe knows who to call back.'); return; }
-  if(!phone && !email){ alert('Please enter a phone number or email so Joe can reach you.'); return; }
-
-  const subject = encodeURIComponent('New Estimate Request — No Big Deal Home Solutions');
-  const body = encodeURIComponent(
-    'NAME: ' + [first, last].filter(Boolean).join(' ') + '\n' +
-    'PHONE: ' + (phone  || 'not provided') + '\n' +
-    'EMAIL: ' + (email  || 'not provided') + '\n' +
-    'ADDRESS: ' + (address || 'not provided') + '\n' +
-    'SERVICE: ' + (service || 'not specified') + '\n\n' +
-    'MESSAGE:\n' + (message || '(none)')
-  );
-
-  // Open mailto — works on every device/host with zero backend needed
-  window.location.href = 'mailto:joe@nobigdealwithjoedeal.com?subject=' + subject + '&body=' + body;
-
-  // Show success state immediately so the user knows it worked
-  document.getElementById('formFields').style.display = 'none';
-  document.getElementById('formSuccess').style.display = 'block';
-}
-
 // Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(link=>{
   link.addEventListener('click',e=>{
     const href = link.getAttribute('href');
     if(href==='#') return;
-    const targe
+    const target = document.querySelector(href);
+    if(target){ e.preventDefault(); target.scrollIntoView({behavior:'smooth'}); }
+  });
+});
+
+// Form submit
+function submitForm(){
+  const first = document.getElementById('fieldFirst').value.trim();
+  const phone = document.getElementById('fieldPhone').value.trim();
+  if(!first || !phone){ alert('Please enter your name and phone number so Joe can reach you.'); return; }
+  document.getElementById('formFields').style.display='none';
+  document.getElementById('formSuccess').style.display='block';
+}
+</script>
+</body>
+</html>
