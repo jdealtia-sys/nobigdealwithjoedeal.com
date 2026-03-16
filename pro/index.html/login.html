@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #C8541A;
+    --orange-bright: #E8621E;
+    --orange-glow: rgba(200, 84, 26, 0.35);
+    --bg: #0A0C0F;
+    --surface: #111418;
+    --surface2: #181C22;
+    --border: rgba(255,255,255,0.07);
+    --text: #E8EAF0;
+    --muted: #6B7280;
+    --blue-accent: #4A9EFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 50%, rgba(200,84,26,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 80% 20%, rgba(74,158,255,0.04) 0%, transparent 60%),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 39px,
+        rgba(255,255,255,0.015) 39px,
+        rgba(255,255,255,0.015) 40px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 39px,
+        rgba(255,255,255,0.015) 39px,
+        rgba(255,255,255,0.015) 40px
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .login-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    padding: 24px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Logo / Brand */
+  .brand {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .brand-badge {
+    display: inline-block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+  }
+
+  .brand h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .brand h1 span {
+    color: var(--orange);
+  }
+
+  .brand-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 32px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.4), 0 0 60px var(--orange-glow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--orange), transparent);
+  }
+
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+
+  /* Form */
+  .field {
+    margin-bottom: 18px;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 13px 16px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input::placeholder { color: #3a3f48; }
+
+  input:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px var(--orange-glow);
+  }
+
+  .input-row {
+    position: relative;
+  }
+
+  .eye-toggle {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .eye-toggle:hover { color: var(--text); }
+
+  .forgot {
+    text-align: right;
+    margin-top: -10px;
+    margin-bottom: 20px;
+  }
+
+  .forgot a {
+    font-size: 12px;
+    color: var(--orange);
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+  }
+
+  .forgot a:hover { opacity: 1; }
+
+  .btn-login {
+    width: 100%;
+    background: var(--orange);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 15px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px var(--orange-glow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-login::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+  }
+
+  .btn-login:hover {
+    background: var(--orange-bright);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px var(--orange-glow);
+  }
+
+  .btn-login:active { transform: translateY(0); }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .divider span {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Features strip */
+  .features {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
+
+  .feature-pill {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    background: var(--surface2);
+  }
+
+  .feature-pill.active {
+    color: var(--orange);
+    border-color: rgba(200,84,26,0.3);
+  }
+
+  /* Footer */
+  .footer-note {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .footer-note a {
+    color: var(--orange);
+    text-decoration: none;
+  }
+
+  /* Error state */
+  .error-msg {
+    background: rgba(220,50,50,0.1);
+    border: 1px solid rgba(220,50,50,0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #ff7070;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    display: none;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Success state */
+  .success-overlay {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .checkmark {
+    width: 52px; height: 52px;
+    background: var(--orange);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 24px;
+    animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  @keyframes pop {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="brand">
+    <div class="brand-badge">Pro Access</div>
+    <h1>No Big Deal<br><span>Home Solutions</span></h1>
+    <p class="brand-sub">Roofing Operations Platform</p>
+  </div>
+
+  <div class="card">
+    <div class="error-msg" id="errorMsg">Invalid email or password. Please try again.</div>
+
+    <div id="loginForm">
+      <p class="card-title">Sign In</p>
+      <p class="card-desc">Access your roofing CRM dashboard</p>
+
+      <div class="field">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="you@nobigdealhomesolutions.com" autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+        <div class="input-row">
+          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+          <button class="eye-toggle" onclick="togglePw()" id="eyeBtn" type="button">👁</button>
+        </div>
+      </div>
+
+      <div class="forgot"><a href="#">Forgot password?</a></div>
+
+      <button class="btn-login" onclick="handleLogin()" id="loginBtn">
+        <span id="btnText">Enter Dashboard</span>
+        <div class="spinner" id="spinner"></div>
+      </button>
+    </div>
+
+    <div class="success-overlay" id="successOverlay">
+      <div class="checkmark">✓</div>
+      <p style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Access Granted</p>
+      <p style="color:var(--muted);font-size:13px;margin-top:6px;">Redirecting to dashboard...</p>
+    </div>
+
+    <div class="features">
+      <span class="feature-pill active">CRM Pipeline</span>
+      <span class="feature-pill active">Storm Intel</span>
+      <span class="feature-pill active">AI Estimates</span>
+      <span class="feature-pill">Property Intel</span>
+      <span class="feature-pill">Leaderboard</span>
+    </div>
+  </div>
+
+  <p class="footer-note">
+    Not a member? <a href="nobigdealwithjoedeal.com">Learn about Pro</a>
+  </p>
+</div>
+
+<script>
+function togglePw() {
+  const pw = document.getElementById('password');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+}
+
+function handleLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errorMsg = document.getElementById('errorMsg');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+  const btn = document.getElementById('loginBtn');
+
+  errorMsg.style.display = 'none';
+
+  if (!email || !password) {
+    errorMsg.textContent = 'Please enter your email and password.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  // Loading state
+  btnText.style.display = 'none';
+  spinner.style.display = 'block';
+  btn.disabled = true;
+
+  // Simulate auth (replace with real auth logic)
+  setTimeout(() => {
+    spinner.style.display = 'none';
+    btnText.style.display = 'block';
+    btn.disabled = false;
+
+    // Demo: any login works → show success → redirect to CRM
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('successOverlay').style.display = 'block';
+
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 1800);
+
+    // To show error instead:
+    // errorMsg.textContent = 'Invalid credentials.';
+    // errorMsg.style.display = 'block';
+  }, 1400);
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+</script>
+</body>
+</html>
