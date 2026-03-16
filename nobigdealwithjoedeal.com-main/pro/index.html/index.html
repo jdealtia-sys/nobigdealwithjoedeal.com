@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+
+<script type="module">
+  import { initializeApp }      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth,
+           signInWithEmailAndPassword,
+           sendPasswordResetEmail,
+           onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain:        "nobigdeal-pro.firebaseapp.com",
+    projectId:         "nobigdeal-pro",
+    storageBucket:     "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841570",
+    appId:             "1:717435841570:web:c2338e11052c96fde02e7b"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // Already logged in? Go straight to dashboard
+  onAuthStateChanged(auth, user => {
+    if (user) window.location.href = "dashboard.html";
+  });
+
+  window._auth    = auth;
+  window._signIn  = signInWithEmailAndPassword;
+  window._resetPw = sendPasswordResetEmail;
+</script>
+
+<style>
+:root{--orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.35);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 20% 50%,rgba(200,84,26,.08) 0%,transparent 70%),radial-gradient(ellipse 40% 60% at 80% 20%,rgba(74,158,255,.04) 0%,transparent 60%),repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px);pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;width:100%;max-width:440px;padding:24px;animation:fu .6s ease both;}
+@keyframes fu{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.brand{text-align:center;margin-bottom:40px;}
+.badge{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:4px 12px;border-radius:2px;margin-bottom:16px;}
+h1{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;line-height:1;}
+h1 span{color:var(--orange);}
+.sub{font-size:13px;color:var(--m);margin-top:8px;letter-spacing:.05em;text-transform:uppercase;}
+.card{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:36px 32px;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 24px 48px rgba(0,0,0,.4),0 0 60px var(--og);position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
+.ct{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:.04em;margin-bottom:4px;text-transform:uppercase;}
+.cd{font-size:13px;color:var(--m);margin-bottom:28px;}
+.field{margin-bottom:18px;}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:8px;}
+input{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:13px 16px;font-family:'Barlow',sans-serif;font-size:15px;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;}
+input::placeholder{color:#3a3f48;}
+input:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--og);}
+.ir{position:relative;}
+.eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--m);cursor:pointer;padding:4px;font-size:16px;}
+.eye:hover{color:var(--t);}
+.forgot{text-align:right;margin-top:-10px;margin-bottom:20px;}
+.forgot a{font-size:12px;color:var(--orange);text-decoration:none;opacity:.8;transition:opacity .2s;}
+.forgot a:hover{opacity:1;}
+.btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:15px;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .1s;box-shadow:0 4px 20px var(--og);display:flex;align-items:center;justify-content:center;gap:10px;}
+.btn:hover{background:var(--ob);transform:translateY(-1px);}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#ff7070;margin-bottom:16px;display:none;}
+.ok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#2ecc8a;margin-bottom:16px;display:none;}
+.sov{display:none;text-align:center;padding:20px 0;}
+.ck{width:52px;height:52px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;animation:pop .4s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:28px;}
+.pill{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);border:1px solid var(--br);border-radius:20px;padding:4px 10px;background:var(--s2);}
+.pill.on{color:var(--orange);border-color:rgba(200,84,26,.3);}
+.fn{text-align:center;margin-top:24px;font-size:12px;color:var(--m);}
+.fn a{color:var(--orange);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="badge">Pro Access</div>
+    <h1>No Big Deal<br><span>Home Solutions</span></h1>
+    <p class="sub">Roofing Operations Platform</p>
+  </div>
+
+  <div class="card">
+    <div class="err" id="err"></div>
+    <div class="ok"  id="ok"></div>
+
+    <div id="form">
+      <p class="ct">Sign In</p>
+      <p class="cd">Access your roofing CRM dashboard</p>
+
+      <div class="field">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="you@nobigdealhomesolutions.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="ir">
+          <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password">
+          <button class="eye" onclick="togglePw()" type="button">👁</button>
+        </div>
+      </div>
+      <div class="forgot"><a href="#" onclick="handleReset(event)">Forgot password?</a></div>
+
+      <button class="btn" onclick="handleLogin()" id="btn">
+        <div class="spinner" id="spin"></div>
+        <span id="bt">Enter Dashboard</span>
+      </button>
+    </div>
+
+    <div class="sov" id="sov">
+      <div class="ck">✓</div>
+      <p style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Access Granted</p>
+      <p style="color:var(--m);font-size:13px;margin-top:6px;">Loading your dashboard...</p>
+    </div>
+
+    <div class="pills">
+      <span class="pill on">CRM Pipeline</span>
+      <span class="pill on">Storm Intel</span>
+      <span class="pill on">AI Estimates</span>
+      <span class="pill">Property Intel</span>
+      <span class="pill">Leaderboard</span>
+    </div>
+  </div>
+  <p class="fn">Need access? <a href="mailto:parker@coxroof.com">Contact support</a></p>
+</div>
+
+<script>
+function togglePw(){const p=document.getElementById('pw');p.type=p.type==='password'?'text':'password';}
+
+async function handleLogin(){
+  const email=document.getElementById('email').value.trim();
+  const pw=document.getElementById('pw').value;
+  const err=document.getElementById('err');
+  const btn=document.getElementById('btn');
+  err.style.display='none';
+  if(!email||!pw){err.textContent='Please enter your email and password.';err.style.display='block';return;}
+  document.getElementById('spin').style.display='block';
+  document.getElementById('bt').style.display='none';
+  btn.disabled=true;
+  try{
+    await window._signIn(window._auth,email,pw);
+    document.getElementById('form').style.display='none';
+    document.getElementById('sov').style.display='block';
+  }catch(e){
+    document.getElementById('spin').style.display='none';
+    document.getElementById('bt').style.display='block';
+    btn.disabled=false;
+    const m={
+      'auth/user-not-found':'No account found with that email.',
+      'auth/wrong-password':'Incorrect password. Try again.',
+      'auth/too-many-requests':'Too many attempts — wait a moment.',
+      'auth/invalid-email':'Enter a valid email address.',
+      'auth/invalid-credential':'Invalid email or password.',
+    };
+    err.textContent=m[e.code]||'Login failed. Please try again.';
+    err.style.display='block';
+  }
+}
+
+async function handleReset(e){
+  e.preventDefault();
+  const email=document.getElementById('email').value.trim();
+  const err=document.getElementById('err');
+  const ok=document.getElementById('ok');
+  err.style.display='none';ok.style.display='none';
+  if(!email){err.textContent='Enter your email above, then click Forgot Password.';err.style.display='block';return;}
+  try{
+    await window._resetPw(window._auth,email);
+    ok.textContent='Reset email sent! Check your inbox.';ok.style.display='block';
+  }catch(ex){
+    err.textContent='Could not send reset email. Check the address.';err.style.display='block';
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin();});
+</script>
+</body>
+</html>

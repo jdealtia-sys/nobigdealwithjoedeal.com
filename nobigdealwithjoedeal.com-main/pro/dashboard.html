@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — Dashboard</title>
+<style>
+/* ============================================================
+   THEME SYSTEM
+   ============================================================ */
+:root {
+  --bg: #0d1117;
+  --sidebar-bg: #161b22;
+  --card-bg: #1c2333;
+  --card-border: #30363d;
+  --accent: #e8720c;
+  --accent-hover: #ff8c2a;
+  --text-primary: #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --green: #3fb950;
+  --yellow: #d29922;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --input-bg: #0d1117;
+  --hover-bg: rgba(232,114,12,0.08);
+  --active-bg: rgba(232,114,12,0.15);
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --radius: 10px;
+  --transition: 0.2s ease;
+}
+
+[data-theme="nbd-light"] {
+  --bg: #f6f8fa;
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: #d0d7de;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-muted: #9198a1;
+  --input-bg: #f6f8fa;
+  --hover-bg: rgba(232,114,12,0.06);
+  --active-bg: rgba(232,114,12,0.12);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
+[data-theme="navy"] {
+  --bg: #0a0f1e;
+  --sidebar-bg: #0d1530;
+  --card-bg: #111d3a;
+  --card-border: #1e2d54;
+  --accent: #4da6ff;
+  --accent-hover: #6ab8ff;
+  --text-primary: #e8f0fe;
+  --text-secondary: #7b9cc7;
+  --hover-bg: rgba(77,166,255,0.08);
+  --active-bg: rgba(77,166,255,0.15);
+}
+
+[data-theme="slate"] {
+  --bg: #1a1a2e;
+  --sidebar-bg: #16213e;
+  --card-bg: #1f2b47;
+  --card-border: #2d3f6b;
+  --accent: #e8720c;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+}
+
+[data-theme="midnight"] {
+  --bg: #030712;
+  --sidebar-bg: #060e21;
+  --card-bg: #0c1628;
+  --card-border: #1e3a5f;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --text-primary: #e0e7ff;
+  --text-secondary: #6b7280;
+  --hover-bg: rgba(129,140,248,0.08);
+  --active-bg: rgba(129,140,248,0.15);
+}
+
+[data-theme="forest"] {
+  --bg: #0d1a0f;
+  --sidebar-bg: #112214;
+  --card-bg: #162b1a;
+  --card-border: #1f4024;
+  --accent: #4ade80;
+  --accent-hover: #86efac;
+  --text-primary: #dcfce7;
+  --text-secondary: #6b9b72;
+  --hover-bg: rgba(74,222,128,0.08);
+  --active-bg: rgba(74,222,128,0.15);
+}
+
+[data-theme="crimson"] {
+  --bg: #1a0a0a;
+  --sidebar-bg: #220d0d;
+  --card-bg: #2b1111;
+  --card-border: #4a1a1a;
+  --accent: #f85149;
+  --accent-hover: #ff7b74;
+  --text-primary: #ffe4e4;
+  --text-secondary: #9b6b6b;
+  --hover-bg: rgba(248,81,73,0.08);
+  --active-bg: rgba(248,81,73,0.15);
+}
+
+[data-theme="paper"] {
+  --bg: #fefefe;
+  --sidebar-bg: #f5f0e8;
+  --card-bg: #fffdf7;
+  --card-border: #ddd5c0;
+  --accent: #c45c00;
+  --accent-hover: #e8720c;
+  --text-primary: #2c1810;
+  --text-secondary: #7a6655;
+  --text-muted: #b0a090;
+  --input-bg: #fefefe;
+  --hover-bg: rgba(196,92,0,0.06);
+  --active-bg: rgba(196,92,0,0.12);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width var(--transition), background var(--transition);
+  z-index: 100;
+}
+
+.sidebar-logo {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: -0.5px;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-text .brand { font-weight: 700; font-size: 15px; color: var(--text-primary); }
+.logo-text .tagline { font-size: 11px; color: var(--text-secondary); }
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 0;
+}
+
+.nav-section {
+  margin-bottom: 4px;
+}
+
+.nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 10px 16px 4px;
+  text-transform: uppercase;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background var(--transition), color var(--transition);
+  position: relative;
+  user-select: none;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--active-bg);
+  color: var(--accent);
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.nav-item.active .nav-icon { opacity: 1; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--card-border);
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.user-card:hover { background: var(--hover-bg); }
+
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--text-secondary); }
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.topbar {
+  height: 56px;
+  min-height: 56px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 12px;
+  transition: background var(--transition);
+}
+
+.topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.icon-btn:hover { background: var(--hover-bg); color: var(--text-primary); border-color: var(--accent); }
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 24px;
+}
+
+/* ============================================================
+   PAGE SECTIONS (show/hide)
+   ============================================================ */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ============================================================
+   DASHBOARD PAGE
+   ============================================================ */
+.greeting-block { margin-bottom: 24px; }
+.greeting-text { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.greeting-date { font-size: 13px; color: var(--text-secondary); }
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--kpi-color, var(--accent));
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--kpi-color, var(--accent));
+  line-height: 1;
+  margin-bottom: 8px;
+  letter-spacing: -1px;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-trend {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.kpi-trend.up { color: var(--green); background: rgba(63,185,80,0.12); }
+.kpi-trend.down { color: var(--red); background: rgba(248,81,73,0.12); }
+
+/* Dashboard grid */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+}
+
+/* Activity Feed */
+.panel {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: background var(--transition);
+}
+
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.panel-action {
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  transition: opacity var(--transition);
+  background: none;
+  border: none;
+  font-weight: 600;
+}
+.panel-action:hover { opacity: 0.75; }
+
+.feed-list { padding: 4px 0; }
+
+.feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--card-border);
+  transition: background var(--transition);
+}
+.feed-item:last-child { border-bottom: none; }
+.feed-item:hover { background: var(--hover-bg); }
+
+.feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.feed-content { flex: 1; }
+.feed-title { font-size: 13px; color: var(--text-primary); font-weight: 500; margin-bottom: 2px; }
+.feed-meta { font-size: 11px; color: var(--text-secondary); }
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+.btn-secondary {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--hover-bg); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+}
+.btn-ghost:hover { background: var(--hover-bg); color: var(--text-primary); }
+
+/* Mini stat in sidebar-right panel */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 13px;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row-label { color: var(--text-secondary); }
+.stat-row-val { font-weight: 700; color: var(--text-primary); }
+
+/* ============================================================
+   LEAD PIPELINE PAGE
+   ============================================================ */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.page-heading {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pill-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pill-tab {
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.pill-tab:hover { color: var(--text-primary); background: var(--hover-bg); }
+.pill-tab.active { background: var(--accent); color: #fff; }
+
+.pill-count {
+  display: inline-block;
+  font-size: 10px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 0 5px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.pill-tab:not(.active) .pill-count {
+  background: var(--card-border);
+  color: var(--text-secondary);
+}
+
+/* Lead Table */
+.leads-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leads-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+
+.leads-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-size: 13px;
+  background: var(--card-bg);
+  transition: background var(--transition);
+}
+
+.leads-table tr:hover td { background: var(--hover-bg); cursor: pointer; }
+.leads-table tr:last-child td { border-bottom: none; }
+
+.lead-name { font-weight: 600; }
+.lead-address { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-hot { background: rgba(248,81,73,0.15); color: var(--red); }
+.badge-warm { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.badge-cold { background: rgba(88,166,255,0.15); color: var(--blue); }
+.badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+.badge-orange { background: rgba(232,114,12,0.15); color: var(--accent); }
+
+/* ============================================================
+   CONTACTS PAGE
+   ============================================================ */
+.contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.contact-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  cursor: pointer;
+}
+
+.contact-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--accent);
+}
+
+.contact-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+
+.contact-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.contact-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.contact-type { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+
+.contact-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
+   ESTIMATES & CONTRACTS PAGE
+   ============================================================ */
+.doc-list { display: flex; flex-direction: column; gap: 10px; }
+
+.doc-row {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+.doc-row:hover { border-color: var(--accent); transform: translateX(3px); }
+
+.doc-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--hover-bg);
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.doc-info { flex: 1; }
+.doc-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.doc-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.doc-amount { font-size: 16px; font-weight: 800; color: var(--accent); }
+
+/* ============================================================
+   MASTERCLASS PAGE
+   ============================================================ */
+.progress-bar-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.progress-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.progress-count { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+
+.progress-bar {
+  height: 8px;
+  background: var(--card-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover, #ff8c2a));
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.chapter-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: all var(--transition);
+  cursor: pointer;
+  position: relative;
+}
+
+.chapter-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.chapter-card.locked { opacity: 0.55; }
+.chapter-card.locked:hover { transform: none; box-shadow: none; }
+
+.chapter-top {
+  background: linear-gradient(135deg, var(--accent) 0%, rgba(232,114,12,0.6) 100%);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chapter-card.locked .chapter-top {
+  background: linear-gradient(135deg, var(--card-border) 0%, var(--text-muted) 100%);
+}
+
+.chapter-num {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chapter-lock {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.chapter-body { padding: 16px 20px; }
+.chapter-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4; }
+.chapter-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
+
+.chapter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--card-border);
+}
+
+.chapter-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chapter-status.complete { color: var(--green); }
+.chapter-status.in-progress { color: var(--yellow); }
+.chapter-status.locked { color: var(--text-muted); }
+
+.btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+.btn-pdf:hover { border-color: var(--accent); color: var(--accent); background: var(--hover-bg); }
+.chapter-card.locked .btn-pdf { pointer-events: none; opacity: 0.4; }
+
+/* ============================================================
+   SETTINGS PAGE
+   ============================================================ */
+.settings-section {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: background var(--transition);
+}
+
+.settings-section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--card-border);
+  transition: background var(--transition);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row:hover { background: var(--hover-bg); }
+
+.settings-label { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+.settings-sublabel { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Theme Grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 16px 20px;
+}
+
+.theme-option {
+  border: 2px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+.theme-option:hover { border-color: var(--accent); transform: scale(1.03); }
+.theme-option.selected { border-color: var(--accent); }
+.theme-option.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.theme-preview {
+  height: 52px;
+  display: flex;
+  overflow: hidden;
+}
+
+.theme-preview-sidebar { width: 30%; }
+.theme-preview-main { flex: 1; display: flex; flex-direction: column; gap: 3px; padding: 5px; }
+.theme-preview-card { height: 10px; border-radius: 2px; }
+.theme-preview-bar { height: 4px; border-radius: 2px; margin-top: auto; }
+
+.theme-name { font-size: 11px; font-weight: 700; color: var(--text-primary); padding: 6px 8px 8px; text-align: center; }
+
+/* Toggle */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--card-border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.toggle input:checked + .toggle-track { background: var(--accent); }
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform var(--transition);
+}
+.toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+/* ============================================================
+   AI PAGES
+   ============================================================ */
+.ai-hero {
+  background: linear-gradient(135deg, var(--card-bg) 0%, rgba(232,114,12,0.08) 100%);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.ai-icon-big {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.ai-hero-title { font-size: 22px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; }
+.ai-hero-sub { font-size: 14px; color: var(--text-secondary); max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+.ai-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.ai-feature-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+.ai-feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.ai-feature-icon { font-size: 28px; margin-bottom: 10px; }
+.ai-feature-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.ai-feature-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ============================================================
+   BILLING PAGE
+   ============================================================ */
+.billing-plan {
+  background: linear-gradient(135deg, var(--accent) 0%, rgba(232,114,12,0.7) 100%);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.plan-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.plan-sub { font-size: 13px; opacity: 0.85; }
+.plan-price { font-size: 36px; font-weight: 800; text-align: right; line-height: 1; }
+.plan-price-label { font-size: 12px; opacity: 0.8; text-align: right; margin-top: 4px; }
+
+/* ============================================================
+   SEARCH / FILTER BAR
+   ============================================================ */
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  height: 38px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0 14px 0 38px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+  background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='11' cy='11' r='8' stroke='%238b949e' stroke-width='2'/%3E%3Cpath d='M21 21l-4.35-4.35' stroke='%238b949e' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--shadow);
+  transition: background var(--transition);
+}
+
+.modal-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 20px; }
+
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+
+.form-input {
+  width: 100%;
+  height: 38px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.form-input:focus { border-color: var(--accent); }
+
+.form-select {
+  width: 100%;
+  height: 38px;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+.empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.4; }
+.empty-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; margin-bottom: 20px; }
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: 1fr; }
+  .ai-features { grid-template-columns: 1fr 1fr; }
+  .theme-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -240px;
+    top: 0;
+    bottom: 0;
+    transition: left var(--transition), background var(--transition);
+    z-index: 200;
+  }
+  .sidebar.open { left: 0; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .content { padding: 20px 16px; }
+  .topbar { padding: 0 16px; }
+  .chapter-grid { grid-template-columns: 1fr; }
+  .ai-features { grid-template-columns: 1fr; }
+  .billing-plan { flex-direction: column; gap: 16px; }
+  .plan-price { text-align: left; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .theme-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   MISC UTILS
+   ============================================================ */
+.divider { height: 1px; background: var(--card-border); margin: 20px 0; }
+.text-accent { color: var(--accent); }
+.text-green { color: var(--green); }
+.text-red { color: var(--red); }
+.text-yellow { color: var(--yellow); }
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.fw-700 { font-weight: 700; }
+.fs-12 { font-size: 12px; }
+.gap-8 { gap: 8px; }
+.flex { display: flex; }
+.flex-1 { flex: 1; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+/* Notification dot */
+.notif-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Mobile overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 150;
+}
+.sidebar-overlay.open { display: block; }
+
+/* Hamburger */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background var(--transition);
+  background: none;
+  border: none;
+}
+.hamburger:hover { background: var(--hover-bg); }
+.hamburger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 1px;
+  transition: all var(--transition);
+}
+@media (max-width: 768px) { .hamburger { display: flex; } }
+</style>
+</head>
+<body>
+
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">NBD</div>
+    <div class="logo-text">
+      <span class="brand">NBD Pro</span>
+      <span class="tagline">Contractor CRM</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+
+    <div class="nav-section">
+      <div class="nav-label">Core</div>
+      <div class="nav-item active" data-page="dashboard" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-page="pipeline" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Lead Pipeline
+        <span class="nav-badge">8</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">CRM</div>
+      <div class="nav-item" data-page="contacts" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Contacts
+      </div>
+      <div class="nav-item" data-page="estimates" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Estimates
+      </div>
+      <div class="nav-item" data-page="contracts" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        Contracts
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Tools</div>
+      <div class="nav-item" data-page="ai-measure" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        AI Measurement
+      </div>
+      <div class="nav-item" data-page="ai-intel" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        AI Business Intel
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Masterclass</div>
+      <div class="nav-item" data-page="masterclass" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        Chapters 1–12
+      </div>
+      <div class="nav-item" data-page="downloads" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Downloads
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" data-page="settings" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/>
+        </svg>
+        Settings
+      </div>
+      <div class="nav-item" data-page="billing" onclick="navigate(this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+        </svg>
+        Billing
+      </div>
+    </div>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">J</div>
+      <div class="user-info">
+        <div class="user-name">Joe Deal</div>
+        <div class="user-role">Pro Member</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- Topbar -->
+  <header class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-actions">
+      <div class="icon-btn" title="Notifications" onclick="notify()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </div>
+      <div class="icon-btn" title="Settings" onclick="navigate(document.querySelector('[data-page=settings]'))">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ====================================================
+         DASHBOARD PAGE
+         ==================================================== -->
+    <section class="page active" id="page-dashboard">
+
+      <div class="greeting-block">
+        <div class="greeting-text" id="greetingText">Good morning, Joe 👋 — Here's your pipeline.</div>
+        <div class="greeting-date" id="greetingDate"></div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="btn btn-primary" onclick="openModal('newLead')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Lead
+        </button>
+        <button class="btn btn-secondary" onclick="openModal('newEstimate')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Estimate
+        </button>
+        <button class="btn btn-secondary" onclick="openModal('newContract')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Contract
+        </button>
+        <button class="btn btn-ghost" onclick="navigate(document.querySelector('[data-page=ai-measure]'))">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          AI Measurement
+        </button>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--kpi-color: var(--accent)">
+          <div class="kpi-label">Active Leads</div>
+          <div class="kpi-value">8</div>
+          <div class="kpi-sub">
+            <span class="kpi-trend up">+3</span> from last week
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color: var(--blue)">
+          <div class="kpi-label">Pipeline Value</div>
+          <div class="kpi-value">$64k</div>
+          <div class="kpi-sub">
+            <span class="kpi-trend up">+12%</span> vs last month
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color: var(--green)">
+          <div class="kpi-label">Close Rate</div>
+          <div class="kpi-value">68%</div>
+          <div class="kpi-sub">
+            <span class="kpi-trend up">+5%</span> vs average
+          </div>
+        </div>
+        <div class="kpi-card" style="--kpi-color: var(--yellow)">
+          <div class="kpi-label">Revenue MTD</div>
+          <div class="kpi-value">$18k</div>
+          <div class="kpi-sub">
+            <span class="kpi-trend down">-8%</span> vs last month
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Activity Feed</div>
+            <button class="panel-action">View all</button>
+          </div>
+          <div class="feed-list">
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--accent)"></div>
+              <div class="feed-content">
+                <div class="feed-title">New lead added — Marcus Williams</div>
+                <div class="feed-meta">Roofing replacement · 1248 Oak Ave · 12 min ago</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--green)"></div>
+              <div class="feed-content">
+                <div class="feed-title">Contract signed — Sarah Johnson</div>
+                <div class="feed-meta">$8,400 · Full exterior repaint · 1 hr ago</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--blue)"></div>
+              <div class="feed-content">
+                <div class="feed-title">Estimate sent — David Chen</div>
+                <div class="feed-meta">$12,200 · Kitchen + bath remodel · 3 hrs ago</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--yellow)"></div>
+              <div class="feed-content">
+                <div class="feed-title">Follow-up due — Patricia Moore</div>
+                <div class="feed-meta">Estimate viewed · No response · 2 days ago</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--green)"></div>
+              <div class="feed-content">
+                <div class="feed-title">Payment received — Robert Taylor</div>
+                <div class="feed-meta">$3,200 deposit · Deck build · Today 9:14am</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background: var(--accent)"></div>
+              <div class="feed-content">
+                <div class="feed-title">New lead from Facebook — Angela White</div>
+                <div class="feed-meta">Window replacement · Referred · Yesterday</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Pipeline Snapshot</div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">New / Untouched</span>
+              <span class="stat-row-val text-accent">3</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Contacted</span>
+              <span class="stat-row-val" style="color:var(--blue)">2</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Estimate Sent</span>
+              <span class="stat-row-val text-yellow">2</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Closed Won</span>
+              <span class="stat-row-val text-green">1</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Lost</span>
+              <span class="stat-row-val text-red">0</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Top Services MTD</div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Roofing</span>
+              <span class="stat-row-val">$7,200</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Painting</span>
+              <span class="stat-row-val">$5,400</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Remodeling</span>
+              <span class="stat-row-val">$3,800</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Decks</span>
+              <span class="stat-row-val">$1,600</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         LEAD PIPELINE PAGE
+         ==================================================== -->
+    <section class="page" id="page-pipeline">
+      <div class="page-header">
+        <div class="page-heading">Lead Pipeline</div>
+        <button class="btn btn-primary" onclick="openModal('newLead')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Lead
+        </button>
+      </div>
+
+      <div class="pill-tabs" id="pipelineTabs">
+        <button class="pill-tab active" data-filter="all" onclick="filterLeads(this)">All <span class="pill-count">8</span></button>
+        <button class="pill-tab" data-filter="new" onclick="filterLeads(this)">New <span class="pill-count">3</span></button>
+        <button class="pill-tab" data-filter="contacted" onclick="filterLeads(this)">Contacted <span class="pill-count">2</span></button>
+        <button class="pill-tab" data-filter="estimate" onclick="filterLeads(this)">Estimate Sent <span class="pill-count">2</span></button>
+        <button class="pill-tab" data-filter="closed" onclick="filterLeads(this)">Closed <span class="pill-count">1</span></button>
+        <button class="pill-tab" data-filter="lost" onclick="filterLeads(this)">Lost <span class="pill-count">0</span></button>
+      </div>
+
+      <div class="search-bar">
+        <input type="text" class="search-input" placeholder="Search leads by name, address, or service..." oninput="searchLeads(this.value)">
+        <button class="btn btn-ghost" style="white-space:nowrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filter
+        </button>
+      </div>
+
+      <div class="panel" style="overflow-x: auto;">
+        <table class="leads-table" id="leadsTable">
+          <thead>
+            <tr>
+              <th>Contact</th>
+              <th>Service</th>
+              <th>Source</th>
+              <th>Last Contact</th>
+              <th>Status</th>
+              <th>Priority</th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody">
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         CONTACTS PAGE
+         ==================================================== -->
+    <section class="page" id="page-contacts">
+      <div class="page-header">
+        <div class="page-heading">Contacts</div>
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Contact
+        </button>
+      </div>
+      <div class="search-bar">
+        <input type="text" class="search-input" placeholder="Search contacts...">
+      </div>
+      <div class="contacts-grid" id="contactsGrid"></div>
+    </section>
+
+    <!-- ====================================================
+         ESTIMATES PAGE
+         ==================================================== -->
+    <section class="page" id="page-estimates">
+      <div class="page-header">
+        <div class="page-heading">Estimates</div>
+        <button class="btn btn-primary" onclick="openModal('newEstimate')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Estimate
+        </button>
+      </div>
+      <div class="doc-list" id="estimatesList"></div>
+    </section>
+
+    <!-- ====================================================
+         CONTRACTS PAGE
+         ==================================================== -->
+    <section class="page" id="page-contracts">
+      <div class="page-header">
+        <div class="page-heading">Contracts</div>
+        <button class="btn btn-primary" onclick="openModal('newContract')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Contract
+        </button>
+      </div>
+      <div class="doc-list" id="contractsList"></div>
+    </section>
+
+    <!-- ====================================================
+         AI MEASUREMENT PAGE
+         ==================================================== -->
+    <section class="page" id="page-ai-measure">
+      <div class="ai-hero">
+        <div class="ai-icon-big">📐</div>
+        <div class="ai-hero-title">AI Measurement Tool</div>
+        <div class="ai-hero-sub">Upload a photo of any job site and let AI calculate square footage, material quantities, and instant cost estimates. Save hours on every bid.</div>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" style="font-size:14px;padding:11px 24px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Photo to Measure
+          </button>
+        </div>
+      </div>
+      <div class="ai-features">
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">🏠</div>
+          <div class="ai-feature-title">Roof Measurement</div>
+          <div class="ai-feature-desc">Auto-calculate pitch, square footage, ridge lines, and shingle quantities from aerial or street view photos.</div>
+        </div>
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">🎨</div>
+          <div class="ai-feature-title">Paint Surface Area</div>
+          <div class="ai-feature-desc">Detect exterior walls, trim, doors, and windows. Get exact paint gallons needed per coat.</div>
+        </div>
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">🪵</div>
+          <div class="ai-feature-title">Deck & Siding</div>
+          <div class="ai-feature-desc">Measure deck boards, siding panels, and linear footage automatically from a single photo.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         AI BUSINESS INTEL PAGE
+         ==================================================== -->
+    <section class="page" id="page-ai-intel">
+      <div class="ai-hero">
+        <div class="ai-icon-big">🧠</div>
+        <div class="ai-hero-title">AI Business Intelligence</div>
+        <div class="ai-hero-sub">Ask anything about your business. Get AI-powered insights on pricing, lead quality, close rates, and growth opportunities tailored to your market.</div>
+        <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" style="font-size:14px;padding:11px 24px;">Ask AI a Question</button>
+          <button class="btn btn-secondary" style="font-size:14px;padding:11px 24px;">Generate Report</button>
+        </div>
+      </div>
+      <div class="ai-features">
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">📊</div>
+          <div class="ai-feature-title">Pricing Intelligence</div>
+          <div class="ai-feature-desc">Compare your rates against local market data. Know exactly where to price to win more bids without leaving money on the table.</div>
+        </div>
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">🎯</div>
+          <div class="ai-feature-title">Lead Scoring</div>
+          <div class="ai-feature-desc">AI scores every lead 1–100 based on location, project size, and your historical close data so you chase the right ones first.</div>
+        </div>
+        <div class="ai-feature-card">
+          <div class="ai-feature-icon">📈</div>
+          <div class="ai-feature-title">Growth Forecasting</div>
+          <div class="ai-feature-desc">See 30/60/90 day revenue projections based on current pipeline velocity and seasonal patterns in your trade.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         MASTERCLASS PAGE
+         ==================================================== -->
+    <section class="page" id="page-masterclass">
+      <div class="page-header">
+        <div class="page-heading">Contractor Masterclass</div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-label">
+          <div class="progress-title">Your Progress</div>
+          <div class="progress-count" id="progressCount">3 of 12 chapters complete</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width: 25%"></div>
+        </div>
+      </div>
+
+      <div class="chapter-grid" id="chapterGrid"></div>
+    </section>
+
+    <!-- ====================================================
+         DOWNLOADS PAGE
+         ==================================================== -->
+    <section class="page" id="page-downloads">
+      <div class="page-header">
+        <div class="page-heading">Downloads</div>
+      </div>
+      <div class="doc-list">
+        <div class="doc-row">
+          <div class="doc-icon">📄</div>
+          <div class="doc-info">
+            <div class="doc-title">NBD Sales Script — The 5-Step Close</div>
+            <div class="doc-meta">PDF · 4 pages · Updated Jan 2024</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+        <div class="doc-row">
+          <div class="doc-icon">📊</div>
+          <div class="doc-info">
+            <div class="doc-title">Estimate Template — Residential Exterior</div>
+            <div class="doc-meta">PDF · 2 pages · Updated Feb 2024</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+        <div class="doc-row">
+          <div class="doc-icon">📋</div>
+          <div class="doc-info">
+            <div class="doc-title">Contract Template — Standard Residential</div>
+            <div class="doc-meta">PDF · 6 pages · Updated Mar 2024</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+        <div class="doc-row">
+          <div class="doc-icon">🎯</div>
+          <div class="doc-info">
+            <div class="doc-title">Door Knocking Route Planner</div>
+            <div class="doc-meta">PDF · 3 pages · Updated Dec 2023</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+        <div class="doc-row">
+          <div class="doc-icon">💰</div>
+          <div class="doc-info">
+            <div class="doc-title">Pricing Calculator — Labor + Materials</div>
+            <div class="doc-meta">Excel · Updated Mar 2024</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+        <div class="doc-row">
+          <div class="doc-icon">📱</div>
+          <div class="doc-info">
+            <div class="doc-title">Follow-Up Text Scripts (15 Templates)</div>
+            <div class="doc-meta">PDF · 5 pages · Updated Feb 2024</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Download</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         SETTINGS PAGE
+         ==================================================== -->
+    <section class="page" id="page-settings">
+      <div class="page-heading" style="margin-bottom:24px;">Settings</div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Profile
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Full Name</div>
+            <div class="settings-sublabel">Joe Deal</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;">Edit</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Business Name</div>
+            <div class="settings-sublabel">No Big Deal Contracting</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;">Edit</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Email</div>
+            <div class="settings-sublabel">joe@nobigdealwithjoedeal.com</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;">Edit</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/></svg>
+          Appearance — Theme
+        </div>
+        <div class="theme-grid" id="themeGrid">
+          <!-- themes injected by JS -->
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notifications
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">New lead alerts</div>
+            <div class="settings-sublabel">Get notified when a new lead comes in</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Estimate viewed</div>
+            <div class="settings-sublabel">When a client opens your estimate</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Follow-up reminders</div>
+            <div class="settings-sublabel">Automatic follow-up nudges</div>
+          </div>
+          <label class="toggle"><input type="checkbox"><div class="toggle-track"></div></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Payment received</div>
+            <div class="settings-sublabel">Notify when deposit or final payment clears</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Integrations
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Google Calendar</div>
+            <div class="settings-sublabel">Sync job appointments to your calendar</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Connect</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Stripe Payments</div>
+            <div class="settings-sublabel">Accept deposits and final payments</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Connect</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">QuickBooks</div>
+            <div class="settings-sublabel">Auto-sync invoices and expenses</div>
+          </div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">Connect</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         BILLING PAGE
+         ==================================================== -->
+    <section class="page" id="page-billing">
+      <div class="page-heading" style="margin-bottom:24px;">Billing</div>
+
+      <div class="billing-plan">
+        <div>
+          <div class="plan-title">NBD Pro Plan</div>
+          <div class="plan-sub">Full access to all features · AI tools · Masterclass</div>
+        </div>
+        <div>
+          <div class="plan-price">$97<span style="font-size:18px;font-weight:400">/mo</span></div>
+          <div class="plan-price-label">Next billing: Apr 1, 2024</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">Payment Method</div>
+        <div class="settings-row">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:var(--card-border);border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--text-primary);">VISA</div>
+            <div>
+              <div class="settings-label">•••• •••• •••• 4242</div>
+              <div class="settings-sublabel">Expires 08/26</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;">Update</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">Billing History</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">NBD Pro — March 2024</div>
+            <div class="settings-sublabel">Mar 1, 2024</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="badge badge-green">Paid</span>
+            <span style="font-weight:700;color:var(--text-primary)">$97.00</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">NBD Pro — February 2024</div>
+            <div class="settings-sublabel">Feb 1, 2024</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="badge badge-green">Paid</span>
+            <span style="font-weight:700;color:var(--text-primary)">$97.00</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">NBD Pro — January 2024</div>
+            <div class="settings-sublabel">Jan 1, 2024</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="badge badge-green">Paid</span>
+            <span style="font-weight:700;color:var(--text-primary)">$97.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;text-align:center;">
+        <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red);">Cancel Subscription</button>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ====================================================
+     MODALS
+     ==================================================== -->
+
+<!-- New Lead Modal -->
+<div class="modal-overlay" id="modal-newLead">
+  <div class="modal">
+    <div class="modal-title">Add New Lead</div>
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input type="text" class="form-input" placeholder="John Smith">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Address</label>
+      <input type="text" class="form-input" placeholder="123 Main St, City, ST">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone</label>
+      <input type="tel" class="form-input" placeholder="(555) 000-0000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Service Type</label>
+      <select class="form-select form-input">
+        <option>Roofing</option>
+        <option>Painting — Exterior</option>
+        <option>Painting — Interior</option>
+        <option>Remodeling</option>
+        <option>Decks</option>
+        <option>Siding</option>
+        <option>Windows / Doors</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Lead Source</label>
+      <select class="form-select form-input">
+        <option>Door Knock</option>
+        <option>Referral</option>
+        <option>Facebook</option>
+        <option>Instagram</option>
+        <option>Google</option>
+        <option>Nextdoor</option>
+        <option>Yard Sign</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Priority</label>
+      <select class="form-select form-input">
+        <option value="hot">🔥 Hot</option>
+        <option value="warm">🌤 Warm</option>
+        <option value="cold">❄️ Cold</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('newLead')">Cancel</button>
+      <button class="btn btn-primary" onclick="addLead()">Add Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Estimate Modal -->
+<div class="modal-overlay" id="modal-newEstimate">
+  <div class="modal">
+    <div class="modal-title">New Estimate</div>
+    <div class="form-group">
+      <label class="form-label">Client Name</label>
+      <input type="text" class="form-input" placeholder="John Smith">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Service Description</label>
+      <input type="text" class="form-input" placeholder="Full exterior repaint, 2 coats">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Amount</label>
+      <input type="number" class="form-input" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Valid Until</label>
+      <input type="date" class="form-input">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('newEstimate')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('newEstimate')">Create Estimate</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Contract Modal -->
+<div class="modal-overlay" id="modal-newContract">
+  <div class="modal">
+    <div class="modal-title">New Contract</div>
+    <div class="form-group">
+      <label class="form-label">Client Name</label>
+      <input type="text" class="form-input" placeholder="John Smith">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Project Description</label>
+      <input type="text" class="form-input" placeholder="Full roof replacement, 24 sq...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contract Value</label>
+      <input type="number" class="form-input" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Start Date</label>
+      <input type="date" class="form-input">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('newContract')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('newContract')">Create Contract</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     JAVASCRIPT
+     ==================================================== -->
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const leads = [
+  { id:1, name:'Marcus Williams', address:'1248 Oak Ave, Springfield', service:'Roofing', source:'Door Knock', lastContact:'12 min ago', status:'new', priority:'hot' },
+  { id:2, name:'Angela White', address:'432 Birchwood Ln, Springfield', service:'Painting', source:'Facebook', lastContact:'Yesterday', status:'new', priority:'warm' },
+  { id:3, name:'Patricia Moore', address:'87 Elm Street, Riverside', service:'Windows', source:'Referral', lastContact:'2 days ago', status:'estimate', priority:'warm' },
+  { id:4, name:'David Chen', address:'9021 Maple Dr, Riverside', service:'Remodeling', source:'Google', lastContact:'3 hrs ago', status:'estimate', priority:'hot' },
+  { id:5, name:'Sarah Johnson', address:'214 Willow Ct, Springfield', service:'Painting', source:'Referral', lastContact:'1 hr ago', status:'closed', priority:'hot' },
+  { id:6, name:'Robert Taylor', address:'558 Cedar Blvd, Riverside', service:'Decks', lastContact:'Today 9:14am', source:'Yard Sign', status:'contacted', priority:'warm' },
+  { id:7, name:'Linda Martinez', address:'1090 Pine Rd, Springfield', service:'Siding', source:'Nextdoor', lastContact:'4 days ago', status:'new', priority:'cold' },
+  { id:8, name:'James Brown', address:'23 Oakdale Ave, Riverside', service:'Roofing', source:'Door Knock', lastContact:'3 days ago', status:'contacted', priority:'warm' },
+];
+
+const contacts = [
+  { name:'Marcus Williams', type:'Lead', phone:'(555) 201-3344', address:'1248 Oak Ave', initials:'MW', color:'#e8720c' },
+  { name:'Sarah Johnson', type:'Client', phone:'(555) 887-2211', address:'214 Willow Ct', initials:'SJ', color:'#3fb950' },
+  { name:'David Chen', type:'Lead', phone:'(555) 309-4455', address:'9021 Maple Dr', initials:'DC', color:'#58a6ff' },
+  { name:'Patricia Moore', type:'Lead', phone:'(555) 443-9988', address:'87 Elm Street', initials:'PM', color:'#d29922' },
+  { name:'Robert Taylor', type:'Client', phone:'(555) 677-1122', address:'558 Cedar Blvd', initials:'RT', color:'#3fb950' },
+  { name:'Angela White', type:'Lead', phone:'(555) 234-5678', address:'432 Birchwood Ln', initials:'AW', color:'#e8720c' },
+];
+
+const estimates = [
+  { id:'EST-0012', client:'David Chen', desc:'Kitchen + bath remodel', amount:'$12,200', date:'Mar 14, 2024', status:'sent', statusClass:'badge-orange' },
+  { id:'EST-0011', client:'Patricia Moore', desc:'Window replacement — 8 units', amount:'$6,800', date:'Mar 12, 2024', status:'viewed', statusClass:'badge-warm' },
+  { id:'EST-0010', client:'Angela White', desc:'Full exterior paint + primer', amount:'$4,200', date:'Mar 10, 2024', status:'draft', statusClass:'badge-cold' },
+  { id:'EST-0009', client:'James Brown', desc:'Roof replacement — 28 sq', amount:'$14,500', date:'Mar 8, 2024', status:'approved', statusClass:'badge-green' },
+];
+
+const contracts = [
+  { id:'CON-0008', client:'Sarah Johnson', desc:'Full exterior repaint, 2 coats', amount:'$8,400', date:'Mar 13, 2024', status:'signed', statusClass:'badge-green' },
+  { id:'CON-0007', client:'Robert Taylor', desc:'16x24 pressure-treated deck', amount:'$9,800', date:'Mar 11, 2024', status:'in progress', statusClass:'badge-orange' },
+  { id:'CON-0006', client:'Linda Martinez', desc:'Hardie board siding install', amount:'$11,200', date:'Mar 5, 2024', status:'completed', statusClass:'badge-green' },
+];
+
+const chapters = [
+  { num:1, title:'The Contractor Mindset', desc:'Shift from worker to business owner. Build the foundation that separates 6-figure contractors from those stuck trading time for money.', status:'complete' },
+  { num:2, title:'Your First 10 Leads in 7 Days', desc:'The door-knock formula, follow-up scripts, and the lead capture system that fills your pipeline fast — even with zero ad budget.', status:'complete' },
+  { num:3, title:'Estimating to Win', desc:'Price every job to win AND profit. The exact formula Joe uses to estimate faster, avoid scope creep, and close on the spot.', status:'complete' },
+  { num:4, title:'The 5-Step Close', desc:'The conversation framework that turns estimates into signed contracts without feeling pushy. Scripts for objections, urgency, and follow-up.', status:'in-progress' },
+  { num:5, title:'Building Your Referral Engine', desc:'Turn every completed job into 3 more. The referral ask system, Google review strategy, and neighborhood domination tactics.', status:'locked' },
+  { num:6, title:'Crew Hiring & Management', desc:'Hire right the first time, set clear expectations, and build a team that operates without you babysitting every job.', status:'locked' },
+  { num:7, title:'Cash Flow & Job Costing', desc:'Know your real numbers. Track labor, materials, and margin on every job so you never lose money on a project again.', status:'locked' },
+  { num:8, title:'Marketing That Pays for Itself', desc:'Facebook ads, yard signs, Google Local Service Ads — the exact marketing stack Joe runs for under $500/month with measurable ROI.', status:'locked' },
+  { num:9, title:'Contracts & Legal Protection', desc:'The contract clauses that protect you, how to handle disputes, and what to do when a client refuses to pay.', status:'locked' },
+  { num:10, title:'Scaling Past $500k', desc:'Systemize operations, add a second crew, and build the infrastructure to hit half a million without doubling your hours.', status:'locked' },
+  { num:11, title:'Your Brand & Online Presence', desc:'Build a brand that commands premium prices. Website, social proof, and positioning that makes clients choose you over the competition.', status:'locked' },
+  { num:12, title:'The 7-Figure Contractor Roadmap', desc:'The full plan from where you are now to $1M+ — the milestones, the team, the systems, and the mindset it takes to get there.', status:'locked' },
+];
+
+const themes = [
+  { id:'nbd-dark', name:'NBD Dark', sidebar:'#161b22', main:'#0d1117', card:'#1c2333', accent:'#e8720c' },
+  { id:'nbd-light', name:'NBD Light', sidebar:'#ffffff', main:'#f6f8fa', card:'#ffffff', accent:'#e8720c' },
+  { id:'navy', name:'Navy', sidebar:'#0d1530', main:'#0a0f1e', card:'#111d3a', accent:'#4da6ff' },
+  { id:'slate', name:'Slate', sidebar:'#16213e', main:'#1a1a2e', card:'#1f2b47', accent:'#e8720c' },
+  { id:'midnight', name:'Midnight', sidebar:'#060e21', main:'#030712', card:'#0c1628', accent:'#818cf8' },
+  { id:'forest', name:'Forest', sidebar:'#112214', main:'#0d1a0f', card:'#162b1a', accent:'#4ade80' },
+  { id:'crimson', name:'Crimson', sidebar:'#220d0d', main:'#1a0a0a', card:'#2b1111', accent:'#f85149' },
+  { id:'paper', name:'Paper', sidebar:'#f5f0e8', main:'#fefefe', card:'#fffdf7', accent:'#c45c00' },
+];
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const pageTitles = {
+  dashboard: 'Dashboard',
+  pipeline: 'Lead Pipeline',
+  contacts: 'Contacts',
+  estimates: 'Estimates',
+  contracts: 'Contracts',
+  'ai-measure': 'AI Measurement',
+  'ai-intel': 'AI Business Intel',
+  masterclass: 'Masterclass',
+  downloads: 'Downloads',
+  settings: 'Settings',
+  billing: 'Billing',
+};
+
+function navigate(navItem) {
+  const page = navItem.dataset.page;
+  // Update nav active state
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  navItem.classList.add('active');
+  // Show correct page
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  // Update topbar
+  document.getElementById('topbarTitle').textContent = pageTitles[page] || '';
+  // Close mobile sidebar
+  closeSidebar();
+}
+
+// ============================================================
+// SIDEBAR (mobile)
+// ============================================================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ============================================================
+// GREETING
+// ============================================================
+function setGreeting() {
+  const hour = new Date().getHours();
+  let part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  document.getElementById('greetingText').textContent = `Good ${part}, Joe 👋 — Here's your pipeline.`;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now = new Date();
+  document.getElementById('greetingDate').textContent =
+    `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+}
+
+// ============================================================
+// LEAD PIPELINE
+// ============================================================
+let currentFilter = 'all';
+let currentSearch = '';
+
+function renderLeads() {
+  const tbody = document.getElementById('leadsBody');
+  const filtered = leads.filter(l => {
+    const matchStatus = currentFilter === 'all' || l.status === currentFilter;
+    const matchSearch = !currentSearch ||
+      l.name.toLowerCase().includes(currentSearch) ||
+      l.address.toLowerCase().includes(currentSearch) ||
+      l.service.toLowerCase().includes(currentSearch);
+    return matchStatus && matchSearch;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-secondary)">No leads found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(l => {
+    const priorityBadge = l.priority === 'hot'
+      ? '<span class="badge badge-hot">🔥 Hot</span>'
+      : l.priority === 'warm'
+      ? '<span class="badge badge-warm">🌤 Warm</span>'
+      : '<span class="badge badge-cold">❄️ Cold</span>';
+
+    const statusMap = {
+      new: '<span class="badge badge-orange">New</span>',
+      contacted: '<span class="badge" style="background:rgba(88,166,255,0.15);color:var(--blue)">Contacted</span>',
+      estimate: '<span class="badge badge-warm">Est. Sent</span>',
+      closed: '<span class="badge badge-green">Closed</span>',
+      lost: '<span class="badge badge-hot">Lost</span>',
+    };
+
+    return `<tr>
+      <td>
+        <div class="lead-name">${l.name}</div>
+        <div class="lead-address">${l.address}</div>
+      </td>
+      <td>${l.service}</td>
+      <td>${l.source}</td>
+      <td style="color:var(--text-secondary)">${l.lastContact}</td>
+      <td>${statusMap[l.status] || ''}</td>
+      <td>${priorityBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterLeads(btn) {
+  document.querySelectorAll('#pipelineTabs .pill-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.filter;
+  renderLeads();
+}
+
+function searchLeads(val) {
+  currentSearch = val.toLowerCase();
+  renderLeads();
+}
+
+// ============================================================
+// CONTACTS
+// ============================================================
+function renderContacts() {
+  const grid = document.getElementById('contactsGrid');
+  grid.innerHTML = contacts.map(c => `
+    <div class="contact-card">
+      <div class="contact-header">
+        <div class="contact-avatar" style="background:${c.color}">${c.initials}</div>
+        <div>
+          <div class="contact-name">${c.name}</div>
+          <div class="contact-type">${c.type}</div>
+        </div>
+      </div>
+      <div class="contact-detail">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.97a16 16 0 0 0 6.29 6.29l1.41-1.41a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        ${c.phone}
+      </div>
+      <div class="contact-detail">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${c.address}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// ESTIMATES & CONTRACTS
+// ============================================================
+function renderEstimates() {
+  const list = document.getElementById('estimatesList');
+  list.innerHTML = estimates.map(e => `
+    <div class="doc-row">
+      <div class="doc-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="doc-info">
+        <div class="doc-title">${e.client} — ${e.desc}</div>
+        <div class="doc-meta">${e.id} · ${e.date}</div>
+      </div>
+      <span class="badge ${e.statusClass}" style="white-space:nowrap">${e.status.charAt(0).toUpperCase()+e.status.slice(1)}</span>
+      <div class="doc-amount">${e.amount}</div>
+    </div>
+  `).join('');
+}
+
+function renderContracts() {
+  const list = document.getElementById('contractsList');
+  list.innerHTML = contracts.map(c => `
+    <div class="doc-row">
+      <div class="doc-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="doc-info">
+        <div class="doc-title">${c.client} — ${c.desc}</div>
+        <div class="doc-meta">${c.id} · ${c.date}</div>
+      </div>
+      <span class="badge ${c.statusClass}" style="white-space:nowrap">${c.status.charAt(0).toUpperCase()+c.status.slice(1)}</span>
+      <div class="doc-amount">${c.amount}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// MASTERCLASS
+// ============================================================
+function renderChapters() {
+  const grid = document.getElementById('chapterGrid');
+  const complete = chapters.filter(c => c.status === 'complete').length;
+
+  document.getElementById('progressCount').textContent = `${complete} of 12 chapters complete`;
+  document.getElementById('progressFill').style.width = `${Math.round(complete/12*100)}%`;
+
+  grid.innerHTML = chapters.map(ch => {
+    const isLocked = ch.status === 'locked';
+    return `
+      <div class="chapter-card ${isLocked ? 'locked' : ''}">
+        <div class="chapter-top">
+          <div class="chapter-num">Chapter ${ch.num}</div>
+          <div class="chapter-lock">${isLocked ? '🔒' : ch.status === 'complete' ? '✅' : '▶️'}</div>
+        </div>
+        <div class="chapter-body">
+          <div class="chapter-title">${ch.title}</div>
+          <div class="chapter-desc">${ch.desc}</div>
+        </div>
+        <div class="chapter-footer">
+          <div class="chapter-status ${ch.status}">
+            ${ch.status === 'complete' ? '✓ Complete' : ch.status === 'in-progress' ? '⟳ In Progress' : '🔒 Locked'}
+          </div>
+          <button class="btn-pdf">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PDF
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// THEME SYSTEM
+// ============================================================
+let currentTheme = localStorage.getItem('nbdTheme') || 'nbd-dark';
+
+function applyTheme(id) {
+  document.documentElement.setAttribute('data-theme', id);
+  currentTheme = id;
+  localStorage.setItem('nbdTheme', id);
+  // Update selected state in theme grid
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.themeId === id);
+  });
+}
+
+function renderThemeGrid() {
+  const grid = document.getElementById('themeGrid');
+  grid.innerHTML = themes.map(t => `
+    <div class="theme-option ${t.id === currentTheme ? 'selected' : ''}" data-theme-id="${t.id}" onclick="applyTheme('${t.id}')">
+      <div class="theme-preview">
+        <div class="theme-preview-sidebar" style="background:${t.sidebar}"></div>
+        <div class="theme-preview-main" style="background:${t.main}">
+          <div class="theme-preview-card" style="background:${t.card}"></div>
+          <div class="theme-preview-card" style="background:${t.card};opacity:0.7"></div>
+          <div class="theme-preview-bar" style="background:${t.accent}"></div>
+        </div>
+      </div>
+      <div class="theme-name" style="background:${t.id.includes('light') || t.id === 'paper' ? '#f6f8fa' : t.main};color:${t.id.includes('light') || t.id === 'paper' ? '#1f2328' : '#f0f6fc'}">${t.name}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id) {
+  document.getElementById('modal-' + id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById('modal-' + id).classList.remove('open');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// ============================================================
+// ADD LEAD (demo)
+// ============================================================
+function addLead() {
+  closeModal('newLead');
+  // In a real app, collect form data and push to leads array
+}
+
+// ============================================================
+// NOTIFICATION (demo)
+// ============================================================
+function notify() {
+  // placeholder notification action
+}
+
+// ============================================================
+// INIT
+// ============================================================
+setGreeting();
+renderLeads();
+renderContacts();
+renderEstimates();
+renderContracts();
+renderChapters();
+renderThemeGrid();
+applyTheme(currentTheme);
+</script>
+
+</body>
+</html>
