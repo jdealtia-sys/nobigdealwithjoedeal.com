@@ -803,7 +803,7 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
           <li class="p-feature crossed">AI Measurement Tool</li>
           <li class="p-feature crossed">Lead Pipeline &amp; Estimates</li>
         </ul>
-        <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Masterclass Access" class="btn-ghost p-cta">Get Masterclass →</a>
+        <a href="#masterclass-optin" class="btn-ghost p-cta" onclick="openMasterclassModal(event)">Get Masterclass →</a>
       </div>
 
       <!-- Pro (featured) -->
@@ -826,7 +826,7 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
           <li class="p-feature">Email support from Joe</li>
           <li class="p-feature">Founding member price lock</li>
         </ul>
-        <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Full Pro Access" class="btn-primary p-cta">Start Today →</a>
+        <a href="https://buy.stripe.com/REPLACE_WITH_197_MONTHLY_LINK" target="_blank" class="btn-primary p-cta">Start Today →</a>
       </div>
 
       <!-- Elite -->
@@ -848,7 +848,7 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
           <li class="p-feature">Co-branded materials (select)</li>
           <li class="p-feature">Limited seats — apply to join</li>
         </ul>
-        <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Elite Done-With-You" class="btn-ghost p-cta">Apply for Elite →</a>
+        <a href="https://buy.stripe.com/3cI14g5IigjW95QefS8EM02" target="_blank" class="btn-ghost p-cta">Apply for Elite →</a>
       </div>
 
     </div>
@@ -926,8 +926,8 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
     <h2>Stop Competing.<br><span>Start Dominating.</span></h2>
     <p>Join NBD Pro and get the exact system, tools, and strategy that turned a solo contractor into a 5-star local authority. Founding member pricing won't last — this is the ground floor.</p>
     <div class="fca-btns">
-      <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Full Pro Access" class="btn-primary">Get Full Access Now →</a>
-      <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro Question" class="btn-ghost">📧 Ask Joe a Question</a>
+      <a href="https://buy.stripe.com/REPLACE_WITH_197_MONTHLY_LINK" target="_blank" class="btn-primary">Get Full Access Now →</a>
+      <a href="mailto:joe@nobigdealwithjoedeal.com" class="btn-ghost">📧 Ask Joe a Question</a>
     </div>
   </div>
 </section>
@@ -971,7 +971,7 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
       <div class="footer-col">
         <h4>Contact Joe</h4>
         <div class="footer-ci"><span class="fci-icon">📞</span><span>(513) 315-2406</span></div>
-        <div class="footer-ci"><span class="fci-icon">📧</span><span>jd@nobigdealwithjoedeal.com</span></div>
+        <div class="footer-ci"><span class="fci-icon">📧</span><span><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8fe5ebcfe1e0ede6e8ebeaeee3f8e6fbe7e5e0eaebeaeee3a1ece0e2">[email&#160;protected]</a></span></div>
         <div class="footer-ci"><span class="fci-icon">📍</span><span>Goshen / Cincinnati, OH</span></div>
       </div>
     </div>
@@ -984,7 +984,126 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
 
 <button class="back-to-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
+<!-- ══════════════════════════════════════
+     MASTERCLASS OPT-IN MODAL
+══════════════════════════════════════ -->
+<style>
+.mc-modal-overlay{display:none;position:fixed;inset:0;background:rgba(14,26,50,.88);z-index:9000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.mc-modal-overlay.open{display:flex}
+.mc-modal{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:48px 44px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.45);animation:modalIn .3s ease}
+@keyframes modalIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.mc-modal-close{position:absolute;top:16px;right:20px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#aaa;line-height:1;padding:4px}
+.mc-modal-close:hover{color:#333}
+.mc-modal-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:10px}
+.mc-modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:.03em;color:var(--navy-dark);line-height:1.1;margin-bottom:8px}
+.mc-modal-sub{font-size:.88rem;color:#666;line-height:1.6;margin-bottom:28px}
+.mc-modal-sub strong{color:var(--navy-dark)}
+/* MailerLite overrides inside modal */
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedWrapper{background:transparent!important;border:none!important;width:100%!important}
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedWrapper.embedForm{max-width:100%!important}
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedBody{padding:0!important}
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedBody .ml-form-fieldRow input,
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedBody .ml-form-fieldRow select{border-radius:4px!important;font-family:'Montserrat',sans-serif!important;font-size:.88rem!important;padding:12px 14px!important}
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedBody .ml-form-embedSubmit button{background:var(--orange)!important;border-radius:4px!important;font-family:'Montserrat',sans-serif!important;font-weight:700!important;font-size:.82rem!important;letter-spacing:.06em!important;padding:14px!important}
+#mlb2-38511450.ml-form-embedContainer .ml-form-embedBody .ml-form-embedSubmit button:hover{background:var(--orange-light)!important}
+.mc-modal-trust{margin-top:14px;font-size:.72rem;color:#aaa;display:flex;align-items:center;gap:6px}
+</style>
+
+<div class="mc-modal-overlay" id="mcModalOverlay" onclick="closeMasterclassModal(event)">
+  <div class="mc-modal" role="dialog" aria-modal="true" aria-labelledby="mcModalTitle">
+    <button class="mc-modal-close" onclick="document.getElementById('mcModalOverlay').classList.remove('open')" aria-label="Close">✕</button>
+
+    <div class="mc-modal-eyebrow">Free Download — 34 Pages</div>
+    <h2 class="mc-modal-title" id="mcModalTitle">The $1M Local Authority Blueprint</h2>
+    <p class="mc-modal-sub">
+      Get the <strong>12-step, 34-page blueprint</strong> Joe used to go from page 3 to Map Pack #2 in 87 days — zero ad spend. Drop your info below and we'll send it straight to your inbox.
+    </p>
+
+    <!-- MailerLite Embed -->
+    <div id="mlb2-38511450" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-38511450">
+      <div class="ml-form-align-center">
+        <div class="ml-form-embedWrapper embedForm">
+          <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+            <div class="ml-form-embedContent" style="margin-bottom:0"></div>
+            <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/2194814/forms/182068487898793298/subscribe" data-code="" method="post" target="_blank">
+              <div class="ml-form-formContent">
+                <div class="ml-form-fieldRow">
+                  <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                    <input aria-label="email" aria-required="true" type="email" class="form-control" name="fields[email]" placeholder="Your Email Address" autocomplete="email">
+                  </div>
+                </div>
+                <div class="ml-form-fieldRow">
+                  <div class="ml-field-group ml-field-first_name ml-validate-required">
+                    <input aria-label="first_name" aria-required="true" type="text" class="form-control" name="fields[first_name]" placeholder="Your First Name" autocomplete="given-name">
+                  </div>
+                </div>
+                <div class="ml-form-fieldRow">
+                  <div class="ml-field-group ml-field-city">
+                    <input aria-label="city" type="text" class="form-control" name="fields[city]" placeholder="City (optional)" autocomplete="address-level2">
+                  </div>
+                </div>
+                <div class="ml-form-fieldRow ml-last-item">
+                  <div class="ml-field-group ml-field-industry">
+                    <select class="custom-select" name="fields[industry]" aria-label="industry">
+                      <option value="">Industry (optional)</option>
+                      <option>Home Improvement</option>
+                      <option>Insurance Restoration</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" name="ml-submit" value="1">
+              <div class="ml-form-embedSubmit">
+                <button type="submit" class="primary">Send Me the Free Blueprint →</button>
+                <button disabled style="display:none" type="button" class="loading">
+                  <div class="ml-form-embedSubmitLoad"></div>
+                  <span class="sr-only">Loading...</span>
+                </button>
+              </div>
+              <input type="hidden" name="anticsrf" value="true">
+            </form>
+          </div>
+          <div class="ml-form-successBody row-success" style="display:none">
+            <div class="ml-form-successContent">
+              <h4 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--navy-dark);letter-spacing:.04em;margin-bottom:8px">Blueprint on its way! 🎉</h4>
+              <p style="font-size:.88rem;color:#555;line-height:1.6">Check your inbox for the 34-page guide. Ready to go all in? <a href="https://buy.stripe.com/9B65kwfi58RA4PA2xa8EM00" target="_blank" style="color:var(--orange);font-weight:700">Get the full Masterclass for $97 →</a></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="mc-modal-trust">🔒 100% private. No spam. Unsubscribe anytime.</p>
+  </div>
+</div>
+
+<!-- MailerLite scripts -->
 <script>
+function ml_webform_success_38511450(){
+  try{window.top.location.href='https://nobigdealwithjoedeal.com/lead-magnet.pdf';}
+  catch(e){window.location.href='https://nobigdealwithjoedeal.com/lead-magnet.pdf';}
+}
+function openMasterclassModal(e){
+  e&&e.preventDefault();
+  document.getElementById('mcModalOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeMasterclassModal(e){
+  if(e&&e.target!==document.getElementById('mcModalOverlay'))return;
+  document.getElementById('mcModalOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    document.getElementById('mcModalOverlay').classList.remove('open');
+    document.body.style.overflow='';
+  }
+});
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v95037e5bac78f29ed026832ca21a7c7b" type="text/javascript"></script>
+<script>fetch("https://assets.mailerlite.com/jsonp/2194814/forms/182068487898793298/takel")</script>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // Ann bar rotation
 (function(){
   const slides=document.querySelectorAll('.ann-slide');
@@ -1035,26 +1154,4 @@ function toggleMobileNav(){
 }
 function closeMobileNav(){
   document.getElementById('mobileNav').classList.remove('open');
-  document.getElementById('hamburger').querySelectorAll('span').forEach(b=>b.style.cssText='');
-}
-
-// Smooth scroll
-document.querySelectorAll('a[href^="#"]').forEach(link=>{
-  link.addEventListener('click',e=>{
-    const href=link.getAttribute('href');
-    if(href==='#')return;
-    const target=document.querySelector(href);
-    if(target){e.preventDefault();target.scrollIntoView({behavior:'smooth'});}
-  });
-});
-
-// FAQ accordion
-function toggleFaq(btn){
-  const item=btn.closest('.faq-item');
-  const isOpen=item.classList.contains('open');
-  document.querySelectorAll('.faq-item.open').forEach(el=>el.classList.remove('open'));
-  if(!isOpen)item.classList.add('open');
-}
-</script>
-</body>
-</html>
+  document.getElementById('hamburger').querySe
