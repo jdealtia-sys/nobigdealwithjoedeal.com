@@ -1,755 +1,1024 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>No Big Deal Pro | CRM, AI Tools &amp; Contractor Masterclass</title>
-<meta name="description" content="The AI-powered CRM, lead pipeline, measurement tools, and 12-chapter masterclass Joe uses to run No Big Deal Home Solutions. Built for contractors ready to dominate their local market.">
-<meta name="robots" content="noindex, nofollow">
+<title>No Big Deal Home Solutions | Roofing, Siding & Gutters — Cincinnati, OH</title>
+<meta name="description" content="Honest roofing, siding, gutter & storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly — (859) 420-7382.">
+<link rel="canonical" href="https://www.nobigdealwithjoedeal.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="No Big Deal Home Solutions | Roofing, Siding & Gutters — Cincinnati, OH">
+<meta property="og:description" content="Honest roofing, siding, gutters & storm damage — Greater Cincinnati. Fair pricing, 5-year labor warranty. Call Joe: (859) 420-7382.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><path d='M10 65 L50 20 L90 65' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 62 L20 82 L80 82 L80 62' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='42' y='65' width='16' height='17' rx='2' fill='%23e8720c'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700;800&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><text x='50' y='72' text-anchor='middle' font-size='52' font-weight='900' fill='%23e8720c' font-family='Arial'>P</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --navy-dark:#142252; --navy:#1e3a6e; --navy-mid:#24467a;
-    --orange:#e8720c; --orange-light:#f08030; --orange-dark:#c85c00;
-    --off-white:#f7f8fa; --light-gray:#e8eaed; --gray:#5a6272;
-    --pro-dark:#0a0f1a; --pro-mid:#0f1928;
-    --pro-accent:#00d4ff; --pro-gold:#f0b429;
-  }
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  html{scroll-behavior:smooth;}
-  body{font-family:'Montserrat',sans-serif;background:var(--pro-dark);color:white;line-height:1.6;overflow-x:hidden;}
+:root {
+  --navy: #1e3a6e;
+  --navy-dark: #142a52;
+  --navy-mid: #1a3260;
+  --navy-light: #243f7a;
+  --orange: #e8720c;
+  --orange-light: #f08030;
+  --orange-dark: #c45e08;
+  --gray-sub: #4a4a4a;
+  --white: #ffffff;
+  --off-white: #f5f3ef;
+  --gray: #6b7280;
+  --light-gray: #e8e5e0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 
-  /* ANNOUNCEMENT BAR */
-  .pro-bar{background:var(--orange);text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
-  .pro-bar a{color:white;text-decoration:underline;margin-left:8px;}
+/* ── ANNOUNCEMENT BAR ── */
+.ann-bar{background:var(--orange);color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
 
-  /* NAV */
-  nav{background:rgba(10,15,26,.96);backdrop-filter:blur(12px);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:72px;border-bottom:1px solid rgba(255,255,255,.06);transition:box-shadow .3s;}
-  .nav-logo-pro{display:flex;align-items:center;gap:12px;text-decoration:none;}
-  .nav-logo-badge{background:var(--orange);color:white;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em;padding:4px 12px;border-radius:4px;}
-  .nav-logo-text{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.06em;color:white;}
-  .nav-logo-text span{color:var(--orange);}
-  .nav-links-pro{display:flex;align-items:center;gap:32px;list-style:none;}
-  .nav-links-pro a{color:rgba(255,255,255,.6);text-decoration:none;font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;}
-  .nav-links-pro a:hover{color:white;}
-  .nav-cta-pro{background:var(--orange)!important;color:white!important;padding:10px 24px!important;border-radius:4px;transition:background .2s!important;}
-  .nav-cta-pro:hover{background:var(--orange-light)!important;}
-  .nav-back{color:rgba(255,255,255,.3)!important;font-size:.68rem!important;}
-  .hamburger-pro{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px;background:none;border:none;}
-  .hamburger-pro span{display:block;width:24px;height:2px;background:white;border-radius:2px;transition:all .3s;}
+/* ── NAV ── */
+nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px}
+.nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0}
+.logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px}
+.logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
+.logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
+.logo-card-name{display:flex;align-items:baseline;gap:4px;line-height:1}
+.lw-nobig{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;color:var(--navy-dark);letter-spacing:.04em}
+.lw-deal{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;color:var(--orange);letter-spacing:.04em}
+.logo-card-sub{font-size:.5rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gray-sub);display:flex;align-items:center;gap:4px;margin-top:1px}
+.logo-card-sub::before,.logo-card-sub::after{content:'';display:inline-block;width:14px;height:1px;background:var(--gray-sub);opacity:.5}
+.logo-card-divider{width:100%;height:3px;background:var(--orange);flex-shrink:0}
+.logo-card-bottom{background:var(--navy-dark);width:100%;padding:4px 10px 5px;text-align:center}
+.lw-script{font-family:'Dancing Script',cursive;font-size:.65rem;color:white;white-space:nowrap;display:block}
+.nav-links{display:flex;align-items:center;gap:28px;list-style:none}
+.nav-links a{color:rgba(255,255,255,.8);text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;padding:4px 0;border-bottom:2px solid transparent}
+.nav-links a:hover{color:var(--orange-light);border-bottom-color:var(--orange-light)}
+.nav-cta{background:var(--orange)!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
+.nav-cta:hover{background:var(--orange-light)!important}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px}
+.hamburger span{display:block;width:24px;height:2px;background:white;border-radius:2px;transition:all .3s}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark);z-index:999;border-top:2px solid var(--orange);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.mobile-nav.open{display:block}
+.mobile-nav a{display:block;padding:14px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);transition:color .2s,background .2s}
+.mobile-nav a:hover{color:var(--orange);background:rgba(255,255,255,.04)}
+.mobile-cta-btn{margin:16px;background:var(--orange)!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
 
-  /* MOBILE NAV */
-  .mobile-nav-pro{display:none;position:fixed;inset:0;background:rgba(5,8,16,.98);z-index:999;flex-direction:column;padding:80px 32px 32px;gap:4px;}
-  .mobile-nav-pro.open{display:flex;}
-  .mobile-nav-pro a{color:rgba(255,255,255,.7);text-decoration:none;font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);transition:color .2s;}
-  .mobile-nav-pro a:hover{color:var(--orange-light);}
-  .mobile-pro-cta{margin-top:20px!important;background:var(--orange)!important;color:white!important;text-align:center;border-radius:6px;padding:16px!important;border-bottom:none!important;}
-  .mobile-close{position:absolute;top:20px;right:24px;background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;}
+/* ── SHARED ── */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.btn-primary{background:var(--orange);color:white;padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
+.btn-primary:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,114,12,.4)}
+.btn-secondary{background:transparent;color:var(--navy-dark);padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid var(--navy-dark);display:inline-flex;align-items:center;gap:8px}
+.btn-secondary:hover{background:var(--navy-dark);color:white}
+.btn-ghost{background:transparent;color:white;padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid rgba(255,255,255,.35);display:inline-flex;align-items:center;gap:8px}
+.btn-ghost:hover{border-color:white;background:rgba(255,255,255,.08)}
+section{padding:80px 40px}
+.section-inner{max-width:1200px;margin:0 auto}
+.section-header{text-align:center;margin-bottom:56px}
+.eyebrow{display:inline-block;color:var(--orange);font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:12px;position:relative;padding:0 22px}
+.eyebrow::before,.eyebrow::after{content:'';position:absolute;top:50%;width:30px;height:1px;background:var(--orange)}
+.eyebrow::before{right:100%;margin-right:-22px}
+.eyebrow::after{left:100%;margin-left:-22px}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3rem);color:var(--navy-dark);letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
+.sec-title span{color:var(--orange)}
+.sec-title.white{color:white}
+.sec-desc{color:var(--gray);max-width:580px;margin:0 auto;line-height:1.7;font-size:.93rem}
 
-  /* HERO */
-  .pro-hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;background:var(--pro-dark);}
-  .hero-grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);background-size:60px 60px;}
-  .hero-glow{position:absolute;top:-200px;right:-200px;width:700px;height:700px;background:radial-gradient(circle,rgba(232,114,12,.12) 0%,transparent 70%);}
-  .hero-glow-2{position:absolute;bottom:-100px;left:-100px;width:500px;height:500px;background:radial-gradient(circle,rgba(0,212,255,.06) 0%,transparent 70%);}
-  .pro-hero-inner{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:100px 40px 80px;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;width:100%;}
+/* ── HERO ── */
+.hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
+.hero-pattern{position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);z-index:0}
+.hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(20,42,82,.98) 0%,rgba(20,42,82,.92) 55%,rgba(232,114,12,.12) 100%);z-index:1}
+.hero-content{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:80px 40px;display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:center;width:100%}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.4);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px;animation:fadeUp .6s ease both}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,5.5vw,5.5rem);color:white;line-height:.92;letter-spacing:.02em;margin-bottom:10px;animation:fadeUp .6s ease .1s both}
+.hero h1 span{color:var(--orange)}
+.hero-tagline{font-family:'Dancing Script',cursive;font-size:1.45rem;color:var(--orange-light);margin-bottom:22px;animation:fadeUp .6s ease .2s both}
+.hero p{color:rgba(255,255,255,.72);font-size:.95rem;line-height:1.7;margin-bottom:32px;max-width:500px;animation:fadeUp .6s ease .3s both}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px;animation:fadeUp .6s ease .35s both}
+.hero-trust{display:flex;align-items:center;gap:20px;animation:fadeUp .6s ease .45s both}
+.hero-trust-item{display:flex;align-items:center;gap:7px;font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.hero-trust-dot{width:5px;height:5px;border-radius:50%;background:var(--orange);opacity:.5}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-  .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.35);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px;}
-  .hero-eyebrow::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.5);}}
+/* WARRANTY CARD in hero */
+.warranty-card{background:white;border-radius:14px;padding:32px 28px;box-shadow:0 24px 80px rgba(0,0,0,.4);position:relative;animation:fadeUp .7s ease .25s both}
+.wc-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--orange);color:white;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 20px;border-radius:100px;white-space:nowrap;box-shadow:0 4px 16px rgba(232,114,12,.4)}
+.wc-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.05em;color:var(--navy-dark);text-align:center;margin:14px 0 20px}
+.wc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+.wc-stat{background:var(--off-white);border-radius:8px;padding:16px 12px;text-align:center;border:1px solid var(--light-gray)}
+.wc-num{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--orange);letter-spacing:.04em;line-height:1;display:block}
+.wc-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);margin-top:4px;display:block;line-height:1.3}
+.wc-phone{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--navy-dark);color:white;border-radius:8px;padding:14px;text-decoration:none;transition:background .2s}
+.wc-phone:hover{background:var(--navy-light)}
+.wc-phone-icon{width:34px;height:34px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.wc-phone-text strong{display:block;font-size:.95rem;font-weight:800;letter-spacing:.03em}
+.wc-phone-text span{font-size:.68rem;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase}
 
-  .pro-hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.2rem,5.5vw,5.5rem);line-height:.92;letter-spacing:.02em;color:white;margin-bottom:10px;}
-  .pro-hero h1 .accent{color:var(--orange);display:block;}
-  .pro-hero h1 .accent-blue{color:var(--pro-accent);display:block;}
-  .hero-sub{font-family:'Dancing Script',cursive;font-size:1.4rem;color:rgba(255,255,255,.4);margin-bottom:24px;}
-  .hero-desc{color:rgba(255,255,255,.62);font-size:.96rem;line-height:1.75;margin-bottom:40px;max-width:500px;}
-  .hero-cta-group{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:40px;}
-  .hero-proof-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
-  .hero-proof-item{display:flex;align-items:center;gap:6px;font-size:.73rem;color:rgba(255,255,255,.45);font-weight:600;}
-  .hero-proof-item::before{content:'✓';color:var(--orange);font-weight:800;}
+/* ── TRUST BAR ── */
+.trust-bar{background:var(--navy);border-top:3px solid var(--orange)}
+.trust-bar-inner{max-width:1200px;margin:0 auto;padding:0 40px;display:flex;align-items:stretch;justify-content:space-around}
+.trust-item{display:flex;align-items:center;gap:14px;padding:20px 16px;color:white;border-right:1px solid rgba(255,255,255,.08);flex:1;justify-content:center}
+.trust-item:last-child{border-right:none}
+.trust-icon{width:38px;height:38px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem}
+.trust-text strong{display:block;font-size:.82rem;font-weight:700;letter-spacing:.04em}
+.trust-text span{font-size:.7rem;color:rgba(255,255,255,.55)}
 
-  /* BUTTONS */
-  .btn-pro-primary{background:var(--orange);color:white;padding:16px 36px;border-radius:4px;font-weight:800;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:10px;font-family:'Montserrat',sans-serif;border:none;cursor:pointer;}
-  .btn-pro-primary:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 32px rgba(232,114,12,.45);}
-  .btn-pro-secondary{background:transparent;color:rgba(255,255,255,.75);padding:16px 32px;border-radius:4px;font-weight:700;font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:1.5px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;}
-  .btn-pro-secondary:hover{border-color:rgba(255,255,255,.5);color:white;background:rgba(255,255,255,.05);}
+/* ── SERVICES ── */
+.services-section{background:var(--off-white)}
+.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.service-card{background:white;border-radius:12px;border:1px solid var(--light-gray);padding:28px 24px;transition:all .28s;position:relative;overflow:hidden}
+.service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--orange);transform:scaleX(0);transition:transform .28s;transform-origin:left}
+.service-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.1);border-color:transparent}
+.service-card:hover::before{transform:scaleX(1)}
+.sc-icon{font-size:2rem;margin-bottom:14px;display:block}
+.sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:10px}
+.sc-body{font-size:.83rem;color:var(--gray);line-height:1.65;margin-bottom:18px}
+.sc-bullets{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
+.sc-bullet{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;color:var(--gray-sub)}
+.sc-bullet::before{content:'→';color:var(--orange);font-weight:800;flex-shrink:0;font-size:.8rem}
+.sc-link{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--orange);text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:gap .2s}
+.sc-link:hover{gap:10px}
 
-  /* DASHBOARD MOCKUP */
-  .hero-dashboard{position:relative;}
-  .dashboard-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;}
-  .dashboard-topbar{background:rgba(255,255,255,.03);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.06);}
-  .db-dots{display:flex;gap:6px;}
-  .db-dot{width:10px;height:10px;border-radius:50%;}
-  .db-dot:nth-child(1){background:#ff5f57;} .db-dot:nth-child(2){background:#febc2e;} .db-dot:nth-child(3){background:#28c840;}
-  .db-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);}
-  .db-status{display:flex;align-items:center;gap:6px;font-size:.68rem;color:#28c840;font-weight:700;}
-  .db-status::before{content:'';width:6px;height:6px;background:#28c840;border-radius:50%;animation:pulse 2s infinite;}
-  .dashboard-body{padding:20px;}
-  .db-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
-  .db-metric{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:14px 12px;text-align:center;}
-  .db-metric-num{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--orange-light);letter-spacing:.04em;line-height:1;margin-bottom:4px;}
-  .db-metric-label{font-size:.62rem;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
-  .db-pipeline{margin-bottom:16px;}
-  .db-pipeline-header{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:10px;}
-  .db-pipeline-stages{display:flex;gap:6px;}
-  .db-stage{flex:1;border-radius:6px;padding:10px 6px;text-align:center;font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
-  .db-stage-new{background:rgba(0,212,255,.1);color:var(--pro-accent);border:1px solid rgba(0,212,255,.2);}
-  .db-stage-contact{background:rgba(240,180,48,.1);color:var(--pro-gold);border:1px solid rgba(240,180,48,.2);}
-  .db-stage-estimate{background:rgba(232,114,12,.1);color:var(--orange-light);border:1px solid rgba(232,114,12,.2);}
-  .db-stage-closed{background:rgba(40,200,64,.1);color:#28c840;border:1px solid rgba(40,200,64,.2);}
-  .db-stage-num{display:block;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;margin-top:4px;}
-  .db-map-preview{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px;}
-  .db-map-icon{font-size:1.8rem;}
-  .db-map-text strong{display:block;font-size:.75rem;font-weight:700;color:var(--pro-accent);margin-bottom:2px;}
-  .db-map-text span{font-size:.65rem;color:rgba(255,255,255,.35);}
-  .dashboard-float-badge{position:absolute;bottom:-16px;right:-16px;background:var(--orange);color:white;border-radius:10px;padding:14px 18px;text-align:center;box-shadow:0 8px 32px rgba(232,114,12,.5);z-index:3;}
-  .dashboard-float-badge .big{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1;display:block;}
-  .dashboard-float-badge small{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85;}
+/* ── HOW IT WORKS ── */
+.hiw-section{background:white}
+.hiw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;position:relative}
+.hiw-grid::before{content:'';position:absolute;top:28px;left:80px;right:80px;height:1px;background:var(--light-gray);z-index:0}
+.hiw-step{position:relative;z-index:1;text-align:center}
+.hiw-num{width:56px;height:56px;border-radius:50%;background:var(--navy-dark);border:3px solid var(--orange);color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 4px 20px rgba(20,42,82,.25)}
+.hiw-title{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:10px}
+.hiw-body{font-size:.82rem;color:var(--gray);line-height:1.65}
+.hiw-cta{text-align:center;margin-top:56px}
 
-  /* TRUST STRIP */
-  .pro-trust-strip{background:rgba(255,255,255,.025);border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);}
-  .pro-trust-inner{max-width:1200px;margin:0 auto;padding:0 40px;display:flex;align-items:stretch;justify-content:space-around;}
-  .pro-trust-item{display:flex;align-items:center;gap:12px;padding:20px 16px;border-right:1px solid rgba(255,255,255,.05);flex:1;justify-content:center;}
-  .pro-trust-item:last-child{border-right:none;}
-  .pro-trust-icon{width:36px;height:36px;background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.25);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
-  .pro-trust-text strong{display:block;font-size:.8rem;font-weight:700;color:white;}
-  .pro-trust-text span{font-size:.68rem;color:rgba(255,255,255,.38);}
+/* ── WHY NOT BIG GUYS ── */
+.compare-section{background:var(--navy-dark);position:relative;overflow:hidden}
+.compare-section::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent,transparent 35px,rgba(232,114,12,.03) 35px,rgba(232,114,12,.03) 36px)}
+.compare-table{display:grid;grid-template-columns:1fr auto 1fr;gap:0;max-width:900px;margin:0 auto;position:relative;z-index:1;background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;border:1px solid rgba(232,114,12,.2)}
+.compare-col-header{padding:20px 24px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.06em;border-bottom:1px solid rgba(255,255,255,.08)}
+.compare-col-header.them{color:rgba(255,255,255,.5);background:rgba(255,255,255,.03)}
+.compare-col-header.us{color:var(--orange);background:rgba(232,114,12,.08)}
+.compare-divider-hdr{padding:20px 16px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:rgba(255,255,255,.2);text-align:center;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2)}
+.compare-row{display:contents}
+.compare-cell{padding:14px 24px;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:flex-start;gap:10px}
+.compare-cell.them{color:rgba(255,255,255,.45);background:rgba(255,255,255,.02)}
+.compare-cell.us{color:rgba(255,255,255,.82);background:rgba(232,114,12,.05)}
+.compare-cell.divider{padding:14px 16px;text-align:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:.75rem;color:rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.15)}
+.compare-cta{text-align:center;margin-top:48px;position:relative;z-index:1}
+.compare-cta p{color:rgba(255,255,255,.5);margin-bottom:20px;font-size:.92rem}
 
-  /* SECTIONS */
-  .pro-section{padding:96px 40px;}
-  .pro-section-inner{max-width:1200px;margin:0 auto;}
-  .pro-section-header{text-align:center;margin-bottom:64px;}
-  .pro-eyebrow{display:inline-block;color:var(--orange);font-size:.7rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px;position:relative;padding:0 24px;}
-  .pro-eyebrow::before,.pro-eyebrow::after{content:'';position:absolute;top:50%;width:32px;height:1px;background:var(--orange);opacity:.5;}
-  .pro-eyebrow::before{right:100%;margin-right:-24px;} .pro-eyebrow::after{left:100%;margin-left:-24px;}
-  .pro-section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,4vw,3.4rem);color:white;letter-spacing:.03em;line-height:1;margin-bottom:16px;}
-  .pro-section-title span{color:var(--orange);}
-  .pro-section-title .blue{color:var(--pro-accent);}
-  .pro-section-desc{color:rgba(255,255,255,.48);max-width:580px;margin:0 auto;font-size:.93rem;line-height:1.7;}
+/* ── ABOUT ── */
+.about-section{background:white}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.about-img-block{position:relative}
+.about-img-main{background:var(--navy);border-radius:16px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;position:relative}
+.about-img-main::before{content:'NBD';position:absolute;font-family:'Bebas Neue',sans-serif;font-size:13rem;color:rgba(232,114,12,.07);letter-spacing:-.05em}
+.about-ph{text-align:center;padding:40px;position:relative;z-index:1}
+.about-ph .ico{font-size:5rem;display:block;margin-bottom:16px}
+.about-ph p{color:rgba(255,255,255,.4);font-size:.85rem}
+.about-badge{position:absolute;bottom:-20px;right:-20px;background:var(--orange);color:white;border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 8px 32px rgba(232,114,12,.4)}
+.about-badge .big-num{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:.05em;line-height:1;display:block}
+.about-badge small{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.about-content p{color:var(--gray);line-height:1.75;margin-bottom:18px;font-size:.93rem}
+.about-results{background:var(--navy);border-radius:12px;padding:28px 32px;margin:28px 0}
+.about-results-lbl{font-size:.65rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:18px}
+.about-result{display:flex;align-items:flex-start;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.about-result:last-child{border-bottom:none;padding-bottom:0}
+.about-result-num{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--orange-light);line-height:1;min-width:60px}
+.about-result-text{font-size:.82rem;color:rgba(255,255,255,.65);line-height:1.55;padding-top:4px}
 
-  /* TOOLS */
-  .tools-section{background:var(--pro-mid);}
-  .tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  .tool-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:32px 28px;transition:all .3s;position:relative;overflow:hidden;}
-  .tool-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--orange);transform:scaleX(0);transform-origin:left;transition:transform .3s;}
-  .tool-card:hover{border-color:rgba(232,114,12,.3);background:rgba(232,114,12,.04);transform:translateY(-4px);}
-  .tool-card:hover::before{transform:scaleX(1);}
-  .tool-card.blue-accent::before{background:var(--pro-accent);}
-  .tool-card.blue-accent:hover{border-color:rgba(0,212,255,.25);background:rgba(0,212,255,.03);}
-  .tool-icon{width:52px;height:52px;background:rgba(232,114,12,.1);border:1px solid rgba(232,114,12,.22);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:20px;}
-  .tool-card.blue-accent .tool-icon{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.18);}
-  .tool-badge{display:inline-block;background:var(--orange);color:white;font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;margin-bottom:12px;}
-  .tool-badge.blue{background:var(--pro-accent);color:var(--pro-dark);}
-  .tool-card h3{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.05em;color:white;margin-bottom:10px;}
-  .tool-card p{font-size:.82rem;line-height:1.65;color:rgba(255,255,255,.48);margin-bottom:16px;}
-  .tool-features{list-style:none;}
-  .tool-features li{font-size:.76rem;color:rgba(255,255,255,.58);padding:4px 0 4px 16px;position:relative;font-weight:600;}
-  .tool-features li::before{content:'→';position:absolute;left:0;color:var(--orange);font-size:.7rem;}
-  .tool-card.blue-accent .tool-features li::before{color:var(--pro-accent);}
+/* ── SERVICE AREAS ── */
+.areas-section{background:var(--off-white)}
+.areas-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px}
+.area-tag{background:white;border:1px solid var(--light-gray);border-radius:100px;padding:8px 18px;font-size:.8rem;font-weight:600;color:var(--navy-dark);transition:all .2s}
+.area-tag:hover{border-color:var(--orange);color:var(--orange);background:rgba(232,114,12,.04)}
+.areas-contact{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.areas-contact-item{display:flex;align-items:flex-start;gap:12px}
+.aci-icon{width:38px;height:38px;background:var(--navy);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.aci-text strong{display:block;font-size:.82rem;font-weight:700;color:var(--navy-dark);margin-bottom:2px}
+.aci-text span{font-size:.78rem;color:var(--gray)}
+.aci-text a{font-size:.82rem;color:var(--navy-dark);text-decoration:none;font-weight:600;transition:color .2s}
+.aci-text a:hover{color:var(--orange)}
 
-  /* MASTERCLASS */
-  .masterclass-section{background:var(--pro-dark);position:relative;overflow:hidden;}
-  .masterclass-section::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(-45deg,transparent,transparent 40px,rgba(232,114,12,.015) 40px,rgba(232,114,12,.015) 41px);}
-  .masterclass-layout{display:grid;grid-template-columns:1fr 1.4fr;gap:80px;align-items:start;}
-  .masterclass-left{position:sticky;top:100px;}
-  .masterclass-left .pro-section-title{text-align:left;margin-bottom:20px;}
-  .masterclass-left>p{color:rgba(255,255,255,.52);font-size:.9rem;line-height:1.75;margin-bottom:32px;}
-  .masterclass-stat-row{display:flex;gap:32px;margin-bottom:36px;}
-  .mc-stat .num{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--orange-light);line-height:1;letter-spacing:.04em;}
-  .mc-stat .label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-top:2px;}
-  .chapters-list{display:flex;flex-direction:column;gap:10px;}
-  .chapter-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:18px 22px;display:flex;align-items:flex-start;gap:16px;transition:all .2s;}
-  .chapter-item:hover{border-color:rgba(232,114,12,.22);background:rgba(232,114,12,.03);}
-  .chapter-num{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--orange);letter-spacing:.06em;min-width:32px;opacity:.65;margin-top:2px;}
-  .chapter-info{flex:1;}
-  .chapter-info h4{font-size:.82rem;font-weight:800;color:white;margin-bottom:4px;}
-  .chapter-info p{font-size:.73rem;color:rgba(255,255,255,.38);line-height:1.5;margin:0;}
-  .chapter-lock{color:rgba(255,255,255,.18);font-size:.8rem;margin-top:2px;}
-  .chapter-item.unlocked .chapter-lock{color:var(--orange);}
+/* ── REVIEWS ── */
+.reviews-section{background:white}
+.reviews-rating{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:40px;padding:24px;background:var(--off-white);border-radius:10px;border:1px solid var(--light-gray)}
+.reviews-stars{font-size:1.6rem;color:var(--orange);letter-spacing:3px}
+.reviews-score{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:var(--navy-dark);letter-spacing:.05em;line-height:1}
+.reviews-score-sub{font-size:.78rem;color:var(--gray);margin-top:2px}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:36px}
+.review-card{background:var(--off-white);border-radius:12px;padding:28px;border:1px solid var(--light-gray);position:relative;transition:box-shadow .2s;display:flex;flex-direction:column}
+.review-card:hover{box-shadow:0 8px 30px rgba(0,0,0,.08)}
+.review-stars{color:var(--orange);font-size:1rem;letter-spacing:2px;margin-bottom:14px}
+.review-text{font-size:.87rem;line-height:1.7;color:var(--gray);margin-bottom:20px;font-style:italic;flex:1}
+.review-author{display:flex;align-items:center;gap:12px;margin-top:auto}
+.review-avatar{width:40px;height:40px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--orange-light);font-size:1.1rem}
+.review-name{font-weight:700;font-size:.85rem;color:var(--navy-dark)}
+.review-loc{font-size:.72rem;color:var(--gray)}
+.review-qmark{position:absolute;top:14px;right:20px;font-family:'Bebas Neue',sans-serif;font-size:4rem;color:rgba(232,114,12,.1);line-height:1}
+.reviews-cta{text-align:center}
 
-  /* AUDIENCE */
-  .audience-section{background:var(--pro-mid);}
-  .audience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
-  .audience-card{border-radius:14px;padding:36px 30px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);text-align:center;transition:all .3s;}
-  .audience-card:hover{transform:translateY(-4px);border-color:rgba(232,114,12,.22);}
-  .audience-emoji{font-size:3rem;display:block;margin-bottom:20px;}
-  .audience-card h3{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:.05em;color:white;margin-bottom:12px;}
-  .audience-card p{font-size:.82rem;color:rgba(255,255,255,.48);line-height:1.65;margin-bottom:20px;}
-  .audience-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
-  .audience-tag{background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.18);color:var(--orange-light);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;}
-  .is-not-box{margin-top:48px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:36px 40px;}
-  .is-not-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;}
-  .is-not-box h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.05em;color:white;margin-bottom:14px;}
-  .is-not-box h3 span{color:var(--orange);}
-  .is-not-list{list-style:none;display:flex;flex-direction:column;gap:10px;}
-  .is-not-list li{display:flex;gap:10px;align-items:flex-start;font-size:.82rem;line-height:1.5;}
-  .is-not-list li .icon{flex-shrink:0;font-weight:900;margin-top:1px;}
-  .is-not-list li.no{color:rgba(255,255,255,.42);}
-  .is-not-list li.no .icon{color:#ff5f57;}
-  .is-not-list li.yes{color:rgba(255,255,255,.72);}
-  .is-not-list li.yes .icon{color:var(--orange);}
+/* ── CONTACT ── */
+.contact-section{background:var(--navy-dark);position:relative;overflow:hidden}
+.contact-section::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 50px,rgba(232,114,12,.03) 50px,rgba(232,114,12,.03) 51px)}
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start;position:relative;z-index:1}
+.contact-left h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3.2rem);color:white;letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
+.contact-left h2 span{color:var(--orange)}
+.contact-left p{color:rgba(255,255,255,.55);font-size:.92rem;line-height:1.75;margin-bottom:32px}
+.contact-methods{display:flex;flex-direction:column;gap:16px}
+.contact-method{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:18px 20px;text-decoration:none;transition:all .2s}
+.contact-method:hover{border-color:rgba(232,114,12,.4);background:rgba(232,114,12,.06)}
+.cm-icon{width:42px;height:42px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em}
+.cm-text span{font-size:.72rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em}
+.contact-form-card{background:white;border-radius:14px;padding:36px 32px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.cf-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:4px}
+.cf-sub{font-size:.8rem;color:var(--gray);margin-bottom:24px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-group label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-dark)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:6px;font-family:'Montserrat',sans-serif;font-size:.87rem;color:var(--navy-dark);background:var(--off-white);transition:border-color .2s;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--orange);background:white}
+.form-group textarea{resize:vertical;min-height:100px}
+.form-submit{width:100%;padding:15px;background:var(--orange);color:white;font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .25s;margin-top:4px}
+.form-submit:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 6px 20px rgba(232,114,12,.4)}
+.form-note{font-size:.7rem;color:#a0aec0;text-align:center;margin-top:8px}
+.form-success{display:none;text-align:center;padding:30px 0}
+.form-success-icon{width:64px;height:64px;border-radius:50%;background:rgba(232,114,12,.1);border:3px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 16px}
+.form-success h3{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:8px}
+.form-success p{font-size:.85rem;color:var(--gray);line-height:1.6}
 
-  /* PRICING */
-  .pricing-section{background:var(--pro-dark);}
-  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;align-items:start;}
-  .pricing-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;transition:all .3s;}
-  .pricing-card:hover{transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
-  .pricing-card.featured{border-color:var(--orange);background:rgba(232,114,12,.05);transform:scale(1.04);}
-  .pricing-card.featured:hover{transform:scale(1.04) translateY(-4px);}
-  .pricing-badge{background:var(--orange);color:white;text-align:center;padding:8px;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
-  .pricing-header{padding:32px 28px 24px;}
-  .pricing-tier{font-size:.68rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:12px;}
-  .pricing-name{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.05em;color:white;margin-bottom:16px;}
-  .pricing-price{display:flex;align-items:baseline;gap:4px;margin-bottom:8px;}
-  .price-dollar{font-size:1.2rem;font-weight:800;color:rgba(255,255,255,.55);}
-  .price-amount{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:white;letter-spacing:.02em;line-height:1;}
-  .price-period{font-size:.78rem;color:rgba(255,255,255,.38);font-weight:600;}
-  .pricing-desc{font-size:.78rem;color:rgba(255,255,255,.38);line-height:1.55;}
-  .pricing-divider{height:1px;background:rgba(255,255,255,.06);margin:0 28px;}
-  .pricing-features{padding:24px 28px;}
-  .pricing-features ul{list-style:none;}
-  .pricing-features li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:.8rem;color:rgba(255,255,255,.65);font-weight:600;}
-  .pricing-features li::before{content:'✓';color:var(--orange);font-weight:800;font-size:.78rem;margin-top:2px;flex-shrink:0;}
-  .pricing-features li.disabled{opacity:.28;text-decoration:line-through;}
-  .pricing-features li.disabled::before{content:'×';color:rgba(255,255,255,.3);}
-  .pricing-cta{padding:0 28px 32px;}
-  .pricing-cta .btn-pro-primary,.pricing-cta .btn-pro-secondary{width:100%;justify-content:center;}
-  .guarantee-strip{margin-top:48px;text-align:center;}
-  .guarantee-inner{display:inline-flex;align-items:center;gap:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:100px;padding:16px 32px;}
-  .guarantee-inner .g-emoji{font-size:1.5rem;}
-  .guarantee-inner strong{display:block;font-size:.82rem;color:white;font-weight:700;}
-  .guarantee-inner span{font-size:.72rem;color:rgba(255,255,255,.38);}
+/* ── FOOTER ── */
+footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60px 40px 0}
+.footer-inner{max-width:1200px;margin:0 auto}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
+.footer-logo-block{display:flex;flex-direction:column;align-items:flex-start}
+.footer-logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px;margin-bottom:16px}
+.footer-logo-card .logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
+.footer-logo-card .logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
+.footer-desc{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.7;margin-bottom:20px}
+.footer-badges{display:flex;flex-wrap:wrap;gap:8px}
+.footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.footer-col-title{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:16px}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:9px}
+.footer-links a{color:rgba(255,255,255,.5);text-decoration:none;font-size:.82rem;transition:color .2s}
+.footer-links a:hover{color:var(--orange-light)}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.07);padding:20px 0;display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:.72rem;color:rgba(255,255,255,.3)}
+/* ← THE SILENT PRO DOOR → */
+.pro-door{font-size:.72rem;color:rgba(255,255,255,.22);text-decoration:none;transition:color .3s;border-bottom:1px dashed rgba(255,255,255,.12);padding-bottom:1px}
+.pro-door:hover{color:rgba(255,255,255,.5)}
 
-  /* TESTIMONIALS */
-  .testimonials-section{background:var(--pro-mid);}
-  .testimonials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  .testimonial-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:28px;transition:border-color .2s;}
-  .testimonial-card:hover{border-color:rgba(232,114,12,.2);}
-  .testimonial-stars{color:var(--orange);font-size:.85rem;margin-bottom:14px;letter-spacing:2px;}
-  .testimonial-card blockquote{font-size:.84rem;line-height:1.7;color:rgba(255,255,255,.62);margin-bottom:20px;font-style:italic;}
-  .testimonial-author{display:flex;align-items:center;gap:12px;}
-  .testimonial-avatar{width:38px;height:38px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:white;flex-shrink:0;}
-  .testimonial-name{font-size:.8rem;font-weight:700;color:white;}
-  .testimonial-role{font-size:.7rem;color:rgba(255,255,255,.32);}
+/* ── BACK TO TOP ── */
+.back-to-top{position:fixed;bottom:28px;right:28px;width:44px;height:44px;background:var(--navy);color:white;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s,background .2s;z-index:998;pointer-events:none}
+.back-to-top.visible{opacity:1;transform:translateY(0);pointer-events:auto}
+.back-to-top:hover{background:var(--orange)}
 
-  /* CTA SECTION */
-  .pro-cta-section{background:var(--navy-dark);position:relative;overflow:hidden;text-align:center;padding:96px 40px;}
-  .pro-cta-section::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(232,114,12,.12) 0%,transparent 70%);}
-  .pro-cta-inner{position:relative;z-index:1;max-width:700px;margin:0 auto;}
-  .pro-cta-inner>p{color:rgba(255,255,255,.52);font-size:.97rem;line-height:1.7;margin-bottom:40px;}
-  .pro-cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
-
-  /* FOOTER */
-  .pro-footer{background:#050810;border-top:1px solid rgba(255,255,255,.06);padding:48px 40px 32px;}
-  .pro-footer-inner{max-width:1200px;margin:0 auto;}
-  .pro-footer-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:32px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:28px;gap:24px;flex-wrap:wrap;}
-  .pro-footer-brand .footer-name{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.06em;margin-bottom:4px;}
-  .pro-footer-brand .footer-name span{color:var(--orange);}
-  .pro-footer-brand p{font-size:.75rem;color:rgba(255,255,255,.32);}
-  .pro-footer-links{display:flex;gap:28px;flex-wrap:wrap;}
-  .pro-footer-links a{color:rgba(255,255,255,.32);text-decoration:none;font-size:.75rem;font-weight:600;letter-spacing:.06em;transition:color .2s;}
-  .pro-footer-links a:hover{color:var(--orange-light);}
-  .pro-footer-bottom{display:flex;align-items:center;justify-content:space-between;font-size:.7rem;color:rgba(255,255,255,.2);flex-wrap:wrap;gap:12px;}
-  .pro-footer-bottom a{color:rgba(255,255,255,.32);text-decoration:none;}
-  .pro-footer-bottom a:hover{color:white;}
-  .pro-footer-contact{display:flex;gap:20px;}
-
-  /* SCROLL REVEAL */
-  .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
-  .reveal.visible{opacity:1;transform:translateY(0);}
-
-  /* RESPONSIVE */
-  @media(max-width:1024px){
-    .tools-grid{grid-template-columns:repeat(2,1fr);}
-    .masterclass-layout{grid-template-columns:1fr;gap:48px;}
-    .masterclass-left{position:static;}
-    .pricing-grid{grid-template-columns:1fr;max-width:440px;margin:0 auto;}
-    .pricing-card.featured{transform:none;}
-    .testimonials-grid{grid-template-columns:1fr 1fr;}
-    .audience-grid{grid-template-columns:1fr 1fr;}
-    .is-not-grid{grid-template-columns:1fr;}
-  }
-  @media(max-width:768px){
-    nav{padding:0 20px;}
-    .nav-links-pro{display:none;}
-    .hamburger-pro{display:flex;}
-    .pro-hero-inner{grid-template-columns:1fr;padding:80px 20px 60px;gap:48px;}
-    .hero-dashboard{display:none;}
-    .pro-section{padding:64px 20px;}
-    .tools-grid,.audience-grid,.testimonials-grid{grid-template-columns:1fr;}
-    .pro-trust-inner{flex-wrap:wrap;}
-    .pro-trust-item{flex:0 0 50%;border-right:none;}
-    .hero-cta-group,.pro-cta-buttons{flex-direction:column;}
-    .btn-pro-primary,.btn-pro-secondary{width:100%;justify-content:center;}
-    .pro-footer-top,.pro-footer-bottom{flex-direction:column;align-items:flex-start;}
-    .guarantee-inner{flex-direction:column;text-align:center;border-radius:16px;}
-    .masterclass-stat-row{gap:20px;}
-    .is-not-box{padding:24px;}
-  }
-  @media(max-width:480px){
-    .pro-hero h1{font-size:2.8rem;}
-    .pro-trust-item{flex:0 0 100%;}
-  }
+/* ── RESPONSIVE ── */
+@media(max-width:1024px){
+  .hero-content{grid-template-columns:1fr;gap:40px}
+  .warranty-card{max-width:480px}
+  .services-grid{grid-template-columns:repeat(2,1fr)}
+  .hiw-grid{grid-template-columns:repeat(2,1fr)}
+  .hiw-grid::before{display:none}
+  .about-grid{grid-template-columns:1fr;gap:40px}
+  .about-badge{bottom:10px;right:10px}
+  .contact-grid{grid-template-columns:1fr}
+  .areas-contact{grid-template-columns:repeat(2,1fr)}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
+}
+@media(max-width:768px){
+  section{padding:60px 20px}
+  nav{padding:0 20px}
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .hero-content{padding:60px 20px}
+  .services-grid{grid-template-columns:1fr}
+  .hiw-grid{grid-template-columns:1fr 1fr}
+  .compare-table{grid-template-columns:1fr auto 1fr}
+  .reviews-grid{grid-template-columns:1fr}
+  .trust-bar-inner{flex-wrap:wrap}
+  .trust-item{border-right:none;border-bottom:1px solid rgba(255,255,255,.08);justify-content:flex-start}
+  footer{padding:40px 20px 0}
+  .footer-grid{grid-template-columns:1fr}
+  .footer-bottom{flex-direction:column;gap:12px;text-align:center}
+  .areas-contact{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr}
+  .ann-bar{font-size:.68rem}
+}
 </style>
 </head>
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
-<div class="pro-bar">
-  🔥 Founding Member pricing — limited seats available.
-  <a href="#pricing">See Plans →</a>
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">⭐ 5-Year Labor Warranty on Every Install — Roofing, Siding &amp; Gutters</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
 
 <!-- NAV -->
 <nav id="mainNav">
-  <a href="/" class="nav-logo-pro">
-    <span class="nav-logo-badge">NBD</span>
-    <span class="nav-logo-text">No Big Deal <span>Pro</span></span>
+  <a href="#" class="nav-logo">
+    <div class="logo-card">
+      <div class="logo-card-top">
+        <svg viewBox="0 0 60 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 34 L30 6 L56 34" stroke="#1e3a6e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M10 31 L10 38 L50 38 L50 31" stroke="#1e3a6e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <rect x="24" y="28" width="12" height="10" rx="2" fill="#e8720c"/>
+        </svg>
+        <div class="logo-card-name">
+          <span class="lw-nobig">NO BIG</span>
+          <span class="lw-deal">DEAL</span>
+        </div>
+        <div class="logo-card-sub">Home Solutions</div>
+      </div>
+      <div class="logo-card-divider"></div>
+      <div class="logo-card-bottom">
+        <span class="lw-script">No Big Deal with Joe Deal</span>
+      </div>
+    </div>
   </a>
-  <ul class="nav-links-pro">
-    <li><a href="#tools">Tools</a></li>
-    <li><a href="#masterclass">Masterclass</a></li>
-    <li><a href="#who">Who It's For</a></li>
-    <li><a href="#pricing">Pricing</a></li>
-    <li><a href="/" class="nav-back">← Home Site</a></li>
-    <li><a href="#pricing" class="nav-cta-pro">Get Access →</a></li>
+
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#services">Services</a></li>
+    <li><a href="#about">About Joe</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="#areas">Service Areas</a></li>
+    <li><a href="#contact" class="nav-cta">Free Estimate →</a></li>
   </ul>
-  <button class="hamburger-pro" id="hamburger" onclick="toggleMobileNav()" aria-label="Open menu">
+
+  <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
     <span></span><span></span><span></span>
-  </button>
+  </div>
 </nav>
 
 <!-- MOBILE NAV -->
-<div class="mobile-nav-pro" id="mobileNav">
-  <button class="mobile-close" onclick="toggleMobileNav()" aria-label="Close menu">✕</button>
-  <a href="#tools"       onclick="toggleMobileNav()">Tools</a>
-  <a href="#masterclass" onclick="toggleMobileNav()">Masterclass</a>
-  <a href="#who"         onclick="toggleMobileNav()">Who It's For</a>
-  <a href="#pricing"     onclick="toggleMobileNav()">Pricing</a>
-  <a href="/">← Back to Home Site</a>
-  <a href="#pricing" class="mobile-pro-cta" onclick="toggleMobileNav()">Get Access Now →</a>
+<div class="mobile-nav" id="mobileNav">
+  <a href="#services" onclick="closeMobileNav()">Services</a>
+  <a href="#about" onclick="closeMobileNav()">About Joe</a>
+  <a href="#reviews" onclick="closeMobileNav()">Reviews</a>
+  <a href="#areas" onclick="closeMobileNav()">Service Areas</a>
+  <a href="#contact" class="mobile-cta-btn" onclick="closeMobileNav()">📞 Get a Free Estimate</a>
 </div>
 
 <!-- HERO -->
-<section class="pro-hero" id="hero">
-  <div class="hero-grid-bg"></div>
-  <div class="hero-glow"></div>
-  <div class="hero-glow-2"></div>
-  <div class="pro-hero-inner">
+<section class="hero" id="home">
+  <div class="hero-pattern"></div>
+  <div class="hero-bg"></div>
+  <div class="hero-content">
     <div class="hero-left">
-      <div class="hero-eyebrow">For Contractors &amp; Entrepreneurs</div>
-      <h1>The Unfair<span class="accent">Advantage</span><span class="accent-blue">System.</span></h1>
-      <div class="hero-sub">No Big Deal with Joe Deal</div>
-      <p class="hero-desc">The exact AI-powered CRM, lead pipeline, measurement tools, and 12-chapter business masterclass Joe uses to run a 5-star exterior contracting company — now available to contractors and entrepreneurs ready to dominate their local market.</p>
-      <div class="hero-cta-group">
-        <a href="#pricing" class="btn-pro-primary">Get Access Now →</a>
-        <a href="#tools"   class="btn-pro-secondary">See What's Included</a>
+      <div class="hero-badge">Cincinnati / Goshen, OH Area</div>
+      <h1>No Big<br><span>Deal.</span></h1>
+      <div class="hero-tagline">No Big Deal with Joe Deal</div>
+      <p>Roofing, siding, gutters &amp; storm damage — handled with honesty, fair pricing, and craftsmanship you can see. Licensed, insured, and locally owned.</p>
+      <div class="hero-btns">
+        <a href="#contact" class="btn-primary">Get a Free Estimate →</a>
+        <a href="tel:8594207382" class="btn-ghost">📞 Call Joe</a>
       </div>
-      <div class="hero-proof-row">
-        <div class="hero-proof-item">AI-Powered CRM</div>
-        <div class="hero-proof-item">12-Chapter Masterclass</div>
-        <div class="hero-proof-item">Google Maps AI Measurement</div>
-        <div class="hero-proof-item">Built by a Real Contractor</div>
+      <div class="hero-trust">
+        <div class="hero-trust-item">✅ Licensed &amp; Insured</div>
+        <div class="hero-trust-dot"></div>
+        <div class="hero-trust-item">⭐ 5-Star Rated</div>
+        <div class="hero-trust-dot"></div>
+        <div class="hero-trust-item">🏠 Locally Owned</div>
       </div>
     </div>
-    <div class="hero-dashboard">
-      <div class="dashboard-card">
-        <div class="dashboard-topbar">
-          <div class="db-dots"><div class="db-dot"></div><div class="db-dot"></div><div class="db-dot"></div></div>
-          <div class="db-title">NBD Pro Dashboard</div>
-          <div class="db-status">Live</div>
-        </div>
-        <div class="dashboard-body">
-          <div class="db-metrics">
-            <div class="db-metric"><div class="db-metric-num">24</div><div class="db-metric-label">Active Leads</div></div>
-            <div class="db-metric"><div class="db-metric-num">$47K</div><div class="db-metric-label">Pipeline Value</div></div>
-            <div class="db-metric"><div class="db-metric-num">68%</div><div class="db-metric-label">Close Rate</div></div>
+    <div class="hero-right">
+      <div class="warranty-card">
+        <div class="wc-ribbon">Warranty Overview</div>
+        <div class="wc-title">What Every Job Includes</div>
+        <div class="wc-grid">
+          <div class="wc-stat">
+            <span class="wc-num">5yr</span>
+            <span class="wc-label">Labor<br>Warranty</span>
           </div>
-          <div class="db-pipeline">
-            <div class="db-pipeline-header">Lead Pipeline</div>
-            <div class="db-pipeline-stages">
-              <div class="db-stage db-stage-new">New<span class="db-stage-num">8</span></div>
-              <div class="db-stage db-stage-contact">Contact<span class="db-stage-num">6</span></div>
-              <div class="db-stage db-stage-estimate">Estimate<span class="db-stage-num">5</span></div>
-              <div class="db-stage db-stage-closed">Closed<span class="db-stage-num">5</span></div>
-            </div>
+          <div class="wc-stat">
+            <span class="wc-num">30yr</span>
+            <span class="wc-label">Shingle<br>Warranty</span>
           </div>
-          <div class="db-map-preview">
-            <div class="db-map-icon">🛰️</div>
-            <div class="db-map-text">
-              <strong>AI Measurement Tool — Active</strong>
-              <span>Google Maps · Vector drawing · Auto sq ft</span>
-            </div>
+          <div class="wc-stat">
+            <span class="wc-num">50yr</span>
+            <span class="wc-label">Siding<br>Warranty</span>
+          </div>
+          <div class="wc-stat">
+            <span class="wc-num">100%</span>
+            <span class="wc-label">Insurance<br>Help</span>
           </div>
         </div>
+        <a href="tel:8594207382" class="wc-phone">
+          <div class="wc-phone-icon">📞</div>
+          <div class="wc-phone-text">
+            <strong>(859) 420-7382</strong>
+            <span>Call or text Joe directly</span>
+          </div>
+        </a>
       </div>
-      <div class="dashboard-float-badge"><span class="big">AI</span><small>Powered</small></div>
     </div>
   </div>
 </section>
 
-<!-- TRUST STRIP -->
-<div class="pro-trust-strip">
-  <div class="pro-trust-inner">
-    <div class="pro-trust-item"><div class="pro-trust-icon">🏗️</div><div class="pro-trust-text"><strong>Built by a Real Contractor</strong><span>Not a software company pretending</span></div></div>
-    <div class="pro-trust-item"><div class="pro-trust-icon">🤖</div><div class="pro-trust-text"><strong>Full AI Integration</strong><span>Measurement, estimation &amp; lead AI</span></div></div>
-    <div class="pro-trust-item"><div class="pro-trust-icon">📚</div><div class="pro-trust-text"><strong>12-Chapter Masterclass</strong><span>Real strategy, not fluff</span></div></div>
-    <div class="pro-trust-item"><div class="pro-trust-icon">🔒</div><div class="pro-trust-text"><strong>Members-Only Access</strong><span>Gated portal, not public SaaS</span></div></div>
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-bar-inner">
+    <div class="trust-item">
+      <div class="trust-icon">🛡️</div>
+      <div class="trust-text"><strong>Licensed &amp; Insured</strong><span>Every job, fully covered</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-icon">🏠</div>
+      <div class="trust-text"><strong>Locally Owned</strong><span>Goshen, OH — your neighbor</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-icon">📋</div>
+      <div class="trust-text"><strong>Insurance Claims</strong><span>We navigate the process</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-icon">⭐</div>
+      <div class="trust-text"><strong>5-Star Rated</strong><span>Honest quotes, real results</span></div>
+    </div>
   </div>
 </div>
 
-<!-- TOOLS -->
-<section class="pro-section tools-section" id="tools">
-  <div class="pro-section-inner">
-    <div class="pro-section-header reveal">
-      <div class="pro-eyebrow">What You Get</div>
-      <h2 class="pro-section-title">The Full <span>Tech Stack</span></h2>
-      <p class="pro-section-desc">Everything inside No Big Deal Pro — the same tools Joe uses daily to track leads, measure properties, build estimates, and close jobs faster.</p>
+<!-- SERVICES -->
+<section class="services-section" id="services">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal">What We Do</div>
+      <h2 class="sec-title reveal">Exterior Services That <span>Protect Your Home</span></h2>
+      <p class="sec-desc reveal">From full roof replacements to gutter installs and storm damage repairs — quality materials and honest pricing every time.</p>
     </div>
-    <div class="tools-grid">
-      <div class="tool-card reveal">
-        <div class="tool-badge">Core Tool</div>
-        <div class="tool-icon">📊</div>
-        <h3>AI-Powered CRM Dashboard</h3>
-        <p>A full contractor CRM built from scratch — not a generic platform you have to hack together. Your entire business at a glance.</p>
-        <ul class="tool-features">
-          <li>Live metrics: leads, pipeline value, close rate</li>
-          <li>Activity feed &amp; daily task view</li>
-          <li>Revenue tracking by month &amp; job type</li>
-          <li>Job status overview</li>
+    <div class="services-grid">
+
+      <div class="service-card reveal">
+        <span class="sc-icon">🏠</span>
+        <div class="sc-title">Roof Replacement</div>
+        <div class="sc-body">Full tear-off and installation using Owens Corning and Atlas shingles. We inspect for structural issues and handle insurance claims start to finish.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">Complete tear-off &amp; disposal</li>
+          <li class="sc-bullet">Owens Corning / Atlas shingles</li>
+          <li class="sc-bullet">Free roof inspection included</li>
+          <li class="sc-bullet">Insurance claim assistance</li>
+          <li class="sc-bullet">5-yr labor + 30-yr shingle warranty</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Roof Replacement">Request a Quote →</a>
       </div>
-      <div class="tool-card reveal">
-        <div class="tool-icon">🎯</div>
-        <h3>Lead Management Pipeline</h3>
-        <p>Track every lead from first contact to signed contract. Move leads through stages, log notes, and never drop a hot prospect again.</p>
-        <ul class="tool-features">
-          <li>Custom stage progression</li>
-          <li>Lead source tracking</li>
-          <li>Follow-up scheduling</li>
-          <li>Priority flagging &amp; filters</li>
+
+      <div class="service-card reveal">
+        <span class="sc-icon">🔧</span>
+        <div class="sc-title">Roof Repair</div>
+        <div class="sc-body">Leaks, missing shingles, flashing problems — we fix what others won't. We believe in repair when repair is the right call.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">Leak sealing &amp; flashing repair</li>
+          <li class="sc-bullet">Shingle replacement (matched)</li>
+          <li class="sc-bullet">Storm damage response</li>
+          <li class="sc-bullet">Pipe boot &amp; valley repair</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Roof Repair">Request a Quote →</a>
       </div>
-      <div class="tool-card blue-accent reveal">
-        <div class="tool-badge blue">AI Feature</div>
-        <div class="tool-icon">🛰️</div>
-        <h3>Google Maps AI Measurement</h3>
-        <p>Pull up any property on satellite view, draw measurement vectors directly on the aerial image, and let the AI auto-calculate square footage.</p>
-        <ul class="tool-features">
-          <li>Aerial property measurement</li>
-          <li>Vector &amp; line drawing tools</li>
-          <li>Automatic sq ft calculation</li>
-          <li>Export to estimate instantly</li>
+
+      <div class="service-card reveal">
+        <span class="sc-icon">🏡</span>
+        <div class="sc-title">Siding Replacement</div>
+        <div class="sc-body">Vinyl, shake, dutch lap, reverse board batten and more. We use trusted brands like Polaris and Royal and help with insurance claims.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">Vinyl, shake, dutch lap &amp; more</li>
+          <li class="sc-bullet">Polaris &amp; Royal brands</li>
+          <li class="sc-bullet">House wrap &amp; insulation upgrade</li>
+          <li class="sc-bullet">Insurance claim support</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Siding Replacement">Request a Quote →</a>
       </div>
-      <div class="tool-card reveal">
-        <div class="tool-icon">📝</div>
-        <h3>Estimate Creator</h3>
-        <p>Build professional, branded estimates in minutes. Line-item pricing, material specs, scope of work — in a format that builds trust and closes jobs.</p>
-        <ul class="tool-features">
-          <li>Line-item material &amp; labor pricing</li>
-          <li>Scope of work builder</li>
-          <li>PDF export &amp; digital delivery</li>
-          <li>Linked to lead records</li>
+
+      <div class="service-card reveal">
+        <span class="sc-icon">🛠️</span>
+        <div class="sc-title">Siding Repair</div>
+        <div class="sc-body">Cracked panels, loose boards, gaps from weather — we fix the problem without pushing a full replacement you don't need.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">Individual panel replacement</li>
+          <li class="sc-bullet">Material matching &amp; color blend</li>
+          <li class="sc-bullet">Storm &amp; impact damage repair</li>
+          <li class="sc-bullet">Caulking &amp; sealing</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Siding Repair">Request a Quote →</a>
       </div>
-      <div class="tool-card reveal">
-        <div class="tool-icon">📋</div>
-        <h3>Contract Generation</h3>
-        <p>Turn approved estimates into contracts instantly. Customer info auto-fills, scope transfers over, your terms are built right in.</p>
-        <ul class="tool-features">
-          <li>Auto-populate from estimate</li>
-          <li>Custom scope &amp; terms</li>
-          <li>Professional branded output</li>
-          <li>Insurance claim support fields</li>
+
+      <div class="service-card reveal">
+        <span class="sc-icon">🌧️</span>
+        <div class="sc-title">Gutter Replacement</div>
+        <div class="sc-body">Custom-cut seamless gutters installed on-site. Fewer joints means fewer leaks and less maintenance year after year.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">5" &amp; 6" K-Style seamless gutters</li>
+          <li class="sc-bullet">Custom cut on-site</li>
+          <li class="sc-bullet">Downspout installation</li>
+          <li class="sc-bullet">Gutter guard options</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Gutter Replacement">Request a Quote →</a>
       </div>
-      <div class="tool-card blue-accent reveal">
-        <div class="tool-badge blue">AI Feature</div>
-        <div class="tool-icon">🧠</div>
-        <h3>AI Business Intelligence</h3>
-        <p>The platform surfaces insights, flags pipeline bottlenecks, and highlights opportunities — manage by data, not gut feel.</p>
-        <ul class="tool-features">
-          <li>Win/loss pattern analysis</li>
-          <li>Stale lead alerts</li>
-          <li>Revenue forecast view</li>
-          <li>Job profitability tracking</li>
+
+      <div class="service-card reveal">
+        <span class="sc-icon">⚡</span>
+        <div class="sc-title">Storm Damage &amp; Insurance</div>
+        <div class="sc-body">Storm hit your home? We document damage, assist with your insurance claim, and get your home back to 100%.</div>
+        <ul class="sc-bullets">
+          <li class="sc-bullet">Full damage documentation</li>
+          <li class="sc-bullet">Insurance claim navigation</li>
+          <li class="sc-bullet">Emergency tarping available</li>
+          <li class="sc-bullet">Works with all major insurers</li>
         </ul>
+        <a href="#contact" class="sc-link" data-service="Storm Damage / Insurance Claim">Request a Quote →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="hiw-section" id="process">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal">How It Works</div>
+      <h2 class="sec-title reveal">Simple Process, <span>Zero Stress</span></h2>
+      <p class="sec-desc reveal">Getting your home repaired or upgraded shouldn't be complicated. Here's exactly what to expect when you work with Joe.</p>
+    </div>
+    <div class="hiw-grid">
+      <div class="hiw-step reveal">
+        <div class="hiw-num">01</div>
+        <div class="hiw-title">Joe Picks Up</div>
+        <div class="hiw-body">Call or text — Joe answers himself. Not a call center, not a scheduler. You talk to the guy doing the work from the very first conversation.</div>
+      </div>
+      <div class="hiw-step reveal">
+        <div class="hiw-num">02</div>
+        <div class="hiw-title">Joe Shows Up</div>
+        <div class="hiw-body">Joe comes out personally, gets on the roof, checks everything, and gives you a straight honest assessment — not a sales pitch designed to upsell.</div>
+      </div>
+      <div class="hiw-step reveal">
+        <div class="hiw-num">03</div>
+        <div class="hiw-title">You Decide — No Pressure</div>
+        <div class="hiw-body">Fair quote, options explained, insurance handled if it applies. No follow-up pressure calls. No expiring discounts. Your call, your timeline.</div>
+      </div>
+      <div class="hiw-step reveal">
+        <div class="hiw-num">04</div>
+        <div class="hiw-title">Done Right, Backed Up</div>
+        <div class="hiw-body">Crew shows up on time, cleans up every day, doesn't leave until it's right. Every job backed by the 5-year labor warranty.</div>
+      </div>
+    </div>
+    <div class="hiw-cta reveal">
+      <a href="#contact" class="btn-primary">Get Your Free Estimate →</a>
+    </div>
+  </div>
+</section>
+
+<!-- WHY NOT THE BIG GUYS -->
+<section class="compare-section" id="compare">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal" style="color:rgba(255,255,255,.5)">The Honest Difference</div>
+      <h2 class="sec-title white reveal">Why Not <span>The Big Guys?</span></h2>
+      <p class="sec-desc reveal" style="color:rgba(255,255,255,.45)">Big companies have big overhead, big sales teams, and big incentives to upsell you. Joe has none of that — and passes the savings on.</p>
+    </div>
+
+    <div class="compare-table reveal">
+      <div class="compare-col-header them">Big Roofing Companies</div>
+      <div class="compare-divider-hdr">vs</div>
+      <div class="compare-col-header us">No Big Deal Home Solutions</div>
+
+      <div class="compare-cell them">❌ Salesman shows up, not the contractor</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ Joe shows up himself — every time</div>
+
+      <div class="compare-cell them">❌ Inflated quotes to cover marketing costs</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ Fair quotes with lower overhead = real savings</div>
+
+      <div class="compare-cell them">❌ Push replacements even when repair works</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ Honest: repair when it's right, replace when needed</div>
+
+      <div class="compare-cell them">❌ Subcontractors you've never met</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ Our own crews — same faces start to finish</div>
+
+      <div class="compare-cell them">❌ Hard to reach after contract is signed</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ Call or text Joe directly, any time</div>
+
+      <div class="compare-cell them">❌ Insurance claim? You're on your own</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ We navigate your entire insurance claim for you</div>
+
+      <div class="compare-cell them">❌ Pressure tactics and expiring discounts</div>
+      <div class="compare-cell divider">vs</div>
+      <div class="compare-cell us">✅ No pressure, no gimmicks — just straight talk</div>
+    </div>
+
+    <div class="compare-cta reveal">
+      <p>Ready to work with someone who just does the job right?</p>
+      <a href="#contact" class="btn-primary">Get a Free Honest Estimate →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="about-section" id="about">
+  <div class="section-inner">
+    <div class="about-grid">
+      <div class="about-img-block reveal">
+        <div class="about-img-main">
+          <div class="about-ph">
+            <span class="ico">🏠</span>
+            <p>Your home deserves the best</p>
+          </div>
+        </div>
+        <div class="about-badge">
+          <span class="big-num">5★</span>
+          <small>Google Rated</small>
+        </div>
+      </div>
+
+      <div class="about-content reveal">
+        <div class="eyebrow" style="text-align:left;padding-left:0">About Joe Deal</div>
+        <h2 class="sec-title" style="text-align:left">Why Homeowners<br>Trust <span>No Big Deal</span></h2>
+        <p>After years working in roofing sales — watching big companies charge $18,000 for jobs that cost $6,000 — Joe started No Big Deal Home Solutions to do it differently. The name says it all: good work at a fair price shouldn't be complicated.</p>
+        <p>Based in Goshen, OH, Joe runs multiple crews so he can take on jobs of any size without cutting corners on timeline or quality. Unlike the big outfits, Joe shows up himself — he's on every estimate, available by call or text, and doesn't disappear after the contract is signed.</p>
+
+        <div class="about-results">
+          <div class="about-results-lbl">What That Looks Like in Practice</div>
+          <div class="about-result">
+            <div class="about-result-num">5yr</div>
+            <div class="about-result-text">Labor warranty backed by Joe personally on every installation — not just a paper promise.</div>
+          </div>
+          <div class="about-result">
+            <div class="about-result-num">$0</div>
+            <div class="about-result-text">What you pay to have Joe come out and give you a full honest assessment. Free, no pressure, no obligation.</div>
+          </div>
+          <div class="about-result">
+            <div class="about-result-num">1</div>
+            <div class="about-result-text">Number of people who answers the phone when you call. Joe. Not a call center — Joe.</div>
+          </div>
+        </div>
+        <a href="#contact" class="btn-primary">Talk to Joe Today →</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- MASTERCLASS -->
-<section class="pro-section masterclass-section" id="masterclass">
-  <div class="pro-section-inner">
-    <div class="masterclass-layout">
-      <div class="masterclass-left reveal">
-        <div class="pro-eyebrow">The Playbook</div>
-        <h2 class="pro-section-title">12-Chapter <span>Local Authority</span> Masterclass</h2>
-        <p>Not a generic business course. The exact strategy Joe used to build No Big Deal Home Solutions into a 5-star local authority — condensed into a step-by-step system any contractor can execute.</p>
-        <div class="masterclass-stat-row">
-          <div class="mc-stat"><div class="num">12</div><div class="label">Chapters</div></div>
-          <div class="mc-stat"><div class="num">90</div><div class="label">Day System</div></div>
-          <div class="mc-stat"><div class="num">1M+</div><div class="label">Blueprint</div></div>
+<!-- SERVICE AREAS -->
+<section class="areas-section" id="areas">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal">Where We Work</div>
+      <h2 class="sec-title reveal">Serving Greater <span>Cincinnati &amp; Beyond</span></h2>
+      <p class="sec-desc reveal">Quality roofing and exterior services across Southwest Ohio and Northern Kentucky.</p>
+    </div>
+    <div class="areas-grid reveal">
+      <div class="area-tag">Goshen, OH</div>
+      <div class="area-tag">Milford, OH</div>
+      <div class="area-tag">Batavia, OH</div>
+      <div class="area-tag">Loveland, OH</div>
+      <div class="area-tag">Mason, OH</div>
+      <div class="area-tag">Lebanon, OH</div>
+      <div class="area-tag">Maineville, OH</div>
+      <div class="area-tag">Blue Ash, OH</div>
+      <div class="area-tag">Indian Hill, OH</div>
+      <div class="area-tag">Amelia, OH</div>
+      <div class="area-tag">Fayetteville, OH</div>
+      <div class="area-tag">Blanchester, OH</div>
+      <div class="area-tag">Mt. Orab, OH</div>
+      <div class="area-tag">Wilmington, OH</div>
+      <div class="area-tag">Clarksville, OH</div>
+    </div>
+    <div class="areas-contact reveal">
+      <div class="areas-contact-item">
+        <div class="aci-icon">📞</div>
+        <div class="aci-text">
+          <strong>Call or Text</strong>
+          <a href="tel:8594207382">(859) 420-7382</a>
         </div>
-        <a href="#pricing" class="btn-pro-primary">Unlock the Masterclass →</a>
       </div>
-      <div class="chapters-list reveal">
-        <div class="chapter-item unlocked"><div class="chapter-num">01</div><div class="chapter-info"><h4>The 90-Day SEO Launch System</h4><p>Dominate local search in 90 days. The exact launch sequence to get found before your competitors.</p></div><div class="chapter-lock">🔓</div></div>
-        <div class="chapter-item"><div class="chapter-num">02</div><div class="chapter-info"><h4>The Competition Crusher Framework</h4><p>Systematically out-position every competitor in your market with data, not guesswork.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">03</div><div class="chapter-info"><h4>The Market Takeover System</h4><p>From local unknown to market leader. The complete acquisition and authority framework.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">04</div><div class="chapter-info"><h4>The $1M Local Authority Blueprint</h4><p>The specific structure that turns a local service business into a million-dollar operation.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">05</div><div class="chapter-info"><h4>The Unfair Advantage System</h4><p>Leverage AI, automation, and tools your competitors don't even know exist yet.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">06</div><div class="chapter-info"><h4>The Authority Content Engine</h4><p>Create content that generates leads on autopilot — without being a full-time content creator.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">07</div><div class="chapter-info"><h4>The Review &amp; Reputation Flywheel</h4><p>Build a review machine that generates 5-star social proof consistently and automatically.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">08</div><div class="chapter-info"><h4>Google Maps Domination</h4><p>Own the Maps pack in your market. Tactics that put you in the top 3 — and keep you there.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">09</div><div class="chapter-info"><h4>Video &amp; Media Authority</h4><p>Become the most trusted face in your market using video — no production crew required.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">10</div><div class="chapter-info"><h4>AI Search Visibility Strategy</h4><p>Get found by AI search engines and voice assistants — the future of local search is here now.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">11</div><div class="chapter-info"><h4>The Local Authority Network</h4><p>Build the referral network and partnerships that compound your growth for years.</p></div><div class="chapter-lock">🔒</div></div>
-        <div class="chapter-item"><div class="chapter-num">12</div><div class="chapter-info"><h4>The Long-Term Authority Flywheel</h4><p>The compounding system that makes you harder to compete with every single month.</p></div><div class="chapter-lock">🔒</div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- WHO IT'S FOR -->
-<section class="pro-section audience-section" id="who">
-  <div class="pro-section-inner">
-    <div class="pro-section-header reveal">
-      <div class="pro-eyebrow">Built For</div>
-      <h2 class="pro-section-title">Who <span>No Big Deal Pro</span> Is For</h2>
-      <p class="pro-section-desc">This isn't for everyone. It's built for people serious about running a real business, not just chasing jobs.</p>
-    </div>
-    <div class="audience-grid">
-      <div class="audience-card reveal">
-        <span class="audience-emoji">🏗️</span>
-        <h3>Contractors &amp; Tradespeople</h3>
-        <p>Roofers, siders, gutter installers, remodelers — anyone running a crew who wants to stop winging it and start operating like a real business.</p>
-        <div class="audience-tags"><span class="audience-tag">Roofing</span><span class="audience-tag">Siding</span><span class="audience-tag">Gutters</span><span class="audience-tag">Remodeling</span><span class="audience-tag">Exterior Trades</span></div>
-      </div>
-      <div class="audience-card reveal">
-        <span class="audience-emoji">🚀</span>
-        <h3>Entrepreneurs &amp; Operators</h3>
-        <p>Small business owners in any local service industry who want the systems, tools, and strategy to build genuine market authority.</p>
-        <div class="audience-tags"><span class="audience-tag">Local Service</span><span class="audience-tag">Home Services</span><span class="audience-tag">Solo Operators</span><span class="audience-tag">Small Teams</span></div>
-      </div>
-      <div class="audience-card reveal">
-        <span class="audience-emoji">📈</span>
-        <h3>Growth-Stage Businesses</h3>
-        <p>Already doing revenue but stuck on a ceiling? The masterclass and CRM are built to break you through and scale without losing quality.</p>
-        <div class="audience-tags"><span class="audience-tag">Scale Up</span><span class="audience-tag">Lead Gen</span><span class="audience-tag">Systems</span><span class="audience-tag">Market Authority</span></div>
-      </div>
-    </div>
-    <div class="is-not-box reveal">
-      <div class="is-not-grid">
-        <div>
-          <h3>This Is <span>NOT</span> For You If...</h3>
-          <ul class="is-not-list">
-            <li class="no"><span class="icon">✕</span>You want a magic button that does everything for you</li>
-            <li class="no"><span class="icon">✕</span>You're not willing to do the work the system lays out</li>
-            <li class="no"><span class="icon">✕</span>You want a generic SaaS tool with no real-world context</li>
-            <li class="no"><span class="icon">✕</span>You think branding and systems are a waste of time</li>
-          </ul>
+      <div class="areas-contact-item">
+        <div class="aci-icon">📧</div>
+        <div class="aci-text">
+          <strong>Email Joe</strong>
+          <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
         </div>
-        <div>
-          <h3>This <span>IS</span> For You If...</h3>
-          <ul class="is-not-list">
-            <li class="yes"><span class="icon">✓</span>You're tired of losing jobs to bigger companies with worse work</li>
-            <li class="yes"><span class="icon">✓</span>You want a system that compounds and gets better every month</li>
-            <li class="yes"><span class="icon">✓</span>You want tools built by someone who actually uses them daily</li>
-            <li class="yes"><span class="icon">✓</span>You're ready to become the authority in your local market</li>
-          </ul>
+      </div>
+      <div class="areas-contact-item">
+        <div class="aci-icon">📍</div>
+        <div class="aci-text">
+          <strong>Based In</strong>
+          <span>Goshen / Cincinnati area, OH</span>
+        </div>
+      </div>
+      <div class="areas-contact-item">
+        <div class="aci-icon">🕐</div>
+        <div class="aci-text">
+          <strong>Hours</strong>
+          <span>Mon–Sat 7AM–6PM, Sun available</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- PRICING -->
-<section class="pro-section pricing-section" id="pricing">
-  <div class="pro-section-inner">
-    <div class="pro-section-header reveal">
-      <div class="pro-eyebrow">Simple Pricing</div>
-      <h2 class="pro-section-title">Founding Member <span>Pricing</span></h2>
-      <p class="pro-section-desc">Rates locked for founding members. Price increases as the platform grows — get in now at the ground floor.</p>
+<!-- REVIEWS -->
+<section class="reviews-section" id="reviews">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal">What Clients Say</div>
+      <h2 class="sec-title reveal">Real Homeowners, <span>Real Results</span></h2>
     </div>
-    <div class="pricing-grid">
-      <div class="pricing-card reveal">
-        <div class="pricing-header">
-          <div class="pricing-tier">Starter</div>
-          <div class="pricing-name">Masterclass Only</div>
-          <div class="pricing-price"><span class="price-dollar">$</span><span class="price-amount">97</span><span class="price-period">one-time</span></div>
-          <p class="pricing-desc">The full 12-chapter Local Authority Masterclass. Pure strategy and execution playbook — no CRM access.</p>
-        </div>
-        <div class="pricing-divider"></div>
-        <div class="pricing-features"><ul>
-          <li>All 12 masterclass chapters</li>
-          <li>90-Day SEO Launch System</li>
-          <li>$1M Local Authority Blueprint</li>
-          <li>Google Maps Domination guide</li>
-          <li>AI Search Visibility Strategy</li>
-          <li>PDF downloads included</li>
-          <li class="disabled">CRM Dashboard access</li>
-          <li class="disabled">AI Measurement Tool</li>
-          <li class="disabled">Lead Pipeline &amp; Estimates</li>
-        </ul></div>
-        <div class="pricing-cta"><a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Masterclass Access" class="btn-pro-secondary">Get Masterclass →</a></div>
+    <div class="reviews-rating reveal">
+      <div class="reviews-stars">★★★★★</div>
+      <div>
+        <div class="reviews-score">5.0 / 5.0</div>
+        <div class="reviews-score-sub">Based on Google Reviews</div>
       </div>
-      <div class="pricing-card featured reveal">
-        <div class="pricing-badge">Most Popular — Best Value</div>
-        <div class="pricing-header">
-          <div class="pricing-tier">Pro</div>
-          <div class="pricing-name">Full Pro Access</div>
-          <div class="pricing-price"><span class="price-dollar">$</span><span class="price-amount">197</span><span class="price-period">/ month</span></div>
-          <p class="pricing-desc">Complete access to the CRM platform, all AI tools, and the full masterclass library. Everything you need.</p>
-        </div>
-        <div class="pricing-divider"></div>
-        <div class="pricing-features"><ul>
-          <li>Full CRM Dashboard</li>
-          <li>Lead pipeline &amp; stage tracking</li>
-          <li>AI Google Maps Measurement Tool</li>
-          <li>Estimate creator</li>
-          <li>Contract generation</li>
-          <li>All 12 masterclass chapters</li>
-          <li>New chapters as released</li>
-          <li>Email support from Joe</li>
-          <li>Founding member price lock</li>
-        </ul></div>
-        <div class="pricing-cta"><a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Full Pro Access" class="btn-pro-primary">Start Today →</a></div>
-      </div>
-      <div class="pricing-card reveal">
-        <div class="pricing-header">
-          <div class="pricing-tier">Elite</div>
-          <div class="pricing-name">Done-With-You</div>
-          <div class="pricing-price"><span class="price-dollar">$</span><span class="price-amount">497</span><span class="price-period">/ month</span></div>
-          <p class="pricing-desc">Everything in Pro plus direct access to Joe. Strategy calls, CRM setup help, and personal accountability.</p>
-        </div>
-        <div class="pricing-divider"></div>
-        <div class="pricing-features"><ul>
-          <li>Everything in Pro</li>
-          <li>Monthly 1:1 strategy call with Joe</li>
-          <li>CRM custom setup &amp; onboarding</li>
-          <li>Direct text/email access to Joe</li>
-          <li>Custom market analysis</li>
-          <li>Priority feature requests</li>
-          <li>Co-branded materials (select)</li>
-          <li>Limited seats — apply to join</li>
-        </ul></div>
-        <div class="pricing-cta"><a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro - Elite Done-With-You" class="btn-pro-secondary">Apply for Elite →</a></div>
-      </div>
+      <a href="#contact" class="btn-primary" style="margin-left:auto">Leave Us a Review →</a>
     </div>
-    <div class="guarantee-strip reveal">
-      <div class="guarantee-inner">
-        <span class="g-emoji">🛡️</span>
-        <div><strong>30-Day No-Questions Guarantee</strong><span>If it's not right within 30 days, Joe will personally refund you. No hoops, no hassle.</span></div>
+    <div class="reviews-grid">
+      <div class="review-card reveal">
+        <div class="review-qmark">"</div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Joe was straightforward from the start — gave me an honest assessment, didn't try to sell me anything I didn't need, and the crew knocked it out in one day. Best contractor experience I've had."</p>
+        <div class="review-author">
+          <div class="review-avatar">DH</div>
+          <div>
+            <div class="review-name">David H.</div>
+            <div class="review-loc">Milford, OH — Roof Replacement</div>
+          </div>
+        </div>
+      </div>
+      <div class="review-card reveal">
+        <div class="review-qmark">"</div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Had storm damage and wasn't sure how to deal with insurance. Joe handled literally everything — filed the claim, worked with the adjuster, and had us fixed up within a week. Couldn't believe how easy it was."</p>
+        <div class="review-author">
+          <div class="review-avatar">LR</div>
+          <div>
+            <div class="review-name">Linda R.</div>
+            <div class="review-loc">Loveland, OH — Storm Damage</div>
+          </div>
+        </div>
+      </div>
+      <div class="review-card reveal">
+        <div class="review-qmark">"</div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Got three quotes. Joe was the only one who came out, got on the roof himself, and told me what I actually needed — not what would make him the most money. Fair price, great crew, zero drama."</p>
+        <div class="review-author">
+          <div class="review-avatar">TM</div>
+          <div>
+            <div class="review-name">Tom M.</div>
+            <div class="review-loc">Goshen, OH — Siding &amp; Gutters</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TESTIMONIALS -->
-<section class="pro-section testimonials-section">
-  <div class="pro-section-inner">
-    <div class="pro-section-header reveal">
-      <div class="pro-eyebrow">From The Community</div>
-      <h2 class="pro-section-title">What <span>Members Say</span></h2>
-    </div>
-    <div class="testimonials-grid">
-      <div class="testimonial-card reveal">
-        <div class="testimonial-stars">★★★★★</div>
-        <blockquote>"The AI measurement tool alone saves me 2 hours a week. I pull up the property on satellite, draw my lines, and I've got square footage before I even leave my truck. Total game changer."</blockquote>
-        <div class="testimonial-author"><div class="testimonial-avatar">MR</div><div><div class="testimonial-name">Mike R.</div><div class="testimonial-role">Roofing Contractor — Columbus, OH</div></div></div>
+<!-- CONTACT -->
+<section class="contact-section" id="contact">
+  <div class="section-inner">
+    <div class="contact-grid">
+      <div class="contact-left reveal">
+        <div class="eyebrow" style="color:rgba(255,255,255,.45)">Get in Touch</div>
+        <h2>Get a <span>Free Honest</span><br>Estimate</h2>
+        <p>No pressure, no obligation. Joe will reach out personally — usually the same day. Tell us what's going on and we'll give you a straight answer and a fair quote.</p>
+        <div class="contact-methods">
+          <a href="tel:8594207382" class="contact-method">
+            <div class="cm-icon">📞</div>
+            <div class="cm-text">
+              <strong>(859) 420-7382</strong>
+              <span>Call or text Joe directly</span>
+            </div>
+          </a>
+          <a href="mailto:jd@nobigdealwithjoedeal.com" class="contact-method">
+            <div class="cm-icon">📧</div>
+            <div class="cm-text">
+              <strong>jd@nobigdealwithjoedeal.com</strong>
+              <span>Email Joe anytime</span>
+            </div>
+          </a>
+        </div>
       </div>
-      <div class="testimonial-card reveal">
-        <div class="testimonial-stars">★★★★★</div>
-        <blockquote>"Chapter 8 on Google Maps changed everything. I went from barely showing up to being in the top 3 in my city in about 60 days. That alone was worth 10x the price of the whole thing."</blockquote>
-        <div class="testimonial-author"><div class="testimonial-avatar">TK</div><div><div class="testimonial-name">Tyler K.</div><div class="testimonial-role">Exterior Contractor — Dayton, OH</div></div></div>
-      </div>
-      <div class="testimonial-card reveal">
-        <div class="testimonial-stars">★★★★★</div>
-        <blockquote>"I've tried HubSpot, Jobber, all of them. None were built for how a contractor actually thinks. This CRM is different — it's the way I already work, just organized and automated."</blockquote>
-        <div class="testimonial-author"><div class="testimonial-avatar">DS</div><div><div class="testimonial-name">Dan S.</div><div class="testimonial-role">Siding &amp; Gutter Contractor — Cincinnati, OH</div></div></div>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- FINAL CTA -->
-<section class="pro-cta-section">
-  <div class="pro-cta-inner">
-    <div class="pro-eyebrow" style="display:inline-block;margin-bottom:20px;">Ready to Get the Unfair Advantage?</div>
-    <h2 class="pro-section-title" style="font-size:clamp(2.5rem,5vw,4rem);margin-bottom:20px;">Stop Competing.<br><span>Start Dominating.</span></h2>
-    <p>Join No Big Deal Pro and get the exact system, tools, and strategy that turned a solo contractor into a 5-star local authority. Founding member pricing won't last.</p>
-    <div class="pro-cta-buttons">
-      <a href="#pricing" class="btn-pro-primary">Get Full Access Now →</a>
-      <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD Pro Question" class="btn-pro-secondary">📧 Ask Joe a Question</a>
+      <div class="contact-right reveal">
+        <div class="contact-form-card">
+          <div class="cf-title">Free Estimate Request</div>
+          <div class="cf-sub">Joe will get back to you personally — usually same day.</div>
+
+          <div id="formSuccess" class="form-success">
+            <div class="form-success-icon">✅</div>
+            <h3>You're All Set!</h3>
+            <p>Your request is in. Joe will reach out personally within a few hours — usually same day.</p>
+          </div>
+
+          <div id="formFields">
+            <div class="form-row">
+              <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="fieldFirst" placeholder="John">
+              </div>
+              <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="fieldLast" placeholder="Smith">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" id="fieldPhone" placeholder="(859) 000-0000">
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="fieldEmail" placeholder="your@email.com">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Address / Zip Code</label>
+              <input type="text" placeholder="Your address or zip code">
+            </div>
+            <div class="form-group">
+              <label>Service Needed</label>
+              <select>
+                <option value="">— Select a Service —</option>
+                <option>Roof Replacement</option>
+                <option>Roof Repair</option>
+                <option>Siding Replacement</option>
+                <option>Siding Repair</option>
+                <option>Gutter Replacement</option>
+                <option>Storm Damage / Insurance Claim</option>
+                <option>Other / Not Sure</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tell Us About Your Project</label>
+              <textarea placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
+            </div>
+            <button class="form-submit" onclick="submitForm()">Send My Free Estimate Request →</button>
+            <p class="form-note">🔒 No spam, no pressure. Joe will reach out personally — usually same day.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- FOOTER -->
-<footer class="pro-footer">
-  <div class="pro-footer-inner">
-    <div class="pro-footer-top">
-      <div class="pro-footer-brand">
-        <div class="footer-name">No Big Deal <span>Pro</span></div>
-        <p>The contractor's unfair advantage. Built by Joe Deal — Goshen, OH.</p>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-logo-block">
+        <div class="footer-logo-card logo-card">
+          <div class="logo-card-top">
+            <svg viewBox="0 0 60 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 34 L30 6 L56 34" stroke="#1e3a6e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <path d="M10 31 L10 38 L50 38 L50 31" stroke="#1e3a6e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <rect x="24" y="28" width="12" height="10" rx="2" fill="#e8720c"/>
+            </svg>
+            <div class="logo-card-name">
+              <span class="lw-nobig">NO BIG</span>
+              <span class="lw-deal">DEAL</span>
+            </div>
+            <div class="logo-card-sub">Home Solutions</div>
+          </div>
+          <div class="logo-card-divider"></div>
+          <div class="logo-card-bottom">
+            <span class="lw-script">No Big Deal with Joe Deal</span>
+          </div>
+        </div>
+        <p class="footer-desc">Roofing, siding, gutters, and storm damage repair serving Greater Cincinnati. Honest assessments, fair pricing, and quality work backed by warranty.</p>
+        <div class="footer-badges">
+          <span class="footer-badge">Licensed</span>
+          <span class="footer-badge">Insured</span>
+          <span class="footer-badge">Locally Owned</span>
+          <span class="footer-badge">5-Star Rated</span>
+        </div>
       </div>
-      <nav class="pro-footer-links">
-        <a href="#tools">Tools</a>
-        <a href="#masterclass">Masterclass</a>
-        <a href="#pricing">Pricing</a>
-        <a href="mailto:jd@nobigdealwithjoedeal.com">Contact Joe</a>
-        <a href="/">← Home Site</a>
-      </nav>
+
+      <div>
+        <div class="footer-col-title">Services</div>
+        <ul class="footer-links">
+          <li><a href="#services">Roof Replacement</a></li>
+          <li><a href="#services">Roof Repair</a></li>
+          <li><a href="#services">Siding Replacement</a></li>
+          <li><a href="#services">Siding Repair</a></li>
+          <li><a href="#services">Gutter Replacement</a></li>
+          <li><a href="#services">Storm Damage &amp; Insurance</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer-col-title">Company</div>
+        <ul class="footer-links">
+          <li><a href="#about">About Joe</a></li>
+          <li><a href="#reviews">Reviews</a></li>
+          <li><a href="#areas">Service Areas</a></li>
+          <li><a href="#process">How It Works</a></li>
+          <li><a href="#contact">Get an Estimate</a></li><li><a href="https://g.page/r/CZ0JXxHcHiqiEBM/review" target="_blank" rel="noopener">Leave a Review</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer-col-title">Contact</div>
+        <ul class="footer-links">
+          <li><a href="tel:8594207382">(859) 420-7382</a></li>
+          <li><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></li>
+          <li><a href="#areas">Goshen / Cincinnati, OH</a></li>
+          <li style="color:rgba(255,255,255,.3);font-size:.78rem;margin-top:8px">Mon–Sat 7AM–6PM</li>
+          <li style="color:rgba(255,255,255,.3);font-size:.78rem">Sunday available</li>
+        </ul>
+      </div>
     </div>
-    <div class="pro-footer-bottom">
-      <span>© 2025 No Big Deal Home Solutions &amp; No Big Deal Pro. All rights reserved.</span>
-      <div class="pro-footer-contact">
-        <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
-        <a href="tel:5133152406">(513) 315-2406</a>
-      </div>
+
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 No Big Deal Home Solutions. All rights reserved.</div>
+      <!-- ← THE SILENT PRO DOOR: visible only to those looking for it → -->
+      <a href="/pro/index.html" class="pro-door">Are you a contractor or entrepreneur? → NBD Pro</a>
     </div>
   </div>
 </footer>
 
+<!-- BACK TO TOP -->
+<button class="back-to-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
 <script>
-  function toggleMobileNav() {
-    const nav = document.getElementById('mobileNav');
-    const open = nav.classList.toggle('open');
-    document.body.style.overflow = open ? 'hidden' : '';
+// Announcement bar rotation
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
+
+// Scroll reveals
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); observer.unobserve(e.target); }});
+},{threshold:0.12});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+// Back to top
+window.addEventListener('scroll',()=>{
+  const btn = document.getElementById('backTop');
+  btn.classList.toggle('visible', window.scrollY > 400);
+});
+
+// Mobile nav
+function toggleMobileNav(){
+  const nav = document.getElementById('mobileNav');
+  const hb = document.getElementById('hamburger');
+  const open = nav.classList.toggle('open');
+  const bars = hb.querySelectorAll('span');
+  if(open){
+    bars[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';
+    bars[1].style.cssText='opacity:0';
+    bars[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';
+  } else {
+    bars.forEach(b=>b.style.cssText='');
   }
-  document.addEventListener('click', e => {
-    const nav = document.getElementById('mobileNav');
-    const btn = document.getElementById('hamburger');
-    if (nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
-      nav.classList.remove('open');
-      document.body.style.overflow = '';
-    }
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { document.getElementById('mobileNav').classList.remove('open'); document.body.style.overflow = ''; }
-  });
+}
+function closeMobileNav(){
+  document.getElementById('mobileNav').classList.remove('open');
+  document.getElementById('hamburger').querySelectorAll('span').forEach(b=>b.style.cssText='');
+}
 
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
-  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-  document.querySelectorAll('a[href^="#"]').forEach(link => {
-    link.addEventListener('click', e => {
-      const href = link.getAttribute('href');
-      if (href === '#') return;
-      const target = document.querySelector(href);
-      if (target) { e.preventDefault(); window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' }); }
-    });
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(link=>{
+  link.addEventListener('click',e=>{
+    const href = link.getAttribute('href');
+    if(href==='#') return;
+    const target = document.querySelector(href);
+    if(target){ e.preventDefault(); target.scrollIntoView({behavior:'smooth'}); }
   });
+});
 
-  const nav = document.getElementById('mainNav');
-  window.addEventListener('scroll', () => { nav.style.boxShadow = window.scrollY > 40 ? '0 4px 32px rgba(0,0,0,.5)' : 'none'; }, { passive: true });
+// Form submit
+function submitForm(){
+  const first=document.getElementById('fieldFirst').value.trim();
+  const phone=document.getElementById('fieldPhone').value.trim();
+  if(!first||!phone){alert('Please enter your name and phone number so Joe can reach you.');return;}
+  document.getElementById('formFields').style.display='none';
+  document.getElementById('formSuccess').style.display='block';
+  const last=document.getElementById('fieldLast')?.value.trim()||'';
+  const email=document.getElementById('fieldEmail')?.value.trim()||'';
+  const service=document.querySelector('#formFields select')?.value||'';
+  const message=document.querySelector('#formFields textarea')?.value.trim()||'';
+  fetch('https://formsubmit.co/ajax/jd@nobigdealwithjoedeal.com',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({_subject:'New Estimate - '+first+' '+last,_captcha:'false',_template:'table',name:first+' '+last,phone:phone,email:email||'not provided',service:service||'not specified',message:message||'no message'})}).catch(()=>{});
+}
+  document.getElementById('formFields').style.display='none';
+  document.getElementById('formSuccess').style.display='block';
+}
 </script>
 </body>
 </html>
