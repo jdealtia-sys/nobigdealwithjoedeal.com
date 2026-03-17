@@ -3,182 +3,259 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NBD Pro — Login</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-
-<script type="module">
-  import { initializeApp }      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth,
-           signInWithEmailAndPassword,
-           sendPasswordResetEmail,
-           onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-    authDomain:        "nobigdeal-pro.firebaseapp.com",
-    projectId:         "nobigdeal-pro",
-    storageBucket:     "nobigdeal-pro.firebasestorage.app",
-    messagingSenderId: "717435841570",
-    appId:             "1:717435841570:web:c2338e11052c96fde02e7b"
-  };
-
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-
-  // Already logged in? Go straight to dashboard
-  onAuthStateChanged(auth, user => {
-    if (user) window.location.href = "dashboard.html";
-  });
-
-  window._auth    = auth;
-  window._signIn  = signInWithEmailAndPassword;
-  window._resetPw = sendPasswordResetEmail;
-</script>
-
+<title>NBD Pro — For Contractors & Entrepreneurs</title>
+<meta name="description" content="Build a real restoration business. Free blueprint, success system, and the most powerful contractor CRM in the game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.35);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 20% 50%,rgba(200,84,26,.08) 0%,transparent 70%),radial-gradient(ellipse 40% 60% at 80% 20%,rgba(74,158,255,.04) 0%,transparent 60%),repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px);pointer-events:none;z-index:0;}
-.wrap{position:relative;z-index:1;width:100%;max-width:440px;padding:24px;animation:fu .6s ease both;}
-@keyframes fu{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-.brand{text-align:center;margin-bottom:40px;}
-.badge{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:4px 12px;border-radius:2px;margin-bottom:16px;}
-h1{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;line-height:1;}
-h1 span{color:var(--orange);}
-.sub{font-size:13px;color:var(--m);margin-top:8px;letter-spacing:.05em;text-transform:uppercase;}
-.card{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:36px 32px;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 24px 48px rgba(0,0,0,.4),0 0 60px var(--og);position:relative;overflow:hidden;}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
-.ct{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:.04em;margin-bottom:4px;text-transform:uppercase;}
-.cd{font-size:13px;color:var(--m);margin-bottom:28px;}
-.field{margin-bottom:18px;}
-label{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:8px;}
-input{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:13px 16px;font-family:'Barlow',sans-serif;font-size:15px;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;}
-input::placeholder{color:#3a3f48;}
-input:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--og);}
-.ir{position:relative;}
-.eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--m);cursor:pointer;padding:4px;font-size:16px;}
-.eye:hover{color:var(--t);}
-.forgot{text-align:right;margin-top:-10px;margin-bottom:20px;}
-.forgot a{font-size:12px;color:var(--orange);text-decoration:none;opacity:.8;transition:opacity .2s;}
-.forgot a:hover{opacity:1;}
-.btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:15px;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .1s;box-shadow:0 4px 20px var(--og);display:flex;align-items:center;justify-content:center;gap:10px;}
-.btn:hover{background:var(--ob);transform:translateY(-1px);}
-.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
-.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;}
-@keyframes spin{to{transform:rotate(360deg)}}
-.err{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#ff7070;margin-bottom:16px;display:none;}
-.ok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#2ecc8a;margin-bottom:16px;display:none;}
-.sov{display:none;text-align:center;padding:20px 0;}
-.ck{width:52px;height:52px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;animation:pop .4s cubic-bezier(.34,1.56,.64,1) both;}
-@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-.pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:28px;}
-.pill{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);border:1px solid var(--br);border-radius:20px;padding:4px 10px;background:var(--s2);}
-.pill.on{color:var(--orange);border-color:rgba(200,84,26,.3);}
-.fn{text-align:center;margin-top:24px;font-size:12px;color:var(--m);}
-.fn a{color:var(--orange);text-decoration:none;}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--navy:#1a2b5e;--navy-dark:#0f1d42;--orange:#e8720c;--orange-dark:#c45e08;--orange-light:#f59240;--white:#fff;--text-muted:#8b9bb4;--dark-bg:#0d1117;--dark-card:#161b22}
+html{scroll-behavior:smooth}
+body{background:var(--navy-dark);color:var(--white);font-family:'Montserrat',sans-serif;line-height:1.6;overflow-x:hidden}
+nav{position:sticky;top:0;z-index:200;background:rgba(15,29,66,0.97);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,114,12,0.2);padding:0 48px;height:64px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.nlm{width:38px;height:38px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff;letter-spacing:1px}
+.nlt{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--white);line-height:1}
+.nlt span{color:var(--orange)}
+.nls{font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+.nav-links a{color:var(--text-muted);text-decoration:none;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:color .2s}
+.nav-links a:hover{color:var(--white)}
+.ncta{background:var(--orange) !important;color:var(--white) !important;padding:9px 22px;border-radius:4px}
+.ncta:hover{background:var(--orange-dark) !important}
+.btn-p{background:var(--orange);color:#fff;padding:15px 36px;border-radius:4px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .25s}
+.btn-p:hover{background:var(--orange-dark);transform:translateY(-1px)}
+.btn-s{background:transparent;color:var(--white);padding:15px 36px;border-radius:4px;font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;border:1px solid rgba(255,255,255,.2);cursor:pointer;transition:all .25s}
+.btn-s:hover{border-color:rgba(255,255,255,.5)}
+@keyframes pd{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="brand">
-    <div class="badge">Pro Access</div>
-    <h1>No Big Deal<br><span>Home Solutions</span></h1>
-    <p class="sub">Roofing Operations Platform</p>
+<nav>
+  <a href="/pro/" class="nav-logo">
+    <div class="nlm">NBD</div>
+    <div><div class="nlt">No Big <span>Deal</span></div><div class="nls">Pro Portal</div></div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#blueprint">Free Blueprint</a></li>
+    <li><a href="#masterclass">Masterclass</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="/" style="font-size:11px">&larr; Main Site</a></li>
+    <li><a href="/pro/login.html" class="ncta">Member Login</a></li>
+  </ul>
+</nav>
+
+<section style="min-height:90vh;display:grid;grid-template-columns:1fr 460px;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 600px 500px at 20% 60%,rgba(232,114,12,0.08) 0%,transparent 70%);pointer-events:none"></div>
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(255,255,255,0.015) 60px,rgba(255,255,255,0.015) 61px);pointer-events:none"></div>
+  <div style="padding:80px 64px;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,0.12);border:1px solid rgba(232,114,12,0.35);color:var(--orange-light);font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:7px 14px;border-radius:4px;margin-bottom:28px;width:fit-content">
+      <span style="width:6px;height:6px;background:var(--orange);border-radius:50%;display:inline-block;animation:pd 2s infinite"></span>
+      For Contractors &amp; Entrepreneurs
+    </div>
+    <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(60px,6vw,88px);line-height:.92;letter-spacing:2px;margin-bottom:28px">
+      <span>STOP LEAVING</span><br>
+      <span style="color:var(--orange)">MONEY</span><br>
+      <span>ON THE ROOF.</span>
+    </h1>
+    <p style="font-size:16px;color:var(--text-muted);line-height:1.75;max-width:500px;margin-bottom:44px">Joe Deal built a <strong style="color:var(--white)">real restoration business</strong> from the ground up in Greater Cincinnati. Now the system, the tools, and direct access to Joe are all available to you.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:48px">
+      <a href="#blueprint" class="btn-p">&darr; Get the Free Blueprint</a>
+      <a href="#pricing" class="btn-s">See Membership Plans</a>
+    </div>
+    <div style="display:flex;gap:28px;align-items:center">
+      <span style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)"><span style="width:16px;height:16px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#3fb950">&#10003;</span>No experience required</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)"><span style="width:16px;height:16px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#3fb950">&#10003;</span>Real Cincinnati market</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)"><span style="width:16px;height:16px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#3fb950">&#10003;</span>Cancel anytime</span>
+    </div>
   </div>
-
-  <div class="card">
-    <div class="err" id="err"></div>
-    <div class="ok"  id="ok"></div>
-
-    <div id="form">
-      <p class="ct">Sign In</p>
-      <p class="cd">Access your roofing CRM dashboard</p>
-
-      <div class="field">
-        <label>Email Address</label>
-        <input type="email" id="email" placeholder="you@nobigdealhomesolutions.com" autocomplete="email">
+  <div style="background:var(--dark-bg);border-left:1px solid rgba(232,114,12,0.2);display:flex;flex-direction:column;justify-content:center;padding:48px 40px;position:relative;z-index:1">
+    <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:16px">Live inside the dashboard &rarr;</div>
+    <div style="background:var(--dark-card);border:1px solid rgba(232,114,12,0.25);border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div style="background:rgba(232,114,12,0.1);border-bottom:1px solid rgba(232,114,12,0.2);padding:12px 16px;display:flex;align-items:center;gap:6px">
+        <span style="width:8px;height:8px;border-radius:50%;background:#f85149;display:inline-block"></span>
+        <span style="width:8px;height:8px;border-radius:50%;background:#d29922;display:inline-block"></span>
+        <span style="width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block"></span>
+        <span style="margin-left:auto;font-size:10px;color:var(--orange);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">NBD Pro Dashboard</span>
       </div>
-      <div class="field">
-        <label>Password</label>
-        <div class="ir">
-          <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password">
-          <button class="eye" onclick="togglePw()" type="button">👁</button>
+      <div style="padding:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+          <div style="background:#1c2333;border-radius:6px;padding:12px 14px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Active Leads</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--orange)">14</div></div>
+          <div style="background:#1c2333;border-radius:6px;padding:12px 14px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Revenue MTD</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#3fb950">$48K</div></div>
+          <div style="background:#1c2333;border-radius:6px;padding:12px 14px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Pipeline Value</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#d29922">$122K</div></div>
+          <div style="background:#1c2333;border-radius:6px;padding:12px 14px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Close Rate</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#f0f6fc">61%</div></div>
         </div>
+        <div style="background:#1c2333;border-radius:6px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:7px;height:7px;border-radius:50%;background:#e8720c;display:inline-block;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:600;color:#f0f6fc">Marcus Williams</div><div style="font-size:10px;color:#8b949e">Roofing &middot; 1248 Oak Ave</div></div></div>
+          <span style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:rgba(232,114,12,0.15);color:var(--orange)">New</span>
+        </div>
+        <div style="background:#1c2333;border-radius:6px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:7px;height:7px;border-radius:50%;background:#3fb950;display:inline-block;flex-shrink:0"></span><div><div style="font-size:12px;font-weight:600;color:#f0f6fc">Dave Torres</div><div style="font-size:10px;color:#8b949e">Full Exterior &middot; $18,400</div></div></div>
+          <span style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:rgba(63,185,80,0.15);color:#3fb950">Closing</span>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:space-between"><span style="font-size:10px;color:#8b949e">8 more leads in pipeline</span><a href="/pro/login.html" style="font-size:10px;color:var(--orange);text-decoration:none;font-weight:600">Access dashboard &rarr;</a></div>
       </div>
-      <div class="forgot"><a href="#" onclick="handleReset(event)">Forgot password?</a></div>
-
-      <button class="btn" onclick="handleLogin()" id="btn">
-        <div class="spinner" id="spin"></div>
-        <span id="bt">Enter Dashboard</span>
-      </button>
-    </div>
-
-    <div class="sov" id="sov">
-      <div class="ck">✓</div>
-      <p style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Access Granted</p>
-      <p style="color:var(--m);font-size:13px;margin-top:6px;">Loading your dashboard...</p>
-    </div>
-
-    <div class="pills">
-      <span class="pill on">CRM Pipeline</span>
-      <span class="pill on">Storm Intel</span>
-      <span class="pill on">AI Estimates</span>
-      <span class="pill">Property Intel</span>
-      <span class="pill">Leaderboard</span>
     </div>
   </div>
-  <p class="fn">Need access? <a href="mailto:parker@coxroof.com">Contact support</a></p>
+</section>
+
+<div style="background:var(--orange);padding:20px 48px;display:flex;justify-content:center;gap:0;flex-wrap:wrap">
+  <div style="text-align:center;padding:0 56px;border-right:1px solid rgba(255,255,255,.25)"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:#fff;margin-bottom:2px">500+</div><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.75)">Jobs Completed</div></div>
+  <div style="text-align:center;padding:0 56px;border-right:1px solid rgba(255,255,255,.25)"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:#fff;margin-bottom:2px">$2M+</div><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.75)">Claims Closed</div></div>
+  <div style="text-align:center;padding:0 56px;border-right:1px solid rgba(255,255,255,.25)"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:#fff;margin-bottom:2px">12</div><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.75)">Chapter System</div></div>
+  <div style="text-align:center;padding:0 56px"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:#fff;margin-bottom:2px">4.9&#9733;</div><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.75)">Google Rating</div></div>
 </div>
 
-<script>
-function togglePw(){const p=document.getElementById('pw');p.type=p.type==='password'?'text':'password';}
+<div id="blueprint" style="background:var(--navy-dark);padding:96px 48px;border-top:1px solid rgba(255,255,255,0.05)">
+  <div style="max-width:1140px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:80px;align-items:center">
+    <div>
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:#3fb950;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:6px 12px;border-radius:4px;margin-bottom:20px;width:fit-content">&#10003; 100% Free &mdash; No Catch</div>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(44px,4.5vw,64px);letter-spacing:2px;line-height:.95;margin-bottom:20px">THE <span style="color:var(--orange)">FIELD-TO-CLOSE</span> BLUEPRINT</h2>
+      <p style="font-size:15px;color:var(--text-muted);line-height:1.75;margin-bottom:36px;max-width:480px">Everything Joe learned knocking doors, working storm damage, and building a profitable book of business in Cincinnati &mdash; condensed into one PDF.</p>
+      <ul style="list-style:none;margin-bottom:36px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>Find fire damage leads</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>First knock script</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>How insurance claims work</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>Scope of loss basics</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>How to price a job right</li>
+        <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>Referral system setup</li>
+      </ul>
+    </div>
+    <div style="background:var(--dark-card);border:1px solid rgba(232,114,12,0.25);border-radius:12px;padding:36px;position:relative;overflow:hidden">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;margin-bottom:4px">GET THE PDF</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:24px">Delivered to your inbox instantly.</div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">First Name</label><input type="text" placeholder="Joe" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Email Address</label><input type="email" placeholder="you@email.com" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Your Market / City</label><input type="text" placeholder="Cincinnati, OH" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <button type="button" style="width:100%;background:var(--orange);color:#fff;padding:14px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;margin-top:4px">Send Me the Blueprint &rarr;</button>
+      <div style="font-size:11px;color:#444d5a;text-align:center;margin-top:10px">No spam. Unsubscribe anytime.</div>
+    </div>
+  </div>
+</div>
 
-async function handleLogin(){
-  const email=document.getElementById('email').value.trim();
-  const pw=document.getElementById('pw').value;
-  const err=document.getElementById('err');
-  const btn=document.getElementById('btn');
-  err.style.display='none';
-  if(!email||!pw){err.textContent='Please enter your email and password.';err.style.display='block';return;}
-  document.getElementById('spin').style.display='block';
-  document.getElementById('bt').style.display='none';
-  btn.disabled=true;
-  try{
-    await window._signIn(window._auth,email,pw);
-    document.getElementById('form').style.display='none';
-    document.getElementById('sov').style.display='block';
-  }catch(e){
-    document.getElementById('spin').style.display='none';
-    document.getElementById('bt').style.display='block';
-    btn.disabled=false;
-    const m={
-      'auth/user-not-found':'No account found with that email.',
-      'auth/wrong-password':'Incorrect password. Try again.',
-      'auth/too-many-requests':'Too many attempts — wait a moment.',
-      'auth/invalid-email':'Enter a valid email address.',
-      'auth/invalid-credential':'Invalid email or password.',
-    };
-    err.textContent=m[e.code]||'Login failed. Please try again.';
-    err.style.display='block';
-  }
-}
+<div style="background:var(--navy);padding:80px 48px;border-top:1px solid rgba(255,255,255,0.06)">
+  <div style="max-width:1140px;margin:0 auto;text-align:center">
+    <p style="font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--orange);margin-bottom:12px">The NBD Success Mailer</p>
+    <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;margin-bottom:16px">STAY IN THE <span style="color:var(--orange)">LOOP.</span> STAY IN THE MONEY.</h2>
+    <p style="font-size:15px;color:rgba(255,255,255,.6);max-width:580px;margin:0 auto 36px;line-height:1.7">Weekly emails from Joe. Real market intel, lead tactics, and what's actually working right now in Greater Cincinnati restoration.</p>
+    <div style="display:flex;gap:12px;max-width:520px;margin:0 auto 24px">
+      <input type="email" placeholder="your@email.com" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:14px 18px;font-size:14px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none">
+      <button type="button" style="background:var(--orange);color:#fff;padding:14px 28px;border-radius:6px;font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap">Subscribe Free</button>
+    </div>
+    <div style="display:flex;justify-content:center;gap:28px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Weekly field intel</span>
+      <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Early tool access</span>
+      <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Member-only deals</span>
+      <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Unsubscribe anytime</span>
+    </div>
+  </div>
+</div>
 
-async function handleReset(e){
-  e.preventDefault();
-  const email=document.getElementById('email').value.trim();
-  const err=document.getElementById('err');
-  const ok=document.getElementById('ok');
-  err.style.display='none';ok.style.display='none';
-  if(!email){err.textContent='Enter your email above, then click Forgot Password.';err.style.display='block';return;}
-  try{
-    await window._resetPw(window._auth,email);
-    ok.textContent='Reset email sent! Check your inbox.';ok.style.display='block';
-  }catch(ex){
-    err.textContent='Could not send reset email. Check the address.';err.style.display='block';
-  }
-}
-document.addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin();});
-</script>
+<div id="masterclass" style="background:var(--navy);padding:96px 48px;border-top:1px solid rgba(255,255,255,0.06)">
+  <div style="max-width:1140px;margin:0 auto;display:grid;grid-template-columns:440px 1fr;gap:80px;align-items:start">
+    <div>
+      <p style="font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--orange);margin-bottom:12px">The NBD Success Pack</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;line-height:1;margin-bottom:16px">12 CHAPTERS.<br>ONE SYSTEM.<br><span style="color:var(--orange)">REAL RESULTS.</span></h2>
+      <p style="font-size:15px;color:var(--text-muted);line-height:1.7;max-width:600px;margin-bottom:28px">The complete contractor success pack. From your first knock to a fully operational pipeline.</p>
+      <div style="background:rgba(232,114,12,0.08);border:1px solid rgba(232,114,12,0.2);border-radius:8px;padding:20px 22px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div style="font-size:13px;color:var(--text-muted)">Full 12-chapter success pack.<br><strong style="color:var(--white)">One-time investment. Yours forever.</strong></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--orange);flex-shrink:0;line-height:1">$497</div>
+      </div>
+      <div style="margin-top:16px"><a href="/pro/login.html" class="btn-p">Get the Full Pack &rarr;</a></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">01</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">The Mindset of a Closer</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">02</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Reading a Market for Damage</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">03</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Your First Door Knock</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">04</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Understanding Insurance Claims</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">05</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Scoping a Loss Like a Pro</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">06</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">The Estimate Walkthrough</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">07</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Working the Adjuster</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">08</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Closing the Contract</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">09</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Managing the Job</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">10</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Getting Paid Fast</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">11</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Building Your Referral Machine</span></div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px"><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--orange);line-height:1;flex-shrink:0;min-width:28px">12</span><span style="font-size:11px;font-weight:600;color:#c8d3e0;line-height:1.4">Scaling to a Real Business</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="pricing" style="padding:96px 48px;background:var(--navy-dark);border-top:1px solid rgba(255,255,255,0.05)">
+  <div style="max-width:1140px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:64px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--orange);margin-bottom:12px">Choose Your Level</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;line-height:1;margin-bottom:16px">THE NBD PRO SYSTEM</h2>
+      <p style="font-size:15px;color:var(--text-muted);line-height:1.7;max-width:600px;margin:0 auto">Start free. Get the blueprint. Or go all-in with direct access to Joe.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:start">
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:36px 28px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Starter</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1px;margin-bottom:4px">Free Blueprint</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:1px;line-height:1;color:var(--white);margin-bottom:4px"><span style="font-size:28px;vertical-align:top;margin-top:10px;display:inline-block">$</span>0</div>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.06)">Everything you need to understand the game before you start playing it.</p>
+        <ul style="list-style:none;margin-bottom:28px">
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Field-to-Close PDF Blueprint</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Weekly Success Mailer</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px"><span style="color:#3a4152">&#10007;</span> CRM + Pipeline tools</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px"><span style="color:#3a4152">&#10007;</span> AI systems access</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px"><span style="color:#3a4152">&#10007;</span> Direct access to Joe</li>
+        </ul>
+        <a href="#blueprint" style="display:block;width:100%;text-align:center;padding:13px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;background:transparent;color:var(--white);border:1px solid rgba(255,255,255,.15)">Get the Blueprint</a>
+      </div>
+      <div style="background:var(--dark-card);border:2px solid var(--orange);border-radius:12px;padding:36px 28px;position:relative;transform:translateY(-8px);box-shadow:0 0 40px rgba(232,114,12,0.12)">
+        <div style="position:absolute;top:0;right:0;background:var(--orange);color:#fff;font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:6px 16px;border-bottom-left-radius:8px">Most Popular</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Pro Member</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1px;margin-bottom:4px;color:var(--orange)">NBD Foundation</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:1px;line-height:1;color:var(--white);margin-bottom:4px"><span style="font-size:28px;vertical-align:top;margin-top:10px;display:inline-block">$</span>97<span style="font-size:14px;font-family:'Montserrat',sans-serif;font-weight:500;color:var(--text-muted)">/mo</span></div>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.06)">The full CRM and operations platform. Track leads, manage jobs, run your pipeline like a real business.</p>
+        <ul style="list-style:none;margin-bottom:28px">
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Everything in Free</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Full Lead Pipeline CRM</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Estimates &amp; Contracts module</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> 12-Chapter Masterclass</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px"><span style="color:#3a4152">&#10007;</span> AI-powered tools</li>
+        </ul>
+        <a href="/pro/login.html" style="display:block;width:100%;text-align:center;padding:13px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;background:var(--orange);color:#fff">Start NBD Foundation</a>
+      </div>
+      <div style="background:var(--dark-card);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:36px 28px">
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(232,114,12,0.1);border:1px solid rgba(232,114,12,0.2);border-radius:4px;padding:6px 10px;margin-bottom:16px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--orange)"><span style="width:6px;height:6px;background:var(--orange);border-radius:50%;display:inline-block;animation:pd 1.5s infinite"></span> AI-Powered + Always Updating</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Elite</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1px;margin-bottom:4px;color:var(--orange)">NBD Infused</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:1px;line-height:1;color:var(--white);margin-bottom:4px"><span style="font-size:28px;vertical-align:top;margin-top:10px;display:inline-block">$</span>197<span style="font-size:14px;font-family:'Montserrat',sans-serif;font-weight:500;color:var(--text-muted)">/mo</span></div>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.06)">The full system with AI tools, continuous updates, and direct contact with Joe himself.</p>
+        <ul style="list-style:none;margin-bottom:28px">
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Everything in Foundation</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> AI Measurement &amp; Scoping</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> System always updating</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Direct line to Joe (text/call)</li>
+          <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Monthly group strategy call</li>
+        </ul>
+        <a href="/pro/login.html" style="display:block;width:100%;text-align:center;padding:13px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;background:transparent;color:var(--orange);border:1px solid var(--orange)">Join NBD Infused</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="background:var(--orange);padding:80px 48px;text-align:center">
+  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(44px,5vw,68px);letter-spacing:2px;color:#fff;line-height:.95;margin-bottom:16px">READY TO BUILD SOMETHING?</h2>
+  <p style="font-size:15px;color:rgba(255,255,255,.75);margin-bottom:36px">Start with the free blueprint. Upgrade when you're ready. Joe's built it &mdash; now it's yours.</p>
+  <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+    <a href="#blueprint" style="background:#fff;color:var(--orange);padding:15px 36px;border-radius:4px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none">Get the Free Blueprint</a>
+    <a href="/pro/login.html" style="background:transparent;color:#fff;padding:15px 36px;border-radius:4px;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;border:2px solid rgba(255,255,255,.5)">Member Login &rarr;</a>
+  </div>
+</div>
+
+<footer style="background:#0a0e17;padding:48px;display:grid;grid-template-columns:1fr auto auto;gap:40px;align-items:center;border-top:1px solid rgba(255,255,255,0.06)">
+  <div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--white)">No Big <span style="color:var(--orange)">Deal</span> Pro</div>
+    <div style="font-size:11px;color:var(--text-muted)">&copy; 2026 No Big Deal Home Solutions &middot; (859) 420-7382</div>
+  </div>
+  <div style="display:flex;gap:24px">
+    <a href="/" style="font-size:11px;color:var(--text-muted);text-decoration:none">&larr; Main Site</a>
+    <a href="mailto:jd@nobigdealwithjoedeal.com" style="font-size:11px;color:var(--text-muted);text-decoration:none">Contact Joe</a>
+  </div>
+  <a href="/pro/login.html" style="background:rgba(232,114,12,0.1);border:1px solid rgba(232,114,12,0.25);color:var(--orange);padding:10px 20px;border-radius:4px;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;text-decoration:none">Member Login &rarr;</a>
+</footer>
+
 </body>
 </html>
