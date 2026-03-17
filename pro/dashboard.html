@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    projectId: "nobigdeal-pro",
+    storageBucket: "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841570",
+    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+  };
+
+  document.documentElement.style.visibility="hidden";
+  const app     = initializeApp(firebaseConfig);
+  const auth    = getAuth(app);
+  const db      = getFirestore(app);
+  const storage = getStorage(app);
+
+  onAuthStateChanged(auth, user => {
+    if (!user) { window.location.replace("/pro/login.html"); return; }
+    document.documentElement.style.visibility="visible";
+    window._user = user;
+    const name = user.displayName || user.email.split('@')[0];
+    document.getElementById('userName').textContent   = name;
+    document.getElementById('userAvatar').textContent = name[0].toUpperCase();
+    document.getElementById('dashName').textContent   = name;
+    document.getElementById('settingsName').value     = user.displayName || '';
+    document.getElementById('settingsEmail').value    = user.email || '';
+    loadLeads(); loadEstimates(); loadPins();
+  });
+
+  window._auth    = auth;
+  window._db      = db;
+  window._storage = storage;
+  window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
+
+  // ── LEADS ──────────────────────────────────────
+  async function loadLeads() {
+    try {
+      const snap = await getDocs(query(collection(db,'leads'), orderBy('createdAt','desc')));
+      window._leads = snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { window._leads = []; }
+    renderLeads(window._leads);
+    updatePipeline(window._leads);
+  }
+  window._loadLeads = loadLeads;
+
+  window._saveLead = async (data) => {
+    try {
+      await addDoc(collection(db,'leads'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+    } catch(e) {
+      (window._leads||[]).unshift({id:'d-'+Date.now(),...data,createdAt:new Date()});
+    }
+    await loadLeads();
+  };
+
+  // ── ESTIMATES ──────────────────────────────────
+  async function loadEstimates() {
+    try {
+      const snap = await getDocs(query(collection(db,'estimates'), orderBy('createdAt','desc')));
+      window._estimates = snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { window._estimates = []; }
+    renderEstimatesList(window._estimates);
+  }
+  window._loadEstimates = loadEstimates;
+
+  window._saveEstimate = async (data) => {
+    try {
+      const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+      await loadEstimates();
+      return ref2.id;
+    } catch(e) { return null; }
+  };
+
+  // ── PINS ───────────────────────────────────────
+  async function loadPins() {
+    try {
+      const snap = await getDocs(collection(db,'pins'));
+      window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { window._pins = []; }
+  }
+  window._savePin = async (data) => {
+    try { const r = await addDoc(collection(db,'pins'), {...data, createdAt:serverTimestamp()}); return r.id; }
+    catch(e) { return 'd-'+Date.now(); }
+  };
+  window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){} };
+
+  // ── PHOTOS ─────────────────────────────────────
+  window._uploadPhoto = async (leadId, file) => {
+    try {
+      const r = ref(storage, `photos/${leadId}/${Date.now()}_${file.name}`);
+      await uploadBytes(r, file);
+      const url = await getDownloadURL(r);
+      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, createdAt:serverTimestamp()});
+      return url;
+    } catch(e) { console.error('Upload failed',e); return null; }
+  };
+
+  window._getPhotos = async (leadId) => {
+    try {
+      const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId)));
+      return snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { return []; }
+  };
+
+  // ── SETTINGS ───────────────────────────────────
+  window._saveSettings = async () => {
+    const name = document.getElementById('settingsName').value.trim();
+    try {
+      await updateProfile(window._user, {displayName: name});
+      document.getElementById('userName').textContent = name;
+      showToast('Settings saved!');
+    } catch(e) { showToast('Save failed','error'); }
+  };
+</script>
+
+<style>
+:root {
+  --orange:#C8541A; --ob:#E8621E; --og:rgba(200,84,26,.22);
+  --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229;
+  --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280;
+  --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* HEADER */
+header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;z-index:1000;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
+.logo span{color:var(--orange);}
+.hbadge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 7px;border-radius:2px;margin-left:8px;}
+.hright{display:flex;align-items:center;gap:10px;}
+.upill{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;}
+.upill:hover{border-color:var(--orange);}
+.av{width:24px;height:24px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;}
+.uname{font-size:12px;font-weight:500;}
+.so{font-size:11px;color:var(--m);background:none;border:none;cursor:pointer;transition:color .2s;}
+.so:hover{color:var(--orange);}
+
+/* MAIN LAYOUT */
+.app-body{flex:1;display:flex;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:200px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar::-webkit-scrollbar{width:3px;}.sidebar::-webkit-scrollbar-thumb{background:var(--br);}
+.nlabel{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--m);padding:14px 16px 5px;margin-top:4px;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:2px solid transparent;transition:all .15s;user-select:none;}
+.ni:hover{color:var(--t);background:var(--s2);}
+.ni.active{color:var(--orange);background:rgba(200,84,26,.08);border-left-color:var(--orange);font-weight:500;}
+.ni-icon{font-size:14px;width:18px;text-align:center;}
+.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;}
+
+/* CONTENT */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.view{display:none;flex:1;overflow:hidden;}
+.view.active{display:flex;flex-direction:column;}
+.view-scroll{flex:1;overflow-y:auto;padding:22px 24px;}
+.view-scroll::-webkit-scrollbar{width:4px;}.view-scroll::-webkit-scrollbar-thumb{background:var(--br);}
+
+/* MAP VIEWS */
+.map-view{display:none;flex:1;}
+.map-view.active{display:flex;}
+.map-sidebar{width:280px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);overflow-y:auto;padding:14px;}
+.map-sidebar::-webkit-scrollbar{width:3px;}
+.map-area{flex:1;position:relative;}
+.map-area > div[id$="Map"]{width:100%;height:100%;}
+
+/* COMPONENTS */
+.page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.page-sub{font-size:12px;color:var(--m);margin-top:2px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:all .2s;}
+.btn-orange{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
+.btn-orange:hover{background:var(--ob);}
+.btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
+.btn-ghost:hover{border-color:var(--orange);color:var(--orange);}
+.btn-red{background:rgba(224,82,82,.12);color:var(--red);border-color:var(--red);}
+.btn-green{background:rgba(46,204,138,.12);color:var(--green);border-color:var(--green);}
+.panel{background:var(--s);border:1px solid var(--br);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.panel-hdr{padding:14px 18px 12px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
+.panel-label{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:2px;}
+.panel-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.panel-body{padding:16px 18px;}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--s);border:1px solid var(--br);border-radius:9px;padding:16px 18px;display:flex;align-items:center;gap:12px;}
+.stat-card:hover{border-color:rgba(255,255,255,.12);}
+.stat-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.si-o{background:rgba(200,84,26,.15)}.si-b{background:rgba(74,158,255,.12)}.si-p{background:rgba(155,109,255,.12)}.si-g{background:rgba(46,204,138,.12)}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;line-height:1;}
+.stat-lbl{font-size:11px;color:var(--m);margin-top:2px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.stage-box{border-radius:7px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid rgba(255,255,255,.05);}
+.sb-new{background:var(--s3)}.sb-ct{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.18)}.sb-es{background:rgba(212,160,23,.09);border-color:rgba(212,160,23,.22)}.sb-ng{background:rgba(155,109,255,.08);border-color:rgba(155,109,255,.18)}.sb-won{background:rgba(46,204,138,.08);border-color:rgba(46,204,138,.18)}.sb-lost{background:rgba(224,82,82,.08);border-color:rgba(224,82,82,.18)}
+.stage-count{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;}
+.stage-name{font-size:9px;letter-spacing:.06em;color:var(--m);text-transform:uppercase;font-weight:600;text-align:center;}
+.s-blue{color:var(--blue)}.s-gold{color:var(--gold)}.s-purple{color:var(--purple)}.s-green{color:var(--green)}.s-red{color:var(--red)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--m);padding:8px 12px;text-align:left;border-bottom:1px solid var(--br);}
+.tbl td{padding:9px 12px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.03);}
+.tbl tr:hover td{background:var(--s2);}
+.tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:12px;}
+.tag-new{background:var(--s3);color:var(--m)}.tag-ct{background:rgba(74,158,255,.12);color:var(--blue)}.tag-es{background:rgba(212,160,23,.12);color:var(--gold)}.tag-ng{background:rgba(155,109,255,.12);color:var(--purple)}.tag-won{background:rgba(46,204,138,.12);color:var(--green)}.tag-lost{background:rgba(224,82,82,.12);color:var(--red)}
+
+/* SEARCH */
+.search-row{display:flex;gap:7px;margin-bottom:12px;}
+.search-row input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);outline:none;transition:border-color .2s;}
+.search-row input:focus{border-color:var(--orange);}
+.search-row input::placeholder{color:#3a3f48;}
+
+/* PIN GRID */
+.slabel2{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin:10px 0 6px;}
+.pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
+.pin-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:500;color:var(--t);transition:all .2s;}
+.pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:rgba(200,84,26,.08);}
+.pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* DRAW PANEL */
+.lt-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
+.lt-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:2px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:600;color:var(--t);transition:all .2s;}
+.lt-btn.active{background:var(--s3);}
+.lt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.draw-btns{display:flex;gap:5px;margin-bottom:10px;}
+.draw-btn{flex:1;padding:8px 5px;border:1px solid var(--br);border-radius:6px;background:var(--s2);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.draw-btn:hover{border-color:var(--orange);color:var(--orange);}
+.draw-btn.go{background:var(--green);border-color:var(--green);color:#0A0C0F;}
+.draw-btn.go:hover{background:#25b87a;}
+.draw-btn.stop{background:rgba(224,82,82,.12);border-color:var(--red);color:var(--red);}
+.line-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:10px;}
+.line-item{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 9px;font-size:11px;}
+.line-lbl{flex:1;font-weight:500;}
+.line-len{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:12px;}
+.line-del{background:none;border:none;color:var(--m);cursor:pointer;font-size:12px;padding:1px 3px;transition:color .2s;}
+.line-del:hover{color:var(--red);}
+.calc-selects{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
+.calc-select{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 9px;font-family:'Barlow',sans-serif;font-size:11px;color:var(--t);outline:none;width:100%;}
+.calc-select:focus{border-color:var(--orange);}
+.calc-result{background:var(--s3);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;}
+.cr-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid rgba(255,255,255,.04);}
+.cr-row:last-child{border-bottom:none;font-weight:700;font-size:13px;}
+.cr-key{color:var(--m);}
+.cr-val{color:var(--t);}
+.cr-row.hl .cr-val{color:var(--orange);font-family:'Barlow Condensed',sans-serif;font-size:16px;}
+
+/* ESTIMATE BUILDER */
+.est-steps{display:flex;gap:0;margin-bottom:22px;}
+.est-step{flex:1;text-align:center;position:relative;}
+.est-step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--br);}
+.est-step:last-child::after{display:none;}
+.step-circle{width:28px;height:28px;border-radius:50%;border:2px solid var(--br);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;margin:0 auto 5px;position:relative;z-index:1;transition:all .3s;}
+.step-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);}
+.est-step.active .step-circle{border-color:var(--orange);background:var(--orange);color:#fff;}
+.est-step.done .step-circle{border-color:var(--green);background:var(--green);color:#fff;}
+.est-step.active .step-label,.est-step.done .step-label{color:var(--t);}
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
+.tier-card{background:var(--s2);border:2px solid var(--br);border-radius:10px;padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;}
+.tier-card:hover{border-color:rgba(255,255,255,.2);}
+.tier-card.selected{border-color:var(--orange);background:rgba(200,84,26,.07);}
+.tier-card.selected::before{content:'✓';position:absolute;top:8px;right:10px;color:var(--orange);font-weight:700;font-size:14px;}
+.tier-badge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:2px 8px;border-radius:12px;margin-bottom:8px;display:inline-block;}
+.tier-good{background:rgba(74,158,255,.15);color:var(--blue);}
+.tier-better{background:rgba(200,84,26,.15);color:var(--orange);}
+.tier-best{background:rgba(46,204,138,.15);color:var(--green);}
+.tier-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;}
+.tier-items{font-size:11px;color:var(--m);line-height:1.7;}
+.tier-price{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--orange);margin-top:10px;}
+.est-meas-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.meas-field label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
+.meas-field input,.meas-field select{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 10px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;transition:border-color .2s;}
+.meas-field input:focus,.meas-field select:focus{border-color:var(--orange);}
+.li-table{width:100%;border-collapse:collapse;font-size:12px;}
+.li-table th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);padding:6px 10px;border-bottom:1px solid var(--br);text-align:left;}
+.li-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);}
+.li-table .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;}
+.li-table .total-row td{font-weight:700;border-top:2px solid var(--br);color:var(--t);}
+.li-table .grand{background:rgba(200,84,26,.06);}
+.li-table .grand td{color:var(--orange);font-family:'Barlow Condensed',sans-serif;font-size:15px;}
+
+/* ESTIMATE CARD */
+.est-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
+.est-card:hover{border-color:var(--orange);background:rgba(200,84,26,.04);}
+.est-addr{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:2px;}
+.est-meta{font-size:11px;color:var(--m);}
+.est-total{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--orange);margin-left:auto;flex-shrink:0;}
+
+/* DAMAGE PHOTOS */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.photo-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--br);cursor:pointer;position:relative;}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;}
+.photo-thumb:hover img{opacity:.85;}
+.upload-zone{border:2px dashed var(--br);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color .2s;}
+.upload-zone:hover{border-color:var(--orange);}
+.upload-zone input{display:none;}
+.upload-icon{font-size:28px;margin-bottom:8px;opacity:.5;}
+.upload-text{font-size:12px;color:var(--m);}
+
+/* LEADERBOARD */
+.lb-rank{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;width:32px;text-align:center;}
+.lb-rank.gold{color:var(--gold)}.lb-rank.silver{color:#9CA3AF}.lb-rank.bronze{color:#92400E}
+.lb-name{font-size:13px;font-weight:600;}
+.lb-bar{flex:1;background:var(--s3);border-radius:4px;height:6px;overflow:hidden;}
+.lb-fill{height:100%;border-radius:4px;background:var(--orange);transition:width .6s ease;}
+
+/* SETTINGS */
+.settings-section{margin-bottom:24px;}
+.settings-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--br);}
+.sf-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.sf label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
+.sf input{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}
+.sf input:focus{border-color:var(--orange);}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--s);border:1px solid var(--br);border-radius:12px;padding:28px;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto;}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
+.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--m);font-size:17px;cursor:pointer;}
+.modal-close:hover{color:var(--t);}
+.mfield{margin-bottom:12px;}
+.mfield label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
+.mfield input,.mfield select,.mfield textarea{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}
+.mfield input:focus,.mfield select:focus,.mfield textarea:focus{border-color:var(--orange);}
+.mfield select option{background:var(--s2);}
+.mfield textarea{resize:vertical;min-height:65px;}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.msave{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
+.msave:hover{background:var(--ob);}
+.merr{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:#ff7070;margin-bottom:10px;display:none;}
+.mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:#2ecc8a;margin-bottom:10px;display:none;}
+
+/* TIPS MODAL */
+.tip-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.tip-num{font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--orange);font-weight:700;margin-bottom:3px;}
+.tip-text{font-size:12px;color:var(--t);line-height:1.5;}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:3000;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:var(--green);color:var(--green);}
+.toast.error{border-color:var(--red);color:var(--red);}
+
+/* MEAS LABEL */
+.meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
+
+/* MAP BADGE */
+.map-badge{position:absolute;top:10px;right:10px;z-index:800;background:rgba(10,12,15,.88);backdrop-filter:blur(6px);border:1px solid var(--br);border-radius:5px;padding:5px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--orange);}
+
+/* EMPTY */
+.empty{text-align:center;padding:30px 16px;color:var(--m);font-size:12px;}
+.empty-icon{font-size:30px;margin-bottom:8px;opacity:.4;}
+
+@media(max-width:900px){
+  .sidebar{display:none;}
+  .sgrid{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+  .tier-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div style="display:flex;align-items:center;">
+    <div class="logo">No Big Deal <span>Home Solutions</span></div>
+    <span class="hbadge">Pro</span>
+  </div>
+  <div class="hright">
+    <div class="upill" onclick="goTo('settings')">
+      <div class="av" id="userAvatar">J</div>
+      <span class="uname" id="userName">...</span>
+    </div>
+    <button class="so" onclick="window._signOut()">Sign Out →</button>
+  </div>
+</header>
+
+<div class="app-body">
+
+<!-- SIDEBAR NAV -->
+<nav class="sidebar">
+  <div class="nlabel">Main</div>
+  <div class="ni active" onclick="goTo('dash')" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
+  <div class="ni" onclick="goTo('map')"  id="nav-map"><span class="ni-icon">🗺️</span>Property Map</div>
+  <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing Tool</div>
+  <div class="ni" onclick="goTo('est')"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
+  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>CRM Leads <span class="nbadge" id="leadBadge">0</span></div>
+  <div class="nlabel">Field Tools</div>
+  <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Damage Photos</div>
+  <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Map</div>
+  <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+  <div class="nlabel">Account</div>
+  <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
+  <div class="ni" onclick="openTips()" id="nav-tips"><span class="ni-icon">💡</span>Pro Tips</div>
+</nav>
+
+<!-- CONTENT AREA -->
+<div class="content">
+
+  <!-- ══ DASHBOARD ══ -->
+  <div class="view active" id="view-dash">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title">Welcome Back, <span id="dashName">Jonathan</span></div><div class="page-sub">Roofing operations overview</div></div>
+        <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
+      </div>
+      <div class="sgrid">
+        <div class="stat-card"><div class="stat-icon si-o">🗺️</div><div><div class="stat-val">2</div><div class="stat-lbl">Properties</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-g">📈</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:20px;">$0</div><div class="stat-lbl">Est. Value</div></div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div></div>
+          <div class="panel-body">
+            <div class="pgrid">
+              <div class="stage-box sb-new"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
+              <div class="stage-box sb-ct"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
+              <div class="stage-box sb-es"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
+              <div class="stage-box sb-ng"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
+              <div class="stage-box sb-won"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
+              <div class="stage-box sb-lost"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Recent</div><div class="panel-title">Latest Estimates</div></div><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="goTo('est')">View All →</button></div>
+          <div class="panel-body" id="recentEsts"><div class="empty">No estimates yet.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MAP VIEW ══ -->
+  <div class="view" id="view-map">
+    <div class="map-view active" style="flex:1;">
+      <div class="map-sidebar">
+        <div class="slabel2">Address Search</div>
+        <div class="search-row">
+          <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter')searchMap()">
+          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchMap()">Go</button>
+        </div>
+        <div id="propCard" style="display:none;">
+          <div class="slabel2">Property Info</div>
+          <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;" id="propCardInner"></div>
+        </div>
+        <div class="slabel2">Door Knock Status</div>
+        <div class="pin-grid">
+          <button class="pin-btn active" onclick="selectPin('not-home','#9CA3AF',this)"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
+          <button class="pin-btn" onclick="selectPin('interested','#2ECC8A',this)"><div class="pin-dot" style="background:#2ECC8A"></div>Interested</button>
+          <button class="pin-btn" onclick="selectPin('not-interested','#E05252',this)"><div class="pin-dot" style="background:#E05252"></div>Not Interested</button>
+          <button class="pin-btn" onclick="selectPin('signed','#D4A017',this)"><div class="pin-dot" style="background:#D4A017"></div>⭐ Signed</button>
+          <button class="pin-btn" onclick="selectPin('callback','#4A9EFF',this)"><div class="pin-dot" style="background:#4A9EFF"></div>Callback</button>
+          <button class="pin-btn" onclick="selectPin('do-not-knock','#374151',this)"><div class="pin-dot" style="background:#374151"></div>Do Not Knock</button>
+          <button class="pin-btn" onclick="selectPin('left-material','#9B6DFF',this)"><div class="pin-dot" style="background:#9B6DFF"></div>Left Material</button>
+          <button class="pin-btn" onclick="selectPin('follow-up','#C8541A',this)"><div class="pin-dot" style="background:#C8541A"></div>Follow Up</button>
+        </div>
+        <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map to drop pin</p>
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 Damage Near Me</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="clearAllPins()">🗑 Clear All Pins</button>
+      </div>
+      <div class="map-area">
+        <div id="mainMap"></div>
+        <div class="map-badge" id="mapBadge">📍 NOT HOME MODE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DRAWING TOOL ══ -->
+  <div class="view" id="view-draw">
+    <div class="map-view active" style="flex:1;">
+      <div class="map-sidebar">
+        <div class="slabel2">Property Address</div>
+        <div class="search-row">
+          <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter')searchDraw()">
+          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchDraw()">Go</button>
+        </div>
+        <div class="slabel2">Line Type</div>
+        <div class="lt-grid" id="ltGrid">
+          <button class="lt-btn active" onclick="selLT(0,this)"><div class="lt-dot" style="background:#22C55E"></div>Ridge</button>
+          <button class="lt-btn" onclick="selLT(1,this)"><div class="lt-dot" style="background:#86EFAC"></div>Ridge Vent</button>
+          <button class="lt-btn" onclick="selLT(2,this)"><div class="lt-dot" style="background:#06B6D4"></div>Hip</button>
+          <button class="lt-btn" onclick="selLT(3,this)"><div class="lt-dot" style="background:#3B82F6"></div>Valley</button>
+          <button class="lt-btn" onclick="selLT(4,this)"><div class="lt-dot" style="background:#EC4899"></div>Rake</button>
+          <button class="lt-btn" onclick="selLT(5,this)"><div class="lt-dot" style="background:#BE185D"></div>Eave</button>
+          <button class="lt-btn" onclick="selLT(6,this)"><div class="lt-dot" style="background:#F97316"></div>Flashing</button>
+          <button class="lt-btn" onclick="selLT(7,this)"><div class="lt-dot" style="background:#EAB308"></div>Step Flash</button>
+          <button class="lt-btn" onclick="selLT(8,this)"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
+          <button class="lt-btn" onclick="selLT(9,this)"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
+        </div>
+        <div class="slabel2">Controls</div>
+        <div class="draw-btns">
+          <button class="draw-btn go" id="drawToggle" onclick="toggleDraw()">▶ Draw</button>
+          <button class="draw-btn" onclick="undoLine()">↩ Undo</button>
+          <button class="draw-btn" style="border-color:var(--red);color:var(--red);" onclick="clearDraw()">✕</button>
+        </div>
+        <div class="slabel2">Lines</div>
+        <div class="line-list" id="lineList"><p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p></div>
+        <div class="slabel2">Roof Calculator</div>
+        <div class="calc-selects">
+          <div><div style="font-size:9px;color:var(--m);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase;">Pitch</div>
+            <select class="calc-select" id="pitchSel" onchange="recalc()">
+              <option value="1.0">Flat 1.00×</option>
+              <option value="1.054">4/12 1.054×</option>
+              <option value="1.083">5/12 1.083×</option>
+              <option value="1.118">6/12 1.118×</option>
+              <option value="1.158">7/12 1.158×</option>
+              <option value="1.202" selected>8/12 1.202×</option>
+              <option value="1.25">9/12 1.250×</option>
+              <option value="1.302">10/12 1.302×</option>
+              <option value="1.357">11/12 1.357×</option>
+              <option value="1.414">12/12 1.414×</option>
+            </select>
+          </div>
+          <div><div style="font-size:9px;color:var(--m);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase;">Waste</div>
+            <select class="calc-select" id="wasteSel" onchange="recalc()">
+              <option value="1.10">10%</option>
+              <option value="1.15">15%</option>
+              <option value="1.17" selected>17%</option>
+              <option value="1.20">20%</option>
+              <option value="1.25">25%</option>
+              <option value="1.30">30%</option>
+            </select>
+          </div>
+        </div>
+        <div class="calc-result">
+          <div class="cr-row"><span class="cr-key">Base Area</span><span class="cr-val" id="cr-base">0 sf</span></div>
+          <div class="cr-row"><span class="cr-key">Pitched</span><span class="cr-val" id="cr-pitched">0 sf</span></div>
+          <div class="cr-row"><span class="cr-key">With Waste</span><span class="cr-val" id="cr-waste">0 sf</span></div>
+          <div class="cr-row hl"><span class="cr-key">Squares</span><span class="cr-val" id="cr-sq">0.0 sq</span></div>
+        </div>
+        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="exportDrawReport()">📤 Export Report</button>
+      </div>
+      <div class="map-area">
+        <div id="drawMap"></div>
+        <div class="map-badge" style="color:#22C55E;border-color:rgba(34,197,94,.3);">✏️ DRAWING TOOL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ESTIMATES ══ -->
+  <div class="view" id="view-est">
+    <!-- Step 0: List -->
+    <div id="est-list" class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title">Estimates</div><div class="page-sub">All roofing estimates</div></div>
+        <button class="btn btn-orange" onclick="startNewEstimate()">＋ New Estimate</button>
+      </div>
+      <div id="estListWrap"><div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div></div>
+    </div>
+    <!-- Step builder (hidden until new) -->
+    <div id="est-builder" style="display:none;flex:1;overflow-y:auto;" class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title" id="estBuilderTitle">New Estimate</div></div>
+        <button class="btn btn-ghost" onclick="cancelEstimate()">← Back</button>
+      </div>
+      <!-- Progress -->
+      <div class="est-steps">
+        <div class="est-step active" id="estS1"><div class="step-circle">1</div><div class="step-label">Measurements</div></div>
+        <div class="est-step" id="estS2"><div class="step-circle">2</div><div class="step-label">Roof Type</div></div>
+        <div class="est-step" id="estS3"><div class="step-circle">3</div><div class="step-label">Package</div></div>
+        <div class="est-step" id="estS4"><div class="step-circle">4</div><div class="step-label">Review</div></div>
+      </div>
+
+      <!-- STEP 1: Measurements -->
+      <div id="estStep1">
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div></div>
+          <div class="panel-body">
+            <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
+            <div class="est-meas-grid">
+              <div class="meas-field"><label>Property Address</label><input type="text" id="estAddr" placeholder="1115 Klondyke Rd..."></div>
+              <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="CHEN, WEI & LI"></div>
+              <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="592-3895-3895-00"></div>
+              <div class="meas-field"><label>Year Built</label><input type="text" id="estYear" placeholder="2000"></div>
+              <div class="meas-field"><label>Raw SqFt</label><input type="number" id="estRawSqft" placeholder="2811" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Ridge LF</label><input type="number" id="estRidge" placeholder="48" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Eave LF</label><input type="number" id="estEave" placeholder="147" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Hip LF</label><input type="number" id="estHip" placeholder="99" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Pipe Boots (qty)</label><input type="number" id="estPipes" placeholder="4" value="4" oninput="updateEstCalc()"></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-orange" onclick="estNext(1)">Continue → Roof Type</button>
+      </div>
+
+      <!-- STEP 2: Roof Type -->
+      <div id="estStep2" style="display:none;">
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Step 2</div><div class="panel-title">Roof Type & Pitch</div></div></div>
+          <div class="panel-body">
+            <div class="est-meas-grid">
+              <div class="meas-field"><label>Roof Type</label>
+                <select id="estRoofType">
+                  <option value="Hip">Hip</option>
+                  <option value="Gable">Gable</option>
+                  <option value="Hip & Gable">Hip & Gable</option>
+                  <option value="Flat">Flat</option>
+                  <option value="Shed">Shed</option>
+                  <option value="Gambrel">Gambrel</option>
+                </select>
+              </div>
+              <div class="meas-field"><label>Pitch</label>
+                <select id="estPitch" onchange="updateEstCalc()">
+                  <option value="1.0|Flat">Flat (1.000×)</option>
+                  <option value="1.054|4/12">4/12 (1.054×)</option>
+                  <option value="1.083|5/12">5/12 (1.083×)</option>
+                  <option value="1.118|6/12">6/12 (1.118×)</option>
+                  <option value="1.158|7/12">7/12 (1.158×)</option>
+                  <option value="1.202|8/12" selected>8/12 (1.202×)</option>
+                  <option value="1.25|9/12">9/12 (1.250×)</option>
+                  <option value="1.302|10/12">10/12 (1.302×)</option>
+                  <option value="1.357|11/12">11/12 (1.357×)</option>
+                  <option value="1.414|12/12">12/12 (1.414×)</option>
+                </select>
+              </div>
+              <div class="meas-field"><label>Waste Factor</label>
+                <select id="estWaste" onchange="updateEstCalc()">
+                  <option value="1.10">10%</option>
+                  <option value="1.15">15%</option>
+                  <option value="1.17" selected>17%</option>
+                  <option value="1.20">20%</option>
+                  <option value="1.25">25%</option>
+                </select>
+              </div>
+            </div>
+            <div class="calc-result" style="margin-top:8px;">
+              <div class="cr-row"><span class="cr-key">Raw SqFt</span><span class="cr-val" id="ec-raw">—</span></div>
+              <div class="cr-row"><span class="cr-key">Pitch Factor</span><span class="cr-val" id="ec-pitch">1.202×</span></div>
+              <div class="cr-row"><span class="cr-key">Waste Factor</span><span class="cr-val" id="ec-waste">1.170×</span></div>
+              <div class="cr-row"><span class="cr-key">Adjusted SqFt</span><span class="cr-val" id="ec-adj">—</span></div>
+              <div class="cr-row hl"><span class="cr-key">Squares</span><span class="cr-val" id="ec-sq">—</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="estBack(2)">← Back</button>
+          <button class="btn btn-orange" onclick="estNext(2)">Continue → Choose Package</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Good / Better / Best -->
+      <div id="estStep3" style="display:none;">
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Step 3</div><div class="panel-title">Select Package</div></div></div>
+          <div class="panel-body">
+            <div class="tier-grid">
+              <div class="tier-card" onclick="selectTier('good',this)">
+                <div class="tier-badge tier-good">Good</div>
+                <div class="tier-name">Standard Reroof</div>
+                <div class="tier-items">✓ Architectural shingles<br>✓ Felt underlayment<br>✓ Tear off existing<br>✓ Starter strip<br>✓ Drip edge<br>✓ Ridge cap</div>
+                <div class="tier-price" id="price-good">—</div>
+              </div>
+              <div class="tier-card" onclick="selectTier('better',this)">
+                <div class="tier-badge tier-better">Better</div>
+                <div class="tier-name">Reroof Plus</div>
+                <div class="tier-items">✓ Everything in Standard<br>✓ Ice & water shield<br>✓ Pipe boots (all)<br>✓ Hip cap shingles<br>✓ 15% decking allowance</div>
+                <div class="tier-price" id="price-better">—</div>
+              </div>
+              <div class="tier-card" onclick="selectTier('best',this)">
+                <div class="tier-badge tier-best">Best</div>
+                <div class="tier-name">Full Redeck</div>
+                <div class="tier-items">✓ Everything in Reroof Plus<br>✓ Full OSB decking<br>✓ Seamless gutters (6")<br>✓ Premium warranty<br>✓ Full redeck labor</div>
+                <div class="tier-price" id="price-best">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="estBack(3)">← Back</button>
+          <button class="btn btn-orange" id="estStep3Next" onclick="estNext(3)" disabled style="opacity:.4;">Continue → Review</button>
+        </div>
+      </div>
+
+      <!-- STEP 4: Review & Export -->
+      <div id="estStep4" style="display:none;">
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Step 4</div><div class="panel-title">Review & Export</div></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="exportEstimate()">📤 Export PDF</button>
+              <button class="btn btn-orange" style="font-size:11px;padding:6px 12px;" onclick="saveEstimate()">💾 Save</button>
+            </div>
+          </div>
+          <div class="panel-body" id="estReviewBody"></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="estBack(4)">← Back</button>
+          <button class="btn btn-orange" onclick="saveEstimate()">💾 Save Estimate</button>
+          <button class="btn btn-green" onclick="exportEstimate()">📤 Export PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CRM ══ -->
+  <div class="view" id="view-crm">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title">CRM Leads</div><div class="page-sub">Pipeline management</div></div>
+        <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Pipeline</div><div class="panel-title">Lead Stages</div></div></div>
+        <div class="panel-body">
+          <div class="pgrid">
+            <div class="stage-box sb-new"><div class="stage-count" id="p-new">0</div><div class="stage-name">New Lead</div></div>
+            <div class="stage-box sb-ct"><div class="stage-count s-blue" id="p-ct">0</div><div class="stage-name">Contacted</div></div>
+            <div class="stage-box sb-es"><div class="stage-count s-gold" id="p-es">0</div><div class="stage-name">Est. Sent</div></div>
+            <div class="stage-box sb-ng"><div class="stage-count s-purple" id="p-ng">0</div><div class="stage-name">Negotiating</div></div>
+            <div class="stage-box sb-won"><div class="stage-count s-green" id="p-won">0</div><div class="stage-name">Won</div></div>
+            <div class="stage-box sb-lost"><div class="stage-count s-red" id="p-lost">0</div><div class="stage-name">Lost</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">All Leads</div></div></div>
+        <div id="leadsTableWrap"><div class="empty">No leads yet.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DAMAGE PHOTOS ══ -->
+  <div class="view" id="view-photos">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title">Damage Photos</div><div class="page-sub">Per-property photo documentation</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-hdr"><div><div class="panel-label">Field Intel</div><div class="panel-title">Damage Near Me</div></div></div>
+        <div class="panel-body">
+          <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Instantly pull up damage inspections near your current location — one-tap credibility tool while canvassing.</p>
+          <button class="btn btn-orange" onclick="damageNearMePhotos()" style="margin-right:8px;">📍 Show Damage Near Me</button>
+          <button class="btn btn-ghost" onclick="goTo('map')">🗺 View on Map</button>
+        </div>
+      </div>
+      <div id="photoLeadsList">
+        <div class="empty"><div class="empty-icon">📸</div>Select a property to view or upload damage photos.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STORM MAP ══ -->
+  <div class="view" id="view-storm">
+    <div class="map-view active" style="flex:1;">
+      <div class="map-sidebar">
+        <div class="slabel2">Live NOAA Alerts</div>
+        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadStorm()">↻ Refresh Alerts</button>
+        <div id="alertsList"><div style="font-size:11px;color:var(--m);">Click Refresh to load live Ohio alerts.</div></div>
+      </div>
+      <div class="map-area">
+        <div id="stormMap"></div>
+        <div class="map-badge">⛈️ STORM INTEL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LEADERBOARD ══ -->
+  <div class="view" id="view-board">
+    <div class="view-scroll">
+      <div class="page-hdr"><div><div class="page-title">Leaderboard</div><div class="page-sub">Rep performance rankings</div></div></div>
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Rankings</div><div class="panel-title">Top Reps — All Time</div></div></div>
+        <div class="panel-body" id="leaderboardBody">
+          <div id="lbRows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SETTINGS ══ -->
+  <div class="view" id="view-settings">
+    <div class="view-scroll" style="max-width:600px;">
+      <div class="page-hdr"><div><div class="page-title">Settings</div><div class="page-sub">Account & preferences</div></div></div>
+      <div class="settings-section">
+        <div class="settings-title">Profile</div>
+        <div class="sf-row">
+          <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Jonathan"></div>
+          <div class="sf"><label>Email</label><input type="text" id="settingsEmail" placeholder="you@email.com" disabled style="opacity:.5;"></div>
+        </div>
+        <div class="sf-row">
+          <div class="sf"><label>Company</label><input type="text" id="settingsCompany" placeholder="No Big Deal Home Solutions"></div>
+          <div class="sf"><label>Phone</label><input type="text" id="settingsPhone" placeholder="(513) 555-0100"></div>
+        </div>
+        <button class="btn btn-orange" onclick="window._saveSettings()">Save Profile</button>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Estimate Defaults</div>
+        <div class="sf-row">
+          <div class="sf"><label>Default Pitch</label>
+            <input type="text" id="defPitch" placeholder="8/12">
+          </div>
+          <div class="sf"><label>Default Waste %</label>
+            <input type="text" id="defWaste" placeholder="17%">
+          </div>
+        </div>
+        <div class="sf-row">
+          <div class="sf"><label>Shingle Rate ($/SQ)</label><input type="number" id="rateShingle" value="185"></div>
+          <div class="sf"><label>Tear Off Rate ($/SQ)</label><input type="number" id="rateTear" value="55"></div>
+        </div>
+        <div class="sf-row">
+          <div class="sf"><label>Drip Edge ($/LF)</label><input type="number" id="rateDrip" value="2.10" step="0.01"></div>
+          <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
+        </div>
+        <button class="btn btn-ghost" onclick="showToast('Rates saved!')">Save Rates</button>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Danger Zone</div>
+        <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /app-body -->
+
+<!-- LEAD MODAL -->
+<div class="modal-bg" id="leadModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLeadModal()">✕</button>
+    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">CRM</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">Add Lead</div>
+    <div class="merr" id="mErr"></div><div class="mok" id="mOk"></div>
+    <div class="mrow">
+      <div class="mfield"><label>First Name</label><input type="text" id="lFname" placeholder="John"></div>
+      <div class="mfield"><label>Last Name</label><input type="text" id="lLname" placeholder="Smith"></div>
+    </div>
+    <div class="mfield"><label>Address</label><input type="text" id="lAddr" placeholder="1054 Klondyke Rd..."></div>
+    <div class="mrow">
+      <div class="mfield"><label>Phone</label><input type="tel" id="lPhone" placeholder="(513) 555-0100"></div>
+      <div class="mfield"><label>Email</label><input type="email" id="lEmail" placeholder="john@email.com"></div>
+    </div>
+    <div class="mrow">
+      <div class="mfield"><label>Stage</label>
+        <select id="lStage"><option>New Lead</option><option>Contacted</option><option>Estimate Sent</option><option>Negotiating</option><option>Closed Won</option><option>Closed Lost</option></select>
+      </div>
+      <div class="mfield"><label>Source</label>
+        <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
+      </div>
+    </div>
+    <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage notes..."></textarea></div>
+    <button class="msave" onclick="saveLead()">Save Lead</button>
+  </div>
+</div>
+
+<!-- PHOTO VIEWER MODAL -->
+<div class="modal-bg" id="photoModal">
+  <div class="modal" style="max-width:600px;">
+    <button class="modal-close" onclick="closePhotoModal()">✕</button>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:4px;" id="photoModalTitle">Damage Photos</div>
+    <div style="font-size:11px;color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
+    <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">Click to upload damage photos</div>
+      <input type="file" id="photoUploadInput" multiple accept="image/*" onchange="uploadPhotos(this)">
+    </div>
+    <div class="photo-grid" id="photoGridModal"></div>
+  </div>
+</div>
+
+<!-- TIPS MODAL -->
+<div class="modal-bg" id="tipsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeTips()">✕</button>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">💡 Pro Tips & D2D Tricks</div>
+    <div class="tip-card"><div class="tip-num">TIP 01</div><div class="tip-text">Use satellite view before knocking — identify roof type, visible damage, and HVAC penetrations so you walk up already informed.</div></div>
+    <div class="tip-card"><div class="tip-num">TIP 02</div><div class="tip-text">Always take damage photos before knocking. Show them at the door — "I noticed some issues from the street" is 3× more credible than a cold pitch.</div></div>
+    <div class="tip-card"><div class="tip-num">TIP 03</div><div class="tip-text">Use the Damage Near Me button to instantly pull up nearby inspections. Real photos of real nearby homes close deals.</div></div>
+    <div class="tip-card"><div class="tip-num">TIP 04</div><div class="tip-text">Drop a pin with the correct disposition immediately after every door — not at the end of the day. Data accuracy is everything.</div></div>
+    <div class="tip-card"><div class="tip-num">TIP 05</div><div class="tip-text">Show the three tiers on your iPad. Homeowners almost never pick the lowest. The best package closes at 40%+ with the right presentation.</div></div>
+    <div class="tip-card"><div class="tip-num">TIP 06</div><div class="tip-text">Hip roofs need hip cap. Always include it in your estimate. Missing line items kill margins and credibility when adjuster scopes differ.</div></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// WAIT FOR LEAFLET — safety guard
+// ══════════════════════════════════════════════
+function waitForLeaflet(cb) {
+  if (typeof L !== 'undefined') { cb(); return; }
+  const t = setInterval(() => { if (typeof L !== 'undefined') { clearInterval(t); cb(); } }, 50);
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+const mapInited = {};
+function goTo(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  const view = document.getElementById('view-'+name);
+  const nav  = document.getElementById('nav-'+name);
+  if(view) view.classList.add('active');
+  if(nav)  nav.classList.add('active');
+  if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ initMainMap();  mapInited.map=true;   }); }
+  if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ initDrawMap();  mapInited.draw=true;  }); }
+  if(name==='storm' && !mapInited.storm) { waitForLeaflet(()=>{ initStormMap(); mapInited.storm=true; }); }
+  if(name==='board') renderLeaderboard();
+  if(name==='photos') renderPhotoLeads();
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show '+(type==='error'?'error':'success');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ══════════════════════════════════════════════
+// MAIN MAP
+// ══════════════════════════════════════════════
+let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={};
+const PIN_LABELS = {'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested','signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock','left-material':'Left Material','follow-up':'Follow Up'};
+const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#C8541A'};
+
+function initMainMap() {
+  mainMap = L.map('mainMap').setView([39.07,-84.17],14);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:20}).addTo(mainMap);
+  mainMap.on('click', e => dropPin(e.latlng.lat, e.latlng.lng, curPinStatus, curPinColor, null, ''));
+  if(window._pins) window._pins.forEach(p => addPinMarker(p));
+}
+
+function makePinIcon(color, status) {
+  const svg = status==='signed' ? '⭐' : `<svg viewBox="0 0 24 32" width="20" height="28" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="8" r="3" fill="white"/></svg>`;
+  return L.divIcon({html:`<div style="font-size:20px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${svg}</div>`,iconSize:[20,28],iconAnchor:[10,28],popupAnchor:[0,-28],className:''});
+}
+
+async function dropPin(lat,lng,status,color,existingId,notes) {
+  const id = existingId || await window._savePin({lat,lng,status,color,notes});
+  addPinMarker({id,lat,lng,status,color,notes});
+}
+
+function addPinMarker(p) {
+  if(!mainMap) return;
+  const m = L.marker([p.lat,p.lng],{icon:makePinIcon(p.color||PIN_COLORS[p.status],p.status)});
+  m.bindPopup(`<div style="font-family:sans-serif;min-width:160px;">
+    <b style="font-size:13px;">${PIN_LABELS[p.status]||p.status}</b>
+    <p style="font-size:11px;color:#666;margin:4px 0;">${p.notes||'No notes'}</p>
+    <button onclick="deletePin('${p.id}')" style="background:#E05252;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;">Delete Pin</button>
+  </div>`);
+  m.addTo(mainMap);
+  pinMarkers[p.id] = m;
+}
+
+function selectPin(status,color,el) {
+  document.querySelectorAll('.pin-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  curPinStatus=status; curPinColor=color;
+  document.getElementById('mapBadge').textContent='📍 '+(PIN_LABELS[status]||status).toUpperCase();
+}
+function deletePin(id) { if(pinMarkers[id]){mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); }
+function clearAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); pinMarkers={}; }
+
+async function searchMap() {
+  const q=document.getElementById('mapSearch').value.trim(); if(!q)return;
+  const data=await geocode(q); if(!data) return;
+  mainMap.setView([data.lat,data.lon],19);
+  document.getElementById('propCard').style.display='block';
+  document.getElementById('propCardInner').innerHTML=`<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px;">${data.display_name.split(',').slice(0,3).join(', ')}</div>
+    <div style="font-size:11px;color:var(--m);">Lat: ${parseFloat(data.lat).toFixed(5)} · Lon: ${parseFloat(data.lon).toFixed(5)}</div>
+    <div style="font-size:10px;color:var(--m);margin-top:6px;">Connect county assessor API for owner data, parcel ID & year built.</div>`;
+}
+
+function damagNearMe() { showToast('Getting location...'); navigator.geolocation?.getCurrentPosition(p=>{ if(mainMap) mainMap.setView([p.coords.latitude,p.coords.longitude],15); }, ()=>showToast('Location unavailable','error')); }
+
+// ══════════════════════════════════════════════
+// DRAW MAP
+// ══════════════════════════════════════════════
+let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
+const LT = [
+  {n:'Ridge',color:'#22C55E'},{n:'Ridge Vent',color:'#86EFAC'},{n:'Hip',color:'#06B6D4'},
+  {n:'Valley',color:'#3B82F6'},{n:'Rake',color:'#EC4899'},{n:'Eave',color:'#BE185D'},
+  {n:'Flashing',color:'#F97316'},{n:'Step Flash',color:'#EAB308'},
+  {n:'Drip Edge',color:'#1D4ED8'},{n:'Parapet',color:'#92400E'}
+];
+
+function initDrawMap() {
+  drawMap = L.map('drawMap').setView([39.07,-84.17],19);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:21}).addTo(drawMap);
+  drawMap.on('click',e=>{
+    if(!drawOn) return;
+    if(!drawStart){ drawStart=e.latlng; L.circleMarker(e.latlng,{radius:4,color:'#fff',fillColor:LT[drawLT].color,fillOpacity:1,weight:2}).addTo(drawMap); }
+    else { finalizeLine(drawStart,e.latlng); drawStart=null; }
+  });
+  drawMap.on('mousemove',e=>{
+    if(!drawOn||!drawStart) return;
+    if(tempLine) drawMap.removeLayer(tempLine);
+    if(tempLbl)  drawMap.removeLayer(tempLbl);
+    tempLine = L.polyline([drawStart,e.latlng],{color:LT[drawLT].color,weight:3,dashArray:'6,4',opacity:.7}).addTo(drawMap);
+    const d=hav(drawStart,e.latlng);
+    tempLbl = L.marker(mid(drawStart,e.latlng),{icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})}).addTo(drawMap);
+  });
+  recalc();
+}
+
+function selLT(i,el) {
+  document.querySelectorAll('.lt-btn').forEach(b=>{b.classList.remove('active');b.style.borderColor='';});
+  el.classList.add('active'); el.style.borderColor=LT[i].color;
+  drawLT=i;
+}
+
+function toggleDraw() {
+  drawOn=!drawOn;
+  const btn=document.getElementById('drawToggle');
+  if(drawOn){ btn.textContent='⏹ Stop'; btn.className='draw-btn stop'; drawMap.getContainer().style.cursor='crosshair'; }
+  else { btn.textContent='▶ Draw'; btn.className='draw-btn go'; drawMap.getContainer().style.cursor=''; drawStart=null; clearTemp(); }
+}
+
+function clearTemp() {
+  if(tempLine){drawMap.removeLayer(tempLine);tempLine=null;}
+  if(tempLbl){drawMap.removeLayer(tempLbl);tempLbl=null;}
+}
+
+function finalizeLine(p1,p2) {
+  const lt=LT[drawLT], d=hav(p1,p2);
+  const line=L.polyline([p1,p2],{color:lt.color,weight:4,opacity:.95}).addTo(drawMap);
+  const lbl=L.marker(mid(p1,p2),{icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${d.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})}).addTo(drawMap);
+  drawnLines.push({id:Date.now(),type:drawLT,name:lt.name,color:lt.color,dist:d,line,lbl,p1,p2});
+  clearTemp(); renderLineList(); recalc();
+}
+
+function deleteLine(id) {
+  const i=drawnLines.findIndex(l=>l.id===id); if(i<0)return;
+  drawMap.removeLayer(drawnLines[i].line); drawMap.removeLayer(drawnLines[i].lbl);
+  drawnLines.splice(i,1); renderLineList(); recalc();
+}
+function undoLine() { if(drawnLines.length) deleteLine(drawnLines[drawnLines.length-1].id); }
+function clearDraw() {
+  drawnLines.forEach(l=>{drawMap.removeLayer(l.line);drawMap.removeLayer(l.lbl)});
+  drawnLines=[]; clearTemp(); drawStart=null; renderLineList(); recalc();
+}
+
+function renderLineList() {
+  const el=document.getElementById('lineList');
+  if(!drawnLines.length){el.innerHTML='<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';return;}
+  el.innerHTML=drawnLines.map(l=>`
+    <div class="line-item">
+      <div class="lt-dot" style="background:${l.color}"></div>
+      <span class="line-lbl">${l.name}</span>
+      <span class="line-len">${l.dist.toFixed(1)} ft</span>
+      <button class="line-del" onclick="deleteLine(${l.id})">✕</button>
+    </div>`).join('');
+}
+
+function recalc() {
+  const pitch=parseFloat(document.getElementById('pitchSel')?.value||1.202);
+  const waste=parseFloat(document.getElementById('wasteSel')?.value||1.17);
+  const eave=drawnLines.filter(l=>l.type===5);
+  const rake=drawnLines.filter(l=>l.type===4);
+  let base=0;
+  if(eave.length&&rake.length){ base=eave.reduce((s,l)=>s+l.dist,0)*(rake.reduce((s,l)=>s+l.dist,0)/rake.length); }
+  else if(drawnLines.length){ const tot=drawnLines.reduce((s,l)=>s+l.dist,0); base=(tot/4)*(tot/4); }
+  const pitched=base*pitch, w=pitched*waste, sq=w/100;
+  document.getElementById('cr-base').textContent=base.toFixed(0)+' sf';
+  document.getElementById('cr-pitched').textContent=pitched.toFixed(0)+' sf';
+  document.getElementById('cr-waste').textContent=w.toFixed(0)+' sf';
+  document.getElementById('cr-sq').textContent=sq.toFixed(2)+' sq';
+}
+
+function importToEstimate() {
+  const addr=document.getElementById('drawSearch').value||'';
+  const rawSqft=parseFloat(document.getElementById('cr-base').textContent)||0;
+  const ridgeLns=drawnLines.filter(l=>l.type===0);
+  const eaveLns=drawnLines.filter(l=>l.type===5);
+  const hipLns=drawnLines.filter(l=>l.type===2);
+  goTo('est');
+  startNewEstimate();
+  setTimeout(()=>{
+    document.getElementById('estAddr').value=addr;
+    document.getElementById('estRawSqft').value=Math.round(rawSqft);
+    document.getElementById('estRidge').value=Math.round(ridgeLns.reduce((s,l)=>s+l.dist,0));
+    document.getElementById('estEave').value=Math.round(eaveLns.reduce((s,l)=>s+l.dist,0));
+    document.getElementById('estHip').value=Math.round(hipLns.reduce((s,l)=>s+l.dist,0));
+    document.getElementById('drawImportNote').style.display='block';
+    updateEstCalc();
+  },100);
+}
+
+async function searchDraw() {
+  const q=document.getElementById('drawSearch').value.trim(); if(!q)return;
+  const d=await geocode(q); if(!d)return;
+  drawMap.setView([d.lat,d.lon],19);
+}
+
+function exportDrawReport() {
+  const addr=document.getElementById('drawSearch').value||'No Address';
+  const lines=drawnLines;
+  const total=lines.reduce((s,l)=>s+l.dist,0);
+  const grouped={};
+  lines.forEach(l=>{if(!grouped[l.name])grouped[l.name]={color:l.color,total:0,count:0};grouped[l.name].total+=l.dist;grouped[l.name].count++;});
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Drawing Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #C8541A;margin-bottom:22px;}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
+  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
+  td{padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;}tr:nth-child(even) td{background:#fafafa;}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+  .card{background:#f8f8f8;border:1px solid #eee;border-radius:7px;padding:12px;text-align:center;}
+  .card .v{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#C8541A;}
+  .card .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+  .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+  .total-row td{font-weight:700;border-top:2px solid #eee;}</style></head><body>
+  <div class="hdr"><div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">Drawing Measurement Report</div></div>
+  <div><div class="addr">${addr}</div><div class="date">${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div></div></div>
+  <div class="cards">
+    <div class="card"><div class="v">${document.getElementById('cr-base').textContent}</div><div class="k">Base Area</div></div>
+    <div class="card"><div class="v">${document.getElementById('cr-pitched').textContent}</div><div class="k">Pitched Area</div></div>
+    <div class="card"><div class="v">${document.getElementById('cr-waste').textContent}</div><div class="k">With Waste</div></div>
+    <div class="card" style="background:#C8541A;border-color:#C8541A;"><div class="v" style="color:#fff;">${document.getElementById('cr-sq').textContent}</div><div class="k" style="color:rgba(255,255,255,.8);">Squares</div></div>
+  </div>
+  <h2>Line Summary</h2>
+  <table><thead><tr><th>Type</th><th>Count</th><th>Total LF</th></tr></thead><tbody>
+  ${Object.entries(grouped).map(([n,v])=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${v.color};margin-right:6px;vertical-align:middle;"></span>${n}</td><td>${v.count}</td><td>${v.total.toFixed(1)} ft</td></tr>`).join('')}
+  <tr class="total-row"><td><b>TOTAL</b></td><td><b>${lines.length}</b></td><td><b>${total.toFixed(1)} ft</b></td></tr>
+  </tbody></table>
+  <h2>Individual Lines</h2>
+  <table><thead><tr><th>Type</th><th>Length</th></tr></thead><tbody>
+  ${lines.map(l=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${l.color};margin-right:6px;vertical-align:middle;"></span>${l.name}</td><td>${l.dist.toFixed(1)} ft</td></tr>`).join('')}
+  </tbody></table>
+  <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
+  <script>window.print();<\/script></body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+// ══════════════════════════════════════════════
+// ESTIMATE BUILDER
+// ══════════════════════════════════════════════
+let estCurrentStep=0, selectedTier=null, estData={};
+
+// RATES (overrideable from settings)
+const R = {
+  shingle:185, felt:28, tear:55, starter:1.85, iws:72, drip:2.10,
+  ridge:3.20, hip:3.20, pipe:65, deck:95, gutter:8.50, deckPct:0.15
+};
+
+function startNewEstimate() {
+  document.getElementById('est-list').style.display='none';
+  document.getElementById('est-builder').style.display='flex';
+  document.getElementById('est-builder').style.flexDirection='column';
+  estCurrentStep=0; selectedTier=null; estData={};
+  showEstStep(1);
+  document.getElementById('drawImportNote').style.display='none';
+  ['estAddr','estOwner','estParcel','estYear','estRawSqft','estRidge','estEave','estHip'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('estPipes').value='4';
+  updateEstCalc();
+}
+
+function cancelEstimate() {
+  document.getElementById('est-list').style.display='block';
+  document.getElementById('est-builder').style.display='none';
+}
+
+function showEstStep(n) {
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('estStep'+i).style.display=i===n?'block':'none';
+    const sEl=document.getElementById('estS'+i);
+    sEl.className='est-step'+(i<n?' done':i===n?' active':'');
+  });
+  estCurrentStep=n;
+}
+
+function estNext(from) {
+  if(from===1){
+    if(!document.getElementById('estRawSqft').value){showToast('Enter raw square footage','error');return;}
+    updateEstCalc(); showEstStep(2);
+  } else if(from===2){
+    updateEstCalc(); calcTierPrices(); showEstStep(3);
+  } else if(from===3){
+    if(!selectedTier){showToast('Select a package','error');return;}
+    buildReview(); showEstStep(4);
+  }
+}
+function estBack(from){ showEstStep(from-1); }
+
+function updateEstCalc() {
+  const raw=parseFloat(document.getElementById('estRawSqft')?.value)||0;
+  const pitchVal=document.getElementById('estPitch')?.value||'1.202|8/12';
+  const [pf,pl]=pitchVal.split('|');
+  const wf=parseFloat(document.getElementById('estWaste')?.value||1.17);
+  const adj=raw*parseFloat(pf)*wf;
+  const sq=adj/100;
+  const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  el('ec-raw',raw+' sf'); el('ec-pitch',parseFloat(pf).toFixed(4)+'×'); el('ec-waste',wf.toFixed(3)+'×');
+  el('ec-adj',Math.round(adj)+' sf'); el('ec-sq',sq.toFixed(2)+' sq');
+  estData.raw=raw; estData.pf=parseFloat(pf); estData.pl=pl||'8/12'; estData.wf=wf; estData.adj=adj; estData.sq=sq;
+}
+
+function calcTierPrices() {
+  updateEstCalc();
+  const sq=estData.sq||0;
+  const ridge=parseFloat(document.getElementById('estRidge').value)||0;
+  const eave=parseFloat(document.getElementById('estEave').value)||0;
+  const hip=parseFloat(document.getElementById('estHip').value)||0;
+  const pipes=parseInt(document.getElementById('estPipes').value)||0;
+  const deckSq=sq*R.deckPct;
+
+  const good = sq*R.shingle + sq*R.felt + sq*R.tear + eave*R.starter + eave*R.drip + ridge*R.ridge;
+  const better = good + 5*R.iws + pipes*R.pipe + hip*R.hip + deckSq*R.deck;
+  const best = better + sq*R.deck + eave*R.gutter;
+
+  estData.ridge=ridge; estData.eave=eave; estData.hip=hip; estData.pipes=pipes;
+  estData.deckSq=deckSq;
+  estData.prices={good,better,best};
+
+  document.getElementById('price-good').textContent='$'+good.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('price-better').textContent='$'+better.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('price-best').textContent='$'+best.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function selectTier(tier,el) {
+  document.querySelectorAll('.tier-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTier=tier;
+  const btn=document.getElementById('estStep3Next');
+  btn.disabled=false; btn.style.opacity='1';
+}
+
+function getLineItems() {
+  const d=estData, sq=d.sq, tier=selectedTier;
+  const fmt=(n)=>'$'+(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const rows=[];
+  rows.push({code:'RFG SHNG',desc:'Roofing shingles – architectural 30yr',qty:sq.toFixed(2)+'SQ',rate:'$'+R.shingle,total:sq*R.shingle});
+  rows.push({code:'RFG FELT',desc:'Underlayment / roofing felt',qty:sq.toFixed(2)+'SQ',rate:'$'+R.felt,total:sq*R.felt});
+  rows.push({code:'RFG TEAR',desc:'Remove existing roof covering',qty:sq.toFixed(2)+'SQ',rate:'$'+R.tear,total:sq*R.tear});
+  rows.push({code:'RFG STRT',desc:'Starter strip shingles',qty:d.eave+'LF',rate:'$'+R.starter,total:d.eave*R.starter});
+  rows.push({code:'RFG DRPE',desc:'Drip edge – aluminum',qty:d.eave+'LF',rate:'$'+R.drip,total:d.eave*R.drip});
+  rows.push({code:'RFG RIDG',desc:'Ridge cap shingles',qty:d.ridge+'LF',rate:'$'+R.ridge,total:d.ridge*R.ridge});
+  if(tier==='better'||tier==='best'){
+    rows.push({code:'RFG I&WS',desc:'Ice & water shield',qty:'5SQ',rate:'$'+R.iws,total:5*R.iws});
+    rows.push({code:'RFG HIPC',desc:'Hip cap shingles',qty:d.hip+'LF',rate:'$'+R.hip,total:d.hip*R.hip});
+    for(let i=1;i<=d.pipes;i++) rows.push({code:'RFG PIPE',desc:`Pipe boot / plumbing flashing #${i}`,qty:'1EA',rate:'$'+R.pipe,total:R.pipe});
+    rows.push({code:'RFG DECK',desc:`OSB decking – partial replacement (${Math.round(R.deckPct*100)}%)`,qty:d.deckSq.toFixed(2)+'SQ',rate:'$'+R.deck,total:d.deckSq*R.deck});
+  }
+  if(tier==='best'){
+    rows.push({code:'RFG DECK',desc:'OSB decking – full replacement',qty:sq.toFixed(2)+'SQ',rate:'$'+R.deck,total:sq*R.deck});
+    rows.push({code:'GUT ALUM',desc:'Seamless aluminum gutters (6")',qty:d.eave+'LF',rate:'$'+R.gutter,total:d.eave*R.gutter});
+  }
+  return rows;
+}
+
+function buildReview() {
+  updateEstCalc();
+  const d=estData;
+  const addr=document.getElementById('estAddr').value||'—';
+  const owner=document.getElementById('estOwner').value||'—';
+  const parcel=document.getElementById('estParcel').value||'—';
+  const yr=document.getElementById('estYear').value||'—';
+  const roofType=document.getElementById('estRoofType').value||'—';
+  const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
+  const rows=getLineItems();
+  const grandTotal=rows.reduce((s,r)=>s+r.total,0);
+  estData.grandTotal=grandTotal;
+  estData.addr=addr; estData.owner=owner; estData.parcel=parcel; estData.yr=yr; estData.roofType=roofType;
+  estData.tierName=tierNames[selectedTier]; estData.rows=rows;
+
+  const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('estReviewBody').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Property</div>
+        <div style="font-size:14px;font-weight:600;color:var(--blue);">${addr}</div>
+        <div style="font-size:12px;color:var(--m);">${owner} · Parcel: ${parcel} · Built: ${yr}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);">Estimate Total</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--orange);">${fmt(grandTotal)}</div>
+        <div style="font-size:11px;color:var(--m);">${tierNames[selectedTier]}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;font-size:11px;">
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Roof Type</div><div style="font-weight:700;">${roofType}</div></div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Pitch</div><div style="font-weight:700;">${d.pl}</div></div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Squares</div><div style="font-weight:700;">${d.sq.toFixed(2)} SQ</div></div>
+    </div>
+    <table class="li-table">
+      <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td><strong>${fmt(r.total)}</strong></td></tr>`).join('')}
+        <tr class="total-row grand"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(grandTotal)}</strong></td></tr>
+      </tbody>
+    </table>`;
+}
+
+async function saveEstimate() {
+  if(!estData.grandTotal){showToast('Build estimate first','error');return;}
+  await window._saveEstimate({
+    addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
+    roofType:estData.roofType, pitch:estData.pl, sq:estData.sq, tier:selectedTier,
+    tierName:estData.tierName, grandTotal:estData.grandTotal,
+    raw:estData.raw, adj:Math.round(estData.adj)
+  });
+  showToast('Estimate saved!');
+  cancelEstimate();
+}
+
+function exportEstimate() {
+  if(!estData.grandTotal){showToast('Build estimate first','error');return;}
+  const d=estData;
+  const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Roofing Estimate — ${d.addr}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #C8541A;margin-bottom:26px;}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+  .brand span{color:#C8541A;}.sub{font-size:13px;color:#666;margin-top:2px;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+  .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
+  .est-date{font-size:12px;color:#666;}.est-by{font-size:12px;color:#666;}
+  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C8541A;margin-top:10px;}
+  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#C8541A;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid #C8541A;}
+  .prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:4px;}
+  .prop-field label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
+  .prop-field .v{font-size:15px;font-weight:700;color:#111;}
+  .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
+  .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
+  .mf .v{font-size:18px;font-weight:700;color:#111;}
+  table{width:100%;border-collapse:collapse;}
+  thead tr{border-bottom:2px solid #111;}
+  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
+  td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+  .code{color:#C8541A;font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:13px;}
+  .total-cell{font-weight:700;color:#111;}
+  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8541A;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
+  .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+  @media print{body{padding:18px;}@page{margin:1.2cm;}}</style></head><body>
+  <div class="hdr">
+    <div>
+      <div class="brand">No Big Deal <span>Home Solutions</span></div>
+      <div class="est-type" style="margin-top:8px;">Roofing Estimate</div>
+      <div class="est-date">${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+      <div class="est-by">No Big Deal with Joe Deal</div>
+    </div>
+    <div class="est-hdr">
+      <div class="est-total-lbl">Estimate Total</div>
+      <div class="est-total-val">${fmt(d.grandTotal)}</div>
+    </div>
+  </div>
+  <h2>P R O P E R T Y</h2>
+  <div class="prop-grid">
+    <div class="prop-field"><label>Address</label><div class="v">${d.addr}</div></div>
+    <div class="prop-field"><label>Owner</label><div class="v">${d.owner}</div></div>
+    <div class="prop-field"><label>Parcel ID</label><div class="v">${d.parcel}</div></div>
+    <div class="prop-field"><label>Year Built</label><div class="v">${d.yr}</div></div>
+  </div>
+  <h2>M E A S U R E M E N T S</h2>
+  <div class="meas-grid">
+    <div class="mf"><label>Roof Type</label><div class="v">${d.roofType}</div></div>
+    <div class="mf"><label>Pitch</label><div class="v">${d.pl}</div></div>
+    <div class="mf"><label>Raw SqFt</label><div class="v">${Math.round(d.raw).toLocaleString()} SF</div></div>
+    <div class="mf"><label>Waste Factor</label><div class="v">${d.wf.toFixed(3)}×</div></div>
+    <div class="mf"><label>Pitch Factor</label><div class="v">${d.pf.toFixed(4)}×</div></div>
+    <div class="mf"><label>Adjusted SqFt</label><div class="v">${Math.round(d.adj).toLocaleString()} SF</div></div>
+    <div class="mf"><label>Squares</label><div class="v">${d.sq.toFixed(2)} SQ</div></div>
+    <div class="mf"><label>Ridge LF</label><div class="v">${d.ridge} LF</div></div>
+    <div class="mf"><label>Eave LF</label><div class="v">${d.eave} LF</div></div>
+  </div>
+  <h2>L I N E &nbsp; I T E M S</h2>
+  <table>
+    <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+    <tbody>
+      ${d.rows.map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td class="total-cell">${fmt(r.total)}</td></tr>`).join('')}
+      <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${d.tierName}</td><td>${fmt(d.grandTotal)}</td></tr>
+    </tbody>
+  </table>
+  <div class="footer">
+    <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
+    <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
+  </div>
+  <script>window.print();<\/script></body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+function renderEstimatesList(ests) {
+  document.getElementById('statEsts').textContent=ests?.length||0;
+  const totalVal=(ests||[]).reduce((s,e)=>s+(e.grandTotal||0),0);
+  document.getElementById('statVal').textContent='$'+Math.round(totalVal/1000)+'K';
+
+  const wrap=document.getElementById('estListWrap');
+  if(!ests||!ests.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div>';return;}
+  wrap.innerHTML=ests.map(e=>`
+    <div class="est-card" onclick="viewEstimate('${e.id}')">
+      <div style="font-size:22px;">📋</div>
+      <div><div class="est-addr">${e.addr||'No address'}</div>
+      <div class="est-meta">${e.roofType||''} · ${e.sq?.toFixed(2)||0} SQ · ${e.tierName||''}</div></div>
+      <div class="est-total">$${(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+    </div>`).join('');
+
+  // Recent on dashboard
+  const rc=document.getElementById('recentEsts');
+  rc.innerHTML=ests.slice(0,4).map(e=>`
+    <div class="est-card" style="margin-bottom:8px;" onclick="goTo('est')">
+      <div style="font-size:18px;">📋</div>
+      <div><div class="est-addr" style="font-size:12px;">${e.addr||'No address'}</div>
+      <div class="est-meta">${e.tierName||''}</div></div>
+      <div class="est-total" style="font-size:16px;">$${(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+    </div>`).join('');
+}
+
+function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
+
+// ══════════════════════════════════════════════
+// CRM
+// ══════════════════════════════════════════════
+function openLeadModal(){document.getElementById('leadModal').classList.add('open');}
+function closeLeadModal(){
+  document.getElementById('leadModal').classList.remove('open');
+  document.getElementById('mErr').style.display='none';
+  document.getElementById('mOk').style.display='none';
+  ['lFname','lLname','lAddr','lPhone','lEmail','lNotes'].forEach(id=>document.getElementById(id).value='');
+}
+document.getElementById('leadModal').addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
+
+async function saveLead(){
+  const mErr=document.getElementById('mErr'),mOk=document.getElementById('mOk');
+  mErr.style.display='none';mOk.style.display='none';
+  const fname=document.getElementById('lFname').value.trim();
+  const addr=document.getElementById('lAddr').value.trim();
+  if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
+  document.querySelector('#leadModal .msave').disabled=true;
+  await window._saveLead({name:fname+' '+document.getElementById('lLname').value.trim(),address:addr,phone:document.getElementById('lPhone').value.trim(),email:document.getElementById('lEmail').value.trim(),stage:document.getElementById('lStage').value,source:document.getElementById('lSource').value,notes:document.getElementById('lNotes').value.trim()});
+  document.querySelector('#leadModal .msave').disabled=false;
+  mOk.textContent='Lead saved!';mOk.style.display='block';
+  setTimeout(closeLeadModal,800);
+}
+
+function renderLeads(leads){
+  const n=leads?.length||0;
+  document.getElementById('statLeads').textContent=n;
+  document.getElementById('leadBadge').textContent=n;
+  const counts={'New Lead':0,'Contacted':0,'Estimate Sent':0,'Negotiating':0,'Closed Won':0,'Closed Lost':0};
+  (leads||[]).forEach(l=>{if(counts[l.stage]!==undefined)counts[l.stage]++;});
+  [['p-new','New Lead'],['p-ct','Contacted'],['p-es','Estimate Sent'],['p-ng','Negotiating'],['p-won','Closed Won'],['p-lost','Closed Lost'],
+   ['dp-new','New Lead'],['dp-ct','Contacted'],['dp-es','Estimate Sent'],['dp-ng','Negotiating'],['dp-won','Closed Won'],['dp-lost','Closed Lost']
+  ].forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.textContent=counts[key];});
+  const tw=document.getElementById('leadsTableWrap');
+  if(!n){tw.innerHTML='<div class="empty">No leads yet.</div>';return;}
+  tw.innerHTML=`<table class="tbl"><thead><tr><th>Name</th><th>Address</th><th>Phone</th><th>Source</th><th>Stage</th><th>Action</th></tr></thead><tbody>
+  ${leads.map(l=>`<tr><td>${l.name}</td><td style="color:var(--blue)">${l.address}</td><td>${l.phone||'—'}</td><td>${l.source||'—'}</td>
+  <td><span class="tag ${tagClass(l.stage)}">${l.stage}</span></td>
+  <td><button class="btn btn-ghost" style="font-size:10px;padding:4px 9px;" onclick="openPhotoFor('${l.id}','${l.address?.replace(/'/g,"\\'")}')">📸 Photos</button></td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+function updatePipeline(leads){ renderLeads(leads); }
+function tagClass(s){return({'New Lead':'tag-new','Contacted':'tag-ct','Estimate Sent':'tag-es','Negotiating':'tag-ng','Closed Won':'tag-won','Closed Lost':'tag-lost'}[s]||'tag-new');}
+
+// ══════════════════════════════════════════════
+// DAMAGE PHOTOS
+// ══════════════════════════════════════════════
+let currentPhotoLeadId=null, currentPhotoAddr='';
+
+function renderPhotoLeads(){
+  const leads=window._leads||[];
+  const wrap=document.getElementById('photoLeadsList');
+  if(!leads.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Add leads first to attach photos.</div>';return;}
+  wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;">'+leads.map(l=>`
+    <div class="panel" style="margin:0;">
+      <div class="panel-hdr" style="cursor:pointer;" onclick="openPhotoFor('${l.id}','${l.address?.replace(/'/g,"\\'")}')">
+        <div><div class="panel-label">Photos</div><div class="panel-title" style="font-size:14px;">${l.address}</div><div style="font-size:11px;color:var(--m);">${l.name}</div></div>
+        <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">📷 View / Upload</button>
+      </div>
+    </div>`).join('')+'</div>';
+}
+
+async function openPhotoFor(leadId, addr){
+  currentPhotoLeadId=leadId; currentPhotoAddr=addr;
+  document.getElementById('photoModalTitle').textContent='Damage Photos';
+  document.getElementById('photoModalAddr').textContent=addr;
+  document.getElementById('photoGridModal').innerHTML='<div style="font-size:12px;color:var(--m);padding:10px;text-align:center;">Loading...</div>';
+  document.getElementById('photoModal').classList.add('open');
+  const photos=await window._getPhotos(leadId);
+  renderPhotoGrid(photos);
+}
+
+function closePhotoModal(){document.getElementById('photoModal').classList.remove('open');}
+document.getElementById('photoModal').addEventListener('click',e=>{if(e.target===document.getElementById('photoModal'))closePhotoModal();});
+
+function renderPhotoGrid(photos){
+  const grid=document.getElementById('photoGridModal');
+  if(!photos.length){grid.innerHTML='<p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No photos yet. Upload above.</p>';return;}
+  grid.innerHTML=photos.map(p=>`<div class="photo-thumb"><img src="${p.url}" alt="${p.name}" onclick="window.open('${p.url}','_blank')"></div>`).join('');
+}
+
+async function uploadPhotos(input){
+  const files=Array.from(input.files);
+  if(!files.length||!currentPhotoLeadId) return;
+  showToast('Uploading '+files.length+' photo(s)...');
+  for(const f of files) await window._uploadPhoto(currentPhotoLeadId,f);
+  const photos=await window._getPhotos(currentPhotoLeadId);
+  renderPhotoGrid(photos);
+  showToast('Photos uploaded!');
+  input.value='';
+}
+
+function damageNearMePhotos(){
+  navigator.geolocation?.getCurrentPosition(async pos=>{
+    showToast('Finding nearby inspections...');
+    goTo('map');
+    if(mainMap) mainMap.setView([pos.coords.latitude,pos.coords.longitude],14);
+  },()=>showToast('Location access denied','error'));
+}
+
+// ══════════════════════════════════════════════
+// STORM MAP
+// ══════════════════════════════════════════════
+let stormMap;
+function initStormMap(){
+  stormMap=L.map('stormMap').setView([39.4,-84.2],8);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19}).addTo(stormMap);
+  loadStorm();
+}
+async function loadStorm(){
+  const list=document.getElementById('alertsList');
+  list.innerHTML='<div style="font-size:11px;color:var(--m);">Loading alerts...</div>';
+  try{
+    const res=await fetch('https://api.weather.gov/alerts/active?area=OH',{headers:{'User-Agent':'NBDPro/1.0'}});
+    const data=await res.json();
+    const alerts=(data.features||[]).slice(0,8);
+    if(!alerts.length){list.innerHTML='<div style="font-size:11px;color:var(--green);">✓ No active alerts for Ohio</div>';return;}
+    list.innerHTML=alerts.map(a=>{
+      const p=a.properties;
+      return`<div style="background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-left:3px solid var(--red);border-radius:6px;padding:9px;margin-bottom:7px;">
+        <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:3px;">⚠️ ${p.event}</div>
+        <div style="font-size:10px;color:var(--m);">${p.areaDesc}</div>
+        <div style="font-size:10px;color:var(--m);margin-top:3px;">${(p.headline||'').substring(0,120)}</div>
+      </div>`;
+    }).join('');
+    if(stormMap) alerts.forEach(a=>{if(a.geometry)L.geoJSON(a.geometry,{style:{color:'#E05252',weight:2,fillOpacity:.12}}).addTo(stormMap);});
+  }catch(e){list.innerHTML='<div style="font-size:11px;color:var(--m);">Could not load alerts.</div>';}
+}
+
+// ══════════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════════
+function renderLeaderboard(){
+  const leads=window._leads||[];
+  const reps={};
+  leads.forEach(l=>{
+    const n=l.repName||l.source||'Unknown Rep';
+    if(!reps[n])reps[n]={name:n,leads:0,won:0};
+    reps[n].leads++;
+    if(l.stage==='Closed Won')reps[n].won++;
+  });
+  // Add demo data if empty
+  if(!Object.keys(reps).length){
+    ['Jonathan D.','Mike R.','Sarah K.','Dave M.'].forEach((n,i)=>{
+      reps[n]={name:n,leads:20-i*4,won:8-i*2};
+    });
+  }
+  const sorted=Object.values(reps).sort((a,b)=>b.won-a.won);
+  const medals=['🥇','🥈','🥉'];
+  const maxWon=sorted[0]?.won||1;
+  document.getElementById('lbRows').innerHTML=sorted.map((r,i)=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--br);">
+      <div style="font-size:20px;width:28px;text-align:center;">${medals[i]||'#'+(i+1)}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${r.name}</div>
+        <div style="font-size:11px;color:var(--m);">${r.leads} leads · ${r.won} won · ${r.leads?Math.round(r.won/r.leads*100):0}% close rate</div>
+        <div style="background:var(--s3);border-radius:4px;height:5px;margin-top:6px;overflow:hidden;"><div style="height:100%;border-radius:4px;background:var(--orange);width:${Math.round(r.won/maxWon*100)}%;transition:width .6s;"></div></div>
+      </div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--orange);">${r.won} <span style="font-size:11px;color:var(--m);">WON</span></div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// TIPS
+// ══════════════════════════════════════════════
+function openTips(){document.getElementById('tipsModal').classList.add('open');}
+function closeTips(){document.getElementById('tipsModal').classList.remove('open');}
+document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===document.getElementById('tipsModal'))closeTips();});
+
+// ══════════════════════════════════════════════
+// GEOCODE HELPER
+// ══════════════════════════════════════════════
+async function geocode(q){
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const d=await res.json();
+    if(!d.length){showToast('Address not found','error');return null;}
+    return d[0];
+  }catch(e){showToast('Geocode failed','error');return null;}
+}
+
+// HAV + MID
+function hav(a,b){const R=20902231,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lng-a.lng)*Math.PI/180,aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));}
+function mid(a,b){return L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);}
+</script>
+</body>
+</html>
