@@ -776,11 +776,6 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         </div>
       </div>
     </div>
-
-    <div class="reviews-cta reveal" style="text-align:center;margin-top:40px">
-      <a href="https://g.page/r/CZ0JXxHcHiqiEBM/review" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:var(--orange);color:white;padding:14px 32px;border-radius:6px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none">Leave Us a Google Review</a>
-      <p style="margin-top:12px;font-size:.8rem;color:var(--gray)">Takes 30 seconds - means the world to a small business.</p>
-    </div>
   </div>
 </section>
 
@@ -1008,8 +1003,8 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
   });
 });
 
-// Form submit
 document.querySelectorAll('.sc-link[data-service]').forEach(function(link){link.addEventListener('click',function(){var svc=link.getAttribute('data-service');var sel=document.querySelector('#formFields select');if(sel&&svc){setTimeout(function(){sel.value=svc;sel.style.borderColor='var(--orange)';sel.style.background='rgba(232,114,12,0.05)';setTimeout(function(){sel.style.borderColor='';sel.style.background='';},1800);},500);}});});
+// Form submit
 function submitForm(){
   const first=document.getElementById('fieldFirst').value.trim();
   const phone=document.getElementById('fieldPhone').value.trim();
@@ -1021,6 +1016,9 @@ function submitForm(){
   const service=document.querySelector('#formFields select')?.value||'';
   const message=document.querySelector('#formFields textarea')?.value.trim()||'';
   fetch('https://formsubmit.co/ajax/jd@nobigdealwithjoedeal.com',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({_subject:'New Estimate - '+first+' '+last,_captcha:'false',_template:'table',name:first+' '+last,phone:phone,email:email||'not provided',service:service||'not specified',message:message||'no message'})}).catch(()=>{});
+}
+  document.getElementById('formFields').style.display='none';
+  document.getElementById('formSuccess').style.display='block';
 }
 </script>
 </body>
