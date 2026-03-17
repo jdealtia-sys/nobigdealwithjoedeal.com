@@ -1022,9 +1022,6 @@ function submitForm(){
   const message=document.querySelector('#formFields textarea')?.value.trim()||'';
   fetch('https://formsubmit.co/ajax/jd@nobigdealwithjoedeal.com',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({_subject:'New Estimate - '+first+' '+last,_captcha:'false',_template:'table',name:first+' '+last,phone:phone,email:email||'not provided',service:service||'not specified',message:message||'no message'})}).catch(()=>{});
 }
-  document.getElementById('formFields').style.display='none';
-  document.getElementById('formSuccess').style.display='block';
-}
 </script>
 </body>
 </html>
