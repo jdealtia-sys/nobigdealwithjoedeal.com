@@ -22,13 +22,15 @@
     appId: "1:717435841570:web:c2338e11052c96fde02e7b"
   };
 
+  document.documentElement.style.visibility="hidden";
   const app     = initializeApp(firebaseConfig);
   const auth    = getAuth(app);
   const db      = getFirestore(app);
   const storage = getStorage(app);
 
   onAuthStateChanged(auth, user => {
-    if (!user) { window.location.href = "index.html"; return; }
+    if (!user) { window.location.replace("/pro/login.html"); return; }
+    document.documentElement.style.visibility="visible";
     window._user = user;
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('userName').textContent   = name;
@@ -42,7 +44,7 @@
   window._auth    = auth;
   window._db      = db;
   window._storage = storage;
-  window._signOut = () => signOut(auth).then(() => window.location.href = "index.html");
+  window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
