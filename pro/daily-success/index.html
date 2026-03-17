@@ -635,24 +635,24 @@ function getBodyweight(){const cfg=getUserConfig();return cfg&&cfg.bodyweight?cf
 
 function resolveProtein(floors,bw){
 bw=bw||getBodyweight();
-return floors.map(f=>({…f,targetValue:f.targetValue===‘BW’?bw:f.targetValue}));
+return floors.map(f=>({...f,targetValue:f.targetValue===‘BW’?bw:f.targetValue}));
 }
 
 function normalizeLabel(s){return s.toLowerCase().replace(/[^a-z0-9]/g,’’);}
 
 function buildMergedFloors(cat,focusAreas,bw){
 bw=bw||150;
-const primary=(FLOOR_PRESETS[cat]||FLOOR_PRESETS[‘Other’]).map(f=>({…f}));
+const primary=(FLOOR_PRESETS[cat]||FLOOR_PRESETS[‘Other’]).map(f=>({...f}));
 const seen=new Set(primary.map(f=>normalizeLabel(f.label)));
-const merged=[…primary];
+const merged=[...primary];
 focusAreas.forEach(area=>{
 const extras=FOCUS_EXTRA[area]||[];
 extras.forEach(f=>{
 const key=normalizeLabel(f.label);
-if(!seen.has(key)&&merged.length<7){seen.add(key);merged.push({…f});}
+if(!seen.has(key)&&merged.length<7){seen.add(key);merged.push({...f});}
 });
 });
-return resolveProtein(merged.slice(0,7).map((f,i)=>({…f,id:‘f’+Date.now()+i})),bw);
+return resolveProtein(merged.slice(0,7).map((f,i)=>({...f,id:‘f’+Date.now()+i})),bw);
 }
 
 function getDefaultFloors(){
@@ -828,8 +828,8 @@ document.getElementById(‘prh-title’).textContent=liftName+’ History’;
 document.getElementById(‘prh-sub’).textContent=`${entries.length} PR${entries.length!==1?'s':''} across all pages`;
 const list=document.getElementById(‘prh-list’);
 if(!entries.length){list.innerHTML=’<div class="de">No entries yet for this lift.</div>’;openM(‘mPRH’);return;}
-const chrono=[…entries].sort((a,b)=>a.idx-b.idx);
-list.innerHTML=chrono.map((e,i)=>{const prev=i>0?chrono[i-1].val:null;const delta=prev!==null?e.val-prev:null;const best=e.val===Math.max(…entries.map(x=>x.val));const dh=delta===null?’’:(delta>0?`<span class="prh-delta up">+${delta}lbs</span>`:(delta<0?`<span class="prh-delta dn">${delta}lbs</span>`:’’));return `<div class="prh-row"><span class="prh-date">${e.stamp}</span><span class="prh-page">${e.page}${best?' 🏆':''}</span><span class="prh-val">${e.val}lbs</span>${dh}</div>`;}).join(’’);
+const chrono=[...entries].sort((a,b)=>a.idx-b.idx);
+list.innerHTML=chrono.map((e,i)=>{const prev=i>0?chrono[i-1].val:null;const delta=prev!==null?e.val-prev:null;const best=e.val===Math.max(...entries.map(x=>x.val));const dh=delta===null?’’:(delta>0?`<span class="prh-delta up">+${delta}lbs</span>`:(delta<0?`<span class="prh-delta dn">${delta}lbs</span>`:’’));return `<div class="prh-row"><span class="prh-date">${e.stamp}</span><span class="prh-page">${e.page}${best?' 🏆':''}</span><span class="prh-val">${e.val}lbs</span>${dh}</div>`;}).join(’’);
 openM(‘mPRH’);
 }
 
@@ -1118,7 +1118,7 @@ const t=document.getElementById(‘ob-target’);if(t)t.value=cfg.northStar.targ
 const d=document.getElementById(‘ob-deadline’);if(d)d.value=cfg.northStar.deadline||’’;
 }
 if(cfg.floors&&cfg.floors.length){
-obFloors=cfg.floors.map(f=>({…f}));
+obFloors=cfg.floors.map(f=>({...f}));
 }
 if(cfg.bodyweight){const bw=document.getElementById(‘ob-bodyweight’);if(bw)bw.value=cfg.bodyweight;}
 if(cfg.goose){const g=document.getElementById(‘ob-goose’);if(g)g.value=cfg.goose;}
