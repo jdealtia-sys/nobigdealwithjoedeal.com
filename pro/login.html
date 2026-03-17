@@ -8,135 +8,135 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#1a2b5e;--navy-dark:#0f1d42;--orange:#e8720c;--orange-dark:#c45e08;
+  --orange-light:#f59240;--white:#fff;--text-muted:#7a8ba8;
+  --dark-bg:#0d1117;--dark-card:#161b22;
+}
+html,body{height:100%;font-family:'Montserrat',sans-serif;overflow:hidden}
+body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-columns:1fr 500px}
 
-  :root {
-    --navy: #1a2b5e;
-    --navy-dark: #0f1d42;
-    --navy-mid: #1c2f66;
-    --orange: #e8720c;
-    --orange-dark: #c45e08;
-    --orange-light: #f59240;
-    --white: #ffffff;
-    --text-muted: #7a8ba8;
-    --dark-bg: #0d1117;
-    --dark-card: #161b22;
-  }
+/* BRAND PANEL */
+.bp{background:var(--navy-dark);position:relative;overflow:hidden;display:flex;flex-direction:column;padding:48px 56px}
+.bp::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(255,255,255,0.018) 60px,rgba(255,255,255,0.018) 61px);pointer-events:none}
+.bp::after{content:'';position:absolute;bottom:-60px;left:-60px;width:500px;height:500px;background:radial-gradient(circle,rgba(232,114,12,0.1) 0%,transparent 65%);pointer-events:none}
+.bp-top{position:relative;z-index:1}
+.bp-logo{display:flex;align-items:center;gap:12px;text-decoration:none;margin-bottom:8px}
+.bp-logo-mark{width:42px;height:42px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;letter-spacing:1px;flex-shrink:0}
+.bp-logo-text{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;line-height:1}
+.bp-logo-text span{color:var(--orange)}
+.bp-logo-sub{font-size:9px;color:var(--text-muted);letter-spacing:2.5px;text-transform:uppercase;margin-top:2px}
+.bp-back{font-size:11px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-top:16px;transition:color .2s}
+.bp-back:hover{color:var(--white)}
+.bp-mid{flex:1;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1}
+.bp-headline{font-family:'Bebas Neue',sans-serif;font-size:clamp(52px,5vw,72px);letter-spacing:2px;line-height:.92;margin-bottom:24px}
+.bp-headline .orange{color:var(--orange)}
+.bp-desc{font-size:14px;color:var(--text-muted);line-height:1.75;max-width:420px;margin-bottom:40px}
+.bp-features{list-style:none}
+.bp-feature{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;font-size:13px;color:var(--text-muted)}
+.bp-fi{width:20px;height:20px;background:rgba(232,114,12,0.1);border:1px solid rgba(232,114,12,0.25);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;margin-top:1px}
+.bp-ft strong{color:var(--white);display:block;font-size:12px;font-weight:600;margin-bottom:1px}
+.bp-bot{position:relative;z-index:1;font-size:11px;color:var(--text-muted)}
+.bp-bot a{color:var(--orange);text-decoration:none}
 
-  html, body {
-    height: 100%;
-    font-family: 'Montserrat', sans-serif;
-    overflow: hidden;
-  }
+/* LOGIN PANEL */
+.lp{background:var(--navy);border-left:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;justify-content:center;padding:48px 52px;position:relative;overflow:hidden;overflow-y:auto}
+.lp::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent 0%,var(--orange) 40%,var(--orange) 60%,transparent 100%)}
+.lp::after{content:'';position:absolute;top:-60px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(232,114,12,0.07) 0%,transparent 70%);pointer-events:none}
 
-  body {
-    background: var(--navy-dark);
-    color: var(--white);
-    display: grid;
-    grid-template-columns: 1fr 500px;
-  }
+/* TABS */
+.access-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.25);border-radius:8px;padding:4px;margin-bottom:28px;position:relative;z-index:1}
+.tab-btn{flex:1;padding:9px;border:none;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;background:transparent;color:var(--text-muted)}
+.tab-btn.active{background:var(--orange);color:#fff}
+.tab-btn:not(.active):hover{color:var(--white)}
 
-  .brand-panel {
-    background: var(--navy-dark);
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    padding: 48px 56px;
-  }
-  .brand-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 60px, rgba(255,255,255,0.018) 60px, rgba(255,255,255,0.018) 61px);
-    pointer-events: none;
-  }
-  .brand-panel::after {
-    content: '';
-    position: absolute;
-    bottom: -60px; left: -60px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(232,114,12,0.1) 0%, transparent 65%);
-    pointer-events: none;
-  }
-  .bp-top { position: relative; z-index: 1; }
-  .bp-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; margin-bottom: 8px; }
-  .bp-logo-mark { width: 42px; height: 42px; background: var(--orange); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: #fff; letter-spacing: 1px; flex-shrink: 0; }
-  .bp-logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; line-height: 1; }
-  .bp-logo-text span { color: var(--orange); }
-  .bp-logo-sub { font-size: 9px; color: var(--text-muted); letter-spacing: 2.5px; text-transform: uppercase; margin-top: 2px; }
-  .bp-back { font-size: 11px; color: var(--text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; transition: color 0.2s; }
-  .bp-back:hover { color: var(--white); }
-  .bp-middle { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; z-index: 1; }
-  .bp-headline { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px, 5vw, 72px); letter-spacing: 2px; line-height: 0.92; margin-bottom: 24px; }
-  .bp-headline .orange { color: var(--orange); }
-  .bp-desc { font-size: 14px; color: var(--text-muted); line-height: 1.75; max-width: 420px; margin-bottom: 40px; }
-  .bp-features { list-style: none; }
-  .bp-feature { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; font-size: 13px; color: var(--text-muted); }
-  .bp-feature-icon { width: 20px; height: 20px; background: rgba(232,114,12,0.1); border: 1px solid rgba(232,114,12,0.25); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--orange); flex-shrink: 0; margin-top: 1px; }
-  .bp-feature-text strong { color: var(--white); display: block; font-size: 12px; font-weight: 600; margin-bottom: 1px; }
-  .bp-bottom { position: relative; z-index: 1; font-size: 11px; color: var(--text-muted); }
-  .bp-bottom a { color: var(--orange); text-decoration: none; }
-  .bp-bottom a:hover { text-decoration: underline; }
+/* VIEWS */
+.view{display:none}
+.view.active{display:block}
 
-  .login-panel { background: var(--navy); border-left: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: center; padding: 56px 52px; position: relative; overflow: hidden; overflow-y: auto; }
-  .login-panel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, var(--orange) 40%, var(--orange) 60%, transparent 100%); }
-  .login-panel::after { content: ''; position: absolute; top: -60px; right: -60px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(232,114,12,0.07) 0%, transparent 70%); pointer-events: none; }
-  .login-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--orange); margin-bottom: 8px; }
-  .login-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 2px; margin-bottom: 4px; line-height: 1; }
-  .login-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 36px; }
-  .login-subtitle a { color: var(--orange); text-decoration: none; }
-  .login-subtitle a:hover { text-decoration: underline; }
-  .form-group { margin-bottom: 20px; position: relative; }
-  .form-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
-  .form-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 13px 16px; font-size: 14px; font-family: 'Montserrat', sans-serif; color: var(--white); outline: none; transition: border-color 0.2s, background 0.2s; }
-  .form-input:focus { border-color: var(--orange); background: rgba(232,114,12,0.04); }
-  .form-input::placeholder { color: rgba(255,255,255,0.2); }
-  .form-input.has-icon { padding-right: 44px; }
-  .input-icon-btn { position: absolute; right: 14px; bottom: 13px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; line-height: 1; transition: color 0.2s; }
-  .input-icon-btn:hover { color: var(--white); }
-  .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 12px; }
-  .remember-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); cursor: pointer; user-select: none; }
-  .remember-label input[type="checkbox"] { accent-color: var(--orange); width: 14px; height: 14px; cursor: pointer; }
-  .forgot-link { font-size: 12px; color: var(--orange); text-decoration: none; white-space: nowrap; }
-  .forgot-link:hover { text-decoration: underline; }
-  .btn-login { width: 100%; background: var(--orange); color: #fff; padding: 15px; border-radius: 6px; font-weight: 800; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; border: none; cursor: pointer; transition: background 0.2s, transform 0.15s; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; position: relative; z-index: 1; }
-  .btn-login:hover:not(:disabled) { background: var(--orange-dark); }
-  .btn-login:active:not(:disabled) { transform: scale(0.99); }
-  .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
-  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-  .btn-login.loading .spinner { display: block; }
-  .btn-login.loading .btn-text { display: none; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .alert { padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; display: none; align-items: flex-start; gap: 10px; line-height: 1.5; }
-  .alert.show { display: flex; }
-  .alert-error { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3); color: #f89490; }
-  .alert-success { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.25); color: #6ee67f; }
-  .alert-icon { flex-shrink: 0; font-size: 14px; }
-  .reset-view { display: none; }
-  .reset-view.active { display: block; }
-  .main-view.hidden { display: none; }
-  .back-to-login { background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: 'Montserrat', sans-serif; display: inline-flex; align-items: center; gap: 6px; padding: 0; margin-top: 12px; transition: color 0.2s; }
-  .back-to-login:hover { color: var(--white); }
-  .login-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-  .divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
-  .divider-text { font-size: 10px; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; }
-  .login-footer-note { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 12px 14px; font-size: 11px; color: var(--text-muted); line-height: 1.6; text-align: center; }
-  .login-footer-note a { color: var(--orange); text-decoration: none; }
-  .login-footer-note a:hover { text-decoration: underline; }
-  @media (max-width: 900px) {
-    html, body { overflow: auto; height: auto; }
-    body { grid-template-columns: 1fr; }
-    .brand-panel { padding: 40px 28px 32px; min-height: auto; }
-    .bp-middle { padding: 32px 0; }
-    .bp-features { display: none; }
-    .login-panel { padding: 40px 28px 48px; overflow: visible; }
-  }
+/* SHARED FORM ELEMENTS */
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
+.view-title{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:2px;margin-bottom:4px;line-height:1}
+.view-sub{font-size:13px;color:var(--text-muted);margin-bottom:28px}
+.view-sub a{color:var(--orange);text-decoration:none}
+.fg{margin-bottom:16px;position:relative}
+.fl{display:block;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px}
+.fi{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:13px 16px;font-size:14px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none;transition:border-color .2s,background .2s}
+.fi:focus{border-color:var(--orange);background:rgba(232,114,12,0.04)}
+.fi::placeholder{color:rgba(255,255,255,0.2)}
+.fi.has-icon{padding-right:44px}
+.icon-btn{position:absolute;right:14px;bottom:13px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;transition:color .2s}
+.icon-btn:hover{color:var(--white)}
+.form-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px}
+.remember{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none}
+.remember input{accent-color:var(--orange);width:14px;height:14px;cursor:pointer}
+.forgot{font-size:12px;color:var(--orange);background:none;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;padding:0}
+.forgot:hover{text-decoration:underline}
+
+/* BUTTONS */
+.btn-main{width:100%;background:var(--orange);color:#fff;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:background .2s,transform .15s;font-family:'Montserrat',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;position:relative;z-index:1}
+.btn-main:hover:not(:disabled){background:var(--orange-dark)}
+.btn-main:active:not(:disabled){transform:scale(.99)}
+.btn-main:disabled{opacity:.6;cursor:not-allowed}
+.btn-demo{width:100%;background:rgba(63,185,80,0.12);color:#3fb950;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:1px solid rgba(63,185,80,0.3);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1}
+.btn-demo:hover:not(:disabled){background:rgba(63,185,80,0.2);border-color:rgba(63,185,80,0.5)}
+.btn-demo:disabled{opacity:.6;cursor:not-allowed}
+.demo-dot{width:8px;height:8px;background:#3fb950;border-radius:50%;animation:pulse-g 1.5s infinite;flex-shrink:0}
+@keyframes pulse-g{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+
+/* CODE INPUT — big and satisfying */
+.code-wrap{margin-bottom:20px}
+.code-input{width:100%;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.12);border-radius:10px;padding:18px 20px;font-size:28px;font-family:'Bebas Neue',sans-serif;letter-spacing:8px;color:var(--white);outline:none;text-align:center;text-transform:uppercase;transition:border-color .2s,background .2s}
+.code-input:focus{border-color:var(--orange);background:rgba(232,114,12,0.04)}
+.code-input::placeholder{color:rgba(255,255,255,0.15);letter-spacing:4px;font-size:20px}
+.code-hint{font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px}
+.code-hint strong{color:rgba(255,255,255,0.5)}
+
+/* SPINNER */
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-main.loading .spinner,.btn-demo.loading .spinner{display:block}
+.btn-main.loading .btn-text,.btn-demo.loading .btn-text{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ALERTS */
+.alert{padding:12px 16px;border-radius:6px;font-size:13px;margin-bottom:16px;display:none;align-items:flex-start;gap:10px;line-height:1.5}
+.alert.show{display:flex}
+.alert-error{background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);color:#f89490}
+.alert-success{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.25);color:#6ee67f}
+.alert-icon{flex-shrink:0;font-size:14px}
+
+/* DIVIDER */
+.divider{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.div-line{flex:1;height:1px;background:rgba(255,255,255,0.08)}
+.div-text{font-size:10px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+
+/* FOOTER NOTE */
+.fn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:12px 14px;font-size:11px;color:var(--text-muted);line-height:1.6;text-align:center}
+.fn a{color:var(--orange);text-decoration:none}
+
+/* RESET VIEW */
+.reset-view{display:none}
+.reset-view.active{display:block}
+.main-view.hidden{display:none}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:'Montserrat',sans-serif;display:inline-flex;align-items:center;gap:6px;padding:0;margin-top:12px;transition:color .2s}
+.back-btn:hover{color:var(--white)}
+
+@media(max-width:900px){
+  html,body{overflow:auto;height:auto}
+  body{grid-template-columns:1fr}
+  .bp{padding:40px 28px 32px;min-height:auto}
+  .bp-mid{padding:32px 0}
+  .bp-features{display:none}
+  .lp{padding:40px 28px 48px;overflow:visible}
+  .access-tabs .tab-btn{font-size:10px;padding:8px 4px;letter-spacing:.5px}
+}
 </style>
 </head>
 <body>
 
-<div class="brand-panel">
+<!-- BRAND PANEL -->
+<div class="bp">
   <div class="bp-top">
     <a href="/" class="bp-logo">
       <div class="bp-logo-mark">NBD</div>
@@ -147,145 +147,311 @@
     </a>
     <a href="/pro/" class="bp-back">← Back to Pro overview</a>
   </div>
-  <div class="bp-middle">
+  <div class="bp-mid">
     <h1 class="bp-headline">YOUR<br>PIPELINE<br><span class="orange">AWAITS.</span></h1>
-    <p class="bp-desc">Log into the NBD Pro Dashboard to access your lead pipeline, CRM tools, AI-powered estimates, and the full Masterclass system — all in one place.</p>
+    <p class="bp-desc">Log into the NBD Pro Dashboard to access your lead pipeline, CRM tools, AI-powered estimates, and the full Masterclass system.</p>
     <ul class="bp-features">
-      <li class="bp-feature"><div class="bp-feature-icon">◈</div><div class="bp-feature-text"><strong>Lead Pipeline CRM</strong>Track every lead from first knock to signed contract.</div></li>
-      <li class="bp-feature"><div class="bp-feature-icon">⚡</div><div class="bp-feature-text"><strong>AI Measurement &amp; Business Intel</strong>Infused tier members get the full AI toolkit.</div></li>
-      <li class="bp-feature"><div class="bp-feature-icon">📘</div><div class="bp-feature-text"><strong>12-Chapter Masterclass</strong>On-demand access to the complete success system.</div></li>
-      <li class="bp-feature"><div class="bp-feature-icon">☎</div><div class="bp-feature-text"><strong>Direct Line to Joe</strong>Infused members get Joe's personal contact.</div></li>
+      <li class="bp-feature"><div class="bp-fi">◈</div><div class="bp-ft"><strong>Lead Pipeline CRM</strong>Track every lead from first knock to signed contract.</div></li>
+      <li class="bp-feature"><div class="bp-fi">⚡</div><div class="bp-ft"><strong>AI Measurement &amp; Business Intel</strong>Infused tier members get the full AI toolkit.</div></li>
+      <li class="bp-feature"><div class="bp-fi">📘</div><div class="bp-ft"><strong>12-Chapter Masterclass</strong>On-demand access to the complete success system.</div></li>
+      <li class="bp-feature"><div class="bp-fi">☎</div><div class="bp-ft"><strong>Direct Line to Joe</strong>Infused members get Joe's personal contact.</div></li>
     </ul>
   </div>
-  <div class="bp-bottom">Not a member yet? <a href="/pro/">See membership plans →</a></div>
+  <div class="bp-bot">Not a member yet? <a href="/pro/">See membership plans →</a></div>
 </div>
 
-<div class="login-panel">
-  <div class="main-view" id="mainView">
-    <div class="login-eyebrow">Pro Member Access</div>
-    <h2 class="login-title">SIGN IN</h2>
-    <p class="login-subtitle">Not a member? <a href="/pro/#pricing">View plans →</a></p>
-    <div class="alert alert-error" id="loginError"><span class="alert-icon">⚠</span><span id="loginErrorMsg">Invalid email or password. Please try again.</span></div>
-    <div class="form-group">
-      <label class="form-label" for="emailInput">Email Address</label>
-      <input type="email" id="emailInput" class="form-input" placeholder="you@email.com" autocomplete="email" inputmode="email">
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="passwordInput">Password</label>
-      <input type="password" id="passwordInput" class="form-input has-icon" placeholder="••••••••••••" autocomplete="current-password">
-      <button class="input-icon-btn" id="togglePw" type="button" title="Toggle visibility" aria-label="Show/hide password">👁</button>
-    </div>
-    <div class="form-row">
-      <label class="remember-label"><input type="checkbox" id="rememberMe"> Remember me</label>
-      <button class="forgot-link" id="showResetBtn" type="button" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:12px;color:var(--orange);padding:0;">Forgot password?</button>
-    </div>
-    <button class="btn-login" id="loginBtn" type="button"><span class="btn-text">Enter Dashboard</span><div class="spinner" id="loginSpinner"></div></button>
-    <div class="login-divider"><div class="divider-line"></div><span class="divider-text">Need help?</span><div class="divider-line"></div></div>
-    <div class="login-footer-note">Access is invite-only for NBD members. Questions? Call or text Joe at <a href="tel:8594207382">(859) 420-7382</a> or <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></div>
+<!-- LOGIN PANEL -->
+<div class="lp">
+
+  <!-- TAB SWITCHER -->
+  <div class="access-tabs">
+    <button class="tab-btn active" onclick="switchTab('member')" id="tab-member">Member Login</button>
+    <button class="tab-btn" onclick="switchTab('code')" id="tab-code">Access Code</button>
+    <button class="tab-btn" onclick="switchTab('demo')" id="tab-demo">Try Demo</button>
   </div>
-  <div class="reset-view" id="resetView">
-    <div class="login-eyebrow">Password Reset</div>
-    <h2 class="login-title">RESET YOUR<br>PASSWORD</h2>
-    <p class="login-subtitle" style="margin-bottom:28px">Enter your email and we'll send a reset link.</p>
-    <div class="alert alert-error" id="resetError"><span class="alert-icon">⚠</span><span id="resetErrorMsg">Something went wrong. Please try again.</span></div>
-    <div class="alert alert-success" id="resetSuccess"><span class="alert-icon">✓</span><span>Reset link sent! Check your inbox.</span></div>
-    <div class="form-group"><label class="form-label" for="resetEmail">Email Address</label><input type="email" id="resetEmail" class="form-input" placeholder="you@email.com" autocomplete="email"></div>
-    <button class="btn-login" id="resetBtn" type="button" style="margin-bottom:0"><span class="btn-text">Send Reset Link</span><div class="spinner"></div></button>
-    <button class="back-to-login" id="backToLogin" type="button">← Back to sign in</button>
+
+  <!-- ── MEMBER LOGIN VIEW ── -->
+  <div class="view active" id="view-member">
+    <div class="main-view" id="mainView">
+      <div class="eyebrow">Pro Member Access</div>
+      <h2 class="view-title">SIGN IN</h2>
+      <p class="view-sub">Not a member? <a href="/pro/#pricing">View plans →</a></p>
+      <div class="alert alert-error" id="loginError"><span class="alert-icon">⚠</span><span id="loginErrorMsg">Invalid email or password.</span></div>
+      <div class="fg">
+        <label class="fl" for="emailInput">Email Address</label>
+        <input type="email" id="emailInput" class="fi" placeholder="you@email.com" autocomplete="email" inputmode="email">
+      </div>
+      <div class="fg">
+        <label class="fl" for="passwordInput">Password</label>
+        <input type="password" id="passwordInput" class="fi has-icon" placeholder="••••••••••••" autocomplete="current-password">
+        <button class="icon-btn" id="togglePw" type="button">👁</button>
+      </div>
+      <div class="form-row">
+        <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
+        <button class="forgot" id="showResetBtn" type="button">Forgot password?</button>
+      </div>
+      <button class="btn-main" id="loginBtn" type="button">
+        <span class="btn-text">Enter Dashboard</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="fn">
+        Invite-only for NBD members. Questions? <a href="tel:8594207382">(859) 420-7382</a> or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a>
+      </div>
+    </div>
+    <div class="reset-view" id="resetView">
+      <div class="eyebrow">Password Reset</div>
+      <h2 class="view-title">RESET<br>PASSWORD</h2>
+      <p class="view-sub" style="margin-bottom:20px">Enter your email and we'll send a reset link.</p>
+      <div class="alert alert-error" id="resetError"><span class="alert-icon">⚠</span><span id="resetErrorMsg">Something went wrong.</span></div>
+      <div class="alert alert-success" id="resetSuccess"><span class="alert-icon">✓</span><span>Reset link sent! Check your inbox.</span></div>
+      <div class="fg">
+        <label class="fl" for="resetEmail">Email Address</label>
+        <input type="email" id="resetEmail" class="fi" placeholder="you@email.com" autocomplete="email">
+      </div>
+      <button class="btn-main" id="resetBtn" type="button" style="margin-bottom:0">
+        <span class="btn-text">Send Reset Link</span>
+        <div class="spinner"></div>
+      </button>
+      <button class="back-btn" id="backToLogin" type="button">← Back to sign in</button>
+    </div>
   </div>
-</div>
+
+  <!-- ── ACCESS CODE VIEW ── -->
+  <div class="view" id="view-code">
+    <div class="eyebrow">Invite Code</div>
+    <h2 class="view-title">ENTER YOUR<br>CODE</h2>
+    <p class="view-sub">Got a code from Joe? Enter it below to access the dashboard.</p>
+    <div class="alert alert-error" id="codeError"><span class="alert-icon">⚠</span><span id="codeErrorMsg">Invalid code. Check with Joe at (859) 420-7382.</span></div>
+    <div class="fg code-wrap">
+      <input type="text" id="codeInput" class="code-input" placeholder="NBD-————" maxlength="10" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <div class="code-hint">Codes are case-insensitive &nbsp;&bull;&nbsp; Example: <strong>NBD-2026</strong></div>
+    </div>
+    <button class="btn-main" id="codeBtn" type="button">
+      <span class="btn-text">Unlock Access →</span>
+      <div class="spinner"></div>
+    </button>
+    <div class="divider"><div class="div-line"></div><span class="div-text">Need a code?</span><div class="div-line"></div></div>
+    <div class="fn">
+      Access codes are sent directly by Joe. Text <a href="tel:8594207382">(859) 420-7382</a> to get yours.
+    </div>
+  </div>
+
+  <!-- ── DEMO VIEW ── -->
+  <div class="view" id="view-demo">
+    <div class="eyebrow">Try Before You Buy</div>
+    <h2 class="view-title">DEMO<br>ACCESS</h2>
+    <p class="view-sub" style="margin-bottom:20px">Explore the full NBD Pro dashboard. No sign-up needed.</p>
+    <div style="background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);border-radius:8px;padding:16px 18px;margin-bottom:24px">
+      <div style="font-size:12px;font-weight:700;color:#3fb950;margin-bottom:8px;letter-spacing:.5px">WHAT YOU'LL SEE IN THE DEMO:</div>
+      <ul style="list-style:none;display:grid;gap:7px">
+        <li style="font-size:12px;color:rgba(255,255,255,.65);display:flex;gap:8px;align-items:center"><span style="color:#3fb950">&#10003;</span> Live lead pipeline with real data</li>
+        <li style="font-size:12px;color:rgba(255,255,255,.65);display:flex;gap:8px;align-items:center"><span style="color:#3fb950">&#10003;</span> KPI dashboard + revenue tracking</li>
+        <li style="font-size:12px;color:rgba(255,255,255,.65);display:flex;gap:8px;align-items:center"><span style="color:#3fb950">&#10003;</span> Estimates, contracts, CRM tools</li>
+        <li style="font-size:12px;color:rgba(255,255,255,.65);display:flex;gap:8px;align-items:center"><span style="color:#3fb950">&#10003;</span> Masterclass chapter preview</li>
+      </ul>
+    </div>
+    <div class="alert alert-error" id="demoError"><span class="alert-icon">⚠</span><span id="demoErrorMsg">Demo unavailable. Try again shortly.</span></div>
+    <button class="btn-demo" id="demoBtn" type="button">
+      <div class="demo-dot"></div>
+      <span class="btn-text">Launch Demo Dashboard</span>
+      <div class="spinner" style="border-top-color:#3fb950;border-color:rgba(63,185,80,0.3)"></div>
+    </button>
+    <div style="margin-top:16px" class="fn">
+      Demo is read-only. To get full access, <a href="/pro/#pricing">see membership plans</a>.
+    </div>
+  </div>
+
+</div><!-- /lp -->
 
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getAuth, signInWithEmailAndPassword, sendPasswordResetEmail,
+  setPersistence, browserLocalPersistence, browserSessionPersistence
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-    authDomain: "nobigdeal-pro.firebaseapp.com",
-    databaseURL: "https://nobigdeal-pro-default-rtdb.firebaseio.com",
-    projectId: "nobigdeal-pro",
-    storageBucket: "nobigdeal-pro.firebasestorage.app",
-    messagingSenderId: "717435841570",
-    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  databaseURL: "https://nobigdeal-pro-default-rtdb.firebaseio.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const emailInput = document.getElementById('emailInput');
-  const passwordInput = document.getElementById('passwordInput');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginError = document.getElementById('loginError');
-  const loginErrorMsg = document.getElementById('loginErrorMsg');
-  const togglePw = document.getElementById('togglePw');
-  const rememberMe = document.getElementById('rememberMe');
-  const mainView = document.getElementById('mainView');
-  const resetView = document.getElementById('resetView');
-  const showResetBtn = document.getElementById('showResetBtn');
-  const backToLogin = document.getElementById('backToLogin');
-  const resetEmailEl = document.getElementById('resetEmail');
-  const resetBtn = document.getElementById('resetBtn');
-  const resetError = document.getElementById('resetError');
-  const resetErrorMsg = document.getElementById('resetErrorMsg');
-  const resetSuccess = document.getElementById('resetSuccess');
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-  togglePw.addEventListener('click', () => {
-    const isText = passwordInput.type === 'text';
-    passwordInput.type = isText ? 'password' : 'text';
-    togglePw.textContent = isText ? '👁' : '🙈';
+// ─────────────────────────────────────────────────
+// ACCESS CODE MAP
+// Each code maps to a Firebase email + password
+// Add/remove codes here — they never expire unless
+// you delete the Firebase user or remove the entry
+// ─────────────────────────────────────────────────
+const ACCESS_CODES = {
+  'NBD-2026':  { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!' },
+  'DEAL-2026': { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!' },
+  'NBD-DEMO':  { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
+  'DEMO':      { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
+  'TRYIT':     { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
+};
+// Demo account credentials (same Firebase user as DEMO code)
+const DEMO_EMAIL = 'demo@nobigdeal.pro';
+const DEMO_PASS  = 'nbd_demo_access!';
+
+// ─────────────────────────────────────────────────
+// TAB SWITCHING (global so onclick works)
+// ─────────────────────────────────────────────────
+window.switchTab = function(tab) {
+  ['member','code','demo'].forEach(t => {
+    document.getElementById('view-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
   });
-  [emailInput, passwordInput].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); }));
-  loginBtn.addEventListener('click', doLogin);
+  if (tab === 'code') setTimeout(() => document.getElementById('codeInput').focus(), 50);
+};
 
-  async function doLogin() {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    loginError.classList.remove('show');
-    if (!email || !password) { loginErrorMsg.textContent = 'Please enter your email and password.'; loginError.classList.add('show'); return; }
-    loginBtn.disabled = true;
-    loginBtn.classList.add('loading');
-    try {
-      const persistence = rememberMe.checked ? browserLocalPersistence : browserSessionPersistence;
-      await setPersistence(auth, persistence);
-      await signInWithEmailAndPassword(auth, email, password);
-      window.location.replace('/pro/dashboard.html');
-    } catch (err) {
-      loginBtn.disabled = false;
-      loginBtn.classList.remove('loading');
-      loginErrorMsg.textContent = friendlyError(err.code);
-      loginError.classList.add('show');
-      passwordInput.focus();
-    }
-  }
+// ─────────────────────────────────────────────────
+// MEMBER LOGIN
+// ─────────────────────────────────────────────────
+const emailInput    = document.getElementById('emailInput');
+const passwordInput = document.getElementById('passwordInput');
+const loginBtn      = document.getElementById('loginBtn');
+const loginError    = document.getElementById('loginError');
+const loginErrorMsg = document.getElementById('loginErrorMsg');
+const rememberMe    = document.getElementById('rememberMe');
+const togglePw      = document.getElementById('togglePw');
+const mainView      = document.getElementById('mainView');
+const resetView     = document.getElementById('resetView');
 
-  showResetBtn.addEventListener('click', () => { mainView.classList.add('hidden'); resetView.classList.add('active'); resetEmailEl.value = emailInput.value; resetEmailEl.focus(); });
-  backToLogin.addEventListener('click', () => { resetView.classList.remove('active'); mainView.classList.remove('hidden'); resetError.classList.remove('show'); resetSuccess.classList.remove('show'); });
-  resetEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') doReset(); });
-  resetBtn.addEventListener('click', doReset);
+togglePw.addEventListener('click', () => {
+  const isText = passwordInput.type === 'text';
+  passwordInput.type = isText ? 'password' : 'text';
+  togglePw.textContent = isText ? '👁' : '🙈';
+});
+[emailInput, passwordInput].forEach(el =>
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
+);
+loginBtn.addEventListener('click', doLogin);
 
-  async function doReset() {
-    const email = resetEmailEl.value.trim();
-    resetError.classList.remove('show');
-    resetSuccess.classList.remove('show');
-    if (!email) { resetErrorMsg.textContent = 'Please enter your email address.'; resetError.classList.add('show'); return; }
-    resetBtn.disabled = true;
-    resetBtn.classList.add('loading');
-    try { await sendPasswordResetEmail(auth, email); resetSuccess.classList.add('show'); }
-    catch (err) { resetErrorMsg.textContent = friendlyError(err.code); resetError.classList.add('show'); }
-    finally { resetBtn.disabled = false; resetBtn.classList.remove('loading'); }
-  }
+async function doLogin() {
+  const email = emailInput.value.trim();
+  const pass  = passwordInput.value;
+  loginError.classList.remove('show');
+  if (!email || !pass) { loginErrorMsg.textContent = 'Please enter your email and password.'; loginError.classList.add('show'); return; }
+  setLoading(loginBtn, true);
+  try {
+    await setPersistence(auth, rememberMe.checked ? browserLocalPersistence : browserSessionPersistence);
+    await signInWithEmailAndPassword(auth, email, pass);
+    window.location.replace('/pro/dashboard.html');
+  } catch (err) {
+    loginErrorMsg.textContent = friendlyError(err.code);
+    loginError.classList.add('show');
+    passwordInput.focus();
+  } finally { setLoading(loginBtn, false); }
+}
 
-  function friendlyError(code) {
-    const map = {
-      'auth/user-not-found': 'No account found with that email. Check your email or contact Joe.',
-      'auth/wrong-password': 'Incorrect password. Try again or reset your password.',
-      'auth/invalid-email': 'Please enter a valid email address.',
-      'auth/too-many-requests': 'Too many failed attempts. Wait a few minutes and try again.',
-      'auth/user-disabled': 'This account has been disabled. Contact Joe for help.',
-      'auth/network-request-failed': 'Network error. Check your connection and try again.',
-      'auth/invalid-credential': 'Invalid email or password.',
-    };
-    return map[code] || 'Something went wrong. Please try again or contact Joe at (859) 420-7382.';
-  }
+// RESET PASSWORD
+document.getElementById('showResetBtn').addEventListener('click', () => {
+  mainView.classList.add('hidden');
+  resetView.classList.add('active');
+  document.getElementById('resetEmail').value = emailInput.value;
+  document.getElementById('resetEmail').focus();
+});
+document.getElementById('backToLogin').addEventListener('click', () => {
+  resetView.classList.remove('active');
+  mainView.classList.remove('hidden');
+  document.getElementById('resetError').classList.remove('show');
+  document.getElementById('resetSuccess').classList.remove('show');
+});
+document.getElementById('resetEmail').addEventListener('keydown', e => { if (e.key === 'Enter') doReset(); });
+document.getElementById('resetBtn').addEventListener('click', doReset);
+
+async function doReset() {
+  const email = document.getElementById('resetEmail').value.trim();
+  const resetBtn = document.getElementById('resetBtn');
+  document.getElementById('resetError').classList.remove('show');
+  document.getElementById('resetSuccess').classList.remove('show');
+  if (!email) { document.getElementById('resetErrorMsg').textContent = 'Please enter your email.'; document.getElementById('resetError').classList.add('show'); return; }
+  setLoading(resetBtn, true);
+  try { await sendPasswordResetEmail(auth, email); document.getElementById('resetSuccess').classList.add('show'); }
+  catch (err) { document.getElementById('resetErrorMsg').textContent = friendlyError(err.code); document.getElementById('resetError').classList.add('show'); }
+  finally { setLoading(resetBtn, false); }
+}
+
+// ─────────────────────────────────────────────────
+// ACCESS CODE LOGIN
+// ─────────────────────────────────────────────────
+const codeInput = document.getElementById('codeInput');
+const codeBtn   = document.getElementById('codeBtn');
+const codeError = document.getElementById('codeError');
+const codeErrorMsg = document.getElementById('codeErrorMsg');
+
+// Format input as user types — uppercase, auto-insert hyphen after NBD
+codeInput.addEventListener('input', () => {
+  let v = codeInput.value.toUpperCase().replace(/[^A-Z0-9-]/g,'');
+  codeInput.value = v;
+});
+codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') doCodeLogin(); });
+codeBtn.addEventListener('click', doCodeLogin);
+
+async function doCodeLogin() {
+  const raw  = codeInput.value.trim().toUpperCase();
+  const creds = ACCESS_CODES[raw];
+  codeError.classList.remove('show');
+  if (!raw) { codeErrorMsg.textContent = 'Please enter your access code.'; codeError.classList.add('show'); return; }
+  if (!creds) { codeErrorMsg.textContent = 'Code not recognized. Check with Joe at (859) 420-7382.'; codeError.classList.add('show'); codeInput.focus(); return; }
+  setLoading(codeBtn, true);
+  try {
+    await signInWithEmailAndPassword(auth, creds.email, creds.pass);
+    window.location.replace('/pro/dashboard.html');
+  } catch (err) {
+    codeErrorMsg.textContent = 'Code valid but account error. Contact Joe at (859) 420-7382.';
+    codeError.classList.add('show');
+  } finally { setLoading(codeBtn, false); }
+}
+
+// ─────────────────────────────────────────────────
+// DEMO LOGIN
+// ─────────────────────────────────────────────────
+const demoBtn   = document.getElementById('demoBtn');
+const demoError = document.getElementById('demoError');
+const demoErrorMsg = document.getElementById('demoErrorMsg');
+
+demoBtn.addEventListener('click', doDemoLogin);
+
+async function doDemoLogin() {
+  demoError.classList.remove('show');
+  setLoading(demoBtn, true);
+  try {
+    await signInWithEmailAndPassword(auth, DEMO_EMAIL, DEMO_PASS);
+    window.location.replace('/pro/dashboard.html');
+  } catch (err) {
+    demoErrorMsg.textContent = 'Demo account unavailable right now. Try the Access Code tab or contact Joe.';
+    demoError.classList.add('show');
+  } finally { setLoading(demoBtn, false); }
+}
+
+// ─────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────
+function setLoading(btn, loading) {
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+}
+
+function friendlyError(code) {
+  const map = {
+    'auth/user-not-found'        : 'No account with that email. Check or contact Joe.',
+    'auth/wrong-password'        : 'Incorrect password. Try again or reset it.',
+    'auth/invalid-email'         : 'Please enter a valid email address.',
+    'auth/too-many-requests'     : 'Too many attempts. Wait a few minutes and try again.',
+    'auth/user-disabled'         : 'Account disabled. Contact Joe for help.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/invalid-credential'    : 'Invalid email or password.',
+  };
+  return map[code] || 'Something went wrong. Contact Joe at (859) 420-7382.';
+}
 </script>
 
 </body>
