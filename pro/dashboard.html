@@ -59,11 +59,26 @@
 
   window._saveLead = async (data) => {
     try {
-      await addDoc(collection(db,'leads'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+      const editId = data.id;
+      delete data.id;
+      if(editId && !editId.startsWith('d-')) {
+        await updateDoc(doc(db,'leads',editId), {...data, updatedAt:serverTimestamp()});
+      } else {
+        await addDoc(collection(db,'leads'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+      }
     } catch(e) {
+      console.error('saveLead error:', e);
       (window._leads||[]).unshift({id:'d-'+Date.now(),...data,createdAt:new Date()});
     }
     await loadLeads();
+  };
+
+  window._deleteLead = async (id) => {
+    try {
+      if(!id.startsWith('d-')) await deleteDoc(doc(db,'leads',id));
+      window._leads = (window._leads||[]).filter(l=>l.id!==id);
+      renderLeads(window._leads);
+    } catch(e) { console.error('deleteLead error:', e); }
   };
 
   // ── ESTIMATES ──────────────────────────────────
@@ -400,8 +415,12 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>CRM Leads <span class="nbadge" id="leadBadge">0</span></div>
   <div class="nlabel">Field Tools</div>
   <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Damage Photos</div>
+  <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Documents</div>
   <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Map</div>
   <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+  <div class="nlabel">Account</div>
+  <div class="nlabel">Tools</div>
+  <div class="ni" onclick="window.location.href='/pro/daily-success'" id="nav-daily"><span class="ni-icon">📅</span>Daily Success</div>
   <div class="nlabel">Account</div>
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   <div class="ni" onclick="openTips()" id="nav-tips"><span class="ni-icon">💡</span>Pro Tips</div>
@@ -418,10 +437,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
       </div>
       <div class="sgrid">
-        <div class="stat-card"><div class="stat-icon si-o">🗺️</div><div><div class="stat-val">2</div><div class="stat-lbl">Properties</div></div></div>
         <div class="stat-card"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
         <div class="stat-card"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-g">📈</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:20px;">$0</div><div class="stat-lbl">Est. Value</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
       </div>
       <div class="two-col">
         <div class="panel">
@@ -711,30 +730,66 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <div class="view" id="view-crm">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">CRM Leads</div><div class="page-sub">Pipeline management</div></div>
-        <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
+        <div><div class="page-title">CRM — Lead Pipeline</div><div class="page-sub">Track every lead from first knock to signed contract</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
+          <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
+        </div>
       </div>
-      <div class="panel">
-        <div class="panel-hdr"><div><div class="panel-label">Pipeline</div><div class="panel-title">Lead Stages</div></div></div>
+
+      <!-- REVENUE SUMMARY BAR -->
+      <div class="sgrid" style="margin-bottom:16px;">
+        <div class="stat-card"><div class="stat-icon si-o">🆕</div><div><div class="stat-val" id="crmStatNew">0</div><div class="stat-lbl">New Leads</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-b">✅</div><div><div class="stat-val" id="crmStatApproved">0</div><div class="stat-lbl">Approved</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="crmStatRevenue" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
+        <div class="stat-card"><div class="stat-icon si-p">🏆</div><div><div class="stat-val" id="crmStatClosed" style="color:var(--green);">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
+      </div>
+
+      <!-- PIPELINE FUNNEL -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr"><div><div class="panel-label">Pipeline</div><div class="panel-title">Lead Stages</div></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="crmSearch" placeholder="Search leads..." style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 10px;font-size:11px;color:var(--t);width:180px;" oninput="filterLeads()">
+            <select id="crmStageFilter" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:11px;color:var(--t);" onchange="filterLeads()">
+              <option value="">All Stages</option>
+              <option value="New">New</option>
+              <option value="Inspected">Inspected</option>
+              <option value="Estimate Sent">Estimate Sent</option>
+              <option value="Approved">Approved</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Complete">Complete</option>
+              <option value="Lost">Lost</option>
+            </select>
+          </div>
+        </div>
         <div class="panel-body">
-          <div class="pgrid">
-            <div class="stage-box sb-new"><div class="stage-count" id="p-new">0</div><div class="stage-name">New Lead</div></div>
-            <div class="stage-box sb-ct"><div class="stage-count s-blue" id="p-ct">0</div><div class="stage-name">Contacted</div></div>
-            <div class="stage-box sb-es"><div class="stage-count s-gold" id="p-es">0</div><div class="stage-name">Est. Sent</div></div>
-            <div class="stage-box sb-ng"><div class="stage-count s-purple" id="p-ng">0</div><div class="stage-name">Negotiating</div></div>
-            <div class="stage-box sb-won"><div class="stage-count s-green" id="p-won">0</div><div class="stage-name">Won</div></div>
-            <div class="stage-box sb-lost"><div class="stage-count s-red" id="p-lost">0</div><div class="stage-name">Lost</div></div>
+          <div class="pgrid" style="grid-template-columns:repeat(7,1fr);">
+            <div class="stage-box sb-new" onclick="filterByStage('New')" style="cursor:pointer;"><div class="stage-count" id="p-new">0</div><div class="stage-name">New</div></div>
+            <div class="stage-box sb-ct" onclick="filterByStage('Inspected')" style="cursor:pointer;"><div class="stage-count s-blue" id="p-insp">0</div><div class="stage-name">Inspected</div></div>
+            <div class="stage-box sb-es" onclick="filterByStage('Estimate Sent')" style="cursor:pointer;"><div class="stage-count s-gold" id="p-es">0</div><div class="stage-name">Est. Sent</div></div>
+            <div class="stage-box sb-ng" onclick="filterByStage('Approved')" style="cursor:pointer;"><div class="stage-count s-purple" id="p-appr">0</div><div class="stage-name">Approved</div></div>
+            <div class="stage-box" style="background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);" onclick="filterByStage('In Progress')" style="cursor:pointer;"><div class="stage-count s-green" id="p-prog">0</div><div class="stage-name">In Progress</div></div>
+            <div class="stage-box sb-won" onclick="filterByStage('Complete')" style="cursor:pointer;"><div class="stage-count s-green" id="p-won">0</div><div class="stage-name">Complete</div></div>
+            <div class="stage-box sb-lost" onclick="filterByStage('Lost')" style="cursor:pointer;"><div class="stage-count s-red" id="p-lost">0</div><div class="stage-name">Lost</div></div>
           </div>
         </div>
       </div>
+
+      <!-- FOLLOW-UP ALERTS -->
+      <div id="followUpAlerts" style="display:none;margin-bottom:12px;"></div>
+
+      <!-- LEADS TABLE -->
       <div class="panel">
-        <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">All Leads</div></div></div>
-        <div id="leadsTableWrap"><div class="empty">No leads yet.</div></div>
+        <div class="panel-hdr">
+          <div><div class="panel-label">CRM</div><div class="panel-title">All Leads <span id="leadsCountLabel" style="font-size:12px;color:var(--m);font-weight:400;"></span></div></div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="clearStageFilter()">Show All</button>
+        </div>
+        <div id="leadsTableWrap"><div class="empty"><div class="empty-icon">👥</div>No leads yet. Add your first lead.</div></div>
       </div>
     </div>
   </div>
 
-  <!-- ══ DAMAGE PHOTOS ══ -->
+<!-- ══ DAMAGE PHOTOS ══ -->
   <div class="view" id="view-photos">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -769,7 +824,89 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
     </div>
   </div>
 
-  <!-- ══ LEADERBOARD ══ -->
+  <!-- ══ DOCUMENTS ══ -->
+  <div class="view" id="view-docs">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div><div class="page-title">Document Library</div><div class="page-sub">Contracts, scopes, templates, and forms</div></div>
+        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload Document</button>
+      </div>
+
+      <!-- TEMPLATES PANEL -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr"><div><div class="panel-label">Built-In Templates</div><div class="panel-title">Ready to Use</div></div></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="builtinDocs">
+            <div class="doc-card" onclick="openDocTemplate('contract')">
+              <div class="doc-icon">📄</div>
+              <div class="doc-name">Roofing Contract</div>
+              <div class="doc-desc">Standard roofing contract with warranty terms</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+            <div class="doc-card" onclick="openDocTemplate('supplement')">
+              <div class="doc-icon">📋</div>
+              <div class="doc-name">Supplement Request</div>
+              <div class="doc-desc">Insurance supplement line items template</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+            <div class="doc-card" onclick="openDocTemplate('scope')">
+              <div class="doc-icon">🔍</div>
+              <div class="doc-name">Scope of Work</div>
+              <div class="doc-desc">Detailed scope of work for insurance claims</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+            <div class="doc-card" onclick="openDocTemplate('authorization')">
+              <div class="doc-icon">✍️</div>
+              <div class="doc-name">Work Authorization</div>
+              <div class="doc-desc">Homeowner authorization to begin work</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+            <div class="doc-card" onclick="openDocTemplate('inspection')">
+              <div class="doc-icon">🔎</div>
+              <div class="doc-name">Inspection Checklist</div>
+              <div class="doc-desc">Roof & exterior inspection checklist</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+            <div class="doc-card" onclick="openDocTemplate('completion')">
+              <div class="doc-icon">✅</div>
+              <div class="doc-name">Certificate of Completion</div>
+              <div class="doc-desc">Job completion certificate for insurance</div>
+              <div class="doc-action">Open Template →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- UPLOADED DOCS -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Your Files</div><div class="panel-title">Uploaded Documents</div></div></div>
+        <div class="panel-body" id="uploadedDocsWrap">
+          <div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>
+        </div>
+      </div>
+
+      <!-- UPLOAD AREA -->
+      <div id="docUploadArea" style="display:none;" class="panel" style="margin-top:16px;">
+        <div class="panel-hdr"><div><div class="panel-label">Upload</div><div class="panel-title">Add Document</div></div><button class="btn btn-ghost" onclick="closeUploadDoc()">✕ Cancel</button></div>
+        <div class="panel-body">
+          <div class="mfield" style="margin-bottom:12px;"><label>Document Name</label><input type="text" id="docName" placeholder="Roofing Contract - Smith 2026"></div>
+          <div class="mfield" style="margin-bottom:12px;"><label>Category</label>
+            <select id="docCategory">
+              <option>Contract</option><option>Supplement</option><option>Scope of Work</option><option>Photo Report</option><option>Insurance Correspondence</option><option>Other</option>
+            </select>
+          </div>
+          <div class="upload-zone" onclick="document.getElementById('docFileInput').click()" style="margin-bottom:12px;">
+            <div class="upload-icon">📎</div>
+            <div class="upload-text">Click to select file (PDF, DOC, JPG)</div>
+            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="handleDocUpload(this)">
+          </div>
+          <button class="btn btn-orange" onclick="saveDocUpload()" id="docSaveBtn">Upload Document</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ══ LEADERBOARD ══ -->
   <div class="view" id="view-board">
     <div class="view-scroll">
       <div class="page-hdr"><div><div class="page-title">Leaderboard</div><div class="page-sub">Rep performance rankings</div></div></div>
@@ -830,30 +967,72 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 <!-- LEAD MODAL -->
 <div class="modal-bg" id="leadModal">
-  <div class="modal">
+  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeLeadModal()">✕</button>
     <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">CRM</div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">Add Lead</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;" id="leadModalTitle">Add Lead</div>
     <div class="merr" id="mErr"></div><div class="mok" id="mOk"></div>
     <div class="mrow">
       <div class="mfield"><label>First Name</label><input type="text" id="lFname" placeholder="John"></div>
       <div class="mfield"><label>Last Name</label><input type="text" id="lLname" placeholder="Smith"></div>
     </div>
-    <div class="mfield"><label>Address</label><input type="text" id="lAddr" placeholder="1054 Klondyke Rd..."></div>
+    <div class="mfield"><label>Address</label><input type="text" id="lAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122"></div>
     <div class="mrow">
       <div class="mfield"><label>Phone</label><input type="tel" id="lPhone" placeholder="(513) 555-0100"></div>
       <div class="mfield"><label>Email</label><input type="email" id="lEmail" placeholder="john@email.com"></div>
     </div>
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
-        <select id="lStage"><option>New Lead</option><option>Contacted</option><option>Estimate Sent</option><option>Negotiating</option><option>Closed Won</option><option>Closed Lost</option></select>
+        <select id="lStage">
+          <option value="New">New Lead</option>
+          <option value="Inspected">Inspected</option>
+          <option value="Estimate Sent">Estimate Sent</option>
+          <option value="Approved">Approved</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Complete">Complete</option>
+          <option value="Lost">Lost</option>
+        </select>
       </div>
       <div class="mfield"><label>Source</label>
         <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
       </div>
     </div>
-    <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage notes..."></textarea></div>
-    <button class="msave" onclick="saveLead()">Save Lead</button>
+    <div class="mrow">
+      <div class="mfield"><label>Damage Type</label>
+        <select id="lDamageType">
+          <option value="">Select damage type...</option>
+          <option value="Roof - Hail">Roof — Hail</option>
+          <option value="Roof - Wind">Roof — Wind</option>
+          <option value="Roof - Hail & Wind">Roof — Hail &amp; Wind</option>
+          <option value="Siding - Hail">Siding — Hail</option>
+          <option value="Siding - Wind">Siding — Wind</option>
+          <option value="Gutters">Gutters</option>
+          <option value="Full Exterior">Full Exterior</option>
+          <option value="Fire">Fire</option>
+          <option value="Water">Water</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="mfield"><label>Claim Status</label>
+        <select id="lClaimStatus">
+          <option value="No Claim">No Claim Yet</option>
+          <option value="Claim Filed">Claim Filed</option>
+          <option value="Adjuster Scheduled">Adjuster Scheduled</option>
+          <option value="Approved">Claim Approved</option>
+          <option value="Supplementing">Supplementing</option>
+          <option value="Paid Out">Paid Out</option>
+          <option value="Denied">Claim Denied</option>
+        </select>
+      </div>
+    </div>
+    <div class="mrow">
+      <div class="mfield"><label>Job Value ($)</label><input type="number" id="lJobValue" placeholder="12500" min="0"></div>
+      <div class="mfield"><label>Follow-Up Date</label><input type="date" id="lFollowUp"></div>
+    </div>
+    <div class="mfield"><label>Insurance Carrier</label><input type="text" id="lInsCarrier" placeholder="State Farm, Nationwide..."></div>
+    <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage details, adjuster notes, supplements..." style="min-height:80px;"></textarea></div>
+    <input type="hidden" id="lEditId">
+    <button class="msave" onclick="saveLead()" id="leadSaveBtn">Save Lead</button>
   </div>
 </div>
 
@@ -1346,7 +1525,51 @@ function exportEstimate() {
   .total-cell{font-weight:700;color:#111;}
   .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8541A;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
   .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
-  @media print{body{padding:18px;}@page{margin:1.2cm;}}</style></head><body>
+  @media print{body{padding:18px;}@page{margin:1.2cm;}}
+/* ── CRM ENHANCEMENTS ── */
+.follow-up-alert{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:12px;}
+.follow-up-alert .fa-name{font-weight:700;color:var(--t);}
+.follow-up-alert .fa-date{color:var(--orange);font-size:11px;}
+.follow-up-alert .fa-btn{margin-left:auto;background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
+
+.leads-table{width:100%;border-collapse:collapse;font-size:12px;}
+.leads-table th{text-align:left;padding:8px 10px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);border-bottom:1px solid var(--br);font-weight:600;}
+.leads-table td{padding:10px 10px;border-bottom:1px solid var(--br);vertical-align:middle;}
+.leads-table tr:hover td{background:var(--s2);}
+.leads-table tr:last-child td{border-bottom:none;}
+.lead-name{font-weight:600;color:var(--t);}
+.lead-addr{font-size:10px;color:var(--m);margin-top:2px;}
+.lead-val{font-weight:700;color:var(--green);}
+.lead-actions{display:flex;gap:6px;}
+.lead-actions button{background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;color:var(--m);font-family:inherit;transition:all .15s;}
+.lead-actions button:hover{background:var(--s2);color:var(--t);}
+.lead-actions .btn-edit:hover{border-color:var(--orange);color:var(--orange);}
+.lead-actions .btn-del:hover{border-color:var(--red);color:var(--red);}
+
+.tag-new{background:rgba(156,163,175,.15);color:#9CA3AF;}
+.tag-insp{background:rgba(74,158,255,.15);color:#4A9EFF;}
+.tag-es{background:rgba(212,160,23,.15);color:#D4A017;}
+.tag-appr{background:rgba(155,109,255,.15);color:#9B6DFF;}
+.tag-prog{background:rgba(34,197,94,.15);color:#22C55E;}
+.tag-won{background:rgba(34,197,94,.15);color:#22C55E;}
+.tag-lost{background:rgba(224,82,82,.15);color:#E05252;}
+
+/* ── DOCUMENT LIBRARY ── */
+.doc-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:16px;cursor:pointer;transition:all .15s;}
+.doc-card:hover{border-color:var(--orange);background:var(--s3);}
+.doc-icon{font-size:28px;margin-bottom:8px;}
+.doc-name{font-weight:700;font-size:13px;color:var(--t);margin-bottom:4px;}
+.doc-desc{font-size:11px;color:var(--m);line-height:1.5;margin-bottom:8px;}
+.doc-action{font-size:10px;color:var(--orange);font-weight:700;letter-spacing:.05em;}
+
+/* ── DOCUMENT VIEWER MODAL ── */
+#docViewerModal .modal{max-width:700px;max-height:90vh;overflow-y:auto;}
+.doc-viewer-content{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:24px;margin-top:16px;font-size:13px;line-height:1.75;color:var(--t);}
+.doc-viewer-content h2{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:16px;color:var(--orange);}
+.doc-viewer-content p{margin-bottom:12px;}
+.doc-viewer-content .field-line{border-bottom:1px solid var(--br);padding:4px 0;margin-bottom:8px;}
+
+</style></head><body>
   <div class="hdr">
     <div>
       <div class="brand">No Big Deal <span>Home Solutions</span></div>
@@ -1431,6 +1654,14 @@ function closeLeadModal(){
   document.getElementById('mErr').style.display='none';
   document.getElementById('mOk').style.display='none';
   ['lFname','lLname','lAddr','lPhone','lEmail','lNotes'].forEach(id=>document.getElementById(id).value='');
+
+  const editId = document.getElementById('lEditId'); if(editId) editId.value='';
+  const title = document.getElementById('leadModalTitle'); if(title) title.textContent='Add Lead';
+  document.getElementById('lFname').value=''; document.getElementById('lLname').value='';
+  document.getElementById('lAddr').value=''; document.getElementById('lPhone').value='';
+  document.getElementById('lEmail').value=''; document.getElementById('lNotes').value='';
+  document.getElementById('lJobValue').value=''; document.getElementById('lFollowUp').value='';
+  document.getElementById('lInsCarrier').value='';
 }
 document.getElementById('leadModal').addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
 
@@ -1441,32 +1672,212 @@ async function saveLead(){
   const addr=document.getElementById('lAddr').value.trim();
   if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
   document.querySelector('#leadModal .msave').disabled=true;
-  await window._saveLead({name:fname+' '+document.getElementById('lLname').value.trim(),address:addr,phone:document.getElementById('lPhone').value.trim(),email:document.getElementById('lEmail').value.trim(),stage:document.getElementById('lStage').value,source:document.getElementById('lSource').value,notes:document.getElementById('lNotes').value.trim()});
+  await window._saveLead({
+    id: (document.getElementById('lEditId')?.value||undefined)||undefined,
+    firstName: fname,
+    lastName: document.getElementById('lLname').value.trim(),
+    address: addr,
+    phone: document.getElementById('lPhone').value.trim(),
+    email: document.getElementById('lEmail').value.trim(),
+    stage: document.getElementById('lStage').value,
+    source: document.getElementById('lSource').value,
+    damageType: document.getElementById('lDamageType')?.value||'',
+    claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
+    jobValue: document.getElementById('lJobValue')?.value||0,
+    followUp: document.getElementById('lFollowUp')?.value||'',
+    insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
+    notes: document.getElementById('lNotes').value.trim()
+  });
   document.querySelector('#leadModal .msave').disabled=false;
   mOk.textContent='Lead saved!';mOk.style.display='block';
   setTimeout(closeLeadModal,800);
 }
 
-function renderLeads(leads){
-  const n=leads?.length||0;
-  document.getElementById('statLeads').textContent=n;
-  document.getElementById('leadBadge').textContent=n;
-  const counts={'New Lead':0,'Contacted':0,'Estimate Sent':0,'Negotiating':0,'Closed Won':0,'Closed Lost':0};
-  (leads||[]).forEach(l=>{if(counts[l.stage]!==undefined)counts[l.stage]++;});
-  [['p-new','New Lead'],['p-ct','Contacted'],['p-es','Estimate Sent'],['p-ng','Negotiating'],['p-won','Closed Won'],['p-lost','Closed Lost'],
-   ['dp-new','New Lead'],['dp-ct','Contacted'],['dp-es','Estimate Sent'],['dp-ng','Negotiating'],['dp-won','Closed Won'],['dp-lost','Closed Lost']
-  ].forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.textContent=counts[key];});
-  const tw=document.getElementById('leadsTableWrap');
-  if(!n){tw.innerHTML='<div class="empty">No leads yet.</div>';return;}
-  tw.innerHTML=`<table class="tbl"><thead><tr><th>Name</th><th>Address</th><th>Phone</th><th>Source</th><th>Stage</th><th>Action</th></tr></thead><tbody>
-  ${leads.map(l=>`<tr><td>${l.name}</td><td style="color:var(--blue)">${l.address}</td><td>${l.phone||'—'}</td><td>${l.source||'—'}</td>
-  <td><span class="tag ${tagClass(l.stage)}">${l.stage}</span></td>
-  <td><button class="btn btn-ghost" style="font-size:10px;padding:4px 9px;" onclick="openPhotoFor('${l.id}','${l.address?.replace(/'/g,"\\'")}')">📸 Photos</button></td></tr>`).join('')}
-  </tbody></table>`;
+function renderLeads(leads, filtered){
+  const list = filtered !== undefined ? filtered : (leads||[]);
+  const n = (leads||[]).length;
+  // update stat cards
+  const setEl = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  setEl('statLeads', n);
+  const lb = document.getElementById('leadBadge'); if(lb) lb.textContent=n;
+  setEl('leadsCountLabel', list.length !== n ? `(showing ${list.length} of ${n})` : `(${n})`);
+
+  // Pipeline counts — 7 stages
+  const counts = {New:0, Inspected:0, 'Estimate Sent':0, Approved:0, 'In Progress':0, Complete:0, Lost:0};
+  let pipelineVal=0, closedRev=0, approvedCount=0;
+  (leads||[]).forEach(l => {
+    const s = l.stage||'New';
+    if(counts[s]!==undefined) counts[s]++;
+    const v = parseFloat(l.jobValue||0);
+    if(!['Lost'].includes(s)) pipelineVal += v;
+    if(['Complete','Approved','In Progress'].includes(s)) closedRev += v;
+    if(s==='Approved') approvedCount++;
+  });
+  setEl('p-new', counts.New);
+  setEl('p-insp', counts.Inspected);
+  setEl('p-es', counts['Estimate Sent']);
+  setEl('p-appr', counts.Approved);
+  setEl('p-prog', counts['In Progress']);
+  setEl('p-won', counts.Complete);
+  setEl('p-lost', counts.Lost);
+  // dashboard pipeline (different IDs)
+  setEl('dp-new', counts.New);
+  setEl('dp-ct', counts.Inspected);
+  setEl('dp-es', counts['Estimate Sent']);
+  setEl('dp-ng', counts.Approved);
+  setEl('dp-won', counts.Complete);
+  setEl('dp-lost', counts.Lost);
+  // CRM stat cards
+  setEl('crmStatNew', counts.New);
+  setEl('crmStatApproved', approvedCount);
+  setEl('crmStatRevenue', '$' + pipelineVal.toLocaleString());
+  setEl('statClosed', '$'+closedRev.toLocaleString());
+  setEl('crmStatClosed', '$' + closedRev.toLocaleString());
+  setEl('statVal', '$' + pipelineVal.toLocaleString());
+
+  // Follow-up alerts
+  const today = new Date(); today.setHours(0,0,0,0);
+  const alerts = (leads||[]).filter(l => {
+    if(!l.followUp) return false;
+    const d = new Date(l.followUp); d.setHours(0,0,0,0);
+    return d <= today && !['Complete','Lost'].includes(l.stage);
+  });
+  const alertBox = document.getElementById('followUpAlerts');
+  if(alertBox){
+    if(alerts.length){
+      alertBox.style.display='block';
+      alertBox.innerHTML = alerts.slice(0,5).map(l => `
+        <div class="follow-up-alert">
+          <span>📅</span>
+          <span class="fa-name">${l.firstName||''} ${l.lastName||''}</span>
+          <span style="color:var(--m);font-size:11px;">${l.address||''}</span>
+          <span class="fa-date">${l.followUp ? 'Follow-up: '+l.followUp : ''}</span>
+          <button class="fa-btn" onclick="editLead('${l.id}')">View →</button>
+        </div>`).join('');
+    } else { alertBox.style.display='none'; }
+  }
+
+  // Render leads table
+  const wrap = document.getElementById('leadsTableWrap');
+  if(!wrap) return;
+  if(!list.length){ wrap.innerHTML='<div class="empty"><div class="empty-icon">👥</div>No leads match. <a href="#" onclick="clearStageFilter()">Show all</a></div>'; return; }
+  wrap.innerHTML = `<table class="leads-table">
+    <thead><tr>
+      <th>Name</th><th>Stage</th><th>Damage</th><th>Claim</th><th>Value</th><th>Follow-Up</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${list.map(l=>`
+    <tr>
+      <td><div class="lead-name">${l.firstName||''} ${l.lastName||''}</div><div class="lead-addr">${l.address||''}</div></td>
+      <td><span class="tag ${tagClass(l.stage)}">${l.stage||'New'}</span></td>
+      <td style="font-size:11px;color:var(--m);">${l.damageType||'—'}</td>
+      <td style="font-size:11px;color:var(--m);">${l.claimStatus||'—'}</td>
+      <td class="lead-val">${l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '—'}</td>
+      <td style="font-size:11px;color:${isOverdue(l.followUp)?'var(--red)':'var(--m)'};">${l.followUp||'—'}</td>
+      <td><div class="lead-actions">
+        <button class="btn-edit" onclick="editLead('${l.id}')">✏️ Edit</button>
+        <button onclick="openPhotoModal('${l.id}','${(l.firstName||'')+' '+(l.lastName||'')}')">📷</button>
+        <button class="btn-del" onclick="deleteLead('${l.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function isOverdue(dateStr){
+  if(!dateStr) return false;
+  const d=new Date(dateStr); d.setHours(0,0,0,0);
+  const t=new Date(); t.setHours(0,0,0,0);
+  return d<t;
+}
+
+window._stageFilter = '';
+function filterByStage(stage){
+  window._stageFilter = stage;
+  const filter = document.getElementById('crmStageFilter');
+  if(filter) filter.value = stage;
+  filterLeads();
+}
+function clearStageFilter(){
+  window._stageFilter = '';
+  const filter = document.getElementById('crmStageFilter');
+  if(filter) filter.value = '';
+  const search = document.getElementById('crmSearch');
+  if(search) search.value = '';
+  renderLeads(window._leads||[]);
+}
+function filterLeads(){
+  const stage = (document.getElementById('crmStageFilter')?.value||'').toLowerCase();
+  const search = (document.getElementById('crmSearch')?.value||'').toLowerCase();
+  const filtered = (window._leads||[]).filter(l=>{
+    const matchStage = !stage || (l.stage||'').toLowerCase()===stage;
+    const matchSearch = !search || (l.firstName+' '+l.lastName+' '+l.address+' '+(l.damageType||'')).toLowerCase().includes(search);
+    return matchStage && matchSearch;
+  });
+  renderLeads(window._leads, filtered);
 }
 
 function updatePipeline(leads){ renderLeads(leads); }
-function tagClass(s){return({'New Lead':'tag-new','Contacted':'tag-ct','Estimate Sent':'tag-es','Negotiating':'tag-ng','Closed Won':'tag-won','Closed Lost':'tag-lost'}[s]||'tag-new');}
+
+function tagClass(s){
+  return({'New':'tag-new','Inspected':'tag-insp','Estimate Sent':'tag-es',
+    'Approved':'tag-appr','In Progress':'tag-prog','Complete':'tag-won','Lost':'tag-lost',
+    'New Lead':'tag-new','Contacted':'tag-insp','Negotiating':'tag-appr','Closed Won':'tag-won','Closed Lost':'tag-lost'
+  }[s]||'tag-new');
+}
+
+// ── EDIT LEAD ──────────────────────────────────────────
+function editLead(id){
+  const l = (window._leads||[]).find(x=>x.id===id);
+  if(!l) return;
+  const setV = (elId,val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
+  setV('lFname', l.firstName||l.fname||'');
+  setV('lLname', l.lastName||l.lname||'');
+  setV('lAddr', l.address||'');
+  setV('lPhone', l.phone||'');
+  setV('lEmail', l.email||'');
+  setV('lStage', l.stage||'New');
+  setV('lSource', l.source||'Door Knock');
+  setV('lDamageType', l.damageType||'');
+  setV('lClaimStatus', l.claimStatus||'No Claim');
+  setV('lJobValue', l.jobValue||'');
+  setV('lFollowUp', l.followUp||'');
+  setV('lInsCarrier', l.insCarrier||'');
+  setV('lNotes', l.notes||'');
+  const editId = document.getElementById('lEditId');
+  if(editId) editId.value = id;
+  const title = document.getElementById('leadModalTitle');
+  if(title) title.textContent = 'Edit Lead';
+  openLeadModal();
+}
+
+// ── DELETE LEAD ─────────────────────────────────────────
+async function deleteLead(id){
+  if(!confirm('Delete this lead? This cannot be undone.')) return;
+  try {
+    await window._deleteLead(id);
+    showToast('Lead deleted','ok');
+  } catch(e){ showToast('Delete failed','error'); }
+}
+
+// ── EXPORT CSV ──────────────────────────────────────────
+function exportLeadsCSV(){
+  const leads = window._leads||[];
+  if(!leads.length){ showToast('No leads to export','error'); return; }
+  const headers = ['First Name','Last Name','Address','Phone','Email','Stage','Damage Type','Claim Status','Job Value','Follow-Up','Insurance Carrier','Source','Notes'];
+  const rows = leads.map(l=>[
+    l.firstName||l.fname||'', l.lastName||l.lname||'', l.address||'',
+    l.phone||'', l.email||'', l.stage||'', l.damageType||'',
+    l.claimStatus||'', l.jobValue||'', l.followUp||'',
+    l.insCarrier||'', l.source||'', (l.notes||'').replace(/,/g,';')
+  ]);
+  const csv = [headers, ...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nbd-leads-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  showToast('CSV exported!','ok');
+}
+
 
 // ══════════════════════════════════════════════
 // DAMAGE PHOTOS
@@ -1608,6 +2019,170 @@ async function geocode(q){
 // HAV + MID
 function hav(a,b){const R=20902231,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lng-a.lng)*Math.PI/180,aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));}
 function mid(a,b){return L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);}
+
+// ══════════════════════════════════════════════
+// DOCUMENT LIBRARY
+// ══════════════════════════════════════════════
+const DOC_TEMPLATES = {
+  contract: {
+    title: 'Roofing Contract',
+    content: `<h2>ROOFING CONTRACT</h2>
+<p><strong>Contractor:</strong> No Big Deal Home Solutions · Joe Deal · (859) 420-7382 · jd@nobigdealwithjoedeal.com</p>
+<p><strong>Homeowner:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Property Address:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (Owens Corning / Atlas), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
+<p><strong>Materials:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Color: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Contract Price:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Start Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Warranty:</strong> 5-year labor warranty. Manufacturer shingle warranty per product selected.</p>
+<p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
+<p>By signing below, homeowner authorizes No Big Deal Home Solutions to perform the above work.</p>
+<p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Contractor Signature:</strong> Joe Deal <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+  },
+  supplement: {
+    title: 'Supplement Request',
+    content: `<h2>INSURANCE SUPPLEMENT REQUEST</h2>
+<p><strong>Contractor:</strong> No Big Deal Home Solutions | License # ________ | (859) 420-7382</p>
+<p><strong>Claim #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Policy #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Insured:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Carrier:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Adjuster:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Supplement Items:</strong></p>
+<p>1. Pipe boots (replace all) — $______ ea × ______ = $______</p>
+<p>2. Drip edge (not included in initial estimate) — ______ LF @ $______ = $______</p>
+<p>3. Ice & water shield (valleys) — ______ SQ @ $______ = $______</p>
+<p>4. Decking replacement (damaged boards) — ______ SF @ $______ = $______</p>
+<p>5. Ridge vent — ______ LF @ $______ = $______</p>
+<p>6. Permit fee — $______</p>
+<p>7. Dumpster/haul-away — $______</p>
+<p><strong>Total Supplement:</strong> $______</p>
+<p>Supporting documentation and photos attached.</p>`
+  },
+  scope: {
+    title: 'Scope of Work',
+    content: `<h2>SCOPE OF WORK</h2>
+<p><strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>ROOF REPLACEMENT — Full scope includes:</strong></p>
+<p>☐ Complete tear-off of existing roofing material down to deck</p>
+<p>☐ Inspect roof deck — replace damaged/rotted sections as needed</p>
+<p>☐ Install synthetic underlayment (30 lb equivalent)</p>
+<p>☐ Install ice & water shield in valleys and eave edges</p>
+<p>☐ Install new drip edge (color to match)</p>
+<p>☐ Install starter strip at eaves and rakes</p>
+<p>☐ Install architectural shingles — Brand: ______ Color: ______</p>
+<p>☐ Install hip and ridge cap shingles</p>
+<p>☐ Replace all pipe boots and collars</p>
+<p>☐ Re-flash chimney / skylights / walls as needed</p>
+<p>☐ Install ridge vent (if applicable)</p>
+<p>☐ Full cleanup — magnetic nail sweep, debris haul-away</p>
+<p>☐ Final inspection with homeowner walk-through</p>
+<p><strong>Measurements:</strong> ______ squares | Pitch: ______ | Estimated start: ______</p>`
+  },
+  authorization: {
+    title: 'Work Authorization',
+    content: `<h2>WORK AUTHORIZATION FORM</h2>
+<p>I, <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>, owner of the property located at:</p>
+<p><span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p>hereby authorize <strong>No Big Deal Home Solutions</strong> to perform the following work:</p>
+<p><span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p>I authorize No Big Deal Home Solutions to negotiate with my insurance company on my behalf and to receive payment directly from the insurance carrier for covered work.</p>
+<p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Phone:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+  },
+  inspection: {
+    title: 'Inspection Checklist',
+    content: `<h2>ROOF & EXTERIOR INSPECTION CHECKLIST</h2>
+<p><strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>ROOF:</strong></p>
+<p>☐ Hail damage to shingles &nbsp; ☐ Wind damage / missing shingles &nbsp; ☐ Granule loss</p>
+<p>☐ Ridge cap damage &nbsp; ☐ Hip cap damage &nbsp; ☐ Valley damage</p>
+<p>☐ Flashing damage &nbsp; ☐ Pipe boot damage &nbsp; ☐ Skylights &nbsp; ☐ Chimney flashing</p>
+<p>☐ Drip edge bent/damaged &nbsp; ☐ Fascia damage &nbsp; ☐ Soffit damage</p>
+<p><strong>SIDING:</strong></p>
+<p>☐ Hail spatter/cracks &nbsp; ☐ Dents (vinyl) &nbsp; ☐ Holes / punctures &nbsp; ☐ Missing panels</p>
+<p><strong>GUTTERS:</strong></p>
+<p>☐ Hail dents &nbsp; ☐ Bent sections &nbsp; ☐ Downspout damage &nbsp; ☐ Pulled away from fascia</p>
+<p><strong>SOFT METALS (AC unit, window trim, mailbox, etc.):</strong></p>
+<p>☐ AC condenser top &nbsp; ☐ Window trim/capping &nbsp; ☐ Door trim &nbsp; ☐ Other: ______</p>
+<p><strong>Estimated Damage:</strong> ☐ Roof ☐ Siding ☐ Gutters ☐ Full Exterior</p>
+<p><strong>Claim Recommended:</strong> ☐ Yes &nbsp; ☐ No — Below deductible &nbsp; ☐ Repair only</p>
+<p><strong>Inspector:</strong> Joe Deal &nbsp;&nbsp; <strong>Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+  },
+  completion: {
+    title: 'Certificate of Completion',
+    content: `<h2>CERTIFICATE OF COMPLETION</h2>
+<p>This certifies that <strong>No Big Deal Home Solutions</strong> has completed the following work:</p>
+<p><strong>Property:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Work Completed:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Completion Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Invoice #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Total Contract Amount:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Warranty:</strong> 5-year labor warranty effective <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p>All work has been completed per the agreed scope of work and to the homeowner's satisfaction.</p>
+<p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Contractor:</strong> Joe Deal — No Big Deal Home Solutions — (859) 420-7382</p>`
+  }
+};
+
+function openDocTemplate(key){
+  const t = DOC_TEMPLATES[key];
+  if(!t) return;
+  document.getElementById('docViewerTitle').textContent = t.title;
+  document.getElementById('docViewerContent').innerHTML = t.content;
+  document.getElementById('docViewerModal').classList.add('open');
+}
+function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }
+function printDoc(){ window.print(); }
+function openUploadDoc(){ document.getElementById('docUploadArea').style.display='block'; }
+function closeUploadDoc(){ document.getElementById('docUploadArea').style.display='none'; }
+let _docFile = null;
+function handleDocUpload(inp){ _docFile = inp.files[0]; showToast('File selected: '+(_docFile?.name||''),'ok'); }
+async function saveDocUpload(){
+  const name = document.getElementById('docName')?.value.trim();
+  const cat  = document.getElementById('docCategory')?.value;
+  if(!name||!_docFile){ showToast('Add a name and select a file','error'); return; }
+  try {
+    const storageRef = window._storage.ref ? window._storage.ref('docs/'+Date.now()+'_'+_docFile.name) : null;
+    if(storageRef){
+      await uploadBytes(storageRef, _docFile);
+      const url = await getDownloadURL(storageRef);
+      await addDoc(collection(window._db,'documents'), {name,category:cat,url,fileName:_docFile.name,createdAt:serverTimestamp(),userId:window._user?.uid});
+    }
+    showToast('Document uploaded!','ok');
+    closeUploadDoc();
+    loadDocs();
+  } catch(e){ showToast('Upload failed — '+e.message,'error'); }
+}
+async function loadDocs(){
+  try {
+    const snap = await getDocs(query(collection(window._db,'documents'), orderBy('createdAt','desc')));
+    const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    const wrap = document.getElementById('uploadedDocsWrap');
+    if(!wrap) return;
+    if(!docs.length){ wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>'; return; }
+    wrap.innerHTML = docs.map(d=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--br);">
+        <div style="font-size:20px;">📄</div>
+        <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${d.name}</div><div style="font-size:10px;color:var(--m);">${d.category} · ${d.fileName||''}</div></div>
+        <a href="${d.url||'#'}" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;">Open</a>
+      </div>`).join('');
+  } catch(e){ console.error('loadDocs error:',e); }
+}
+
 </script>
+
+<!-- DOC VIEWER MODAL -->
+<div class="modal-bg" id="docViewerModal">
+  <div class="modal" style="max-width:700px;max-height:90vh;">
+    <button class="modal-close" onclick="closeDocViewer()">✕</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">DOCUMENT TEMPLATE</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="printDoc()" style="font-size:11px;padding:5px 10px;">🖨️ Print</button>
+      </div>
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;" id="docViewerTitle"></div>
+    <div class="doc-viewer-content" id="docViewerContent"></div>
+  </div>
+</div>
+
 </body>
 </html>
