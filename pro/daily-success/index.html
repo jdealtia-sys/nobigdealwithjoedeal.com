@@ -405,8 +405,131 @@ canvas{max-width:100%;display:block;}
 }
 </style>
 
+<style id="ds-theme-system">
+:root[data-theme="nbd-original"] { --ac:#e8720c;--gold:#f59e0b;--bg:#0d1c35;--bar:#142a52;--tabbar:#1a3260;--taboff:#1a2a45;--paper:#f5f3ef;--ink:#1a1a1a;--rule:#d4c9b0;--muted:#8a9ab0;--grn:#22c55e;--blu:#1e3a6e;--pur:#5a2a7e;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#7a98c0;--tb:#243f6e;--sbg:#1a2a45;--stxt:#ccd;--mbg:#f5f3ef; }
+:root[data-theme="midnight"] { --ac:#6366f1;--gold:#f59e0b;--bg:#0f0f1a;--bar:#1a1a3a;--tabbar:#22224a;--taboff:#1a1a38;--paper:#e8e8ff;--ink:#1a1a2e;--rule:#c8c8e8;--muted:#818cf8;--grn:#34d399;--blu:#38bdf8;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#818cf8;--tb:#2e2e5a;--sbg:#1a1a38;--stxt:#e8e8ff;--mbg:#e8e8ff; }
+:root[data-theme="cobalt"] { --ac:#2563eb;--gold:#f59e0b;--bg:#0a1628;--bar:#0f1e3a;--tabbar:#142348;--taboff:#0f1e3a;--paper:#eff6ff;--ink:#1e3a5f;--rule:#bfdbfe;--muted:#60a5fa;--grn:#34d399;--blu:#38bdf8;--pur:#818cf8;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#7ab8f0;--tb:#1e3a6e;--sbg:#142348;--stxt:#eff6ff;--mbg:#eff6ff; }
+:root[data-theme="forest"] { --ac:#16a34a;--gold:#f59e0b;--bg:#0a1a0f;--bar:#0f2218;--tabbar:#142b20;--taboff:#0f2218;--paper:#ecfdf5;--ink:#14532d;--rule:#bbf7d0;--muted:#6ee7b7;--grn:#4ade80;--blu:#38bdf8;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#6ee7b7;--tb:#1a3a28;--sbg:#142b20;--stxt:#ecfdf5;--mbg:#ecfdf5; }
+:root[data-theme="crimson"] { --ac:#dc2626;--gold:#f59e0b;--bg:#0f0a0a;--bar:#1a0f0f;--tabbar:#221414;--taboff:#1a0f0f;--paper:#fff1f2;--ink:#4a0010;--rule:#fecdd3;--muted:#fca5a5;--grn:#34d399;--blu:#38bdf8;--pur:#c084fc;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#fca5a5;--tb:#2a1414;--sbg:#221414;--stxt:#fff1f2;--mbg:#fff1f2; }
+:root[data-theme="gold"] { --ac:#d97706;--gold:#f59e0b;--bg:#0f0c04;--bar:#1a1508;--tabbar:#22190a;--taboff:#1a1508;--paper:#fffbeb;--ink:#451a03;--rule:#fde68a;--muted:#fcd34d;--grn:#34d399;--blu:#38bdf8;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#fcd34d;--tb:#2a1f0d;--sbg:#22190a;--stxt:#fffbeb;--mbg:#fffbeb; }
+:root[data-theme="plasma"] { --ac:#a855f7;--gold:#f59e0b;--bg:#0d0a1a;--bar:#130f24;--tabbar:#1a1430;--taboff:#130f24;--paper:#f5f3ff;--ink:#3b0764;--rule:#ddd6fe;--muted:#a78bfa;--grn:#34d399;--blu:#60a5fa;--pur:#e879f9;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#c4b5fd;--tb:#221a3c;--sbg:#1a1430;--stxt:#f5f3ff;--mbg:#f5f3ff; }
+:root[data-theme="arctic"] { --ac:#0ea5e9;--gold:#f59e0b;--bg:#04111c;--bar:#071828;--tabbar:#0a1e34;--taboff:#071828;--paper:#f0f9ff;--ink:#0c4a6e;--rule:#bae6fd;--muted:#7dd3fc;--grn:#34d399;--blu:#67e8f9;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#7dd3fc;--tb:#0d2440;--sbg:#0a1e34;--stxt:#f0f9ff;--mbg:#f0f9ff; }
+:root[data-theme="rose"] { --ac:#e11d48;--gold:#f59e0b;--bg:#120810;--bar:#1c0f1a;--tabbar:#261422;--taboff:#1c0f1a;--paper:#fff1f2;--ink:#4c0519;--rule:#fecdd3;--muted:#fda4af;--grn:#34d399;--blu:#38bdf8;--pur:#e879f9;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#fda4af;--tb:#30192c;--sbg:#261422;--stxt:#fff1f2;--mbg:#fff1f2; }
+:root[data-theme="obsidian"] { --ac:#71717a;--gold:#f59e0b;--bg:#07070a;--bar:#0f0f14;--tabbar:#14141c;--taboff:#0f0f14;--paper:#fafafa;--ink:#18181b;--rule:#e4e4e7;--muted:#71717a;--grn:#34d399;--blu:#60a5fa;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.7);--tt:#a1a1aa;--tb:#1a1a24;--sbg:#14141c;--stxt:#fafafa;--mbg:#fafafa; }
+:root[data-theme="neon"] { --ac:#00cc6a;--gold:#00ff88;--bg:#040a06;--bar:#071008;--tabbar:#0a160b;--taboff:#071008;--paper:#f0fff4;--ink:#052e16;--rule:#bbf7d0;--muted:#4ade80;--grn:#00ff88;--blu:#22d3ee;--pur:#a855f7;--shad:0 2px 20px rgba(0,255,136,.15);--tt:#4ade80;--tb:#0d1c0f;--sbg:#0a160b;--stxt:#f0fff4;--mbg:#f0fff4; }
+:root[data-theme="coffee"] { --ac:#92400e;--gold:#f59e0b;--bg:#0f0905;--bar:#1c1008;--tabbar:#26160c;--taboff:#1c1008;--paper:#fef3c7;--ink:#451a03;--rule:#fde68a;--muted:#d97706;--grn:#34d399;--blu:#60a5fa;--pur:#a78bfa;--shad:0 2px 20px rgba(0,0,0,.55);--tt:#fcd34d;--tb:#301c10;--sbg:#26160c;--stxt:#fef3c7;--mbg:#fef3c7; }
+</style>
 </head>
 <body>
+
+<!-- ═══ WELCOME MODAL (shows once per device) ═══ -->
+<div id="welcomeModal" style="
+  position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+">
+  <div style="
+    background:var(--bar,#142a52);
+    border:1px solid rgba(232,114,12,.3);
+    border-radius:18px;
+    max-width:520px;width:100%;
+    max-height:90vh;overflow-y:auto;
+    padding:36px 32px;
+    box-shadow:0 24px 80px rgba(0,0,0,.6);
+    font-family:'Montserrat','DM Sans',sans-serif;
+  ">
+    <!-- Logo + badge -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <div style="background:var(--ac,#e8720c);border-radius:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;flex-shrink:0;">NBD</div>
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:#fff;letter-spacing:.04em;">DAILY SUCCESS PROGRAM</div>
+        <div style="font-size:.72rem;color:var(--ac,#e8720c);font-weight:700;letter-spacing:.1em;text-transform:uppercase;">by No Big Deal with Joe Deal</div>
+      </div>
+    </div>
+
+    <!-- Welcome headline -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#fff;line-height:1.05;margin-bottom:6px;">
+      Welcome to Your<br><span style="color:var(--ac,#e8720c);">Daily Operating System.</span>
+    </div>
+    <p style="font-size:.9rem;color:rgba(255,255,255,.7);line-height:1.65;margin-bottom:24px;">
+      This tool runs entirely inside your browser — no app store, no account required, no data leaving your device. Everything you enter stays local and private.
+    </p>
+
+    <!-- Security callout -->
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:16px 18px;margin-bottom:24px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-size:1.4rem;flex-shrink:0;">🔒</div>
+      <div>
+        <div style="font-weight:700;font-size:.88rem;color:#22c55e;margin-bottom:4px;">Your Data Stays On Your Device</div>
+        <div style="font-size:.8rem;color:rgba(255,255,255,.65);line-height:1.55;">All entries are saved in your browser's local storage. Nothing is sent to a server, synced to a cloud, or shared with anyone. Your pipeline numbers, goals, and daily logs are yours alone.</div>
+      </div>
+    </div>
+
+    <!-- Install as Home Screen App -->
+    <div style="margin-bottom:28px;">
+      <div style="font-weight:800;font-size:.9rem;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="background:var(--ac,#e8720c);border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;font-weight:800;flex-shrink:0;">📱</span>
+        Add to Your Home Screen for Instant Daily Access
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- iPhone/Safari -->
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:6px;">🍎 iPhone / Safari</div>
+          <ol style="margin:0;padding-left:18px;font-size:.78rem;color:rgba(255,255,255,.65);line-height:1.7;">
+            <li>Tap the <strong style="color:#fff;">Share button</strong> <span style="font-size:.9rem;">⎙</span> at the bottom of Safari</li>
+            <li>Scroll down and tap <strong style="color:#fff;">"Add to Home Screen"</strong></li>
+            <li>Name it <em style="color:var(--ac,#e8720c);">Daily Success</em> → tap <strong style="color:#fff;">Add</strong></li>
+            <li>Opens full-screen instantly — no browser bar, no login</li>
+          </ol>
+        </div>
+
+        <!-- Android/Chrome -->
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:6px;">🤖 Android / Chrome</div>
+          <ol style="margin:0;padding-left:18px;font-size:.78rem;color:rgba(255,255,255,.65);line-height:1.7;">
+            <li>Tap the <strong style="color:#fff;">⋮ three-dot menu</strong> in the top-right corner</li>
+            <li>Tap <strong style="color:#fff;">"Add to Home Screen"</strong></li>
+            <li>Name it <em style="color:var(--ac,#e8720c);">Daily Success</em> → tap <strong style="color:#fff;">Add</strong></li>
+            <li>Tap the new icon on your home screen — launches instantly</li>
+          </ol>
+        </div>
+
+        <!-- Desktop Chrome -->
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:6px;">💻 Desktop / Chrome</div>
+          <ol style="margin:0;padding-left:18px;font-size:.78rem;color:rgba(255,255,255,.65);line-height:1.7;">
+            <li>Click the <strong style="color:#fff;">install icon</strong> ⊕ in the address bar (right side)</li>
+            <li>Or click <strong style="color:#fff;">⋮ menu → More Tools → Create Shortcut</strong></li>
+            <li>Check <strong style="color:#fff;">"Open as window"</strong> → click Create</li>
+            <li>Bookmark URL: <span style="color:var(--ac,#e8720c);font-size:.72rem;">nobigdealwithjoedeal.com/pro/daily-success</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme picker row -->
+    <div style="margin-bottom:28px;">
+      <div style="font-weight:800;font-size:.88rem;color:#fff;margin-bottom:12px;">🎨 Pick Your Color Theme</div>
+      <div id="welcomeThemePicker" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <button onclick="closeWelcome()" style="
+      width:100%;background:var(--ac,#e8720c);color:#fff;
+      border:none;border-radius:10px;padding:16px;
+      font-family:inherit;font-size:.95rem;font-weight:800;
+      letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+      transition:opacity .2s;
+    " onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+      Let's Get After It →
+    </button>
+    <div style="text-align:center;margin-top:10px;font-size:.72rem;color:rgba(255,255,255,.3);">This intro only appears once. Access it again via Settings → Welcome Guide.</div>
+  </div>
+</div>
+
 
 <!-- TOPBAR -->
 
@@ -421,6 +544,7 @@ canvas{max-width:100%;display:block;}
     <button class="btn-ico" onclick="toggleSearch()" title="Search (Ctrl+F)">🔍</button>
     <button class="btn-ico" id="themeBtn" onclick="toggleTheme()">🌙</button>
     <button class="btn-ico" onclick="openOnboard()" title="Customize Your OS">⚙️</button>
+    <button class="btn-ico" onclick="openWelcomeGuide()" title="Welcome Guide &amp; Install">📖</button>
     <button class="btn btn-ghost" onclick="smartNewPage()">+ NEW</button>
     <button class="btn btn-ghost" onclick="openRename()">RENAME</button>
     <button class="btn btn-ghost" onclick="triggerDel()">DELETE</button>
@@ -1253,6 +1377,99 @@ if(e.key==='Escape'){closeM('mDel');closeM('mRen');closeM('mPRH');closeM('mOnboa
 window.addEventListener('beforeunload',()=>{if(dirty)collectPage(true);});
 
 initTheme();loadPages();renderTabs();renderDash();markSaved();checkOnboardBanner();
+
+// ── DAILY SUCCESS THEME SYSTEM ──────────────────
+const DS_THEMES = ['nbd-original', 'midnight', 'cobalt', 'forest', 'crimson', 'gold', 'plasma', 'arctic', 'rose', 'obsidian', 'neon', 'coffee'];
+const DS_DEFAULT = 'nbd-original';
+
+function dsApplyTheme(key, save=true) {
+  if(!DS_THEMES.includes(key)) key = DS_DEFAULT;
+  document.documentElement.setAttribute('data-theme', key);
+  document.querySelectorAll('.ds-theme-card').forEach(c =>
+    c.classList.toggle('active', c.dataset.key === key)
+  );
+  try { localStorage.setItem('ds-theme', key); } catch(e){}
+  window._dsCurrentTheme = key;
+}
+
+// Boot theme on load
+(function(){
+  try {
+    const s = localStorage.getItem('ds-theme') || localStorage.getItem('nbd-theme');
+    if(s && DS_THEMES.includes(s)) document.documentElement.setAttribute('data-theme', s);
+    else document.documentElement.setAttribute('data-theme', DS_DEFAULT);
+  } catch(e) { document.documentElement.setAttribute('data-theme', DS_DEFAULT); }
+})();
+// ────────────────────────────────────────────────
+
+
+// ── WELCOME MODAL ────────────────────────────────
+const DS_THEME_LABELS = {
+  'nbd-original':'NBD Original','midnight':'Midnight','cobalt':'Cobalt',
+  'forest':'Forest','crimson':'Crimson','gold':'Gold','plasma':'Plasma',
+  'arctic':'Arctic','rose':'Rose','obsidian':'Obsidian','neon':'Neon','coffee':'Coffee'
+};
+const DS_THEME_DOTS = {
+  'nbd-original':'#e8720c','midnight':'#6366f1','cobalt':'#2563eb',
+  'forest':'#16a34a','crimson':'#dc2626','gold':'#d97706','plasma':'#a855f7',
+  'arctic':'#0ea5e9','rose':'#e11d48','obsidian':'#71717a','neon':'#00cc6a','coffee':'#92400e'
+};
+
+function buildWelcomeThemePicker() {
+  const el = document.getElementById('welcomeThemePicker');
+  if(!el) return;
+  const cur = document.documentElement.getAttribute('data-theme') || DS_DEFAULT;
+  el.innerHTML = Object.entries(DS_THEME_LABELS).map(([key, label]) => `
+    <div onclick="dsApplyTheme('${key}');buildWelcomeThemePicker();" style="
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;
+      gap:4px;padding:8px 10px;border-radius:8px;
+      border:2px solid ${key===cur?'var(--ac,#e8720c)':'rgba(255,255,255,.1)'};
+      background:${key===cur?'rgba(232,114,12,.1)':'rgba(255,255,255,.03)'};
+      transition:all .15s;min-width:56px;
+    ">
+      <span style="width:18px;height:18px;border-radius:50%;background:${DS_THEME_DOTS[key]||'#888'};display:block;flex-shrink:0;"></span>
+      <span style="font-size:.62rem;color:rgba(255,255,255,.7);font-weight:600;white-space:nowrap;">${label}</span>
+    </div>`).join('');
+}
+
+function closeWelcome() {
+  const m = document.getElementById('welcomeModal');
+  if(m) { m.style.opacity='0'; m.style.transition='opacity .3s'; setTimeout(()=>m.remove(),300); }
+  try { localStorage.setItem('ds-welcome-seen','1'); } catch(e){}
+}
+
+function showWelcomeIfFirstTime() {
+  try {
+    const seen = localStorage.getItem('ds-welcome-seen');
+    if(!seen) {
+      buildWelcomeThemePicker();
+      // Modal already in DOM, just ensure visible
+      const m = document.getElementById('welcomeModal');
+      if(m) m.style.display = 'flex';
+    } else {
+      const m = document.getElementById('welcomeModal');
+      if(m) m.style.display = 'none';
+    }
+  } catch(e) {
+    const m = document.getElementById('welcomeModal');
+    if(m) m.style.display = 'none';
+  }
+}
+
+// Open welcome guide from settings
+function openWelcomeGuide() {
+  try { localStorage.removeItem('ds-welcome-seen'); } catch(e){}
+  buildWelcomeThemePicker();
+  const m = document.getElementById('welcomeModal');
+  if(m) { m.style.opacity='0'; m.style.display='flex'; setTimeout(()=>{ m.style.transition='opacity .3s'; m.style.opacity='1'; },10); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  showWelcomeIfFirstTime();
+  dsApplyTheme(document.documentElement.getAttribute('data-theme') || DS_DEFAULT, false);
+});
+// ────────────────────────────────────────────────────
+
 </script>
 
 </body>
