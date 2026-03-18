@@ -400,12 +400,72 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .empty{text-align:center;padding:30px 16px;color:var(--m);font-size:12px;}
 .empty-icon{font-size:30px;margin-bottom:8px;opacity:.4;}
 
+/* ── TABLET (hide sidebar, reflow grids) ── */
 @media(max-width:900px){
   .sidebar{display:none;}
   .sgrid{grid-template-columns:repeat(2,1fr);}
   .two-col{grid-template-columns:1fr;}
   .tier-grid{grid-template-columns:1fr;}
 }
+
+/* ── MOBILE FULL SYSTEM (≤768px) ── */
+@media(max-width:768px){
+  .sidebar{display:none!important;}
+  header{padding:0 12px;height:48px;}
+  .logo{font-size:14px;}
+  .hbadge{display:none;}
+  .uname{display:none;}
+  .so{display:none;}
+  .upill{padding:4px 6px;}
+  body{padding-bottom:64px;}
+  .app-body{flex-direction:column;}
+  .content{width:100%;}
+  .view-scroll{padding:14px 12px 20px;}
+  .page-hdr{flex-direction:column;align-items:flex-start;gap:10px;}
+  .page-hdr button{width:100%;}
+  .sgrid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .stat-card{padding:12px;}
+  .stat-val{font-size:20px;}
+  .two-col{grid-template-columns:1fr;gap:10px;}
+  .map-view{flex-direction:column!important;}
+  .map-sidebar{width:100%!important;max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0!important;border-right:none!important;border-top:1px solid var(--br);order:2;}
+  .map-sidebar.open{max-height:340px;overflow-y:auto;padding:12px!important;}
+  .map-area{order:1;height:55vw;min-height:220px;}
+  .map-area > div[id$="Map"]{height:100%!important;}
+  .map-toggle-btn{display:flex!important;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:500;background:var(--s);border:1px solid var(--br);border-radius:20px;padding:6px 16px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t);cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .crm-header{padding:10px 12px 6px;flex-wrap:wrap;gap:6px;}
+  .crm-header > div:first-child{flex:1;}
+  .crm-header > div:last-child{flex-wrap:wrap;gap:6px;width:100%;}
+  .crm-header input[type=text]{width:100%!important;flex:1;}
+  .crm-header select{flex:1;}
+  .crm-header .btn{flex:1;justify-content:center;font-size:11px;padding:7px 8px;}
+  .crm-rev-strip{padding:4px 12px 8px;overflow-x:auto;flex-wrap:nowrap;}
+  .rev-pill{padding:6px 12px;flex-shrink:0;}
+  .sf-row{flex-direction:column;gap:8px;}
+  .theme-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}
+  .step-bar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
+  .step-item{flex-shrink:0;}
+  .doc-grid{grid-template-columns:1fr!important;}
+  .lb-row{flex-wrap:wrap;gap:4px;}
+  #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:2000;height:64px;background:var(--s);border-top:1px solid var(--br);justify-content:space-around;align-items:center;padding:0 4px;backdrop-filter:blur(12px);}
+  .mn-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;cursor:pointer;border-radius:10px;flex:1;transition:background .15s;position:relative;-webkit-tap-highlight-color:transparent;}
+  .mn-item.active .mn-icon{color:var(--orange);}
+  .mn-item.active .mn-lbl{color:var(--orange);}
+  .mn-icon{font-size:20px;line-height:1;transition:color .15s;}
+  .mn-lbl{font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--m);transition:color .15s;white-space:nowrap;}
+  .mn-badge{position:absolute;top:4px;right:calc(50% - 16px);background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;}
+  #mobile-more-menu.open{display:block;}
+  .mm-overlay.open{display:block;}
+}
+
+/* Always hidden on desktop, shown via media query above */
+#mobile-nav{display:none;}
+#mobile-more-menu{display:none;position:fixed;bottom:64px;left:0;right:0;z-index:1999;background:var(--s);border-top:1px solid var(--br);padding:8px 0;}
+.mm-item{display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;font-size:14px;color:var(--t);border-left:2px solid transparent;transition:all .15s;}
+.mm-item:hover,.mm-item:active{background:var(--s2);border-left-color:var(--orange);color:var(--orange);}
+.mm-item-icon{font-size:18px;width:24px;text-align:center;}
+.mm-overlay{display:none;position:fixed;inset:0;z-index:1998;background:rgba(0,0,0,.5);}
+.map-toggle-btn{display:none;}
 
 /* Force kanban board layout regardless of .view parent */
 .view#view-crm { overflow: hidden !important; }
@@ -581,7 +641,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <!-- ══ MAP VIEW ══ -->
   <div class="view" id="view-map">
     <div class="map-view active" style="flex:1;">
-      <div class="map-sidebar">
+      <div class="map-sidebar" id="map-sidebar-map">
         <div class="slabel2">Address Search</div>
         <div class="search-row">
           <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter')searchMap()">
@@ -609,6 +669,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       <div class="map-area">
         <div id="mainMap"></div>
         <div class="map-badge" id="mapBadge">📍 NOT HOME MODE</div>
+        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
       </div>
     </div>
   </div>
@@ -616,7 +677,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <!-- ══ DRAWING TOOL ══ -->
   <div class="view" id="view-draw">
     <div class="map-view active" style="flex:1;">
-      <div class="map-sidebar">
+      <div class="map-sidebar" id="map-sidebar-draw">
         <div class="slabel2">Property Address</div>
         <div class="search-row">
           <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter')searchDraw()">
@@ -681,6 +742,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       </div>
       <div class="map-area">
         <div id="drawMap"></div>
+        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-draw')">☰ Draw Tools</button>
         <div class="map-badge" style="color:#22C55E;border-color:rgba(34,197,94,.3);">✏️ DRAWING TOOL</div>
       </div>
     </div>
@@ -998,7 +1060,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <!-- ══ STORM MAP ══ -->
   <div class="view" id="view-storm">
     <div class="map-view active" style="flex:1;">
-      <div class="map-sidebar">
+      <div class="map-sidebar" id="map-sidebar-storm">
         <div class="slabel2">Live NOAA Alerts</div>
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadStorm()">↻ Refresh Alerts</button>
         <div id="alertsList"><div style="font-size:11px;color:var(--m);">Click Refresh to load live Ohio alerts.</div></div>
@@ -1006,6 +1068,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       <div class="map-area">
         <div id="stormMap"></div>
         <div class="map-badge">⛈️ STORM INTEL</div>
+        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-storm')">☰ Storm Tools</button>
       </div>
     </div>
   </div>
@@ -3068,6 +3131,99 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // ── END DAILY PROGRAM SETTINGS ────────────────────────────────────────────
 
+// ── MOBILE NAVIGATION ─────────────────────────────────────────────────────
+const MOBILE_NAV_TABS = ['dash','map','crm','est'];
+
+function mobileNav(view) {
+  // Use the existing goTo() to switch views
+  goTo(view);
+  // Update bottom nav active state
+  MOBILE_NAV_TABS.forEach(t => {
+    const el = document.getElementById('mni-' + t);
+    if (el) el.classList.toggle('active', t === view);
+  });
+  // If "more" items, deactivate all bottom tabs
+  if (!MOBILE_NAV_TABS.includes(view)) {
+    MOBILE_NAV_TABS.forEach(t => {
+      const el = document.getElementById('mni-' + t);
+      if (el) el.classList.remove('active');
+    });
+  }
+  // Close any open map sidebar when switching views
+  document.querySelectorAll('.map-sidebar.open').forEach(s => s.classList.remove('open'));
+}
+
+function toggleMobileMore() {
+  const menu = document.getElementById('mobile-more-menu');
+  const overlay = document.getElementById('mm-overlay');
+  const moreBtn = document.getElementById('mni-more');
+  const isOpen = menu.classList.contains('open');
+  menu.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('open', !isOpen);
+  if (moreBtn) moreBtn.classList.toggle('active', !isOpen);
+}
+
+function closeMobileMore() {
+  document.getElementById('mobile-more-menu')?.classList.remove('open');
+  document.getElementById('mm-overlay')?.classList.remove('open');
+  document.getElementById('mni-more')?.classList.remove('active');
+}
+
+function toggleMapSidebar(id) {
+  const sidebar = document.getElementById(id);
+  if (!sidebar) return;
+  // Close all other map sidebars first
+  document.querySelectorAll('.map-sidebar').forEach(s => {
+    if (s.id !== id) s.classList.remove('open');
+  });
+  sidebar.classList.toggle('open');
+  // Update button text
+  const btn = sidebar.closest('.map-view')?.querySelector('.map-toggle-btn');
+  if (btn) btn.textContent = sidebar.classList.contains('open') ? '✕ Close' : btn.textContent.replace('✕ Close','').trim() || '☰ Tools';
+}
+
+// Sync bottom nav active state with goTo() calls from desktop sidebar
+// (wraps the existing goTo — safe because we already wrap it once above for DS settings)
+(function() {
+  const _prev = window.goTo;
+  window.goTo = function(view) {
+    if (_prev) _prev(view);
+    // Keep bottom nav in sync
+    MOBILE_NAV_TABS.forEach(t => {
+      const el = document.getElementById('mni-' + t);
+      if (el) el.classList.toggle('active', t === view);
+    });
+    // Mirror lead badge to mobile nav
+    const badge = document.getElementById('leadBadge');
+    const mbadge = document.getElementById('mni-crm-badge');
+    if (badge && mbadge) {
+      const count = badge.textContent.trim();
+      mbadge.textContent = count;
+      mbadge.style.display = (count && count !== '0') ? 'block' : 'none';
+    }
+  };
+})();
+
+// Keep mobile CRM badge in sync with lead count updates
+const _origUpdateLeadBadge = window.updateLeadBadge;
+function syncMobileBadge() {
+  setTimeout(() => {
+    const badge = document.getElementById('leadBadge');
+    const mbadge = document.getElementById('mni-crm-badge');
+    if (badge && mbadge) {
+      const count = badge.textContent.trim();
+      mbadge.textContent = count;
+      mbadge.style.display = (count && count !== '0') ? 'block' : 'none';
+    }
+  }, 200);
+}
+// Observe leadBadge for changes
+const _leadBadgeEl = document.getElementById('leadBadge');
+if (_leadBadgeEl) {
+  new MutationObserver(syncMobileBadge).observe(_leadBadgeEl, { childList: true, characterData: true, subtree: true });
+}
+// ── END MOBILE NAVIGATION ──────────────────────────────────────────────────
+
 </script>
 
 <!-- DOC VIEWER MODAL -->
@@ -3082,6 +3238,59 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;" id="docViewerTitle"></div>
     <div class="doc-viewer-content" id="docViewerContent"></div>
+  </div>
+</div>
+
+<!-- ── MOBILE BOTTOM NAV ── -->
+<nav id="mobile-nav">
+  <div class="mn-item active" id="mni-dash" onclick="mobileNav('dash')">
+    <span class="mn-icon">📊</span>
+    <span class="mn-lbl">Home</span>
+  </div>
+  <div class="mn-item" id="mni-map" onclick="mobileNav('map')">
+    <span class="mn-icon">🗺️</span>
+    <span class="mn-lbl">Map</span>
+  </div>
+  <div class="mn-item" id="mni-crm" onclick="mobileNav('crm')">
+    <span class="mn-icon">👥</span>
+    <span class="mn-lbl">CRM</span>
+    <span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>
+  </div>
+  <div class="mn-item" id="mni-est" onclick="mobileNav('est')">
+    <span class="mn-icon">📋</span>
+    <span class="mn-lbl">Estimate</span>
+  </div>
+  <div class="mn-item" id="mni-more" onclick="toggleMobileMore()">
+    <span class="mn-icon">⋯</span>
+    <span class="mn-lbl">More</span>
+  </div>
+</nav>
+
+<!-- More menu overlay -->
+<div class="mm-overlay" id="mm-overlay" onclick="closeMobileMore()"></div>
+
+<!-- More menu panel -->
+<div id="mobile-more-menu">
+  <div class="mm-item" onclick="mobileNav('photos');closeMobileMore()">
+    <span class="mm-item-icon">📸</span>Damage Photos
+  </div>
+  <div class="mm-item" onclick="mobileNav('docs');closeMobileMore()">
+    <span class="mm-item-icon">📁</span>Documents
+  </div>
+  <div class="mm-item" onclick="mobileNav('storm');closeMobileMore()">
+    <span class="mm-item-icon">⛈️</span>Storm Map
+  </div>
+  <div class="mm-item" onclick="mobileNav('draw');closeMobileMore()">
+    <span class="mm-item-icon">✏️</span>Drawing Tool
+  </div>
+  <div class="mm-item" onclick="mobileNav('board');closeMobileMore()">
+    <span class="mm-item-icon">🏆</span>Leaderboard
+  </div>
+  <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
+    <span class="mm-item-icon">📅</span>Daily Program
+  </div>
+  <div class="mm-item" onclick="mobileNav('settings');closeMobileMore()">
+    <span class="mm-item-icon">⚙️</span>Settings
   </div>
 </div>
 
