@@ -1,6 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="nbd-original">
 <head>
+<style id="theme-system">
+[data-theme="nbd-original"] { --orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
+[data-theme="midnight"] { --orange:#6366F1;--ob:#818CF8;--og:rgba(99,102,241,.2);--bg:#0F0F1A;--s:#141425;--s2:#1A1A33;--s3:#22223F;--br:rgba(255,255,255,.08);--t:#E2E8F0;--m:#64748B;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1A1A33;--ink:#E2E8F0;--rule:rgba(255,255,255,.1); }
+[data-theme="cobalt"] { --orange:#2563EB;--ob:#3B82F6;--og:rgba(37,99,235,.2);--bg:#0A1628;--s:#0F1E3A;--s2:#142348;--s3:#1A2A56;--br:rgba(255,255,255,.08);--t:#EFF6FF;--m:#60A5FA;--blue:#38BDF8;--green:#34D399;--purple:#818CF8;--red:#F87171;--gold:#FBBF24;--paper:#142348;--ink:#EFF6FF;--rule:rgba(255,255,255,.1); }
+[data-theme="forest"] { --orange:#16A34A;--ob:#22C55E;--og:rgba(22,163,74,.2);--bg:#0A1A0F;--s:#0F2218;--s2:#142B20;--s3:#1A3428;--br:rgba(255,255,255,.08);--t:#ECFDF5;--m:#6EE7B7;--blue:#38BDF8;--green:#4ADE80;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#142B20;--ink:#ECFDF5;--rule:rgba(255,255,255,.1); }
+[data-theme="crimson"] { --orange:#DC2626;--ob:#EF4444;--og:rgba(220,38,38,.2);--bg:#0F0A0A;--s:#1A0F0F;--s2:#221414;--s3:#2A1919;--br:rgba(255,255,255,.08);--t:#FFF1F2;--m:#FCA5A5;--blue:#38BDF8;--green:#34D399;--purple:#C084FC;--red:#F87171;--gold:#FBBF24;--paper:#221414;--ink:#FFF1F2;--rule:rgba(255,255,255,.1); }
+[data-theme="gold"] { --orange:#D97706;--ob:#F59E0B;--og:rgba(217,119,6,.2);--bg:#0F0C04;--s:#1A1508;--s2:#22190A;--s3:#2A1F0D;--br:rgba(255,255,255,.08);--t:#FFFBEB;--m:#FCD34D;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#22190A;--ink:#FFFBEB;--rule:rgba(255,255,255,.1); }
+[data-theme="plasma"] { --orange:#A855F7;--ob:#C084FC;--og:rgba(168,85,247,.2);--bg:#0D0A1A;--s:#130F24;--s2:#1A1430;--s3:#221A3C;--br:rgba(255,255,255,.08);--t:#F5F3FF;--m:#A78BFA;--blue:#60A5FA;--green:#34D399;--purple:#E879F9;--red:#F87171;--gold:#FBBF24;--paper:#1A1430;--ink:#F5F3FF;--rule:rgba(255,255,255,.1); }
+[data-theme="arctic"] { --orange:#0EA5E9;--ob:#38BDF8;--og:rgba(14,165,233,.2);--bg:#04111C;--s:#071828;--s2:#0A1E34;--s3:#0D2440;--br:rgba(255,255,255,.08);--t:#F0F9FF;--m:#7DD3FC;--blue:#67E8F9;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#0A1E34;--ink:#F0F9FF;--rule:rgba(255,255,255,.1); }
+[data-theme="rose"] { --orange:#E11D48;--ob:#FB7185;--og:rgba(225,29,72,.2);--bg:#120810;--s:#1C0F1A;--s2:#261422;--s3:#30192C;--br:rgba(255,255,255,.08);--t:#FFF1F2;--m:#FDA4AF;--blue:#38BDF8;--green:#34D399;--purple:#E879F9;--red:#F87171;--gold:#FBBF24;--paper:#261422;--ink:#FFF1F2;--rule:rgba(255,255,255,.1); }
+[data-theme="obsidian"] { --orange:#71717A;--ob:#A1A1AA;--og:rgba(113,113,122,.15);--bg:#07070A;--s:#0F0F14;--s2:#14141C;--s3:#1A1A24;--br:rgba(255,255,255,.06);--t:#FAFAFA;--m:#71717A;--blue:#60A5FA;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#14141C;--ink:#FAFAFA;--rule:rgba(255,255,255,.08); }
+[data-theme="neon"] { --orange:#00CC6A;--ob:#00FF88;--og:rgba(0,255,136,.15);--bg:#040A06;--s:#071008;--s2:#0A160B;--s3:#0D1C0F;--br:rgba(0,255,136,.1);--t:#F0FFF4;--m:#4ADE80;--blue:#22D3EE;--green:#00FF88;--purple:#A855F7;--red:#F87171;--gold:#FBBF24;--paper:#0A160B;--ink:#F0FFF4;--rule:rgba(0,255,136,.12); }
+[data-theme="steel"] { --orange:#64748B;--ob:#94A3B8;--og:rgba(100,116,139,.2);--bg:#0C1018;--s:#111827;--s2:#1E2535;--s3:#263040;--br:rgba(255,255,255,.08);--t:#F8FAFC;--m:#94A3B8;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1E2535;--ink:#F8FAFC;--rule:rgba(255,255,255,.1); }
+[data-theme="paper"] { --orange:#92400E;--ob:#C2410C;--og:rgba(146,64,14,.12);--bg:#FAFAF7;--s:#F5F5F0;--s2:#EEEDE8;--s3:#E5E4DE;--br:rgba(0,0,0,.1);--t:#1C1917;--m:#78716C;--blue:#2563EB;--green:#16A34A;--purple:#7C3AED;--red:#DC2626;--gold:#D97706;--paper:#F5F5F0;--ink:#1C1917;--rule:rgba(0,0,0,.12); }
+[data-theme="slate"] { --orange:#F97316;--ob:#FB923C;--og:rgba(249,115,22,.2);--bg:#0F1117;--s:#161B25;--s2:#1C2333;--s3:#222B3F;--br:rgba(255,255,255,.08);--t:#F1F5F9;--m:#64748B;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1C2333;--ink:#F1F5F9;--rule:rgba(255,255,255,.1); }
+[data-theme="coffee"] { --orange:#92400E;--ob:#B45309;--og:rgba(146,64,14,.2);--bg:#0F0905;--s:#1C1008;--s2:#26160C;--s3:#301C10;--br:rgba(255,255,255,.08);--t:#FEF3C7;--m:#D97706;--blue:#60A5FA;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#26160C;--ink:#FEF3C7;--rule:rgba(255,255,255,.1); }
+[data-theme="deep-space"] { --orange:#818CF8;--ob:#A5B4FC;--og:rgba(129,140,248,.2);--bg:#06060F;--s:#0D0D1E;--s2:#12122A;--s3:#181834;--br:rgba(255,255,255,.07);--t:#EEF2FF;--m:#818CF8;--blue:#38BDF8;--green:#34D399;--purple:#E879F9;--red:#F87171;--gold:#FBBF24;--paper:#12122A;--ink:#EEF2FF;--rule:rgba(255,255,255,.1); }
+</style>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NBD Pro — Dashboard</title>
@@ -391,6 +410,39 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 </style>
 <style id="kanban-force-css">
+
+/* ── THEME PICKER ── */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.theme-card {
+  background: var(--s2);
+  border: 2px solid var(--br);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  position: relative;
+}
+.theme-card:hover { border-color: var(--orange); transform: translateY(-2px); }
+.theme-card.active { border-color: var(--orange); background: var(--og); }
+.tc-dots { display: flex; gap: 5px; margin-bottom: 10px; }
+.tc-dot { width: 12px; height: 12px; border-radius: 50%; }
+.tc-bars { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.tc-bar { height: 4px; border-radius: 2px; }
+.tc-name { font-size: 12px; font-weight: 700; color: var(--t); letter-spacing: .04em; }
+.tc-active-badge {
+  display: none;
+  position: absolute; top: 8px; right: 8px;
+  background: var(--orange); color: #fff;
+  font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
+}
+.theme-card.active .tc-active-badge { display: block; }
+
   #view-crm{display:none!important;flex-direction:column!important;height:100%;overflow:hidden!important;padding:0!important;}
   #view-crm.active{display:flex!important;}
   #kanbanBoard{display:flex!important;flex-direction:row!important;gap:10px;padding:0 16px 16px;overflow-x:auto!important;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--br) transparent;}
@@ -1054,6 +1106,223 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <div class="view" id="view-settings">
     <div class="view-scroll" style="max-width:600px;">
       <div class="page-hdr"><div><div class="page-title">Settings</div><div class="page-sub">Account & preferences</div></div></div>
+      <!-- THEME PICKER -->
+      <div class="settings-section" style="max-width:none;margin-top:0;">
+        <div class="settings-title" style="font-size:16px;margin-bottom:4px;">Color Theme</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:20px;">16 themes — your choice persists across sessions. Changes apply instantly.</div>
+        <div class="theme-grid">
+        <div class="theme-card" data-key="nbd-original" onclick="applyTheme('nbd-original')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#C8541A"></span>
+            <span class="tc-dot" style="background:#0A0C0F"></span>
+            <span class="tc-dot" style="background:#E8EAF0"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#C8541A;width:70%;"></div>
+            <div class="tc-bar" style="background:#E8EAF0;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">NBD Original</div>
+          <div class="tc-active-badge" id="tc-badge-nbd-original">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="midnight" onclick="applyTheme('midnight')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#6366F1"></span>
+            <span class="tc-dot" style="background:#0F0F1A"></span>
+            <span class="tc-dot" style="background:#E2E8F0"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#6366F1;width:70%;"></div>
+            <div class="tc-bar" style="background:#E2E8F0;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Midnight</div>
+          <div class="tc-active-badge" id="tc-badge-midnight">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="cobalt" onclick="applyTheme('cobalt')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#2563EB"></span>
+            <span class="tc-dot" style="background:#0A1628"></span>
+            <span class="tc-dot" style="background:#EFF6FF"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#2563EB;width:70%;"></div>
+            <div class="tc-bar" style="background:#EFF6FF;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Cobalt</div>
+          <div class="tc-active-badge" id="tc-badge-cobalt">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="forest" onclick="applyTheme('forest')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#16A34A"></span>
+            <span class="tc-dot" style="background:#0A1A0F"></span>
+            <span class="tc-dot" style="background:#ECFDF5"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#16A34A;width:70%;"></div>
+            <div class="tc-bar" style="background:#ECFDF5;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Forest</div>
+          <div class="tc-active-badge" id="tc-badge-forest">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="crimson" onclick="applyTheme('crimson')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#DC2626"></span>
+            <span class="tc-dot" style="background:#0F0A0A"></span>
+            <span class="tc-dot" style="background:#FFF1F2"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#DC2626;width:70%;"></div>
+            <div class="tc-bar" style="background:#FFF1F2;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Crimson</div>
+          <div class="tc-active-badge" id="tc-badge-crimson">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="gold" onclick="applyTheme('gold')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#D97706"></span>
+            <span class="tc-dot" style="background:#0F0C04"></span>
+            <span class="tc-dot" style="background:#FFFBEB"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#D97706;width:70%;"></div>
+            <div class="tc-bar" style="background:#FFFBEB;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Gold</div>
+          <div class="tc-active-badge" id="tc-badge-gold">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="plasma" onclick="applyTheme('plasma')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#A855F7"></span>
+            <span class="tc-dot" style="background:#0D0A1A"></span>
+            <span class="tc-dot" style="background:#F5F3FF"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#A855F7;width:70%;"></div>
+            <div class="tc-bar" style="background:#F5F3FF;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Plasma</div>
+          <div class="tc-active-badge" id="tc-badge-plasma">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="arctic" onclick="applyTheme('arctic')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#0EA5E9"></span>
+            <span class="tc-dot" style="background:#04111C"></span>
+            <span class="tc-dot" style="background:#F0F9FF"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#0EA5E9;width:70%;"></div>
+            <div class="tc-bar" style="background:#F0F9FF;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Arctic</div>
+          <div class="tc-active-badge" id="tc-badge-arctic">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="rose" onclick="applyTheme('rose')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#E11D48"></span>
+            <span class="tc-dot" style="background:#120810"></span>
+            <span class="tc-dot" style="background:#FFF1F2"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#E11D48;width:70%;"></div>
+            <div class="tc-bar" style="background:#FFF1F2;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Rose</div>
+          <div class="tc-active-badge" id="tc-badge-rose">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="obsidian" onclick="applyTheme('obsidian')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#71717A"></span>
+            <span class="tc-dot" style="background:#07070A"></span>
+            <span class="tc-dot" style="background:#FAFAFA"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#71717A;width:70%;"></div>
+            <div class="tc-bar" style="background:#FAFAFA;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Obsidian</div>
+          <div class="tc-active-badge" id="tc-badge-obsidian">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="neon" onclick="applyTheme('neon')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#00FF88"></span>
+            <span class="tc-dot" style="background:#040A06"></span>
+            <span class="tc-dot" style="background:#F0FFF4"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#00FF88;width:70%;"></div>
+            <div class="tc-bar" style="background:#F0FFF4;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Neon</div>
+          <div class="tc-active-badge" id="tc-badge-neon">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="steel" onclick="applyTheme('steel')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#64748B"></span>
+            <span class="tc-dot" style="background:#0C1018"></span>
+            <span class="tc-dot" style="background:#F8FAFC"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#64748B;width:70%;"></div>
+            <div class="tc-bar" style="background:#F8FAFC;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Steel</div>
+          <div class="tc-active-badge" id="tc-badge-steel">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="paper" onclick="applyTheme('paper')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#92400E"></span>
+            <span class="tc-dot" style="background:#FAFAF7"></span>
+            <span class="tc-dot" style="background:#1C1917"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#92400E;width:70%;"></div>
+            <div class="tc-bar" style="background:#1C1917;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Paper</div>
+          <div class="tc-active-badge" id="tc-badge-paper">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="slate" onclick="applyTheme('slate')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#F97316"></span>
+            <span class="tc-dot" style="background:#0F1117"></span>
+            <span class="tc-dot" style="background:#F1F5F9"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#F97316;width:70%;"></div>
+            <div class="tc-bar" style="background:#F1F5F9;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Slate</div>
+          <div class="tc-active-badge" id="tc-badge-slate">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="coffee" onclick="applyTheme('coffee')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#92400E"></span>
+            <span class="tc-dot" style="background:#0F0905"></span>
+            <span class="tc-dot" style="background:#FEF3C7"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#92400E;width:70%;"></div>
+            <div class="tc-bar" style="background:#FEF3C7;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Coffee</div>
+          <div class="tc-active-badge" id="tc-badge-coffee">✓ Active</div>
+        </div>
+        <div class="theme-card" data-key="deep-space" onclick="applyTheme('deep-space')">
+          <div class="tc-dots">
+            <span class="tc-dot" style="background:#818CF8"></span>
+            <span class="tc-dot" style="background:#06060F"></span>
+            <span class="tc-dot" style="background:#EEF2FF"></span>
+          </div>
+          <div class="tc-bars">
+            <div class="tc-bar" style="background:#818CF8;width:70%;"></div>
+            <div class="tc-bar" style="background:#EEF2FF;width:45%;opacity:.5;"></div>
+          </div>
+          <div class="tc-name">Deep Space</div>
+          <div class="tc-active-badge" id="tc-badge-deep-space">✓ Active</div>
+        </div>
+        </div>
+      </div>
+
+      <!-- PROFILE / SETTINGS (existing) -->
       <div class="settings-section">
         <div class="settings-title">Profile</div>
         <div class="sf-row">
@@ -2483,6 +2752,71 @@ async function loadDocs(){
         <a href="${d.url||'#'}" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;">Open</a>
       </div>`).join('');
   } catch(e){ console.error('loadDocs error:',e); }
+}
+
+
+// ══════════════════════════════════════════════
+// THEME SYSTEM
+// ══════════════════════════════════════════════
+
+const THEME_KEYS = ['nbd-original', 'midnight', 'cobalt', 'forest', 'crimson', 'gold', 'plasma', 'arctic', 'rose', 'obsidian', 'neon', 'steel', 'paper', 'slate', 'coffee', 'deep-space'];
+const DEFAULT_THEME = 'nbd-original';
+
+function applyTheme(key, save=true) {
+  if(!THEME_KEYS.includes(key)) key = DEFAULT_THEME;
+  document.documentElement.setAttribute('data-theme', key);
+  // Update active state on cards
+  document.querySelectorAll('.theme-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.key === key);
+  });
+  // Save to localStorage + Firebase
+  try { localStorage.setItem('nbd-theme', key); } catch(e){}
+  if(save && window._user && window._db) {
+    try {
+      const { doc, setDoc } = window._firestoreOps || {};
+      if(setDoc) setDoc(doc(window._db,'userSettings',window._user.uid), {theme:key}, {merge:true}).catch(()=>{});
+    } catch(e){}
+  }
+  window._currentTheme = key;
+}
+
+function loadSavedTheme() {
+  // Try localStorage first (instant)
+  let saved = null;
+  try { saved = localStorage.getItem('nbd-theme'); } catch(e){}
+  if(saved && THEME_KEYS.includes(saved)) { applyTheme(saved, false); return; }
+  // Fallback to Firebase pref (async)
+  applyTheme(DEFAULT_THEME, false);
+}
+
+// Boot the theme immediately on page load
+(function() {
+  try {
+    const saved = localStorage.getItem('nbd-theme');
+    if(saved && saved !== '') document.documentElement.setAttribute('data-theme', saved);
+    else document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
+  } catch(e) {
+    document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
+  }
+})();
+
+// Load saved theme when user auth resolves
+document.addEventListener('DOMContentLoaded', () => {
+  loadSavedTheme();
+});
+
+// Mark current theme card active whenever settings opens
+const origGoTo = typeof goTo === 'function' ? goTo : null;
+function goToWithTheme(view) {
+  if(origGoTo) origGoTo(view);
+  if(view === 'settings') {
+    setTimeout(() => {
+      const cur = document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
+      document.querySelectorAll('.theme-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.key === cur);
+      });
+    }, 50);
+  }
 }
 
 </script>
