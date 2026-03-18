@@ -1358,6 +1358,80 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         </div>
         <button class="btn btn-ghost" onclick="showToast('Rates saved!')">Save Rates</button>
       </div>
+      <!-- DAILY PROGRAM SETTINGS -->
+      <div class="settings-section" id="ds-settings-section">
+        <div class="settings-title">Daily Program</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Configure your Daily OS — floors, north star goal, and theme. Changes sync instantly to the Daily Program page.</div>
+
+        <!-- North Star -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">⭐ North Star Goal</div>
+          <div class="sf-row">
+            <div class="sf">
+              <label>Focus Category</label>
+              <select id="ds-cat" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+                <option value="Roofing Sales">Roofing Sales</option>
+                <option value="Storm Restoration">Storm Restoration</option>
+                <option value="General Contractor">General Contractor</option>
+                <option value="Sales Leadership">Sales Leadership</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="sf">
+              <label>Deadline</label>
+              <input type="date" id="ds-deadline" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+            </div>
+          </div>
+          <div class="sf" style="margin-top:10px;">
+            <label>Target / Goal Statement</label>
+            <input type="text" id="ds-target" placeholder="e.g. Close $500K in storm claims by end of Q2" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+          </div>
+        </div>
+
+        <!-- Daily Floors -->
+        <div style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">⬡ Daily Floors</div>
+            <span style="font-size:10px;color:var(--m);">Up to 7 non-negotiables</span>
+          </div>
+          <div style="font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);display:grid;grid-template-columns:1fr 70px 70px 28px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--br);margin-bottom:6px;">
+            <span>Floor Label</span><span style="text-align:center;">Target</span><span style="text-align:center;">Unit</span><span></span>
+          </div>
+          <div id="ds-floor-editor"></div>
+          <button onclick="dsAddFloor()" style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)';" onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)';">+ ADD FLOOR</button>
+        </div>
+
+        <!-- Goose Egg -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">🥚 Golden Goose Reward</div>
+          <div class="sf">
+            <label>Your reward for hitting all floors</label>
+            <input type="text" id="ds-goose" placeholder="e.g. 30 min of guilt-free screen time" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+            <label class="ob-toggle" style="position:relative;width:38px;height:20px;flex-shrink:0;">
+              <input type="checkbox" id="ds-showgoose" checked>
+              <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;"></span>
+            </label>
+            <span style="font-size:12px;color:var(--m);">Show goose reward on daily tracker</span>
+          </div>
+        </div>
+
+        <!-- Daily Program Theme -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">🎨 Daily Program Theme</div>
+          <div style="font-size:12px;color:var(--m);margin-bottom:12px;">Separate from your dashboard theme — the Daily Program has its own look.</div>
+          <div id="ds-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-orange" onclick="dsSaveConfig()">Save Daily Program Settings</button>
+          <button class="btn btn-ghost" onclick="dsResetDefaults()" style="font-size:11px;">↺ Reset to Defaults</button>
+          <a href="/pro/daily-success" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;margin-left:4px;">Open Daily Program ↗</a>
+        </div>
+        <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
+      </div>
+
       <div class="settings-section">
         <div class="settings-title">Danger Zone</div>
         <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
@@ -2821,6 +2895,178 @@ function goToWithTheme(view) {
     }, 50);
   }
 }
+
+// ── DAILY PROGRAM SETTINGS ────────────────────────────────────────────────
+const DS_NBD_CFG = 'nbd_user_config';
+const DS_THEME_KEY = 'ds-theme';
+
+const DS_THEMES = [
+  { key:'nbd-original', label:'NBD Original', dot:'#e8720c' },
+  { key:'midnight',     label:'Midnight',     dot:'#6366f1' },
+  { key:'cobalt',       label:'Cobalt',       dot:'#2563eb' },
+  { key:'forest',       label:'Forest',       dot:'#16a34a' },
+  { key:'crimson',      label:'Crimson',      dot:'#dc2626' },
+  { key:'gold',         label:'Gold',         dot:'#d97706' },
+  { key:'plasma',       label:'Plasma',       dot:'#a855f7' },
+  { key:'arctic',       label:'Arctic',       dot:'#0ea5e9' },
+  { key:'rose',         label:'Rose',         dot:'#e11d48' },
+  { key:'obsidian',     label:'Obsidian',     dot:'#71717a' },
+  { key:'neon',         label:'Neon',         dot:'#00cc6a' },
+  { key:'coffee',       label:'Coffee',       dot:'#92400e' },
+];
+
+let dsFloors = [];
+let dsSelectedTheme = 'nbd-original';
+
+function dsGetConfig() {
+  try { return JSON.parse(localStorage.getItem(DS_NBD_CFG)) || null; } catch { return null; }
+}
+
+function dsLoadConfig() {
+  const cfg = dsGetConfig();
+  if (cfg) {
+    if (cfg.northStar) {
+      const catEl = document.getElementById('ds-cat');
+      if (catEl) catEl.value = cfg.northStar.category || 'Other';
+      const tEl = document.getElementById('ds-target');
+      if (tEl) tEl.value = cfg.northStar.target || '';
+      const dEl = document.getElementById('ds-deadline');
+      if (dEl) dEl.value = cfg.northStar.deadline || '';
+    }
+    if (cfg.floors && cfg.floors.length) {
+      dsFloors = cfg.floors.map(f => ({...f}));
+    } else {
+      dsFloors = dsDefaultFloors();
+    }
+    const gEl = document.getElementById('ds-goose');
+    if (gEl) gEl.value = cfg.goose || '';
+    const sgEl = document.getElementById('ds-showgoose');
+    if (sgEl) sgEl.checked = cfg.showGoose !== false;
+  } else {
+    dsFloors = dsDefaultFloors();
+  }
+  // Load daily theme
+  try {
+    const saved = localStorage.getItem(DS_THEME_KEY);
+    dsSelectedTheme = (saved && DS_THEMES.find(t => t.key === saved)) ? saved : 'nbd-original';
+  } catch { dsSelectedTheme = 'nbd-original'; }
+  dsRenderFloors();
+  dsBuildThemeGrid();
+}
+
+function dsDefaultFloors() {
+  return [
+    { id:'df1', label:'Doors knocked', targetValue:50, unit:'doors' },
+    { id:'df2', label:'Workout', targetValue:1, unit:'done' },
+    { id:'df3', label:'Sleep 7+ hrs', targetValue:7, unit:'hrs' },
+    { id:'df4', label:'Protein goal', targetValue:150, unit:'g' },
+    { id:'df5', label:'1 big task done', targetValue:1, unit:'done' },
+  ];
+}
+
+function dsRenderFloors() {
+  const wrap = document.getElementById('ds-floor-editor');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  dsFloors.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 70px 70px 28px;gap:6px;margin-bottom:6px;align-items:center;';
+    const inputStyle = 'background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;color:var(--t);font-size:12px;width:100%;outline:none;';
+    row.innerHTML = `
+      <input style="${inputStyle}" placeholder="Floor label" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="dsFloors[${i}].label=this.value">
+      <input style="${inputStyle}text-align:center;" type="number" placeholder="Tgt" value="${f.targetValue||1}" oninput="dsFloors[${i}].targetValue=+this.value">
+      <input style="${inputStyle}text-align:center;" placeholder="Unit" value="${(f.unit||'done').replace(/"/g,'&quot;')}" oninput="dsFloors[${i}].unit=this.value">
+      <button onclick="dsRemoveFloor(${i})" style="background:transparent;border:none;cursor:pointer;color:#c04040;font-size:17px;line-height:1;padding:0;width:28px;text-align:center;">×</button>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+function dsAddFloor() {
+  if (dsFloors.length >= 7) { showToast('Max 7 floors'); return; }
+  dsFloors.push({ id: 'f' + Date.now(), label: '', targetValue: 1, unit: 'done' });
+  dsRenderFloors();
+}
+
+function dsRemoveFloor(i) {
+  dsFloors.splice(i, 1);
+  dsRenderFloors();
+}
+
+function dsBuildThemeGrid() {
+  const grid = document.getElementById('ds-theme-grid');
+  if (!grid) return;
+  grid.innerHTML = DS_THEMES.map(t => `
+    <div onclick="dsPickTheme('${t.key}')" id="ds-tc-${t.key}" style="
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
+      padding:10px 6px;border-radius:6px;border:2px solid ${t.key===dsSelectedTheme?'var(--orange)':'var(--br)'};
+      background:${t.key===dsSelectedTheme?'rgba(200,84,26,.08)':'var(--s2)'};
+      transition:all .15s;
+    ">
+      <span style="width:18px;height:18px;border-radius:50%;background:${t.dot};display:block;flex-shrink:0;"></span>
+      <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;color:var(--t);text-align:center;white-space:nowrap;">${t.label}</span>
+    </div>
+  `).join('');
+}
+
+function dsPickTheme(key) {
+  dsSelectedTheme = key;
+  dsBuildThemeGrid();
+}
+
+function dsSaveConfig() {
+  const floors = dsFloors.filter(f => (f.label || '').trim());
+  if (!floors.length) { showToast('Add at least one floor first'); return; }
+  const config = {
+    northStar: {
+      category: document.getElementById('ds-cat')?.value || 'Other',
+      target:   document.getElementById('ds-target')?.value || '',
+      deadline: document.getElementById('ds-deadline')?.value || '',
+    },
+    floors: floors,
+    goose:    document.getElementById('ds-goose')?.value || '',
+    showGoose: document.getElementById('ds-showgoose')?.checked !== false,
+  };
+  localStorage.setItem(DS_NBD_CFG, JSON.stringify(config));
+  try { localStorage.setItem(DS_THEME_KEY, dsSelectedTheme); } catch {}
+  const msg = document.getElementById('ds-save-msg');
+  if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
+  showToast('Daily Program settings saved ✓');
+}
+
+function dsResetDefaults() {
+  dsFloors = dsDefaultFloors();
+  dsRenderFloors();
+  const catEl = document.getElementById('ds-cat');
+  if (catEl) catEl.value = 'Roofing Sales';
+  const tEl = document.getElementById('ds-target');
+  if (tEl) tEl.value = '';
+  const dEl = document.getElementById('ds-deadline');
+  if (dEl) dEl.value = '';
+  const gEl = document.getElementById('ds-goose');
+  if (gEl) gEl.value = '30 min of guilt-free screen time';
+  const sgEl = document.getElementById('ds-showgoose');
+  if (sgEl) sgEl.checked = true;
+  dsSelectedTheme = 'nbd-original';
+  dsBuildThemeGrid();
+  showToast('Reset to defaults — click Save to apply');
+}
+
+// Hook into the existing goTo() nav so settings load fresh when the tab opens
+const _origGoTo = window.goTo;
+window.goTo = function(view) {
+  if (_origGoTo) _origGoTo(view);
+  if (view === 'settings') {
+    setTimeout(dsLoadConfig, 80);
+  }
+};
+// Also load on page ready in case settings is the first view
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('view-settings')?.classList.contains('active')) {
+    dsLoadConfig();
+  }
+});
+// ── END DAILY PROGRAM SETTINGS ────────────────────────────────────────────
 
 </script>
 
