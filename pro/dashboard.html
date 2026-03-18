@@ -380,6 +380,47 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .prop-card-inner{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:4px;}
 .prop-card-addr{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;}
 .prop-card-coords{font-size:10px;color:var(--m);}
+/* ── PROPERTY INTEL CARD ── */
+.pi-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;overflow:hidden;margin-bottom:6px;}
+.pi-header{background:var(--s3);padding:9px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--rule);}
+.pi-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);}
+.pi-county{font-size:10px;color:var(--m);}
+.pi-body{padding:10px 12px;}
+.pi-owner{font-size:13px;font-weight:700;color:var(--t);margin-bottom:2px;}
+.pi-addr-line{font-size:11px;color:var(--m);margin-bottom:8px;}
+.pi-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-bottom:8px;}
+.pi-stat{display:flex;flex-direction:column;}
+.pi-stat-val{font-size:12px;font-weight:700;color:var(--t);}
+.pi-stat-key{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;}
+.pi-roof-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.pi-roof-new{background:rgba(46,204,138,.15);color:#2ECC8A;border:1px solid rgba(46,204,138,.3);}
+.pi-roof-mid{background:rgba(234,179,8,.15);color:#EAB308;border:1px solid rgba(234,179,8,.3);}
+.pi-roof-old{background:rgba(224,82,82,.15);color:#E05252;border:1px solid rgba(224,82,82,.3);}
+.pi-roof-ancient{background:rgba(155,109,255,.15);color:#9B6DFF;border:1px solid rgba(155,109,255,.3);}
+.pi-llc-flag{display:inline-flex;align-items:center;gap:4px;background:rgba(74,158,255,.12);color:#4A9EFF;border:1px solid rgba(74,158,255,.25);border-radius:10px;font-size:9px;font-weight:700;padding:2px 8px;letter-spacing:.05em;text-transform:uppercase;margin-left:6px;}
+.pi-link{font-size:10px;color:var(--orange);text-decoration:none;display:flex;align-items:center;gap:3px;margin-top:6px;}
+.pi-link:hover{text-decoration:underline;}
+.pi-loading{display:flex;align-items:center;gap:8px;padding:12px;font-size:11px;color:var(--m);}
+.pi-spinner{width:14px;height:14px;border:2px solid var(--br);border-top-color:var(--orange);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+.pi-error{padding:10px 12px;font-size:11px;color:var(--red);}
+.pi-no-key{padding:10px 12px;font-size:11px;color:var(--m);line-height:1.5;}
+/* Pull intel button in lead modal */
+.pull-intel-btn{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.05em;text-transform:uppercase;width:100%;justify-content:center;margin-bottom:10px;}
+.pull-intel-btn:hover{border-color:var(--orange);color:var(--orange);background:var(--og);}
+.pull-intel-btn.loading{color:var(--orange);border-color:var(--orange);}
+/* Intel result in lead modal */
+.modal-intel-result{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;font-size:11px;display:none;}
+.modal-intel-result.visible{display:block;}
+.mir-owner{font-weight:700;color:var(--t);margin-bottom:4px;}
+.mir-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+.mir-item{color:var(--m);}
+.mir-item span{color:var(--t);font-weight:600;}
+/* Roof age badge on kanban card */
+.kct-roof{font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.05em;}
+.kct-roof-new{background:rgba(46,204,138,.15);color:#2ECC8A;}
+.kct-roof-mid{background:rgba(234,179,8,.15);color:#EAB308;}
+.kct-roof-old{background:rgba(224,82,82,.15);color:#E05252;}
+.kct-roof-ancient{background:rgba(155,109,255,.15);color:#9B6DFF;}
 .pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
 /* DRAW PANEL */
@@ -2019,6 +2060,9 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       <div class="mfield"><label>Follow-Up Date</label><input type="date" id="lFollowUp"></div>
     </div>
     <div class="mfield"><label>Insurance Carrier</label><input type="text" id="lInsCarrier" placeholder="State Farm, Nationwide..."></div>
+    <!-- PROPERTY INTEL PULL -->
+    <button class="pull-intel-btn" id="pullIntelBtn" onclick="pullIntelForModal()">🏠 Pull Property Intel</button>
+    <div class="modal-intel-result" id="modalIntelResult"></div>
     <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage details, adjuster notes, supplements..." style="min-height:80px;"></textarea></div>
     <input type="hidden" id="lEditId">
     <button class="msave" onclick="saveLead()" id="leadSaveBtn">Save Lead</button>
@@ -2421,17 +2465,19 @@ async function searchMap() {
   hideAcDrop('mapSearch');
   const data=await geocode(q); if(!data) return;
   mainMap.setView([data.lat,data.lon],19);
-  // Store for lead pre-fill
   window._lastMapSearch = data;
   const parts = data.display_name.split(',');
   const shortAddr = parts.slice(0,3).join(',').trim();
+  // Show loading state immediately
   document.getElementById('propCard').style.display='block';
   document.getElementById('propCardInner').innerHTML=`
-    <div class="prop-card-inner">
-      <div class="prop-card-addr">${shortAddr}</div>
-      <div class="prop-card-coords">📍 ${parseFloat(data.lat).toFixed(5)}, ${parseFloat(data.lon).toFixed(5)}</div>
+    <div class="pi-card">
+      <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
+      <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
     </div>
     <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+  // Fire intel lookup
+  fetchPropertyIntel(data, 'propCardInner');
 }
 
 function makeLeadFromSearch() {
@@ -3558,6 +3604,11 @@ function closeLeadModal(){
   document.getElementById('lEmail').value=''; document.getElementById('lNotes').value='';
   document.getElementById('lJobValue').value=''; document.getElementById('lFollowUp').value='';
   document.getElementById('lInsCarrier').value='';
+  window._modalIntel = null;
+  const mir = document.getElementById('modalIntelResult');
+  if(mir) { mir.classList.remove('visible'); mir.innerHTML=''; }
+  const pib = document.getElementById('pullIntelBtn');
+  if(pib) { pib.classList.remove('loading'); pib.innerHTML='🏠 Pull Property Intel'; }
 }
 document.getElementById('leadModal').addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
 document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementById('taskModal');if(tm)tm.addEventListener('click',e=>{if(e.target===tm)closeTaskModal();});});
@@ -3569,6 +3620,7 @@ async function saveLead(){
   const addr=document.getElementById('lAddr').value.trim();
   if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
   document.querySelector('#leadModal .msave').disabled=true;
+  const intelData = window._modalIntel || {};
   await window._saveLead({
     id: (document.getElementById('lEditId')?.value||undefined)||undefined,
     firstName: fname,
@@ -3583,8 +3635,18 @@ async function saveLead(){
     jobValue: document.getElementById('lJobValue')?.value||0,
     followUp: document.getElementById('lFollowUp')?.value||'',
     insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
-    notes: document.getElementById('lNotes').value.trim()
+    notes: document.getElementById('lNotes').value.trim(),
+    // Property intel fields
+    yearBuilt:     intelData.yearBuilt   || null,
+    marketValue:   intelData.marketValue || null,
+    lastSaleDate:  intelData.lastSaleDate || null,
+    lastSaleAmt:   intelData.lastSaleAmount || null,
+    propertyType:  intelData.propertyType || null,
+    parcelId:      intelData.parcelId || null,
+    isLLC:         intelData.isLLC || false,
+    homestead:     intelData.homestead || false
   });
+  window._modalIntel = null;
   document.querySelector('#leadModal .msave').disabled=false;
   mOk.textContent='Lead saved!';mOk.style.display='block';
   setTimeout(closeLeadModal,800);
@@ -3700,6 +3762,7 @@ function buildCard(l){
       ${val          ? `<span class="kc-tag kct-val">${val}</span>` : ''}
       ${overdue      ? `<span class="kc-tag kct-due">⚠ Follow-up</span>` : ''}
       ${l.claimStatus && l.claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${l.claimStatus}</span>` : ''}
+      ${(()=>{ if(!l.yearBuilt) return ''; const age=new Date().getFullYear()-parseInt(l.yearBuilt); const cls=age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient'; return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr roof</span>`; })()}
     </div>
     <div class="kc-footer">
       <button class="${taskBadgeClass}" onclick="openTaskModal('${l.id}',event)">${taskBadgeLabel}</button>
@@ -4034,6 +4097,374 @@ document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===
 // ══════════════════════════════════════════════
 // GEOCODE HELPER
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// PROPERTY INTEL ENGINE
+// ══════════════════════════════════════════════
+
+// County → auditor URL builder
+function getAuditorUrl(county, address, nominatimData) {
+  const c = (county||'').toLowerCase();
+  if(c.includes('hamilton')) {
+    // Hamilton County: use address search page
+    const a = nominatimData?.address || {};
+    const num  = (a.house_number||'').toUpperCase();
+    const road = (a.road||a.street||'').toUpperCase().replace(/\s+/g,' ').trim();
+    return `https://wedge1.hcauditor.org/search/address/${encodeURIComponent(num)}/${encodeURIComponent(road)}//1/10`;
+  }
+  if(c.includes('clermont')) {
+    return `https://www.wcauditor.org/PropertySearch/`; // fallback — Clermont uses different system
+  }
+  if(c.includes('warren')) {
+    return `https://www.wcauditor.org/PropertySearch/`;
+  }
+  if(c.includes('butler')) {
+    const a = nominatimData?.address || {};
+    const num  = (a.house_number||'').toUpperCase();
+    const road = (a.road||a.street||'').toUpperCase();
+    return `https://propertysearch.bcohio.gov/search/commonsearch.aspx?mode=address`;
+  }
+  return null;
+}
+
+// Determine direct summary URL for Hamilton (most used county)
+function getHamiltonSummaryUrl(parcelId) {
+  // Hamilton parcel IDs look like: 040-0003-0039-00
+  // URL: wedge1.hcauditor.org/view/re/0400003003900/2024/summary
+  const clean = parcelId.replace(/-/g,'').replace(/\s/g,'');
+  return `https://wedge1.hcauditor.org/view/re/${clean}/2024/summary`;
+}
+
+// Cache to avoid repeat lookups on same address
+const _piCache = {};
+
+async function fetchPropertyIntel(nominatimData, targetElId) {
+  const key = getJoeKey();
+  const targetEl = document.getElementById(targetElId);
+
+  // Determine county from Nominatim response
+  const addr = nominatimData?.address || {};
+  const county = addr.county || addr.state_district || '';
+  const countyClean = county.replace(' County','').trim();
+
+  // Build the clean address for searching
+  const num   = addr.house_number || '';
+  const road  = addr.road || addr.street || '';
+  const city  = addr.city || addr.town || addr.village || '';
+  const state = addr.state_code || addr.state || 'OH';
+  const zip   = addr.postcode || '';
+  const fullAddr = [num+' '+road, city, state+' '+zip].map(s=>s.trim()).filter(Boolean).join(', ');
+
+  // Cache check
+  const cacheKey = fullAddr.toLowerCase().replace(/\s/g,'');
+  if(_piCache[cacheKey]) {
+    renderIntelCard(targetElId, _piCache[cacheKey], countyClean, fullAddr);
+    return;
+  }
+
+  if(!key) {
+    if(targetEl) {
+      const existing = targetEl.querySelector('.pi-card');
+      if(existing) existing.outerHTML = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div><div class="pi-no-key">Add your Anthropic API key in Settings → Ask Joe AI to enable property lookup.</div></div>`;
+      else targetEl.innerHTML = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div><div class="pi-no-key">Add your Anthropic API key in Settings → Ask Joe AI to enable property lookup.</div></div>` + (targetEl.innerHTML||'');
+    }
+    return;
+  }
+
+  // Build the auditor URL based on county
+  let auditorUrl = '';
+  let searchUrl  = '';
+
+  if(county.toLowerCase().includes('hamilton')) {
+    const numEnc  = encodeURIComponent(num.toUpperCase());
+    const roadEnc = encodeURIComponent(road.toUpperCase());
+    // Hamilton address search returns list with parcel IDs
+    auditorUrl = `https://wedge1.hcauditor.org/search/address/${numEnc}/${roadEnc}//1/10`;
+    searchUrl  = auditorUrl;
+  } else if(county.toLowerCase().includes('clermont')) {
+    auditorUrl = `https://www.clermontauditor.org/real-estate/`;
+    searchUrl  = `https://opendata.clermontauditor.org/resource/ti6j-ub22.json?$$app_token=&$where=situs_address+like+%27${encodeURIComponent(num+'%25')}%27&$limit=5`;
+  } else if(county.toLowerCase().includes('warren')) {
+    auditorUrl = `https://www.wcauditor.org/PropertySearch/`;
+  } else if(county.toLowerCase().includes('butler')) {
+    auditorUrl = `https://propertysearch.bcohio.gov/search/commonsearch.aspx?mode=address`;
+  } else {
+    // Unknown county — use Claude to try to find it
+    auditorUrl = `https://www.hamiltoncountyauditor.org/`;
+  }
+
+  // ── Claude-powered extraction ─────────────────────────────────
+  // For Hamilton we can fetch the search page HTML and parse parcel ID,
+  // then fetch the summary page. For others, we ask Claude to help interpret.
+
+  try {
+    // Step 1: Ask Claude to look up the property data
+    const prompt = `You are a property data extraction assistant for a roofing contractor app covering the Cincinnati, Ohio metro area (Hamilton, Clermont, Warren, Butler counties).
+
+The user needs property intel for this address: "${fullAddr}"
+County: ${countyClean || 'unknown — likely Hamilton or Clermont, OH'}
+
+Your job: Return ONLY a valid JSON object with these fields (use null for unknown):
+{
+  "ownerName": "FULL NAME OR LLC NAME",
+  "isLLC": true/false,
+  "yearBuilt": 1985,
+  "roofAge": 40,
+  "lastSaleDate": "MM/DD/YYYY",
+  "lastSaleAmount": 245000,
+  "marketValue": 310000,
+  "assessedValue": 108500,
+  "propertyType": "Single Family",
+  "bedrooms": 3,
+  "sqft": 1850,
+  "acreage": 0.25,
+  "homestead": true,
+  "ownerOccupied": true,
+  "taxDistrict": "CINTI CORP",
+  "parcelId": "040-0003-0039-00",
+  "auditorUrl": "${auditorUrl}",
+  "dataSource": "Hamilton County Auditor"
+}
+
+To find this data, use the Hamilton County auditor search at: ${auditorUrl}
+The page at wedge1.hcauditor.org/search/address/[HOUSE_NUMBER]/[STREET_NAME]//1/10 returns matching parcels.
+Then wedge1.hcauditor.org/view/re/[PARCEL_ID_NO_DASHES]/2024/summary has the full record.
+
+For the address "${fullAddr}", search the auditor, find the parcel, and extract all available fields.
+If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
+RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        tools: [{
+          type: 'web_search_20250305',
+          name: 'web_search'
+        }],
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+    });
+
+    if(!resp.ok) throw new Error('API ' + resp.status);
+    const data = await resp.json();
+
+    // Extract text from response (may be after tool use blocks)
+    let rawText = '';
+    if(data.content) {
+      for(const block of data.content) {
+        if(block.type === 'text') rawText += block.text;
+      }
+    }
+
+    // Parse JSON from response
+    let intel = null;
+    try {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if(jsonMatch) intel = JSON.parse(jsonMatch[0]);
+    } catch(e) {}
+
+    if(!intel) throw new Error('No parseable data returned');
+
+    // Compute roofAge if we have yearBuilt but not roofAge
+    if(intel.yearBuilt && !intel.roofAge) {
+      intel.roofAge = new Date().getFullYear() - parseInt(intel.yearBuilt);
+    }
+
+    _piCache[cacheKey] = intel;
+    renderIntelCard(targetElId, intel, countyClean, fullAddr);
+
+  } catch(err) {
+    if(targetEl) {
+      const card = targetEl.querySelector('.pi-card');
+      const errHtml = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county">${countyClean}</span></div><div class="pi-error">Could not load property data. Check your API key or try again.<br><small>${err.message}</small></div></div>`;
+      if(card) card.outerHTML = errHtml;
+    }
+  }
+}
+
+function renderIntelCard(targetElId, intel, county, address) {
+  const targetEl = document.getElementById(targetElId);
+  if(!targetEl) return;
+
+  // Store intel globally for pre-fill
+  window._lastIntel = intel;
+
+  const yr = intel.yearBuilt ? parseInt(intel.yearBuilt) : null;
+  const age = yr ? (new Date().getFullYear() - yr) : null;
+  const roofAge = intel.roofAge || age;
+
+  let roofBadgeClass = 'pi-roof-mid';
+  let roofLabel = '';
+  if(roofAge !== null) {
+    if(roofAge < 10)      { roofBadgeClass='pi-roof-new';     roofLabel=`${roofAge} yrs — Likely good`; }
+    else if(roofAge < 20) { roofBadgeClass='pi-roof-mid';     roofLabel=`${roofAge} yrs — Watch it`; }
+    else if(roofAge < 30) { roofBadgeClass='pi-roof-old';     roofLabel=`${roofAge} yrs — Needs attention`; }
+    else                  { roofBadgeClass='pi-roof-ancient'; roofLabel=`${roofAge} yrs — Due for replacement`; }
+  }
+
+  const ownerName  = intel.ownerName || 'Owner Unknown';
+  const isLLC     = intel.isLLC || /LLC|INC|CORP|TRUST|PROPERTIES|HOLDINGS|INVESTMENTS/i.test(ownerName);
+  const lastSale  = intel.lastSaleAmount ? '$'+parseInt(intel.lastSaleAmount).toLocaleString() : null;
+  const mktVal    = intel.marketValue ? '$'+parseInt(intel.marketValue).toLocaleString() : null;
+  const dataNote  = intel.dataSource === 'estimated' ? ' (est.)' : '';
+
+  const card = `<div class="pi-card">
+    <div class="pi-header">
+      <span class="pi-title">🏠 Property Intel${dataNote}</span>
+      <span class="pi-county">${county || 'OH'} County</span>
+    </div>
+    <div class="pi-body">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px;">
+        <span class="pi-owner">${ownerName}</span>
+        ${isLLC ? '<span class="pi-llc-flag">🏢 LLC/Corp</span>' : ''}
+      </div>
+      <div class="pi-addr-line">${address}</div>
+      ${roofAge !== null ? `<div class="pi-roof-badge ${roofBadgeClass}">🏠 ${roofLabel}</div>` : ''}
+      <div class="pi-grid">
+        ${yr ? `<div class="pi-stat"><span class="pi-stat-val">${yr}</span><span class="pi-stat-key">Year Built</span></div>` : ''}
+        ${intel.propertyType ? `<div class="pi-stat"><span class="pi-stat-val">${intel.propertyType}</span><span class="pi-stat-key">Type</span></div>` : ''}
+        ${mktVal ? `<div class="pi-stat"><span class="pi-stat-val">${mktVal}</span><span class="pi-stat-key">Market Value</span></div>` : ''}
+        ${lastSale ? `<div class="pi-stat"><span class="pi-stat-val">${lastSale}</span><span class="pi-stat-key">Last Sale</span></div>` : ''}
+        ${intel.lastSaleDate ? `<div class="pi-stat"><span class="pi-stat-val">${intel.lastSaleDate}</span><span class="pi-stat-key">Sale Date</span></div>` : ''}
+        ${intel.bedrooms ? `<div class="pi-stat"><span class="pi-stat-val">${intel.bedrooms} bed</span><span class="pi-stat-key">Bedrooms</span></div>` : ''}
+        ${intel.sqft ? `<div class="pi-stat"><span class="pi-stat-val">${parseInt(intel.sqft).toLocaleString()} sf</span><span class="pi-stat-key">Living Area</span></div>` : ''}
+        ${intel.acreage ? `<div class="pi-stat"><span class="pi-stat-val">${parseFloat(intel.acreage).toFixed(3)} ac</span><span class="pi-stat-key">Acreage</span></div>` : ''}
+        ${intel.homestead ? `<div class="pi-stat"><span class="pi-stat-val" style="color:var(--green);">Yes</span><span class="pi-stat-key">Homestead</span></div>` : ''}
+        ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${intel.parcelId}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
+      </div>
+      ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank">↗ View Full County Record</a>` : ''}
+    </div>
+  </div>`;
+
+  // Replace loading card, keep Make This a Lead button
+  const existingCard = targetEl.querySelector('.pi-card');
+  if(existingCard) {
+    existingCard.outerHTML = card;
+  } else {
+    targetEl.innerHTML = card + '<button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>';
+  }
+}
+
+// ── Pull intel inside lead modal ──────────────────────────────
+async function pullIntelForModal() {
+  const addr = document.getElementById('lAddr')?.value?.trim();
+  if(!addr) { showToast('Enter an address first','error'); return; }
+
+  const btn = document.getElementById('pullIntelBtn');
+  const resultEl = document.getElementById('modalIntelResult');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Looking up...';
+  resultEl.classList.remove('visible');
+
+  // Geocode address to get county
+  const geo = await geocode(addr);
+  if(!geo) { btn.classList.remove('loading'); btn.innerHTML='🏠 Pull Property Intel'; return; }
+
+  // Use geocode data to run intel
+  await fetchPropertyIntelModal(geo, addr);
+  btn.classList.remove('loading');
+  btn.innerHTML = '🏠 Pull Property Intel';
+}
+
+async function fetchPropertyIntelModal(geo, addr) {
+  const resultEl = document.getElementById('modalIntelResult');
+  const gAddr = geo.address || {};
+  const county = (gAddr.county||'').replace(' County','').trim();
+
+  // Run same engine but capture result for modal
+  const cacheKey = addr.toLowerCase().replace(/\s/g,'');
+  let intel = _piCache[cacheKey] || null;
+
+  if(!intel) {
+    // Temporarily show result container
+    resultEl.innerHTML = '<div style="color:var(--m);font-size:11px;">Fetching county records...</div>';
+    resultEl.classList.add('visible');
+    // Fire the intel engine with a temp container
+    const tempId = 'pi-temp-' + Date.now();
+    const tempDiv = document.createElement('div');
+    tempDiv.id = tempId;
+    tempDiv.style.display = 'none';
+    document.body.appendChild(tempDiv);
+    await fetchPropertyIntel(geo, tempId);
+    intel = window._lastIntel || null;
+    document.body.removeChild(tempDiv);
+  }
+
+  if(!intel) {
+    resultEl.innerHTML = '<div style="color:var(--red);font-size:11px;">Could not retrieve property data. Check your API key in Settings.</div>';
+    resultEl.classList.add('visible');
+    return;
+  }
+
+  // Pre-fill lead modal fields
+  if(intel.ownerName && intel.ownerName !== 'Owner Unknown') {
+    const parts = intel.ownerName.trim().split(/\s+/);
+    const fname = document.getElementById('lFname');
+    const lname = document.getElementById('lLname');
+    if(fname && !fname.value) {
+      if(parts.length >= 2) {
+        fname.value = parts[0];
+        lname.value = parts.slice(1).join(' ');
+      } else {
+        fname.value = intel.ownerName;
+      }
+    }
+  }
+
+  // Build notes pre-fill
+  const notesEl = document.getElementById('lNotes');
+  if(notesEl && !notesEl.value) {
+    const yr = intel.yearBuilt;
+    const age = yr ? (new Date().getFullYear() - parseInt(yr)) : null;
+    const lines = [];
+    if(yr) lines.push(`Year Built: ${yr} (${age} yr old roof)`);
+    if(intel.ownerName) lines.push(`Owner of Record: ${intel.ownerName}`);
+    if(intel.propertyType) lines.push(`Property: ${intel.propertyType}`);
+    if(intel.marketValue) lines.push(`Market Value: $${parseInt(intel.marketValue).toLocaleString()}`);
+    if(intel.lastSaleDate && intel.lastSaleAmount) lines.push(`Last Sale: $${parseInt(intel.lastSaleAmount).toLocaleString()} on ${intel.lastSaleDate}`);
+    if(intel.isLLC) lines.push('Owner is LLC/Corporate entity');
+    notesEl.value = lines.join('\n');
+  }
+
+  // Store yearBuilt for Firestore save
+  window._modalIntel = intel;
+
+  // Show compact result card
+  const yr = intel.yearBuilt;
+  const age = yr ? (new Date().getFullYear() - parseInt(yr)) : null;
+  const roofAge = intel.roofAge || age;
+  let roofColor = '#EAB308';
+  if(roofAge !== null) {
+    if(roofAge < 10) roofColor = '#2ECC8A';
+    else if(roofAge < 20) roofColor = '#EAB308';
+    else if(roofAge < 30) roofColor = '#E05252';
+    else roofColor = '#9B6DFF';
+  }
+
+  resultEl.innerHTML = `
+    <div class="mir-owner">${intel.ownerName||'Unknown Owner'}${intel.isLLC?'&nbsp;<span style="font-size:9px;color:#4A9EFF;font-weight:700;">LLC</span>':''}</div>
+    <div class="mir-grid">
+      ${yr ? `<div class="mir-item">Built <span>${yr}</span></div>` : ''}
+      ${roofAge !== null ? `<div class="mir-item">Roof <span style="color:${roofColor};">${roofAge} yrs</span></div>` : ''}
+      ${intel.marketValue ? `<div class="mir-item">Value <span>$${parseInt(intel.marketValue).toLocaleString()}</span></div>` : ''}
+      ${intel.propertyType ? `<div class="mir-item">Type <span>${intel.propertyType}</span></div>` : ''}
+      ${intel.bedrooms ? `<div class="mir-item">Beds <span>${intel.bedrooms}</span></div>` : ''}
+      ${intel.homestead ? `<div class="mir-item">Homestead <span style="color:#2ECC8A;">Yes</span></div>` : ''}
+    </div>
+    <div style="font-size:10px;color:var(--m);margin-top:5px;">✓ Owner name and notes pre-filled below</div>`;
+  resultEl.classList.add('visible');
+}
+
 async function geocode(q){
   try{
     const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=1`);
@@ -4157,22 +4588,15 @@ function initAllAutocomplete() {
   // mapSearch — on select, trigger full map search
   window._acCallbacks['mapSearch'] = (r, label) => {
     window._lastMapSearch = r;
-    const a = r.address || {};
-    const num   = a.house_number || '';
-    const road  = a.road || a.street || '';
-    const city  = a.city || a.town || a.village || a.county || '';
-    const state = a.state_code || a.state || '';
-    const zip   = a.postcode || '';
-    const addrStr = [num+' '+road, city, state+' '+zip].map(s=>s.trim()).filter(Boolean).join(', ');
-    const cleanAddr = addrStr || label;
     if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
     document.getElementById('propCard').style.display = 'block';
     document.getElementById('propCardInner').innerHTML = `
-      <div class="prop-card-inner">
-        <div class="prop-card-addr">${cleanAddr}</div>
-        <div class="prop-card-coords">📍 ${parseFloat(r.lat).toFixed(5)}, ${parseFloat(r.lon).toFixed(5)}</div>
+      <div class="pi-card">
+        <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
+        <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
       </div>
       <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+    fetchPropertyIntel(r, 'propCardInner');
   };
 
   // pinAddrInput — just fill, no side effect
@@ -4689,6 +5113,8 @@ window.selectAcItem = selectAcItem;
 window.hideAcDrop = hideAcDrop;
 // Make Lead from Map
 window.makeLeadFromSearch = makeLeadFromSearch;
+window.fetchPropertyIntel = fetchPropertyIntel;
+window.pullIntelForModal = pullIntelForModal;
 // Storm
 window.loadStorm = loadStorm;
 // Drawing tool
