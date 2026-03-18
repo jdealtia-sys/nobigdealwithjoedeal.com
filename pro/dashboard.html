@@ -294,6 +294,21 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .addr-pin-row input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:11px;padding:7px 9px;}
 .addr-pin-row input:focus{outline:none;border-color:var(--orange);}
 .addr-pin-row input::placeholder{color:var(--m);}
+/* ── ADDRESS AUTOCOMPLETE ── */
+.ac-wrap{position:relative;width:100%;}
+.ac-wrap input{width:100%;box-sizing:border-box;}
+.ac-drop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--s2);border:1px solid var(--orange);border-radius:7px;z-index:3000;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;max-height:240px;overflow-y:auto;}
+.ac-item{padding:9px 12px;font-size:11px;color:var(--t);cursor:pointer;border-bottom:1px solid var(--rule);line-height:1.4;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.ac-active{background:var(--og);color:var(--orange);}
+.ac-item b{font-weight:700;}
+.ac-spinner{padding:8px 12px;font-size:11px;color:var(--m);text-align:center;}
+/* ── MAKE THIS A LEAD BUTTON ── */
+.make-lead-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;background:linear-gradient(135deg,var(--orange),var(--ob));color:#fff;border:none;border-radius:7px;padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:10px;transition:all .2s;box-shadow:0 2px 12px var(--og);}
+.make-lead-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--og);}
+.prop-card-inner{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:4px;}
+.prop-card-addr{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;}
+.prop-card-coords{font-size:10px;color:var(--m);}
 .pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
 /* DRAW PANEL */
@@ -780,7 +795,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         <!-- ADDRESS SEARCH -->
         <div class="slabel2">Address Search</div>
         <div class="search-row">
-          <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter')searchMap()">
+          <div class="ac-wrap" style="flex:1;">
+            <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter'){hideAcDrop('mapSearch');searchMap();}" autocomplete="off">
+            <div class="ac-drop" id="ac-mapSearch" style="display:none;"></div>
+          </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchMap()">Go</button>
         </div>
         <div id="propCard" style="display:none;">
@@ -816,7 +834,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         <!-- DROP A PIN -->
         <div class="slabel2">Drop a Pin</div>
         <div class="addr-pin-row">
-          <input type="text" id="pinAddrInput" placeholder="Address (blank = map center)">
+          <div class="ac-wrap" style="flex:1;">
+            <input type="text" id="pinAddrInput" placeholder="Address (blank = map center)" autocomplete="off">
+            <div class="ac-drop" id="ac-pinAddrInput" style="display:none;"></div>
+          </div>
           <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" onclick="dropPinByAddress()">📍</button>
         </div>
         <div class="pin-grid">
@@ -865,7 +886,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       <div class="map-sidebar" id="map-sidebar-draw">
         <div class="slabel2">Property Address</div>
         <div class="search-row">
-          <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter')searchDraw()">
+          <div class="ac-wrap" style="flex:1;">
+            <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter'){hideAcDrop('drawSearch');searchDraw();}" autocomplete="off">
+            <div class="ac-drop" id="ac-drawSearch" style="display:none;"></div>
+          </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchDraw()">Go</button>
         </div>
         <div class="slabel2">Line Type</div>
@@ -964,7 +988,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           <div class="panel-body">
             <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
             <div class="est-meas-grid">
-              <div class="meas-field"><label>Property Address</label><input type="text" id="estAddr" placeholder="1115 Klondyke Rd..."></div>
+              <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
+            <input type="text" id="estAddr" placeholder="1115 Klondyke Rd..." autocomplete="off">
+            <div class="ac-drop" id="ac-estAddr" style="display:none;"></div>
+          </div></div>
               <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="CHEN, WEI & LI"></div>
               <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="592-3895-3895-00"></div>
               <div class="meas-field"><label>Year Built</label><input type="text" id="estYear" placeholder="2000"></div>
@@ -1761,7 +1788,12 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
       <div class="mfield"><label>First Name</label><input type="text" id="lFname" placeholder="John"></div>
       <div class="mfield"><label>Last Name</label><input type="text" id="lLname" placeholder="Smith"></div>
     </div>
-    <div class="mfield"><label>Address</label><input type="text" id="lAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122"></div>
+    <div class="mfield"><label>Address</label>
+      <div class="ac-wrap">
+        <input type="text" id="lAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122" autocomplete="off">
+        <div class="ac-drop" id="ac-lAddr" style="display:none;"></div>
+      </div>
+    </div>
     <div class="mrow">
       <div class="mfield"><label>Phone</label><input type="tel" id="lPhone" placeholder="(513) 555-0100"></div>
       <div class="mfield"><label>Email</label><input type="email" id="lEmail" placeholder="john@email.com"></div>
@@ -2107,12 +2139,48 @@ function clearAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLay
 
 async function searchMap() {
   const q=document.getElementById('mapSearch').value.trim(); if(!q)return;
+  hideAcDrop('mapSearch');
   const data=await geocode(q); if(!data) return;
   mainMap.setView([data.lat,data.lon],19);
+  // Store for lead pre-fill
+  window._lastMapSearch = data;
+  const parts = data.display_name.split(',');
+  const shortAddr = parts.slice(0,3).join(',').trim();
   document.getElementById('propCard').style.display='block';
-  document.getElementById('propCardInner').innerHTML=`<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px;">${data.display_name.split(',').slice(0,3).join(', ')}</div>
-    <div style="font-size:11px;color:var(--m);">Lat: ${parseFloat(data.lat).toFixed(5)} · Lon: ${parseFloat(data.lon).toFixed(5)}</div>
-    <div style="font-size:10px;color:var(--m);margin-top:6px;">Connect county assessor API for owner data, parcel ID & year built.</div>`;
+  document.getElementById('propCardInner').innerHTML=`
+    <div class="prop-card-inner">
+      <div class="prop-card-addr">${shortAddr}</div>
+      <div class="prop-card-coords">📍 ${parseFloat(data.lat).toFixed(5)}, ${parseFloat(data.lon).toFixed(5)}</div>
+    </div>
+    <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+}
+
+function makeLeadFromSearch() {
+  const d = window._lastMapSearch;
+  if(!d) return;
+  const a = d.address || {};
+  // Build clean address string
+  const num   = a.house_number || '';
+  const road  = a.road || a.street || '';
+  const city  = a.city || a.town || a.village || a.county || '';
+  const state = a.state_code || a.state || '';
+  const zip   = a.postcode || '';
+  const addrStr = [num+' '+road, city, state+' '+zip].map(s=>s.trim()).filter(Boolean).join(', ');
+  // Open lead modal and pre-fill
+  openLeadModal();
+  setTimeout(()=>{
+    if(addrStr) document.getElementById('lAddr').value = addrStr;
+    // Source default = Door Knock since they're on the map
+    const srcEl = document.getElementById('lSource');
+    if(srcEl) srcEl.value = 'Door Knock';
+    // Pre-fill notes with full address context
+    const notesEl = document.getElementById('lNotes');
+    if(notesEl && !notesEl.value) {
+      notesEl.value = `Map search: ${d.display_name}`;
+    }
+    // Focus first name so they can type right away
+    document.getElementById('lFname')?.focus();
+  }, 80);
 }
 
 function damagNearMe() { showToast('Getting location...'); navigator.geolocation?.getCurrentPosition(p=>{ if(mainMap) mainMap.setView([p.coords.latitude,p.coords.longitude],15); }, ()=>showToast('Location unavailable','error')); }
@@ -3163,11 +3231,171 @@ document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===
 // ══════════════════════════════════════════════
 async function geocode(q){
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=1`);
     const d=await res.json();
     if(!d.length){showToast('Address not found','error');return null;}
     return d[0];
   }catch(e){showToast('Geocode failed','error');return null;}
+}
+
+// ══════════════════════════════════════════════
+// ADDRESS AUTOCOMPLETE ENGINE
+// ══════════════════════════════════════════════
+const _acTimers = {};
+const _acCache  = {};
+
+function initAddressAutocomplete(inputId, onSelect) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById('ac-' + inputId);
+  if(!input || !drop) return;
+
+  input.addEventListener('input', () => {
+    clearTimeout(_acTimers[inputId]);
+    const q = input.value.trim();
+    if(q.length < 3) { drop.style.display='none'; return; }
+    _acTimers[inputId] = setTimeout(() => fetchAcSuggestions(inputId, q, onSelect), 320);
+  });
+
+  input.addEventListener('keydown', e => {
+    if(drop.style.display==='none') return;
+    const items = drop.querySelectorAll('.ac-item');
+    let active = drop.querySelector('.ac-active');
+    if(e.key==='ArrowDown') {
+      e.preventDefault();
+      const next = active ? active.nextElementSibling : items[0];
+      if(next) { active?.classList.remove('ac-active'); next.classList.add('ac-active'); input.value=next.dataset.label; }
+    } else if(e.key==='ArrowUp') {
+      e.preventDefault();
+      const prev = active?.previousElementSibling;
+      if(prev) { active.classList.remove('ac-active'); prev.classList.add('ac-active'); input.value=prev.dataset.label; }
+    } else if(e.key==='Enter') {
+      if(active) { e.preventDefault(); active.click(); }
+    } else if(e.key==='Escape') {
+      drop.style.display='none';
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if(!input.contains(e.target) && !drop.contains(e.target)) drop.style.display='none';
+  }, {capture:false});
+}
+
+async function fetchAcSuggestions(inputId, q, onSelect) {
+  const drop = document.getElementById('ac-' + inputId);
+  if(!drop) return;
+
+  // Cache hit
+  if(_acCache[q]) { renderAcDrop(inputId, _acCache[q], onSelect); return; }
+
+  drop.innerHTML = '<div class="ac-spinner">Searching...</div>';
+  drop.style.display = 'block';
+
+  try {
+    // Bias to Ohio/Cincinnati area for better local results
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&countrycodes=us&viewbox=-84.9,38.4,-83.6,39.7&bounded=0`;
+    const res = await fetch(url);
+    const data = await res.json();
+    _acCache[q] = data;
+    renderAcDrop(inputId, data, onSelect);
+  } catch(e) {
+    drop.style.display = 'none';
+  }
+}
+
+function renderAcDrop(inputId, results, onSelect) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById('ac-' + inputId);
+  if(!drop) return;
+
+  if(!results.length) { drop.style.display='none'; return; }
+
+  drop.innerHTML = results.map((r,i) => {
+    const parts = r.display_name.split(',');
+    const main  = parts.slice(0,2).join(',').trim();
+    const sub   = parts.slice(2,4).join(',').trim();
+    return `<div class="ac-item" data-label="${main}" data-idx="${i}" onmousedown="event.preventDefault();selectAcItem('${inputId}',${i})"><b>${main}</b>${sub ? `<br><span style="color:var(--m);font-size:10px;">${sub}</span>` : ''}</div>`;
+  }).join('');
+  drop.style.display = 'block';
+  drop._results = results;
+
+  // Store results for selection
+  if(!window._acResults) window._acResults = {};
+  window._acResults[inputId] = results;
+}
+
+function selectAcItem(inputId, idx) {
+  const input = document.getElementById(inputId);
+  const drop  = document.getElementById('ac-' + inputId);
+  const results = window._acResults?.[inputId] || [];
+  const r = results[idx];
+  if(!r || !input) return;
+
+  const parts = r.display_name.split(',');
+  const label = parts.slice(0,3).join(',').trim();
+  input.value = label;
+  drop.style.display = 'none';
+
+  // Run the onSelect callback if provided
+  const cb = window._acCallbacks?.[inputId];
+  if(cb) cb(r, label);
+}
+
+function hideAcDrop(inputId) {
+  const drop = document.getElementById('ac-' + inputId);
+  if(drop) drop.style.display = 'none';
+}
+
+function initAllAutocomplete() {
+  if(!window._acCallbacks) window._acCallbacks = {};
+
+  // mapSearch — on select, trigger full map search
+  window._acCallbacks['mapSearch'] = (r, label) => {
+    window._lastMapSearch = r;
+    const a = r.address || {};
+    const num   = a.house_number || '';
+    const road  = a.road || a.street || '';
+    const city  = a.city || a.town || a.village || a.county || '';
+    const state = a.state_code || a.state || '';
+    const zip   = a.postcode || '';
+    const addrStr = [num+' '+road, city, state+' '+zip].map(s=>s.trim()).filter(Boolean).join(', ');
+    const cleanAddr = addrStr || label;
+    if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
+    document.getElementById('propCard').style.display = 'block';
+    document.getElementById('propCardInner').innerHTML = `
+      <div class="prop-card-inner">
+        <div class="prop-card-addr">${cleanAddr}</div>
+        <div class="prop-card-coords">📍 ${parseFloat(r.lat).toFixed(5)}, ${parseFloat(r.lon).toFixed(5)}</div>
+      </div>
+      <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+  };
+
+  // pinAddrInput — just fill, no side effect
+  window._acCallbacks['pinAddrInput'] = null;
+
+  // drawSearch — on select, move draw map
+  window._acCallbacks['drawSearch'] = (r) => {
+    if(drawMap) drawMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
+  };
+
+  // estAddr — just fill
+  window._acCallbacks['estAddr'] = null;
+
+  // lAddr — just fill
+  window._acCallbacks['lAddr'] = null;
+
+  initAddressAutocomplete('mapSearch');
+  initAddressAutocomplete('pinAddrInput');
+  initAddressAutocomplete('drawSearch');
+  initAddressAutocomplete('estAddr');
+  initAddressAutocomplete('lAddr');
+}
+
+// Boot autocomplete after DOM ready
+if(document.readyState==='loading') {
+  document.addEventListener('DOMContentLoaded', initAllAutocomplete);
+} else {
+  initAllAutocomplete();
 }
 
 // HAV + MID
@@ -3638,6 +3866,11 @@ window.dropPinByAddress = dropPinByAddress;
 window.openPinConfirm = openPinConfirm;
 window.cancelPinConfirm = cancelPinConfirm;
 window.commitPin = commitPin;
+// Autocomplete
+window.selectAcItem = selectAcItem;
+window.hideAcDrop = hideAcDrop;
+// Make Lead from Map
+window.makeLeadFromSearch = makeLeadFromSearch;
 // Storm
 window.loadStorm = loadStorm;
 // Drawing tool
