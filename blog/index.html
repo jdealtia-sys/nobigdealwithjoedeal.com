@@ -362,11 +362,11 @@ const POSTS = [
   },
 ];
 
-function daysBetween(d1, d2) {{
+function daysBetween(d1, d2) {
   return Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
-}}
+}
 
-function buildCard(post) {{
+function buildCard(post) {
   const now = new Date();
   now.setHours(0,0,0,0);
   const pubDate = new Date(post.published);
@@ -375,71 +375,71 @@ function buildCard(post) {{
   const isFuture  = pubDate.getFullYear() >= 2099;
   const daysLeft  = isLive ? 0 : daysBetween(now, pubDate);
 
-  if (isLive && post.url) {{
+  if (isLive && post.url) {
     // Fully live card
     return `<article class="post-card">
       <div class="post-card-body">
-        <span class="post-tag">${{post.tag}}</span>
-        <h2><a href="${{post.url}}">${{post.title}}</a></h2>
-        <div class="post-meta">${{post.meta}}</div>
-        <p class="post-excerpt">${{post.excerpt}}</p>
-        <a href="${{post.url}}" class="post-read-more">Read Article →</a>
+        <span class="post-tag">${post.tag}</span>
+        <h2><a href="${post.url}">${post.title}</a></h2>
+        <div class="post-meta">${post.meta}</div>
+        <p class="post-excerpt">${post.excerpt}</p>
+        <a href="${post.url}" class="post-read-more">Read Article →</a>
       </div>
     </article>`;
-  }} else if (!isFuture && !isLive) {{
+  } else if (!isFuture && !isLive) {
     // Countdown card
     return `<article class="post-card coming-soon" style="opacity:.8;">
       <div class="post-card-body">
-        <span class="post-tag">${{post.tag}}</span>
-        <h2>${{post.title}}</h2>
-        <div class="post-meta" style="color:#e8720c;font-weight:700;">🔒 Unlocks in ${{daysLeft}} day${{daysLeft!==1?'s':''}}</div>
-        <p class="post-excerpt">${{post.excerpt}}</p>
+        <span class="post-tag">${post.tag}</span>
+        <h2>${post.title}</h2>
+        <div class="post-meta" style="color:#e8720c;font-weight:700;">🔒 Unlocks in ${daysLeft} day${daysLeft!==1?'s':''}</div>
+        <p class="post-excerpt">${post.excerpt}</p>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span class="coming-soon-label">Coming ${{pubDate.toLocaleDateString('en-US',{{month:'long',day:'numeric'}})}} </span>
-          <span id="countdown-${{post.published}}" style="font-size:.78rem;color:var(--gray);font-weight:600;font-family:'Montserrat',sans-serif;"></span>
+          <span class="coming-soon-label">Coming ${pubDate.toLocaleDateString('en-US',{month:'long',day:'numeric'})} </span>
+          <span id="countdown-${post.published}" style="font-size:.78rem;color:var(--gray);font-weight:600;font-family:'Montserrat',sans-serif;"></span>
         </div>
       </div>
     </article>`;
-  }} else {{
+  } else {
     // Far future / no date — plain coming soon
     return `<article class="post-card coming-soon">
       <div class="post-card-body">
-        <span class="post-tag" style="background:rgba(107,114,128,.1);color:var(--gray);">${{post.tag}}</span>
-        <h2>${{post.title}}</h2>
+        <span class="post-tag" style="background:rgba(107,114,128,.1);color:var(--gray);">${post.tag}</span>
+        <h2>${post.title}</h2>
         <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">${{post.excerpt}}</p>
+        <p class="post-excerpt">${post.excerpt}</p>
         <span class="coming-soon-label">Coming Soon</span>
       </div>
     </article>`;
-  }}
-}}
+  }
+}
 
-function renderPosts() {{
+function renderPosts() {
   const grid = document.getElementById('blog-posts-grid');
   if (!grid) return;
   grid.innerHTML = POSTS.map(buildCard).join('');
   startCountdowns();
-}}
+}
 
-function startCountdowns() {{
+function startCountdowns() {
   const now = new Date();
-  POSTS.forEach(post => {{
+  POSTS.forEach(post => {
     const el = document.getElementById('countdown-' + post.published);
     if (!el) return;
-    function tick() {{
+    function tick() {
       const pub = new Date(post.published);
       pub.setHours(0,0,0,0);
       const diff = pub - new Date();
-      if (diff <= 0) {{ renderPosts(); return; }}
+      if (diff <= 0) { renderPosts(); return; }
       const d = Math.floor(diff/86400000);
       const h = Math.floor((diff%86400000)/3600000);
       const m = Math.floor((diff%3600000)/60000);
-      el.textContent = `${{d}}d ${{h}}h ${{m}}m remaining`;
+      el.textContent = `${d}d ${h}h ${m}m remaining`;
       setTimeout(tick, 60000);
-    }}
+    }
     tick();
-  }});
-}}
+  });
+}
 
 document.addEventListener('DOMContentLoaded', renderPosts);
 </script>
