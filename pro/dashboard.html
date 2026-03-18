@@ -3763,13 +3763,11 @@ function renderJoeMessages() {
 
 function buildJoeBubble(role, content) {
   // Convert **bold**, bullet points, newlines
-  const formatted = content
+  const formatted = (content||'')
     .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
     .replace(/^[•\-] (.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>.*<\/li>
-?)+/gs, match => `<ul>${match}</ul>`)
-    .replace(/
-/g,'<br>');
+    .replace(/(<li>[\s\S]*?<\/li>\s*)+/g, match => '<ul>'+match+'</ul>')
+    .replace(/\n/g,'<br>');
   const avatar = role==='joe' ? '🤠' : (window._userSettings?.displayName?.[0]||'J');
   return `<div class="joe-msg ${role}">
     <div class="joe-msg-avatar">${avatar}</div>
