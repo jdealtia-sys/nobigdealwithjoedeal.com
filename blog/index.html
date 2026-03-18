@@ -191,72 +191,10 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 <div class="blog-main">
   <main class="blog-grid">
 
-    <!-- POST 1 — LIVE -->
-    <article class="post-card">
-      <div class="post-card-body">
-        <span class="post-tag">Storm Damage</span>
-        <h2><a href="/blog/how-to-file-storm-damage-insurance-claim-ohio">How to File a Storm Damage Insurance Claim in Ohio (Step-by-Step)</a></h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · March 2026 · 8 min read</div>
-        <p class="post-excerpt">Most Ohio homeowners have no idea what to do in the first 48 hours after a storm. Call your insurer? Get a contractor? Wait and see? Here's the exact order of operations — and the mistakes that cost people thousands.</p>
-        <a href="/blog/how-to-file-storm-damage-insurance-claim-ohio" class="post-read-more">Read Article →</a>
-      </div>
-    </article>
+    <!-- SCHEDULED POST SYSTEM — managed by JS below -->
+    <div id="blog-posts-grid"></div>
 
-    <!-- POST 2 — LIVE -->
-    <article class="post-card">
-      <div class="post-card-body">
-        <span class="post-tag">Roofing</span>
-        <h2><a href="/blog/how-long-does-roof-replacement-take-cincinnati">How Long Does Roof Replacement Take? Cincinnati Homeowner's Guide</a></h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · March 2026 · 6 min read</div>
-        <p class="post-excerpt">The honest answer depends on your roof. Here's what determines the timeline — size, pitch, weather, decking condition — and what you should expect from start to final cleanup.</p>
-        <a href="/blog/how-long-does-roof-replacement-take-cincinnati" class="post-read-more">Read Article →</a>
-      </div>
-    </article>
-
-    <!-- POST 3 — COMING SOON -->
-    <article class="post-card coming-soon">
-      <div class="post-card-body">
-        <span class="post-tag">Roofing</span>
-        <h2>Signs Your Roof Needs Replacement vs. Repair</h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">There's a point where repair stops making economic sense and replacement becomes the smarter move. Here's how to tell the difference — without relying on a contractor who benefits from the more expensive option.</p>
-        <span class="coming-soon-label">Coming Soon</span>
-      </div>
-    </article>
-
-    <article class="post-card coming-soon">
-      <div class="post-card-body">
-        <span class="post-tag">Insurance</span>
-        <h2>Does Homeowner Insurance Cover Hail Damage in Ohio?</h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">The short answer is usually yes — but the details matter. Coverage depends on your policy type, your deductible, and how well the damage is documented. Here's what you need to know before you call your insurer.</p>
-        <span class="coming-soon-label">Coming Soon</span>
-      </div>
-    </article>
-
-    <article class="post-card coming-soon">
-      <div class="post-card-body">
-        <span class="post-tag">Siding</span>
-        <h2>Siding Repair vs. Siding Replacement: What Cincinnati Homeowners Need to Know</h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">Not every siding problem requires a full replacement. But some repair jobs are just delaying the inevitable. How to tell the difference — and what questions to ask any contractor who's giving you a quote.</p>
-        <span class="coming-soon-label">Coming Soon</span>
-      </div>
-    </article>
-
-    <article class="post-card coming-soon">
-      <div class="post-card-body">
-        <span class="post-tag">Gutters</span>
-        <h2>Best Gutters for Ohio Weather: Seamless vs. Sectional</h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">Ohio winters are hard on gutters. Freeze-thaw cycles, ice dams, and heavy spring rain all stress the system. Here's which gutter type holds up and why seamless aluminum wins for most Cincinnati homes.</p>
-        <span class="coming-soon-label">Coming Soon</span>
-      </div>
-    </article>
-
-  </main>
-
-  <aside class="sidebar">
+    <aside class="sidebar">
     <div class="cta-sidebar">
       <h3>Get a Free Estimate</h3>
       <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
@@ -357,5 +295,154 @@ document.getElementById('hamburger').addEventListener('click', () => {
   document.getElementById('mobileNav').classList.toggle('open');
 });
 </script>
+
+<script>
+// ── NBD Blog Publish Schedule ──────────────────────────────────────
+// To add a new article: add an object to the POSTS array.
+// published: ISO date string — article goes live at midnight on that date.
+// If published is today or in the past, the card is fully live.
+// If it's in the future, it shows a countdown timer.
+// ──────────────────────────────────────────────────────────────────
+const POSTS = [
+  {
+    url: '/blog/how-to-file-storm-damage-insurance-claim-ohio',
+    tag: 'Storm Damage',
+    title: 'How to File a Storm Damage Insurance Claim in Ohio (Step-by-Step)',
+    meta: 'By Joe Deal · March 2026 · 8 min read',
+    excerpt: 'Most Ohio homeowners have no idea what to do in the first 48 hours after a storm. Call your insurer? Get a contractor? Wait and see? Here's the exact order of operations — and the mistakes that cost people thousands.',
+    published: '2026-03-10',
+  },
+  {
+    url: '/blog/how-long-does-roof-replacement-take-cincinnati',
+    tag: 'Roofing',
+    title: 'How Long Does Roof Replacement Take? Cincinnati Homeowner\'s Guide',
+    meta: 'By Joe Deal · March 2026 · 6 min read',
+    excerpt: 'The honest answer depends on your roof. Here\'s what determines the timeline — size, pitch, weather, decking condition — and what you should expect from start to final cleanup.',
+    published: '2026-03-10',
+  },
+  {{
+    url: '/blog/my-roof-is-too-old-will-insurance-still-pay',
+    tag: 'Insurance',
+    title: 'My Roof Is Too Old — Will Insurance Still Pay?',
+    meta: 'By Joe Deal · March 2026 · 7 min read',
+    excerpt: 'I hear this constantly at the door. A homeowner assumes that because their roof is older, their insurance claim is dead on arrival. They\'re almost always wrong — and the difference can be thousands of dollars.',
+    published: '{PUBLISH_DATE_6}',
+  }},
+  {{
+    url: '/blog/state-farm-allstate-roof-claims-ohio',
+    tag: 'Insurance',
+    title: 'State Farm and Allstate Roof Claims in Ohio: What to Actually Expect',
+    meta: 'By Joe Deal · March 2026 · 9 min read',
+    excerpt: 'Two of the most common carriers in Cincinnati. Two of the most frustrating to deal with upfront — but both have hidden upsides if you know how to work the process. Here\'s the real breakdown.',
+    published: '{PUBLISH_DATE_8}',
+  }},
+  {{
+    url: '/blog/architectural-shingles-vs-3-tab',
+    tag: 'Roofing',
+    title: 'Architectural Shingles vs. 3-Tab: Is the Upgrade Actually Worth It?',
+    meta: 'By Joe Deal · March 2026 · 8 min read',
+    excerpt: 'Every contractor is going to try to sell you architectural. Some of them will tell you 3-tab is basically garbage. Here\'s what the actual difference is, what it costs, and when I\'d tell you to save your money.',
+    published: '{PUBLISH_DATE_13}',
+  }},
+  {{
+    url: null,
+    tag: 'Roofing',
+    title: 'Signs Your Roof Needs Replacement vs. Repair',
+    meta: 'By Joe Deal · Coming Soon',
+    excerpt: 'There\'s a point where repair stops making economic sense and replacement becomes the smarter move. Here\'s how to tell the difference — without relying on a contractor who benefits from the more expensive option.',
+    published: '2099-01-01',
+  }},
+  {{
+    url: null,
+    tag: 'Insurance',
+    title: 'Does Homeowner Insurance Cover Hail Damage in Ohio?',
+    meta: 'By Joe Deal · Coming Soon',
+    excerpt: 'The short answer is usually yes — but the details matter. Coverage depends on your policy type, your deductible, and how well the damage is documented.',
+    published: '2099-01-01',
+  }},
+];
+
+function daysBetween(d1, d2) {{
+  return Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
+}}
+
+function buildCard(post) {{
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const pubDate = new Date(post.published);
+  pubDate.setHours(0,0,0,0);
+  const isLive    = pubDate <= now;
+  const isFuture  = pubDate.getFullYear() >= 2099;
+  const daysLeft  = isLive ? 0 : daysBetween(now, pubDate);
+
+  if (isLive && post.url) {{
+    // Fully live card
+    return `<article class="post-card">
+      <div class="post-card-body">
+        <span class="post-tag">${{post.tag}}</span>
+        <h2><a href="${{post.url}}">${{post.title}}</a></h2>
+        <div class="post-meta">${{post.meta}}</div>
+        <p class="post-excerpt">${{post.excerpt}}</p>
+        <a href="${{post.url}}" class="post-read-more">Read Article →</a>
+      </div>
+    </article>`;
+  }} else if (!isFuture && !isLive) {{
+    // Countdown card
+    return `<article class="post-card coming-soon" style="opacity:.8;">
+      <div class="post-card-body">
+        <span class="post-tag">${{post.tag}}</span>
+        <h2>${{post.title}}</h2>
+        <div class="post-meta" style="color:#e8720c;font-weight:700;">🔒 Unlocks in ${{daysLeft}} day${{daysLeft!==1?'s':''}}</div>
+        <p class="post-excerpt">${{post.excerpt}}</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="coming-soon-label">Coming ${{pubDate.toLocaleDateString('en-US',{{month:'long',day:'numeric'}})}} </span>
+          <span id="countdown-${{post.published}}" style="font-size:.78rem;color:var(--gray);font-weight:600;font-family:'Montserrat',sans-serif;"></span>
+        </div>
+      </div>
+    </article>`;
+  }} else {{
+    // Far future / no date — plain coming soon
+    return `<article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag" style="background:rgba(107,114,128,.1);color:var(--gray);">${{post.tag}}</span>
+        <h2>${{post.title}}</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">${{post.excerpt}}</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>`;
+  }}
+}}
+
+function renderPosts() {{
+  const grid = document.getElementById('blog-posts-grid');
+  if (!grid) return;
+  grid.innerHTML = POSTS.map(buildCard).join('');
+  startCountdowns();
+}}
+
+function startCountdowns() {{
+  const now = new Date();
+  POSTS.forEach(post => {{
+    const el = document.getElementById('countdown-' + post.published);
+    if (!el) return;
+    function tick() {{
+      const pub = new Date(post.published);
+      pub.setHours(0,0,0,0);
+      const diff = pub - new Date();
+      if (diff <= 0) {{ renderPosts(); return; }}
+      const d = Math.floor(diff/86400000);
+      const h = Math.floor((diff%86400000)/3600000);
+      const m = Math.floor((diff%3600000)/60000);
+      el.textContent = `${{d}}d ${{h}}h ${{m}}m remaining`;
+      setTimeout(tick, 60000);
+    }}
+    tick();
+  }});
+}}
+
+document.addEventListener('DOMContentLoaded', renderPosts);
+</script>
+
 </body>
 </html>
