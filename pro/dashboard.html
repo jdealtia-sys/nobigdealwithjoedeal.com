@@ -3367,6 +3367,10 @@ function closeMobileMore() {
   document.getElementById('mm-overlay')?.classList.remove('open');
   document.getElementById('mni-more')?.classList.remove('active');
 }
+// Expose nav functions to global scope for inline onclick handlers
+window.mobileNav = mobileNav;
+window.toggleMobileMore = toggleMobileMore;
+window.closeMobileMore = closeMobileMore;
 
 function toggleMapSidebar(id) {
   const sidebar = document.getElementById(id);
