@@ -449,13 +449,15 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .step-item{flex-shrink:0;}
   .doc-grid{grid-template-columns:1fr!important;}
   .lb-row{flex-wrap:wrap;gap:4px;}
-  #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:2000;height:64px;background:var(--s);border-top:1px solid var(--br);justify-content:space-around;align-items:center;padding:0 4px;backdrop-filter:blur(12px);}
-  .mn-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;cursor:pointer;border-radius:10px;flex:1;transition:background .15s;position:relative;-webkit-tap-highlight-color:transparent;}
-  .mn-item.active .mn-icon{color:var(--orange);}
-  .mn-item.active .mn-lbl{color:var(--orange);}
-  .mn-icon{font-size:20px;line-height:1;transition:color .15s;}
-  .mn-lbl{font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--m);transition:color .15s;white-space:nowrap;}
-  .mn-badge{position:absolute;top:4px;right:calc(50% - 16px);background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;}
+  #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:2000;height:62px;background:rgba(10,12,15,.97);border-top:1px solid var(--br);justify-content:space-around;align-items:stretch;padding:0;backdrop-filter:blur(16px);}
+  .mn-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px 8px;cursor:pointer;flex:1;transition:all .18s;position:relative;-webkit-tap-highlight-color:transparent;border-top:2px solid transparent;}
+  .mn-item:active{background:var(--s2);}
+  .mn-item.active{border-top-color:var(--orange);background:rgba(200,84,26,.06);}
+  .mn-item.active .mn-icon{color:var(--orange);filter:drop-shadow(0 0 6px var(--og));}
+  .mn-item.active .mn-lbl{color:var(--orange);font-weight:700;}
+  .mn-icon{font-size:21px;line-height:1;transition:all .18s;color:var(--m);}
+  .mn-lbl{font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);transition:all .18s;white-space:nowrap;}
+  .mn-badge{position:absolute;top:5px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;box-shadow:0 0 6px rgba(224,82,82,.5);}
   #mobile-more-menu.open{display:block;}
   .mm-overlay.open{display:block;}
 }
@@ -3311,6 +3313,8 @@ function dsResetDefaults() {
 }
 
 // Hook into the existing goTo() nav so settings load fresh when the tab opens
+// Ensure the base function is on window before any wrapper touches it
+if (!window.goTo) window.goTo = goTo;
 const _origGoTo = window.goTo;
 window.goTo = function(view) {
   if (_origGoTo) _origGoTo(view);
