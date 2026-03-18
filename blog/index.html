@@ -422,19 +422,20 @@ function renderPosts() {
 }
 
 function startCountdowns() {
-  const now = new Date();
   POSTS.forEach(post => {
     const el = document.getElementById('countdown-' + post.published);
     if (!el) return;
+    // Skip far-future placeholder dates
+    if (new Date(post.published).getFullYear() >= 2099) return;
     function tick() {
       const pub = new Date(post.published);
       pub.setHours(0,0,0,0);
       const diff = pub - new Date();
-      if (diff <= 0) { renderPosts(); return; }
+      if (diff <= 0) { location.reload(); return; }
       const d = Math.floor(diff/86400000);
       const h = Math.floor((diff%86400000)/3600000);
       const m = Math.floor((diff%3600000)/60000);
-      el.textContent = `${d}d ${h}h ${m}m remaining`;
+      el.textContent = d + 'd ' + h + 'h ' + m + 'm remaining';
       setTimeout(tick, 60000);
     }
     tick();
