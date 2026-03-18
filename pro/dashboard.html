@@ -3367,10 +3367,82 @@ function closeMobileMore() {
   document.getElementById('mm-overlay')?.classList.remove('open');
   document.getElementById('mni-more')?.classList.remove('active');
 }
-// Expose nav functions to global scope for inline onclick handlers
+// Expose ALL functions to global scope for inline onclick handlers
+// (required because type="module" script above affects global scope in some browsers)
 window.mobileNav = mobileNav;
 window.toggleMobileMore = toggleMobileMore;
 window.closeMobileMore = closeMobileMore;
+// CRM / Leads
+window.openLeadModal = openLeadModal;
+window.closeLeadModal = closeLeadModal;
+window.saveLead = saveLead;
+window.deleteLead = deleteLead;
+window.editLead = editLead;
+window.moveCard = moveCard;
+window.exportLeadsCSV = exportLeadsCSV;
+window.scrollToFollowUps = scrollToFollowUps;
+window.kanbanFilter = kanbanFilter;
+// Tasks
+window.openTaskModal = openTaskModal;
+window.closeTaskModal = closeTaskModal;
+window.addTask = addTask;
+window.removeTask = removeTask;
+// Estimates
+window.startNewEstimate = startNewEstimate;
+window.saveEstimate = saveEstimate;
+window.cancelEstimate = cancelEstimate;
+window.viewEstimate = viewEstimate;
+window.exportEstimate = exportEstimate;
+window.estNext = estNext;
+window.estBack = estBack;
+window.selectTier = selectTier;
+// Map
+window.searchMap = searchMap;
+window.selectPin = selectPin;
+window.deletePin = deletePin;
+window.clearAllPins = clearAllPins;
+window.damagNearMe = damagNearMe;
+window.damageNearMePhotos = damageNearMePhotos;
+window.toggleMapSidebar = toggleMapSidebar;
+// Storm
+window.loadStorm = loadStorm;
+// Drawing tool
+window.searchDraw = searchDraw;
+window.selLT = selLT;
+window.toggleDraw = toggleDraw;
+window.clearDraw = clearDraw;
+window.undoLine = undoLine;
+window.deleteLine = deleteLine;
+window.exportDrawReport = exportDrawReport;
+window.importToEstimate = importToEstimate;
+// Photos
+window.openPhotoFor = openPhotoFor;
+window.closePhotoModal = closePhotoModal;
+// Documents
+window.openUploadDoc = openUploadDoc;
+window.closeUploadDoc = closeUploadDoc;
+window.saveDocUpload = saveDocUpload;
+window.openDocTemplate = openDocTemplate;
+window.printDoc = printDoc;
+window.closeDocViewer = closeDocViewer;
+// Ask Joe AI
+window.sendJoeMessage = sendJoeMessage;
+window.joeQuick = joeQuick;
+window.saveJoeKey = saveJoeKey;
+window.clearJoeKey = clearJoeKey;
+// Misc
+window.openTips = openTips;
+window.closeTips = closeTips;
+window.applyTheme = applyTheme;
+window.goToWithTheme = goToWithTheme;
+window.showToast = showToast;
+// Daily settings
+window.dsAddFloor = dsAddFloor;
+window.dsRemoveFloor = dsRemoveFloor;
+window.dsSaveConfig = dsSaveConfig;
+window.dsResetDefaults = dsResetDefaults;
+window.dsPickTheme = dsPickTheme;
+window.renderLeaderboard = renderLeaderboard;
 
 function toggleMapSidebar(id) {
   const sidebar = document.getElementById(id);
