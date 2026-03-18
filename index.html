@@ -285,10 +285,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .hiw-grid::before{display:none}
   .about-grid{grid-template-columns:1fr;gap:40px}
   .about-badge{bottom:10px;right:10px}
-  .contact-grid{grid-template-columns:1fr 1fr}.home-sidebar{display:none}
+  .contact-grid{grid-template-columns:1fr 1fr}
   .areas-contact{grid-template-columns:repeat(2,1fr)}
   .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
 }
+@media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}}
 @media(max-width:768px){
   section{padding:60px 20px}
   nav{padding:0 20px}
