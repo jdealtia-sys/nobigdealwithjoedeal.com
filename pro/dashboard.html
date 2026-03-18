@@ -728,66 +728,138 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
   <!-- ══ CRM ══ -->
   <div class="view" id="view-crm">
-    <div class="view-scroll">
-      <div class="page-hdr">
-        <div><div class="page-title">CRM — Lead Pipeline</div><div class="page-sub">Track every lead from first knock to signed contract</div></div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
-          <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
-        </div>
+
+    <!-- HEADER BAR -->
+    <div class="crm-header">
+      <div>
+        <div class="page-title">Pipeline</div>
+        <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
       </div>
-
-      <!-- REVENUE SUMMARY BAR -->
-      <div class="sgrid" style="margin-bottom:16px;">
-        <div class="stat-card"><div class="stat-icon si-o">🆕</div><div><div class="stat-val" id="crmStatNew">0</div><div class="stat-lbl">New Leads</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-b">✅</div><div><div class="stat-val" id="crmStatApproved">0</div><div class="stat-lbl">Approved</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="crmStatRevenue" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-p">🏆</div><div><div class="stat-val" id="crmStatClosed" style="color:var(--green);">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
-      </div>
-
-      <!-- PIPELINE FUNNEL -->
-      <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-hdr"><div><div class="panel-label">Pipeline</div><div class="panel-title">Lead Stages</div></div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input type="text" id="crmSearch" placeholder="Search leads..." style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 10px;font-size:11px;color:var(--t);width:180px;" oninput="filterLeads()">
-            <select id="crmStageFilter" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:11px;color:var(--t);" onchange="filterLeads()">
-              <option value="">All Stages</option>
-              <option value="New">New</option>
-              <option value="Inspected">Inspected</option>
-              <option value="Estimate Sent">Estimate Sent</option>
-              <option value="Approved">Approved</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Complete">Complete</option>
-              <option value="Lost">Lost</option>
-            </select>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="pgrid" style="grid-template-columns:repeat(7,1fr);">
-            <div class="stage-box sb-new" onclick="filterByStage('New')" style="cursor:pointer;"><div class="stage-count" id="p-new">0</div><div class="stage-name">New</div></div>
-            <div class="stage-box sb-ct" onclick="filterByStage('Inspected')" style="cursor:pointer;"><div class="stage-count s-blue" id="p-insp">0</div><div class="stage-name">Inspected</div></div>
-            <div class="stage-box sb-es" onclick="filterByStage('Estimate Sent')" style="cursor:pointer;"><div class="stage-count s-gold" id="p-es">0</div><div class="stage-name">Est. Sent</div></div>
-            <div class="stage-box sb-ng" onclick="filterByStage('Approved')" style="cursor:pointer;"><div class="stage-count s-purple" id="p-appr">0</div><div class="stage-name">Approved</div></div>
-            <div class="stage-box" style="background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);" onclick="filterByStage('In Progress')" style="cursor:pointer;"><div class="stage-count s-green" id="p-prog">0</div><div class="stage-name">In Progress</div></div>
-            <div class="stage-box sb-won" onclick="filterByStage('Complete')" style="cursor:pointer;"><div class="stage-count s-green" id="p-won">0</div><div class="stage-name">Complete</div></div>
-            <div class="stage-box sb-lost" onclick="filterByStage('Lost')" style="cursor:pointer;"><div class="stage-count s-red" id="p-lost">0</div><div class="stage-name">Lost</div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- FOLLOW-UP ALERTS -->
-      <div id="followUpAlerts" style="display:none;margin-bottom:12px;"></div>
-
-      <!-- LEADS TABLE -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <div><div class="panel-label">CRM</div><div class="panel-title">All Leads <span id="leadsCountLabel" style="font-size:12px;color:var(--m);font-weight:400;"></span></div></div>
-          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="clearStageFilter()">Show All</button>
-        </div>
-        <div id="leadsTableWrap"><div class="empty"><div class="empty-icon">👥</div>No leads yet. Add your first lead.</div></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
+          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
+                 padding:7px 12px;font-size:12px;color:var(--t);width:200px;"
+          oninput="kanbanFilter()">
+        <select id="crmDmgFilter"
+          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
+                 padding:7px 8px;font-size:11px;color:var(--t);"
+          onchange="kanbanFilter()">
+          <option value="">All Types</option>
+          <option>Roof - Hail</option><option>Roof - Wind</option>
+          <option>Roof - Hail &amp; Wind</option><option>Siding - Hail</option>
+          <option>Siding - Wind</option><option>Gutters</option>
+          <option>Full Exterior</option><option>Fire</option><option>Water</option>
+        </select>
+        <button class="btn btn-ghost" onclick="exportLeadsCSV()"
+          style="font-size:11px;padding:6px 12px;">📤 CSV</button>
+        <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
       </div>
     </div>
-  </div>
+
+    <!-- REVENUE STRIP -->
+    <div class="crm-rev-strip">
+      <div class="rev-pill"><span class="rev-num" id="crmTotalLeads">0</span><span class="rev-lbl">Leads</span></div>
+      <div class="rev-pill"><span class="rev-num" id="crmPipeVal" style="color:var(--orange);">$0</span><span class="rev-lbl">Pipeline</span></div>
+      <div class="rev-pill"><span class="rev-num" id="crmApproved">0</span><span class="rev-lbl">Approved</span></div>
+      <div class="rev-pill"><span class="rev-num" id="crmClosedRev" style="color:var(--green);">$0</span><span class="rev-lbl">Closed</span></div>
+      <div class="rev-pill" id="followUpPill" style="display:none;cursor:pointer;" onclick="scrollToFollowUps()">
+        <span class="rev-num" id="crmFollowUps" style="color:var(--red);">0</span>
+        <span class="rev-lbl" style="color:var(--red);">Overdue</span>
+      </div>
+    </div>
+
+    <!-- FOLLOW-UP ALERTS (collapsed by default) -->
+    <div id="followUpAlerts" style="display:none;padding:0 16px 8px;"></div>
+
+    <!-- KANBAN BOARD -->
+    <div class="kanban-board" id="kanbanBoard">
+
+      <!-- STAGE: NEW -->
+      <div class="kanban-col" id="kcol-New">
+        <div class="kcol-header kh-new">
+          <div class="kcol-label">New Lead</div>
+          <div class="kcol-count" id="kcount-New">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-New"
+          ondragover="event.preventDefault()" ondrop="drop(event,'New')">
+          <div class="k-empty">No leads yet</div>
+        </div>
+      </div>
+
+      <!-- STAGE: INSPECTED -->
+      <div class="kanban-col" id="kcol-Inspected">
+        <div class="kcol-header kh-insp">
+          <div class="kcol-label">Inspected</div>
+          <div class="kcol-count" id="kcount-Inspected">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Inspected"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Inspected')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: ESTIMATE SENT -->
+      <div class="kanban-col" id="kcol-Estimate Sent">
+        <div class="kcol-header kh-est">
+          <div class="kcol-label">Est. Sent</div>
+          <div class="kcol-count" id="kcount-Estimate Sent">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Estimate Sent"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Estimate Sent')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: APPROVED -->
+      <div class="kanban-col" id="kcol-Approved">
+        <div class="kcol-header kh-appr">
+          <div class="kcol-label">Approved</div>
+          <div class="kcol-count" id="kcount-Approved">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Approved"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Approved')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: IN PROGRESS -->
+      <div class="kanban-col" id="kcol-In Progress">
+        <div class="kcol-header kh-prog">
+          <div class="kcol-label">In Progress</div>
+          <div class="kcol-count" id="kcount-In Progress">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-In Progress"
+          ondragover="event.preventDefault()" ondrop="drop(event,'In Progress')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: COMPLETE -->
+      <div class="kanban-col" id="kcol-Complete">
+        <div class="kcol-header kh-done">
+          <div class="kcol-label">Complete</div>
+          <div class="kcol-count" id="kcount-Complete">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Complete"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Complete')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: LOST -->
+      <div class="kanban-col" id="kcol-Lost">
+        <div class="kcol-header kh-lost">
+          <div class="kcol-label">Lost</div>
+          <div class="kcol-count" id="kcount-Lost">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Lost"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Lost')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+    </div><!-- /kanban-board -->
+  </div><!-- /view-crm -->
 
 <!-- ══ DAMAGE PHOTOS ══ -->
   <div class="view" id="view-photos">
@@ -1569,6 +1641,162 @@ function exportEstimate() {
 .doc-viewer-content p{margin-bottom:12px;}
 .doc-viewer-content .field-line{border-bottom:1px solid var(--br);padding:4px 0;margin-bottom:8px;}
 
+
+/* ════════════════════════════════
+   KANBAN CRM
+   ════════════════════════════════ */
+
+/* Header bar */
+.crm-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:16px 20px 10px;flex-shrink:0;
+}
+
+/* Revenue strip */
+.crm-rev-strip{
+  display:flex;gap:0;padding:0 20px 12px;flex-shrink:0;
+}
+.rev-pill{
+  display:flex;flex-direction:column;align-items:center;
+  padding:6px 16px;border-right:1px solid var(--br);
+}
+.rev-pill:first-child{padding-left:0;}
+.rev-pill:last-child{border-right:none;}
+.rev-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);line-height:1;}
+.rev-lbl{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+
+/* Board container — horizontal scroll, full remaining height */
+.kanban-board{
+  display:flex;gap:10px;
+  padding:0 16px 16px;
+  overflow-x:auto;overflow-y:hidden;
+  flex:1;min-height:0;
+  scrollbar-width:thin;
+  scrollbar-color:var(--br) transparent;
+}
+.kanban-board::-webkit-scrollbar{height:6px;}
+.kanban-board::-webkit-scrollbar-track{background:transparent;}
+.kanban-board::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
+
+/* Column */
+.kanban-col{
+  display:flex;flex-direction:column;
+  min-width:220px;max-width:220px;
+  background:var(--s2);
+  border:1px solid var(--br);
+  border-radius:10px;
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+/* Column header */
+.kcol-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 12px;
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  flex-shrink:0;
+}
+.kcol-label{color:inherit;}
+.kcol-count{
+  background:rgba(255,255,255,.12);
+  border-radius:20px;padding:2px 8px;
+  font-size:11px;font-weight:700;
+}
+.kh-new  {background:#1e2a3a;color:#9CA3AF;border-bottom:2px solid #374151;}
+.kh-insp {background:#1a2e4a;color:#4A9EFF;border-bottom:2px solid #2d5a8e;}
+.kh-est  {background:#2a2414;color:#D4A017;border-bottom:2px solid #6b5010;}
+.kh-appr {background:#221a3a;color:#9B6DFF;border-bottom:2px solid #5a3da0;}
+.kh-prog {background:#142a22;color:#22C55E;border-bottom:2px solid #166534;}
+.kh-done {background:#0f2a1a;color:#4ade80;border-bottom:2px solid #16a34a;}
+.kh-lost {background:#2a1414;color:#E05252;border-bottom:2px solid #7f1d1d;}
+
+/* Column body — scrollable */
+.kcol-body{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:8px;display:flex;flex-direction:column;gap:6px;
+  min-height:120px;max-height:calc(100vh - 280px);
+  scrollbar-width:thin;
+  scrollbar-color:var(--br) transparent;
+}
+.kcol-body::-webkit-scrollbar{width:4px;}
+.kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
+.kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
+
+/* Empty state */
+.k-empty{
+  text-align:center;padding:20px 8px;
+  font-size:11px;color:var(--m);
+  border:1px dashed var(--br);border-radius:6px;
+}
+
+/* Lead Card */
+.k-card{
+  background:var(--paper);
+  border:1px solid var(--rule);
+  border-radius:8px;
+  padding:10px 12px;
+  cursor:grab;
+  transition:box-shadow .15s,transform .1s;
+  position:relative;
+  color:var(--ink);
+}
+.k-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateY(-1px);}
+.k-card.dragging{opacity:.45;cursor:grabbing;}
+.k-card.drag-placeholder{
+  border:2px dashed var(--orange);
+  background:rgba(232,114,12,.06);
+  height:60px;border-radius:8px;
+}
+
+/* Card content */
+.kc-name{font-weight:700;font-size:13px;margin-bottom:2px;color:var(--ink);line-height:1.2;}
+.kc-addr{font-size:10px;color:#6b7280;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kc-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.kc-tag{
+  font-size:9px;font-weight:700;letter-spacing:.06em;
+  padding:2px 7px;border-radius:10px;
+  text-transform:uppercase;
+}
+.kct-dmg {background:rgba(74,158,255,.15);color:#4A9EFF;}
+.kct-claim{background:rgba(34,197,94,.15);color:#16a34a;}
+.kct-val {background:rgba(232,114,12,.12);color:var(--orange);font-weight:800;}
+.kct-due {background:rgba(224,82,82,.15);color:#E05252;}
+.kct-src {background:rgba(255,255,255,.1);color:#9b9b9b;}
+.kc-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  padding-top:6px;border-top:1px solid var(--rule);margin-top:2px;
+}
+.kc-phone{font-size:10px;color:#6b7280;}
+.kc-actions{display:flex;gap:4px;}
+.kc-btn{
+  background:transparent;border:1px solid var(--rule);
+  border-radius:4px;padding:3px 7px;font-size:10px;
+  cursor:pointer;color:#6b7280;transition:all .15s;
+  font-family:inherit;
+}
+.kc-btn:hover{background:var(--rule);color:var(--ink);}
+.kc-btn.edit:hover{border-color:var(--orange);color:var(--orange);}
+.kc-btn.del:hover{border-color:#E05252;color:#E05252;}
+
+/* Quick-stage arrows on card (prev/next) */
+.kc-move{
+  display:flex;gap:3px;
+}
+.kc-arrow{
+  background:transparent;border:none;
+  font-size:13px;cursor:pointer;color:#9b9b9b;
+  padding:0 2px;line-height:1;
+  transition:color .15s;
+}
+.kc-arrow:hover{color:var(--orange);}
+
+/* View: CRM needs flex column layout */
+#view-crm{
+  display:none;flex-direction:column;
+  height:100%;overflow:hidden;
+}
+#view-crm.active{display:flex;}
+
 </style></head><body>
   <div class="hdr">
     <div>
@@ -1693,126 +1921,143 @@ async function saveLead(){
   setTimeout(closeLeadModal,800);
 }
 
+
+// ══════════════════════════════════════════════
+// KANBAN CRM — renderLeads / drag-drop / filter
+// ══════════════════════════════════════════════
+
+const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+let _dragId = null;
+let _filteredLeads = null;
+
 function renderLeads(leads, filtered){
-  const list = filtered !== undefined ? filtered : (leads||[]);
-  const n = (leads||[]).length;
-  // update stat cards
-  const setEl = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  setEl('statLeads', n);
-  const lb = document.getElementById('leadBadge'); if(lb) lb.textContent=n;
-  setEl('leadsCountLabel', list.length !== n ? `(showing ${list.length} of ${n})` : `(${n})`);
+  const all   = leads  || window._leads || [];
+  const list  = filtered !== undefined ? filtered : all;
+  _filteredLeads = filtered !== undefined ? filtered : null;
 
-  // Pipeline counts — 7 stages
-  const counts = {New:0, Inspected:0, 'Estimate Sent':0, Approved:0, 'In Progress':0, Complete:0, Lost:0};
-  let pipelineVal=0, closedRev=0, approvedCount=0;
-  (leads||[]).forEach(l => {
-    const s = l.stage||'New';
-    if(counts[s]!==undefined) counts[s]++;
-    const v = parseFloat(l.jobValue||0);
-    if(!['Lost'].includes(s)) pipelineVal += v;
-    if(['Complete','Approved','In Progress'].includes(s)) closedRev += v;
-    if(s==='Approved') approvedCount++;
-  });
-  setEl('p-new', counts.New);
-  setEl('p-insp', counts.Inspected);
-  setEl('p-es', counts['Estimate Sent']);
-  setEl('p-appr', counts.Approved);
-  setEl('p-prog', counts['In Progress']);
-  setEl('p-won', counts.Complete);
-  setEl('p-lost', counts.Lost);
-  // dashboard pipeline (different IDs)
-  setEl('dp-new', counts.New);
-  setEl('dp-ct', counts.Inspected);
-  setEl('dp-es', counts['Estimate Sent']);
-  setEl('dp-ng', counts.Approved);
-  setEl('dp-won', counts.Complete);
-  setEl('dp-lost', counts.Lost);
-  // CRM stat cards
-  setEl('crmStatNew', counts.New);
-  setEl('crmStatApproved', approvedCount);
-  setEl('crmStatRevenue', '$' + pipelineVal.toLocaleString());
-  setEl('statClosed', '$'+closedRev.toLocaleString());
-  setEl('crmStatClosed', '$' + closedRev.toLocaleString());
-  setEl('statVal', '$' + pipelineVal.toLocaleString());
+  // ── stat helpers ──
+  const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
-  // Follow-up alerts
-  const today = new Date(); today.setHours(0,0,0,0);
-  const alerts = (leads||[]).filter(l => {
-    if(!l.followUp) return false;
-    const d = new Date(l.followUp); d.setHours(0,0,0,0);
-    return d <= today && !['Complete','Lost'].includes(l.stage);
+  // Revenue calcs
+  let pipeVal=0, closedRev=0, approvedCount=0;
+  all.forEach(l=>{
+    const v=parseFloat(l.jobValue||0);
+    if(!['Lost'].includes(l.stage||'New')) pipeVal+=v;
+    if(['Approved','In Progress','Complete'].includes(l.stage||'')) closedRev+=v;
+    if((l.stage||'')==='Approved') approvedCount++;
   });
-  const alertBox = document.getElementById('followUpAlerts');
+  setEl('crmTotalLeads', all.length);
+  setEl('crmPipeVal',    '$'+pipeVal.toLocaleString());
+  setEl('crmApproved',  approvedCount);
+  setEl('crmClosedRev', '$'+closedRev.toLocaleString());
+  setEl('crmSubLine',   all.length+' leads · $'+pipeVal.toLocaleString()+' pipeline');
+  // dashboard cards
+  setEl('statLeads', all.length);
+  setEl('statVal',   '$'+pipeVal.toLocaleString());
+  setEl('statClosed','$'+closedRev.toLocaleString());
+  const lb=document.getElementById('leadBadge'); if(lb) lb.textContent=all.length;
+
+  // Follow-up overdue
+  const today=new Date(); today.setHours(0,0,0,0);
+  const overdue = all.filter(l=>{
+    if(!l.followUp||['Complete','Lost'].includes(l.stage||'')) return false;
+    const d=new Date(l.followUp); d.setHours(0,0,0,0); return d<=today;
+  });
+  setEl('crmFollowUps', overdue.length);
+  const fp=document.getElementById('followUpPill');
+  if(fp) fp.style.display = overdue.length ? 'flex':'none';
+  const alertBox=document.getElementById('followUpAlerts');
   if(alertBox){
-    if(alerts.length){
+    if(overdue.length){
       alertBox.style.display='block';
-      alertBox.innerHTML = alerts.slice(0,5).map(l => `
+      alertBox.innerHTML=overdue.slice(0,5).map(l=>`
         <div class="follow-up-alert">
           <span>📅</span>
           <span class="fa-name">${l.firstName||''} ${l.lastName||''}</span>
-          <span style="color:var(--m);font-size:11px;">${l.address||''}</span>
-          <span class="fa-date">${l.followUp ? 'Follow-up: '+l.followUp : ''}</span>
+          <span style="color:var(--m);font-size:11px;">${(l.address||'').split(',')[0]}</span>
+          <span class="fa-date">Due: ${l.followUp}</span>
           <button class="fa-btn" onclick="editLead('${l.id}')">View →</button>
         </div>`).join('');
     } else { alertBox.style.display='none'; }
   }
 
-  // Render leads table
-  const wrap = document.getElementById('leadsTableWrap');
-  if(!wrap) return;
-  if(!list.length){ wrap.innerHTML='<div class="empty"><div class="empty-icon">👥</div>No leads match. <a href="#" onclick="clearStageFilter()">Show all</a></div>'; return; }
-  wrap.innerHTML = `<table class="leads-table">
-    <thead><tr>
-      <th>Name</th><th>Stage</th><th>Damage</th><th>Claim</th><th>Value</th><th>Follow-Up</th><th>Actions</th>
-    </tr></thead>
-    <tbody>${list.map(l=>`
-    <tr>
-      <td><div class="lead-name">${l.firstName||''} ${l.lastName||''}</div><div class="lead-addr">${l.address||''}</div></td>
-      <td><span class="tag ${tagClass(l.stage)}">${l.stage||'New'}</span></td>
-      <td style="font-size:11px;color:var(--m);">${l.damageType||'—'}</td>
-      <td style="font-size:11px;color:var(--m);">${l.claimStatus||'—'}</td>
-      <td class="lead-val">${l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '—'}</td>
-      <td style="font-size:11px;color:${isOverdue(l.followUp)?'var(--red)':'var(--m)'};">${l.followUp||'—'}</td>
-      <td><div class="lead-actions">
-        <button class="btn-edit" onclick="editLead('${l.id}')">✏️ Edit</button>
-        <button onclick="openPhotoModal('${l.id}','${(l.firstName||'')+' '+(l.lastName||'')}')">📷</button>
-        <button class="btn-del" onclick="deleteLead('${l.id}')">🗑</button>
-      </div></td>
-    </tr>`).join('')}
-    </tbody></table>`;
-}
+  // ── Build kanban columns ──
+  const byStage = {};
+  STAGES.forEach(s=>byStage[s]=[]);
+  list.forEach(l=>{ const s=l.stage||'New'; if(byStage[s]) byStage[s].push(l); else byStage['New'].push(l); });
 
-function isOverdue(dateStr){
-  if(!dateStr) return false;
-  const d=new Date(dateStr); d.setHours(0,0,0,0);
-  const t=new Date(); t.setHours(0,0,0,0);
-  return d<t;
-}
-
-window._stageFilter = '';
-function filterByStage(stage){
-  window._stageFilter = stage;
-  const filter = document.getElementById('crmStageFilter');
-  if(filter) filter.value = stage;
-  filterLeads();
-}
-function clearStageFilter(){
-  window._stageFilter = '';
-  const filter = document.getElementById('crmStageFilter');
-  if(filter) filter.value = '';
-  const search = document.getElementById('crmSearch');
-  if(search) search.value = '';
-  renderLeads(window._leads||[]);
-}
-function filterLeads(){
-  const stage = (document.getElementById('crmStageFilter')?.value||'').toLowerCase();
-  const search = (document.getElementById('crmSearch')?.value||'').toLowerCase();
-  const filtered = (window._leads||[]).filter(l=>{
-    const matchStage = !stage || (l.stage||'').toLowerCase()===stage;
-    const matchSearch = !search || (l.firstName+' '+l.lastName+' '+l.address+' '+(l.damageType||'')).toLowerCase().includes(search);
-    return matchStage && matchSearch;
+  STAGES.forEach(stage=>{
+    const body  = document.getElementById('kbody-'+stage);
+    const count = document.getElementById('kcount-'+stage);
+    if(!body) return;
+    const cards = byStage[stage]||[];
+    if(count) count.textContent = cards.length;
+    if(!cards.length){ body.innerHTML='<div class="k-empty">No leads</div>'; return; }
+    body.innerHTML = cards.map(l=>buildCard(l)).join('');
+    // attach drag events
+    body.querySelectorAll('.k-card').forEach(card=>{
+      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
+    });
   });
-  renderLeads(window._leads, filtered);
+}
+
+function buildCard(l){
+  const name  = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
+  const addr  = (l.address||'').split(',').slice(0,2).join(',');
+  const val   = l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const overdue = l.followUp && new Date(l.followUp)<=today && !['Complete','Lost'].includes(l.stage||'');
+  const stageIdx = STAGES.indexOf(l.stage||'New');
+  const prevS = stageIdx>0 ? STAGES[stageIdx-1] : null;
+  const nextS = stageIdx<STAGES.length-1 ? STAGES[stageIdx+1] : null;
+
+  return `<div class="k-card" draggable="true" data-id="${l.id}">
+    <div class="kc-name">${name}</div>
+    ${addr ? `<div class="kc-addr" title="${l.address||''}">${addr}</div>` : ''}
+    <div class="kc-tags">
+      ${l.damageType ? `<span class="kc-tag kct-dmg">${l.damageType}</span>` : ''}
+      ${val          ? `<span class="kc-tag kct-val">${val}</span>` : ''}
+      ${overdue      ? `<span class="kc-tag kct-due">⚠ Follow-up</span>` : ''}
+      ${l.claimStatus && l.claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${l.claimStatus}</span>` : ''}
+    </div>
+    <div class="kc-footer">
+      <span class="kc-phone">${l.phone||l.source||''}</span>
+      <div class="kc-actions">
+        <div class="kc-move">
+          ${prevS ? `<button class="kc-arrow" title="← ${prevS}" onclick="moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
+          ${nextS ? `<button class="kc-arrow" title="→ ${nextS}" onclick="moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
+        </div>
+        <button class="kc-btn edit" onclick="editLead('${l.id}')">✏️</button>
+        <button class="kc-btn del"  onclick="deleteLead('${l.id}')">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Drag & drop
+function drop(event, targetStage){
+  event.preventDefault();
+  if(!_dragId) return;
+  // remove drag-over highlight
+  document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
+  moveCard(_dragId, targetStage);
+  _dragId = null;
+}
+document.addEventListener('dragover', e=>{
+  const col = e.target.closest('.kcol-body');
+  document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
+  if(col) col.classList.add('drag-over');
+});
+
+async function moveCard(id, newStage){
+  const lead = (window._leads||[]).find(l=>l.id===id);
+  if(!lead) return;
+  lead.stage = newStage;
+  try {
+    await window._saveLead({...lead});
+  } catch(e){ console.error('moveCard error',e); }
+  renderLeads(window._leads, _filteredLeads);
 }
 
 function updatePipeline(leads){ renderLeads(leads); }
@@ -1820,62 +2065,74 @@ function updatePipeline(leads){ renderLeads(leads); }
 function tagClass(s){
   return({'New':'tag-new','Inspected':'tag-insp','Estimate Sent':'tag-es',
     'Approved':'tag-appr','In Progress':'tag-prog','Complete':'tag-won','Lost':'tag-lost',
-    'New Lead':'tag-new','Contacted':'tag-insp','Negotiating':'tag-appr','Closed Won':'tag-won','Closed Lost':'tag-lost'
-  }[s]||'tag-new');
+    'New Lead':'tag-new','Contacted':'tag-insp','Negotiating':'tag-appr',
+    'Closed Won':'tag-won','Closed Lost':'tag-lost'}[s]||'tag-new');
 }
 
-// ── EDIT LEAD ──────────────────────────────────────────
+function kanbanFilter(){
+  const search = (document.getElementById('crmSearch')?.value||'').toLowerCase();
+  const dmg    = (document.getElementById('crmDmgFilter')?.value||'').toLowerCase();
+  if(!search && !dmg){ renderLeads(window._leads); return; }
+  const filtered = (window._leads||[]).filter(l=>{
+    const matchS = !search || (l.firstName+' '+l.lastName+' '+l.address+' '+(l.damageType||'')+(l.phone||'')).toLowerCase().includes(search);
+    const matchD = !dmg    || (l.damageType||'').toLowerCase()===dmg;
+    return matchS && matchD;
+  });
+  renderLeads(window._leads, filtered);
+}
+
+function scrollToFollowUps(){
+  const el=document.getElementById('followUpAlerts');
+  if(el){ el.style.display='block'; el.scrollIntoView({behavior:'smooth'}); }
+}
+
+function isOverdue(d){ if(!d) return false; const dt=new Date(d); dt.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); return dt<t; }
+
+// Export CSV
+function exportLeadsCSV(){
+  const leads=window._leads||[];
+  if(!leads.length){ showToast('No leads to export','error'); return; }
+  const headers=['First','Last','Address','Phone','Email','Stage','Damage','Claim','Value','Follow-Up','Carrier','Source','Notes'];
+  const rows=leads.map(l=>[
+    l.firstName||'',l.lastName||'',l.address||'',l.phone||'',l.email||'',
+    l.stage||'',l.damageType||'',l.claimStatus||'',l.jobValue||'',
+    l.followUp||'',l.insCarrier||'',l.source||'',(l.notes||'').replace(/,/g,';')
+  ]);
+  const csv=[headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='nbd-leads-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); showToast('CSV exported!','ok');
+}
+
+// Edit lead
 function editLead(id){
-  const l = (window._leads||[]).find(x=>x.id===id);
+  const l=(window._leads||[]).find(x=>x.id===id);
   if(!l) return;
-  const setV = (elId,val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
-  setV('lFname', l.firstName||l.fname||'');
-  setV('lLname', l.lastName||l.lname||'');
-  setV('lAddr', l.address||'');
-  setV('lPhone', l.phone||'');
-  setV('lEmail', l.email||'');
-  setV('lStage', l.stage||'New');
-  setV('lSource', l.source||'Door Knock');
-  setV('lDamageType', l.damageType||'');
-  setV('lClaimStatus', l.claimStatus||'No Claim');
-  setV('lJobValue', l.jobValue||'');
-  setV('lFollowUp', l.followUp||'');
-  setV('lInsCarrier', l.insCarrier||'');
-  setV('lNotes', l.notes||'');
-  const editId = document.getElementById('lEditId');
-  if(editId) editId.value = id;
-  const title = document.getElementById('leadModalTitle');
-  if(title) title.textContent = 'Edit Lead';
+  const setV=(eid,val)=>{ const e=document.getElementById(eid); if(e) e.value=val||''; };
+  setV('lFname',l.firstName||l.fname||'');
+  setV('lLname',l.lastName||l.lname||'');
+  setV('lAddr',l.address||'');
+  setV('lPhone',l.phone||'');
+  setV('lEmail',l.email||'');
+  setV('lStage',l.stage||'New');
+  setV('lSource',l.source||'Door Knock');
+  setV('lDamageType',l.damageType||'');
+  setV('lClaimStatus',l.claimStatus||'No Claim');
+  setV('lJobValue',l.jobValue||'');
+  setV('lFollowUp',l.followUp||'');
+  setV('lInsCarrier',l.insCarrier||'');
+  setV('lNotes',l.notes||'');
+  const editId=document.getElementById('lEditId'); if(editId) editId.value=id;
+  const title=document.getElementById('leadModalTitle'); if(title) title.textContent='Edit Lead';
   openLeadModal();
 }
 
-// ── DELETE LEAD ─────────────────────────────────────────
+// Delete lead
 async function deleteLead(id){
   if(!confirm('Delete this lead? This cannot be undone.')) return;
-  try {
-    await window._deleteLead(id);
-    showToast('Lead deleted','ok');
-  } catch(e){ showToast('Delete failed','error'); }
-}
-
-// ── EXPORT CSV ──────────────────────────────────────────
-function exportLeadsCSV(){
-  const leads = window._leads||[];
-  if(!leads.length){ showToast('No leads to export','error'); return; }
-  const headers = ['First Name','Last Name','Address','Phone','Email','Stage','Damage Type','Claim Status','Job Value','Follow-Up','Insurance Carrier','Source','Notes'];
-  const rows = leads.map(l=>[
-    l.firstName||l.fname||'', l.lastName||l.lname||'', l.address||'',
-    l.phone||'', l.email||'', l.stage||'', l.damageType||'',
-    l.claimStatus||'', l.jobValue||'', l.followUp||'',
-    l.insCarrier||'', l.source||'', (l.notes||'').replace(/,/g,';')
-  ]);
-  const csv = [headers, ...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'nbd-leads-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
-  showToast('CSV exported!','ok');
+  try { await window._deleteLead(id); showToast('Lead deleted','ok'); }
+  catch(e){ showToast('Delete failed','error'); }
 }
 
 
