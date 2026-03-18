@@ -223,7 +223,7 @@ section{padding:80px 40px}
 /* ── CONTACT ── */
 .contact-section{background:var(--navy-dark);position:relative;overflow:hidden}
 .contact-section::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 50px,rgba(232,114,12,.03) 50px,rgba(232,114,12,.03) 51px)}
-.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start;position:relative;z-index:1}
+.contact-grid{display:grid;grid-template-columns:1fr 1fr 300px;gap:48px;align-items:start;position:relative;z-index:1}
 .contact-left h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3.2rem);color:white;letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
 .contact-left h2 span{color:var(--orange)}
 .contact-left p{color:rgba(255,255,255,.55);font-size:.92rem;line-height:1.75;margin-bottom:32px}
@@ -285,7 +285,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .hiw-grid::before{display:none}
   .about-grid{grid-template-columns:1fr;gap:40px}
   .about-badge{bottom:10px;right:10px}
-  .contact-grid{grid-template-columns:1fr}
+  .contact-grid{grid-template-columns:1fr 1fr}.home-sidebar{display:none}
   .areas-contact{grid-template-columns:repeat(2,1fr)}
   .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
 }
@@ -308,6 +308,31 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .form-row{grid-template-columns:1fr}
   .ann-bar{font-size:.68rem}
 }
+
+/* ── HOMEPAGE SIDEBAR ───────────────────────────── */
+.home-sidebar{display:flex;flex-direction:column;gap:20px;}
+.hs-card{background:var(--off-white);border-radius:14px;padding:24px;border:1px solid var(--light-gray);}
+.hs-card h3{font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--navy);margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--orange);}
+.hs-links{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.hs-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;text-decoration:none;padding:3px 0;}
+.hs-links li a:hover{color:var(--orange);}
+.hs-links li a::before{content:'→';color:var(--orange);font-weight:700;flex-shrink:0;}
+.hs-cta{background:var(--navy-dark);border-radius:14px;padding:24px;text-align:center;border:2px solid rgba(232,114,12,.3);}
+.hs-cta h3{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;margin-bottom:8px;letter-spacing:.03em;}
+.hs-cta p{font-size:.82rem;color:rgba(255,255,255,.72);line-height:1.6;margin-bottom:16px;}
+.hs-cta a.hs-btn{display:block;background:var(--orange);color:white;padding:12px 16px;border-radius:8px;font-weight:800;font-size:.85rem;text-decoration:none;margin-bottom:8px;transition:background .2s;}
+.hs-cta a.hs-btn:hover{background:var(--orange-dark);}
+.hs-cta a.hs-phone{display:block;color:rgba(255,255,255,.7);font-size:.82rem;text-decoration:none;padding:8px;border:1px solid rgba(255,255,255,.15);border-radius:8px;transition:all .2s;}
+.hs-cta a.hs-phone:hover{color:white;border-color:rgba(232,114,12,.5);}
+.hs-trust{display:flex;flex-direction:column;gap:8px;}
+.hs-trust-item{display:flex;align-items:center;gap:10px;font-size:.83rem;color:var(--gray-sub);}
+.hs-trust-item span.icon{font-size:1rem;flex-shrink:0;}
+.hs-trust-item strong{color:var(--navy);}
+.hs-blog-item{padding:8px 0;border-bottom:1px solid var(--light-gray);}
+.hs-blog-item:last-child{border-bottom:none;}
+.hs-blog-item .tag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:3px;}
+.hs-blog-item a{font-size:.83rem;font-weight:600;color:var(--navy);text-decoration:none;line-height:1.4;display:block;}
+.hs-blog-item a:hover{color:var(--orange);}
 </style>
 <script type="application/ld+json">
 {
@@ -909,6 +934,71 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           </div>
         </div>
       </div>
+
+      <!-- ── HOMEPAGE SIDEBAR ── -->
+      <aside class="home-sidebar">
+        <div class="hs-cta">
+          <h3>Free Estimate</h3>
+          <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
+          <a href="#contact" class="hs-btn">Get My Free Estimate →</a>
+          <a href="tel:8594207382" class="hs-phone">📞 (859) 420-7382</a>
+        </div>
+
+        <div class="hs-card">
+          <h3>Our Services</h3>
+          <ul class="hs-links">
+            <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+            <li><a href="/services/roof-repair">Roof Repair</a></li>
+            <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+            <li><a href="/services/siding-repair">Siding Repair</a></li>
+            <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+            <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+          </ul>
+        </div>
+
+        <div class="hs-card">
+          <h3>Why Joe?</h3>
+          <div class="hs-trust">
+            <div class="hs-trust-item"><span class="icon">⭐</span><div><strong>5-Star Rated</strong> across Google &amp; Facebook</div></div>
+            <div class="hs-trust-item"><span class="icon">📋</span><div><strong>Licensed &amp; Insured</strong> in Ohio</div></div>
+            <div class="hs-trust-item"><span class="icon">🏠</span><div><strong>Locally Owned</strong> — Goshen, OH</div></div>
+            <div class="hs-trust-item"><span class="icon">📞</span><div><strong>Joe picks up</strong> — no call centers</div></div>
+            <div class="hs-trust-item"><span class="icon">🔍</span><div><strong>Free inspections</strong> — no obligation</div></div>
+          </div>
+        </div>
+
+        <div class="hs-card">
+          <h3>Service Areas</h3>
+          <ul class="hs-links">
+            <li><a href="#areas">Goshen &amp; Batavia</a></li>
+            <li><a href="#areas">Milford &amp; Loveland</a></li>
+            <li><a href="#areas">Mason &amp; Lebanon</a></li>
+            <li><a href="#areas">Blue Ash &amp; Amelia</a></li>
+            <li><a href="#areas">Greater Cincinnati</a></li>
+          </ul>
+        </div>
+
+        <div class="hs-card">
+          <h3>From the Blog</h3>
+          <div class="hs-blog-item">
+            <div class="tag">Insurance</div>
+            <a href="/blog/my-roof-is-too-old-will-insurance-still-pay">My Roof Is Too Old — Will Insurance Still Pay?</a>
+          </div>
+          <div class="hs-blog-item">
+            <div class="tag">Storm Damage</div>
+            <a href="/blog/how-to-file-storm-damage-insurance-claim-ohio">How to File a Storm Damage Claim in Ohio</a>
+          </div>
+          <div class="hs-blog-item">
+            <div class="tag">Roofing</div>
+            <a href="/blog/architectural-shingles-vs-3-tab">Architectural vs. 3-Tab: Is the Upgrade Worth It?</a>
+          </div>
+          <div class="hs-blog-item">
+            <div class="tag">Roofing</div>
+            <a href="/blog/how-long-does-roof-replacement-take-cincinnati">How Long Does Roof Replacement Take?</a>
+          </div>
+        </div>
+      </aside>
+
     </div>
   </div>
 </section>
