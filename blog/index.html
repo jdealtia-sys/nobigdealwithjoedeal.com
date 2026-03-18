@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog | Roofing, Siding & Storm Damage Tips | No Big Deal Home Solutions</title>
+  <meta name="description" content="Practical roofing, siding, and storm damage advice for Cincinnati-area homeowners. Straight talk from Joe Deal — no fluff, no upsells.">
+  <link rel="canonical" href="https://www.nobigdealwithjoedeal.com/blog">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><polygon points='50,15 85,45 80,45 80,80 20,80 20,45 15,45' fill='%23e8720c'/><rect x='40' y='55' width='20' height='25' fill='%23fff'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #1e3a6e; --navy-dark: #142a52; --orange: #e8720c;
+  --orange-dark: #c45e08; --gray-sub: #4a4a4a; --white: #ffffff;
+  --off-white: #f5f3ef; --gray: #6b7280; --light-gray: #e8e5e0;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Montserrat', sans-serif; color: #1a1a1a; background: var(--white); }
+a { text-decoration: none; color: inherit; }
+
+.ann-bar { background: var(--orange); color: var(--white); text-align: center; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; padding: 9px 16px; text-transform: uppercase; }
+
+nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); border-bottom: 3px solid var(--orange); padding: 0 5%; display: flex; align-items: center; justify-content: space-between; height: 70px; }
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.nav-logo-badge { background: var(--orange); color: var(--white); font-weight: 800; font-size: 0.95rem; padding: 6px 10px; border-radius: 6px; letter-spacing: 0.05em; }
+.nav-logo-text .brand { font-size: 1rem; font-weight: 800; color: var(--white); }
+.nav-logo-text .sub { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-weight: 500; }
+.nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+.nav-links a { color: rgba(255,255,255,0.85); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.2s; }
+.nav-links a:hover { color: var(--orange); }
+.nav-links .dropdown { position: relative; }
+.nav-links .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: var(--navy-dark); border: 2px solid var(--orange); border-top: none; min-width: 200px; border-radius: 0 0 8px 8px; padding: 8px 0; z-index: 999; }
+.nav-links .dropdown:hover .dropdown-menu { display: block; }
+.nav-links .dropdown-menu a { display: block; padding: 10px 18px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.nav-links .dropdown-menu a:last-child { border-bottom: none; }
+.nav-cta { background: var(--orange) !important; color: var(--white) !important; padding: 10px 18px; border-radius: 6px; font-weight: 700 !important; }
+.nav-cta:hover { background: var(--orange-dark) !important; }
+.hamburger { display: none; background: none; border: none; cursor: pointer; padding: 4px; }
+.hamburger span { display: block; width: 22px; height: 2px; background: var(--white); margin: 5px 0; border-radius: 2px; }
+.mobile-nav { display: none; background: var(--navy-dark); padding: 0 5%; }
+.mobile-nav.open { display: flex; flex-direction: column; }
+.mobile-nav a { color: rgba(255,255,255,0.85); padding: 12px 0; font-size: 0.85rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.07); }
+
+.breadcrumb { background: var(--off-white); padding: 12px 5%; font-size: 0.78rem; color: var(--gray); }
+.breadcrumb a { color: var(--navy); font-weight: 600; }
+.breadcrumb a:hover { color: var(--orange); }
+.breadcrumb span { margin: 0 6px; }
+
+.blog-hero { background: var(--navy-dark); padding: 64px 5% 52px; }
+.blog-hero-inner { max-width: 700px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(232,114,12,0.15); border: 1px solid rgba(232,114,12,0.4); color: var(--orange); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 20px; }
+.blog-hero h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); color: var(--white); line-height: 1.0; margin-bottom: 12px; }
+.blog-hero h1 span { color: var(--orange); }
+.blog-hero p { font-size: 1rem; color: rgba(255,255,255,0.75); max-width: 560px; line-height: 1.65; }
+
+.blog-main { padding: 64px 5%; display: grid; grid-template-columns: 1fr 320px; gap: 56px; max-width: 1200px; margin: 0 auto; }
+.blog-grid { display: flex; flex-direction: column; gap: 36px; }
+
+.post-card { background: var(--white); border: 1px solid var(--light-gray); border-radius: 14px; overflow: hidden; transition: box-shadow 0.2s, transform 0.15s; }
+.post-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.1); transform: translateY(-2px); }
+.post-card-body { padding: 28px 32px 32px; }
+.post-tag { display: inline-block; background: rgba(232,114,12,0.1); color: var(--orange); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; margin-bottom: 12px; }
+.post-card h2 { font-size: 1.25rem; font-weight: 800; color: var(--navy); line-height: 1.3; margin-bottom: 10px; }
+.post-card h2 a { color: inherit; transition: color 0.2s; }
+.post-card h2 a:hover { color: var(--orange); }
+.post-meta { font-size: 0.75rem; color: var(--gray); margin-bottom: 14px; }
+.post-meta strong { color: var(--navy); }
+.post-excerpt { font-size: 0.88rem; color: var(--gray-sub); line-height: 1.68; margin-bottom: 20px; }
+.post-read-more { display: inline-flex; align-items: center; gap: 6px; color: var(--orange); font-size: 0.83rem; font-weight: 700; transition: gap 0.2s; }
+.post-read-more:hover { gap: 10px; }
+
+/* COMING SOON posts */
+.post-card.coming-soon { opacity: 0.65; }
+.post-card.coming-soon .post-tag { background: rgba(107,114,128,0.1); color: var(--gray); }
+.coming-soon-label { display: inline-block; background: var(--light-gray); color: var(--gray); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; }
+
+/* SIDEBAR */
+.sidebar { display: flex; flex-direction: column; gap: 28px; }
+.sidebar-card { background: var(--off-white); border-radius: 14px; padding: 28px; border: 1px solid var(--light-gray); }
+.sidebar-card h3 { font-size: 0.9rem; font-weight: 800; color: var(--navy); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sidebar-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.sidebar-links li a { font-size: 0.85rem; color: var(--gray-sub); display: flex; align-items: center; gap: 8px; transition: color 0.2s; }
+.sidebar-links li a:hover { color: var(--orange); }
+.sidebar-links li a::before { content: '→'; color: var(--orange); font-weight: 700; }
+.cta-sidebar { background: var(--navy-dark); color: var(--white); border-radius: 14px; padding: 28px; text-align: center; }
+.cta-sidebar h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; margin-bottom: 10px; color: var(--white); }
+.cta-sidebar p { font-size: 0.83rem; color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: 20px; }
+.cta-sidebar a { display: block; background: var(--orange); color: var(--white); padding: 13px 20px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; transition: background 0.2s; margin-bottom: 10px; }
+.cta-sidebar a:hover { background: var(--orange-dark); }
+.cta-sidebar .phone-link { background: transparent; border: 1px solid rgba(255,255,255,0.3); font-size: 0.83rem; }
+
+.newsletter-bar { background: var(--off-white); border-top: 3px solid var(--orange); padding: 48px 5%; text-align: center; }
+.newsletter-bar h2 { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--navy); margin-bottom: 8px; }
+.newsletter-bar p { color: var(--gray-sub); font-size: 0.9rem; margin-bottom: 24px; }
+.ml-form-embedContainer { max-width: 480px; margin: 0 auto; }
+
+footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 56px 5% 28px; }
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+.footer-logo-text { font-weight: 800; font-size: 1.1rem; color: var(--white); margin-bottom: 4px; }
+.footer-logo-sub { font-family: 'Dancing Script', cursive; font-size: 1rem; color: var(--orange); margin-bottom: 14px; }
+.footer-desc { font-size: 0.82rem; line-height: 1.65; margin-bottom: 20px; max-width: 260px; }
+.footer-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.footer-badge { background: rgba(255,255,255,0.08); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; color: rgba(255,255,255,0.7); }
+.footer-col h4 { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--orange); margin-bottom: 16px; }
+.footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.footer-col ul li a { font-size: 0.83rem; color: rgba(255,255,255,0.65); transition: color 0.2s; }
+.footer-col ul li a:hover { color: var(--orange); }
+.footer-contact-item { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.footer-contact-item .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); font-weight: 700; }
+.footer-contact-item .val { font-size: 0.85rem; color: rgba(255,255,255,0.8); }
+.footer-contact-item .val a { color: rgba(255,255,255,0.8); }
+.footer-contact-item .val a:hover { color: var(--orange); }
+.footer-bottom { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.footer-bottom p { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+.footer-bottom a { color: rgba(255,255,255,0.5); font-size: 0.75rem; }
+.footer-bottom a:hover { color: var(--orange); }
+
+@media (max-width: 900px) {
+  .blog-main { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .sidebar { order: -1; }
+}
+@media (max-width: 680px) {
+  .nav-links { display: none; }
+  .hamburger { display: block; }
+  .footer-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="ann-bar">⭐ 5-Year Labor Warranty on Every Install — Roofing, Siding &amp; Gutters</div>
+
+<nav id="mainNav">
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-badge">NBD</div>
+    <div class="nav-logo-text">
+      <div class="brand">NO BIG DEAL</div>
+      <div class="sub">Home Solutions</div>
+    </div>
+  </a>
+  <ul class="nav-links">
+    <li class="dropdown">
+      <a href="/#services">Services ▾</a>
+      <ul class="dropdown-menu">
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/roof-repair">Roof Repair</a></li>
+        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+        <li><a href="/services/siding-repair">Siding Repair</a></li>
+        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+      </ul>
+    </li>
+    <li><a href="/#about">About Joe</a></li>
+    <li><a href="/#reviews">Reviews</a></li>
+    <li><a href="/#areas">Service Areas</a></li>
+    <li><a href="/blog" style="color:var(--orange)">Blog</a></li>
+    <li><a href="/pro/" target="_blank">NBD Pro ↗</a></li>
+    <li><a href="/#contact" class="nav-cta">Free Estimate →</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+</nav>
+<div class="mobile-nav" id="mobileNav">
+  <a href="/services/roof-replacement">Roof Replacement</a>
+  <a href="/services/roof-repair">Roof Repair</a>
+  <a href="/services/siding-replacement">Siding Replacement</a>
+  <a href="/services/siding-repair">Siding Repair</a>
+  <a href="/services/gutter-replacement">Gutter Replacement</a>
+  <a href="/services/storm-damage">Storm Damage &amp; Insurance</a>
+  <a href="/#about">About Joe</a>
+  <a href="/#reviews">Reviews</a>
+  <a href="/#areas">Service Areas</a>
+  <a href="/blog">Blog</a>
+  <a href="/pro/">NBD Pro ↗</a>
+  <a href="/#contact" style="color:var(--orange);font-weight:800;">Free Estimate →</a>
+</div>
+
+<div class="breadcrumb"><a href="/">Home</a><span>›</span>Blog</div>
+
+<section class="blog-hero">
+  <div class="blog-hero-inner">
+    <div class="hero-badge">Straight Talk for Homeowners</div>
+    <h1>The No Big Deal<br><span>Blog.</span></h1>
+    <p>Roofing, siding, gutters, storm damage, and insurance claims — explained the way Joe explains it: honestly, without the upsell, and in plain English.</p>
+  </div>
+</section>
+
+<div class="blog-main">
+  <main class="blog-grid">
+
+    <!-- POST 1 — LIVE -->
+    <article class="post-card">
+      <div class="post-card-body">
+        <span class="post-tag">Storm Damage</span>
+        <h2><a href="/blog/how-to-file-storm-damage-insurance-claim-ohio">How to File a Storm Damage Insurance Claim in Ohio (Step-by-Step)</a></h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · March 2026 · 8 min read</div>
+        <p class="post-excerpt">Most Ohio homeowners have no idea what to do in the first 48 hours after a storm. Call your insurer? Get a contractor? Wait and see? Here's the exact order of operations — and the mistakes that cost people thousands.</p>
+        <a href="/blog/how-to-file-storm-damage-insurance-claim-ohio" class="post-read-more">Read Article →</a>
+      </div>
+    </article>
+
+    <!-- POST 2 — LIVE -->
+    <article class="post-card">
+      <div class="post-card-body">
+        <span class="post-tag">Roofing</span>
+        <h2><a href="/blog/how-long-does-roof-replacement-take-cincinnati">How Long Does Roof Replacement Take? Cincinnati Homeowner's Guide</a></h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · March 2026 · 6 min read</div>
+        <p class="post-excerpt">The honest answer depends on your roof. Here's what determines the timeline — size, pitch, weather, decking condition — and what you should expect from start to final cleanup.</p>
+        <a href="/blog/how-long-does-roof-replacement-take-cincinnati" class="post-read-more">Read Article →</a>
+      </div>
+    </article>
+
+    <!-- POST 3 — COMING SOON -->
+    <article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag">Roofing</span>
+        <h2>Signs Your Roof Needs Replacement vs. Repair</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">There's a point where repair stops making economic sense and replacement becomes the smarter move. Here's how to tell the difference — without relying on a contractor who benefits from the more expensive option.</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>
+
+    <article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag">Insurance</span>
+        <h2>Does Homeowner Insurance Cover Hail Damage in Ohio?</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">The short answer is usually yes — but the details matter. Coverage depends on your policy type, your deductible, and how well the damage is documented. Here's what you need to know before you call your insurer.</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>
+
+    <article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag">Siding</span>
+        <h2>Siding Repair vs. Siding Replacement: What Cincinnati Homeowners Need to Know</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">Not every siding problem requires a full replacement. But some repair jobs are just delaying the inevitable. How to tell the difference — and what questions to ask any contractor who's giving you a quote.</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>
+
+    <article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag">Gutters</span>
+        <h2>Best Gutters for Ohio Weather: Seamless vs. Sectional</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">Ohio winters are hard on gutters. Freeze-thaw cycles, ice dams, and heavy spring rain all stress the system. Here's which gutter type holds up and why seamless aluminum wins for most Cincinnati homes.</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>
+
+  </main>
+
+  <aside class="sidebar">
+    <div class="cta-sidebar">
+      <h3>Get a Free Estimate</h3>
+      <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
+      <a href="/#contact">Get My Free Estimate →</a>
+      <a href="tel:8594207382" class="phone-link">📞 (859) 420-7382</a>
+    </div>
+
+    <div class="sidebar-card">
+      <h3>Service Pages</h3>
+      <ul class="sidebar-links">
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/roof-repair">Roof Repair</a></li>
+        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+        <li><a href="/services/siding-repair">Siding Repair</a></li>
+        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-card">
+      <h3>Service Areas</h3>
+      <ul class="sidebar-links">
+        <li><a href="/#areas">Goshen, OH</a></li>
+        <li><a href="/#areas">Milford, OH</a></li>
+        <li><a href="/#areas">Loveland, OH</a></li>
+        <li><a href="/#areas">Mason, OH</a></li>
+        <li><a href="/#areas">Batavia, OH</a></li>
+        <li><a href="/#areas">Lebanon, OH</a></li>
+        <li><a href="/#areas">Blue Ash, OH</a></li>
+        <li><a href="/#areas">Amelia, OH</a></li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<!-- NEWSLETTER -->
+<div class="newsletter-bar">
+  <h2>Get Joe's Tips in Your Inbox</h2>
+  <p>Practical roofing and home exterior advice — no spam, no sales pitches. Just straight talk.</p>
+  <!-- MailerLite embed goes here — replace with your actual ML form code -->
+  <div class="ml-form-embedContainer" id="mlFormPlaceholder">
+    <p style="color:var(--gray);font-size:0.85rem;font-style:italic;">[MailerLite newsletter form — paste your ML embed code here]</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-grid">
+    <div>
+      <div class="footer-logo-text">NO BIG DEAL</div>
+      <div class="footer-logo-sub">No Big Deal with Joe Deal</div>
+      <p class="footer-desc">Roofing, siding, gutters, and storm damage repair serving Greater Cincinnati. Honest assessments, fair pricing, and quality work backed by warranty.</p>
+      <div class="footer-badges">
+        <span class="footer-badge">Licensed</span>
+        <span class="footer-badge">Insured</span>
+        <span class="footer-badge">Locally Owned</span>
+        <span class="footer-badge">5-Star Rated</span>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/roof-repair">Roof Repair</a></li>
+        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+        <li><a href="/services/siding-repair">Siding Repair</a></li>
+        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="/#about">About Joe</a></li>
+        <li><a href="/#reviews">Reviews</a></li>
+        <li><a href="/#areas">Service Areas</a></li>
+        <li><a href="/#process">How It Works</a></li>
+        <li><a href="/blog">Blog</a></li>
+        <li><a href="/#contact">Get an Estimate</a></li>
+        <li><a href="/pro/">NBD Pro ↗</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <div class="footer-contact-item"><span class="label">Call or Text</span><span class="val"><a href="tel:8594207382">(859) 420-7382</a></span></div>
+      <div class="footer-contact-item"><span class="label">Email</span><span class="val"><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></span></div>
+      <div class="footer-contact-item"><span class="label">Based In</span><span class="val">Goshen / Cincinnati, OH</span></div>
+      <div class="footer-contact-item"><span class="label">Hours</span><span class="val">Mon–Sat 7AM–6PM<br>Sunday available</span></div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 No Big Deal Home Solutions. All rights reserved.</p>
+    <a href="/pro/">Are you a contractor or entrepreneur? → NBD Pro</a>
+  </div>
+</footer>
+
+<script>
+document.getElementById('hamburger').addEventListener('click', () => {
+  document.getElementById('mobileNav').classList.toggle('open');
+});
+</script>
+</body>
+</html>
