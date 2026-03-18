@@ -357,51 +357,109 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
   .not-for-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
-  /* ── Layout & Spacing ── */
-  section{padding:52px 18px !important}
-  .section-inner{padding:0}
-  nav{padding:0 16px;height:60px}
+  /* ── Base spacing ── */
+  section{padding:48px 16px !important}
+  .section-inner{padding:0 !important;max-width:100% !important}
+  nav{padding:0 14px;height:58px}
   .nav-links{display:none}
   .hamburger{display:flex}
+  .ann-bar{font-size:.66rem;padding:7px 12px;line-height:1.4}
+
   /* ── Hero ── */
-  .hero-content{padding:52px 18px !important;grid-template-columns:1fr !important;gap:32px}
-  .hero h1{font-size:clamp(2.4rem,10vw,3.4rem) !important}
-  .hero-btns{flex-direction:column;align-items:stretch}
-  .hero-btns a,.hero-btns button{text-align:center;justify-content:center}
-  .warranty-card{max-width:100%}
+  .hero-content{padding:44px 16px 40px !important;grid-template-columns:1fr !important;gap:28px}
+  .hero h1{font-size:clamp(2.2rem,9vw,3rem) !important;line-height:1.0}
+  .hero-tagline{font-size:1rem}
+  .hero-for{font-size:.65rem;letter-spacing:.08em}
+  .hero-btns{flex-direction:column;align-items:stretch;gap:10px}
+  .hero-btns a,.hero-btns button{text-align:center;justify-content:center;padding:13px 16px !important}
+  .hero-pro-pill{font-size:.65rem}
+
+  /* ── Dashboard preview card ── */
+  .dashboard-card{min-width:0 !important;width:100% !important;padding:16px !important}
+  .dc-stats{grid-template-columns:1fr 1fr !important;gap:8px}
+  .dc-stat{padding:10px 8px !important}
+  .dc-title{font-size:.75rem}
+  .dc-val{font-size:1.4rem}
+  .dc-stages{gap:4px}
+  .dc-stage{font-size:.6rem;padding:5px 3px !important}
+  .dc-ai-row{padding:8px 10px !important;font-size:.78rem}
+
   /* ── Trust bar ── */
-  .trust-bar-inner{flex-wrap:wrap;padding:0 16px}
-  .trust-item{min-width:45%;border-right:none;border-bottom:1px solid rgba(255,255,255,.08);justify-content:flex-start}
+  .trust-bar-inner{flex-wrap:wrap;padding:0 12px !important}
+  .trust-item{min-width:48%;border-right:none;border-bottom:1px solid rgba(255,255,255,.08);justify-content:flex-start;padding:14px 10px}
+
+  /* ── Section titles ── */
+  .sec-title{font-size:clamp(1.7rem,7vw,2.4rem) !important;letter-spacing:.02em}
+  .sec-desc{font-size:.87rem;max-width:100% !important}
+
   /* ── All grids → single column ── */
-  .problem-grid,.chapters-grid,.reviews-grid,.tools-grid,.who-grid,.not-for-grid,.about-grid,.faq-grid,.pitch-grid{grid-template-columns:1fr !important}
+  .problem-grid,.tools-grid,.who-grid,.not-for-grid,.about-grid,.faq-grid{grid-template-columns:1fr !important}
+  .chapters-grid{grid-template-columns:1fr !important}
+  .chapters-intro{grid-template-columns:1fr !important;gap:24px}
+  .chapters-stats{grid-template-columns:1fr 1fr 1fr !important;gap:8px}
+  .reviews-grid{grid-template-columns:1fr !important}
+
+  /* ── Problem solution box ── */
+  .problem-solution{min-width:0 !important;width:100% !important;padding:18px 14px !important}
+  .problem-card{padding:20px 16px !important}
+  .tool-card{padding:20px 16px !important}
+
   /* ── Pricing ── */
   .pricing-grid{grid-template-columns:1fr !important;max-width:100% !important}
-  /* ── Chapters intro ── */
-  .chapters-intro{grid-template-columns:1fr !important;gap:28px}
-  /* ── Problem solution box ── */
-  .problem-solution{min-width:0 !important;width:100% !important;padding:20px 16px !important}
+  .pricing-card{padding:24px 18px !important}
+  .guarantee-box{padding:14px 16px !important}
+
+  /* ── Pitch section ── */
+  .pitch-section{padding:48px 16px !important}
+  .pitch-grid{grid-template-columns:1fr 1fr !important}
+  .pitch-card{padding:20px 14px !important}
+  .pitch-headline{font-size:clamp(1.8rem,7vw,2.4rem) !important}
+
+  /* ── Who / chapter cards ── */
+  .who-card{padding:20px 16px !important}
+  .chapter-card{padding:18px 14px !important}
+  .ch-stat{padding:14px 10px !important}
+
   /* ── About ── */
-  .about-grid{grid-template-columns:1fr !important;gap:32px}
+  .about-grid{grid-template-columns:1fr !important;gap:28px}
+  .about-results{padding:20px 16px !important}
+  .about-badge{position:static;margin-top:12px;display:inline-block}
+
+  /* ── FAQ ── */
+  .faq-q{padding:14px 16px !important;font-size:.9rem}
+  .faq-a{padding:0 16px 14px !important;font-size:.85rem}
+
+  /* ── Final CTA ── */
+  .final-cta{padding:48px 16px !important}
+  .fca-inner{max-width:100% !important;padding:0}
+  .fca-btns,.final-cta-actions{flex-direction:column;align-items:stretch;gap:10px}
+  .fca-btns a,.final-cta-actions a{text-align:center;justify-content:center;padding:13px 16px !important}
+
   /* ── Footer ── */
   .footer-grid{grid-template-columns:1fr !important}
+  .footer-inner{padding:0}
   .footer-bottom{flex-direction:column;gap:8px;text-align:center}
-  footer{padding:40px 18px 80px}
-  /* ── CTAs ── */
-  .final-cta{padding:52px 18px}
-  .final-cta-actions,.fca-btns{flex-direction:column;align-items:stretch}
-  .final-cta-actions a,.fca-btns a{text-align:center;justify-content:center}
+  footer{padding:40px 16px 24px}
+
   /* ── Sticky bar ── */
   .sticky-call{display:block}
-  /* ── Typography ── */
-  .sec-title{font-size:clamp(1.8rem,7vw,2.6rem) !important}
-  .hero-tagline{font-size:1.1rem}
-  /* ── Tables / compare ── */
-  .compare-table{grid-template-columns:1fr auto 1fr}
-  .ann-bar{font-size:.68rem;padding:8px 12px}
+
+  /* ── Misc ── */
+  .founding-badge{position:static;margin-top:12px;display:inline-block}
+  .btn-primary,.btn-ghost,.btn-outline-dark{padding:12px 20px !important;font-size:.82rem}
 }
 @media(max-width:860px){.pitch-grid{grid-template-columns:1fr 1fr;}}
 @media(max-width:560px){.pitch-grid{grid-template-columns:1fr;}}
 
+
+@media(max-width:480px){
+  .dc-stats{grid-template-columns:1fr 1fr !important}
+  .chapters-stats{grid-template-columns:1fr 1fr 1fr !important;font-size:.7rem}
+  .pitch-grid{grid-template-columns:1fr !important}
+  .trust-item{min-width:100%}
+  .hero h1{font-size:clamp(2rem,8vw,2.6rem) !important}
+  .pricing-card.featured{transform:none}
+}
 </style>
 </head>
 <body>
