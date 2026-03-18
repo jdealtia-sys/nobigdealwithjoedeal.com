@@ -367,16 +367,28 @@ function daysBetween(d1, d2) {
 }
 
 function buildCard(post) {
+  // No URL = not written yet, always plain coming soon regardless of date
+  if (!post.url) {
+    return `<article class="post-card coming-soon">
+      <div class="post-card-body">
+        <span class="post-tag" style="background:rgba(107,114,128,.1);color:var(--gray);">${post.tag}</span>
+        <h2>${post.title}</h2>
+        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
+        <p class="post-excerpt">${post.excerpt}</p>
+        <span class="coming-soon-label">Coming Soon</span>
+      </div>
+    </article>`;
+  }
+
   const now = new Date();
   now.setHours(0,0,0,0);
   const pubDate = new Date(post.published);
   pubDate.setHours(0,0,0,0);
-  const isLive    = pubDate <= now;
-  const isFuture  = pubDate.getFullYear() >= 2099;
-  const daysLeft  = isLive ? 0 : daysBetween(now, pubDate);
+  const isLive   = pubDate <= now;
+  const daysLeft = isLive ? 0 : daysBetween(now, pubDate);
 
-  if (isLive && post.url) {
-    // Fully live card
+  if (isLive) {
+    // Live card
     return `<article class="post-card">
       <div class="post-card-body">
         <span class="post-tag">${post.tag}</span>
@@ -386,8 +398,8 @@ function buildCard(post) {
         <a href="${post.url}" class="post-read-more">Read Article →</a>
       </div>
     </article>`;
-  } else if (!isFuture && !isLive) {
-    // Countdown card
+  } else {
+    // Scheduled countdown card
     return `<article class="post-card coming-soon" style="opacity:.8;">
       <div class="post-card-body">
         <span class="post-tag">${post.tag}</span>
@@ -395,20 +407,9 @@ function buildCard(post) {
         <div class="post-meta" style="color:#e8720c;font-weight:700;">🔒 Unlocks in ${daysLeft} day${daysLeft!==1?'s':''}</div>
         <p class="post-excerpt">${post.excerpt}</p>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span class="coming-soon-label">Coming ${pubDate.toLocaleDateString('en-US',{month:'long',day:'numeric'})} </span>
+          <span class="coming-soon-label">Coming ${pubDate.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</span>
           <span id="countdown-${post.published}" style="font-size:.78rem;color:var(--gray);font-weight:600;font-family:'Montserrat',sans-serif;"></span>
         </div>
-      </div>
-    </article>`;
-  } else {
-    // Far future / no date — plain coming soon
-    return `<article class="post-card coming-soon">
-      <div class="post-card-body">
-        <span class="post-tag" style="background:rgba(107,114,128,.1);color:var(--gray);">${post.tag}</span>
-        <h2>${post.title}</h2>
-        <div class="post-meta">By <strong>Joe Deal</strong> · Coming Soon</div>
-        <p class="post-excerpt">${post.excerpt}</p>
-        <span class="coming-soon-label">Coming Soon</span>
       </div>
     </article>`;
   }
