@@ -74,6 +74,16 @@
       const snap = await getDocs(query(collection(db,'leads'), orderBy('createdAt','desc')));
       window._leads = snap.docs.map(d => ({id:d.id,...d.data()})).filter(l=>!l.deleted);
     } catch(e) { window._leads = []; }
+    // Load photo cache for thumbnails
+    try {
+      const psnap = await getDocs(collection(db,'photos'));
+      window._photoCache = {};
+      psnap.docs.forEach(d => {
+        const p = {id:d.id,...d.data()};
+        if(!window._photoCache[p.leadId]) window._photoCache[p.leadId] = [];
+        window._photoCache[p.leadId].push(p);
+      });
+    } catch(e) { window._photoCache = {}; }
     renderLeads(window._leads);
     updatePipeline(window._leads);
   }
@@ -666,6 +676,152 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .mm-overlay{display:none;position:fixed;inset:0;z-index:1998;background:rgba(0,0,0,.5);}
 .map-toggle-btn{display:none;}
 
+/* ── MAP FLOATING TOOLBAR ── */
+.map-fab-bar{
+  position:absolute;
+  bottom:18px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:900;
+  display:flex;
+  gap:6px;
+  background:rgba(10,12,15,.92);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:40px;
+  padding:7px 10px;
+  box-shadow:0 4px 24px rgba(0,0,0,.6);
+  white-space:nowrap;
+}
+.map-fab{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  background:transparent;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:24px;
+  padding:6px 12px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--t);
+  cursor:pointer;
+  transition:all .15s;
+  white-space:nowrap;
+}
+.map-fab:hover{background:var(--og);border-color:var(--orange);color:var(--orange);}
+.map-fab.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+.map-fab-icon{font-size:13px;}
+/* divider between fab groups */
+.map-fab-div{width:1px;background:rgba(255,255,255,.1);align-self:stretch;margin:0 2px;}
+
+/* ── PIN STATS OVERLAY ── */
+.pin-stats-overlay{
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:900;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.pin-stat-pill{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:rgba(10,12,15,.88);
+  backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:20px;
+  padding:4px 10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:var(--t);
+}
+.pin-stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* ── SPYGLASS SEARCH PANEL ── */
+.map-spyglass-panel{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:900;
+  background:rgba(10,12,15,.92);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:30px;
+  padding:6px 8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:280px;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+  transition:all .2s;
+}
+.map-spyglass-input{
+  flex:1;
+  background:transparent;
+  border:none;
+  outline:none;
+  color:var(--t);
+  font-family:'Barlow',sans-serif;
+  font-size:13px;
+  padding:2px 4px;
+}
+.map-spyglass-input::placeholder{color:var(--m);}
+.map-spyglass-btn{
+  background:var(--orange);
+  border:none;
+  border-radius:20px;
+  padding:5px 12px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.06em;
+  color:#fff;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .15s;
+}
+.map-spyglass-btn:hover{background:var(--ob);}
+.map-spyglass-loc-btn{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;
+  width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;flex-shrink:0;
+  transition:all .15s;
+}
+.map-spyglass-loc-btn:hover{background:var(--og);border-color:var(--orange);}
+
+/* ── TERRITORY ZONES ── */
+.zone-panel{
+  background:var(--s2);border:1px solid var(--br);border-radius:8px;
+  padding:10px;margin-bottom:8px;display:none;
+}
+.zone-panel.visible{display:block;}
+.zone-name-input{
+  width:100%;background:var(--s3);border:1px solid var(--br);border-radius:5px;
+  color:var(--t);font-size:11px;padding:6px 9px;box-sizing:border-box;margin-bottom:6px;
+}
+.zone-name-input:focus{outline:none;border-color:var(--orange);}
+.zone-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+.zone-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--s3);
+  border-radius:5px;font-size:11px;color:var(--t);}
+.zone-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.zone-del{margin-left:auto;background:none;border:none;color:var(--m);cursor:pointer;font-size:12px;padding:0 2px;}
+.zone-del:hover{color:var(--red);}
+
+/* ── LOCATION ACCURACY RING ── */
+@keyframes locPulse{0%{transform:scale(1);opacity:.8;}100%{transform:scale(1.8);opacity:0;}}
+.loc-pulse-ring{animation:locPulse 1.5s ease-out infinite;}
+
 
 
 /* ── ASK JOE AI CHAT ─────────────────────────── */
@@ -812,12 +968,57 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
   .k-empty{text-align:center;padding:20px 8px;font-size:11px;color:var(--m);border:1px dashed var(--br);border-radius:6px;}
-  .k-card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;cursor:grab;transition:box-shadow .15s,transform .1s;position:relative;color:var(--ink);}
-  .k-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateY(-1px);}
+  .k-card{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:9px;
+    padding:11px 12px 9px;
+    cursor:grab;
+    transition:box-shadow .15s,transform .1s;
+    position:relative;
+    color:#111;
+    border-left:3px solid transparent;
+  }
+  /* Stage-colored left border per card */
+  #kbody-New .k-card{border-left-color:#374151;}
+  #kbody-Inspected .k-card{border-left-color:#2d5a8e;}
+  #kbody-Estimate\ Sent .k-card{border-left-color:#D4A017;}
+  #kbody-Approved .k-card{border-left-color:#7c3aed;}
+  #kbody-In\ Progress .k-card{border-left-color:#16a34a;}
+  #kbody-Complete .k-card{border-left-color:#22C55E;}
+  #kbody-Lost .k-card{border-left-color:#6b7280;opacity:.75;}
+  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-2px);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}
-  .kc-name{font-weight:700;font-size:13px;margin-bottom:2px;color:var(--ink);line-height:1.2;}
-  .kc-addr{font-size:10px;color:#6b7280;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .kc-tags{display:flex!important;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+  /* Job value — big and prominent at top right */
+  .kc-val-badge{
+    position:absolute;top:10px;right:10px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:15px;font-weight:800;
+    color:#C8541A;
+    letter-spacing:.02em;
+  }
+  .kc-name{font-weight:800;font-size:13px;margin-bottom:1px;color:#111;line-height:1.2;padding-right:60px;}
+  .kc-addr{font-size:10px;color:#6b7280;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Phone tap-to-call */
+  .kc-phone-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;}
+  .kc-phone-link{font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;display:flex;align-items:center;gap:3px;}
+  .kc-phone-link:hover{color:#1d4ed8;}
+  .kc-email-line{font-size:10px;color:#6b7280;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Carrier + claim row */
+  .kc-ins-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;}
+  .kc-carrier{font-size:10px;font-weight:700;color:#555;background:#f3f4f6;border-radius:4px;padding:2px 7px;}
+  .kc-claim-num{font-size:9px;color:#888;font-family:'DM Mono','Courier New',monospace;}
+  /* Days since contact */
+  .kc-days{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:3px;display:inline-flex;align-items:center;gap:3px;}
+  .kc-days-fresh{background:#d1fae5;color:#065f46;}
+  .kc-days-warm{background:#fef3c7;color:#92400e;}
+  .kc-days-cold{background:#fee2e2;color:#991b1b;}
+  /* Photo thumbnail strip */
+  .kc-photos{display:flex;gap:3px;margin-bottom:5px;}
+  .kc-photo-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;border:1px solid #e5e7eb;cursor:pointer;}
+  .kc-photo-more{width:32px;height:32px;border-radius:4px;background:#f3f4f6;border:1px solid #e5e7eb;
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#6b7280;cursor:pointer;}
+  .kc-tags{display:flex!important;gap:3px;flex-wrap:wrap;margin-bottom:5px;}
   .kc-tag{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
   .kct-dmg{background:rgba(74,158,255,.15);color:#4A9EFF;}
   .kct-claim{background:rgba(34,197,94,.15);color:#16a34a;}
@@ -981,6 +1182,26 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           </div>
         </div>
 
+        <!-- TERRITORY ZONES -->
+        <div class="slabel2">Territory Zones</div>
+        <div class="zone-panel" id="zonePanel">
+          <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
+            <div onclick="selectZoneColor('#4A9EFF',this)" style="width:18px;height:18px;border-radius:50%;background:#4A9EFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('#2ECC8A',this)" style="width:18px;height:18px;border-radius:50%;background:#2ECC8A;cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('#C8541A',this)" style="width:18px;height:18px;border-radius:50%;background:#C8541A;cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('#9B6DFF',this)" style="width:18px;height:18px;border-radius:50%;background:#9B6DFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('#EAB308',this)" style="width:18px;height:18px;border-radius:50%;background:#EAB308;cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('#E05252',this)" style="width:18px;height:18px;border-radius:50%;background:#E05252;cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" onclick="saveZone()">💾 Save Zone</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" onclick="cancelZoneDraw()">✕</button>
+          </div>
+        </div>
+        <div class="zone-list" id="zoneList"></div>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px;font-size:11px;" onclick="startZoneDraw()">🗺 Draw New Zone</button>
+
         <!-- DROP A PIN -->
         <div class="slabel2">Drop a Pin</div>
         <div class="addr-pin-row">
@@ -1004,9 +1225,45 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="clearAllPins()">🗑 Clear All Pins</button>
       </div>
-      <div class="map-area">
+      <div class="map-area" style="position:relative;">
         <div id="mainMap"></div>
+
+        <!-- Spyglass search bar — top center -->
+        <div class="map-spyglass-panel" id="mapSpyglassPanel">
+          <span style="font-size:14px;flex-shrink:0;">🔍</span>
+          <div class="ac-wrap" style="flex:1;position:relative;">
+            <input class="map-spyglass-input" id="spyglassInput" type="text"
+              placeholder="Search any address..." autocomplete="off"
+              onkeydown="if(event.key==='Enter'){hideAcDrop('spyglassInput');spyglassSearch();}">
+            <div class="ac-drop" id="ac-spyglassInput" style="display:none;top:calc(100% + 8px);"></div>
+          </div>
+          <button class="map-spyglass-loc-btn" onclick="spyglassGoToLocation()" title="Go to my location">📍</button>
+          <button class="map-spyglass-btn" onclick="spyglassSearch()">Go</button>
+        </div>
+
+        <!-- Pin stats — top left -->
+        <div class="pin-stats-overlay" id="pinStatsOverlay"></div>
+
+        <!-- Status badge — top right -->
         <div class="map-badge" id="mapBadge">📍 NOT HOME MODE</div>
+
+        <!-- Floating action bar — bottom center -->
+        <div class="map-fab-bar">
+          <button class="map-fab" onclick="spyglassGoToLocation()" title="My Location">
+            <span class="map-fab-icon">📍</span><span>My Location</span>
+          </button>
+          <div class="map-fab-div"></div>
+          <button class="map-fab" id="fab-heat"   onclick="fabToggle('heat',this)"   title="Heat Map">🔥 Heat</button>
+          <button class="map-fab" id="fab-pins"   onclick="fabToggle('pins',this)"   title="All Pins">📌 Pins</button>
+          <button class="map-fab active" id="fab-pins-on" style="display:none;"></button>
+          <button class="map-fab" id="fab-jobs"   onclick="fabToggle('jobs',this)"   title="Jobs">💰 Jobs</button>
+          <button class="map-fab" id="fab-storm"  onclick="fabToggle('storm',this)"  title="Storm Radar">⛈ Storm</button>
+          <button class="map-fab" id="fab-weather" onclick="fabToggle('weather',this)" title="Live Weather">🌧 Weather</button>
+          <div class="map-fab-div"></div>
+          <button class="map-fab" id="fab-zone" onclick="startZoneDraw()" title="Draw Territory">🗺 Zone</button>
+          <button class="map-fab" onclick="quickStormCheck()" title="Storm check at my location">⚡ Storm Here</button>
+        </div>
+
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
       </div>
     </div>
@@ -1982,7 +2239,13 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
       <div class="settings-section">
         <div class="settings-title">Danger Zone</div>
-        <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
+          <button class="btn btn-ghost" onclick="loadSampleData()" style="justify-content:flex-start;gap:8px;">
+            🧪 Load Sample Data
+            <span style="font-size:10px;color:var(--m);margin-left:auto;">Adds 13 demo leads to your account</span>
+          </button>
+          <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2180,7 +2443,7 @@ function initMainMap() {
   mainMap.on('click', e => openPinConfirm(e.latlng.lat, e.latlng.lng));
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
   // Build heat + jobs layers from existing data
-  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); }, 400);
+  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); }, 400);
 }
 
 // ── OVERLAY TOGGLE ──────────────────────────────
@@ -2300,6 +2563,7 @@ async function commitPin() {
   refreshHeatLayer();
   pendingPin = null;
   showToast('Pin saved ✓');
+  if(typeof updatePinStats === 'function') updatePinStats();
 }
 
 // ── DROP PIN BY ADDRESS ──────────────────────────
@@ -3706,7 +3970,7 @@ function exportEstimate() {
   position:relative;
   color:var(--ink);
 }
-.k-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateY(-1px);}
+.k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-2px);}
 .k-card.dragging{opacity:.45;cursor:grabbing;}
 .k-card.drag-placeholder{
   border:2px dashed var(--orange);
@@ -4008,28 +4272,81 @@ function buildCard(l){
   else if(totalT && doneT===totalT) taskBadgeClass += ' all-done';
   else if(totalT) taskBadgeClass += ' has-tasks';
 
-  return `<div class="k-card" draggable="true" data-id="${l.id}">
+  // Days since last contact / created
+  let daysLabel = '', daysClass = 'kc-days-fresh';
+  if(!['Complete','Lost'].includes(l.stage||'')) {
+    let ref = null;
+    if(l.updatedAt?.toDate) ref = l.updatedAt.toDate();
+    else if(l.createdAt?.toDate) ref = l.createdAt.toDate();
+    else if(l.createdAt instanceof Date) ref = l.createdAt;
+    if(ref) {
+      const days = Math.floor((today - ref) / 86400000);
+      if(days === 0)      { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; }
+      else if(days === 1) { daysLabel = '1d ago';       daysClass = 'kc-days-fresh'; }
+      else if(days <= 5)  { daysLabel = `${days}d ago`; daysClass = 'kc-days-warm'; }
+      else                { daysLabel = `${days}d ago`; daysClass = 'kc-days-cold'; }
+    }
+  }
+
+  // Photo thumbnails (from cache)
+  const photos = window._photoCache?.[l.id] || [];
+  const photoHTML = photos.length ? `<div class="kc-photos">
+    ${photos.slice(0,3).map(p=>`<img class="kc-photo-thumb" src="${p.url}" onclick="openPhotoFor('${l.id}','${(l.address||'').replace(/'/g,'&#39;')}')" loading="lazy">`).join('')}
+    ${photos.length > 3 ? `<div class="kc-photo-more" onclick="openPhotoFor('${l.id}','${(l.address||'').replace(/'/g,'&#39;')}')">+${photos.length-3}</div>` : ''}
+  </div>` : '';
+
+  // Roof age
+  const roofBadge = (()=>{
+    if(!l.yearBuilt) return '';
+    const age = new Date().getFullYear() - parseInt(l.yearBuilt);
+    const cls = age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient';
+    return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr</span>`;
+  })();
+
+  const phone = l.phone||'';
+  const email = l.email||'';
+  const carrier = l.insCarrier||l.insuranceCarrier||'';
+  const claimNum = l.claimNumber||l.claimNum||'';
+  const claimStatus = l.claimStatus||'';
+
+  return `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
+    ${val ? `<div class="kc-val-badge">${val}</div>` : ''}
     <div class="kc-name">${name}</div>
     ${addr ? `<div class="kc-addr" title="${l.address||''}">${addr}</div>` : ''}
+    ${phone ? `<div class="kc-phone-row">
+      <a class="kc-phone-link" href="tel:${phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 ${phone}</a>
+      ${daysLabel ? `<span class="kc-days ${daysClass}" style="margin-left:auto;">${daysLabel}</span>` : ''}
+    </div>` : (daysLabel ? `<div style="text-align:right;margin-bottom:4px;"><span class="kc-days ${daysClass}">${daysLabel}</span></div>` : '')}
+    ${email ? `<div class="kc-email-line" title="${email}">✉ ${email}</div>` : ''}
+    ${carrier || claimStatus !== 'No Claim' ? `<div class="kc-ins-row">
+      ${carrier ? `<span class="kc-carrier">${carrier}</span>` : ''}
+      ${claimStatus && claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${claimStatus}</span>` : ''}
+      ${claimNum ? `<span class="kc-claim-num">#${claimNum}</span>` : ''}
+    </div>` : ''}
+    ${photoHTML}
     <div class="kc-tags">
       ${l.damageType ? `<span class="kc-tag kct-dmg">${l.damageType}</span>` : ''}
-      ${val          ? `<span class="kc-tag kct-val">${val}</span>` : ''}
-      ${overdue      ? `<span class="kc-tag kct-due">⚠ Follow-up</span>` : ''}
-      ${l.claimStatus && l.claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${l.claimStatus}</span>` : ''}
-      ${(()=>{ if(!l.yearBuilt) return ''; const age=new Date().getFullYear()-parseInt(l.yearBuilt); const cls=age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient'; return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr roof</span>`; })()}
+      ${overdue      ? `<span class="kc-tag kct-due">⚠ Due</span>` : ''}
+      ${roofBadge}
     </div>
     <div class="kc-footer">
       <button class="${taskBadgeClass}" onclick="openTaskModal('${l.id}',event)">${taskBadgeLabel}</button>
       <div class="kc-actions">
         <div class="kc-move">
-          ${prevS ? `<button class="kc-arrow" title="← ${prevS}" onclick="moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
-          ${nextS ? `<button class="kc-arrow" title="→ ${nextS}" onclick="moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
+          ${prevS ? `<button class="kc-arrow" title="← ${prevS}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
+          ${nextS ? `<button class="kc-arrow" title="→ ${nextS}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
-        <button class="kc-btn edit" onclick="editLead('${l.id}')">✏️</button>
-        <button class="kc-btn del"  onclick="deleteLead('${l.id}')">🗑</button>
+        <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')">✏️</button>
+        <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')">🗑</button>
       </div>
     </div>
   </div>`;
+}
+
+function handleCardClick(id, event) {
+  // If clicking a button/link inside card, don't open edit
+  if(event.target.closest('button,a')) return;
+  editLead(id);
 }
 
 // Drag & drop
@@ -5306,6 +5623,279 @@ function closeMobileMore() {
   document.getElementById('mm-overlay')?.classList.remove('open');
   document.getElementById('mni-more')?.classList.remove('active');
 }
+// ══════════════════════════════════════════════
+// MAP ENHANCEMENTS — spyglass, fab bar, zones, stats
+// ══════════════════════════════════════════════
+
+// ── Spyglass search ──────────────────────────
+async function spyglassSearch() {
+  const q = document.getElementById('spyglassInput')?.value?.trim();
+  if(!q) return;
+  hideAcDrop('spyglassInput');
+  const data = await geocode(q);
+  if(!data) return;
+  if(mainMap) mainMap.setView([parseFloat(data.lat), parseFloat(data.lon)], 18);
+  // Also show property card
+  window._lastMapSearch = data;
+  document.getElementById('propCard').style.display = 'block';
+  document.getElementById('propCardInner').innerHTML = `
+    <div class="pi-card">
+      <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
+      <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+    </div>
+    <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+  fetchPropertyIntel(data, 'propCardInner');
+  // Show sidebar if hidden
+  const sidebar = document.getElementById('map-sidebar-map');
+  if(sidebar && !sidebar.classList.contains('open') && window.innerWidth <= 768) {
+    sidebar.classList.add('open');
+  }
+}
+
+function spyglassGoToLocation() {
+  showToast('Getting your location...');
+  if(!navigator.geolocation) { showToast('Location unavailable','error'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      if(!mainMap) return;
+      mainMap.setView([lat, lng], 17);
+      // Accuracy ring
+      if(window._locMarker) mainMap.removeLayer(window._locMarker);
+      if(window._locRing) mainMap.removeLayer(window._locRing);
+      window._locMarker = L.circleMarker([lat,lng], {
+        radius:8, color:'#fff', fillColor:'#4A9EFF', fillOpacity:1, weight:2
+      }).addTo(mainMap);
+      window._locRing = L.circleMarker([lat,lng], {
+        radius:20, color:'#4A9EFF', fillColor:'transparent', weight:2, opacity:.5, className:'loc-pulse-ring'
+      }).addTo(mainMap);
+      showToast('Located ✓');
+    },
+    () => showToast('Location access denied','error'),
+    {enableHighAccuracy:true, timeout:8000}
+  );
+}
+
+// ── FAB bar toggles (sync with sidebar toggles) ──
+function fabToggle(type, el) {
+  const tog = document.getElementById('tog-'+type);
+  if(tog) {
+    toggleOverlay(type, tog);
+    el.classList.toggle('active', tog.classList.contains('on'));
+  }
+}
+
+// Sync fab active states when overlay toggles happen from sidebar
+const _origToggleOverlay = window.toggleOverlay;
+window.toggleOverlay = function(type, el) {
+  if(_origToggleOverlay) _origToggleOverlay(type, el);
+  const fab = document.getElementById('fab-'+type);
+  if(fab) fab.classList.toggle('active', el?.classList?.contains('on'));
+};
+
+// ── Quick storm check at current location ──
+async function quickStormCheck() {
+  showToast('Getting location for storm check...');
+  if(!navigator.geolocation) { showToast('Location unavailable','error'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      if(mainMap) mainMap.setView([lat, lng], 13);
+      // Turn on storm overlay
+      const tog = document.getElementById('tog-storm');
+      if(tog && !tog.classList.contains('on')) {
+        toggleOverlay('storm', tog);
+      }
+      const fab = document.getElementById('fab-storm');
+      if(fab) fab.classList.add('active');
+      showToast('Storm radar active at your location');
+    },
+    () => showToast('Location access denied','error')
+  );
+}
+
+// ── Pin stats overlay ────────────────────────
+function updatePinStats() {
+  const el = document.getElementById('pinStatsOverlay');
+  if(!el || !window._pins) return;
+  const pins = window._pins;
+  if(!pins.length) { el.innerHTML=''; return; }
+  const counts = {};
+  pins.forEach(p => { counts[p.status] = (counts[p.status]||0) + 1; });
+  const total = pins.length;
+  const signed = counts['signed']||0;
+  const interested = counts['interested']||0;
+  const notHome = counts['not-home']||0;
+
+  el.innerHTML = `
+    <div class="pin-stat-pill">
+      <span style="font-weight:700;color:var(--t);">${total}</span>
+      <span style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Doors</span>
+    </div>
+    ${signed ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#D4A017;"></div><span style="color:#D4A017;font-weight:700;">${signed} Signed</span></div>` : ''}
+    ${interested ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#2ECC8A;"></div><span style="color:#2ECC8A;font-weight:700;">${interested} Interested</span></div>` : ''}
+    ${notHome ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#9CA3AF;"></div><span style="color:var(--m);">${notHome} Not Home</span></div>` : ''}`;
+}
+
+// ── Territory Zones ──────────────────────────
+let zones = []; // {id, name, color, points, layer}
+let zoneDrawing = false;
+let zonePoints = [];
+let zoneDots = [];
+let zoneTempPoly = null;
+let zoneColor = '#4A9EFF';
+let zoneDrawLayer = null;
+
+function selectZoneColor(color, el) {
+  zoneColor = color;
+  document.querySelectorAll('#zoneColorPicker > div').forEach(d => d.style.borderColor = 'transparent');
+  el.style.borderColor = '#fff';
+}
+
+function startZoneDraw() {
+  if(!mainMap) { showToast('Open the map first','error'); return; }
+  zoneDrawing = true;
+  zonePoints = [];
+  zoneDots = [];
+  document.getElementById('zonePanel').classList.add('visible');
+  showToast('Click map to draw zone boundary. Click Save when done.');
+  mainMap.getContainer().style.cursor = 'crosshair';
+
+  // Attach zone click handler
+  mainMap._zoneClick = (e) => {
+    if(!zoneDrawing) return;
+    zonePoints.push(e.latlng);
+    const dot = L.circleMarker(e.latlng, {radius:5, color:'#fff', fillColor:zoneColor, fillOpacity:1, weight:2}).addTo(mainMap);
+    zoneDots.push(dot);
+    if(zoneTempPoly) mainMap.removeLayer(zoneTempPoly);
+    if(zonePoints.length >= 3) {
+      zoneTempPoly = L.polygon(zonePoints, {
+        color: zoneColor, weight:2, fillColor:zoneColor, fillOpacity:.12, dashArray:'6,4'
+      }).addTo(mainMap);
+    }
+  };
+  mainMap.on('click', mainMap._zoneClick);
+}
+
+function cancelZoneDraw() {
+  zoneDrawing = false;
+  if(mainMap) {
+    mainMap.off('click', mainMap._zoneClick);
+    mainMap.getContainer().style.cursor = '';
+  }
+  zonePoints = [];
+  zoneDots.forEach(d => mainMap?.removeLayer(d));
+  zoneDots = [];
+  if(zoneTempPoly) { mainMap?.removeLayer(zoneTempPoly); zoneTempPoly = null; }
+  document.getElementById('zonePanel').classList.remove('visible');
+}
+
+function saveZone() {
+  if(zonePoints.length < 3) { showToast('Draw at least 3 points to define a zone','error'); return; }
+  const name = document.getElementById('zoneNameInput')?.value?.trim() || 'Zone ' + (zones.length+1);
+  mainMap.off('click', mainMap._zoneClick);
+  mainMap.getContainer().style.cursor = '';
+  zoneDrawing = false;
+  // Remove temp dots
+  zoneDots.forEach(d => mainMap.removeLayer(d));
+  if(zoneTempPoly) mainMap.removeLayer(zoneTempPoly);
+
+  const layer = L.polygon(zonePoints, {
+    color: zoneColor, weight:2.5, fillColor: zoneColor, fillOpacity:.1
+  }).addTo(mainMap);
+  layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${name}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+
+  const id = Date.now();
+  zones.push({id, name, color:zoneColor, points:[...zonePoints], layer});
+  zonePoints = []; zoneDots = [];
+  document.getElementById('zonePanel').classList.remove('visible');
+  if(document.getElementById('zoneNameInput')) document.getElementById('zoneNameInput').value = '';
+  renderZoneList();
+  showToast(`Zone "${name}" saved ✓`);
+}
+
+function deleteZone(id) {
+  const idx = zones.findIndex(z => z.id === id);
+  if(idx < 0) return;
+  if(zones[idx].layer) mainMap?.removeLayer(zones[idx].layer);
+  zones.splice(idx, 1);
+  renderZoneList();
+}
+
+function renderZoneList() {
+  const el = document.getElementById('zoneList');
+  if(!el) return;
+  if(!zones.length) { el.innerHTML=''; return; }
+  el.innerHTML = zones.map(z => `
+    <div class="zone-item">
+      <div class="zone-dot" style="background:${z.color};"></div>
+      <span>${z.name}</span>
+      <button class="zone-del" onclick="deleteZone(${z.id})">✕</button>
+    </div>`).join('');
+}
+
+// ── Load Sample Data (any account) ──────────────────────────
+async function loadSampleData() {
+  const leads = window._leads || [];
+  if(leads.length > 0) {
+    if(!confirm(`You already have ${leads.length} leads. Add sample data anyway?`)) return;
+  }
+  showToast('Loading sample data...');
+  const user = window._user;
+  if(!user) { showToast('Not logged in','error'); return; }
+  try {
+    await seedDemoLeads(user.uid);
+    await window._loadLeads();
+    showToast('Sample data loaded ✓ — check your CRM');
+    goTo('crm');
+  } catch(e) {
+    showToast('Error loading sample data: ' + e.message, 'error');
+  }
+}
+
+// ── Override damagNearMe to use enhanced location ──────────────
+window.damagNearMe = function() { spyglassGoToLocation(); };
+
+// ── Auto-setup spyglass autocomplete ──────────────────────────
+(function() {
+  // Wait for initAllAutocomplete to run, then add spyglass
+  const _origInit = window.initAllAutocomplete;
+  window.initAllAutocomplete = function() {
+    if(_origInit) _origInit();
+    if(!window._acCallbacks) window._acCallbacks = {};
+    window._acCallbacks['spyglassInput'] = (r, label) => {
+      window._lastMapSearch = r;
+      if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 18);
+      document.getElementById('propCard').style.display = 'block';
+      document.getElementById('propCardInner').innerHTML = `
+        <div class="pi-card">
+          <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
+          <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+        </div>
+        <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+      fetchPropertyIntel(r, 'propCardInner');
+    };
+    if(typeof initAddressAutocomplete === 'function') {
+      initAddressAutocomplete('spyglassInput');
+    }
+  };
+})();
+
+// ── Hook pin stats refresh into dropPin and deletePin ──────────
+const _origDropPin = window.dropPin || null;
+const _origDeletePin = window.deletePin || null;
+
+// Refresh stats after map init
+const _origInitMainMap = window.initMainMap;
+
+// ── Zone tooltip CSS ─────────────────────────────────────────
+(function injectZoneCSS(){
+  const s = document.createElement('style');
+  s.textContent = `.zone-tooltip{background:rgba(10,12,15,.85)!important;border:1px solid rgba(255,255,255,.1)!important;color:var(--t)!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
+  .zone-tooltip::before{display:none!important;}`;
+  document.head.appendChild(s);
+})();
+
 // Expose ALL functions to global scope for inline onclick handlers
 // (required because type="module" script above affects global scope in some browsers)
 window.mobileNav = mobileNav;
@@ -5340,9 +5930,21 @@ window.searchMap = searchMap;
 window.selectPin = selectPin;
 window.deletePin = deletePin;
 window.clearAllPins = clearAllPins;
-window.damagNearMe = damagNearMe;
+window.damagNearMe = spyglassGoToLocation;
 window.damageNearMePhotos = damageNearMePhotos;
 window.toggleMapSidebar = toggleMapSidebar;
+window.spyglassSearch = spyglassSearch;
+window.spyglassGoToLocation = spyglassGoToLocation;
+window.fabToggle = fabToggle;
+window.quickStormCheck = quickStormCheck;
+window.updatePinStats = updatePinStats;
+window.startZoneDraw = startZoneDraw;
+window.cancelZoneDraw = cancelZoneDraw;
+window.saveZone = saveZone;
+window.deleteZone = deleteZone;
+window.selectZoneColor = selectZoneColor;
+window.loadSampleData = loadSampleData;
+window.handleCardClick = handleCardClick;
 // Map Overlay System
 window.toggleOverlay = toggleOverlay;
 // Delete confirm
