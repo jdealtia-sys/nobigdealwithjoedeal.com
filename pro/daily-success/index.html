@@ -542,8 +542,14 @@ canvas{max-width:100%;display:block;}
   </div>
   <div class="tbr">
     <button class="btn-ico" onclick="toggleSearch()" title="Search (Ctrl+F)">🔍</button>
-    <button class="btn-ico" id="themeBtn" onclick="toggleTheme()">🌙</button>
-    <button class="btn-ico" onclick="openOnboard()" title="Customize Your OS">⚙️</button>
+    <div style="position:relative;">
+      <button class="btn-ico" id="themeBtn" onclick="toggleThemeMenu()" title="Change Theme">🎨</button>
+      <div id="theme-menu" style="display:none;position:absolute;top:36px;right:0;z-index:500;background:var(--sbg,#151e2b);border:1.5px solid var(--ac);border-radius:6px;padding:10px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ac);margin-bottom:8px;">Theme</div>
+        <div id="topbar-theme-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;"></div>
+      </div>
+    </div>
+    <button class="btn-ico" onclick="openOnboard()" title="Customize Your Daily OS">⚙️</button>
     <button class="btn-ico" onclick="openWelcomeGuide()" title="Welcome Guide &amp; Install">📖</button>
     <button class="btn btn-ghost" onclick="smartNewPage()">+ NEW</button>
     <button class="btn btn-ghost" onclick="openRename()">RENAME</button>
@@ -797,8 +803,39 @@ let pages=[],cur=0,dirty=false,searchOpen=false,charts=[];
 let exCount=0,objCount=0,commCount=0;
 let obStep=1,obFloors=[];
 
-function toggleTheme(){const h=document.documentElement,n=h.dataset.theme==='dark'?'light':'dark';h.dataset.theme=n;localStorage.setItem('nbd_theme',n);document.getElementById('themeBtn').textContent=n==='dark'?'🌙':'☀️';}
-function initTheme(){const s=localStorage.getItem('nbd_theme')||'dark';document.documentElement.dataset.theme=s;document.getElementById('themeBtn').textContent=s==='dark'?'🌙':'☀️';}
+function toggleTheme(){} // legacy stub — no-op
+function initTheme(){} // handled by dsApplyTheme boot block below
+
+function buildTopbarThemeGrid(){
+  const grid=document.getElementById('topbar-theme-grid');
+  if(!grid)return;
+  const cur=document.documentElement.getAttribute('data-theme')||DS_DEFAULT;
+  grid.innerHTML=DS_THEMES.map(key=>{
+    const label=DS_THEME_LABELS[key]||key;
+    const dot=DS_THEME_DOTS[key]||'#888';
+    const active=key===cur;
+    return `<div onclick="dsApplyTheme('${key}');buildTopbarThemeGrid();buildWelcomeThemePicker();" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 4px;border-radius:5px;border:2px solid ${active?'var(--ac)':'rgba(255,255,255,.1)'};background:${active?'rgba(249,115,22,.1)':'rgba(255,255,255,.03)'};transition:all .15s;">
+      <span style="width:14px;height:14px;border-radius:50%;background:${dot};display:block;flex-shrink:0;"></span>
+      <span style="font-size:.55rem;color:rgba(255,255,255,.7);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:54px;text-align:center;">${label}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleThemeMenu(){
+  const menu=document.getElementById('theme-menu');
+  if(!menu)return;
+  const open=menu.style.display==='block';
+  menu.style.display=open?'none':'block';
+  if(!open)buildTopbarThemeGrid();
+}
+
+document.addEventListener('click',function(e){
+  const btn=document.getElementById('themeBtn');
+  const menu=document.getElementById('theme-menu');
+  if(menu&&btn&&!btn.contains(e.target)&&!menu.contains(e.target)){
+    menu.style.display='none';
+  }
+});
 
 function todayKey(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dk2d(dk){const[y,m,d]=dk.split('-');return new Date(+y,+m-1,+d);}
