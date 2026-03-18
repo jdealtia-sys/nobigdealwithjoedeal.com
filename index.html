@@ -40,7 +40,10 @@ body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(-
 
 /* ── NAV ── */
 nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px}
-.nav-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.nav-logo-badge{background:var(--orange);color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
+.nav-logo-text .brand{font-size:1rem;font-weight:800;color:white;}
+.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:500;}
 .logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px}
 .logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
 .logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
@@ -311,28 +314,28 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 }
 
 /* ── HOMEPAGE SIDEBAR ───────────────────────────── */
-.home-sidebar{display:flex;flex-direction:column;gap:20px;}
-.hs-card{background:var(--off-white);border-radius:14px;padding:24px;border:1px solid var(--light-gray);}
-.hs-card h3{font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--navy);margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--orange);}
-.hs-links{list-style:none;display:flex;flex-direction:column;gap:8px;}
-.hs-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;text-decoration:none;padding:3px 0;}
+.home-sidebar{display:flex;flex-direction:column;gap:16px;}
+.hs-card{background:rgba(255,255,255,.06);border-radius:14px;padding:22px;border:1px solid rgba(255,255,255,.1);}
+.hs-card h3{font-family:'Bebas Neue',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:white;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--orange);}
+.hs-links{list-style:none;display:flex;flex-direction:column;gap:6px;}
+.hs-links li a{font-size:.83rem;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:8px;transition:color .2s;text-decoration:none;padding:4px 0;}
 .hs-links li a:hover{color:var(--orange);}
 .hs-links li a::before{content:'→';color:var(--orange);font-weight:700;flex-shrink:0;}
-.hs-cta{background:var(--navy-dark);border-radius:14px;padding:24px;text-align:center;border:2px solid rgba(232,114,12,.3);}
+.hs-cta{background:var(--orange);border-radius:14px;padding:24px;text-align:center;}
 .hs-cta h3{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;margin-bottom:8px;letter-spacing:.03em;}
-.hs-cta p{font-size:.82rem;color:rgba(255,255,255,.72);line-height:1.6;margin-bottom:16px;}
-.hs-cta a.hs-btn{display:block;background:var(--orange);color:white;padding:12px 16px;border-radius:8px;font-weight:800;font-size:.85rem;text-decoration:none;margin-bottom:8px;transition:background .2s;}
-.hs-cta a.hs-btn:hover{background:var(--orange-dark);}
-.hs-cta a.hs-phone{display:block;color:rgba(255,255,255,.7);font-size:.82rem;text-decoration:none;padding:8px;border:1px solid rgba(255,255,255,.15);border-radius:8px;transition:all .2s;}
-.hs-cta a.hs-phone:hover{color:white;border-color:rgba(232,114,12,.5);}
+.hs-cta p{font-size:.82rem;color:rgba(255,255,255,.88);line-height:1.6;margin-bottom:16px;}
+.hs-cta a.hs-btn{display:block;background:white;color:var(--orange);padding:12px 16px;border-radius:8px;font-weight:800;font-size:.85rem;text-decoration:none;margin-bottom:8px;transition:all .2s;}
+.hs-cta a.hs-btn:hover{background:var(--off-white);}
+.hs-cta a.hs-phone{display:block;color:rgba(255,255,255,.88);font-size:.82rem;text-decoration:none;padding:8px;border:1px solid rgba(255,255,255,.4);border-radius:8px;transition:all .2s;}
+.hs-cta a.hs-phone:hover{background:rgba(255,255,255,.1);}
 .hs-trust{display:flex;flex-direction:column;gap:8px;}
-.hs-trust-item{display:flex;align-items:center;gap:10px;font-size:.83rem;color:var(--gray-sub);}
+.hs-trust-item{display:flex;align-items:center;gap:10px;font-size:.82rem;color:rgba(255,255,255,.7);}
 .hs-trust-item span.icon{font-size:1rem;flex-shrink:0;}
-.hs-trust-item strong{color:var(--navy);}
-.hs-blog-item{padding:8px 0;border-bottom:1px solid var(--light-gray);}
+.hs-trust-item strong{color:white;}
+.hs-blog-item{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);}
 .hs-blog-item:last-child{border-bottom:none;}
 .hs-blog-item .tag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:3px;}
-.hs-blog-item a{font-size:.83rem;font-weight:600;color:var(--navy);text-decoration:none;line-height:1.4;display:block;}
+.hs-blog-item a{font-size:.83rem;font-weight:600;color:rgba(255,255,255,.8);text-decoration:none;line-height:1.4;display:block;}
 .hs-blog-item a:hover{color:var(--orange);}
 </style>
 <script type="application/ld+json">
@@ -391,23 +394,10 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 <!-- NAV -->
 <nav id="mainNav">
   <a href="#" class="nav-logo">
-    <div class="logo-card">
-      <div class="logo-card-top">
-        <svg viewBox="0 0 60 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 34 L30 6 L56 34" stroke="#1e3a6e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <path d="M10 31 L10 38 L50 38 L50 31" stroke="#1e3a6e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <rect x="24" y="28" width="12" height="10" rx="2" fill="#e8720c"/>
-        </svg>
-        <div class="logo-card-name">
-          <span class="lw-nobig">NO BIG</span>
-          <span class="lw-deal">DEAL</span>
-        </div>
-        <div class="logo-card-sub">Home Solutions</div>
-      </div>
-      <div class="logo-card-divider"></div>
-      <div class="logo-card-bottom">
-        <span class="lw-script">No Big Deal with Joe Deal</span>
-      </div>
+    <div class="nav-logo-badge">NBD</div>
+    <div class="nav-logo-text">
+      <div class="brand">NO BIG DEAL</div>
+      <div class="sub">Home Solutions</div>
     </div>
   </a>
 
