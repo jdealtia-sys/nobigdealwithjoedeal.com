@@ -632,7 +632,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .stat-card{padding:12px;}
   .stat-val{font-size:20px;}
   .two-col{grid-template-columns:1fr;gap:10px;}
-  .map-view{flex-direction:column!important;}
+  .map-view{flex-direction:column!important;position:static!important;overflow:visible!important;}
   .map-sidebar{width:100%!important;max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0!important;border-right:none!important;border-top:1px solid var(--br);order:2;}
   .map-sidebar.open{max-height:340px;overflow-y:auto;padding:12px!important;}
   .map-area{order:1;height:55vw;min-height:220px;}
@@ -665,6 +665,130 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .mn-badge{position:absolute;top:3px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4;}
   #mobile-more-menu.open{display:block;}
   .mm-overlay.open{display:block;}
+
+  /* ══════════════════════════════════
+     MAP MOBILE OVERRIDES
+     ══════════════════════════════════ */
+
+  /* Taller map on mobile so there's room to breathe */
+  .map-area{height:64vw!important;min-height:240px!important;}
+
+  /* Spyglass: static below map on mobile */
+  .map-spyglass-panel{
+    position:static!important;
+    transform:none!important;
+    top:auto!important; left:auto!important;
+    min-width:0!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+    box-shadow:none!important;
+    order:2!important;
+    background:rgba(10,12,15,.98)!important;
+    padding:8px 10px!important;
+    border-radius:0!important;
+    border:none!important;
+    border-bottom:1px solid var(--br)!important;
+  }
+
+  /* Map-view: column layout with order slots */
+  .map-view{ flex-direction:column!important; position:relative!important; }
+  #mainMapArea{ order:1!important; }
+  #map-sidebar-map{ order:3!important; }
+
+  /* Badge: icon-only on mobile, smaller */
+  .map-badge{
+    font-size:10px!important;
+    padding:4px 7px!important;
+    top:6px!important; right:6px!important;
+    max-width:120px!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+
+  /* Pin stats: compact pills, smaller text */
+  .pin-stats-overlay{
+    top:6px!important; left:6px!important;
+    flex-direction:row!important;
+    flex-wrap:wrap!important;
+    gap:3px!important;
+    max-width:calc(100% - 140px)!important;
+  }
+  .pin-stat-pill{
+    padding:3px 7px!important;
+    font-size:9px!important;
+    gap:4px!important;
+  }
+  .pin-stat-dot{ width:6px!important; height:6px!important; }
+
+  /* FAB bar: icon-only, compact, scrollable strip */
+  .map-fab-bar{
+    bottom:8px!important;
+    left:8px!important;
+    right:8px!important;
+    transform:none!important;
+    padding:5px 8px!important;
+    gap:4px!important;
+    overflow-x:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    scrollbar-width:none!important;
+    justify-content:flex-start!important;
+    border-radius:14px!important;
+  }
+  .map-fab-bar::-webkit-scrollbar{ display:none!important; }
+
+  /* FAB buttons: icon + very short label, smaller */
+  .map-fab{
+    padding:6px 9px!important;
+    font-size:9px!important;
+    gap:3px!important;
+    flex-shrink:0!important;
+    border-radius:20px!important;
+  }
+  /* Hide text on small FABs, show only emoji */
+  .map-fab span:not(.map-fab-icon){ display:none!important; }
+  .map-fab-icon{ font-size:14px!important; }
+  /* Show emoji only for the My Location fab */
+  .map-fab:first-child span:not(.map-fab-icon){ display:inline!important; font-size:9px!important; }
+  .map-fab-div{ display:none!important; }
+
+  /* ══════════════════════════════════
+     KANBAN MOBILE OVERRIDES
+     ══════════════════════════════════ */
+
+  /* Narrower columns on mobile so more fit */
+  .kanban-col{min-width:195px!important;max-width:195px!important;}
+  .kcol-body{max-height:calc(100vh - 280px)!important;}
+
+  /* Compact card on mobile */
+  .k-card{ padding:9px 10px 8px!important; }
+  .kc-name{ font-size:12px!important; padding-right:52px!important; }
+  .kc-val-badge{ font-size:13px!important; top:8px!important; right:8px!important; }
+  .kc-addr{ font-size:9px!important; margin-bottom:4px!important; }
+  .kc-phone-row{ margin-bottom:4px!important; }
+  .kc-phone-link{ font-size:10px!important; }
+  .kc-email-line{ display:none!important; } /* hide email on mobile — saves space */
+  .kc-ins-row{ margin-bottom:4px!important; }
+  .kc-carrier{ font-size:9px!important; padding:1px 5px!important; }
+  .kc-claim-num{ display:none!important; }
+  .kc-photos{ display:none!important; } /* hide photo thumbnails on mobile */
+  .kc-tags{ gap:2px!important; margin-bottom:4px!important; }
+  .kc-tag{ font-size:8px!important; padding:1px 5px!important; }
+  .kc-days{ font-size:8px!important; }
+  .kc-footer{ padding-top:5px!important; }
+
+  /* CRM header: stack properly on small screens */
+  .crm-header > div:last-child > input[type=text]{ min-width:0!important; width:auto!important; flex:1!important; }
+
+}
+
+/* ── Extra small phones (under 400px) ── */
+@media(max-width:400px){
+  .map-area{height:70vw!important;min-height:220px!important;}
+  .kanban-col{min-width:175px!important;max-width:175px!important;}
+  .map-fab{ padding:5px 7px!important; }
+  .map-badge{ font-size:9px!important; max-width:90px!important; }
+  .map-spyglass-input{ font-size:12px!important; }
 }
 
 /* Always hidden on desktop, shown via media query above */
@@ -1225,21 +1349,21 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="clearAllPins()">🗑 Clear All Pins</button>
       </div>
-      <div class="map-area" style="position:relative;">
-        <div id="mainMap"></div>
-
-        <!-- Spyglass search bar — top center -->
-        <div class="map-spyglass-panel" id="mapSpyglassPanel">
-          <span style="font-size:14px;flex-shrink:0;">🔍</span>
-          <div class="ac-wrap" style="flex:1;position:relative;">
-            <input class="map-spyglass-input" id="spyglassInput" type="text"
-              placeholder="Search any address..." autocomplete="off"
-              onkeydown="if(event.key==='Enter'){hideAcDrop('spyglassInput');spyglassSearch();}">
-            <div class="ac-drop" id="ac-spyglassInput" style="display:none;top:calc(100% + 8px);"></div>
-          </div>
-          <button class="map-spyglass-loc-btn" onclick="spyglassGoToLocation()" title="Go to my location">📍</button>
-          <button class="map-spyglass-btn" onclick="spyglassSearch()">Go</button>
+      <!-- Spyglass search bar: OUTSIDE map-area so it can reflow on mobile -->
+      <div class="map-spyglass-panel" id="mapSpyglassPanel" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;">
+        <span style="font-size:14px;flex-shrink:0;">🔍</span>
+        <div class="ac-wrap" style="flex:1;position:relative;">
+          <input class="map-spyglass-input" id="spyglassInput" type="text"
+            placeholder="Search any address..." autocomplete="off"
+            onkeydown="if(event.key==='Enter'){hideAcDrop('spyglassInput');spyglassSearch();}">
+          <div class="ac-drop" id="ac-spyglassInput" style="display:none;top:calc(100% + 8px);"></div>
         </div>
+        <button class="map-spyglass-loc-btn" onclick="spyglassGoToLocation()" title="Go to my location">📍</button>
+        <button class="map-spyglass-btn" onclick="spyglassSearch()">Go</button>
+      </div>
+
+      <div class="map-area" id="mainMapArea" style="position:relative;">
+        <div id="mainMap"></div>
 
         <!-- Pin stats — top left -->
         <div class="pin-stats-overlay" id="pinStatsOverlay"></div>
@@ -1253,15 +1377,14 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
             <span class="map-fab-icon">📍</span><span>My Location</span>
           </button>
           <div class="map-fab-div"></div>
-          <button class="map-fab" id="fab-heat"   onclick="fabToggle('heat',this)"   title="Heat Map">🔥 Heat</button>
-          <button class="map-fab" id="fab-pins"   onclick="fabToggle('pins',this)"   title="All Pins">📌 Pins</button>
-          <button class="map-fab active" id="fab-pins-on" style="display:none;"></button>
-          <button class="map-fab" id="fab-jobs"   onclick="fabToggle('jobs',this)"   title="Jobs">💰 Jobs</button>
-          <button class="map-fab" id="fab-storm"  onclick="fabToggle('storm',this)"  title="Storm Radar">⛈ Storm</button>
-          <button class="map-fab" id="fab-weather" onclick="fabToggle('weather',this)" title="Live Weather">🌧 Weather</button>
+          <button class="map-fab" id="fab-heat"    onclick="fabToggle('heat',this)"    title="Heat Map"><span class="map-fab-icon">🔥</span><span>Heat</span></button>
+          <button class="map-fab" id="fab-pins"    onclick="fabToggle('pins',this)"    title="All Pins"><span class="map-fab-icon">📌</span><span>Pins</span></button>
+          <button class="map-fab" id="fab-jobs"    onclick="fabToggle('jobs',this)"    title="Jobs"><span class="map-fab-icon">💰</span><span>Jobs</span></button>
+          <button class="map-fab" id="fab-storm"   onclick="fabToggle('storm',this)"   title="Storm Radar"><span class="map-fab-icon">⛈</span><span>Storm</span></button>
+          <button class="map-fab" id="fab-weather" onclick="fabToggle('weather',this)" title="Live Weather"><span class="map-fab-icon">🌧</span><span>Weather</span></button>
           <div class="map-fab-div"></div>
-          <button class="map-fab" id="fab-zone" onclick="startZoneDraw()" title="Draw Territory">🗺 Zone</button>
-          <button class="map-fab" onclick="quickStormCheck()" title="Storm check at my location">⚡ Storm Here</button>
+          <button class="map-fab" id="fab-zone" onclick="startZoneDraw()" title="Draw Territory"><span class="map-fab-icon">🗺</span><span>Zone</span></button>
+          <button class="map-fab" onclick="quickStormCheck()" title="Storm check at my location"><span class="map-fab-icon">⚡</span><span>Storm Here</span></button>
         </div>
 
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
