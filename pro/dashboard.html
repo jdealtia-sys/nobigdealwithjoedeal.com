@@ -384,6 +384,11 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .two-col{grid-template-columns:1fr;}
   .tier-grid{grid-template-columns:1fr;}
 }
+
+/* Force kanban board layout regardless of .view parent */
+.view#view-crm { overflow: hidden !important; }
+.view#view-crm > .kanban-board { display: flex !important; flex-direction: row !important; overflow-x: auto !important; }
+
 </style>
 </head>
 <body>
@@ -1654,7 +1659,7 @@ function exportEstimate() {
 
 /* Revenue strip */
 .crm-rev-strip{
-  display:flex;gap:0;padding:0 20px 12px;flex-shrink:0;
+  display:flex;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;
 }
 .rev-pill{
   display:flex;flex-direction:column;align-items:center;
@@ -1667,9 +1672,9 @@ function exportEstimate() {
 
 /* Board container — horizontal scroll, full remaining height */
 .kanban-board{
-  display:flex;gap:10px;
+  display:flex !important;gap:10px;
   padding:0 16px 16px;
-  overflow-x:auto;overflow-y:hidden;
+  overflow-x:auto !important;overflow-y:hidden !important;
   flex:1;min-height:0;
   scrollbar-width:thin;
   scrollbar-color:var(--br) transparent;
@@ -1790,12 +1795,14 @@ function exportEstimate() {
 }
 .kc-arrow:hover{color:var(--orange);}
 
-/* View: CRM needs flex column layout */
+/* View: CRM kanban layout */
 #view-crm{
-  display:none;flex-direction:column;
-  height:100%;overflow:hidden;
+  display:none !important;flex-direction:column !important;
+  height:100%;overflow:hidden !important;
+  padding:0 !important;
 }
-#view-crm.active{display:flex;}
+#view-crm.active{display:flex !important;}
+#view-crm .kanban-board{display:flex !important;}
 
 </style></head><body>
   <div class="hdr">
