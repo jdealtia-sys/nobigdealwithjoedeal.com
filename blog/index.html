@@ -441,7 +441,12 @@ function startCountdowns() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', renderPosts);
+// Script is at bottom of page — DOM already ready, call directly
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderPosts);
+} else {
+  renderPosts();
+}
 </script>
 
 </body>
