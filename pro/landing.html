@@ -375,6 +375,26 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
   .final-cta{padding:60px 20px}
   .fca-btns{flex-direction:column;align-items:stretch}
 }
+
+.pitch-section{background:var(--navy-dark,#142a52);padding:80px 5%;border-top:1px solid rgba(255,255,255,.06);}
+.pitch-inner{max-width:1080px;margin:0 auto;text-align:center;}
+.pitch-badge{display:inline-block;background:rgba(232,114,12,.15);border:1px solid rgba(232,114,12,.4);color:var(--orange,#e8720c);font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:16px;}
+.pitch-headline{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,4.5vw,3.8rem);color:#fff;line-height:1.05;margin-bottom:18px;}
+.pitch-headline span{color:var(--orange,#e8720c);}
+.pitch-sub{font-size:1.05rem;color:rgba(255,255,255,.7);max-width:680px;margin:0 auto 52px;line-height:1.7;}
+.pitch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:52px;}
+.pitch-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:28px 20px;text-align:left;transition:border-color .2s,transform .15s;}
+.pitch-card:hover{border-color:rgba(232,114,12,.4);transform:translateY(-2px);}
+.pitch-icon{font-size:2rem;margin-bottom:12px;}
+.pitch-card-title{font-weight:800;font-size:.95rem;color:#fff;margin-bottom:8px;}
+.pitch-card p{font-size:.85rem;color:rgba(255,255,255,.65);line-height:1.6;margin:0;}
+.pitch-callout{background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.25);border-radius:16px;padding:40px 36px;max-width:600px;margin:0 auto;}
+.pitch-callout-quote{font-family:'Dancing Script',cursive;font-size:1.6rem;color:var(--orange,#e8720c);line-height:1.4;margin-bottom:10px;}
+.pitch-callout-attr{font-size:.82rem;color:rgba(255,255,255,.5);font-weight:600;letter-spacing:.06em;}
+.hero-pitch-line{font-size:1.05rem;color:rgba(255,255,255,.9);font-style:italic;font-weight:600;margin-bottom:12px;line-height:1.5;}
+@media(max-width:860px){.pitch-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:560px){.pitch-grid{grid-template-columns:1fr;}}
+
 </style>
 </head>
 <body>
@@ -581,7 +601,7 @@ footer{background:#0d1826;color:rgba(255,255,255,.55);padding:60px 40px 0;border
   </div>
 </section>
 
- id="tools">
+<section class="section" id="tools">
   <div class="section-inner">
     <div class="section-header">
       <div class="eyebrow reveal">What You Get</div>
