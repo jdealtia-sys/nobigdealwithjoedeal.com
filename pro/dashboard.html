@@ -72,12 +72,14 @@
   async function loadLeads() {
     try {
       const snap = await getDocs(query(collection(db,'leads'), orderBy('createdAt','desc')));
-      window._leads = snap.docs.map(d => ({id:d.id,...d.data()}));
+      window._leads = snap.docs.map(d => ({id:d.id,...d.data()})).filter(l=>!l.deleted);
     } catch(e) { window._leads = []; }
     renderLeads(window._leads);
     updatePipeline(window._leads);
   }
   window._loadLeads = loadLeads;
+  // Refresh trash badge after leads load
+  loadLeads().then(()=>{ if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800); });
 
   window._saveLead = async (data) => {
     try {
@@ -97,10 +99,34 @@
 
   window._deleteLead = async (id) => {
     try {
-      if(!id.startsWith('d-')) await deleteDoc(doc(db,'leads',id));
+      if(!id.startsWith('d-')) {
+        await updateDoc(doc(db,'leads',id), {
+          deleted: true,
+          deletedAt: serverTimestamp()
+        });
+      }
       window._leads = (window._leads||[]).filter(l=>l.id!==id);
       renderLeads(window._leads);
     } catch(e) { console.error('deleteLead error:', e); }
+  };
+
+  window._restoreLead = async (id) => {
+    try {
+      if(!id.startsWith('d-')) await updateDoc(doc(db,'leads',id), { deleted: false, deletedAt: null });
+    } catch(e) { console.error('restoreLead error:', e); }
+  };
+
+  window._permanentDeleteLead = async (id) => {
+    try {
+      if(!id.startsWith('d-')) await deleteDoc(doc(db,'leads',id));
+    } catch(e) { console.error('permanentDelete error:', e); }
+  };
+
+  window._loadDeletedLeads = async () => {
+    try {
+      const snap = await getDocs(query(collection(db,'leads'), where('deleted','==',true), orderBy('deletedAt','desc')));
+      return snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { return []; }
   };
 
   // ── ESTIMATES ──────────────────────────────────
@@ -306,6 +332,51 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 /* ── MAKE THIS A LEAD BUTTON ── */
 .make-lead-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;background:linear-gradient(135deg,var(--orange),var(--ob));color:#fff;border:none;border-radius:7px;padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:10px;transition:all .2s;box-shadow:0 2px 12px var(--og);}
 .make-lead-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--og);}
+/* ── PIN LEAD POPUP ── */
+.pin-lead-popup{font-family:'Barlow',sans-serif;min-width:220px;max-width:260px;background:var(--s);border-radius:8px;overflow:hidden;}
+.plp-header{background:var(--s2);padding:10px 12px;border-bottom:1px solid var(--rule);}
+.plp-status{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
+.plp-name{font-size:13px;font-weight:700;color:var(--t);}
+.plp-addr{font-size:11px;color:var(--m);margin-top:2px;}
+.plp-body{padding:10px 12px;}
+.plp-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;border-bottom:1px solid var(--rule);}
+.plp-row:last-child{border-bottom:none;}
+.plp-key{color:var(--m);}
+.plp-val{color:var(--t);font-weight:600;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plp-btns{padding:10px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--rule);}
+.plp-btn-go{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
+.plp-btn-go:hover{background:var(--ob);}
+.plp-btn-del{display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
+.plp-btn-del:hover{background:rgba(224,82,82,.1);}
+/* ── DELETE CONFIRM MODAL ── */
+.del-confirm-overlay{position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
+.del-confirm-overlay.open{display:flex;}
+.del-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:22px;width:300px;box-shadow:0 20px 60px rgba(0,0,0,.7);}
+.del-confirm-icon{font-size:28px;margin-bottom:8px;}
+.del-confirm-title{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:var(--t);margin-bottom:4px;}
+.del-confirm-sub{font-size:11px;color:var(--m);line-height:1.5;margin-bottom:16px;}
+.del-confirm-name{font-size:12px;font-weight:700;color:var(--orange);margin-bottom:14px;background:var(--s2);border-radius:5px;padding:6px 10px;}
+.del-confirm-btns{display:flex;gap:8px;}
+.del-confirm-btns .btn{flex:1;justify-content:center;}
+/* ── DELETED LEADS DRAWER ── */
+.deleted-drawer{position:fixed;top:0;right:-420px;width:400px;height:100vh;background:var(--s);border-left:1px solid var(--br);z-index:1500;transition:right .3s ease;box-shadow:-8px 0 40px rgba(0,0,0,.5);display:flex;flex-direction:column;}
+.deleted-drawer.open{right:0;}
+.deleted-drawer-hdr{padding:16px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.deleted-drawer-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;color:var(--t);}
+.deleted-drawer-close{background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;padding:4px;}
+.deleted-drawer-body{flex:1;overflow-y:auto;padding:14px;}
+.deleted-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:10px;opacity:.85;}
+.deleted-card-name{font-size:13px;font-weight:700;color:var(--t);margin-bottom:2px;}
+.deleted-card-addr{font-size:11px;color:var(--m);margin-bottom:8px;}
+.deleted-card-meta{font-size:10px;color:var(--m);margin-bottom:10px;}
+.deleted-card-btns{display:flex;gap:6px;}
+.dc-restore{flex:1;background:rgba(46,204,138,.12);color:var(--green);border:1px solid rgba(46,204,138,.25);border-radius:5px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;}
+.dc-restore:hover{background:rgba(46,204,138,.22);}
+.dc-perm{flex:1;background:rgba(224,82,82,.08);color:var(--red);border:1px solid rgba(224,82,82,.2);border-radius:5px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;}
+.dc-perm:hover{background:rgba(224,82,82,.18);}
+.deleted-empty{text-align:center;padding:40px 20px;color:var(--m);font-size:13px;}
+.btn-trash-toggle{position:relative;}
+.trash-count-badge{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;display:none;}
 .prop-card-inner{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:4px;}
 .prop-card-addr{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;}
 .prop-card-coords{font-size:10px;color:var(--m);}
@@ -439,6 +510,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
 
 /* MAP BADGE */
+.leaflet-popup-content-wrapper.nbd-pin-popup,.nbd-pin-popup .leaflet-popup-content-wrapper{background:var(--s)!important;border:1px solid var(--br)!important;border-radius:8px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important;padding:0!important;}
+.nbd-pin-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
+.nbd-pin-popup .leaflet-popup-tip-container{display:none;}
+.nbd-pin-popup .leaflet-popup-close-button{color:var(--m)!important;top:6px!important;right:8px!important;font-size:16px!important;}
 .map-badge{position:absolute;top:10px;right:10px;z-index:800;background:rgba(10,12,15,.88);backdrop-filter:blur(6px);border:1px solid var(--br);border-radius:5px;padding:5px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--orange);}
 
 /* EMPTY */
@@ -862,6 +937,20 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
     </div>
   </div>
 
+  <!-- DELETE CONFIRM DIALOG -->
+  <div class="del-confirm-overlay" id="delConfirmOverlay">
+    <div class="del-confirm-box">
+      <div class="del-confirm-icon">🗑</div>
+      <div class="del-confirm-title">Move to Deleted?</div>
+      <div class="del-confirm-sub">This lead will be moved to your Deleted bin. You can restore it anytime from the CRM header.</div>
+      <div class="del-confirm-name" id="delConfirmName">—</div>
+      <div class="del-confirm-btns">
+        <button class="btn btn-ghost" onclick="cancelDeleteConfirm()">Cancel</button>
+        <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:#fff;border-color:var(--red);" onclick="confirmDeleteLead()">Move to Deleted</button>
+      </div>
+    </div>
+  </div>
+
   <!-- PIN CONFIRM DIALOG -->
   <div class="pin-confirm-overlay" id="pinConfirmOverlay">
     <div class="pin-confirm-box">
@@ -1140,9 +1229,27 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
         </select>
         <button class="btn btn-ghost" onclick="exportLeadsCSV()"
           style="font-size:11px;padding:6px 12px;">📤 CSV</button>
+        <button class="btn btn-ghost btn-trash-toggle" onclick="openDeletedDrawer()" title="Deleted Leads" style="position:relative;">
+          🗑 Deleted
+          <span class="trash-count-badge" id="trashCountBadge"></span>
+        </button>
         <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
       </div>
     </div>
+
+  <!-- DELETED LEADS DRAWER -->
+  <div class="deleted-drawer" id="deletedDrawer">
+    <div class="deleted-drawer-hdr">
+      <div>
+        <div class="deleted-drawer-title">🗑 Deleted Leads</div>
+        <div style="font-size:10px;color:var(--m);margin-top:2px;">Restore or permanently remove</div>
+      </div>
+      <button class="deleted-drawer-close" onclick="closeDeletedDrawer()">✕</button>
+    </div>
+    <div class="deleted-drawer-body" id="deletedDrawerBody">
+      <div class="deleted-empty">Loading...</div>
+    </div>
+  </div>
 
     <!-- REVENUE STRIP -->
     <div class="crm-rev-strip">
@@ -2118,14 +2225,121 @@ async function dropPin(lat,lng,status,color,existingId,notes) {
 function addPinMarker(p) {
   if(!mainMap) return;
   const m = L.marker([p.lat,p.lng],{icon:makePinIcon(p.color||PIN_COLORS[p.status],p.status)});
-  m.bindPopup(`<div style="font-family:sans-serif;min-width:160px;">
-    <b style="font-size:13px;">${PIN_LABELS[p.status]||p.status}</b>
-    <p style="font-size:11px;color:#666;margin:4px 0;">${p.notes||'No notes'}</p>
-    <button onclick="deletePin('${p.id}')" style="background:#E05252;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;">Delete Pin</button>
-  </div>`);
-  if(overlayState.pins) m.addTo(mainMap);
-  else m.addTo(mainMap); // always add; hide/show via layer toggle
+  m.on('click', () => openPinLeadPopup(p, m));
+  m.addTo(mainMap);
   pinMarkers[p.id] = m;
+}
+
+function buildPinPopupHTML(p, lead) {
+  const statusColor = PIN_COLORS[p.status] || '#9CA3AF';
+  const statusLabel = PIN_LABELS[p.status] || p.status;
+  if(lead) {
+    const name  = ((lead.firstName||'')+ ' ' +(lead.lastName||'')).trim() || lead.address || 'Lead';
+    const addr  = (lead.address||'').split(',').slice(0,2).join(',');
+    const val   = lead.jobValue ? '$'+parseFloat(lead.jobValue).toLocaleString() : '—';
+    const stage = lead.stage || 'New';
+    const dmg   = lead.damageType || '—';
+    const claim = lead.claimStatus || '—';
+    return `<div class="pin-lead-popup">
+      <div class="plp-header">
+        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;"></span>${statusLabel}</div>
+        <div class="plp-name">${name}</div>
+        <div class="plp-addr">${addr}</div>
+      </div>
+      <div class="plp-body">
+        <div class="plp-row"><span class="plp-key">Stage</span><span class="plp-val">${stage}</span></div>
+        <div class="plp-row"><span class="plp-key">Damage</span><span class="plp-val">${dmg}</span></div>
+        <div class="plp-row"><span class="plp-key">Claim</span><span class="plp-val">${claim}</span></div>
+        <div class="plp-row"><span class="plp-key">Value</span><span class="plp-val" style="color:var(--green);">${val}</span></div>
+        ${p.notes ? `<div class="plp-row"><span class="plp-key">Notes</span><span class="plp-val">${p.notes}</span></div>` : ''}
+      </div>
+      <div class="plp-btns">
+        <button class="plp-btn-go" onclick="goToLeadFromPin('${lead.id}')">→ Go to Lead</button>
+        <button class="plp-btn-del" onclick="deleteLeadFromPin('${lead.id}','${name.replace(/'/g,'&#39;')}',this)">🗑 Delete Lead</button>
+      </div>
+    </div>`;
+  } else {
+    return `<div class="pin-lead-popup">
+      <div class="plp-header">
+        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;"></span>${statusLabel}</div>
+        <div class="plp-name">No lead linked</div>
+        <div class="plp-addr">${p.notes || 'No notes'}</div>
+      </div>
+      <div class="plp-btns">
+        <button class="plp-btn-go" onclick="makeLeadFromPin('${p.id}')">＋ Create Lead Here</button>
+        <button class="plp-btn-del" onclick="deletePinOnly('${p.id}')">🗑 Delete Pin</button>
+      </div>
+    </div>`;
+  }
+}
+
+function openPinLeadPopup(p, marker) {
+  // Match lead by address proximity or notes
+  const leads = window._leads || [];
+  const pinLat = parseFloat(p.lat), pinLng = parseFloat(p.lng);
+  let matched = null;
+  // Try matching notes → address
+  if(p.notes) {
+    const notesLower = p.notes.toLowerCase();
+    matched = leads.find(l => {
+      const addr = (l.address||'').toLowerCase();
+      return addr && notesLower.includes(addr.split(',')[0].toLowerCase());
+    });
+  }
+  // Try reverse: lead address geocache match by lat/lng proximity (< 50m)
+  if(!matched) {
+    matched = leads.find(l => {
+      if(!l._lat || !l._lng) return false;
+      const dlat = Math.abs(parseFloat(l._lat) - pinLat);
+      const dlng = Math.abs(parseFloat(l._lng) - pinLng);
+      return dlat < 0.0005 && dlng < 0.0005;
+    });
+  }
+  const popupHTML = buildPinPopupHTML(p, matched);
+  marker.bindPopup(popupHTML, {
+    maxWidth: 280, minWidth: 220,
+    className: 'nbd-pin-popup',
+    closeButton: true
+  }).openPopup();
+}
+
+function goToLeadFromPin(leadId) {
+  // Close any open popup
+  if(mainMap) mainMap.closePopup();
+  // Navigate to CRM, then highlight the lead card
+  goTo('crm');
+  setTimeout(()=>{
+    const card = document.querySelector(`.k-card[data-id="${leadId}"]`);
+    if(card) {
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      card.style.outline = '2px solid var(--orange)';
+      card.style.outlineOffset = '2px';
+      setTimeout(()=>{ card.style.outline=''; card.style.outlineOffset=''; }, 2500);
+    }
+  }, 350);
+}
+
+function deleteLeadFromPin(leadId, leadName, btnEl) {
+  if(mainMap) mainMap.closePopup();
+  showDeleteConfirm(leadId, leadName);
+}
+
+function makeLeadFromPin(pinId) {
+  if(mainMap) mainMap.closePopup();
+  const pin = window._pins?.find(p=>p.id===pinId);
+  openLeadModal();
+  if(pin?.notes) {
+    setTimeout(()=>{
+      const notesEl = document.getElementById('lNotes');
+      if(notesEl) notesEl.value = pin.notes;
+      document.getElementById('lFname')?.focus();
+    }, 80);
+  }
+}
+
+function deletePinOnly(pinId) {
+  if(mainMap) mainMap.closePopup();
+  deletePin(pinId);
 }
 
 function selectPin(status,color,el) {
@@ -3093,11 +3307,101 @@ function editLead(id){
   openLeadModal();
 }
 
-// Delete lead
-async function deleteLead(id){
-  if(!confirm('Delete this lead? This cannot be undone.')) return;
-  try { await window._deleteLead(id); showToast('Lead deleted','ok'); }
-  catch(e){ showToast('Delete failed','error'); }
+// Delete lead — soft delete with confirm modal
+let _pendingDeleteId = null;
+
+function deleteLead(id) {
+  const lead = (window._leads||[]).find(l=>l.id===id);
+  const name = lead ? (((lead.firstName||'')+' '+(lead.lastName||'')).trim() || lead.address || 'This Lead') : 'This Lead';
+  showDeleteConfirm(id, name);
+}
+
+function showDeleteConfirm(id, name) {
+  _pendingDeleteId = id;
+  document.getElementById('delConfirmName').textContent = name;
+  document.getElementById('delConfirmOverlay').classList.add('open');
+}
+
+function cancelDeleteConfirm() {
+  _pendingDeleteId = null;
+  document.getElementById('delConfirmOverlay').classList.remove('open');
+}
+
+async function confirmDeleteLead() {
+  if(!_pendingDeleteId) return;
+  const id = _pendingDeleteId;
+  document.getElementById('delConfirmOverlay').classList.remove('open');
+  _pendingDeleteId = null;
+  try {
+    await window._deleteLead(id);
+    showToast('Lead moved to Deleted bin');
+    refreshTrashBadge();
+  } catch(e) { showToast('Delete failed','error'); }
+}
+
+// ── DELETED LEADS DRAWER ─────────────────────
+async function openDeletedDrawer() {
+  document.getElementById('deletedDrawer').classList.add('open');
+  await renderDeletedDrawer();
+}
+function closeDeletedDrawer() {
+  document.getElementById('deletedDrawer').classList.remove('open');
+}
+
+async function renderDeletedDrawer() {
+  const body = document.getElementById('deletedDrawerBody');
+  body.innerHTML = '<div class="deleted-empty">Loading...</div>';
+  const deleted = await window._loadDeletedLeads();
+  if(!deleted.length) {
+    body.innerHTML = '<div class="deleted-empty">🎉 No deleted leads — all clear.</div>';
+    return;
+  }
+  body.innerHTML = deleted.map(l => {
+    const name = ((l.firstName||'')+' '+(l.lastName||'')).trim() || l.address || 'Lead';
+    const addr = (l.address||'').split(',').slice(0,2).join(',');
+    const deletedDate = l.deletedAt?.toDate ? l.deletedAt.toDate().toLocaleDateString() : 'Recently';
+    const val = l.jobValue ? ' · $'+parseFloat(l.jobValue).toLocaleString() : '';
+    return `<div class="deleted-card" id="dc-${l.id}">
+      <div class="deleted-card-name">${name}</div>
+      <div class="deleted-card-addr">${addr}</div>
+      <div class="deleted-card-meta">Stage: ${l.stage||'New'}${val} · Deleted ${deletedDate}</div>
+      <div class="deleted-card-btns">
+        <button class="dc-restore" onclick="restoreDeletedLead('${l.id}')">↩ Restore</button>
+        <button class="dc-perm" onclick="permanentDeleteLead('${l.id}','${name.replace(/'/g,'&#39;')}')">✕ Remove Forever</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function restoreDeletedLead(id) {
+  const card = document.getElementById('dc-'+id);
+  if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
+  await window._restoreLead(id);
+  await window._loadLeads();
+  showToast('Lead restored ✓');
+  refreshTrashBadge();
+  await renderDeletedDrawer();
+}
+
+async function permanentDeleteLead(id, name) {
+  if(!confirm(`Permanently delete "${name}"? This CANNOT be undone.`)) return;
+  const card = document.getElementById('dc-'+id);
+  if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
+  await window._permanentDeleteLead(id);
+  showToast('Permanently deleted');
+  refreshTrashBadge();
+  await renderDeletedDrawer();
+}
+
+async function refreshTrashBadge() {
+  try {
+    const deleted = await window._loadDeletedLeads();
+    const badge = document.getElementById('trashCountBadge');
+    if(badge) {
+      badge.textContent = deleted.length || '';
+      badge.style.display = deleted.length ? 'flex' : 'none';
+    }
+  } catch(e) {}
 }
 
 
@@ -3862,6 +4166,19 @@ window.damageNearMePhotos = damageNearMePhotos;
 window.toggleMapSidebar = toggleMapSidebar;
 // Map Overlay System
 window.toggleOverlay = toggleOverlay;
+// Delete confirm
+window.cancelDeleteConfirm = cancelDeleteConfirm;
+window.confirmDeleteLead = confirmDeleteLead;
+// Deleted drawer
+window.openDeletedDrawer = openDeletedDrawer;
+window.closeDeletedDrawer = closeDeletedDrawer;
+window.restoreDeletedLead = restoreDeletedLead;
+window.permanentDeleteLead = permanentDeleteLead;
+// Pin popup actions
+window.goToLeadFromPin = goToLeadFromPin;
+window.deleteLeadFromPin = deleteLeadFromPin;
+window.makeLeadFromPin = makeLeadFromPin;
+window.deletePinOnly = deletePinOnly;
 window.dropPinByAddress = dropPinByAddress;
 window.openPinConfirm = openPinConfirm;
 window.cancelPinConfirm = cancelPinConfirm;
