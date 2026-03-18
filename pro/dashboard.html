@@ -26,6 +26,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -266,6 +267,33 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
 .pin-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:500;color:var(--t);transition:all .2s;}
 .pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:rgba(200,84,26,.08);}
+/* ── MAP OVERLAY SYSTEM ── */
+.overlay-panel{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px;margin-bottom:10px;}
+.overlay-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--rule);}
+.overlay-row:last-child{border-bottom:none;}
+.overlay-label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:var(--t);letter-spacing:.04em;}
+.overlay-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.overlay-toggle{position:relative;width:36px;height:20px;background:var(--s3);border:1px solid var(--br);border-radius:10px;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.overlay-toggle.on{background:var(--orange);border-color:var(--orange);}
+.overlay-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s;}
+.overlay-toggle.on::after{transform:translateX(16px);}
+/* Pin confirm dialog */
+.pin-confirm-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
+.pin-confirm-overlay.open{display:flex;}
+.pin-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:20px;width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.pin-confirm-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t);margin-bottom:6px;}
+.pin-confirm-sub{font-size:11px;color:var(--m);margin-bottom:14px;}
+.pin-confirm-status{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--t);margin-bottom:4px;}
+.pin-confirm-coords{font-size:10px;color:var(--m);margin-bottom:14px;}
+.pin-confirm-notes{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:11px;padding:8px;resize:none;box-sizing:border-box;margin-bottom:12px;font-family:'Barlow',sans-serif;}
+.pin-confirm-notes:focus{outline:none;border-color:var(--orange);}
+.pin-confirm-btns{display:flex;gap:8px;}
+.pin-confirm-btns .btn{flex:1;justify-content:center;font-size:12px;}
+/* Address pin input */
+.addr-pin-row{display:flex;gap:6px;margin-bottom:8px;}
+.addr-pin-row input{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:11px;padding:7px 9px;}
+.addr-pin-row input:focus{outline:none;border-color:var(--orange);}
+.addr-pin-row input::placeholder{color:var(--m);}
 .pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
 /* DRAW PANEL */
@@ -748,6 +776,8 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   <div class="view" id="view-map">
     <div class="map-view active" style="flex:1;">
       <div class="map-sidebar" id="map-sidebar-map">
+
+        <!-- ADDRESS SEARCH -->
         <div class="slabel2">Address Search</div>
         <div class="search-row">
           <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter')searchMap()">
@@ -757,7 +787,38 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           <div class="slabel2">Property Info</div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;" id="propCardInner"></div>
         </div>
-        <div class="slabel2">Door Knock Status</div>
+
+        <!-- MAP LAYERS -->
+        <div class="slabel2">Map Layers</div>
+        <div class="overlay-panel">
+          <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#FF6B35;"></div>Door Knock Heat Map</div>
+            <div class="overlay-toggle" id="tog-heat" onclick="toggleOverlay('heat',this)" title="Density of all door knock activity"></div>
+          </div>
+          <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#A78BFA;"></div>All Pins</div>
+            <div class="overlay-toggle on" id="tog-pins" onclick="toggleOverlay('pins',this)" title="Every dispositioned door, color-coded"></div>
+          </div>
+          <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#4A9EFF;"></div>Jobs Overlay</div>
+            <div class="overlay-toggle" id="tog-jobs" onclick="toggleOverlay('jobs',this)" title="In Progress / Complete / Finalizing leads"></div>
+          </div>
+          <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#EAB308;"></div>Storm Activity</div>
+            <div class="overlay-toggle" id="tog-storm" onclick="toggleOverlay('storm',this)" title="NOAA hail & wind data"></div>
+          </div>
+          <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#34D399;"></div>Live Weather</div>
+            <div class="overlay-toggle" id="tog-weather" onclick="toggleOverlay('weather',this)" title="Current precipitation radar"></div>
+          </div>
+        </div>
+
+        <!-- DROP A PIN -->
+        <div class="slabel2">Drop a Pin</div>
+        <div class="addr-pin-row">
+          <input type="text" id="pinAddrInput" placeholder="Address (blank = map center)">
+          <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" onclick="dropPinByAddress()">📍</button>
+        </div>
         <div class="pin-grid">
           <button class="pin-btn active" onclick="selectPin('not-home','#9CA3AF',this)"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
           <button class="pin-btn" onclick="selectPin('interested','#2ECC8A',this)"><div class="pin-dot" style="background:#2ECC8A"></div>Interested</button>
@@ -768,14 +829,32 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           <button class="pin-btn" onclick="selectPin('left-material','#9B6DFF',this)"><div class="pin-dot" style="background:#9B6DFF"></div>Left Material</button>
           <button class="pin-btn" onclick="selectPin('follow-up','#C8541A',this)"><div class="pin-dot" style="background:#C8541A"></div>Follow Up</button>
         </div>
-        <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map to drop pin</p>
-        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 Damage Near Me</button>
+        <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map or enter address to drop pin</p>
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="clearAllPins()">🗑 Clear All Pins</button>
       </div>
       <div class="map-area">
         <div id="mainMap"></div>
         <div class="map-badge" id="mapBadge">📍 NOT HOME MODE</div>
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN CONFIRM DIALOG -->
+  <div class="pin-confirm-overlay" id="pinConfirmOverlay">
+    <div class="pin-confirm-box">
+      <div class="pin-confirm-title">Confirm Pin Placement</div>
+      <div class="pin-confirm-sub">Review before saving to your map</div>
+      <div class="pin-confirm-status">
+        <div id="pcd-dot" style="width:10px;height:10px;border-radius:50%;background:#9CA3AF;"></div>
+        <span id="pcd-label">Not Home</span>
+      </div>
+      <div class="pin-confirm-coords" id="pcd-coords"></div>
+      <textarea class="pin-confirm-notes" id="pcd-notes" rows="2" placeholder="Notes (optional)..."></textarea>
+      <div class="pin-confirm-btns">
+        <button class="btn btn-ghost" onclick="cancelPinConfirm()">Cancel</button>
+        <button class="btn btn-orange" onclick="commitPin()">📍 Save Pin</button>
       </div>
     </div>
   </div>
@@ -1839,13 +1918,161 @@ let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={};
 const PIN_LABELS = {'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested','signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock','left-material':'Left Material','follow-up':'Follow Up'};
 const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#C8541A'};
 
+// ══════════════════════════════════════════════
+// MAP OVERLAY SYSTEM
+// ══════════════════════════════════════════════
+let overlayState = { heat:false, pins:true, jobs:false, storm:false, weather:false };
+let heatLayer = null, jobMarkers = [], weatherLayer = null, stormTileLayer = null;
+let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
+
 function initMainMap() {
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:20}).addTo(mainMap);
-  mainMap.on('click', e => dropPin(e.latlng.lat, e.latlng.lng, curPinStatus, curPinColor, null, ''));
+  // Click = show confirm dialog instead of instant drop
+  mainMap.on('click', e => openPinConfirm(e.latlng.lat, e.latlng.lng));
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
+  // Build heat + jobs layers from existing data
+  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); }, 400);
 }
 
+// ── OVERLAY TOGGLE ──────────────────────────────
+function toggleOverlay(type, el) {
+  overlayState[type] = !overlayState[type];
+  el.classList.toggle('on', overlayState[type]);
+  if(type==='heat')    { overlayState.heat    ? showHeatLayer()    : hideHeatLayer();    }
+  if(type==='pins')    { overlayState.pins    ? showAllPins()      : hideAllPins();      }
+  if(type==='jobs')    { overlayState.jobs    ? showJobsLayer()    : hideJobsLayer();    }
+  if(type==='storm')   { overlayState.storm   ? showStormLayer()   : hideStormLayer();   }
+  if(type==='weather') { overlayState.weather ? showWeatherLayer() : hideWeatherLayer(); }
+}
+
+// ── HEAT MAP ─────────────────────────────────────
+function buildHeatLayer() {
+  if(!mainMap || !window._pins) return;
+  const pts = window._pins.map(p => [p.lat, p.lng, 0.5]);
+  if(heatLayer) mainMap.removeLayer(heatLayer);
+  if(pts.length === 0) return;
+  heatLayer = L.heatLayer(pts, {
+    radius:28, blur:22, maxZoom:17,
+    gradient:{0.3:'#4A9EFF', 0.5:'#EAB308', 0.75:'#FF6B35', 1.0:'#E05252'}
+  });
+  if(overlayState.heat) heatLayer.addTo(mainMap);
+}
+function showHeatLayer() { if(!heatLayer){ buildHeatLayer(); return; } heatLayer.addTo(mainMap); }
+function hideHeatLayer() { if(heatLayer) mainMap.removeLayer(heatLayer); }
+function refreshHeatLayer() { buildHeatLayer(); }
+
+// ── PINS SHOW/HIDE ───────────────────────────────
+function showAllPins() { Object.values(pinMarkers).forEach(m=>m.addTo(mainMap)); }
+function hideAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); }
+
+// ── JOBS OVERLAY ──────────────────────────────────
+async function buildJobsLayer() {
+  if(!mainMap) return;
+  jobMarkers.forEach(m=>mainMap.removeLayer(m));
+  jobMarkers = [];
+  const leads = window._leads || [];
+  const active = leads.filter(l => ['In Progress','Complete','Finalizing'].includes(l.stage||''));
+  for(const lead of active) {
+    const addr = lead.address || lead.addr || '';
+    if(!addr) continue;
+    try {
+      const geo = await geocode(addr);
+      if(!geo) continue;
+      const val = parseFloat(lead.value||lead.jobValue||lead.contractValue||0);
+      const label = val > 0 ? '$'+val.toLocaleString() : lead.stage;
+      const color = lead.stage==='Complete' ? '#34D399' : lead.stage==='In Progress' ? '#4A9EFF' : '#EAB308';
+      const icon = L.divIcon({
+        html:`<div style="background:${color};color:#0A0C0F;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ${label}</div>`,
+        iconAnchor:[0,0], className:''
+      });
+      const m = L.marker([parseFloat(geo.lat),parseFloat(geo.lon)],{icon});
+      m.bindPopup(`<div style="font-family:sans-serif;min-width:160px;">
+        <b style="font-size:13px;color:${color};">${lead.name||'Lead'}</b>
+        <p style="font-size:11px;color:#666;margin:4px 0;">${addr}</p>
+        <p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ${lead.stage}</p>
+        ${val>0?`<p style="font-size:12px;font-weight:700;color:${color};">$${val.toLocaleString()}</p>`:''}
+      </div>`);
+      jobMarkers.push(m);
+      if(overlayState.jobs) m.addTo(mainMap);
+      await new Promise(r=>setTimeout(r,180)); // rate-limit Nominatim
+    } catch(e){}
+  }
+}
+function showJobsLayer() {
+  if(jobMarkers.length===0){ buildJobsLayer(); return; }
+  jobMarkers.forEach(m=>m.addTo(mainMap));
+}
+function hideJobsLayer() { jobMarkers.forEach(m=>mainMap.removeLayer(m)); }
+
+// ── STORM LAYER (NOAA via RainViewer / mesonet tile) ───────
+function showStormLayer() {
+  if(stormTileLayer) { stormTileLayer.addTo(mainMap); return; }
+  // NOAA Ridge2 latest composite reflectivity — free, no key
+  stormTileLayer = L.tileLayer(
+    'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+    {opacity:0.65, attribution:'NOAA/IEM', maxZoom:20, tms:false}
+  );
+  stormTileLayer.addTo(mainMap);
+  showToast('Storm radar loaded — NOAA NEXRAD');
+}
+function hideStormLayer() { if(stormTileLayer) mainMap.removeLayer(stormTileLayer); }
+
+// ── WEATHER LAYER (OpenWeatherMap precipitation — free tier key optional) ──
+function showWeatherLayer() {
+  if(weatherLayer) { weatherLayer.addTo(mainMap); return; }
+  // RainViewer public precipitation overlay — no API key needed
+  weatherLayer = L.tileLayer(
+    'https://tilecache.rainviewer.com/v2/coverage/0/256/{z}/{x}/{y}/1/1_1.png',
+    {opacity:0.55, attribution:'RainViewer', maxZoom:20}
+  );
+  weatherLayer.addTo(mainMap);
+  showToast('Live weather overlay active');
+}
+function hideWeatherLayer() { if(weatherLayer) mainMap.removeLayer(weatherLayer); }
+
+// ── PIN CONFIRM FLOW ─────────────────────────────
+function openPinConfirm(lat, lng) {
+  pendingPin = { lat, lng, status: curPinStatus, color: curPinColor };
+  document.getElementById('pcd-dot').style.background = curPinColor;
+  document.getElementById('pcd-label').textContent = PIN_LABELS[curPinStatus] || curPinStatus;
+  document.getElementById('pcd-coords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  document.getElementById('pcd-notes').value = '';
+  document.getElementById('pinConfirmOverlay').classList.add('open');
+}
+function cancelPinConfirm() {
+  pendingPin = null;
+  document.getElementById('pinConfirmOverlay').classList.remove('open');
+}
+async function commitPin() {
+  if(!pendingPin) return;
+  const notes = document.getElementById('pcd-notes').value.trim();
+  document.getElementById('pinConfirmOverlay').classList.remove('open');
+  await dropPin(pendingPin.lat, pendingPin.lng, pendingPin.status, pendingPin.color, null, notes);
+  refreshHeatLayer();
+  pendingPin = null;
+  showToast('Pin saved ✓');
+}
+
+// ── DROP PIN BY ADDRESS ──────────────────────────
+async function dropPinByAddress() {
+  const addr = document.getElementById('pinAddrInput').value.trim();
+  let lat, lng;
+  if(addr) {
+    showToast('Geocoding address...');
+    const geo = await geocode(addr);
+    if(!geo) { showToast('Address not found','error'); return; }
+    lat = parseFloat(geo.lat); lng = parseFloat(geo.lon);
+    mainMap.setView([lat,lng],18);
+  } else {
+    const c = mainMap.getCenter();
+    lat = c.lat; lng = c.lng;
+  }
+  openPinConfirm(lat, lng);
+  document.getElementById('pinAddrInput').value = '';
+}
+
+// ── ORIGINAL PIN FUNCTIONS (updated) ────────────────
 function makePinIcon(color, status) {
   const svg = status==='signed' ? '⭐' : `<svg viewBox="0 0 24 32" width="20" height="28" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="8" r="3" fill="white"/></svg>`;
   return L.divIcon({html:`<div style="font-size:20px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${svg}</div>`,iconSize:[20,28],iconAnchor:[10,28],popupAnchor:[0,-28],className:''});
@@ -1864,7 +2091,8 @@ function addPinMarker(p) {
     <p style="font-size:11px;color:#666;margin:4px 0;">${p.notes||'No notes'}</p>
     <button onclick="deletePin('${p.id}')" style="background:#E05252;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;">Delete Pin</button>
   </div>`);
-  m.addTo(mainMap);
+  if(overlayState.pins) m.addTo(mainMap);
+  else m.addTo(mainMap); // always add; hide/show via layer toggle
   pinMarkers[p.id] = m;
 }
 
@@ -1874,7 +2102,7 @@ function selectPin(status,color,el) {
   curPinStatus=status; curPinColor=color;
   document.getElementById('mapBadge').textContent='📍 '+(PIN_LABELS[status]||status).toUpperCase();
 }
-function deletePin(id) { if(pinMarkers[id]){mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); }
+function deletePin(id) { if(pinMarkers[id]){mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); refreshHeatLayer(); }
 function clearAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); pinMarkers={}; }
 
 async function searchMap() {
@@ -3404,6 +3632,12 @@ window.clearAllPins = clearAllPins;
 window.damagNearMe = damagNearMe;
 window.damageNearMePhotos = damageNearMePhotos;
 window.toggleMapSidebar = toggleMapSidebar;
+// Map Overlay System
+window.toggleOverlay = toggleOverlay;
+window.dropPinByAddress = dropPinByAddress;
+window.openPinConfirm = openPinConfirm;
+window.cancelPinConfirm = cancelPinConfirm;
+window.commitPin = commitPin;
 // Storm
 window.loadStorm = loadStorm;
 // Drawing tool
