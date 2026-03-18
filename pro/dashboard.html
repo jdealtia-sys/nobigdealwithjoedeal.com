@@ -385,7 +385,41 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 /* DRAW PANEL */
 .lt-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
 .lt-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:2px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:600;color:var(--t);transition:all .2s;}
-.lt-btn.active{background:var(--s3);}
+.lt-btn:hover,.lt-btn.active{background:var(--s3);}
+/* ── DRAWING TOOL UPGRADES ── */
+.draw-mode-row{display:flex;gap:5px;margin-bottom:8px;}
+.draw-mode-btn{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:6px 4px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--m);cursor:pointer;text-align:center;transition:all .15s;}
+.draw-mode-btn:hover{border-color:var(--orange);color:var(--t);}
+.draw-mode-btn.active{background:var(--og);border-color:var(--orange);color:var(--orange);}
+.draw-mode-btn.mode-perim.active{background:rgba(34,197,94,.12);border-color:#22C55E;color:#22C55E;}
+.draw-mode-btn.mode-er.active{background:rgba(99,102,241,.12);border-color:#6366F1;color:#6366F1;}
+.draw-mode-btn.mode-gutter.active{background:rgba(6,182,212,.12);border-color:#06B6D4;color:#06B6D4;}
+.perim-bar{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:6px;padding:7px 10px;margin-bottom:8px;font-size:10px;color:#22C55E;display:none;}
+.perim-bar.visible{display:block;}
+.er-bar{background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:6px;padding:7px 10px;margin-bottom:8px;font-size:10px;color:#6366F1;display:none;}
+.er-bar.visible{display:block;}
+.er-close-btn{background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:4px;padding:3px 8px;font-size:9px;font-weight:700;color:#6366F1;cursor:pointer;margin-top:5px;width:100%;font-family:"Barlow Condensed",sans-serif;letter-spacing:.05em;}
+/* Rake/Eave chooser during perimeter draw */
+.re-chooser{background:var(--s);border:1px solid var(--br);border-radius:8px;padding:12px;margin-bottom:8px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.re-chooser.visible{display:block;}
+.re-chooser-title{font-size:10px;color:var(--m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;}
+.re-row{display:flex;gap:6px;}
+.re-btn{flex:1;padding:8px 6px;border-radius:6px;font-size:11px;font-weight:700;font-family:"Barlow Condensed",sans-serif;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;text-align:center;border:1px solid;}
+.re-btn-eave{background:rgba(190,29,93,.12);border-color:#BE185D;color:#BE185D;}
+.re-btn-rake{background:rgba(236,72,153,.12);border-color:#EC4899;color:#EC4899;}
+.re-btn:hover{filter:brightness(1.2);}
+/* Line select highlight */
+.line-item{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:5px;cursor:pointer;transition:background .12s;}
+.line-item:hover{background:var(--s3);}
+.line-item.selected{background:var(--og);outline:1px solid var(--orange);}
+/* Line type change inline */
+.line-type-sel{background:var(--s3);border:1px solid var(--orange);border-radius:4px;color:var(--t);font-size:10px;padding:2px 4px;margin-left:auto;}
+/* Gutter calc result */
+.gutter-result{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 10px;margin-top:6px;display:none;}
+.gutter-result.visible{display:block;}
+.gr-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;}
+.gr-key{color:var(--m);}
+.gr-val{color:var(--t);font-weight:700;}
 .lt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .draw-btns{display:flex;gap:5px;margin-bottom:10px;}
 .draw-btn{flex:1;padding:8px 5px;border:1px solid var(--br);border-radius:6px;background:var(--s2);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
@@ -981,7 +1015,30 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchDraw()">Go</button>
         </div>
-        <div class="slabel2">Line Type</div>
+        <!-- DRAW MODE SELECTOR -->
+        <div class="slabel2">Draw Mode</div>
+        <div class="draw-mode-row">
+          <button class="draw-mode-btn active" id="modeLineBtn" onclick="setDrawMode('line',this)" title="Draw individual measurement lines">📏 Lines</button>
+          <button class="draw-mode-btn mode-perim" id="modePerimBtn" onclick="setDrawMode('perim',this)" title="Trace perimeter for sq footage">⬡ Perimeter</button>
+          <button class="draw-mode-btn mode-er" id="modeERBtn" onclick="setDrawMode('er',this)" title="Toggle any perimeter line between Eave and Rake">↔ Eave/Rake</button>
+          <button class="draw-mode-btn mode-gutter" id="modeGutterBtn" onclick="setDrawMode('gutter',this)" title="Draw gutter runs only">🪣 Gutters</button>
+        </div>
+
+        <!-- STATUS BARS -->
+        <div class="perim-bar" id="perimBar">⬡ Perimeter mode — click map to trace. Click first dot to close.</div>
+        <div class="er-bar" id="erBar">↔ Click any Eave or Rake line on the map to toggle it.<button class="er-close-btn" onclick="setDrawMode('line',document.getElementById('modeLineBtn'))">Exit Eave/Rake mode</button></div>
+
+        <!-- RAKE/EAVE CHOOSER (shows during perimeter draw after first point) -->
+        <div class="re-chooser" id="reChooser">
+          <div class="re-chooser-title">This segment is a...</div>
+          <div class="re-row">
+            <button class="re-btn re-btn-eave" onclick="perimChooseType('eave')">— Eave (solid)</button>
+            <button class="re-btn re-btn-rake" onclick="perimChooseType('rake')">- - Rake (dashed)</button>
+          </div>
+        </div>
+
+        <!-- LINE TYPE GRID (hidden in perimeter/gutter mode) -->
+        <div class="slabel2" id="ltGridLabel">Line Type</div>
         <div class="lt-grid" id="ltGrid">
           <button class="lt-btn active" onclick="selLT(0,this)"><div class="lt-dot" style="background:#22C55E"></div>Ridge</button>
           <button class="lt-btn" onclick="selLT(1,this)"><div class="lt-dot" style="background:#86EFAC"></div>Ridge Vent</button>
@@ -993,7 +1050,15 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
           <button class="lt-btn" onclick="selLT(7,this)"><div class="lt-dot" style="background:#EAB308"></div>Step Flash</button>
           <button class="lt-btn" onclick="selLT(8,this)"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
           <button class="lt-btn" onclick="selLT(9,this)"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
+          <button class="lt-btn" onclick="selLT(10,this)"><div class="lt-dot" style="background:#06B6D4;border:1px dashed #fff;"></div>Gutters</button>
         </div>
+
+        <!-- GUTTER CALC (shows in gutter mode) -->
+        <div class="gutter-result" id="gutterResult">
+          <div class="gr-row"><span class="gr-key">Total Gutter LF</span><span class="gr-val" id="gr-total">0 ft</span></div>
+          <div class="gr-row"><span class="gr-key">Downspouts (est)</span><span class="gr-val" id="gr-ds">0</span></div>
+        </div>
+
         <div class="slabel2">Controls</div>
         <div class="draw-btns">
           <button class="draw-btn go" id="drawToggle" onclick="toggleDraw()">▶ Draw</button>
@@ -2402,95 +2467,531 @@ function damagNearMe() { showToast('Getting location...'); navigator.geolocation
 // ══════════════════════════════════════════════
 // DRAW MAP
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// DRAWING TOOL — full rewrite with perimeter, eave/rake, gutters, line select
+// ══════════════════════════════════════════════
 let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
+let drawMode = 'line'; // 'line' | 'perim' | 'er' | 'gutter'
+
+// LT index 10 = Gutters (added)
 const LT = [
-  {n:'Ridge',color:'#22C55E'},{n:'Ridge Vent',color:'#86EFAC'},{n:'Hip',color:'#06B6D4'},
-  {n:'Valley',color:'#3B82F6'},{n:'Rake',color:'#EC4899'},{n:'Eave',color:'#BE185D'},
-  {n:'Flashing',color:'#F97316'},{n:'Step Flash',color:'#EAB308'},
-  {n:'Drip Edge',color:'#1D4ED8'},{n:'Parapet',color:'#92400E'}
+  {n:'Ridge',      color:'#22C55E', dash:null},
+  {n:'Ridge Vent', color:'#86EFAC', dash:'8,4'},
+  {n:'Hip',        color:'#06B6D4', dash:null},
+  {n:'Valley',     color:'#3B82F6', dash:null},
+  {n:'Rake',       color:'#EC4899', dash:'8,5'},
+  {n:'Eave',       color:'#BE185D', dash:null},
+  {n:'Flashing',   color:'#F97316', dash:'4,3'},
+  {n:'Step Flash', color:'#EAB308', dash:'4,3'},
+  {n:'Drip Edge',  color:'#1D4ED8', dash:null},
+  {n:'Parapet',    color:'#92400E', dash:null},
+  {n:'Gutters',    color:'#06B6D4', dash:'10,4'}
 ];
+
+// Perimeter state
+let perimPoints   = [];   // latlng array
+let perimDots     = [];   // circleMarker array
+let perimSegments = [];   // {line, lbl, dist, p1, p2, subtype} subtype='eave'|'rake'
+let perimClosed   = false;
+let perimPendingP1 = null; // point waiting for rake/eave choice
+let perimPendingP2 = null;
+let perimTempLine  = null;
+let perimTempLbl   = null;
+let perimPolygon   = null; // fill polygon when closed
+let perimBaseArea  = 0;
+// The first-point close indicator ring
+let perimCloseRing = null;
+
+// Line select
+let selectedLineId = null;
 
 function initDrawMap() {
   drawMap = L.map('drawMap').setView([39.07,-84.17],19);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:21}).addTo(drawMap);
-  drawMap.on('click',e=>{
+
+  drawMap.on('click', e => {
     if(!drawOn) return;
-    if(!drawStart){ drawStart=e.latlng; L.circleMarker(e.latlng,{radius:4,color:'#fff',fillColor:LT[drawLT].color,fillOpacity:1,weight:2}).addTo(drawMap); }
-    else { finalizeLine(drawStart,e.latlng); drawStart=null; }
+    if(drawMode === 'line') handleLineClick(e.latlng);
+    else if(drawMode === 'perim') handlePerimClick(e.latlng);
+    else if(drawMode === 'gutter') handleGutterClick(e.latlng);
+    // 'er' mode handled by segment click listeners
   });
-  drawMap.on('mousemove',e=>{
-    if(!drawOn||!drawStart) return;
-    if(tempLine) drawMap.removeLayer(tempLine);
-    if(tempLbl)  drawMap.removeLayer(tempLbl);
-    tempLine = L.polyline([drawStart,e.latlng],{color:LT[drawLT].color,weight:3,dashArray:'6,4',opacity:.7}).addTo(drawMap);
-    const d=hav(drawStart,e.latlng);
-    tempLbl = L.marker(mid(drawStart,e.latlng),{icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})}).addTo(drawMap);
+
+  drawMap.on('mousemove', e => {
+    if(!drawOn) return;
+    if(drawMode === 'line' && drawStart) {
+      if(tempLine) drawMap.removeLayer(tempLine);
+      if(tempLbl)  drawMap.removeLayer(tempLbl);
+      const lt = LT[drawLT];
+      tempLine = L.polyline([drawStart, e.latlng], {color:lt.color, weight:3, dashArray:'6,4', opacity:.7}).addTo(drawMap);
+      const d = hav(drawStart, e.latlng);
+      tempLbl  = L.marker(mid(drawStart, e.latlng), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    }
+    if((drawMode === 'perim' || drawMode === 'gutter') && perimPoints.length > 0 && !perimClosed) {
+      const lastPt = perimPoints[perimPoints.length-1];
+      if(perimTempLine) drawMap.removeLayer(perimTempLine);
+      if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
+      const color = drawMode === 'gutter' ? '#06B6D4' : '#BE185D';
+      perimTempLine = L.polyline([lastPt, e.latlng], {color, weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
+      const d = hav(lastPt, e.latlng);
+      perimTempLbl  = L.marker(mid(lastPt, e.latlng), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    }
   });
+
   recalc();
 }
 
-function selLT(i,el) {
-  document.querySelectorAll('.lt-btn').forEach(b=>{b.classList.remove('active');b.style.borderColor='';});
-  el.classList.add('active'); el.style.borderColor=LT[i].color;
-  drawLT=i;
+// ── DRAW MODE SWITCHER ───────────────────────
+function setDrawMode(mode, btn) {
+  // stop any active drawing
+  if(drawOn) toggleDraw();
+  // cancel any pending perim chooser
+  hideReChooser();
+
+  drawMode = mode;
+  document.querySelectorAll('.draw-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const ltGrid = document.getElementById('ltGrid');
+  const ltLabel = document.getElementById('ltGridLabel');
+  const perimBar = document.getElementById('perimBar');
+  const erBar = document.getElementById('erBar');
+  const gutterResult = document.getElementById('gutterResult');
+
+  // Reset all status bars
+  perimBar.classList.remove('visible');
+  erBar.classList.remove('visible');
+  gutterResult.classList.remove('visible');
+
+  if(mode === 'line') {
+    ltGrid.style.display = '';
+    ltLabel.style.display = '';
+    // turn off ER click listeners on segments
+    setERListeners(false);
+  } else if(mode === 'perim') {
+    ltGrid.style.display = 'none';
+    ltLabel.style.display = 'none';
+    perimBar.classList.add('visible');
+    setERListeners(false);
+  } else if(mode === 'er') {
+    ltGrid.style.display = 'none';
+    ltLabel.style.display = 'none';
+    erBar.classList.add('visible');
+    setERListeners(true);
+  } else if(mode === 'gutter') {
+    ltGrid.style.display = 'none';
+    ltLabel.style.display = 'none';
+    gutterResult.classList.add('visible');
+    setERListeners(false);
+    recalcGutters();
+  }
+}
+
+// ── LINE MODE ────────────────────────────────
+function handleLineClick(latlng) {
+  if(!drawStart) {
+    drawStart = latlng;
+    // Store dot with line — create dot and keep reference
+    const dot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:LT[drawLT].color, fillOpacity:1, weight:2}).addTo(drawMap);
+    drawStart._dot = dot;
+  } else {
+    const endDot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:LT[drawLT].color, fillOpacity:1, weight:2}).addTo(drawMap);
+    finalizeLine(drawStart, latlng, drawStart._dot, endDot);
+    drawStart = null;
+  }
+}
+
+function selLT(i, el) {
+  document.querySelectorAll('.lt-btn').forEach(b => { b.classList.remove('active'); b.style.borderColor = ''; });
+  el.classList.add('active'); el.style.borderColor = LT[i].color;
+  drawLT = i;
+  // If a line is selected, retype it
+  if(selectedLineId !== null) retypeLine(selectedLineId, i);
 }
 
 function toggleDraw() {
-  drawOn=!drawOn;
-  const btn=document.getElementById('drawToggle');
-  if(drawOn){ btn.textContent='⏹ Stop'; btn.className='draw-btn stop'; drawMap.getContainer().style.cursor='crosshair'; }
-  else { btn.textContent='▶ Draw'; btn.className='draw-btn go'; drawMap.getContainer().style.cursor=''; drawStart=null; clearTemp(); }
+  drawOn = !drawOn;
+  const btn = document.getElementById('drawToggle');
+  if(drawOn) {
+    btn.textContent = '⏹ Stop'; btn.className = 'draw-btn stop';
+    drawMap.getContainer().style.cursor = 'crosshair';
+  } else {
+    btn.textContent = '▶ Draw'; btn.className = 'draw-btn go';
+    drawMap.getContainer().style.cursor = '';
+    drawStart = null; clearTemp();
+    // Don't cancel pending perim chooser — user may need to choose
+  }
 }
 
 function clearTemp() {
-  if(tempLine){drawMap.removeLayer(tempLine);tempLine=null;}
-  if(tempLbl){drawMap.removeLayer(tempLbl);tempLbl=null;}
+  if(tempLine) { drawMap.removeLayer(tempLine); tempLine = null; }
+  if(tempLbl)  { drawMap.removeLayer(tempLbl);  tempLbl  = null; }
+  if(perimTempLine) { drawMap.removeLayer(perimTempLine); perimTempLine = null; }
+  if(perimTempLbl)  { drawMap.removeLayer(perimTempLbl);  perimTempLbl  = null; }
 }
 
-function finalizeLine(p1,p2) {
-  const lt=LT[drawLT], d=hav(p1,p2);
-  const line=L.polyline([p1,p2],{color:lt.color,weight:4,opacity:.95}).addTo(drawMap);
-  const lbl=L.marker(mid(p1,p2),{icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${d.toFixed(1)} ft</div>`,className:'',iconAnchor:[0,10]})}).addTo(drawMap);
-  drawnLines.push({id:Date.now(),type:drawLT,name:lt.name,color:lt.color,dist:d,line,lbl,p1,p2});
+function finalizeLine(p1, p2, dot1, dot2) {
+  const lt = LT[drawLT], d = hav(p1, p2);
+  const dash = lt.dash || null;
+  const line = L.polyline([p1, p2], {color:lt.color, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
+  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  const id = Date.now() + Math.random();
+  drawnLines.push({id, type:drawLT, name:lt.name, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
   clearTemp(); renderLineList(); recalc();
+  return id;
 }
 
-function deleteLine(id) {
-  const i=drawnLines.findIndex(l=>l.id===id); if(i<0)return;
-  drawMap.removeLayer(drawnLines[i].line); drawMap.removeLayer(drawnLines[i].lbl);
-  drawnLines.splice(i,1); renderLineList(); recalc();
+// ── PERIMETER MODE ────────────────────────────
+function handlePerimClick(latlng) {
+  if(perimClosed) return;
+  // Check if clicking near first point to close
+  if(perimPoints.length >= 3) {
+    const first = perimPoints[0];
+    const dist = hav(first, latlng);
+    if(dist < 30) { // within 30ft — snap to close
+      closePerimeter();
+      return;
+    }
+  }
+  // Can't add next point until user chooses eave/rake for the last segment
+  if(perimPendingP1 !== null) return;
+
+  const dot = L.circleMarker(latlng, {radius:6, color:'#fff', fillColor:'#22C55E', fillOpacity:1, weight:2}).addTo(drawMap);
+
+  if(perimPoints.length === 0) {
+    // First point — add close-ring indicator
+    perimCloseRing = L.circleMarker(latlng, {radius:14, color:'#22C55E', fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6}).addTo(drawMap);
+  }
+
+  if(perimPoints.length > 0) {
+    // We have a previous point — prompt eave/rake
+    perimPendingP1 = perimPoints[perimPoints.length - 1];
+    perimPendingP2 = latlng;
+    perimDots.push(dot);
+    clearTemp();
+    showReChooser();
+    return;
+  }
+
+  perimPoints.push(latlng);
+  perimDots.push(dot);
 }
-function undoLine() { if(drawnLines.length) deleteLine(drawnLines[drawnLines.length-1].id); }
+
+function showReChooser() {
+  document.getElementById('reChooser').classList.add('visible');
+  document.getElementById('perimBar').classList.remove('visible');
+}
+function hideReChooser() {
+  document.getElementById('reChooser').classList.remove('visible');
+  document.getElementById('perimBar').classList.add('visible');
+  perimPendingP1 = null;
+  perimPendingP2 = null;
+}
+
+function perimChooseType(subtype) {
+  if(!perimPendingP1 || !perimPendingP2) return;
+  const p1 = perimPendingP1;
+  const p2 = perimPendingP2;
+  addPerimSegment(p1, p2, subtype);
+  perimPoints.push(p2);
+  hideReChooser();
+}
+
+function addPerimSegment(p1, p2, subtype) {
+  const color = '#BE185D'; // both eave and rake share this color family
+  const eaveColor = '#BE185D';
+  const rakeColor = '#EC4899';
+  const segColor  = subtype === 'eave' ? eaveColor : rakeColor;
+  const dash      = subtype === 'eave' ? null : '8,5';
+  const d = hav(p1, p2);
+  const line = L.polyline([p1, p2], {color:segColor, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
+  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${segColor}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  const id = Date.now() + Math.random();
+  const seg = {id, type: subtype==='eave' ? 5 : 4, name: subtype==='eave'?'Eave':'Rake', color:segColor, dist:d, line, lbl, p1, p2, subtype, isPerim:true};
+  perimSegments.push(seg);
+  drawnLines.push(seg);
+
+  // Add click listener for ER mode
+  line.on('click', () => { if(drawMode === 'er') erToggleSegment(id); });
+
+  renderLineList(); recalc();
+  return id;
+}
+
+function closePerimeter() {
+  if(perimPoints.length < 3) return;
+  // Final segment: first point to last
+  const last  = perimPoints[perimPoints.length - 1];
+  const first = perimPoints[0];
+  // Prompt eave/rake for closing segment too
+  perimPendingP1 = last;
+  perimPendingP2 = first;
+  showReChooser();
+  // After user chooses, we detect close in perimChooseType
+  // Override: mark that closing
+  window._perimClosing = true;
+}
+
+// Intercept perimChooseType for closing segment
+const _origPerimChoose = window.perimChooseType;
+// We handle closing inside perimChooseType by checking _perimClosing below
+
+function perimChooseType(subtype) {
+  if(!perimPendingP1 || !perimPendingP2) return;
+  const p1 = perimPendingP1;
+  const p2 = perimPendingP2;
+  addPerimSegment(p1, p2, subtype);
+  if(!window._perimClosing) {
+    perimPoints.push(p2);
+  } else {
+    window._perimClosing = false;
+    perimClosed = true;
+    // Draw fill polygon
+    if(perimPolygon) drawMap.removeLayer(perimPolygon);
+    perimPolygon = L.polygon(perimPoints, {color:'#22C55E', weight:0, fillColor:'#22C55E', fillOpacity:.08}).addTo(drawMap);
+    // Calculate base area via Shoelace
+    perimBaseArea = shoelaceArea(perimPoints);
+    showToast('Perimeter closed — '+perimBaseArea.toFixed(0)+' sf base area');
+    document.getElementById('perimBar').textContent = '⬡ Perimeter closed — '+perimBaseArea.toFixed(0)+' sf · redraw or continue adding lines';
+    if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
+    recalc();
+  }
+  hideReChooser();
+}
+
+// Shoelace formula: area in sq feet from latlng array
+function shoelaceArea(pts) {
+  if(pts.length < 3) return 0;
+  // Convert latlng to feet using haversine approximation
+  // Use first point as origin
+  const origin = pts[0];
+  const toFt = pts.map(p => {
+    const dx = hav({lat:origin.lat, lng:p.lng}, {lat:origin.lat, lng:origin.lng});
+    const dy = hav({lat:p.lat, lng:origin.lng}, {lat:origin.lat, lng:origin.lng});
+    return {x: p.lng > origin.lng ? dx : -dx, y: p.lat > origin.lat ? dy : -dy};
+  });
+  let area = 0;
+  const n = toFt.length;
+  for(let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += toFt[i].x * toFt[j].y;
+    area -= toFt[j].x * toFt[i].y;
+  }
+  return Math.abs(area / 2);
+}
+
+// ── EAVE/RAKE TOGGLE MODE ─────────────────────
+function setERListeners(on) {
+  perimSegments.forEach(seg => {
+    if(on) {
+      seg.line.on('click', () => erToggleSegment(seg.id));
+      seg.line.getElement && seg.line.getElement()?.classList.add('er-hover');
+    } else {
+      seg.line.off('click');
+      // Re-attach non-ER handler
+      seg.line.on('click', () => { if(drawMode === 'er') erToggleSegment(seg.id); });
+    }
+  });
+}
+
+function erToggleSegment(id) {
+  const seg = perimSegments.find(s => s.id === id);
+  if(!seg) return;
+  // Toggle
+  const newSub  = seg.subtype === 'eave' ? 'rake' : 'eave';
+  const newColor = newSub === 'eave' ? '#BE185D' : '#EC4899';
+  const newDash  = newSub === 'eave' ? null : '8,5';
+  const newType  = newSub === 'eave' ? 5 : 4;
+  const newName  = newSub === 'eave' ? 'Eave' : 'Rake';
+
+  // Update the Leaflet polyline in place
+  seg.line.setStyle({color:newColor, dashArray:newDash});
+  // Update label
+  drawMap.removeLayer(seg.lbl);
+  seg.lbl = L.marker(mid(seg.p1, seg.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${newColor}">${seg.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+
+  // Update data
+  seg.subtype = newSub;
+  seg.color   = newColor;
+  seg.type    = newType;
+  seg.name    = newName;
+
+  // Sync drawnLines
+  const dl = drawnLines.find(l => l.id === id);
+  if(dl) { dl.subtype=newSub; dl.color=newColor; dl.type=newType; dl.name=newName; }
+
+  renderLineList(); recalc();
+  showToast(`Toggled to ${newName}`);
+}
+
+// ── GUTTER MODE ───────────────────────────────
+function handleGutterClick(latlng) {
+  if(!perimPoints.length || perimClosed) {
+    // Start new gutter run
+    perimPoints = [];
+    perimClosed = false;
+  }
+  const dot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:'#06B6D4', fillOpacity:1, weight:2}).addTo(drawMap);
+  if(perimPoints.length > 0) {
+    const prev = perimPoints[perimPoints.length-1];
+    const d = hav(prev, latlng);
+    const line = L.polyline([prev, latlng], {color:'#06B6D4', weight:4, opacity:.95, dashArray:'10,4'}).addTo(drawMap);
+    const lbl  = L.marker(mid(prev, latlng), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:#06B6D4">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    const id = Date.now() + Math.random();
+    drawnLines.push({id, type:10, name:'Gutters', color:'#06B6D4', dist:d, line, lbl, p1:prev, p2:latlng, dot1:null, dot2:dot, subtype:'gutter'});
+    clearTemp(); renderLineList(); recalcGutters();
+  }
+  perimPoints.push(latlng);
+  perimDots.push(dot);
+}
+
+function recalcGutters() {
+  const gutterLines = drawnLines.filter(l => l.type === 10);
+  const total = gutterLines.reduce((s, l) => s + l.dist, 0);
+  const ds = Math.ceil(total / 40); // rough: 1 downspout per 40lf
+  document.getElementById('gr-total').textContent = total.toFixed(1) + ' ft';
+  document.getElementById('gr-ds').textContent = ds;
+  const el = document.getElementById('gutterResult');
+  if(el) el.classList.toggle('visible', gutterLines.length > 0);
+}
+
+// ── LINE SELECTION ─────────────────────────────
+function selectLine(id) {
+  selectedLineId = id;
+  renderLineList();
+  // Highlight on map
+  drawnLines.forEach(l => {
+    if(l.line) {
+      if(l.id === id) {
+        l.line.setStyle({weight:6, opacity:1});
+      } else {
+        l.line.setStyle({weight:4, opacity:.95});
+      }
+    }
+  });
+}
+
+function deselectLine() {
+  selectedLineId = null;
+  drawnLines.forEach(l => { if(l.line) l.line.setStyle({weight:4, opacity:.95}); });
+  renderLineList();
+}
+
+function retypeLine(id, ltIndex) {
+  const l = drawnLines.find(x => x.id === id);
+  if(!l) return;
+  const lt = LT[ltIndex];
+  l.type  = ltIndex;
+  l.name  = lt.n;
+  l.color = lt.color;
+  l.line.setStyle({color:lt.color, dashArray:lt.dash||null});
+  drawMap.removeLayer(l.lbl);
+  l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  renderLineList(); recalc();
+}
+
+// ── UNDO / DELETE / CLEAR ─────────────────────
+function deleteLine(id) {
+  const i = drawnLines.findIndex(l => l.id === id); if(i < 0) return;
+  const l = drawnLines[i];
+  drawMap.removeLayer(l.line);
+  drawMap.removeLayer(l.lbl);
+  // Remove dots that belong to this line
+  if(l.dot1) drawMap.removeLayer(l.dot1);
+  if(l.dot2) drawMap.removeLayer(l.dot2);
+  // Remove from perimSegments if applicable
+  const pi = perimSegments.findIndex(s => s.id === id);
+  if(pi >= 0) perimSegments.splice(pi, 1);
+  drawnLines.splice(i, 1);
+  if(selectedLineId === id) deselectLine();
+  renderLineList(); recalc(); recalcGutters();
+}
+
+function undoLine() {
+  if(drawnLines.length) deleteLine(drawnLines[drawnLines.length-1].id);
+  // Also remove last perim dot if in perim mode and pending
+  if((drawMode === 'perim' || drawMode === 'gutter') && perimDots.length > 0 && !perimClosed) {
+    const d = perimDots.pop();
+    drawMap.removeLayer(d);
+    if(perimPoints.length > 0) perimPoints.pop();
+  }
+}
+
 function clearDraw() {
-  drawnLines.forEach(l=>{drawMap.removeLayer(l.line);drawMap.removeLayer(l.lbl)});
-  drawnLines=[]; clearTemp(); drawStart=null; renderLineList(); recalc();
+  drawnLines.forEach(l => {
+    drawMap.removeLayer(l.line);
+    drawMap.removeLayer(l.lbl);
+    if(l.dot1) drawMap.removeLayer(l.dot1);
+    if(l.dot2) drawMap.removeLayer(l.dot2);
+  });
+  perimDots.forEach(d => drawMap.removeLayer(d));
+  if(perimPolygon) { drawMap.removeLayer(perimPolygon); perimPolygon = null; }
+  if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
+  if(perimTempLine) drawMap.removeLayer(perimTempLine);
+  if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
+  drawnLines = []; perimSegments = []; perimPoints = []; perimDots = [];
+  perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
+  perimBaseArea = 0; selectedLineId = null;
+  clearTemp(); clearTemp();
+  hideReChooser();
+  document.getElementById('perimBar').textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
+  renderLineList(); recalc(); recalcGutters();
 }
 
 function renderLineList() {
-  const el=document.getElementById('lineList');
-  if(!drawnLines.length){el.innerHTML='<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';return;}
-  el.innerHTML=drawnLines.map(l=>`
-    <div class="line-item">
-      <div class="lt-dot" style="background:${l.color}"></div>
+  const el = document.getElementById('lineList');
+  if(!drawnLines.length) {
+    el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';
+    return;
+  }
+  // Build LT options for inline retype select
+  const ltOpts = LT.map((lt, i) => `<option value="${i}">${lt.n}</option>`).join('');
+  el.innerHTML = drawnLines.map(l => {
+    const isSel = l.id === selectedLineId;
+    const dash = l.subtype === 'rake' ? 'border-top:2px dashed' : '';
+    return `<div class="line-item ${isSel ? 'selected' : ''}" onclick="selectLine(${l.id})">
+      <div class="lt-dot" style="background:${l.color};${l.type===4?'border:1px dashed #fff;':''}"></div>
       <span class="line-lbl">${l.name}</span>
       <span class="line-len">${l.dist.toFixed(1)} ft</span>
-      <button class="line-del" onclick="deleteLine(${l.id})">✕</button>
-    </div>`).join('');
+      ${isSel ? `<select class="line-type-sel" onchange="retypeLine(${l.id},parseInt(this.value))" onclick="event.stopPropagation()">${ltOpts}</select>` : `<button class="line-del" onclick="event.stopPropagation();deleteLine(${l.id})">✕</button>`}
+    </div>`;
+  }).join('');
+  // Set selected value in dropdown if selected
+  if(selectedLineId !== null) {
+    const sel = el.querySelector('.line-type-sel');
+    if(sel) {
+      const l = drawnLines.find(x => x.id === selectedLineId);
+      if(l) sel.value = l.type;
+    }
+  }
 }
 
 function recalc() {
-  const pitch=parseFloat(document.getElementById('pitchSel')?.value||1.202);
-  const waste=parseFloat(document.getElementById('wasteSel')?.value||1.17);
-  const eave=drawnLines.filter(l=>l.type===5);
-  const rake=drawnLines.filter(l=>l.type===4);
-  let base=0;
-  if(eave.length&&rake.length){ base=eave.reduce((s,l)=>s+l.dist,0)*(rake.reduce((s,l)=>s+l.dist,0)/rake.length); }
-  else if(drawnLines.length){ const tot=drawnLines.reduce((s,l)=>s+l.dist,0); base=(tot/4)*(tot/4); }
-  const pitched=base*pitch, w=pitched*waste, sq=w/100;
-  document.getElementById('cr-base').textContent=base.toFixed(0)+' sf';
-  document.getElementById('cr-pitched').textContent=pitched.toFixed(0)+' sf';
-  document.getElementById('cr-waste').textContent=w.toFixed(0)+' sf';
-  document.getElementById('cr-sq').textContent=sq.toFixed(2)+' sq';
+  const pitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
+  const waste = parseFloat(document.getElementById('wasteSel')?.value || 1.17);
+  const eave  = drawnLines.filter(l => l.type === 5);
+  const rake  = drawnLines.filter(l => l.type === 4);
+  let base = 0;
+
+  // Priority 1: closed perimeter polygon — most accurate
+  if(perimClosed && perimBaseArea > 0) {
+    base = perimBaseArea;
+  }
+  // Priority 2: eave × avg rake
+  else if(eave.length && rake.length) {
+    base = eave.reduce((s,l) => s+l.dist, 0) * (rake.reduce((s,l) => s+l.dist, 0) / rake.length);
+  }
+  // Priority 3: rough estimate from total line length
+  else if(drawnLines.length) {
+    const tot = drawnLines.reduce((s,l) => s+l.dist, 0);
+    base = (tot/4) * (tot/4);
+  }
+
+  const pitched = base * pitch, w = pitched * waste, sq = w / 100;
+  document.getElementById('cr-base').textContent    = base.toFixed(0) + ' sf';
+  document.getElementById('cr-pitched').textContent = pitched.toFixed(0) + ' sf';
+  document.getElementById('cr-waste').textContent   = w.toFixed(0) + ' sf';
+  document.getElementById('cr-sq').textContent      = sq.toFixed(2) + ' sq';
 }
 
 function importToEstimate() {
@@ -4199,6 +4700,12 @@ window.undoLine = undoLine;
 window.deleteLine = deleteLine;
 window.exportDrawReport = exportDrawReport;
 window.importToEstimate = importToEstimate;
+window.setDrawMode = setDrawMode;
+window.perimChooseType = perimChooseType;
+window.selectLine = selectLine;
+window.deselectLine = deselectLine;
+window.retypeLine = retypeLine;
+window.erToggleSegment = erToggleSegment;
 // Photos
 window.openPhotoFor = openPhotoFor;
 window.closePhotoModal = closePhotoModal;
