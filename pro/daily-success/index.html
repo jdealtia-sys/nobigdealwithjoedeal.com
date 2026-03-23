@@ -750,6 +750,377 @@ canvas{max-width:100%;display:block;}
 </style>
 </head>
 <body>
+<!-- ═══════════════════════════════════════════════════════════════
+     NBD PRO UNIVERSAL NAV BAR v1.0
+     Drop this block into any NBD Pro tool page.
+     Config: edit NBD_NAV_CONFIG below to change behavior.
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+/* ── NAV CONFIG DEFAULTS ─────────────────────────────────────── */
+:root {
+  --nbd-nav-h: 52px;
+  --nbd-nav-bg: #0f1d42;
+  --nbd-nav-border: rgba(232,114,12,0.25);
+  --nbd-nav-orange: #e8720c;
+  --nbd-nav-cyan: #00d4ff;
+  --nbd-nav-text: #8b9bb4;
+  --nbd-nav-white: #f0f6fc;
+}
+
+#nbd-pro-nav {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: var(--nbd-nav-h);
+  background: rgba(15,29,66,0.97);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--nbd-nav-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  gap: 12px;
+  font-family: 'DM Mono', 'Montserrat', monospace;
+}
+
+/* Logo */
+#nbd-pro-nav .nnav-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+#nbd-pro-nav .nnav-mark {
+  width: 32px; height: 32px;
+  background: var(--nbd-nav-orange);
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px; color: #fff; letter-spacing: 1px;
+  flex-shrink: 0;
+}
+#nbd-pro-nav .nnav-wordmark {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px; letter-spacing: 2px;
+  color: var(--nbd-nav-white); line-height: 1;
+}
+#nbd-pro-nav .nnav-wordmark span { color: var(--nbd-nav-orange); }
+#nbd-pro-nav .nnav-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px; color: var(--nbd-nav-text);
+  letter-spacing: 2px; text-transform: uppercase; margin-top: 1px;
+}
+
+/* Links */
+#nbd-pro-nav .nnav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#nbd-pro-nav .nnav-links::-webkit-scrollbar { display: none; }
+#nbd-pro-nav .nnav-link {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 9px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .5px; text-transform: uppercase;
+  color: var(--nbd-nav-text);
+  white-space: nowrap;
+  transition: all .15s;
+  border: 1px solid transparent;
+}
+#nbd-pro-nav .nnav-link:hover {
+  color: var(--nbd-nav-white);
+  background: rgba(255,255,255,.06);
+}
+#nbd-pro-nav .nnav-link.active {
+  color: var(--nbd-nav-orange);
+  background: rgba(232,114,12,.1);
+  border-color: rgba(232,114,12,.2);
+}
+#nbd-pro-nav .nnav-link.demo-link {
+  color: var(--nbd-nav-cyan);
+}
+#nbd-pro-nav .nnav-link.demo-link:hover {
+  background: rgba(0,212,255,.08);
+  border-color: rgba(0,212,255,.2);
+}
+#nbd-pro-nav .nnav-icon { font-size: 12px; line-height: 1; }
+
+/* Right side */
+#nbd-pro-nav .nnav-right {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+#nbd-pro-nav .nnav-login-btn {
+  padding: 6px 14px;
+  background: var(--nbd-nav-orange);
+  color: #fff; border: none; border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; cursor: pointer;
+  text-decoration: none;
+  transition: .15s;
+  white-space: nowrap;
+}
+#nbd-pro-nav .nnav-login-btn:hover { background: #c45e08; }
+#nbd-pro-nav .nnav-login-btn.logout {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.15);
+  color: var(--nbd-nav-text);
+}
+#nbd-pro-nav .nnav-login-btn.logout:hover {
+  border-color: var(--nbd-nav-orange);
+  color: var(--nbd-nav-orange);
+}
+#nbd-pro-nav .nnav-user {
+  font-size: 9px; color: var(--nbd-nav-text);
+  letter-spacing: .5px; max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Hamburger */
+#nbd-pro-nav .nnav-burger {
+  display: none;
+  flex-direction: column; gap: 4px;
+  background: none; border: none; cursor: pointer;
+  padding: 6px; flex-shrink: 0;
+}
+#nbd-pro-nav .nnav-burger span {
+  display: block; width: 20px; height: 2px;
+  background: var(--nbd-nav-white); border-radius: 2px;
+  transition: .25s;
+}
+
+/* Mobile drawer */
+#nbd-nav-drawer {
+  display: none;
+  position: fixed;
+  top: var(--nbd-nav-h);
+  left: 0; right: 0; bottom: 0;
+  z-index: 999;
+  background: rgba(8,12,24,.97);
+  backdrop-filter: blur(16px);
+  flex-direction: column;
+  overflow-y: auto;
+}
+#nbd-nav-drawer.open { display: flex; }
+.nnav-drawer-links {
+  flex: 1;
+  display: flex; flex-direction: column;
+  padding: 16px;
+  gap: 4px;
+}
+.nnav-drawer-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--nbd-nav-text);
+  border: 1px solid transparent;
+  transition: .15s;
+}
+.nnav-drawer-link:hover {
+  background: rgba(255,255,255,.06);
+  color: var(--nbd-nav-white);
+}
+.nnav-drawer-link.active {
+  background: rgba(232,114,12,.1);
+  border-color: rgba(232,114,12,.2);
+  color: var(--nbd-nav-orange);
+}
+.nnav-drawer-link.demo-link { color: var(--nbd-nav-cyan); }
+.nnav-drawer-link .nnav-icon { font-size: 18px; width: 24px; text-align: center; }
+.nnav-drawer-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.nnav-drawer-footer .nnav-login-btn {
+  display: block; width: 100%; text-align: center;
+  padding: 14px; font-size: 11px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #nbd-pro-nav .nnav-links { display: none; }
+  #nbd-pro-nav .nnav-right .nnav-login-btn { display: none; }
+  #nbd-pro-nav .nnav-right .nnav-user { display: none; }
+  #nbd-pro-nav .nnav-burger { display: flex; }
+}
+
+/* Position variants */
+#nbd-pro-nav.pos-bottom {
+  position: fixed;
+  top: auto; bottom: 0;
+  border-top: 1px solid var(--nbd-nav-border);
+  border-bottom: none;
+}
+#nbd-pro-nav.pos-dock {
+  position: fixed;
+  top: auto; bottom: 16px;
+  left: 50%; right: auto;
+  transform: translateX(-50%);
+  width: auto; max-width: 92vw;
+  border-radius: 40px;
+  border: 1px solid var(--nbd-nav-border);
+  padding: 0 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+}
+#nbd-pro-nav.pos-dock .nnav-wordmark,
+#nbd-pro-nav.pos-dock .nnav-sub { display: none; }
+</style>
+
+<!-- NAV HTML -->
+<nav id="nbd-pro-nav">
+  <a href="/pro/features.html" class="nnav-logo">
+    <div class="nnav-mark">NBD</div>
+    <div>
+      <div class="nnav-wordmark">No Big <span>Deal</span></div>
+      <div class="nnav-sub">Pro</div>
+    </div>
+  </a>
+
+  <div class="nnav-links" id="nnav-links">
+    <a href="/pro/" class="nnav-link" data-page="home"><span class="nnav-icon">🏠</span><span class="nnav-lbl">Home</span></a>
+    <a href="/pro/dashboard.html" class="nnav-link" data-page="dashboard"><span class="nnav-icon">📊</span><span class="nnav-lbl">Dashboard</span></a>
+    <a href="/pro/daily-success/" class="nnav-link" data-page="daily-success"><span class="nnav-icon">✅</span><span class="nnav-lbl">Daily</span></a>
+    <a href="/pro/ai-tree.html" class="nnav-link" data-page="ai-tree"><span class="nnav-icon">🌳</span><span class="nnav-lbl">AI Tree</span></a>
+    <a href="/pro/codex.html" class="nnav-link" data-page="codex"><span class="nnav-icon">📖</span><span class="nnav-lbl">Codex</span></a>
+    <a href="/pro/understand.html" class="nnav-link" data-page="understand"><span class="nnav-icon">🧠</span><span class="nnav-lbl">Understand</span></a>
+    <a href="/pro/demo.html" class="nnav-link demo-link" data-page="demo"><span class="nnav-icon">▶</span><span class="nnav-lbl">Demo</span></a>
+  </div>
+
+  <div class="nnav-right">
+    <span class="nnav-user" id="nnav-user-label"></span>
+    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-auth-btn">Login</a>
+    <button class="nnav-burger" id="nnav-burger" onclick="nbdNavToggle()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- MOBILE DRAWER -->
+<div id="nbd-nav-drawer">
+  <div class="nnav-drawer-links">
+    <a href="/pro/" class="nnav-drawer-link" data-page="home"><span class="nnav-icon">🏠</span> Home</a>
+    <a href="/pro/dashboard.html" class="nnav-drawer-link" data-page="dashboard"><span class="nnav-icon">📊</span> Dashboard</a>
+    <a href="/pro/daily-success/" class="nnav-drawer-link" data-page="daily-success"><span class="nnav-icon">✅</span> Daily Success</a>
+    <a href="/pro/ai-tree.html" class="nnav-drawer-link" data-page="ai-tree"><span class="nnav-icon">🌳</span> AI Tree</a>
+    <a href="/pro/codex.html" class="nnav-drawer-link" data-page="codex"><span class="nnav-icon">📖</span> Codex</a>
+    <a href="/pro/understand.html" class="nnav-drawer-link" data-page="understand"><span class="nnav-icon">🧠</span> Understand</a>
+    <a href="/pro/demo.html" class="nnav-drawer-link demo-link" data-page="demo"><span class="nnav-icon">▶</span> Live Demo</a>
+  </div>
+  <div class="nnav-drawer-footer">
+    <span id="nnav-drawer-user" style="font-size:10px;color:#8b9bb4;text-align:center;letter-spacing:.5px;"></span>
+    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-drawer-auth-btn">Login</a>
+  </div>
+</div>
+
+<script>
+/* ── NBD NAV CONFIG ─────────────────────────────────────────────
+   Change position here or wire to a settings page later.
+   Options: 'top' | 'bottom' | 'dock'
+   ─────────────────────────────────────────────────────────────── */
+const NBD_NAV_CONFIG = {
+  position: 'top',      // 'top' | 'bottom' | 'dock'
+  activeColor: '#e8720c',
+  showLabels: true,
+};
+
+(function nbdNavInit() {
+  // Apply position
+  const nav = document.getElementById('nbd-pro-nav');
+  if (NBD_NAV_CONFIG.position !== 'top') {
+    nav.classList.add('pos-' + NBD_NAV_CONFIG.position);
+    nav.style.position = 'fixed';
+    if (NBD_NAV_CONFIG.position === 'bottom' || NBD_NAV_CONFIG.position === 'dock') {
+      document.body.style.paddingBottom = '68px';
+      document.body.style.paddingTop = '0';
+    }
+  }
+
+  // Mark active page
+  const path = window.location.pathname;
+  const pageMap = {
+    '/pro/': 'home',
+    '/pro/dashboard.html': 'dashboard',
+    '/pro/daily-success/': 'daily-success',
+    '/pro/daily-success/index.html': 'daily-success',
+    '/pro/ai-tree.html': 'ai-tree',
+    '/pro/codex.html': 'codex',
+    '/pro/understand.html': 'understand',
+    '/pro/demo.html': 'demo',
+    '/pro/features.html': 'features',
+  };
+  const activePage = pageMap[path] || '';
+  document.querySelectorAll('.nnav-link[data-page], .nnav-drawer-link[data-page]').forEach(el => {
+    if (el.dataset.page === activePage) el.classList.add('active');
+  });
+
+  // Auth state
+  try {
+    if (typeof firebase !== 'undefined') {
+      firebase.auth().onAuthStateChanged(user => {
+        const btn = document.getElementById('nnav-auth-btn');
+        const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
+        const userLabel = document.getElementById('nnav-user-label');
+        const drawerUser = document.getElementById('nnav-drawer-user');
+        if (user) {
+          const name = user.displayName || user.email?.split('@')[0] || 'Member';
+          if (userLabel) userLabel.textContent = name;
+          if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
+          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
+          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
+        } else {
+          if (userLabel) userLabel.textContent = '';
+          if (drawerUser) drawerUser.textContent = '';
+        }
+      });
+    }
+  } catch(e) {}
+})();
+
+function nbdNavToggle() {
+  const drawer = document.getElementById('nbd-nav-drawer');
+  const burger = document.getElementById('nnav-burger');
+  const open = drawer.classList.toggle('open');
+  burger.style.opacity = open ? '0.6' : '1';
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+// Close drawer on link click
+document.querySelectorAll('.nnav-drawer-link').forEach(l => {
+  l.addEventListener('click', () => {
+    document.getElementById('nbd-nav-drawer').classList.remove('open');
+    document.body.style.overflow = '';
+  });
+});
+
+// Close on outside click
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('nbd-nav-drawer');
+  const burger = document.getElementById('nnav-burger');
+  const nav = document.getElementById('nbd-pro-nav');
+  if (drawer.classList.contains('open') && !nav.contains(e.target) && !drawer.contains(e.target)) {
+    drawer.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
+
+window.nbdNavToggle = nbdNavToggle;
+</script>
+
 
 <!-- ═══ WELCOME MODAL (shows once per device) ═══ -->
 <div id="welcomeModal" style="

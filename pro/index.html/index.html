@@ -28,6 +28,24 @@ nav{position:sticky;top:0;z-index:200;background:rgba(15,29,66,0.97);backdrop-fi
 .btn-s{background:transparent;color:var(--white);padding:15px 36px;border-radius:4px;font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;border:1px solid rgba(255,255,255,.2);cursor:pointer;transition:all .25s}
 .btn-s:hover{border-color:rgba(255,255,255,.5)}
 @keyframes pd{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+
+/* ── MOBILE NAV ─────────────────────────────────────────────── */
+.nav-burger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:6px}
+.nav-burger span{display:block;width:22px;height:2px;background:var(--white);border-radius:2px;transition:.25s}
+#mobile-drawer{display:none;position:fixed;top:64px;left:0;right:0;bottom:0;z-index:199;background:rgba(10,14,26,.97);backdrop-filter:blur(16px);flex-direction:column;overflow-y:auto}
+#mobile-drawer.open{display:flex}
+.mob-links{flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:4px}
+.mob-link{padding:14px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:.5px;color:var(--text-muted);border:1px solid transparent;transition:.15s;display:block}
+.mob-link:hover{color:var(--white);background:rgba(255,255,255,.05)}
+.mob-link.highlight{color:#00d4ff}
+.mob-footer{padding:20px 24px;border-top:1px solid rgba(255,255,255,.07)}
+.mob-footer a{display:block;width:100%;text-align:center;padding:15px;background:var(--orange);color:#fff;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none}
+@media(max-width:900px){
+  .nav-links{display:none}
+  .nav-burger{display:flex}
+  nav{padding:0 20px}
+}
+
 </style>
 </head>
 <body>
@@ -41,10 +59,48 @@ nav{position:sticky;top:0;z-index:200;background:rgba(15,29,66,0.97);backdrop-fi
     <li><a href="#masterclass">Masterclass</a></li>
     <li><a href="#daily-success">Daily Program</a></li>
     <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#ai-tools" style="color:#00d4ff">⚡ AI Tools</a></li>
+    <li><a href="/pro/demo.html" style="color:#00d4ff">▶ Live Demo</a></li>
     <li><a href="/" style="font-size:11px">&larr; Main Site</a></li>
     <li><a href="/pro/login.html" class="ncta">Member Login</a></li>
   </ul>
+  <button class="nav-burger" id="nav-burger" onclick="mobileNavToggle()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div id="mobile-drawer">
+  <div class="mob-links">
+    <a href="#blueprint" class="mob-link" onclick="mobileNavToggle()">Free Blueprint</a>
+    <a href="#masterclass" class="mob-link" onclick="mobileNavToggle()">Masterclass</a>
+    <a href="#daily-success" class="mob-link" onclick="mobileNavToggle()">Daily Program</a>
+    <a href="#pricing" class="mob-link" onclick="mobileNavToggle()">Pricing</a>
+    <a href="#ai-tools" class="mob-link highlight" onclick="mobileNavToggle()">⚡ AI Tools</a>
+    <a href="/pro/demo.html" class="mob-link highlight">▶ Live Demo</a>
+    <a href="/" class="mob-link">&larr; Main Site</a>
+  </div>
+  <div class="mob-footer">
+    <a href="/pro/login.html">Member Login →</a>
+  </div>
+</div>
+
+<script>
+function mobileNavToggle(){
+  const d=document.getElementById('mobile-drawer');
+  const b=document.getElementById('nav-burger');
+  const open=d.classList.toggle('open');
+  document.body.style.overflow=open?'hidden':'';
+  b.style.opacity=open?'0.6':'1';
+}
+document.addEventListener('click',function(e){
+  const d=document.getElementById('mobile-drawer');
+  const nav=document.querySelector('nav');
+  if(d&&d.classList.contains('open')&&!nav.contains(e.target)&&!d.contains(e.target)){
+    d.classList.remove('open');
+    document.body.style.overflow='';
+  }
+});
+</script>
 
 <section style="min-height:90vh;display:grid;grid-template-columns:1fr 460px;position:relative;overflow:hidden">
   <div style="position:absolute;inset:0;background:radial-gradient(ellipse 600px 500px at 20% 60%,rgba(232,114,12,0.08) 0%,transparent 70%);pointer-events:none"></div>
@@ -296,9 +352,328 @@ nav{position:sticky;top:0;z-index:200;background:rgba(15,29,66,0.97);backdrop-fi
           <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Direct line to Joe (text/call)</li>
           <li style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#c8d3e0;margin-bottom:10px"><span style="color:#3fb950">&#10003;</span> Monthly group strategy call</li>
         </ul>
+        <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.22);border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00d4ff;margin-bottom:10px">⚡ Exclusive AI Tool Suite</div>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#c8d3e0"><span style="color:#00d4ff;font-size:13px">›</span>AI Usability Tree — stack optimizer</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#c8d3e0"><span style="color:#00d4ff;font-size:13px">›</span>AI Selection Codex — pick the right tool</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#c8d3e0"><span style="color:#00d4ff;font-size:13px">›</span>Understanding Tool — learn any software fast</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#c8d3e0"><span style="color:#00d4ff;font-size:13px">›</span>Visualizer — AI homeowner conversion tool</div>
+          </div>
+          <a href="/pro/demo.html" style="font-size:10px;color:#00d4ff;text-decoration:none;font-weight:700;letter-spacing:1px">See all AI tools → Live Demo</a>
+        </div>
         <a href="/pro/login.html" style="display:block;width:100%;text-align:center;padding:13px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;background:transparent;color:var(--orange);border:1px solid var(--orange)">Join NBD Infused</a>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ════════ AI TOOLS SECTION ════════ -->
+<div id="ai-tools" style="padding:96px 48px;background:#060a12;border-top:1px solid rgba(0,212,255,0.12);position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 900px 500px at 50% 50%,rgba(0,212,255,0.05) 0%,transparent 65%);pointer-events:none"></div>
+  <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.4),rgba(232,114,12,0.4),transparent)"></div>
+  <div style="max-width:1140px;margin:0 auto;position:relative;z-index:1">
+
+    <div style="text-align:center;margin-bottom:64px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);color:#00d4ff;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:7px 16px;border-radius:4px;margin-bottom:20px">
+        <span style="width:6px;height:6px;background:#00d4ff;border-radius:50%;display:inline-block;animation:pd 2s infinite"></span>
+        Infused Members Only
+      </div>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(44px,5vw,68px);letter-spacing:2px;line-height:.95;margin-bottom:20px">YOUR AI ADVANTAGE IS<br><span style="color:#00d4ff">ALREADY PAID FOR.</span></h2>
+      <p style="font-size:16px;color:rgba(255,255,255,.6);max-width:600px;margin:0 auto 12px;line-height:1.75">The tools your competitors don't have — and wouldn't know how to use if they did. Four AI-powered systems built from scratch for contractors.</p>
+      <p style="font-size:13px;color:rgba(255,255,255,.35);max-width:500px;margin:0 auto">This is what makes the Infused plan worth $197. Not features. Not promises. Working tools you open every day.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:48px">
+
+      <div style="background:rgba(13,20,33,.8);border:1px solid rgba(0,212,255,0.15);border-radius:12px;padding:28px;border-top:3px solid #00d4ff;transition:.2s" onmouseover="this.style.borderColor='rgba(0,212,255,0.4)'" onmouseout="this.style.borderColor='rgba(0,212,255,0.15)'">
+        <div style="font-size:24px;margin-bottom:12px">🌳</div>
+        <div style="font-size:10px;color:#00d4ff;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px">AI Usability Tree</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:10px">Stop paying for tools you don't use</div>
+        <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:16px">Maps your entire software stack, scores each tool by ROI, and tells you exactly what to cut. Most contractors find $100+/month they can cancel immediately.</p>
+        <a href="/pro/ai-tree.html" style="font-size:10px;color:#00d4ff;text-decoration:none;font-weight:700;letter-spacing:1px">Launch Tool →</a>
+      </div>
+
+      <div style="background:rgba(13,20,33,.8);border:1px solid rgba(139,92,246,0.15);border-radius:12px;padding:28px;border-top:3px solid #8b5cf6;transition:.2s" onmouseover="this.style.borderColor='rgba(139,92,246,0.4)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.15)'">
+        <div style="font-size:24px;margin-bottom:12px">📖</div>
+        <div style="font-size:10px;color:#8b5cf6;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px">AI Selection Codex</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:10px">Know which AI tool to use for what</div>
+        <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:16px">Wizard-style decision engine maps your use case to the right AI tool, grades your selection, and kills the overwhelm of 50+ options that all look the same.</p>
+        <a href="/pro/codex.html" style="font-size:10px;color:#8b5cf6;text-decoration:none;font-weight:700;letter-spacing:1px">Launch Tool →</a>
+      </div>
+
+      <div style="background:rgba(13,20,33,.8);border:1px solid rgba(212,160,10,0.15);border-radius:12px;padding:28px;border-top:3px solid #d4a00a;transition:.2s" onmouseover="this.style.borderColor='rgba(212,160,10,0.4)'" onmouseout="this.style.borderColor='rgba(212,160,10,0.15)'">
+        <div style="font-size:24px;margin-bottom:12px">🧠</div>
+        <div style="font-size:10px;color:#d4a00a;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Understanding Tool</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:10px">Actually learn the tools you buy</div>
+        <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:16px">AI-powered deep dive into any software — what it does well, where it fails, and exactly how a contractor should be using it day-to-day. No YouTube rabbit holes.</p>
+        <a href="/pro/understand.html" style="font-size:10px;color:#d4a00a;text-decoration:none;font-weight:700;letter-spacing:1px">Launch Tool →</a>
+      </div>
+
+      <div style="background:rgba(13,20,33,.8);border:1px solid rgba(232,114,12,0.15);border-radius:12px;padding:28px;border-top:3px solid var(--orange);transition:.2s" onmouseover="this.style.borderColor='rgba(232,114,12,0.4)'" onmouseout="this.style.borderColor='rgba(232,114,12,0.15)'">
+        <div style="font-size:24px;margin-bottom:12px">🏠</div>
+        <div style="font-size:10px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Homeowner Visualizer</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:10px">Show them what their house could look like</div>
+        <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.7;margin-bottom:16px">AI photo tool that shows homeowners their house with a new roof or siding before they sign. Closes faster than any pitch. Turns fence-sitters into signed contracts.</p>
+        <a href="/visualizer.html" style="font-size:10px;color:var(--orange);text-decoration:none;font-weight:700;letter-spacing:1px">Launch Tool →</a>
+      </div>
+
+    </div>
+
+    <div style="text-align:center;padding:32px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.12);border-radius:12px">
+      <div style="font-size:10px;color:rgba(255,255,255,.35);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">All four tools included in</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#00d4ff;margin-bottom:4px">NBD INFUSED — $197/MONTH</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px">Plus everything in Foundation · Always updating · Direct line to Joe</div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <a href="/pro/demo.html" style="padding:11px 24px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:4px;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none">▶ See Live Demo</a>
+        <a href="/pro/login.html" style="padding:11px 24px;background:var(--orange);color:#fff;border-radius:4px;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none">Join NBD Infused →</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════ COMPARISON TABLE ════════ -->
+<div style="padding:96px 48px;background:var(--navy-dark);border-top:1px solid rgba(255,255,255,0.05)">
+  <div style="max-width:1140px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:56px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--orange);margin-bottom:12px">How We Stack Up</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;line-height:1;margin-bottom:16px">NBD PRO VS. <span style="color:var(--orange)">EVERYTHING ELSE</span></h2>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+        <button onclick="showCompare('crm')" id="btn-crm" style="padding:8px 18px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid var(--orange);background:var(--orange);color:#fff;transition:.15s">vs CRMs</button>
+        <button onclick="showCompare('coaching')" id="btn-coaching" style="padding:8px 18px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid rgba(255,255,255,.2);background:transparent;color:var(--text-muted);transition:.15s">vs Coaching Programs</button>
+      </div>
+    </div>
+
+    <!-- CRM TABLE -->
+    <div id="compare-crm">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr>
+              <th style="padding:14px 16px;text-align:left;font-size:10px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.08);min-width:160px">Feature</th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--orange);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--orange);background:rgba(232,114,12,0.06)">NBD Foundation<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500;color:var(--text-muted)">$97/mo</span></th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--text-muted);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:1px solid rgba(255,255,255,.08)">JobNimbus<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500">$85–250/mo</span></th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--text-muted);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:1px solid rgba(255,255,255,.08)">AccuLynx<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500">$100–300/mo</span></th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--text-muted);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:1px solid rgba(255,255,255,.08)">Leap<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500">$99–199/mo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Lead Pipeline CRM</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Built for restoration/roofing</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3fb950">✓</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Storm intel + radar map</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">partial</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Daily success / habit tracker</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓ Free</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">AI-powered tool suite</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓ Infused</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Contractor coaching + blueprint</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Direct access to founder</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓ Infused</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Free tier available</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">100+ visual themes</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COACHING TABLE -->
+    <div id="compare-coaching" style="display:none">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr>
+              <th style="padding:14px 16px;text-align:left;font-size:10px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.08);min-width:160px">Feature</th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--orange);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:2px solid var(--orange);background:rgba(232,114,12,0.06)">NBD Infused<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500;color:var(--text-muted)">$197/mo</span></th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--text-muted);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:1px solid rgba(255,255,255,.08)">Generic Coaching<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500">$200–500/mo</span></th>
+              <th style="padding:14px 16px;text-align:center;font-size:11px;color:var(--text-muted);font-family:'Bebas Neue',sans-serif;letter-spacing:1.5px;border-bottom:1px solid rgba(255,255,255,.08)">Contractor Courses<br><span style="font-family:'Montserrat',sans-serif;font-size:10px;font-weight:500">$500–2000 one-time</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Built by an active contractor</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">varies</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">sometimes</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Restoration-specific content</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">rare</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Working software tools included</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓ 6+ tools</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Daily accountability system</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">some</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">AI-powered workflow tools</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Direct access to founder</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓ text/call</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">group only</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Always updating content</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#d29922">varies</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗ static</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+              <td style="padding:12px 16px;color:var(--text-muted);font-size:11px">Free tier to start</td>
+              <td style="padding:12px 16px;text-align:center;background:rgba(232,114,12,0.04)"><span style="color:#3fb950;font-weight:700">✓</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+              <td style="padding:12px 16px;text-align:center"><span style="color:#3a4152">✗</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+    function showCompare(tab){
+      document.getElementById('compare-crm').style.display = tab==='crm'?'block':'none';
+      document.getElementById('compare-coaching').style.display = tab==='coaching'?'block':'none';
+      document.getElementById('btn-crm').style.background = tab==='crm'?'var(--orange)':'transparent';
+      document.getElementById('btn-crm').style.color = tab==='crm'?'#fff':'var(--text-muted)';
+      document.getElementById('btn-coaching').style.background = tab==='coaching'?'var(--orange)':'transparent';
+      document.getElementById('btn-coaching').style.color = tab==='coaching'?'#fff':'var(--text-muted)';
+    }
+    </script>
+  </div>
+</div>
+
+<!-- ════════ FAQ ════════ -->
+<div style="padding:96px 48px;background:var(--navy);border-top:1px solid rgba(255,255,255,0.06)">
+  <div style="max-width:800px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:56px">
+      <p style="font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--orange);margin-bottom:12px">Got Questions</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;line-height:1">STRAIGHT ANSWERS.</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px" id="faq-list">
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">Is this actually built for contractors or is it generic software?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">Built by a contractor, for contractors. Joe Deal runs No Big Deal Home Solutions in Greater Cincinnati — roofing, siding, gutters, storm damage, fire and water restoration. Every feature in NBD Pro came from a real problem Joe hit in the field. It's not adapted from generic SaaS. It's purpose-built for restoration sales operators.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">What's the actual difference between Foundation ($97) and Infused ($197)?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">Foundation gives you the full CRM — lead pipeline, estimates, job management, the masterclass, and the daily success tracker. Infused adds the AI tool suite (AI Usability Tree, AI Selection Codex, Understanding Tool, Homeowner Visualizer), continuous platform updates, and direct access to Joe via text/call. If you're running the pipeline seriously and want to use AI to work smarter, Infused is the move.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">Do I need to be tech-savvy to use the tools?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">No. The tools run in your browser — no installs, no accounts to set up beyond registering. If you can use a smartphone you can use NBD Pro. The Daily Success tracker is completely free with zero login required. The CRM is designed to be picked up in under 10 minutes.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">Is this only useful in Cincinnati?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">No. The system, the tools, and the coaching content work anywhere there are homes and storms. Joe built it in Cincinnati but the playbook — door knocking, insurance claims, pipeline management, sales scripts — translates to any restoration market. The storm intel map pulls NOAA radar nationally.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">What happens to my data if I cancel?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">Your data is yours. The CRM data lives in your account in Firestore. The Daily Success data saves locally in your browser. If you cancel your plan, you keep access to the free tier (blueprint + daily tracker). Your pipeline data stays in the system and will be there if you come back.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">Are the AI tools actually useful or just gimmicks?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">They solve specific, real contractor problems. The AI Usability Tree finds dead-weight subscriptions in your stack. The Codex picks the right AI tool instead of guessing. The Understanding Tool deep-dives any software in plain English. The Visualizer shows homeowners their house with a new roof before they sign. These aren't chatbots you talk to. They're decision tools with contractor context baked in.</div>
+      </div>
+      <div class="faq-item" style="border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden">
+        <button onclick="toggleFaq(this)" style="width:100%;text-align:left;padding:18px 20px;background:var(--dark-card);border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Montserrat',sans-serif">
+          <span style="font-size:13px;font-weight:700;color:var(--white)">Can I try it before paying?</span>
+          <span class="faq-icon" style="color:var(--orange);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+        </button>
+        <div class="faq-body" style="display:none;padding:0 20px 18px;background:var(--dark-card);font-size:13px;color:var(--text-muted);line-height:1.75;border-top:1px solid rgba(255,255,255,.05)">Yes. The Free Blueprint is genuinely free — no credit card, just your email. The Daily Success Program is completely free with no login. Register for a free account to explore the platform. The paid tools are gated but you'll see exactly what you're getting before you upgrade.</div>
+      </div>
+    </div>
+    <script>
+    function toggleFaq(btn){
+      const body=btn.nextElementSibling;
+      const icon=btn.querySelector('.faq-icon');
+      const open=body.style.display==='block';
+      document.querySelectorAll('.faq-body').forEach(b=>b.style.display='none');
+      document.querySelectorAll('.faq-icon').forEach(i=>{i.textContent='+';i.style.transform='rotate(0deg)'});
+      if(!open){body.style.display='block';icon.textContent='−';icon.style.transform='rotate(0deg)';}
+    }
+    </script>
   </div>
 </div>
 

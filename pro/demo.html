@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — Live Tool Demo</title>
+<meta name="description" content="See every NBD Pro tool in action. AI-powered contractor tools built for roofing, restoration, and sales operators.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#060a12;--s:#0d1421;--s2:#121c2e;--s3:#18243a;
+  --orange:#e8720c;--orange-d:#c45e08;--orange-l:#f59240;
+  --cyan:#00d4ff;--cyan-d:#00a8cc;
+  --navy:#0f1d42;--navy-l:#1a2b5e;
+  --white:#f0f6fc;--muted:#8b9bb4;--dimmed:#4a5568;
+  --border:rgba(255,255,255,.07);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;line-height:1.6;overflow-x:hidden}
+
+/* HERO */
+.demo-hero{
+  padding:72px 48px 56px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  border-bottom:1px solid var(--border);
+}
+.demo-hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 800px 400px at 50% 0%,rgba(0,212,255,0.07) 0%,transparent 70%);
+  pointer-events:none;
+}
+.demo-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);
+  color:var(--cyan);font-size:10px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;
+  padding:7px 16px;border-radius:4px;margin-bottom:24px;
+}
+.demo-eyebrow span{width:6px;height:6px;background:var(--cyan);border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+.demo-hero h1{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(48px,6vw,80px);
+  letter-spacing:2px;line-height:.95;
+  margin-bottom:20px;
+}
+.demo-hero h1 span{color:var(--cyan)}
+.demo-hero p{
+  font-size:16px;color:var(--muted);line-height:1.75;
+  max-width:560px;margin:0 auto 36px;
+}
+.demo-hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn-cyan{
+  padding:13px 28px;background:var(--cyan);color:#000;
+  border-radius:4px;font-weight:800;font-size:12px;
+  letter-spacing:1.5px;text-transform:uppercase;
+  text-decoration:none;transition:.2s;
+}
+.btn-cyan:hover{background:var(--cyan-d);transform:translateY(-1px)}
+.btn-outline{
+  padding:13px 28px;background:transparent;color:var(--white);
+  border:1px solid rgba(255,255,255,.2);border-radius:4px;
+  font-weight:600;font-size:12px;letter-spacing:1px;
+  text-transform:uppercase;text-decoration:none;transition:.2s;
+}
+.btn-outline:hover{border-color:rgba(255,255,255,.5)}
+
+/* TOOL SECTION */
+.demo-section{padding:80px 48px;max-width:1200px;margin:0 auto}
+.demo-section-label{
+  font-size:10px;font-weight:700;letter-spacing:4px;
+  text-transform:uppercase;color:var(--cyan);
+  margin-bottom:12px;
+}
+.demo-section-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,4vw,52px);
+  letter-spacing:2px;margin-bottom:8px;
+}
+.demo-section-sub{font-size:15px;color:var(--muted);max-width:560px;margin-bottom:56px;line-height:1.7}
+
+/* TOOL CARD */
+.tool-card{
+  display:grid;
+  grid-template-columns:1fr 420px;
+  gap:48px;align-items:center;
+  margin-bottom:80px;
+  padding-bottom:80px;
+  border-bottom:1px solid var(--border);
+}
+.tool-card:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.tool-card.reverse{direction:rtl}
+.tool-card.reverse > *{direction:ltr}
+
+/* Card info */
+.tc-info{}
+.tc-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:20px;
+  font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:16px;
+}
+.tc-badge.orange{background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.25);color:var(--orange)}
+.tc-badge.cyan{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.22);color:var(--cyan)}
+.tc-badge.green{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);color:#3fb950}
+.tc-badge.purple{background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:#8b5cf6}
+.tc-badge.gold{background:rgba(212,160,10,.1);border:1px solid rgba(212,160,10,.25);color:#d4a00a}
+
+.tc-problem{
+  font-size:11px;color:var(--orange);
+  letter-spacing:.5px;font-weight:600;
+  margin-bottom:8px;text-transform:uppercase;
+}
+.tc-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(32px,3.5vw,46px);
+  letter-spacing:1.5px;line-height:.95;
+  margin-bottom:16px;
+}
+.tc-desc{font-size:14px;color:var(--muted);line-height:1.75;margin-bottom:24px}
+.tc-features{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:9px}
+.tc-features li{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:13px;color:#c8d3e0;line-height:1.5;
+}
+.tc-features li::before{
+  content:'›';color:var(--cyan);font-weight:700;font-size:16px;
+  line-height:1.2;flex-shrink:0;
+}
+.tc-launch{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 24px;
+  background:var(--orange);color:#fff;
+  border-radius:4px;font-weight:800;font-size:12px;
+  letter-spacing:1.5px;text-transform:uppercase;
+  text-decoration:none;transition:.2s;
+}
+.tc-launch:hover{background:var(--orange-d);transform:translateY(-1px)}
+.tc-launch.cyan-btn{background:var(--cyan);color:#000}
+.tc-launch.cyan-btn:hover{background:var(--cyan-d)}
+
+/* MOCKUP SCREEN */
+.tc-mockup{
+  background:var(--s);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+  position:relative;
+}
+.tc-mockup::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(0,212,255,.03) 0%,transparent 60%);
+  pointer-events:none;z-index:1;
+}
+.mock-bar{
+  background:var(--s2);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  padding:10px 14px;
+  display:flex;align-items:center;gap:6px;
+}
+.mock-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mock-title{
+  margin-left:auto;font-family:'DM Mono',monospace;
+  font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--cyan);
+}
+.mock-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.mock-row{display:flex;gap:8px}
+.mock-stat{
+  flex:1;background:var(--s2);border-radius:6px;padding:10px 12px;
+  border:1px solid rgba(255,255,255,.05);
+}
+.mock-stat-label{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.mock-stat-val{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1}
+.mock-item{
+  background:var(--s2);border-radius:6px;padding:10px 12px;
+  border:1px solid rgba(255,255,255,.05);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.mock-item-left{display:flex;align-items:center;gap:10px}
+.mock-dot-sm{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.mock-item-name{font-size:11px;font-weight:600;color:var(--white)}
+.mock-item-sub{font-size:9px;color:var(--muted);margin-top:1px}
+.mock-pill{
+  font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  padding:3px 8px;border-radius:3px;flex-shrink:0;
+}
+.mock-bar-chart{background:var(--s2);border-radius:6px;padding:12px;border:1px solid rgba(255,255,255,.05)}
+.mock-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.mock-bar-label{font-size:8px;color:var(--muted);width:60px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px}
+.mock-bar-track{flex:1;height:6px;background:var(--s3);border-radius:3px;overflow:hidden}
+.mock-bar-fill{height:100%;border-radius:3px;transition:.4s}
+.mock-bar-val{font-size:8px;color:var(--muted);width:28px;text-align:right;flex-shrink:0}
+.mock-tree-node{
+  background:var(--s2);border-radius:6px;padding:9px 12px;
+  border:1px solid rgba(255,255,255,.05);
+  font-size:10px;color:var(--white);
+  display:flex;align-items:center;gap:8px;
+}
+.mock-tree-icon{font-size:14px;flex-shrink:0}
+.mock-tree-line{height:1px;background:rgba(255,255,255,.06);margin:4px 0 4px 20px}
+.mock-input{
+  background:var(--s3);border:1px solid rgba(255,255,255,.08);
+  border-radius:5px;padding:8px 10px;
+  font-size:10px;color:var(--muted);
+}
+.mock-grade-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:8px;
+  font-family:'Bebas Neue',sans-serif;font-size:24px;
+  flex-shrink:0;
+}
+.mock-result-row{display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:6px;padding:10px 12px;border:1px solid rgba(255,255,255,.05)}
+.mock-result-text{font-size:10px;color:var(--white);font-weight:600}
+.mock-result-sub{font-size:8px;color:var(--muted);margin-top:1px}
+
+/* DIVIDER */
+.demo-divider{
+  height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,.15),transparent);
+  margin:0 48px;
+}
+
+/* CTA */
+.demo-cta{
+  padding:96px 48px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  border-top:1px solid var(--border);
+}
+.demo-cta::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 700px 350px at 50% 100%,rgba(232,114,12,0.07) 0%,transparent 70%);
+  pointer-events:none;
+}
+.demo-cta h2{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(40px,5vw,64px);
+  letter-spacing:2px;line-height:.95;
+  margin-bottom:16px;position:relative;z-index:1;
+}
+.demo-cta h2 span{color:var(--orange)}
+.demo-cta p{font-size:15px;color:var(--muted);max-width:520px;margin:0 auto 40px;line-height:1.75;position:relative;z-index:1}
+.demo-cta-btns{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+  position:relative;z-index:1;
+}
+.btn-orange-lg{
+  padding:16px 36px;background:var(--orange);color:#fff;
+  border-radius:4px;font-weight:800;font-size:13px;
+  letter-spacing:1.5px;text-transform:uppercase;
+  text-decoration:none;transition:.2s;
+}
+.btn-orange-lg:hover{background:var(--orange-d);transform:translateY(-1px)}
+.btn-infused{
+  padding:16px 36px;
+  background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(139,92,246,.12));
+  border:1px solid rgba(0,212,255,.35);
+  color:var(--cyan);border-radius:4px;font-weight:800;font-size:13px;
+  letter-spacing:1.5px;text-transform:uppercase;
+  text-decoration:none;transition:.2s;
+}
+.btn-infused:hover{background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(139,92,246,.2));transform:translateY(-1px)}
+.demo-cta-note{font-size:11px;color:var(--dimmed);margin-top:16px;position:relative;z-index:1}
+
+/* FOOTER */
+.demo-footer{
+  padding:32px 48px;
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:16px;
+}
+.demo-footer-brand{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
+.demo-footer-brand span{color:var(--orange)}
+.demo-footer-links{display:flex;gap:24px;flex-wrap:wrap}
+.demo-footer-links a{font-size:11px;color:var(--muted);text-decoration:none;transition:.15s}
+.demo-footer-links a:hover{color:var(--white)}
+
+@media(max-width:900px){
+  .tool-card{grid-template-columns:1fr}
+  .tool-card.reverse{direction:ltr}
+  .tc-mockup{display:none}
+  .demo-section{padding:60px 24px}
+  .demo-hero{padding:56px 24px 40px}
+  .demo-cta{padding:72px 24px}
+  .demo-footer{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV PLACEHOLDER — replaced by inject script -->
+<nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(15,29,66,0.97);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,114,12,0.25);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
+  <a href="/pro/" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
+    <div style="width:32px;height:32px;background:#e8720c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:#fff;">NBD</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#f0f6fc">No Big <span style="color:#e8720c">Deal</span></div>
+  </a>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+    <a href="/pro/" style="font-size:10px;color:#8b9bb4;text-decoration:none;letter-spacing:1px">← Pro Home</a>
+    <a href="/pro/login.html" style="padding:6px 14px;background:#e8720c;color:#fff;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">Login</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="demo-hero">
+  <div class="demo-eyebrow"><span></span>Live Tool Preview</div>
+  <h1>THE TOOLS YOUR<br><span>COMPETITORS DON'T HAVE.</span></h1>
+  <p>Every tool in NBD Pro is built by a contractor, for contractors. Not adapted from generic software. Built from scratch for restoration and roofing sales operators.</p>
+  <div class="demo-hero-btns">
+    <a href="/pro/register.html" class="btn-cyan">Register Free →</a>
+    <a href="/pro/#pricing" class="btn-outline">See Pricing</a>
+  </div>
+</section>
+
+<!-- TOOLS -->
+<div style="max-width:1200px;margin:0 auto;padding:0 48px">
+
+  <!-- 1. CRM Dashboard -->
+  <div class="tool-card" style="margin-top:80px;padding-top:0">
+    <div class="tc-info">
+      <div class="tc-badge orange">Foundation Plan</div>
+      <div class="tc-problem">Problem: You're losing jobs in your head</div>
+      <div class="tc-title">CRM DASHBOARD</div>
+      <div class="tc-desc">Most contractors track leads in a notebook or their phone. Jobs fall through the cracks. NBD Pro's CRM gives you a live pipeline view of every lead, job, and dollar — so nothing gets lost.</div>
+      <ul class="tc-features">
+        <li>7-stage drag-and-drop pipeline — from first knock to final check</li>
+        <li>Per-lead task management, notes, and job history</li>
+        <li>Revenue dashboard with MTD and pipeline value</li>
+        <li>Storm intel map overlay with NOAA radar + heatmap</li>
+        <li>Estimate builder with real roofing rates baked in</li>
+      </ul>
+      <a href="/pro/dashboard.html" class="tc-launch">Open CRM →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">NBD CRM Dashboard</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="mock-stat-label">Active Leads</div><div class="mock-stat-val" style="color:#e8720c">14</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Revenue MTD</div><div class="mock-stat-val" style="color:#3fb950">$48K</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Pipeline</div><div class="mock-stat-val" style="color:#d29922">$122K</div></div>
+        </div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#e8720c"></div><div><div class="mock-item-name">Marcus Williams</div><div class="mock-item-sub">Roofing · 1248 Oak Ave</div></div></div>
+          <div class="mock-pill" style="background:rgba(232,114,12,.15);color:#e8720c">New</div>
+        </div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">Dave Torres</div><div class="mock-item-sub">Full Exterior · $18,400</div></div></div>
+          <div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">Closing</div>
+        </div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#d29922"></div><div><div class="mock-item-name">Sandra Kim</div><div class="mock-item-sub">Storm Damage · Inspection Set</div></div></div>
+          <div class="mock-pill" style="background:rgba(210,153,34,.15);color:#d29922">Active</div>
+        </div>
+        <div class="mock-bar-chart">
+          <div class="mock-bar-row"><div class="mock-bar-label">Contacted</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:85%;background:#e8720c"></div></div><div class="mock-bar-val">85%</div></div>
+          <div class="mock-bar-row"><div class="mock-bar-label">Inspected</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:62%;background:#d29922"></div></div><div class="mock-bar-val">62%</div></div>
+          <div class="mock-bar-row"><div class="mock-bar-label">Closed</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:38%;background:#3fb950"></div></div><div class="mock-bar-val">38%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-divider"></div>
+
+  <!-- 2. Daily Success -->
+  <div class="tool-card reverse" style="margin-top:80px">
+    <div class="tc-info">
+      <div class="tc-badge green">Free Tool — No Login</div>
+      <div class="tc-problem">Problem: You know the game but you're not running your day</div>
+      <div class="tc-title">DAILY SUCCESS PROGRAM</div>
+      <div class="tc-desc">Knowledge without execution is worthless. The Daily Success Program is your morning operating system — track every rep, every dollar, every habit that actually moves the needle.</div>
+      <ul class="tc-features">
+        <li>Daily mindset checklist with day score</li>
+        <li>Doors knocked → inspections set → jobs closed tracker</li>
+        <li>Commission calculator and revenue pipeline</li>
+        <li>Fitness, diet, and personal record tracker</li>
+        <li>100+ themes — make it yours, use it every day</li>
+      </ul>
+      <a href="/pro/daily-success/" class="tc-launch" style="background:#3fb950">Open Daily Program →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">Daily Success — Day 47</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="mock-stat-label">Day Score</div><div class="mock-stat-val" style="color:#3fb950">87</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Streak</div><div class="mock-stat-val" style="color:#d29922">47🔥</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Doors</div><div class="mock-stat-val" style="color:#e8720c">22</div></div>
+        </div>
+        <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">Morning mindset check</div><div class="mock-item-sub">Complete · 8:12am</div></div></div><div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">✓</div></div>
+        <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#3fb950"></div><div><div class="mock-item-name">22 doors knocked</div><div class="mock-item-sub">Goal: 20 · +10%</div></div></div><div class="mock-pill" style="background:rgba(63,185,80,.15);color:#3fb950">✓</div></div>
+        <div class="mock-item"><div class="mock-item-left"><div class="mock-dot-sm" style="background:#e8720c"></div><div><div class="mock-item-name">4 inspections set</div><div class="mock-item-sub">Goal: 5 · In progress</div></div></div><div class="mock-pill" style="background:rgba(232,114,12,.15);color:#e8720c">→</div></div>
+        <div class="mock-bar-chart">
+          <div class="mock-bar-row"><div class="mock-bar-label">Revenue</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:72%;background:#3fb950"></div></div><div class="mock-bar-val">$14K</div></div>
+          <div class="mock-bar-row"><div class="mock-bar-label">Goal</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:100%;background:#1e2d20"></div></div><div class="mock-bar-val">$20K</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-divider"></div>
+
+  <!-- 3. AI Usability Tree -->
+  <div class="tool-card" style="margin-top:80px">
+    <div class="tc-info">
+      <div class="tc-badge cyan">Infused Plan · AI-Powered</div>
+      <div class="tc-problem">Problem: You're paying for tools you don't actually use</div>
+      <div class="tc-title">AI USABILITY TREE</div>
+      <div class="tc-desc">Most contractors have 6-10 software subscriptions and use maybe half of them effectively. The AI Usability Tree maps your entire tool stack, scores each tool, and tells you exactly what to cut, keep, or replace.</div>
+      <ul class="tc-features">
+        <li>Visual tool inventory with per-tool structured notes</li>
+        <li>AI-generated 10X analysis — score + grade per tool</li>
+        <li>Comparison engine with overlap detection</li>
+        <li>Account manager with 4-column Kanban + drag-drop</li>
+        <li>PDF report + CSV export for your whole stack</li>
+      </ul>
+      <a href="/pro/ai-tree.html" class="tc-launch cyan-btn">Open AI Tree →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">AI Usability Tree</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="mock-stat-label">Tools</div><div class="mock-stat-val" style="color:#00d4ff">9</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Stack Score</div><div class="mock-stat-val" style="color:#3fb950">B+</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Monthly</div><div class="mock-stat-val" style="color:#d29922">$487</div></div>
+        </div>
+        <div class="mock-tree-node"><div class="mock-tree-icon">🌳</div><div><div style="font-size:10px;font-weight:600">JobNimbus CRM</div><div style="font-size:8px;color:#8b9bb4">Score: 72% · Worth keeping</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#3fb950">B</div></div>
+        <div class="mock-tree-line"></div>
+        <div class="mock-tree-node" style="margin-left:20px"><div class="mock-tree-icon">⚠️</div><div><div style="font-size:10px;font-weight:600">Zapier Automation</div><div style="font-size:8px;color:#8b9bb4">Score: 31% · Overlap detected</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#f85149">D</div></div>
+        <div class="mock-tree-line"></div>
+        <div class="mock-tree-node"><div class="mock-tree-icon">✅</div><div><div style="font-size:10px;font-weight:600">CompanyCam</div><div style="font-size:8px;color:#8b9bb4">Score: 88% · High ROI</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#00d4ff">A</div></div>
+        <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:#00d4ff;letter-spacing:.5px">⚡ AI: Cancel Zapier. Save $49/mo. JobNimbus does the same thing.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-divider"></div>
+
+  <!-- 4. AI Selection Codex -->
+  <div class="tool-card reverse" style="margin-top:80px">
+    <div class="tc-info">
+      <div class="tc-badge purple">Infused Plan · AI-Powered</div>
+      <div class="tc-problem">Problem: You don't know which AI tool to use for what</div>
+      <div class="tc-title">AI SELECTION CODEX</div>
+      <div class="tc-desc">AI is everywhere and most contractors have no idea how to use it. The Codex is a decision engine that maps your use case to the right tool, grades your current setup, and tells you what to actually buy.</div>
+      <ul class="tc-features">
+        <li>45+ AI tools mapped to contractor use cases</li>
+        <li>4-step wizard: use case → budget → engagement → recommendation</li>
+        <li>Grade badge with letter score and verdict on your selection</li>
+        <li>Browse & Learn mode — research any AI tool in depth</li>
+        <li>7-day AI cache so answers load instantly</li>
+      </ul>
+      <a href="/pro/codex.html" class="tc-launch" style="background:#8b5cf6">Open Codex →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">AI Selection Codex</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-input">Use case: Generating follow-up emails after inspections</div>
+        <div class="mock-input">Budget: $20–50/month · Daily use</div>
+        <div class="mock-result-row">
+          <div class="mock-grade-badge" style="background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.25)">A</div>
+          <div><div class="mock-result-text">Claude by Anthropic</div><div class="mock-result-sub">Best match · 94% relevance</div></div>
+          <div style="margin-left:auto;font-size:9px;color:#3fb950;font-weight:700">$20/mo</div>
+        </div>
+        <div class="mock-result-row" style="opacity:.6">
+          <div class="mock-grade-badge" style="background:rgba(212,160,10,.1);color:#d4a00a;border:1px solid rgba(212,160,10,.2);font-size:20px">B+</div>
+          <div><div class="mock-result-text">ChatGPT Plus</div><div class="mock-result-sub">Strong alternative · 81% match</div></div>
+          <div style="margin-left:auto;font-size:9px;color:#8b9bb4">$20/mo</div>
+        </div>
+        <div style="background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.18);border-radius:6px;padding:9px 12px;font-size:9px;color:#a78bfa;letter-spacing:.5px">⚡ Claude handles contractor tone better than GPT-4. Use it for email drafts.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-divider"></div>
+
+  <!-- 5. Understanding Tool -->
+  <div class="tool-card" style="margin-top:80px">
+    <div class="tc-info">
+      <div class="tc-badge gold">Infused Plan · AI-Powered</div>
+      <div class="tc-problem">Problem: You're buying tools you don't know how to use</div>
+      <div class="tc-title">UNDERSTANDING TOOL</div>
+      <div class="tc-desc">You can pick the right tool and still fail if you don't know how to use it. The Understanding Tool gives you an AI-powered deep dive into any software — what it excels at, where it struggles, and exactly how a contractor should use it.</div>
+      <ul class="tc-features">
+        <li>Deep-dive on any tool: Excels, Struggles, Best Use, Worst Use</li>
+        <li>Pricing breakdown, learning curve, who it's built for</li>
+        <li>1–5 star personal rating + notes per tool</li>
+        <li>Reading List to save tools for later research</li>
+        <li>Browse & Learn mode with 45+ tools pre-loaded</li>
+      </ul>
+      <a href="/pro/understand.html" class="tc-launch" style="background:#d4a00a;color:#000">Open Understanding Tool →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">Understanding Tool</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-input">🧠 Teaching: AccuLynx — Roofing CRM</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:var(--s2);border-radius:6px;border:1px solid rgba(255,255,255,.05)">
+            <div style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+              <div style="font-size:10px;font-weight:600;color:#d4a00a">✅ Excels At</div>
+              <div style="font-size:9px;color:#8b9bb4">▼</div>
+            </div>
+            <div style="padding:0 12px 10px;font-size:9px;color:#8b9bb4;line-height:1.6">Job management, photo documentation, supplement tracking. Genuinely built for roofing workflows unlike generic CRMs.</div>
+          </div>
+          <div style="background:var(--s2);border-radius:6px;border:1px solid rgba(255,255,255,.05)">
+            <div style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:10px;font-weight:600;color:#f85149">⚠️ Struggles With</div>
+              <div style="font-size:9px;color:#8b9bb4">▼</div>
+            </div>
+            <div style="padding:0 12px 10px;font-size:9px;color:#8b9bb4;line-height:1.6">Steep learning curve. Mobile app lags behind competitors. Pricing is hard to justify for solo ops.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--s2);border-radius:6px;border:1px solid rgba(255,255,255,.05)">
+          <div style="font-size:14px">⭐⭐⭐⭐</div>
+          <div style="font-size:9px;color:#8b9bb4">Your rating: 4/5 · "Good but pricey solo"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end tool cards -->
+
+<!-- CTA -->
+<section class="demo-cta">
+  <h2>READY TO STOP<br><span>WINGING IT?</span></h2>
+  <p>Every tool above is live and working right now. Register free to access Daily Success and the AI tools — or go straight to Infused and get everything.</p>
+  <div class="demo-cta-btns">
+    <a href="/pro/register.html" class="btn-orange-lg">Register Free →</a>
+    <a href="/pro/#pricing" class="btn-infused">Join NBD Infused — $197/mo ⚡</a>
+  </div>
+  <div class="demo-cta-note">No credit card for free registration · Cancel Infused anytime</div>
+</section>
+
+<footer class="demo-footer">
+  <div class="demo-footer-brand">No Big <span>Deal</span> Pro</div>
+  <div class="demo-footer-links">
+    <a href="/pro/">← Pro Home</a>
+    <a href="/pro/#pricing">Pricing</a>
+    <a href="/pro/login.html">Member Login</a>
+    <a href="/">Main Site</a>
+  </div>
+  <div style="font-size:11px;color:#4a5568">© 2026 No Big Deal Home Solutions</div>
+</footer>
+
+</body>
+</html>
