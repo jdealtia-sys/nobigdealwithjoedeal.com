@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Selection Codex — NBD Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void:#050608; --surface:#0D1117; --card:#111722; --lift:#161E2B;
+  --border:#1C2535; --border2:#243044;
+  --gold:#C9A84C; --gold-dim:rgba(201,168,76,0.10); --gold-glow:rgba(201,168,76,0.22);
+  --red:#E05252; --red-dim:rgba(224,82,82,0.10);
+  --orange:#F97316; --orange-dim:rgba(249,115,22,0.10);
+  --green:#3DD68C; --green-dim:rgba(61,214,140,0.10);
+  --blue:#4E9BF5; --blue-dim:rgba(78,155,245,0.10);
+  --text:#E2E8F0; --text2:#8892A4; --text3:#4A5568;
+  --ease:cubic-bezier(0.22,1,0.36,1); --t:0.2s; --r:8px; --rlg:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Crimson Pro',serif;background:var(--void);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(201,168,76,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height:800px;background:radial-gradient(ellipse,rgba(201,168,76,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{height:60px;background:rgba(5,6,8,0.97);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo-seal{width:34px;height:34px;border:1.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;line-height:1.1}
+.logo-title{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--text)}
+.logo-sub{font-family:'Syne Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px}
+.topbar-chips{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.chip{font-family:'Syne Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;letter-spacing:1px}
+.chip-gold{border:1px solid var(--gold);color:var(--gold);background:var(--gold-dim)}
+.chip-muted{border:1px solid var(--border2);color:var(--text3)}
+.topbar-guide-btn{background:none;border:1px solid var(--border2);color:var(--text3);font-family:'Syne Mono',monospace;font-size:10px;padding:5px 12px;border-radius:var(--r);cursor:pointer;letter-spacing:1px;transition:all var(--t) var(--ease)}
+.topbar-guide-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── MAIN LAYOUT ── */
+.layout{display:flex;flex:1;min-height:0}
+
+/* ── SIDEBAR NAV ── */
+.sidebar{width:220px;background:rgba(8,11,16,0.98);border-right:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto}
+.sidebar-section{padding:16px 12px 8px;font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:all var(--t) var(--ease);border:none;background:none;width:100%;text-align:left;border-left:2px solid transparent;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+.nav-item:hover{color:var(--text);background:var(--lift);border-left-color:var(--border2)}
+.nav-item.active{color:var(--gold);background:var(--gold-dim);border-left-color:var(--gold)}
+.nav-item-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.nav-item-label{flex:1}
+.nav-item-badge{font-family:'Syne Mono',monospace;font-size:9px;padding:1px 6px;border-radius:10px;background:var(--red);color:#fff;font-weight:700}
+.nav-item-badge.ok{background:var(--green)}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 12px}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;overflow-y:auto;min-width:0}
+.page{display:none;padding:28px 32px;animation:fadeUp .25s var(--ease) both;max-width:1100px}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── BREADCRUMB ── */
+.breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:20px;font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.5px}
+.bc-home{cursor:pointer;color:var(--text3);background:none;border:none;font-family:'Syne Mono',monospace;font-size:10px;letter-spacing:.5px;transition:color var(--t) var(--ease)}
+.bc-home:hover{color:var(--gold)}
+.bc-sep{color:var(--border2)}
+.bc-current{color:var(--gold)}
+
+/* ── PAGE HEADER ── */
+.page-header{margin-bottom:28px}
+.page-header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-eyebrow{font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.page-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1}
+.page-sub{font-size:15px;color:var(--text3);margin-top:6px;font-family:'Syne Mono',monospace;letter-spacing:.3px}
+.page-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--rlg);padding:20px 24px;margin-bottom:16px}
+.card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.card-body{font-size:16px;line-height:1.75;color:var(--text2)}
+.card-body strong{color:var(--text);font-weight:600}
+.card-body em{color:var(--gold);font-style:italic}
+
+/* ── STAT CHIPS ── */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-chip{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--red);line-height:1}
+.stat-val.high{color:var(--orange)}
+.stat-val.med{color:var(--green)}
+.stat-val.ok{color:var(--green)}
+.stat-lbl{font-family:'Syne Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+
+/* ── SECTION HEADER ── */
+.sec-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;margin-top:28px}
+.sec-head:first-child{margin-top:0}
+.sec-title{font-family:'Syne Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.sec-line{flex:1;height:1px;background:var(--border)}
+.sec-meta{font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--r);border:none;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease);white-space:nowrap}
+.btn-gold{background:var(--gold);color:#000;box-shadow:0 3px 12px var(--gold-glow)}
+.btn-gold:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 6px 20px var(--gold-glow)}
+.btn-outline{background:transparent;color:var(--gold);border:1px solid var(--gold)}
+.btn-outline:hover{background:var(--gold-dim)}
+.btn-ghost{background:var(--lift);color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{color:var(--text);border-color:var(--gold)}
+.btn-red{background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3)}
+.btn-red:hover{background:var(--red-dim)}
+.btn-sm{padding:5px 12px;font-size:10px}
+.btn-xs{padding:3px 8px;font-size:9px}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.filter-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'Syne Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.filter-btn:hover{color:var(--text);border-color:var(--border2)}
+.filter-btn.on{background:var(--gold-dim);color:var(--gold);border-color:var(--gold)}
+
+/* ── FORMS ── */
+.form-panel{background:var(--card);border:1px solid var(--gold);border-radius:var(--rlg);padding:20px 24px;margin-bottom:20px;display:none}
+.form-panel.open{display:block;animation:fadeUp .2s var(--ease) both}
+.form-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.fl{font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)}
+.fi{background:var(--lift);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:'Crimson Pro',serif;font-size:15px;padding:9px 12px;outline:none;transition:border-color var(--t) var(--ease);width:100%;resize:vertical}
+.fi:focus{border-color:var(--gold)}
+.fi::placeholder{color:var(--text3)}
+.fi option{background:var(--card)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* ── TASKS ── */
+.task-row{display:grid;grid-template-columns:28px 1fr auto auto auto;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;transition:border-color var(--t) var(--ease)}
+.task-row:hover{border-color:var(--border2)}
+.task-row.done{opacity:.4}
+.task-row.done .task-name{text-decoration:line-through;color:var(--text3)}
+.task-check{width:22px;height:22px;border:1.5px solid var(--border2);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--t) var(--ease);font-size:11px;color:transparent;flex-shrink:0}
+.task-check:hover{border-color:var(--gold)}
+.task-row.done .task-check{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.task-name{font-size:14px;color:var(--text);line-height:1.4}
+.task-time{font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap}
+.task-origin{font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap}
+.p-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.p-dot.critical{background:var(--red);box-shadow:0 0 5px var(--red)}
+.p-dot.high{background:var(--orange)}
+.p-dot.med{background:var(--green)}
+
+/* ── SESSIONS ── */
+.session-card{border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;margin-bottom:10px;transition:border-color var(--t) var(--ease)}
+.session-card:hover{border-color:var(--border2)}
+.session-card.open{border-color:var(--gold)}
+.session-trigger{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--card);cursor:pointer;user-select:none;width:100%;border:none;text-align:left}
+.session-num{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--gold);width:38px;flex-shrink:0;line-height:1}
+.session-info{flex:1;min-width:0}
+.session-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);letter-spacing:.3px}
+.session-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.session-date{font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3)}
+.session-badge{font-family:'Syne Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px}
+.session-badge.original{background:rgba(61,214,140,0.1);color:var(--green);border:1px solid rgba(61,214,140,0.3)}
+.session-badge.reconstructed{background:rgba(78,155,245,0.1);color:var(--blue);border:1px solid rgba(78,155,245,0.3)}
+.session-chev{font-size:11px;color:var(--text3);transition:transform var(--t) var(--ease);flex-shrink:0}
+.session-card.open .session-chev{transform:rotate(180deg)}
+.session-body{display:none;padding:20px 24px;border-top:1px solid var(--border);background:rgba(13,17,23,0.6)}
+.session-card.open .session-body{display:block}
+.slabel{font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-top:18px;margin-bottom:8px}
+.slabel:first-child{margin-top:0}
+.stext{font-size:15px;line-height:1.7;color:var(--text2)}
+.sbullets{list-style:none}
+.sbullets li{display:flex;gap:10px;padding:4px 0;font-size:14px;color:var(--text2);line-height:1.5}
+.sbullets li::before{content:'—';color:var(--gold);flex-shrink:0;font-family:'Syne Mono',monospace}
+.smono{font-family:'Syne Mono',monospace;font-size:12px;line-height:1.9;color:var(--text2);background:var(--lift);padding:12px 16px;border-radius:var(--r);border-left:2px solid var(--gold)}
+.sloop{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
+.sloop:last-child{border-bottom:none}
+.sloop-dot{width:6px;height:6px;border-radius:50%;background:var(--orange);flex-shrink:0;margin-top:4px}
+.sfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.sfile-chip{font-family:'Syne Mono',monospace;font-size:10px;padding:3px 10px;border-radius:4px;background:var(--lift);border:1px solid var(--border2);color:var(--blue)}
+.recon-note{margin-top:14px;padding:10px 14px;background:rgba(78,155,245,0.05);border:1px solid rgba(78,155,245,0.2);border-radius:var(--r);font-family:'Syne Mono',monospace;font-size:10px;color:var(--blue);line-height:1.7}
+
+/* ── DIRECTIVES ── */
+.directive-row{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.directive-row:last-child{border-bottom:none}
+.d-session{font-family:'Syne Mono',monospace;font-size:10px;color:var(--gold);min-width:32px;flex-shrink:0;padding-top:2px}
+.d-text{font-size:15px;color:var(--text2);line-height:1.6}
+.d-text strong{color:var(--text);font-weight:600}
+.d-text code{font-family:'Syne Mono',monospace;font-size:12px;color:var(--blue);background:var(--lift);padding:1px 6px;border-radius:3px;border:1px solid var(--border2)}
+.d-highlight{background:var(--gold-dim);border:1px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin-top:8px}
+
+/* ── DNA PILLARS ── */
+.pillar-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.pillar{background:var(--card);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;position:relative;overflow:hidden;transition:all var(--t) var(--ease)}
+.pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),transparent)}
+.pillar:hover{border-color:var(--border2);transform:translateY(-2px)}
+.pillar-num{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:rgba(201,168,76,0.08);line-height:1;margin-bottom:6px}
+.pillar-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.pillar-desc{font-size:13px;color:var(--text3);line-height:1.4}
+.arch-row{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;background:var(--lift);border-radius:var(--r);margin-bottom:6px;border:1px solid var(--border)}
+.arch-key{font-family:'Syne Mono',monospace;font-size:10px;color:var(--gold);min-width:90px;flex-shrink:0;padding-top:2px;letter-spacing:.3px}
+.arch-val{font-size:14px;color:var(--text2);line-height:1.5}
+.arch-val code{font-family:'Syne Mono',monospace;font-size:11px;color:var(--blue);background:var(--card);padding:1px 6px;border-radius:3px;border:1px solid var(--border2)}
+.arch-val a{color:var(--blue);text-decoration:none}
+.arch-val a:hover{text-decoration:underline}
+.arch-val.warn{color:var(--red)}
+
+/* ── EXPORT ── */
+.export-preview{background:var(--void);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-family:'Syne Mono',monospace;font-size:10px;color:var(--text2);line-height:1.8;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-top:12px}
+
+/* ── MISSION SIDEBAR ── */
+.mission-box{background:var(--lift);border:1px solid var(--gold);border-radius:var(--rlg);padding:18px 20px}
+.mission-label{font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.mission-label::before{content:'';width:16px;height:1px;background:var(--gold)}
+.mission-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.4;color:var(--text2)}
+.mission-item:last-child{border-bottom:none;padding-bottom:0}
+.mission-num{font-family:'Syne Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0}
+.synthesis-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+.synthesis-sidebar{display:flex;flex-direction:column;gap:14px}
+
+/* ── HOW-TO GUIDE MODAL ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-backdrop.open{display:flex;animation:fadeUp .2s var(--ease)}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--rlg);max-width:640px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--card);z-index:1}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);flex:1}
+.modal-close{background:none;border:1px solid var(--border2);color:var(--text3);width:28px;height:28px;border-radius:var(--r);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all var(--t) var(--ease)}
+.modal-close:hover{border-color:var(--gold);color:var(--gold)}
+.modal-body{padding:24px}
+.guide-step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+.guide-step:last-child{border-bottom:none;padding-bottom:0}
+.guide-num{width:28px;height:28px;border-radius:50%;background:var(--gold);color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.guide-content{}
+.guide-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:.3px}
+.guide-desc{font-size:14px;color:var(--text2);line-height:1.6}
+.guide-nav-ref{font-family:'Syne Mono',monospace;font-size:10px;color:var(--gold);margin-top:4px}
+
+/* ── TOAST ── */
+.tcon{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px;font-family:'Syne Mono',monospace;font-size:11px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);animation:toastIn .25s var(--ease);min-width:220px}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.red{border-left-color:var(--red)}
+.toast.green{border-left-color:var(--green)}
+.toast.blue{border-left-color:var(--blue)}
+
+/* ── MOBILE NAV ── */
+.mobile-nav-btn{display:none;background:none;border:1px solid var(--border2);color:var(--text2);width:34px;height:34px;border-radius:var(--r);cursor:pointer;font-size:16px;align-items:center;justify-content:center;flex-shrink:0}
+.mobile-nav-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.7)}
+.mobile-nav-overlay.open{display:block}
+.mobile-sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:rgba(8,11,16,0.99);border-right:1px solid var(--border);z-index:301;overflow-y:auto;transform:translateX(-100%);transition:transform .25s var(--ease)}
+.mobile-sidebar.open{transform:translateX(0)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .sidebar{display:none}
+  .mobile-nav-btn{display:flex}
+  .synthesis-layout{grid-template-columns:1fr}
+  .synthesis-sidebar{order:-1}
+  .pillar-grid{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:1fr 1fr}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .page{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <button class="mobile-nav-btn" id="mobileNavBtn" onclick="toggleMobileNav()">☰</button>
+  <a class="topbar-logo" href="#" onclick="navTo('synthesis');return false">
+    <div class="logo-seal">AI</div>
+    <div class="logo-text">
+      <div class="logo-title">AI Selection Codex</div>
+      <div class="logo-sub">NBD Pro · Living Record</div>
+    </div>
+  </a>
+  <div class="topbar-chips">
+    <a href="/pro/understand" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'Syne Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🔮 Understand</a>
+    <a href="/pro/ai-tree" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'Syne Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🛠 AI Tree</a>
+    <button class="topbar-guide-btn" onclick="openGuide()">? How To Use</button>
+    <span class="chip chip-gold" id="versionChip">v11.0</span>
+    <span class="chip chip-muted" id="sessionChip">S11</span>
+  </div>
+</header>
+
+<!-- ── MOBILE NAV OVERLAY ── -->
+<div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="closeMobileNav()"></div>
+<div class="mobile-sidebar" id="mobileSidebar">
+  <div style="padding:16px 12px;border-bottom:1px solid var(--border);font-family:'Syne Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--gold)">NAVIGATION</div>
+  <div id="mobileSidebarNav"></div>
+</div>
+
+<!-- ── LAYOUT ── -->
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <nav class="sidebar" id="sidebarNav">
+    <div class="sidebar-section">Command Center</div>
+    <button class="nav-item active" data-page="synthesis" onclick="navTo('synthesis')">
+      <span class="nav-item-icon">⬛</span>
+      <span class="nav-item-label">Synthesis</span>
+    </button>
+    <button class="nav-item" data-page="tasks" onclick="navTo('tasks')">
+      <span class="nav-item-icon">◈</span>
+      <span class="nav-item-label">Task Registry</span>
+      <span class="nav-item-badge" id="taskBadge">0</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">History</div>
+    <button class="nav-item" data-page="sessions" onclick="navTo('sessions')">
+      <span class="nav-item-icon">◎</span>
+      <span class="nav-item-label">Session Log</span>
+    </button>
+    <button class="nav-item" data-page="directives" onclick="navTo('directives')">
+      <span class="nav-item-icon">⟡</span>
+      <span class="nav-item-label">Directives</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Project</div>
+    <button class="nav-item" data-page="dna" onclick="navTo('dna')">
+      <span class="nav-item-icon">❖</span>
+      <span class="nav-item-label">Project DNA</span>
+    </button>
+    <button class="nav-item" data-page="export" onclick="navTo('export')">
+      <span class="nav-item-icon">↓</span>
+      <span class="nav-item-label">Export</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div style="padding:12px 16px">
+      <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log Session</button>
+    </div>
+  </nav>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main" id="mainContent">
+
+    <!-- ══ SYNTHESIS ══ -->
+    <div class="page active" id="page-synthesis">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Synthesis</span></div>
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <div class="page-eyebrow">§0 · Living Executive Synthesis</div>
+            <div class="page-title">Current State</div>
+            <div class="page-sub" id="lastUpdated">Last updated: S11 · 2026-03-20</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-gold" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log Session</button>
+            <button class="btn btn-ghost" onclick="navTo('export')">↓ Export</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="synthesis-layout">
+        <div>
+          <div class="card">
+            <div class="card-title">Current State</div>
+            <div class="card-body">
+              NBD PRO exits Session 11 having built two major new tools from scratch in a single session. The <strong>AI Usability Tree</strong> — all 8 batches complete, 2,748 lines, fully functional — is ready to deploy. The <strong>AI Selection Codex</strong> is live as a standalone tool, pre-loaded with all session history and task registry.
+              <br><br>
+              <strong>What's New at Session 11:</strong> Tool inventory, account manager (kanban + table + drag & drop), global search with keyboard nav, AI comparison with overlap detection, 10X analysis with stale indicators, change log with auto-logging, and a full settings + export suite. Understanding Tool spec locked across 40 questions.
+              <br><br>
+              <strong>The Standing Blockers:</strong> Stripe is still unwired. The GitHub commits from S10 are still pending. <em>These are 4-minute and 2–3 hour actions respectively.</em> The product is genuinely one focused day away from being a monetizable business.
+            </div>
+          </div>
+
+          <div class="sec-head">
+            <div class="sec-title">Execution Debt</div>
+            <div class="sec-line"></div>
+            <button class="btn btn-ghost btn-sm" onclick="navTo('tasks')">View All →</button>
+          </div>
+          <div class="stat-row">
+            <div class="stat-chip"><div class="stat-val" id="sCritical">0</div><div class="stat-lbl">Critical</div></div>
+            <div class="stat-chip"><div class="stat-val high" id="sHigh">0</div><div class="stat-lbl">High</div></div>
+            <div class="stat-chip"><div class="stat-val med" id="sMed">0</div><div class="stat-lbl">Medium</div></div>
+            <div class="stat-chip"><div class="stat-val ok" id="sDone">0</div><div class="stat-lbl">Closed</div></div>
+          </div>
+        </div>
+
+        <div class="synthesis-sidebar">
+          <div class="mission-box">
+            <div class="mission-label">Session 13 Mission · Locked</div>
+            <div class="mission-item"><span class="mission-num">01</span><span>Commit ds-final-deploy + crm-final-deploy to GitHub — 4 min, do this first</span></div>
+            <div class="mission-item"><span class="mission-num">02</span><span>Wire Stripe — Payment Links + .plan Firestore write. Full stop.</span></div>
+            <div class="mission-item"><span class="mission-num">03</span><span>Commit ds-final-deploy + crm-final-deploy to GitHub (4 min — still open from S10)</span></div>
+            <div class="mission-item"><span class="mission-num">04</span><span>Wire Stripe — Payment Links + .plan Firestore write. 7 sessions overdue. No exceptions.</span></div>
+          </div>
+
+          <div class="card" style="margin-bottom:0">
+            <div class="card-title">Quick Nav</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn btn-gold btn-sm" style="justify-content:center;width:100%" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log New Session</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:center;width:100%" onclick="navTo('tasks')">◈ Task Registry</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('sessions')">◎ Session Log</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('directives')">⟡ Directives</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('export')">↓ Export Codex</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TASK REGISTRY ══ -->
+    <div class="page" id="page-tasks">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Task Registry</span></div>
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <div class="page-eyebrow">§4 · Master Task Registry</div>
+            <div class="page-title">Tasks</div>
+            <div class="page-sub" id="taskMeta">11 tasks tracked</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-gold" onclick="toggleTaskForm()">+ Add Task</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-chip"><div class="stat-val" id="tCrit">0</div><div class="stat-lbl">Critical</div></div>
+        <div class="stat-chip"><div class="stat-val high" id="tHigh">0</div><div class="stat-lbl">High</div></div>
+        <div class="stat-chip"><div class="stat-val med" id="tMed">0</div><div class="stat-lbl">Medium</div></div>
+        <div class="stat-chip"><div class="stat-val ok" id="tDone">0</div><div class="stat-lbl">Closed</div></div>
+      </div>
+
+      <div class="toolbar">
+        <button class="filter-btn on" onclick="filterTasks('all',this)">All</button>
+        <button class="filter-btn" onclick="filterTasks('critical',this)">🔴 Critical</button>
+        <button class="filter-btn" onclick="filterTasks('high',this)">🟡 High</button>
+        <button class="filter-btn" onclick="filterTasks('open',this)">Open Only</button>
+        <button class="filter-btn" onclick="filterTasks('done',this)">✓ Closed</button>
+      </div>
+
+      <div class="form-panel" id="taskForm">
+        <div class="form-title">New Task <button class="btn btn-ghost btn-sm" onclick="toggleTaskForm()">✕ Cancel</button></div>
+        <div class="grid2">
+          <div class="fg"><div class="fl">Task Description *</div><input class="fi" id="ntTask" placeholder="What needs to be done?"></div>
+          <div class="fg"><div class="fl">Priority</div><select class="fi" id="ntPriority"><option value="critical">🔴 Critical</option><option value="high">🟡 High</option><option value="med">🟢 Med</option></select></div>
+          <div class="fg"><div class="fl">Origin Session</div><input class="fi" id="ntOrigin" placeholder="e.g. S12"></div>
+          <div class="fg"><div class="fl">Est. Time</div><input class="fi" id="ntTime" placeholder="e.g. 30 min, 2 hrs"></div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-ghost btn-sm" onclick="toggleTaskForm()">Cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="saveTask()">Save Task</button>
+        </div>
+      </div>
+
+      <div id="taskGrid"></div>
+    </div>
+
+    <!-- ══ SESSION LOG ══ -->
+    <div class="page" id="page-sessions">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Session Log</span></div>
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <div class="page-eyebrow">§2 · Chronological Master Log</div>
+            <div class="page-title">Sessions</div>
+            <div class="page-sub">Append-only · 11 sessions recorded</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-gold" id="newSessBtn" onclick="openNewSession()">+ Log Session</button>
+            <button class="btn btn-ghost btn-sm" onclick="expandAllSessions()">Expand All</button>
+            <button class="btn btn-ghost btn-sm" onclick="collapseAllSessions()">Collapse</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="filter-btn on" onclick="filterSessions('all',this)">All (11)</button>
+        <button class="filter-btn" onclick="filterSessions('original',this)">🟢 Original</button>
+        <button class="filter-btn" onclick="filterSessions('reconstructed',this)">🔵 Reconstructed</button>
+      </div>
+
+      <!-- New session form -->
+      <div class="form-panel" id="sessionForm">
+        <div class="form-title">New Session Entry <button class="btn btn-ghost btn-sm" onclick="closeNewSession()">✕ Cancel</button></div>
+        <div class="grid2">
+          <div class="fg"><div class="fl">Session Title *</div><input class="fi" id="nsTitle" placeholder='e.g. "Stripe Integration Complete"'></div>
+          <div class="fg"><div class="fl">Date</div><input class="fi" id="nsDate" type="datetime-local"></div>
+        </div>
+        <div class="fg"><div class="fl">Session Summary (one or two sentences — high altitude)</div><textarea class="fi" id="nsSummary" rows="2" placeholder="What did this session accomplish at the highest level?"></textarea></div>
+        <div class="fg"><div class="fl">📥 Input Vector — What you brought in</div><textarea class="fi" id="nsInput" rows="2" placeholder="Starting prompt or goal for this session..."></textarea></div>
+        <div class="fg"><div class="fl">📤 Output Vector — What was produced (one item per line)</div><textarea class="fi" id="nsOutput" rows="4" placeholder="List deliverables..."></textarea></div>
+        <div class="fg"><div class="fl">⚡ Delta Log — What changed structurally</div><textarea class="fi" id="nsDelta" rows="2" placeholder="New patterns, architecture decisions, constraints..."></textarea></div>
+        <div class="grid2">
+          <div class="fg"><div class="fl">🔒 Key Decisions (one per line)</div><textarea class="fi" id="nsDecisions" rows="3" placeholder="Decisions that lock in direction..."></textarea></div>
+          <div class="fg"><div class="fl">📁 Files Produced (one per line)</div><textarea class="fi" id="nsFiles" rows="3" placeholder="e.g. dashboard.html"></textarea></div>
+        </div>
+        <div class="fg"><div class="fl">🔁 Open Loops Carried Forward (one per line)</div><textarea class="fi" id="nsLoops" rows="3" placeholder="What's still open after this session?"></textarea></div>
+        <div class="form-footer">
+          <button class="btn btn-ghost btn-sm" onclick="closeNewSession()">Cancel</button>
+          <button class="btn btn-gold" onclick="saveSession()">✓ Log Session</button>
+        </div>
+      </div>
+
+      <div id="sessionList"></div>
+    </div>
+
+    <!-- ══ DIRECTIVES ══ -->
+    <div class="page" id="page-directives">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Directives</span></div>
+      <div class="page-header">
+        <div class="page-header-top">
+          <div>
+            <div class="page-eyebrow">§6 · Meta-Codex Directives</div>
+            <div class="page-title">Directives</div>
+            <div class="page-sub">Enforced forever · Append-only</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-gold" onclick="openAddDirective()">+ Add Directive</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-panel" id="directiveForm">
+        <div class="form-title">New Directive <button class="btn btn-ghost btn-sm" onclick="closeAddDirective()">✕ Cancel</button></div>
+        <div class="fg"><div class="fl">Directive Text *</div><input class="fi" id="newDirectiveText" placeholder="Enter the directive — be specific and binding..."></div>
+        <div class="form-footer">
+          <button class="btn btn-ghost btn-sm" onclick="closeAddDirective()">Cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="saveDirective()">Save Directive</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Standing Directives</div>
+        <div id="directiveList">
+          <div class="directive-row"><div class="d-session">Core</div><div class="d-text">Section 2 is append-only — never edit historical entries</div></div>
+          <div class="directive-row"><div class="d-session">Core</div><div class="d-text">Section 0 rewritten each session — higher altitude only</div></div>
+          <div class="directive-row"><div class="d-session">Core</div><div class="d-text">Session limit approaching = trigger CODEX EXPORT immediately</div></div>
+          <div class="directive-row"><div class="d-session">S3</div><div class="d-text">Wiring Phase Doctrine standing</div></div>
+          <div class="directive-row"><div class="d-session">S4</div><div class="d-text">Architecture decisions binding until explicitly revised</div></div>
+          <div class="directive-row"><div class="d-session">S5</div><div class="d-text"><strong>"Never lose a job"</strong> — standing CRM constraint</div></div>
+          <div class="directive-row"><div class="d-session">S6</div><div class="d-text"><code>crm-leads.js</code> — single source of truth for lead/job Firestore ops</div></div>
+          <div class="directive-row"><div class="d-session">S6</div><div class="d-text">Visualizer is the fourth pillar</div></div>
+          <div class="directive-row"><div class="d-session">S7</div><div class="d-text"><code>nbdApplyTheme()</code> is the single point of theme write — <strong>never bypass</strong></div></div>
+          <div class="directive-row"><div class="d-session">S7</div><div class="d-text">Light theme CSS audit mandatory before launch</div></div>
+          <div class="directive-row"><div class="d-session">S7</div><div class="d-text">Stripe is the standing blocker for plan-gating reality</div></div>
+          <div class="directive-row"><div class="d-session">S8</div><div class="d-text">Close before opening — 2+ session open loops must close first</div></div>
+          <div class="directive-row"><div class="d-session">S8</div><div class="d-text">Execution Debt Register updated every session</div></div>
+          <div class="directive-row"><div class="d-session">S9</div><div class="d-text">GitHub repo: <a href="https://github.com/jdealtia-sys/nobigdealwithjoedeal.com" target="_blank" style="color:var(--blue)">github.com/jdealtia-sys/nobigdealwithjoedeal.com</a> — never ask again</div></div>
+          <div class="directive-row"><div class="d-session">S9</div><div class="d-text">176-theme v3 library is canonical — do not revert</div></div>
+          <div class="directive-row"><div class="d-session">S10</div><div class="d-text"><code>nbdApplyTheme()</code> governs ALL theme state — <strong>no parallel apply paths</strong></div></div>
+          <div class="directive-row"><div class="d-session">S10</div><div class="d-text">CRM file path is <code>pro/dashboard.html</code> — not pro/crm/index.html</div></div>
+          <div class="directive-row"><div class="d-session">S10</div><div class="d-text">Never share credentials in chat — always redirect to safe deploy methods</div></div>
+          <div class="directive-row"><div class="d-session">S10</div><div class="d-text">v5 (body class) and v3 (data-theme) systems are permanently bridged — maintain the bridge, never remove it</div></div>
+          <div class="directive-row d-highlight"><div class="d-session" style="color:var(--gold)">S11</div><div class="d-text"><strong style="color:var(--gold)">Locked:</strong> (1) Confirm both deploys committed. (2) Wire Stripe. (3) Wiring Phase items 1/4/5. (4) Visualizer intake gate. <strong style="color:var(--gold)">Stripe ships in S12. No exceptions.</strong></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROJECT DNA ══ -->
+    <div class="page" id="page-dna">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Project DNA</span></div>
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">§1 · Project DNA</div>
+          <div class="page-title">Immutable Core</div>
+          <div class="page-sub">Vision · Pillars · Architecture · Non-Negotiables</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Core Vision</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--gold);letter-spacing:1px;line-height:1.2">"Make massive success feel like no big deal."</div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title">Four Pillars</div><div class="sec-line"></div></div>
+      <div class="pillar-grid">
+        <div class="pillar"><div class="pillar-num">01</div><div class="pillar-title">Authority Blueprint</div><div class="pillar-desc">35-page gated blueprint + 12-section masterclass</div></div>
+        <div class="pillar"><div class="pillar-num">02</div><div class="pillar-title">Daily Momentum Engine</div><div class="pillar-desc">Daily Success tracker + streaks + leaderboards</div></div>
+        <div class="pillar"><div class="pillar-num">03</div><div class="pillar-title">CRM OS</div><div class="pillar-desc">Full contractor CRM with dual pipeline, AI nudge, storm intel</div></div>
+        <div class="pillar"><div class="pillar-num">04</div><div class="pillar-title">Homeowner Conversion Engine</div><div class="pillar-desc">Public AI visualizer → inbound leads → CRM</div></div>
+      </div>
+
+      <div class="sec-head"><div class="sec-title">Architecture</div><div class="sec-line"></div></div>
+      <div class="card">
+        <div class="card-title">File Paths & Systems</div>
+        <div class="arch-row"><div class="arch-key">GitHub</div><div class="arch-val"><a href="https://github.com/jdealtia-sys/nobigdealwithjoedeal.com" target="_blank">github.com/jdealtia-sys/nobigdealwithjoedeal.com</a></div></div>
+        <div class="arch-row"><div class="arch-key">Daily Success</div><div class="arch-val"><code>pro/daily-success/index.html</code></div></div>
+        <div class="arch-row"><div class="arch-key">CRM/Dashboard</div><div class="arch-val"><code>pro/dashboard.html</code></div></div>
+        <div class="arch-row"><div class="arch-key">Visualizer</div><div class="arch-val"><code>visualizer.html</code></div></div>
+        <div class="arch-row"><div class="arch-key">Main Landing</div><div class="arch-val"><code>index.html</code></div></div>
+        <div class="arch-row"><div class="arch-key">Theme Fn</div><div class="arch-val"><code>nbdApplyTheme(id)</code> — single source of truth, never bypass</div></div>
+        <div class="arch-row"><div class="arch-key">Theme Library</div><div class="arch-val">100 v5 themes (body.theme-{id}) + 176 v3 themes (:root[data-theme]) — permanently bridged</div></div>
+        <div class="arch-row"><div class="arch-key">Plan Unlock</div><div class="arch-val"><code>blueprint:15 / foundation:35 / infused:55 / team:70 / command:80</code></div></div>
+        <div class="arch-row"><div class="arch-key">Font Pairings</div><div class="arch-val">8 sets: Bebas/Barlow, Unbounded/Inter, Playfair, Terminal mono, Typewriter, Syne/Exo, Chakra, Anton/Baskerville</div></div>
+        <div class="arch-row"><div class="arch-key">Persistence</div><div class="arch-val">localStorage (nbd-theme + nbd-font + nbd-customs + GT_KEY) + Firestore write on auth</div></div>
+        <div class="arch-row"><div class="arch-key">Stripe Status</div><div class="arch-val warn">⚠ NOT WIRED — all plan gating is fake until Stripe lands. S12 blocker.</div></div>
+      </div>
+
+      <div class="sec-head" style="margin-top:8px"><div class="sec-title">Non-Negotiables</div><div class="sec-line"></div></div>
+      <div class="card">
+        <div class="directive-row"><div class="d-session">—</div><div class="d-text">Browser-first PWA, offline-capable</div></div>
+        <div class="directive-row"><div class="d-session">—</div><div class="d-text">Append-only Codex logging</div></div>
+        <div class="directive-row"><div class="d-session">—</div><div class="d-text">UI radiates obsessive craftsmanship (100 v5 + 176 v3 themes)</div></div>
+        <div class="directive-row"><div class="d-session">—</div><div class="d-text">AI features always optional + user-editable</div></div>
+        <div class="directive-row"><div class="d-session">S5</div><div class="d-text"><strong>"Never lose a job"</strong> — standing CRM UI constraint</div></div>
+        <div class="directive-row"><div class="d-session">S6</div><div class="d-text">Visualizer leads flow into CRM automatically — no manual re-entry</div></div>
+        <div class="directive-row"><div class="d-session">S7</div><div class="d-text">Theme system is a retention mechanism — plan-gating backed by real Stripe .plan</div></div>
+        <div class="directive-row"><div class="d-session">S8</div><div class="d-text">Execution parity must match design parity</div></div>
+        <div class="directive-row"><div class="d-session">S10</div><div class="d-text">Both variable systems (v5 + DS/CRM) bridged — <strong>never maintain two separate theme pipelines</strong></div></div>
+      </div>
+    </div>
+
+    <!-- ══ EXPORT ══ -->
+    <div class="page" id="page-export">
+      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Export</span></div>
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Export Codex</div>
+          <div class="page-title">Download</div>
+          <div class="page-sub">Generate next version for pasting into a new conversation</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="card">
+            <div class="card-title">↓ Export Options</div>
+            <div class="fg"><div class="fl">Next Version Number</div><input class="fi" id="exportVersion" placeholder="e.g. v12.0" oninput="buildExportPreview()"></div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+              <button class="btn btn-gold" style="justify-content:center" onclick="exportMarkdown()">↓ Export as Markdown (.md)</button>
+              <button class="btn btn-outline" style="justify-content:center" onclick="exportText()">↓ Export as Plain Text (.txt)</button>
+              <button class="btn btn-ghost" style="justify-content:center" onclick="copyExport()">⎘ Copy to Clipboard</button>
+            </div>
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text3);line-height:1.6">
+              Export generates the full Codex: all sessions, tasks, directives, architecture, and synthesis — ready to paste at the start of a new AI conversation as context.
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Preview</div>
+            <div class="export-preview" id="exportPreview">Click Export or type a version number to preview…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- ── HOW-TO GUIDE MODAL ── -->
+<div class="modal-backdrop" id="guideModal" onclick="closeGuideOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">How to Use — AI Selection Codex</div>
+      <button class="modal-close" onclick="closeGuide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.6">The AI Selection Codex is a <strong style="color:var(--text)">living project memory system</strong> for NBD Pro. Every session, decision, directive, and open loop lives here — permanently. Use it to brief a new AI agent, track progress, and never lose context.</div>
+
+      <div class="guide-step">
+        <div class="guide-num">1</div>
+        <div class="guide-content">
+          <div class="guide-title">Synthesis — Your home base</div>
+          <div class="guide-desc">The Synthesis page shows where the project stands right now — current state, execution debt counts, and the locked mission for the next session. Start here every time you open the Codex.</div>
+          <div class="guide-nav-ref">→ Click "Synthesis" in the sidebar</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">2</div>
+        <div class="guide-content">
+          <div class="guide-title">Task Registry — Track every open loop</div>
+          <div class="guide-desc">Every task has a priority (Critical / High / Med), an origin session, and an estimated time. Click the checkbox to close a task. Use filters to focus on what's critical. Add new tasks with the "+ Add Task" button.</div>
+          <div class="guide-nav-ref">→ Click "Task Registry" in the sidebar</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">3</div>
+        <div class="guide-content">
+          <div class="guide-title">Session Log — Your permanent history</div>
+          <div class="guide-desc">All 11 sessions are logged here. Click any session card to expand it and see the full input vector, output vector, delta log, key decisions, files produced, and open loops. Click "+ Log Session" to add a new one — it auto-increments the session number and version.</div>
+          <div class="guide-nav-ref">→ Click "Session Log" in the sidebar</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">4</div>
+        <div class="guide-content">
+          <div class="guide-title">Directives — The laws of this project</div>
+          <div class="guide-desc">Directives are permanent rules established in specific sessions. They cannot be removed — only added to. Use "+ Add Directive" to append a new one tagged to the current session.</div>
+          <div class="guide-nav-ref">→ Click "Directives" in the sidebar</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">5</div>
+        <div class="guide-content">
+          <div class="guide-title">Project DNA — The immutable foundation</div>
+          <div class="guide-desc">Core vision, four pillars, all file paths, architecture specs, and non-negotiables. This is what you show a new agent at the start of every session so it understands the project without re-explaining it.</div>
+          <div class="guide-nav-ref">→ Click "Project DNA" in the sidebar</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">6</div>
+        <div class="guide-content">
+          <div class="guide-title">Export — Brief your next agent</div>
+          <div class="guide-desc">When you're starting a new AI conversation, export the Codex as a markdown file. Paste it at the beginning of the conversation. The agent will have full context from Session 1 through the current session — no re-explaining required.</div>
+          <div class="guide-nav-ref">→ Click "Export" in the sidebar · Enter next version (e.g. v12.0) · Download</div>
+        </div>
+      </div>
+      <div class="guide-step">
+        <div class="guide-num">7</div>
+        <div class="guide-content">
+          <div class="guide-title">Everything saves automatically</div>
+          <div class="guide-desc">All tasks, sessions, and directives you add are saved to your browser's persistent storage. They'll be there the next time you open this page — even after closing the browser.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tcon" id="tcon"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════
+let codex = {
+  version:'v12.0', totalSessions:12, lastSession:'2026-03-21',
+  tasks:[
+    {id:'t1',task:'Commit ds-final-deploy → GitHub (pro/daily-success/index.html)',priority:'critical',origin:'S10',time:'4 min',done:false},
+    {id:'t2',task:'Commit crm-final-deploy → GitHub (pro/dashboard.html)',priority:'critical',origin:'S10',time:'4 min',done:false},
+    {id:'t3',task:'Wire Stripe — Payment Links + .plan Firestore write',priority:'critical',origin:'S6',time:'2–3 hrs',done:false},
+    {id:'t4',task:'Verify Wiring Phase items 1, 4, 5',priority:'high',origin:'S2',time:'Unknown',done:false},
+    {id:'t5',task:'Build Visualizer intake gate — daily revenue leak',priority:'high',origin:'S6',time:'30 min',done:false},
+    {id:'t6',task:'Light theme CSS audit — hardcoded dark values break light themes',priority:'med',origin:'S7',time:'1–2 hrs',done:false},
+    {id:'t7',task:'MailerLite form wiring',priority:'critical',origin:'S1',time:'1–2 hrs',done:false},
+    {id:'t8',task:'Blog — 17 articles queued',priority:'med',origin:'S1',time:'Ongoing',done:false},
+    {id:'t9',task:'Wire Understanding Tool tab into NBD Pro AI Usability Tree',priority:'high',origin:'S11',time:'2–3 hrs',done:false},
+    {id:'t10',task:'Deploy AI Selection Codex → nobigdealwithjoedeal.com/pro/codex.html',priority:'high',origin:'S11',time:'4 min',done:false},
+    {id:'t11',task:'Build Understanding Tool (40-question spec complete)',priority:'high',origin:'S11',time:'4–6 hrs',done:true},
+    {id:'t12',task:'Deploy Cloudflare Worker proxy to production',priority:'critical',origin:'S12',time:'5 min',done:false},
+    {id:'t13',task:'Commit all 3 tools to GitHub (/pro/ai-tree, /pro/codex, /pro/understand)',priority:'critical',origin:'S12',time:'15 min',done:false},
+  ],
+  sessions:[
+    {id:'s12',num:12,
+      title:'Understanding Tool Built — Teach Me, Browse & Learn, Reading List',
+      date:'2026-03-21',
+      summary:'Session 12 delivered the Understanding Tool in full — a 4-step AI advisor wizard with 52 spec decisions, the Teach Me learning layer, Browse & Learn mode, Reading List, and a Cloudflare Worker proxy securing all API calls. Repeated timeout crashes forced a clean 2-part batch rebuild strategy. All 3 tools are now deployment-ready with correct /pro/ paths.',
+      input:'Build Understanding Tool with 52 spec decisions. Add Teach Me (Learn Mode toggle, slide-out panel, 9 sections, 7-day cache, ratings, reading list, Browse & Learn). Deploy-prep all tools with Cloudflare Worker proxy. Update codex to S12.',
+      output:'nbd-understanding-tool.html — 86 KB, 1,061 lines, 47/47 checks passed\nStep 1: Tool picker — 45+ tools, 15 category filters, IN STACK badge, quick-pick stars, custom input\nStep 2: Use case matrix — 15 use cases × 4 importance levels (Skip/Nice/Need/Critical)\nStep 3: Budget — 5 tier chips + custom $ input\nStep 4: Engagement — 4 cards with descriptions\nResult modal — staggered reveal: grade → quote → detail → alternatives → comparison\nGrade badge: letter + % + color + verdict chip\nLearn Mode toggle — flips tool grid from select to teach mode without losing wizard state\nTeach Me slide-out panel — hero + 9 collapsible sections + stats + cache bar\n9 sections: Excels, Struggles, Best Use, Worst Use, Pricing, Learning Curve, Who For, Competitors, Scenarios\nAI lessons cached 7 days, stale indicator + refresh button\nSection open/close preferences persisted per user\n1-5 star rating + free-text note per tool\nBrowse & Learn — centered modal, featured row + category tabs + grid + saved tab\nReading List — topbar icon + slide-in panel\nnbd-ai-proxy-worker.js — Cloudflare Worker, origin validation, API key server-side\nAll 3 HTML files on /pro/ paths, all API calls through proxy\nDEPLOYMENT-GUIDE.md written\nCodex updated to v12.0',
+      delta:'Batch rebuild: 2 /tmp files combined to avoid timeout crashes. All JS in single <script>. PROXY constant = nbd-ai-proxy.jonathandeal459.workers.dev. lessonCache TTL = 7 days. secPrefs persists section state. readingList via window.storage. S.lmOn flag controls selTool() vs openTM() on card click.',
+      keyDecisions:'Batch rebuild strategy — write to /tmp, combine, deploy — adopted after 2 timeout crashes\nAll JS in single script block — eliminates cross-script dependency failures\nLearn Mode reuses existing tool cards — no separate UI, one flag flips behavior\nProduction: 3 HTML files + 1 Worker + 1 deployment guide = complete deployable package',
+      filesProduced:'nbd-understanding-tool.html (86 KB)\nnbd-ai-proxy-worker.js (4.2 KB)\nDEPLOYMENT-GUIDE.md\nai-selection-codex.html (v12.0)',
+      loops:'Deploy Worker to Cloudflare (8 clicks, 5 min)\nCommit all files to GitHub (pro/understand, pro/ai-tree, pro/codex)\nCommit ds-final-deploy + crm-final-deploy → GitHub (4 min — S10 open loop)\nWire Stripe — Payment Links + .plan Firestore write (7 sessions overdue)\nBuild Visualizer intake gate (30 min — daily revenue leak)\nMailerLite form wiring\nLight theme CSS audit',
+      source:'original'},
+    {id:'s11',num:11,title:'AI Usability Tree Complete + AI Selection Codex Born',date:'2026-03-20',summary:'The biggest single-session build in NBD Pro history. Two major tools delivered from scratch. The AI Usability Tree crossed the finish line at 8 complete batches. The AI Selection Codex was born. Understanding Tool spec locked across 40 questions.',input:'Build NBD Pro AI Usability Tree in 8 batches covering full spec. Read Eternal Codex v10.0 and build standalone AI Selection Codex. Spec out Understanding Tool through two 20-question rounds.',output:'Delivered NBD Pro AI Usability Tree — all 8 batches complete, 2,748 lines\nBatch 1: NBD-themed shell — hero stats, dark/light toggle, pinned cost bar, mini chart\nBatch 2: Tool inventory — expandable cards, account badges, per-tool structured notes\nBatch 3: Account Manager — 4-column Kanban + drag & drop, table toggle, 11 role types\nBatch 4: Global search — floating drop-down, split results, highlight in place, keyboard nav\nBatch 5: AI Comparison — live AI research, overlap detection, relevance + cost sort, verdict tags\nBatch 6: 10X Analysis — first principles, score + grade + insight, stale indicator, auto + manual refresh\nBatch 7: Change Log — auto-logging, manual structured entries, full diff, global + per-tool timeline\nBatch 8: Settings + PDF report + CSV export — profile, display prefs, export suite\nBuilt AI Selection Codex standalone — 59.6 KB, 10/10 production checks, all 11 sessions\nCompleted 40-question Understanding Tool spec — conversational wizard, 3 paths, live AI loader',delta:'AI Usability Tree: nbd-pro-ai-tree.html. NBD brand #F97316 + #0EA5E9. Barlow Condensed + JetBrains Mono. window.storage. All AI calls to claude-sonnet-4-20250514. AI Selection Codex: ai-selection-codex.html. Syne + Crimson Pro + Syne Mono. Gold #C9A84C. 6 sections, 11 sessions, save() on all mutations.',keyDecisions:'AI Usability Tree built as standalone HTML — not integrated into pro/ pages yet\nAI Selection Codex distinct from Eternal Codex — focuses on AI tool selection context\nUnderstanding Tool spec: 40 questions locked, professional/neutral tone, save-on-demand',filesProduced:'nbd-pro-ai-tree.html (2,748 lines)\nai-selection-codex.html (59.6 KB)',loops:'Build Understanding Tool per 40-question spec\nWire Understanding Tool into AI Usability Tree nav\nDeploy ai-selection-codex.html → pro/codex.html\nDeploy nbd-pro-ai-tree.html → pro/ai-tree.html\nAll S10 loops still open: Stripe, GitHub commits, Visualizer, MailerLite',source:'original'},
+    {id:'s10',num:10,title:'Full Theme Deploy: DS + CRM',date:'2026-03-19 ~23:00–23:30 EDT',summary:'The theme system designed in S9 gets deployed to both production pages. A critical variable naming conflict is discovered and resolved with a bridge layer. Both pages now share one apply function and one picker.',input:'Deploy all theme changes to daily-success and dashboard (CRM). Review uploaded v5 picker file (100 themes + font pairings + custom builder). Wire palette, settings, and how-to buttons on all pages.',output:'Audited v5 picker — identified variable naming conflict: v5 uses --orange/--t/--m vs DS/CRM uses --ac/--muted/--bar\nBuilt CSS bridge (nbd-theme-bridge) that syncs both variable systems automatically\nBuilt unified nbdApplyTheme() — writes body class + data-theme attr + CSS vars + localStorage + Firestore simultaneously\nBuilt Appearance modal: 3 tabs — Themes (100 bubbles), Fonts (8 pairings with live preview), Custom Builder (5 color pickers)\nBuilt How-To modal with step-by-step guide and plan tier reference\nMerged into ds-final-deploy.html — 11/11 checks passed\nMerged into crm-final-deploy.html — 11/11 checks passed\nProduced Codex v10.0',delta:'v5: body.theme-{id} + --orange/--t/--m/--s. DS/CRM: :root[data-theme="{id}"] + --ac/--muted/--bar. Bridge: body{--ac:var(--orange);--muted:var(--m);--bar:var(--s)}. nbdApplyTheme(id): sets both body class AND data-theme → sets --ac on :root → persists localStorage → writes Firestore if auth.',keyDecisions:'Bridge approach chosen — preserves all v5 and v3 compatibility without rewriting\nnbdApplyTheme() declared single point of truth — no parallel apply paths ever\nCRM had no topbar button row — buttons inserted directly into .hright div',filesProduced:'nbd-unified-theme-system.html\nds-final-deploy.html (complete DS, ready for GitHub)\ncrm-final-deploy.html (complete CRM, ready for GitHub)\nCodex v10.0',loops:'Commit ds-final-deploy.html → pro/daily-success/index.html (4 min, staged)\nCommit crm-final-deploy.html → pro/dashboard.html (4 min, staged)\nWire Stripe — Payment Links + .plan Firestore write — 6 sessions overdue\nVerify Wiring Phase items 1, 4, 5\nBuild Visualizer intake gate (30 min, daily revenue leak)\nLight theme CSS audit\nMailerLite form wiring',source:'original'},
+    {id:'s9',num:9,title:'176-Theme Library Built — v3 Theme System',date:'~2026-03 (before S10)',summary:'The theme library is expanded dramatically. 176 new themes are built under the v3 architecture. Each palette must have defensible internal logic — not arbitrary color picks.',input:'Build a comprehensive theme library. Expand beyond existing v5 themes. Create a system that can scale across all NBD Pro pages.',output:'Built 176-theme v3 library using :root[data-theme="{id}"] system\nEstablished defensible palette logic requirement — coherent color relationships required\nDeclared v3 library as canonical going forward\nLocked GitHub repo URL permanently — inconsistently referenced before this session\nProduced Codex v9.x',delta:'v3 library: 176 themes, :root[data-theme="{id}"] system. Canonical — do not revert. GitHub repo locked permanently. S9 directive: palettes must have defensible internal logic.',keyDecisions:'v3 library declared canonical — parallel to v5, to be bridged not replaced\nPalette logic requirement — prevents arbitrary color assignments going forward',filesProduced:'v3 theme library (176 themes)\nCodex v9.x',loops:'Deploy v3 library to DS and CRM pages\nBuild unified picker handling both v5 and v3\nStripe still unwired\nMailerLite still unwired',source:'reconstructed'},
+    {id:'s8',num:8,title:'Execution Parity Doctrine — Close Before Opening',date:'~2026-03',summary:'A reckoning session. The Execution Debt Register is formally introduced after recognizing new work keeps opening while existing loops stay unclosed. The "close before opening" rule is established.',input:'Review open loops. Address growing execution debt. Establish discipline around what gets built vs. what gets closed.',output:'Formally created Execution Debt Register — sessions open, estimated time, daily cost per item\nIdentified total debt: ~6–8 hours to close everything\nEstablished "close before opening": 2+ session open loops must close before new work opens\nUpdated all task statuses and session-open counts\nProduced Codex v8.x',delta:'S8 directive: Close before opening — 2+ session open loops must close first. S8 directive: Execution Debt Register updated every session. Execution parity must match design parity.',keyDecisions:'Debt Register formalized as permanent Codex section\nClose-before-opening applied retroactively\nStripe escalated as standing blocker',filesProduced:'Codex v8.x',loops:'Stripe integration (5 sessions overdue)\nMailerLite form wiring\nDS sync script tag (Wiring Item 1)\nVisualizer intake gate\nLight theme CSS audit',source:'reconstructed'},
+    {id:'s7',num:7,title:'Theme System as Retention Mechanism + Stripe as Blocker',date:'~2026-02 or 03',summary:'The theme system gets its strategic framing: it\'s a retention mechanism, not just cosmetic. nbdApplyTheme() is declared the single write point. Light theme audit added as a launch requirement.',input:'Develop theme system further. Establish plan-gating architecture. Address Stripe integration dependency.',output:'Established theme system as retention mechanism — users invest in color identity, creating lock-in\nDeclared plan-gating: blueprint:15 / foundation:35 / infused:55 / team:70 / command:80\nDeclared nbdApplyTheme() as single point of theme write\nIdentified light theme CSS audit as mandatory pre-launch requirement\nEscalated Stripe to standing blocker status\nProduced Codex v7.x',delta:'nbdApplyTheme() is the single point of theme write — never bypass. Theme system is a retention mechanism. PLAN_UNLOCK = {blueprint:15,foundation:35,infused:55,team:70,command:80}.',keyDecisions:'Theme unlock counts tied to plan value tiers — not arbitrary\nnbdApplyTheme() doctrine established — single source of truth\nStripe formally declared the blocker for real plan-gating',filesProduced:'Codex v7.x',loops:'Wire Stripe Payment Links + .plan Firestore write\nLight theme CSS audit\nMailerLite form wiring\nVisualizer intake gate',source:'reconstructed'},
+    {id:'s6',num:6,title:'Visualizer Becomes the Fourth Pillar + CRM Lead Flow',date:'~2026-02',summary:'The AI Visualizer is elevated from a feature to a full fourth pillar. Lead flow from Visualizer → CRM is established as automatic — no manual re-entry allowed. crm-leads.js declared as single source of truth.',input:'Integrate visualizer lead capture with CRM pipeline. Build automatic lead flow. Establish Stripe integration path.',output:'Elevated Visualizer to Fourth Pillar — Homeowner Conversion Engine\nBuilt automatic lead flow: Visualizer → Firestore → CRM (no manual re-entry)\nDeclared crm-leads.js as single source of truth for all lead/job Firestore ops\nIdentified Visualizer intake gate as open loop — all traffic = $0 leads without it\nStripe integration work begun — Payment Links approach selected\nProduced Codex v6.x',delta:'S6: Visualizer is the fourth pillar. crm-leads.js — single source of truth. Visualizer leads flow into CRM automatically. Stripe: Payment Links + .plan Firestore write selected.',keyDecisions:'Visualizer promoted to pillar — changes product narrative and priority\ncrm-leads.js pattern established — prevents scattered Firestore writes\nVisualizer intake gate identified as revenue-critical open loop',filesProduced:'Codex v6.x',loops:'Complete Stripe Payment Links + .plan write\nBuild Visualizer intake gate (30 min — blocks all lead capture)\nMailerLite form wiring\nVerify CRM lead flow end-to-end',source:'reconstructed'},
+    {id:'s5',num:5,title:'"Never Lose a Job" — CRM UI Constraint Established',date:'~2026-01 or 02',summary:'The CRM gets its defining constraint. "Never lose a job" becomes a standing UI requirement — structurally impossible to let a lead fall through the cracks. Dual pipeline architecture established.',input:'Build out CRM OS with pipeline management. Establish UI constraints and data architecture for lead tracking.',output:'Built dual pipeline CRM — leads and jobs as separate tracked flows\nEstablished "Never lose a job" as standing UI constraint\nBuilt AI nudge system — proactive prompts when leads go stale\nBuilt storm intel integration — cross-references storm data with customer geography\nProduced Codex v5.x',delta:'"Never lose a job" — standing CRM UI constraint from S5 forward. Storm/customer cross-reference automatic and proactive. CRM OS: dual pipeline (leads + jobs), AI nudge, storm intel.',keyDecisions:'"Never lose a job" declared as UI law — not a feature, a constraint\nDual pipeline chosen — leads and jobs have different lifecycles\nAI nudge made proactive, not reactive',filesProduced:'CRM dual pipeline build\nCodex v5.x',loops:'Wire Stripe for plan gating\nBuild Visualizer lead intake\nMailerLite form wiring\nVerify Wiring Phase items',source:'reconstructed'},
+    {id:'s4',num:4,title:'Architecture Decisions Locked — Binding Until Revised',date:'~2025-12 or 2026-01',summary:'Architecture solidifies. The binding doctrine is established — decisions made this session are final until explicitly revised. This prevents architectural drift and re-litigation of settled decisions.',input:'Review and lock down architecture decisions. Establish patterns for file structure, data flow, and component architecture.',output:'Locked architecture decisions as binding — no re-litigating without explicit revision\nEstablished file path patterns: pro/ prefix for all member-facing tools\nSolidified Firestore data model patterns\nEstablished PWA requirements: browser-first, offline-capable\nProduced Codex v4.x',delta:'S4: Architecture decisions binding until explicitly revised. Browser-first PWA, offline-capable — non-negotiable. All pro/ paths established.',keyDecisions:'Binding architecture doctrine — prevents churn on settled decisions\nOffline capability declared non-negotiable',filesProduced:'Codex v4.x',loops:'CRM build in progress\nStripe planning\nMailerLite not yet wired',source:'reconstructed'},
+    {id:'s3',num:3,title:'Wiring Phase Doctrine',date:'~2025-12',summary:'A formal "Wiring Phase" is defined — a dedicated phase for connecting built pieces to the live product. This prevents the pattern of building features that remain forever disconnected.',input:'Address the gap between built features and connected features. Establish a framework for integration work.',output:'Defined Wiring Phase Doctrine — integration phase separate from feature building\nIdentified Wiring Phase items: DS sync script tag, Stripe, MailerLite, Visualizer intake\nEstablished that wiring work has equal priority to feature building\nProduced Codex v3.x',delta:'S3: Wiring Phase Doctrine standing. Wiring Phase items numbered and tracked. Integration gets explicit phase allocation.',keyDecisions:'Wiring Phase made first-class — not just cleanup, a defined phase\nItems numbered for tracking — enables progress measurement',filesProduced:'Codex v3.x',loops:'Execute Wiring Phase items 1–5\nStripe integration\nMailerLite wiring',source:'reconstructed'},
+    {id:'s2',num:2,title:'Foundation Build — Core Systems Established',date:'~2025-11 or 12',summary:'Core systems of NBD Pro are built and the four-pillar model is formally defined. Daily Momentum Engine, Authority Blueprint, CRM, and Homeowner Conversion Engine established as the product architecture.',input:'Build the foundational systems for NBD Pro. Establish product pillars and core data architecture.',output:'Defined Four Pillars: Authority Blueprint, Daily Momentum Engine, CRM OS, Homeowner Conversion Engine\nBuilt initial Daily Success tracker with streak tracking and habit logging\nEstablished Firestore data architecture for user profiles and progress\nBuilt initial blueprint gating structure\nEstablished append-only Codex logging as standing requirement\nProduced Codex v2.x',delta:'Four Pillars defined. Append-only Codex mandated. Firestore as data layer. Daily Success: pro/daily-success/index.html. Wiring Phase items 1, 4, 5 identified.',keyDecisions:'Four-pillar model — clear narrative architecture for the product\nAppend-only Codex mandated — immutable project history\nFirestore as persistence layer across all tools',filesProduced:'Daily Success initial build\nCodex v2.x',loops:'Wire all pillars together\nBuild CRM pipeline\nBuild Visualizer\nStripe integration planning',source:'reconstructed'},
+    {id:'s1',num:1,title:'Project Inception — NBD Pro Vision Set',date:'~2025-11',summary:'Session 1. The project begins. Core vision set: "Make massive success feel like no big deal." Name, brand, GitHub repo, and initial product concept established. MailerLite identified. 17 blog articles queued.',input:'Build an AI-powered contractor success platform for Joe Deal and No Big Deal Home Solutions. Help roofing/exterior contractors build real businesses.',output:'Established core vision: "Make massive success feel like no big deal."\nSet up GitHub repo: github.com/jdealtia-sys/nobigdealwithjoedeal.com\nDefined initial product concept — contractor success platform with AI tools\nIdentified MailerLite as email tool for blueprint delivery\nQueued 17 blog articles for SEO and authority building\nEstablished main landing page: index.html\nProduced Codex v1.x',delta:'Core vision locked. GitHub repo created. Main: index.html. MailerLite identified. Blog pipeline: 17 articles. Brand: No Big Deal Home Solutions, Joe Deal, Greater Cincinnati.',keyDecisions:'Vision statement — sets tone for entire product\n"No Big Deal" positioning — approachable expertise, honest pricing\nGitHub as deployment platform — static hosting\nContractor-first focus — roofing/exterior',filesProduced:'index.html (initial landing page)\nCodex v1.x',loops:'Build all four pillars\nWire MailerLite form (still open at S11)\nPublish 17 blog articles\nBuild Daily Success tracker\nBuild CRM\nBuild Visualizer',source:'reconstructed'}
+  ],
+  directives:[]
+};
+
+let taskFilter='all', sessionFilter='all';
+
+// ── STORAGE ──
+async function save(){try{await window.storage.set('nbd-codex-v2',JSON.stringify({tasks:codex.tasks,totalSessions:codex.totalSessions,lastSession:codex.lastSession,version:codex.version,sessions:codex.sessions.filter(s=>s.source==='original'||s.num>=10),directives:codex.directives}))}catch(e){}}
+async function load(){
+  try{
+    const r=await window.storage.get('nbd-codex-v2');
+    if(!r)return;
+    const s=JSON.parse(r.value);
+    // Merge done-states into base tasks
+    if(s.tasks){s.tasks.forEach(st=>{const t=codex.tasks.find(t=>t.id===st.id);if(t)t.done=st.done;else if(st.source!=='base')codex.tasks.push(st)})}
+    // Add any user-logged sessions (num > 11)
+    if(s.sessions){s.sessions.filter(ss=>ss.num>11).forEach(ss=>{if(!codex.sessions.find(x=>x.id===ss.id))codex.sessions.unshift(ss)})}
+    if(s.version&&s.totalSessions>codex.totalSessions){codex.version=s.version;codex.totalSessions=s.totalSessions;codex.lastSession=s.lastSession}
+    if(s.directives)codex.directives=s.directives;
+  }catch(e){}
+}
+
+function uid(){return Math.random().toString(36).slice(2,9)}
+function g(id){return document.getElementById(id)}
+function set(id,v){const e=g(id);if(e)e.textContent=v}
+
+// ── NAVIGATION ──
+function navTo(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=g('page-'+page);if(pg)pg.classList.add('active');
+  document.querySelectorAll(`[data-page="${page}"]`).forEach(n=>n.classList.add('active'));
+  window.scrollTo(0,0);
+  g('mainContent').scrollTo(0,0);
+  if(page==='tasks')renderTasks();
+  if(page==='sessions')renderSessions();
+  if(page==='export')buildExportPreview();
+  closeMobileNav();
+}
+
+// ── TOAST ──
+function toast(msg,type=''){
+  const c=g('tcon'),t=document.createElement('div');
+  t.className='toast'+(type?' '+type:'');
+  t.innerHTML=`<span>${type==='green'?'✓':type==='red'?'✕':type==='blue'?'◈':'◆'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.transition='.2s';t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),200)},3200);
+}
+
+// ── HEADER ──
+function updateHeader(){
+  set('versionChip',codex.version);
+  set('sessionChip','S'+codex.totalSessions);
+  set('lastUpdated','Last updated: S'+codex.totalSessions+' · '+codex.lastSession);
+  updateDebtCounts();
+}
+
+function updateDebtCounts(){
+  const crit=codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length;
+  const high=codex.tasks.filter(t=>t.priority==='high'&&!t.done).length;
+  const med=codex.tasks.filter(t=>t.priority==='med'&&!t.done).length;
+  const done=codex.tasks.filter(t=>t.done).length;
+  set('sCritical',crit);set('sHigh',high);set('sMed',med);set('sDone',done);
+  set('tCrit',crit);set('tHigh',high);set('tMed',med);set('tDone',done);
+  // task badge in nav
+  const badge=g('taskBadge');
+  const openCrit=codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length;
+  if(badge){badge.textContent=openCrit;badge.style.display=openCrit>0?'':'none'}
+  set('taskMeta',codex.tasks.length+' tasks · '+done+' closed');
+}
+
+// ── TASKS ──
+function renderTasks(){
+  const grid=g('taskGrid');if(!grid)return;
+  let list=[...codex.tasks];
+  if(taskFilter==='critical')list=list.filter(t=>t.priority==='critical'&&!t.done);
+  else if(taskFilter==='high')list=list.filter(t=>t.priority==='high'&&!t.done);
+  else if(taskFilter==='open')list=list.filter(t=>!t.done);
+  else if(taskFilter==='done')list=list.filter(t=>t.done);
+  list.sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;const o={critical:0,high:1,med:2};return(o[a.priority]||2)-(o[b.priority]||2)});
+  grid.innerHTML=list.map(t=>`
+    <div class="task-row${t.done?' done':''}" id="tr-${t.id}">
+      <div class="task-check" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</div>
+      <div>
+        <div class="task-name">${t.task}</div>
+        ${t.time?`<div style="font-family:'Syne Mono',monospace;font-size:10px;color:var(--text3);margin-top:2px">Est: ${t.time}</div>`:''}
+      </div>
+      <div class="task-time">${t.origin||'—'}</div>
+      <div class="p-dot ${t.priority}"></div>
+      <button class="btn btn-red btn-xs" onclick="deleteTask('${t.id}')">✕</button>
+    </div>`).join('')||'<div style="text-align:center;padding:32px;color:var(--text3);font-family:\'Syne Mono\',monospace;font-size:11px">No tasks match this filter</div>';
+  updateDebtCounts();
+}
+
+function filterTasks(f,btn){
+  taskFilter=f;
+  document.querySelectorAll('#page-tasks .filter-btn').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderTasks();
+}
+
+function toggleTask(id){
+  const t=codex.tasks.find(t=>t.id===id);if(!t)return;
+  t.done=!t.done;save();renderTasks();
+  toast(t.done?'✓ Task closed':'Task reopened',t.done?'green':'');
+}
+
+function deleteTask(id){
+  codex.tasks=codex.tasks.filter(t=>t.id!==id);
+  save();renderTasks();toast('Task removed','');
+}
+
+function toggleTaskForm(){
+  const f=g('taskForm');f.classList.toggle('open');
+  if(f.classList.contains('open'))g('ntTask').focus();
+}
+
+function saveTask(){
+  const task=g('ntTask').value.trim();
+  if(!task){toast('Task description required','red');return}
+  codex.tasks.push({id:uid(),task,priority:g('ntPriority').value,origin:g('ntOrigin').value.trim()||'S'+codex.totalSessions,time:g('ntTime').value.trim(),done:false});
+  save();renderTasks();
+  g('ntTask').value='';g('ntOrigin').value='';g('ntTime').value='';
+  g('taskForm').classList.remove('open');
+  toast('Task added','green');
+}
+
+// ── SESSIONS ──
+function renderSessions(){
+  const list=g('sessionList');if(!list)return;
+  let sessions=[...codex.sessions];
+  if(sessionFilter==='original')sessions=sessions.filter(s=>s.source==='original');
+  else if(sessionFilter==='reconstructed')sessions=sessions.filter(s=>s.source==='reconstructed');
+  list.innerHTML=sessions.map(s=>buildSessionCard(s)).join('');
+}
+
+function filterSessions(f,btn){
+  sessionFilter=f;
+  document.querySelectorAll('#page-sessions .filter-btn').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderSessions();
+}
+
+function buildSessionCard(s){
+  const outputs=s.output?s.output.split('\n').filter(Boolean):[];
+  const decisions=s.keyDecisions?s.keyDecisions.split('\n').filter(Boolean):[];
+  const files=s.filesProduced?s.filesProduced.split('\n').filter(Boolean):[];
+  const loops=s.loops?s.loops.split('\n').filter(Boolean):[];
+  return`<div class="session-card" id="sc-${s.id}">
+    <button class="session-trigger" onclick="toggleSession('${s.id}')">
+      <div class="session-num">S${s.num}</div>
+      <div class="session-info">
+        <div class="session-title">"${s.title}"</div>
+        <div class="session-meta">
+          <span class="session-date">${s.date}</span>
+          <span class="session-badge ${s.source}">${s.source==='original'?'ORIGINAL LOG':'RECONSTRUCTED'}</span>
+        </div>
+      </div>
+      <div class="session-chev">▼</div>
+    </button>
+    <div class="session-body">
+      ${s.summary?`<div style="font-size:16px;color:var(--text);line-height:1.7;padding:12px 16px;background:var(--lift);border-radius:var(--r);border-left:2px solid var(--gold);margin-bottom:4px">${s.summary}</div>`:''}
+      ${s.input?`<div class="slabel">📥 Input Vector</div><div class="stext">${s.input}</div>`:''}
+      ${outputs.length?`<div class="slabel">📤 Output Vector</div><ul class="sbullets">${outputs.map(o=>`<li>${o}</li>`).join('')}</ul>`:''}
+      ${s.delta?`<div class="slabel">⚡ Delta Log</div><div class="smono">${s.delta}</div>`:''}
+      ${decisions.length?`<div class="slabel">🔒 Key Decisions</div><ul class="sbullets">${decisions.map(d=>`<li>${d}</li>`).join('')}</ul>`:''}
+      ${files.length?`<div class="slabel">📁 Files Produced</div><div class="sfiles">${files.map(f=>`<span class="sfile-chip">${f}</span>`).join('')}</div>`:''}
+      ${loops.length?`<div class="slabel">🔁 Open Loops Carried Forward</div>${loops.map(l=>`<div class="sloop"><div class="sloop-dot"></div><span>${l}</span></div>`).join('')}`:''}
+      ${s.source==='reconstructed'?`<div class="recon-note">ℹ This session was reconstructed from Codex v10.0 directives, task registry origins, architecture evolution, and non-negotiable timestamps. The session happened — the exact words are inferred from the evidence it left behind. Original session logs for S1–S9 were not included in the v10.0 export.</div>`:''}
+    </div>
+  </div>`;
+}
+
+function toggleSession(id){
+  const el=g('sc-'+id);if(el)el.classList.toggle('open');
+}
+
+function expandAllSessions(){document.querySelectorAll('.session-card').forEach(e=>e.classList.add('open'))}
+function collapseAllSessions(){document.querySelectorAll('.session-card').forEach(e=>e.classList.remove('open'))}
+
+function openNewSession(){
+  const f=g('sessionForm');f.classList.add('open');
+  const now=new Date();g('nsDate').value=now.toISOString().slice(0,16);
+  g('nsTitle').focus();
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function closeNewSession(){
+  g('sessionForm').classList.remove('open');
+}
+
+function saveSession(){
+  const title=g('nsTitle').value.trim();
+  if(!title){toast('Session title required','red');return}
+  const newNum=codex.totalSessions+1;
+  const entry={
+    id:'s'+newNum, num:newNum, title,
+    date:g('nsDate').value?new Date(g('nsDate').value).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
+    summary:g('nsSummary').value.trim(),
+    input:g('nsInput').value.trim(),
+    output:g('nsOutput').value.trim(),
+    delta:g('nsDelta').value.trim(),
+    keyDecisions:g('nsDecisions').value.trim(),
+    filesProduced:g('nsFiles').value.trim(),
+    loops:g('nsLoops').value.trim(),
+    source:'original'
+  };
+  codex.sessions.unshift(entry);
+  codex.totalSessions=newNum;
+  codex.lastSession=new Date().toISOString().split('T')[0];
+  const vp=codex.version.replace('v','').split('.');vp[0]=String(parseInt(vp[0])+1);codex.version='v'+vp.join('.');
+  save();updateHeader();renderSessions();
+  ['nsTitle','nsInput','nsOutput','nsDelta','nsLoops','nsSummary','nsDecisions','nsFiles'].forEach(id=>{const el=g(id);if(el)el.value=''});
+  closeNewSession();
+  toast('Session S'+newNum+' logged · Codex '+codex.version,'green');
+}
+
+// ── DIRECTIVES ──
+function openAddDirective(){g('directiveForm').classList.add('open');g('newDirectiveText').focus()}
+function closeAddDirective(){g('directiveForm').classList.remove('open')}
+
+function saveDirective(){
+  const text=g('newDirectiveText').value.trim();
+  if(!text){toast('Directive text required','red');return}
+  const session='S'+codex.totalSessions;
+  if(!codex.directives)codex.directives=[];
+  codex.directives.push({session,text,date:new Date().toISOString()});
+  save();
+  const div=document.createElement('div');
+  div.className='directive-row';
+  div.innerHTML=`<div class="d-session" style="color:var(--gold)">${session}</div><div class="d-text"><strong>${text}</strong></div>`;
+  g('directiveList').appendChild(div);
+  g('newDirectiveText').value='';
+  closeAddDirective();
+  toast('Directive added · '+session,'green');
+}
+
+// ── EXPORT ──
+function buildExportContent(version){
+  const v=version||codex.version;
+  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const openTasks=codex.tasks.filter(t=>!t.done);
+  const doneTasks=codex.tasks.filter(t=>t.done);
+  return`ETERNAL-CODEX-EXPORT-${v}
+AI SELECTION CODEX – NBD PRO
+Version: ${v} | Last Session: ${codex.lastSession} | Total Sessions: ${codex.totalSessions}
+Generated: ${now}
+
+${'━'.repeat(60)}
+
+0. LIVING EXECUTIVE SYNTHESIS
+Sessions complete: ${codex.totalSessions} | Open critical tasks: ${codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length}
+
+Session ${codex.totalSessions+1} Mission (locked):
+1. Commit ds-final-deploy + crm-final-deploy to GitHub — 4 min, do first
+2. Wire Stripe — Payment Links + .plan Firestore write. Full stop.
+3. Build Understanding Tool per 40-question spec
+4. Deploy AI Selection Codex + AI Usability Tree to /pro
+
+${'━'.repeat(60)}
+
+1. PROJECT DNA (immutable)
+Core Vision: "Make massive success feel like no big deal."
+GitHub: https://github.com/jdealtia-sys/nobigdealwithjoedeal.com
+
+Key Paths:
+- Daily Success: pro/daily-success/index.html
+- CRM/Dashboard: pro/dashboard.html
+- Visualizer: visualizer.html
+- Main: index.html
+
+Four Pillars:
+1. Authority Blueprint — 35-page gated blueprint + 12-section masterclass
+2. Daily Momentum Engine — Daily Success tracker + streaks + leaderboards
+3. CRM OS — Dual pipeline, AI nudge, storm intel
+4. Homeowner Conversion Engine — AI visualizer → inbound leads → CRM
+
+Architecture:
+- nbdApplyTheme(id) — SINGLE SOURCE OF TRUTH. Never bypass.
+- 100 v5 themes (body.theme-{id}) + 176 v3 themes (:root[data-theme]) — permanently bridged
+- PLAN_UNLOCK = {blueprint:15, foundation:35, infused:55, team:70, command:80}
+- Stripe: NOT WIRED — all gating fake until Stripe lands
+
+${'━'.repeat(60)}
+
+2. CHRONOLOGICAL MASTER LOG (append-only)
+
+${codex.sessions.map(s=>`Session ${s.num} — ${s.date} — "${s.title}"
+Input: ${s.input||'—'}
+Output:
+${s.output?s.output.split('\n').filter(Boolean).map(l=>'  - '+l).join('\n'):'  —'}
+Delta: ${s.delta||'—'}
+Key Decisions: ${s.keyDecisions||'—'}
+Files: ${s.filesProduced||'—'}
+Open Loops:
+${s.loops?s.loops.split('\n').filter(Boolean).map(l=>'  □ '+l).join('\n'):'  —'}
+`).join('\n')}
+
+${'━'.repeat(60)}
+
+4. MASTER TASK REGISTRY
+
+OPEN:
+${openTasks.map((t,i)=>`${i+1}. [${t.priority.toUpperCase()}] ${t.task} | ${t.origin} | Est: ${t.time||'—'}`).join('\n')}
+
+${doneTasks.length?'CLOSED:\n'+doneTasks.map((t,i)=>`${i+1}. ✓ ${t.task}`).join('\n'):''}
+
+${'━'.repeat(60)}
+
+6. META-CODEX DIRECTIVES (enforced forever)
+- Append-only Section 2
+- Section 0 rewritten each session — higher altitude only
+- S3: Wiring Phase Doctrine standing
+- S4: Architecture decisions binding until explicitly revised
+- S5: "Never lose a job" — standing CRM constraint
+- S6: crm-leads.js — single source of truth for lead/job Firestore ops
+- S6: Visualizer is the fourth pillar
+- S7: nbdApplyTheme() is the single point of theme write — never bypass
+- S7: Light theme CSS audit mandatory before launch
+- S7: Stripe is the standing blocker for plan-gating reality
+- S8: Close before opening — 2+ session open loops must close first
+- S9: GitHub repo fixed — never ask again
+- S9: 176-theme v3 library canonical — do not revert
+- S10: nbdApplyTheme() governs ALL theme state — no parallel paths
+- S10: CRM file path is pro/dashboard.html — not pro/crm/index.html
+- S10: v5 and v3 permanently bridged — maintain bridge, never remove
+- S${codex.totalSessions}: Stripe ships in S${codex.totalSessions+1}. No exceptions.
+${codex.directives&&codex.directives.length?codex.directives.map(d=>`- ${d.session}: ${d.text}`).join('\n'):''}
+
+${'━'.repeat(60)}
+END OF CODEX ${v}
+Generated by AI Selection Codex · nobigdealwithjoedeal.com/pro`;
+}
+
+function buildExportPreview(){
+  const version=g('exportVersion')?.value||codex.version;
+  const preview=buildExportContent(version);
+  const el=g('exportPreview');if(el)el.textContent=preview;
+}
+
+function exportMarkdown(){
+  const version=g('exportVersion')?.value||codex.version;
+  const blob=new Blob([buildExportContent(version)],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`CODEX-EXPORT-${version}.md`;a.click();
+  toast('Codex exported as '+version,'green');
+}
+
+function exportText(){
+  const version=g('exportVersion')?.value||codex.version;
+  const blob=new Blob([buildExportContent(version)],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`CODEX-EXPORT-${version}.txt`;a.click();
+  toast('Codex exported as plain text','green');
+}
+
+function copyExport(){
+  const version=g('exportVersion')?.value||codex.version;
+  navigator.clipboard.writeText(buildExportContent(version)).then(()=>toast('Codex copied to clipboard','green'));
+}
+
+// ── GUIDE MODAL ──
+function openGuide(){g('guideModal').classList.add('open')}
+function closeGuide(){g('guideModal').classList.remove('open')}
+function closeGuideOnBg(e){if(e.target===g('guideModal'))closeGuide()}
+
+// ── MOBILE NAV ──
+function buildMobileNav(){
+  const nav=g('mobileSidebarNav');if(!nav)return;
+  nav.innerHTML=g('sidebarNav').innerHTML;
+  nav.querySelectorAll('.nav-item').forEach(btn=>{
+    const page=btn.getAttribute('data-page');
+    if(page){btn.addEventListener('click',()=>{navTo(page);closeMobileNav()})}
+  });
+  const addBtn=nav.querySelector('.btn-gold');
+  if(addBtn){addBtn.addEventListener('click',()=>{navTo('sessions');setTimeout(()=>openNewSession(),100);closeMobileNav()})}
+}
+
+function toggleMobileNav(){
+  g('mobileSidebar').classList.toggle('open');
+  g('mobileNavOverlay').classList.toggle('open');
+}
+
+function closeMobileNav(){
+  g('mobileSidebar').classList.remove('open');
+  g('mobileNavOverlay').classList.remove('open');
+}
+
+// ── INIT ──
+async function init(){
+  await load();
+  updateHeader();
+  renderSessions();
+  buildMobileNav();
+  // start on synthesis
+  navTo('synthesis');
+  setTimeout(()=>toast('AI Selection Codex · '+codex.version+' · '+codex.totalSessions+' sessions','blue'),800);
+}
+init();
+</script>
+</body>
+</html>

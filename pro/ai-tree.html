@@ -1,0 +1,2750 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBD Pro — AI Usability Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--nbd-orange:#F97316;--nbd-orange-dim:rgba(249,115,22,0.12);--nbd-orange-glow:rgba(249,115,22,0.25);--nbd-blue:#0EA5E9;--nbd-blue-dim:rgba(14,165,233,0.12);--radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--ease:cubic-bezier(0.22,1,0.36,1);--t:0.22s}
+[data-theme="dark"]{--bg:#0D0F14;--bg2:#12151C;--surface:#181C25;--surface2:#1E2330;--border:#252A38;--border2:#2E3447;--text:#F0F2F8;--text2:#9AA3BC;--text3:#5C6480;--accent:var(--nbd-orange);--accent-dim:var(--nbd-orange-dim);--accent-glow:var(--nbd-orange-glow);--blue:var(--nbd-blue);--blue-dim:var(--nbd-blue-dim);--shadow:0 4px 24px rgba(0,0,0,0.4);--shadow-lg:0 12px 48px rgba(0,0,0,0.5)}
+[data-theme="light"]{--bg:#F5F6FA;--bg2:#ECEEF5;--surface:#FFFFFF;--surface2:#F0F2F9;--border:#DDE1EE;--border2:#C8CEDF;--text:#0D0F14;--text2:#4A5068;--text3:#8B92AA;--accent:var(--nbd-orange);--accent-dim:rgba(249,115,22,0.08);--accent-glow:rgba(249,115,22,0.18);--blue:#0284C7;--blue-dim:rgba(2,132,199,0.08);--shadow:0 4px 20px rgba(13,15,20,0.08);--shadow-lg:0 12px 48px rgba(13,15,20,0.12)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background var(--t) var(--ease),color var(--t) var(--ease);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+[data-theme="dark"] body::after{content:'';position:fixed;top:-200px;left:-100px;width:700px;height:700px;background:radial-gradient(ellipse,rgba(249,115,22,.04) 0%,transparent 65%);pointer-events:none;z-index:0}
+.app-wrap{position:relative;z-index:1;display:grid;grid-template-rows:auto auto 1fr;min-height:100vh}
+
+/* TOPBAR */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;height:58px;position:sticky;top:0;z-index:100;transition:background var(--t) var(--ease)}
+[data-theme="dark"] .topbar{box-shadow:0 1px 0 var(--border),0 4px 24px rgba(0,0,0,.3)}
+.logo-wrap{display:flex;align-items:center;gap:10px;text-decoration:none;margin-right:32px;flex-shrink:0}
+.logo-badge{width:34px;height:34px;background:var(--accent);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:15px;color:#fff;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;line-height:1}
+.logo-text b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+.logo-text small{font-size:10px;color:var(--text3);letter-spacing:.5px;font-family:'JetBrains Mono',monospace}
+.topbar-nav{display:flex;align-items:center;gap:2px;flex:1}
+.nav-btn{padding:6px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all var(--t) var(--ease);border:none;background:transparent;font-family:'Barlow',sans-serif;white-space:nowrap;position:relative}
+.nav-btn:hover{color:var(--text);background:var(--surface2)}
+.nav-btn.active{color:var(--accent);background:var(--accent-dim)}
+.nav-btn.active::after{content:'';position:absolute;bottom:-1px;left:14px;right:14px;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
+.nbadge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--accent);color:#fff;border-radius:50%;font-size:10px;font-weight:700;margin-left:5px;vertical-align:middle}
+.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.icon-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all var(--t) var(--ease)}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.theme-toggle{width:56px;height:28px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;position:relative;transition:all var(--t) var(--ease);flex-shrink:0}
+.theme-toggle::before{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--accent);transition:transform var(--t) var(--ease);box-shadow:0 2px 6px var(--accent-glow)}
+[data-theme="light"] .theme-toggle::before{transform:translateX(28px)}
+.theme-toggle-icons{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:11px;pointer-events:none}
+.pro-chip{padding:4px 10px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+/* COST BAR */
+.cost-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;transition:background var(--t) var(--ease)}
+[data-theme="dark"] .cost-bar{background:linear-gradient(135deg,var(--surface) 0%,rgba(24,28,37,.98) 100%)}
+.cost-inner{display:flex;align-items:stretch;overflow-x:auto;scrollbar-width:none}
+.cost-inner::-webkit-scrollbar{display:none}
+.stat{display:flex;flex-direction:column;justify-content:center;padding:12px 24px 12px 0;border-right:1px solid var(--border);min-width:140px;flex-shrink:0}
+.stat:first-child{padding-left:0}
+.stat:last-of-type{border-right:none}
+.slabel{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.sval{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;line-height:1;color:var(--text);letter-spacing:-.5px}
+.sval.o{color:var(--accent)}.sval.b{color:var(--blue)}
+.ssub{font-size:11px;color:var(--text3);margin-top:2px}
+.chart-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;padding-left:24px;flex-shrink:0}
+.cbtn{padding:5px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease)}
+.cbtn:hover{color:var(--text);border-color:var(--border2)}
+.cbtn.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+canvas.mc{width:160px;height:48px;flex-shrink:0}
+
+/* MAIN */
+.main{padding:28px;max-width:1400px;margin:0 auto;width:100%}
+.view{display:none;animation:su .3s var(--ease) both}
+.view.active{display:block}
+@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* SECTION HEADER */
+.sh{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sh-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text)}
+.sh-line{flex:1;height:1px;background:var(--border)}
+.sh-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius-md);border:none;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease);white-space:nowrap}
+.btn-p{background:var(--accent);color:#fff;box-shadow:0 4px 16px var(--accent-glow)}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--accent-glow)}
+.btn-s{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-s:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-g{background:transparent;color:var(--blue);border:1px solid var(--blue)}
+.btn-g:hover{background:var(--blue-dim)}
+.btn-d{background:transparent;color:#EF4444;border:1px solid rgba(239,68,68,.3);padding:6px 12px;font-size:12px}
+.btn-d:hover{background:rgba(239,68,68,.1)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.xbtn{width:28px;height:28px;padding:0;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer;transition:all var(--t) var(--ease);font-family:inherit}
+.xbtn:hover{border-color:var(--accent);color:var(--accent)}
+.xbtn.pin{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.fb{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.fb:hover{color:var(--text);border-color:var(--border2)}
+.fb.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+.tsep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+/* ADD TOOL PANEL */
+.atp{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:24px;display:none}
+.atp.open{display:block;animation:su .25s var(--ease) both}
+.atp-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3)}
+.fi{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;padding:9px 12px;outline:none;transition:border-color var(--t) var(--ease);width:100%}
+.fi:focus{border-color:var(--accent)}
+.fi::placeholder{color:var(--text3)}
+.fi option{background:var(--surface)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.atp-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* TOOL CARDS */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.tc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:all var(--t) var(--ease);position:relative}
+.tc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--nbd-blue));opacity:0;transition:opacity var(--t) var(--ease)}
+.tc:hover::before,.tc.pinned::before{opacity:1}
+.tc:hover{border-color:var(--border2);box-shadow:var(--shadow);transform:translateY(-2px)}
+.tc.pinned{border-color:var(--accent)}
+.tc-head{padding:16px 18px;display:flex;align-items:flex-start;gap:12px}
+.tc-ico{width:42px;height:42px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border)}
+.tc-main{flex:1;min-width:0}
+.tc-name{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--text);line-height:1.1}
+.tc-meta{display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap}
+.tc-acts{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.5px;text-transform:uppercase;border:1px solid transparent}
+.p-cur{background:rgba(34,197,94,.1);color:#22C55E;border-color:rgba(34,197,94,.3)}
+.p-fut{background:var(--blue-dim);color:var(--blue);border-color:rgba(14,165,233,.3)}
+.p-cat{background:var(--surface2);color:var(--text3);border-color:var(--border)}
+.p-cost{background:var(--accent-dim);color:var(--accent);border-color:rgba(249,115,22,.3)}
+.p-free{background:rgba(34,197,94,.08);color:#22C55E;border-color:rgba(34,197,94,.2)}
+.abadge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.tc-body{padding:0 18px 14px}
+.tc-desc{font-size:13px;color:var(--text2);line-height:1.5}
+.tc-cost-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.tclabel{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.tcval{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--text)}
+.tccycle{font-size:11px;color:var(--text3)}
+.exp-btn{width:100%;padding:10px 18px;background:var(--surface2);border:none;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all var(--t) var(--ease);color:var(--text2);font-family:'Barlow',sans-serif;font-size:12px;font-weight:500}
+.exp-btn:hover{background:var(--border);color:var(--text)}
+.exp-chev{font-size:10px;transition:transform var(--t) var(--ease)}
+.tc.expanded .exp-chev{transform:rotate(180deg)}
+.exp-body{display:none;border-top:1px solid var(--border)}
+.tc.expanded .exp-body{display:block;animation:su .2s var(--ease) both}
+
+/* ACCOUNTS IN CARD */
+.acct-sec{padding:14px 18px}
+.acct-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)}
+.acct-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;transition:all var(--t) var(--ease)}
+.acct-row:hover{border-color:var(--border2)}
+.rdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.auser{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adesc{font-size:11px;color:var(--text3);flex-shrink:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arole{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:var(--surface);border:1px solid var(--border);flex-shrink:0}
+.astatus{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.astatus.active{background:#22C55E;box-shadow:0 0 5px #22C55E}
+.astatus.inactive{background:var(--text3)}
+.no-items{font-size:12px;color:var(--text3);font-style:italic;padding:6px 0}
+.mini-form{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.mini-form.open{display:block}
+.mfg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.mfact{display:flex;gap:8px;justify-content:flex-end}
+
+/* NOTES IN CARD */
+.note-sec{padding:14px 18px;border-top:1px solid var(--border)}
+.note-entry{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;font-size:12px}
+.note-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.ndate{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.ntag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 6px;border-radius:3px}
+.ntag.note{background:var(--surface);color:var(--text3);border:1px solid var(--border)}
+.ntag.added{background:rgba(34,197,94,.1);color:#22C55E}
+.ntag.removed{background:rgba(239,68,68,.1);color:#EF4444}
+.ntag.upgraded{background:var(--blue-dim);color:var(--blue)}
+.ntag.downgraded{background:var(--accent-dim);color:var(--accent)}
+.ntext{color:var(--text2);line-height:1.5}
+.anf-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:64px 24px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.5}
+.empty-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:8px}
+.empty-desc{font-size:13px;line-height:1.6;margin-bottom:20px}
+
+/* COMING STRIPS */
+.cs{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-md);padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:10px;opacity:.7;transition:all var(--t) var(--ease)}
+.cs:hover{opacity:1;border-color:var(--border2)}
+.csn{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--text3);width:32px;flex-shrink:0}
+.csi{flex:1}
+.cst{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text)}
+.csd{font-size:12px;color:var(--text3);margin-top:1px}
+.csb{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:20px;border:1px solid var(--border);color:var(--text3);flex-shrink:0}
+
+/* HERO */
+.hero{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;margin-bottom:32px}
+.eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.etag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);padding:3px 8px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--accent-dim)}
+.edot{width:6px;height:6px;border-radius:50%;background:#22C55E;box-shadow:0 0 8px #22C55E;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hero-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(36px,5vw,56px);font-weight:900;letter-spacing:1px;text-transform:uppercase;line-height:.95;color:var(--text)}
+.hero-title span{color:var(--accent)}
+.hero-sub{margin-top:10px;font-size:14px;color:var(--text2);max-width:480px;line-height:1.6}
+.hero-acts{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:260px}
+.hsc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;transition:all var(--t) var(--ease)}
+.hsc:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+.hsc.b:hover{border-color:var(--blue)}
+.hsc-ico{font-size:18px;margin-bottom:6px}
+.hsc-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--accent);line-height:1}
+.hsc.b .hsc-val{color:var(--blue)}
+.hsc-lbl{font-size:11px;color:var(--text3);margin-top:2px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+
+/* SEARCH */
+.sovl{position:fixed;inset:0;background:rgba(13,15,20,.75);backdrop-filter:blur(6px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
+.sovl.open{display:flex;animation:fi .15s var(--ease)}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.sbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:580px;box-shadow:var(--shadow-lg);overflow:hidden;animation:dd .2s var(--ease)}
+@keyframes dd{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+.s-row{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.s-ico{font-size:18px;color:var(--text3);flex-shrink:0}
+.s-inp{flex:1;background:none;border:none;outline:none;font-family:'Barlow',sans-serif;font-size:16px;color:var(--text)}
+.s-inp::placeholder{color:var(--text3)}
+.s-close{width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all var(--t) var(--ease)}
+.s-close:hover{border-color:var(--accent);color:var(--accent)}
+.s-filters{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.sfc{padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);cursor:pointer;transition:all var(--t) var(--ease)}
+.sfc:hover,.sfc.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.s-results{padding:12px 20px;max-height:380px;overflow-y:auto}
+.sgl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:8px}
+.sri{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--t) var(--ease)}
+.sri:hover{background:var(--surface2)}
+.sri-ico{font-size:16px;flex-shrink:0;width:28px;text-align:center}
+.sri-main{flex:1;min-width:0}
+.sri-name{font-size:14px;font-weight:600;color:var(--text)}
+.sri-meta{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.s-empty{text-align:center;padding:24px;color:var(--text3);font-size:13px}
+.sdiv{height:1px;background:var(--border);margin:8px 0}
+
+/* DETAIL PANEL */
+.dovl{position:fixed;inset:0;background:rgba(13,15,20,.6);backdrop-filter:blur(4px);z-index:150;display:none}
+.dovl.open{display:block;animation:fi .15s var(--ease)}
+.dpanel{position:fixed;right:0;top:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--border);z-index:151;overflow-y:auto;display:none;box-shadow:var(--shadow-lg)}
+.dpanel.open{display:block;animation:sir .25s var(--ease)}
+@keyframes sir{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+.dp-hd{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--surface);z-index:1}
+.dp-ico{width:44px;height:44px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--surface2);border:1px solid var(--border);flex-shrink:0}
+.dp-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--text);flex:1}
+.dp-x{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:4px;border-radius:var(--radius-sm);transition:all var(--t) var(--ease)}
+.dp-x:hover{color:var(--text);background:var(--surface2)}
+.dp-body{padding:20px 24px}
+.dp-sec{margin-bottom:20px}
+.dp-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+
+/* TOAST */
+.tcon{position:fixed;bottom:24px;right:24px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text);box-shadow:var(--shadow-lg);animation:ti .25s var(--ease);min-width:240px}
+@keyframes ti{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.b{border-left-color:var(--blue)}
+.toast.g{border-left-color:#22C55E}
+
+/* FOOTER */
+.footer{margin-top:48px;padding:20px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.footer a{color:var(--accent);text-decoration:none}
+
+.s-kbd{font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);color:var(--text3);background:var(--surface2);flex-shrink:0}
+.s-footer{display:flex;align-items:center;gap:12px;padding:8px 20px;border-top:1px solid var(--border);background:var(--surface2)}
+.s-hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px}
+.s-hint kbd{padding:1px 5px;border-radius:3px;border:1px solid var(--border);background:var(--surface);font-size:10px;font-family:'JetBrains Mono',monospace}
+.sri-selected{background:var(--accent-dim)!important;outline:1px solid var(--accent)}
+/* Highlight pulse animation */
+@keyframes hpulse{0%{box-shadow:0 0 0 0 var(--accent-glow)}50%{box-shadow:0 0 0 8px rgba(249,115,22,0)}100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}}
+.search-highlight{animation:hpulse 1s ease 0s 2;border-color:var(--accent)!important}
+
+/* ── AI COMPARISON — BATCH 5 ── */
+.cmp-banner{border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;font-size:13px;font-family:'JetBrains Mono',monospace}
+.cmp-banner.stale{background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);color:var(--accent)}
+.cmp-banner.fresh{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);color:#22C55E}
+.cmp-banner.running{background:var(--blue-dim);border:1px solid rgba(14,165,233,.3);color:var(--blue)}
+
+.cmp-grid{display:grid;gap:12px}
+
+.cmp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:all var(--t) var(--ease)}
+.cmp-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.cmp-card.overlap-flag{border-color:rgba(249,115,22,.4)}
+.cmp-card.yours{border-left:3px solid var(--accent)}
+.cmp-card.available{border-left:3px solid var(--blue);opacity:.9}
+
+.cmp-head{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:12px;padding:14px 18px}
+.cmp-ico{font-size:22px;flex-shrink:0}
+.cmp-name{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--text)}
+.cmp-cat{font-size:11px;color:var(--text3);margin-top:1px;font-family:'JetBrains Mono',monospace}
+
+.rel-bar-wrap{display:flex;align-items:center;gap:8px;min-width:120px}
+.rel-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.rel-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue),var(--accent));transition:width .6s var(--ease)}
+.rel-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);width:28px;text-align:right;flex-shrink:0}
+
+.cost-tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.cost-tag.free{background:rgba(34,197,94,.1);color:#22C55E;border:1px solid rgba(34,197,94,.3)}
+.cost-tag.low{background:rgba(255,184,0,.1);color:#F59E0B;border:1px solid rgba(245,158,11,.3)}
+.cost-tag.med{background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.cost-tag.high{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.3)}
+
+.cmp-body{padding:0 18px 14px;border-top:1px solid var(--border)}
+.cmp-body-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:14px}
+.cmp-col-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.cmp-text{font-size:12px;color:var(--text2);line-height:1.5}
+.cmp-alts{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.cmp-alt-tag{font-size:10px;padding:2px 8px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-family:'JetBrains Mono',monospace}
+
+.overlap-badge{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(249,115,22,.15);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.status-yours{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.status-available{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(14,165,233,.3)}
+
+.cmp-spinner{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 10X ANALYSIS — BATCH 6 ── */
+.tenx-stale-badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;letter-spacing:.5px}
+.tenx-stale-badge.stale{background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.tenx-stale-badge.stale-warn{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.3);animation:stalePulse 2s infinite}
+.tenx-stale-badge.fresh{background:rgba(34,197,94,.08);color:#22C55E;border:1px solid rgba(34,197,94,.25)}
+@keyframes stalePulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+.tenx-banner{border-radius:var(--radius-md);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;font-family:'JetBrains Mono',monospace}
+.tenx-banner.running{background:var(--blue-dim);border:1px solid rgba(14,165,233,.3);color:var(--blue)}
+.tenx-banner.fresh{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);color:#22C55E}
+.tenx-banner.stale{background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);color:var(--accent)}
+
+.tenx-grid{display:grid;gap:20px}
+
+.tenx-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:all var(--t) var(--ease)}
+
+.tenx-card-head{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.tenx-head-ico{font-size:24px;flex-shrink:0}
+.tenx-head-info{flex:1}
+.tenx-head-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:.5px;color:var(--text)}
+.tenx-head-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.tenx-score{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--accent);flex-shrink:0;line-height:1}
+.tenx-score-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-top:2px;text-align:center}
+
+.tenx-insight{padding:14px 20px;background:rgba(14,165,233,.04);border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.tenx-insight-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.tenx-insight-text{font-size:13px;color:var(--text2);line-height:1.6;font-style:italic}
+
+.tenx-cols{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.tenx-col{padding:18px 20px}
+.tenx-col:first-child{border-right:1px solid var(--border)}
+.tenx-col-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.tenx-col:first-child .tenx-col-label{color:var(--accent)}
+.tenx-col:last-child .tenx-col-label{color:var(--blue)}
+
+.tenx-option{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;transition:all var(--t) var(--ease)}
+.tenx-option:last-child{margin-bottom:0}
+.tenx-option:hover{border-color:var(--border2)}
+.tenx-opt-num{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.tenx-opt-title{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;letter-spacing:.5px;color:var(--text);margin-bottom:6px}
+.tenx-opt-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;margin-bottom:8px;vertical-align:middle}
+.tenx-opt-tag.cur{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.tenx-opt-tag.fut{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(14,165,233,.3)}
+.tenx-opt-reason{font-size:12px;color:var(--text2);line-height:1.6}
+
+.tenx-effort{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)}
+.tenx-effort-bar{display:flex;gap:2px}
+.tenx-effort-pip{width:10px;height:4px;border-radius:2px;background:var(--border)}
+.tenx-effort-pip.filled{background:var(--accent)}
+
+.tenx-spinner{display:inline-block;width:18px;height:18px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
+/* ── CHANGE LOG — BATCH 7 ── */
+.cl-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+.cl-col-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.cl-col-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+
+/* Timeline entries */
+.cl-entry{display:flex;gap:14px;padding:0 0 20px;position:relative}
+.cl-entry:not(:last-child)::after{content:'';position:absolute;left:17px;top:34px;bottom:0;width:1px;background:var(--border)}
+.cl-dot-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:2px}
+.cl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid var(--bg);box-shadow:0 0 0 2px var(--border);margin-top:4px}
+.cl-dot.added{background:#22C55E;box-shadow:0 0 0 2px rgba(34,197,94,.3)}
+.cl-dot.removed{background:#EF4444;box-shadow:0 0 0 2px rgba(239,68,68,.3)}
+.cl-dot.upgraded{background:var(--blue);box-shadow:0 0 0 2px rgba(14,165,233,.3)}
+.cl-dot.downgraded{background:var(--accent);box-shadow:0 0 0 2px rgba(249,115,22,.3)}
+.cl-dot.note{background:var(--text3);box-shadow:0 0 0 2px var(--border)}
+.cl-dot.cost-change{background:#A855F7;box-shadow:0 0 0 2px rgba(168,85,247,.3)}
+.cl-dot.account-change{background:#F59E0B;box-shadow:0 0 0 2px rgba(245,158,11,.3)}
+.cl-dot.auto{opacity:.7}
+
+.cl-body{flex:1;min-width:0}
+.cl-body-head{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.cl-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.cl-tag.added{background:rgba(34,197,94,.1);color:#22C55E;border:1px solid rgba(34,197,94,.3)}
+.cl-tag.removed{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.3)}
+.cl-tag.upgraded{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(14,165,233,.3)}
+.cl-tag.downgraded{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(249,115,22,.3)}
+.cl-tag.note{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.cl-tag.cost-change{background:rgba(168,85,247,.1);color:#A855F7;border:1px solid rgba(168,85,247,.3)}
+.cl-tag.account-change{background:rgba(245,158,11,.1);color:#F59E0B;border:1px solid rgba(245,158,11,.3)}
+.cl-tag.auto-tag{background:var(--surface2);color:var(--text3);border:1px solid var(--border);font-size:8px}
+
+.cl-tool-name{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);flex-shrink:0}
+.cl-reason{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:4px;font-weight:500}
+.cl-diff{display:flex;align-items:center;gap:8px;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.cl-before{color:var(--text3);text-decoration:line-through;background:var(--surface2);padding:2px 8px;border-radius:4px}
+.cl-arrow{color:var(--text3)}
+.cl-after{color:var(--text);background:var(--accent-dim);padding:2px 8px;border-radius:4px;color:var(--accent)}
+.cl-date{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:3px}
+.cl-del-btn{font-size:10px;color:var(--text3);cursor:pointer;border:none;background:none;padding:2px 4px;border-radius:3px;transition:color var(--t) var(--ease);flex-shrink:0;margin-left:auto}
+.cl-del-btn:hover{color:#EF4444}
+
+.cl-empty{text-align:center;padding:32px 16px;color:var(--text3);font-size:12px;font-style:italic}
+
+/* Per-tool sidebar entries */
+.cl-tool-entry{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-bottom:8px;transition:all var(--t) var(--ease)}
+.cl-tool-entry:hover{border-color:var(--border2)}
+
+@media(max-width:900px){.cl-layout{grid-template-columns:1fr}}
+
+/* ── SETTINGS + EXPORT — BATCH 8 ── */
+.settings-layout{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+.settings-left{display:flex;flex-direction:column;gap:16px}
+.settings-right{display:flex;flex-direction:column;gap:16px}
+
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.settings-card-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none;padding-bottom:0}
+.set-row:first-of-type{padding-top:0}
+.set-row-info{flex:1;min-width:0}
+.set-row-label{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px}
+.set-row-desc{font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+
+/* Export */
+.export-block{margin-bottom:4px}
+.export-block-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.export-ico{font-size:22px;flex-shrink:0;margin-top:2px}
+.export-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.5px;color:var(--text)}
+.export-desc{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.4}
+.export-options{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.export-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer}
+.export-check input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+
+.export-preview{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-top:10px;max-height:240px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-all}
+
+/* Theme highlight */
+.fb.theme-active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+
+@media(max-width:900px){.settings-layout{grid-template-columns:1fr}.settings-right .settings-card{position:static!important}}
+
+/* ── KANBAN ── */
+.kanban-board{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start}
+.kb-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column;min-height:200px;transition:border-color var(--t) var(--ease)}
+.kb-col.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+.kb-col-head{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.kb-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.kb-col-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);flex:1}
+.kb-count{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--border2);color:var(--text3);padding:2px 7px;border-radius:10px}
+.kb-cards{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:120px}
+.kb-add-btn{width:100%;padding:10px;border:none;background:transparent;border-top:1px solid var(--border);color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.kb-add-btn:hover{background:var(--accent-dim);color:var(--accent)}
+
+/* KANBAN CARD */
+.kb-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;cursor:grab;transition:all var(--t) var(--ease);position:relative;overflow:hidden;user-select:none}
+.kb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.kb-card:hover{border-color:var(--border2);box-shadow:var(--shadow);transform:translateY(-1px)}
+.kb-card.dragging{opacity:.4;transform:rotate(1deg);cursor:grabbing}
+.kb-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.kb-username{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kb-acts{display:flex;gap:4px;flex-shrink:0;opacity:0;transition:opacity var(--t) var(--ease)}
+.kb-card:hover .kb-acts{opacity:1}
+.kb-role-tag{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:var(--surface);border:1px solid var(--border);margin-bottom:5px}
+.kb-desc{font-size:11px;color:var(--text3);line-height:1.4;margin-bottom:6px}
+.kb-platform{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
+.kb-status-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.kb-status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.kb-status-dot.active{background:#22C55E;box-shadow:0 0 5px #22C55E}
+.kb-status-dot.inactive{background:var(--text3)}
+.kb-status-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)}
+.kb-last-login{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);margin-left:auto}
+.kb-empty{text-align:center;padding:24px 12px;color:var(--text3);font-size:12px;font-style:italic}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border)}
+.acct-table{width:100%;border-collapse:collapse;font-size:13px}
+.acct-table thead{background:var(--surface2)}
+.th-sort{text-align:left;padding:11px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;cursor:pointer;white-space:nowrap;user-select:none;transition:color var(--t) var(--ease)}
+.th-sort:hover{color:var(--accent)}
+.acct-table th:last-child{padding:11px 16px;text-align:right}
+.sort-ico{font-size:10px;opacity:.4;margin-left:3px}
+.sort-ico.asc{opacity:1;color:var(--accent)}
+.sort-ico.desc{opacity:1;color:var(--accent)}
+.acct-table td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.acct-table tbody tr:last-child td{border-bottom:none}
+.acct-table tbody tr{transition:background var(--t) var(--ease)}
+.acct-table tbody tr:hover{background:var(--surface2)}
+.td-user{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.td-platform{font-size:11px;color:var(--text3);margin-top:2px}
+.td-role{display:flex;align-items:center;gap:5px}
+.td-role-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.td-role-tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:var(--surface2);border:1px solid var(--border)}
+.td-status{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:10px}
+.td-status-dot{width:6px;height:6px;border-radius:50%}
+.td-status-dot.active{background:#22C55E;box-shadow:0 0 4px #22C55E}
+.td-status-dot.inactive{background:var(--text3)}
+.td-cost{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--accent)}
+.td-cost.free{color:var(--text3)}
+.td-login{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
+.tbl-acts{display:flex;gap:4px;justify-content:flex-end}
+
+/* ── ADD ACCOUNT MODAL ── */
+.modal-ovl{position:fixed;inset:0;background:rgba(13,15,20,.75);backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-ovl.open{display:flex;animation:fi .15s var(--ease)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:560px;box-shadow:var(--shadow-lg);overflow:hidden;animation:su .2s var(--ease)}
+.modal-hd{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--text);flex:1}
+.modal-body{padding:20px 24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+
+/* EDIT INLINE */
+.kb-card.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:768px){
+  .topbar{padding:0 16px}
+  .topbar-nav{display:none}
+  .main{padding:16px}
+  .hero{grid-template-columns:1fr}
+  .hero-stats{display:none}
+  .cost-bar{padding:0 16px}
+  .tgrid{grid-template-columns:1fr}
+  .grid3,.grid2{grid-template-columns:1fr}
+  .dpanel{width:100%}
+  .anf-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<nav class="topbar">
+  <a class="logo-wrap" href="#">
+    <div class="logo-badge">NBD</div>
+    <div class="logo-text"><b>Pro Portal</b><small>AI Usability Tree</small></div>
+  </a>
+  <div class="topbar-nav">
+    <button class="nav-btn" onclick="showView('dash',this)">Dashboard</button>
+    <button class="nav-btn active" onclick="showView('tools',this)">Tools <span class="nbadge" id="tnb">0</span></button>
+    <button class="nav-btn" onclick="showView('accts',this)">Accounts <span class="nbadge" id="anb">0</span></button>
+    <button class="nav-btn" onclick="showView('compare',this)">Compare</button>
+    <button class="nav-btn" onclick="showView('analysis',this)">10X Analysis</button>
+    <button class="nav-btn" onclick="showView('changelog',this)">Change Log</button>
+    <button class="nav-btn" onclick="showView('settings',this)">⚙ Settings</button>
+  </div>
+  <div class="topbar-right">
+    <a href="/pro/understand" style="display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">🔮 Understand</a>
+    <a href="/pro/codex" style="display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">⬛ Codex</a>
+    <button class="icon-btn" onclick="openSearch()" title="Search (/)">🔍</button>
+    <button class="theme-toggle" onclick="toggleTheme()"><div class="theme-toggle-icons"><span>🌙</span><span>☀️</span></div></button>
+    <div class="pro-chip">Pro</div>
+  </div>
+</nav>
+
+<div class="cost-bar">
+  <div class="cost-inner">
+    <div class="stat"><div class="slabel">Monthly Spend</div><div class="sval o" id="ss">$0</div><div class="ssub" id="ssub">across 0 tools</div></div>
+    <div class="stat" style="padding-left:24px"><div class="slabel">Annual Projection</div><div class="sval" id="sa">$0</div><div class="ssub">projected this year</div></div>
+    <div class="stat" style="padding-left:24px"><div class="slabel">Tools Tracked</div><div class="sval b" id="st">0</div><div class="ssub" id="stsub">0 current · 0 future</div></div>
+    <div class="stat" style="padding-left:24px"><div class="slabel">Accounts Logged</div><div class="sval" id="sac">0</div><div class="ssub">across all platforms</div></div>
+    <div class="stat" style="padding-left:24px"><div class="slabel">Cost / Account</div><div class="sval" id="spa">—</div><div class="ssub">avg monthly</div></div>
+    <div class="chart-wrap">
+      <button class="cbtn active" onclick="setChart(this,'bar')">BAR</button>
+      <button class="cbtn" onclick="setChart(this,'donut')">DONUT</button>
+      <button class="cbtn" onclick="setChart(this,'line')">LINE</button>
+      <canvas class="mc" id="mc"></canvas>
+    </div>
+  </div>
+</div>
+
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div class="view" id="view-dash">
+    <div class="hero">
+      <div>
+        <div class="eyebrow"><span class="etag">NBD PRO · AI USABILITY TREE</span><div class="edot"></div><span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">LIVE</span></div>
+        <h1 class="hero-title">YOUR AI<br><span>STACK.</span><br>OWNED.</h1>
+        <p class="hero-sub">Every tool, every account, every dollar — tracked, compared, and optimized. No fluff, no guessing, no leaving money on the table.</p>
+        <div class="hero-acts">
+          <button class="btn btn-p" onclick="showView('tools',document.querySelector('.nav-btn:nth-child(2)'));toggleATP()">+ Add Tool</button>
+          <button class="btn btn-s" onclick="openSearch()">🔍 Search Everything</button>
+          <button class="btn btn-g" onclick="showView('analysis',document.querySelector('.nav-btn:nth-child(5)'))">🔭 Run 10X Analysis</button>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hsc"><div class="hsc-ico">🛠️</div><div class="hsc-val" id="ht">0</div><div class="hsc-lbl">Tools</div></div>
+        <div class="hsc b"><div class="hsc-ico">👤</div><div class="hsc-val" id="ha">0</div><div class="hsc-lbl">Accounts</div></div>
+        <div class="hsc"><div class="hsc-ico">💰</div><div class="hsc-val" id="hs">$0</div><div class="hsc-lbl">Mo. Spend</div></div>
+        <div class="hsc b"><div class="hsc-ico">⚡</div><div class="hsc-val" id="hx">—</div><div class="hsc-lbl">Analysis</div></div>
+      </div>
+    </div>
+    <div class="sh"><div class="sh-title">All Modules Active</div><div class="sh-line"></div><div class="sh-count" style="color:#22C55E">8 OF 8 COMPLETE ✓</div></div>
+    <div class="cs" style="border-color:rgba(34,197,94,.3);opacity:1"><div class="csn" style="color:#22C55E">✓</div><div class="csi"><div class="cst">Tool Inventory + Account Manager</div><div class="csd">Full CRUD, expandable cards, kanban + table, drag & drop, role tagging</div></div><div class="csb" style="border-color:rgba(34,197,94,.3);color:#22C55E">LIVE</div></div>
+    <div class="cs" style="border-color:rgba(34,197,94,.3);opacity:1"><div class="csn" style="color:#22C55E">✓</div><div class="csi"><div class="cst">Global Search + AI Comparison + 10X Analysis</div><div class="csd">Live search, overlap detection, first-principles 10X with stale indicators</div></div><div class="csb" style="border-color:rgba(34,197,94,.3);color:#22C55E">LIVE</div></div>
+    <div class="cs" style="border-color:rgba(34,197,94,.3);opacity:1"><div class="csn" style="color:#22C55E">✓</div><div class="csi"><div class="cst">Change Log + Settings + PDF / CSV Export</div><div class="csd">Auto-logging, manual entries, full export suite, profile settings</div></div><div class="csb" style="border-color:rgba(34,197,94,.3);color:#22C55E">LIVE</div></div>
+  </div>
+
+  <!-- TOOLS -->
+  <div class="view active" id="view-tools">
+    <div class="sh"><div class="sh-title">Tool Inventory</div><div class="sh-line"></div><div class="sh-count" id="tsc">0 TOOLS</div></div>
+    <div class="toolbar">
+      <button class="fb active" onclick="filterTools('all',this)">All</button>
+      <button class="fb" onclick="filterTools('current',this)">Current</button>
+      <button class="fb" onclick="filterTools('future',this)">Future</button>
+      <button class="fb" onclick="filterTools('pinned',this)">⭐ Pinned</button>
+      <div class="tsep"></div>
+      <button class="fb" onclick="filterTools('LLM',this)">LLM</button>
+      <button class="fb" onclick="filterTools('Search',this)">Search</button>
+      <button class="fb" onclick="filterTools('Code',this)">Code</button>
+      <button class="fb" onclick="filterTools('Automation',this)">Automation</button>
+      <button class="fb" onclick="filterTools('Productivity',this)">Productivity</button>
+      <div class="tsep"></div>
+      <button class="btn btn-p btn-sm" id="atpBtn" onclick="toggleATP()">+ Add Tool</button>
+    </div>
+
+    <!-- ADD TOOL PANEL -->
+    <div class="atp" id="atp">
+      <div class="atp-title"><span>🛠️</span> Add New Tool <button class="xbtn" style="margin-left:auto" onclick="toggleATP()">✕</button></div>
+      <div class="grid3">
+        <div class="fg"><div class="fl">Tool / Website Name *</div><input class="fi" id="nName" placeholder="e.g. Claude, Notion, Zapier"></div>
+        <div class="fg"><div class="fl">Category</div><select class="fi" id="nCat"><option>LLM</option><option>Search</option><option>Code</option><option>Automation</option><option>Productivity</option><option>Design</option><option>Data</option><option>Communication</option><option>Analytics</option><option>Other</option></select></div>
+        <div class="fg"><div class="fl">Status</div><select class="fi" id="nStat"><option value="current">Current</option><option value="future">Future</option></select></div>
+      </div>
+      <div class="grid2">
+        <div class="fg"><div class="fl">Description</div><input class="fi" id="nDesc" placeholder="What does this tool do?"></div>
+        <div class="fg"><div class="fl">Website URL</div><input class="fi" id="nUrl" placeholder="https://..."></div>
+      </div>
+      <div class="grid3">
+        <div class="fg"><div class="fl">Plan Tier</div><select class="fi" id="nTier"><option>Free</option><option>Pro</option><option>Enterprise</option><option>Custom</option></select></div>
+        <div class="fg"><div class="fl">Monthly Cost ($)</div><input class="fi" id="nCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="fg"><div class="fl">Billing Cycle</div><select class="fi" id="nBill"><option value="monthly">Monthly</option><option value="annual">Annual</option><option value="one-time">One-time</option><option value="usage">Usage-based</option></select></div>
+      </div>
+      <div class="atp-foot">
+        <button class="btn btn-s" onclick="toggleATP()">Cancel</button>
+        <button class="btn btn-p" onclick="addTool()">✓ Save Tool</button>
+      </div>
+    </div>
+
+    <div class="tgrid" id="tgrid"></div>
+  </div>
+
+  <!-- ACCOUNT MANAGER — BATCH 3 -->
+  <div class="view" id="view-accts">
+    <div class="sh"><div class="sh-title">Account Manager</div><div class="sh-line"></div><div class="sh-count" id="asc">0 ACCOUNTS</div></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="fb active" id="amViewKan" onclick="setAmView('kanban',this)">⬛ Kanban</button>
+      <button class="fb" id="amViewTbl" onclick="setAmView('table',this)">☰ Table</button>
+      <div class="tsep"></div>
+      <button class="fb active" id="amRoleAll" onclick="filterAccts('all',this)">All Roles</button>
+      <button class="fb" onclick="filterAccts('Personal',this)">Personal</button>
+      <button class="fb" onclick="filterAccts('Business',this)">Business</button>
+      <button class="fb" onclick="filterAccts('Client',this)">Client</button>
+      <button class="fb" onclick="filterAccts('Developer / API',this)">Dev / API</button>
+      <button class="fb" onclick="filterAccts('Admin',this)">Admin</button>
+      <div class="tsep"></div>
+      <button class="btn btn-p btn-sm" onclick="openAddAcctModal()">+ Add Account</button>
+    </div>
+
+    <!-- KANBAN -->
+    <div id="amKanban">
+      <div class="kanban-board" id="kanbanBoard">
+        <div class="kb-col" data-col="Personal">
+          <div class="kb-col-head"><span class="kb-dot" style="background:#F97316"></span><span class="kb-col-title">Personal</span><span class="kb-count" id="kc-Personal">0</span></div>
+          <div class="kb-cards" id="kCards-Personal" ondragover="onDragOver(event)" ondrop="onDrop(event,'Personal')"></div>
+          <button class="kb-add-btn" onclick="openAddAcctModal('Personal')">+ Add</button>
+        </div>
+        <div class="kb-col" data-col="Business &amp; Client">
+          <div class="kb-col-head"><span class="kb-dot" style="background:#0EA5E9"></span><span class="kb-col-title">Business &amp; Client</span><span class="kb-count" id="kc-Business &amp; Client">0</span></div>
+          <div class="kb-cards" id="kCards-Business &amp; Client" ondragover="onDragOver(event)" ondrop="onDrop(event,'Business &amp; Client')"></div>
+          <button class="kb-add-btn" onclick="openAddAcctModal('Business')">+ Add</button>
+        </div>
+        <div class="kb-col" data-col="Developer &amp; API">
+          <div class="kb-col-head"><span class="kb-dot" style="background:#22C55E"></span><span class="kb-col-title">Developer &amp; API</span><span class="kb-count" id="kc-Developer &amp; API">0</span></div>
+          <div class="kb-cards" id="kCards-Developer &amp; API" ondragover="onDragOver(event)" ondrop="onDrop(event,'Developer &amp; API')"></div>
+          <button class="kb-add-btn" onclick="openAddAcctModal('Developer / API')">+ Add</button>
+        </div>
+        <div class="kb-col" data-col="Archived">
+          <div class="kb-col-head"><span class="kb-dot" style="background:#374151"></span><span class="kb-col-title">Archived</span><span class="kb-count" id="kc-Archived">0</span></div>
+          <div class="kb-cards" id="kCards-Archived" ondragover="onDragOver(event)" ondrop="onDrop(event,'Archived')"></div>
+          <button class="kb-add-btn" onclick="openAddAcctModal('Archived')">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div id="amTable" style="display:none">
+      <div class="tbl-wrap">
+        <table class="acct-table" id="acctTable">
+          <thead>
+            <tr>
+              <th class="th-sort" onclick="sortTable('username')">Platform / Username <span class="sort-ico" id="sort-username">↕</span></th>
+              <th class="th-sort" onclick="sortTable('role')">Role <span class="sort-ico" id="sort-role">↕</span></th>
+              <th class="th-sort" onclick="sortTable('desc')">Description <span class="sort-ico" id="sort-desc">↕</span></th>
+              <th class="th-sort" onclick="sortTable('toolName')">Platform <span class="sort-ico" id="sort-toolName">↕</span></th>
+              <th class="th-sort" onclick="sortTable('status')">Status <span class="sort-ico" id="sort-status">↕</span></th>
+              <th class="th-sort" onclick="sortTable('cost')">Tool Cost <span class="sort-ico" id="sort-cost">↕</span></th>
+              <th>Last Login</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="acctTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- AI COMPARISON — BATCH 5 -->
+  <div class="view" id="view-compare">
+    <div class="sh"><div class="sh-title">AI Comparison</div><div class="sh-line"></div><div class="sh-count" id="cmpCount">—</div></div>
+
+    <!-- Control bar -->
+    <div class="toolbar" style="margin-bottom:16px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:1px">SORT:</span>
+      <button class="fb active" id="cmpSortRel" onclick="setCmpSort('relevance',this)">Relevance ↓</button>
+      <button class="fb" id="cmpSortCost" onclick="setCmpSort('cost',this)">Cost ↑</button>
+      <button class="fb" id="cmpSortName" onclick="setCmpSort('name',this)">Name A–Z</button>
+      <div class="tsep"></div>
+      <button class="fb active" id="cmpFilterAll" onclick="setCmpFilter('all',this)">All</button>
+      <button class="fb" onclick="setCmpFilter('current',this)">Your Stack</button>
+      <button class="fb" onclick="setCmpFilter('available',this)">Not Using</button>
+      <button class="fb" onclick="setCmpFilter('overlap',this)">⚠ Overlaps</button>
+      <div class="tsep"></div>
+      <button class="btn btn-p btn-sm" id="cmpRunBtn" onclick="runComparison()">⚡ AI Refresh</button>
+    </div>
+
+    <!-- Stale / status banner -->
+    <div id="cmpBanner" style="display:none"></div>
+
+    <!-- Results area -->
+    <div id="cmpResults">
+      <div class="empty">
+        <div class="empty-icon">⚖️</div>
+        <div class="empty-title">Ready to Compare</div>
+        <div class="empty-desc">Add at least one tool to your inventory, then click <strong>AI Refresh</strong> to compare your stack against every publicly available alternative — sorted by relevance and cost.</div>
+        <button class="btn btn-p" onclick="runComparison()">⚡ Run AI Comparison</button>
+      </div>
+    </div>
+  </div>
+  <!-- 10X ANALYSIS — BATCH 6 -->
+  <div class="view" id="view-analysis">
+    <div class="sh"><div class="sh-title">10X Analysis</div><div class="sh-line"></div><div class="sh-count" id="tenxCount">—</div></div>
+
+    <!-- Controls -->
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="fg" style="flex-direction:row;align-items:center;gap:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:1px;white-space:nowrap">ANALYZE:</span>
+        <select class="fi" id="tenxToolSel" style="width:220px;padding:6px 10px">
+          <option value="all">— All Tools —</option>
+        </select>
+      </div>
+      <div class="tsep"></div>
+      <button class="btn btn-p btn-sm" id="tenxRunBtn" onclick="runTenX()">🔭 Run 10X Analysis</button>
+      <button class="btn btn-s btn-sm" id="tenxRefreshBtn" onclick="runTenX(true)" style="display:none">↺ Refresh</button>
+      <div class="tsep"></div>
+      <div id="tenxStaleWrap" style="display:none">
+        <span class="tenx-stale-badge" id="tenxStaleBadge"></span>
+      </div>
+    </div>
+
+    <!-- Status banner -->
+    <div id="tenxBanner" style="display:none"></div>
+
+    <!-- Results -->
+    <div id="tenxResults">
+      <div class="empty">
+        <div class="empty-icon">🔭</div>
+        <div class="empty-title">First Principles. 10X Thinking.</div>
+        <div class="empty-desc">Select a tool (or all tools) and run the analysis. For each tool you'll get 2 better options available <em>right now</em> and 2 future upgrade paths — with detailed reasoning for each.</div>
+        <button class="btn btn-p" onclick="runTenX()">🔭 Run 10X Analysis</button>
+      </div>
+    </div>
+  </div>
+  <!-- CHANGE LOG — BATCH 7 -->
+  <div class="view" id="view-changelog">
+    <div class="sh"><div class="sh-title">Change Log</div><div class="sh-line"></div><div class="sh-count" id="clCount">0 ENTRIES</div></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar" style="margin-bottom:16px">
+      <button class="fb active" id="clFilterAll" onclick="setCLFilter('all',this)">All</button>
+      <button class="fb" onclick="setCLFilter('auto',this)">Auto-logged</button>
+      <button class="fb" onclick="setCLFilter('manual',this)">Manual</button>
+      <div class="tsep"></div>
+      <button class="fb" onclick="setCLFilter('added',this)">Added</button>
+      <button class="fb" onclick="setCLFilter('removed',this)">Removed</button>
+      <button class="fb" onclick="setCLFilter('upgraded',this)">Upgraded</button>
+      <button class="fb" onclick="setCLFilter('downgraded',this)">Downgraded</button>
+      <button class="fb" onclick="setCLFilter('note',this)">Notes</button>
+      <div class="tsep"></div>
+      <button class="btn btn-p btn-sm" onclick="toggleCLForm()">+ Add Entry</button>
+    </div>
+
+    <!-- Manual Entry Form -->
+    <div class="atp" id="clForm">
+      <div class="atp-title"><span>📋</span> New Change Log Entry <button class="xbtn" style="margin-left:auto" onclick="toggleCLForm()">✕</button></div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="fg">
+          <div class="fl">Tool / Platform</div>
+          <select class="fi" id="clTool"><option value="">— General / Global —</option></select>
+        </div>
+        <div class="fg">
+          <div class="fl">Tag *</div>
+          <select class="fi" id="clTag">
+            <option value="added">Added</option>
+            <option value="removed">Removed</option>
+            <option value="upgraded">Upgraded</option>
+            <option value="downgraded">Downgraded</option>
+            <option value="note">Note</option>
+            <option value="cost-change">Cost Change</option>
+            <option value="account-change">Account Change</option>
+          </select>
+        </div>
+        <div class="fg">
+          <div class="fl">Date</div>
+          <input class="fi" id="clDate" type="date">
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <div class="fl">Reason / Note *</div>
+        <input class="fi" id="clReason" placeholder="Why are you making this entry? Be specific.">
+      </div>
+      <div class="grid2" style="margin-bottom:0">
+        <div class="fg">
+          <div class="fl">Before (optional)</div>
+          <input class="fi" id="clBefore" placeholder="Previous state e.g. Free plan, $0/mo">
+        </div>
+        <div class="fg">
+          <div class="fl">After (optional)</div>
+          <input class="fi" id="clAfter" placeholder="New state e.g. Pro plan, $20/mo">
+        </div>
+      </div>
+      <div class="atp-foot">
+        <button class="btn btn-s" onclick="toggleCLForm()">Cancel</button>
+        <button class="btn btn-p" onclick="saveCLEntry()">✓ Save Entry</button>
+      </div>
+    </div>
+
+    <!-- Two-column layout: Global feed + Per-tool -->
+    <div class="cl-layout">
+      <!-- Global Feed -->
+      <div>
+        <div class="cl-col-head">
+          <span class="cl-col-title">Global Timeline</span>
+          <button class="btn btn-s btn-sm" onclick="exportCLText()">↓ Export</button>
+        </div>
+        <div id="clFeed"></div>
+      </div>
+      <!-- Per-tool sidebar -->
+      <div>
+        <div class="cl-col-head">
+          <span class="cl-col-title">By Tool</span>
+          <select class="fi" id="clToolFilter" style="padding:5px 10px;font-size:12px;width:auto" onchange="renderCLTool(this.value)">
+            <option value="">— Pick a tool —</option>
+          </select>
+        </div>
+        <div id="clToolFeed"><div style="font-size:12px;color:var(--text3);padding:16px;font-style:italic">Select a tool to see its history</div></div>
+      </div>
+    </div>
+  </div>
+  <!-- SETTINGS + EXPORT — BATCH 8 (FINAL) -->
+  <div class="view" id="view-settings">
+    <div class="sh"><div class="sh-title">Settings</div><div class="sh-line"></div><div class="sh-count" style="color:var(--accent)">FINAL BATCH ✓</div></div>
+
+    <div class="settings-layout">
+
+      <!-- LEFT COLUMN -->
+      <div class="settings-left">
+
+        <!-- Profile -->
+        <div class="settings-card">
+          <div class="settings-card-title">👤 Profile</div>
+          <div class="grid2">
+            <div class="fg"><div class="fl">Your Name</div><input class="fi" id="setProfName" placeholder="Joe Deal" oninput="saveSettings()"></div>
+            <div class="fg"><div class="fl">Company / Brand</div><input class="fi" id="setProfCompany" placeholder="No Big Deal Home Solutions" oninput="saveSettings()"></div>
+          </div>
+          <div class="fg" style="margin-top:12px"><div class="fl">Role / Title</div><input class="fi" id="setProfRole" placeholder="Founder, Contractor, Entrepreneur…" oninput="saveSettings()"></div>
+        </div>
+
+        <!-- Display -->
+        <div class="settings-card">
+          <div class="settings-card-title">🎨 Display</div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Theme</div><div class="set-row-desc">Auto-detects system, override anytime</div></div>
+            <div style="display:flex;gap:6px">
+              <button class="fb" id="setThemeDark" onclick="applyTheme('dark');saveSettings();highlightThemeBtn('dark')">🌙 Dark</button>
+              <button class="fb" id="setThemeLight" onclick="applyTheme('light');saveSettings();highlightThemeBtn('light')">☀️ Light</button>
+              <button class="fb" id="setThemeAuto" onclick="applyTheme(getSys());localStorage.removeItem('nbd-theme');saveSettings();highlightThemeBtn('auto')">⚙ Auto</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Default View on Open</div><div class="set-row-desc">Which tab loads first</div></div>
+            <select class="fi" id="setDefaultView" style="width:160px" onchange="saveSettings()">
+              <option value="dash">Dashboard</option>
+              <option value="tools">Tool Inventory</option>
+              <option value="accts">Accounts</option>
+              <option value="compare">Compare</option>
+              <option value="analysis">10X Analysis</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Default Accounts View</div><div class="set-row-desc">Kanban or Table on open</div></div>
+            <select class="fi" id="setDefaultAcctView" style="width:160px" onchange="saveSettings()">
+              <option value="kanban">Kanban</option>
+              <option value="table">Table</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="settings-card">
+          <div class="settings-card-title">🗄️ Data Management</div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Tools</div><div class="set-row-desc" id="setToolCount">0 tools tracked</div></div>
+            <button class="btn btn-s btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+          </div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Accounts</div><div class="set-row-desc" id="setAcctCount">0 accounts logged</div></div>
+            <button class="btn btn-s btn-sm" onclick="exportCSV('accounts')">↓ Export CSV</button>
+          </div>
+          <div class="set-row">
+            <div class="set-row-info"><div class="set-row-label">Change Log</div><div class="set-row-desc" id="setCLCount">0 entries</div></div>
+            <button class="btn btn-s btn-sm" onclick="exportCLText()">↓ Export TXT</button>
+          </div>
+          <div class="set-row" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border)">
+            <div class="set-row-info"><div class="set-row-label" style="color:#EF4444">Clear All Data</div><div class="set-row-desc">Permanently deletes all tools, accounts, and logs</div></div>
+            <button class="btn btn-d btn-sm" onclick="clearAllData()">🗑️ Clear All</button>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="settings-card">
+          <div class="settings-card-title">ℹ️ About</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">
+            <div><strong>NBD Pro · AI Usability Tree</strong></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);margin-top:4px">Version 1.0 · All 8 Batches Complete</div>
+            <div style="margin-top:8px">Built for <a href="https://nobigdealwithjoedeal.com/pro" target="_blank" style="color:var(--accent)">nobigdealwithjoedeal.com/pro</a></div>
+            <div style="margin-top:4px;font-size:12px;color:var(--text3)">Your AI stack — owned, tracked, optimized.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: EXPORT -->
+      <div class="settings-right">
+        <div class="settings-card" style="position:sticky;top:12px">
+          <div class="settings-card-title">📄 Export Suite</div>
+
+          <!-- PDF Report -->
+          <div class="export-block">
+            <div class="export-block-head">
+              <span class="export-ico">📑</span>
+              <div>
+                <div class="export-title">PDF Summary Report</div>
+                <div class="export-desc">Professional one-page summary of your AI stack — shareable and presentable</div>
+              </div>
+            </div>
+            <div class="export-options">
+              <label class="export-check"><input type="checkbox" id="pdfTools" checked> Tools inventory</label>
+              <label class="export-check"><input type="checkbox" id="pdfAccounts" checked> Account summary</label>
+              <label class="export-check"><input type="checkbox" id="pdfCosts" checked> Cost breakdown</label>
+              <label class="export-check"><input type="checkbox" id="pdfChangelog"> Change log</label>
+            </div>
+            <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:12px" onclick="exportPDF()">↓ Generate PDF Report</button>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+          <!-- CSV Export -->
+          <div class="export-block">
+            <div class="export-block-head">
+              <span class="export-ico">📊</span>
+              <div>
+                <div class="export-title">CSV Raw Data</div>
+                <div class="export-desc">Full data export — open in Excel, Google Sheets, or any spreadsheet</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+              <button class="btn btn-s" style="justify-content:center" onclick="exportCSV('tools')">↓ Tools CSV</button>
+              <button class="btn btn-s" style="justify-content:center" onclick="exportCSV('accounts')">↓ Accounts CSV</button>
+              <button class="btn btn-s" style="justify-content:center" onclick="exportCSV('all')">↓ Full Export CSV</button>
+            </div>
+          </div>
+
+          <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+          <!-- Preview pane -->
+          <div class="export-block">
+            <div class="export-block-head">
+              <span class="export-ico">👁</span>
+              <div><div class="export-title">Preview</div><div class="export-desc">See what your export looks like</div></div>
+            </div>
+            <div class="export-preview" id="exportPreview">
+              <div style="color:var(--text3);font-size:11px;font-style:italic">Click any export button to preview</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <div style="display:flex;align-items:center;gap:8px"><div class="logo-badge" style="width:22px;height:22px;font-size:10px">NBD</div><span>No Big Deal Pro · AI Usability Tree</span></div>
+  <span><a href="https://nobigdealwithjoedeal.com/pro" target="_blank">nobigdealwithjoedeal.com/pro</a> · v1.0 · All 8 Batches Complete ✓ · <a href="/pro/understand" style="color:var(--accent)">Understanding Tool</a> · <a href="/pro/codex" style="color:var(--accent)">Codex</a></span>
+</footer>
+</div>
+
+<!-- ADD ACCOUNT MODAL -->
+<div class="modal-ovl" id="addAcctModal" onclick="closeAddAcctModal(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <span style="font-size:22px">👤</span>
+      <div class="modal-title">Add Account</div>
+      <button class="xbtn" onclick="closeAddAcctModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="fg"><div class="fl">Platform / Tool *</div>
+          <select class="fi" id="maTool"><option value="">— Select Tool —</option></select>
+        </div>
+        <div class="fg"><div class="fl">Username / Handle *</div>
+          <input class="fi" id="maUser" placeholder="@username or email">
+        </div>
+        <div class="fg"><div class="fl">Role *</div>
+          <select class="fi" id="maRole">
+            <option>Personal</option><option>Business</option><option>Client</option>
+            <option>Developer / API</option><option>Admin</option><option>Creator / Content</option>
+            <option>Owner</option><option>Collaborator</option><option>Viewer / Read-only</option>
+            <option>API / Bot</option><option>Archived</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="fg"><div class="fl">Description / Job Title</div>
+          <input class="fi" id="maDesc" placeholder="e.g. Main personal, Client A admin">
+        </div>
+        <div class="fg"><div class="fl">Platform URL</div>
+          <input class="fi" id="maUrl" placeholder="https://...">
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="fg"><div class="fl">Status</div>
+          <select class="fi" id="maStat"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        </div>
+        <div class="fg"><div class="fl">Last Login</div>
+          <input class="fi" id="maLogin" type="date">
+        </div>
+        <div class="fg"><div class="fl">Notes</div>
+          <input class="fi" id="maNotes" placeholder="Optional quick note">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-s" onclick="closeAddAcctModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveNewAcct()">✓ Save Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ACCOUNT MODAL -->
+<div class="modal-ovl" id="editAcctModal" onclick="closeEditAcctModal(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <span style="font-size:22px">✏️</span>
+      <div class="modal-title">Edit Account</div>
+      <button class="xbtn" onclick="closeEditAcctModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eaId"><input type="hidden" id="eaToolId">
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="fg"><div class="fl">Platform / Tool</div>
+          <select class="fi" id="eaTool"></select>
+        </div>
+        <div class="fg"><div class="fl">Username / Handle *</div>
+          <input class="fi" id="eaUser" placeholder="@username or email">
+        </div>
+        <div class="fg"><div class="fl">Role</div>
+          <select class="fi" id="eaRole">
+            <option>Personal</option><option>Business</option><option>Client</option>
+            <option>Developer / API</option><option>Admin</option><option>Creator / Content</option>
+            <option>Owner</option><option>Collaborator</option><option>Viewer / Read-only</option>
+            <option>API / Bot</option><option>Archived</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="fg"><div class="fl">Description / Job Title</div>
+          <input class="fi" id="eaDesc" placeholder="e.g. Main personal, Client A admin">
+        </div>
+        <div class="fg"><div class="fl">Platform URL</div>
+          <input class="fi" id="eaUrl" placeholder="https://...">
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="fg"><div class="fl">Status</div>
+          <select class="fi" id="eaStat"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        </div>
+        <div class="fg"><div class="fl">Last Login</div>
+          <input class="fi" id="eaLogin" type="date">
+        </div>
+        <div class="fg"><div class="fl">Notes</div>
+          <input class="fi" id="eaNotes" placeholder="Optional quick note">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-d btn-sm" onclick="deleteAcctFromModal()">Delete</button>
+      <button class="btn btn-s" onclick="closeEditAcctModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditAcct()">✓ Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH — BATCH 4 -->
+<div class="sovl" id="sovl" onclick="closeSOnBg(event)">
+  <div class="sbox">
+    <div class="s-row">
+      <span class="s-ico">🔍</span>
+      <input class="s-inp" id="sinp" placeholder="Search tools, accounts, roles, categories…" oninput="handleSearch(this.value)" onkeydown="searchKeyNav(event)">
+      <span class="s-kbd">/</span>
+      <button class="s-close" onclick="closeSearch()">✕</button>
+    </div>
+    <div class="s-filters">
+      <span class="sfc active" onclick="setSF(this,'all')">All</span>
+      <span class="sfc" onclick="setSF(this,'tools')">Tools</span>
+      <span class="sfc" onclick="setSF(this,'accounts')">Accounts</span>
+      <span class="sfc" onclick="setSF(this,'current')">Current</span>
+      <span class="sfc" onclick="setSF(this,'future')">Future</span>
+      <span class="sfc" onclick="setSF(this,'pinned')">⭐ Pinned</span>
+      <span class="sfc" onclick="setSF(this,'free')">Free</span>
+      <span class="sfc" onclick="setSF(this,'paid')">Paid</span>
+    </div>
+    <div class="s-results" id="sres">
+      <div class="s-empty">
+        <div style="font-size:32px;margin-bottom:8px">🔍</div>
+        <div>Start typing to search your entire stack</div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text3)">Tools · Accounts · Roles · Categories · Cost</div>
+      </div>
+    </div>
+    <div class="s-footer">
+      <span class="s-hint"><kbd>↑↓</kbd> navigate</span>
+      <span class="s-hint"><kbd>↵</kbd> open</span>
+      <span class="s-hint"><kbd>Esc</kbd> close</span>
+      <span class="s-hint" style="margin-left:auto" id="s-result-count"></span>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="dovl" id="dovl" onclick="closeDetail()"></div>
+<div class="dpanel" id="dpanel">
+  <div class="dp-hd"><div class="dp-ico" id="dpico">🛠️</div><div class="dp-title" id="dptitle"></div><button class="dp-x" onclick="closeDetail()">✕</button></div>
+  <div class="dp-body" id="dpbody"></div>
+</div>
+
+<div class="tcon" id="tcon"></div>
+
+<script>
+// ── STATE ──
+const ROLE_COLORS={Personal:'#F97316',Business:'#0EA5E9',Client:'#A855F7','Developer / API':'#22C55E',Admin:'#EF4444','Creator / Content':'#F59E0B',Owner:'#EC4899',Collaborator:'#06B6D4','Viewer / Read-only':'#6B7280','API / Bot':'#84CC16',Archived:'#374151'};
+let tools=[];
+let curFilter='all', chartMode='bar';
+
+function uid(){return Math.random().toString(36).slice(2,10)}
+function ce(c){return{LLM:'🤖',Search:'🔍',Code:'💻',Automation:'⚙️',Productivity:'📝',Design:'🎨',Data:'📊',Communication:'💬',Analytics:'📈',Other:'🔧'}[c]||'🔧'}
+function g(id){return document.getElementById(id)}
+function set(id,v){const e=g(id);if(e)e.textContent=v}
+function fmt(n){return n%1===0?n.toString():n.toFixed(2)}
+
+// ── STORAGE ──
+async function save(){try{await window.storage.set('nbd-tools-v2',JSON.stringify(tools))}catch(e){}}
+async function load(){try{const r=await window.storage.get('nbd-tools-v2');if(r)tools=JSON.parse(r.value)}catch(e){}}
+
+// ── THEME ──
+function getSys(){return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem('nbd-theme',t);drawChart()}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme');applyTheme(c==='dark'?'light':'dark');showToast(c==='dark'?'☀️ Light mode':'🌙 Dark mode','b')}
+applyTheme(localStorage.getItem('nbd-theme')||getSys());
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(!localStorage.getItem('nbd-theme'))applyTheme(e.matches?'dark':'light')});
+
+// ── VIEWS ──
+function showView(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const v=g('view-'+id);if(v)v.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(id==='accts'){renderAcctView();}
+  if(id==='compare'){initCompareView();}
+  if(id==='analysis'){initAnalysisView();}
+  if(id==='changelog'){initChangelogView();}
+  if(id==='settings'){initSettingsView();}
+}
+
+// ── STATS ──
+function refreshStats(){
+  const tc=tools.length;
+  const cur=tools.filter(t=>t.status==='current').length;
+  const fut=tools.filter(t=>t.status==='future').length;
+  const ac=tools.reduce((s,t)=>s+(t.accounts||[]).length,0);
+  const sp=tools.filter(t=>t.status==='current').reduce((s,t)=>s+(parseFloat(t.cost)||0),0);
+  const an=sp*12;
+  const pa=ac>0&&sp>0?'$'+(sp/ac).toFixed(2):'—';
+  set('ss','$'+fmt(sp));set('ssub','across '+tc+' tool'+(tc!==1?'s':''));
+  set('sa','$'+fmt(an));set('st',tc);set('stsub',cur+' current · '+fut+' future');
+  set('sac',ac);set('spa',pa);
+  set('tnb',tc);set('anb',ac);set('tsc',tc+' TOOL'+(tc!==1?'S':''));
+  set('ht',tc);set('ha',ac);set('hs','$'+fmt(sp));set('hx',tc>0?'Ready':'—');
+  drawChart();
+}
+
+// ── CHART ──
+function setChart(btn,mode){document.querySelectorAll('.cbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');chartMode=mode;drawChart()}
+function drawChart(){
+  const cv=g('mc');if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=cv.offsetWidth||160,H=cv.offsetHeight||48;
+  cv.width=W*devicePixelRatio;cv.height=H*devicePixelRatio;
+  ctx.scale(devicePixelRatio,devicePixelRatio);ctx.clearRect(0,0,W,H);
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const or='#F97316',bl='#0EA5E9';
+  const cats=['LLM','Search','Code','Automation','Productivity','Design','Data','Other'];
+  const data=cats.map(c=>tools.filter(t=>t.category===c&&t.status==='current').reduce((s,t)=>s+(parseFloat(t.cost)||0),0));
+  const has=data.some(v=>v>0);
+  const d=has?data:[12,18,14,22,19,28,24];
+  if(chartMode==='bar'){
+    const bw=(W-12)/d.length-3,mx=Math.max(...d)||1;
+    d.forEach((v,i)=>{const bh=(v/mx)*(H-8),x=i*(bw+3)+2,y=H-bh-2;const gr=ctx.createLinearGradient(0,y,0,H);gr.addColorStop(0,i%2===0?or:bl);gr.addColorStop(1,'transparent');ctx.fillStyle=gr;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,bw,bh,2):ctx.rect(x,y,bw,bh);ctx.fill()});
+  }else if(chartMode==='line'){
+    const mx=Math.max(...d)||1;const pts=d.map((v,i)=>({x:(i/(d.length-1))*(W-8)+4,y:H-(v/mx)*(H-8)-4}));
+    const gr=ctx.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(249,115,22,.3)');gr.addColorStop(1,'transparent');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(pts[0].x,H);pts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,H);ctx.closePath();ctx.fill();
+    ctx.strokeStyle=or;ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+  }else{
+    const cx=W/2,cy=H/2,r=Math.min(W,H)/2-4;
+    [{v:.4,c:or},{v:.35,c:bl},{v:.25,c:'#22C55E'}].reduce((s,sl)=>{const e=s+sl.v*Math.PI*2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,s,e);ctx.closePath();ctx.fillStyle=sl.c;ctx.fill();return e},-Math.PI/2);
+    ctx.beginPath();ctx.arc(cx,cy,r*.55,0,Math.PI*2);ctx.fillStyle=isDark?'#181C25':'#fff';ctx.fill();
+  }
+}
+window.addEventListener('resize',drawChart);
+
+// ── ADD TOOL ──
+function toggleATP(){
+  const p=g('atp'),btn=g('atpBtn');
+  const o=p.classList.toggle('open');
+  btn.textContent=o?'✕ Cancel':'+ Add Tool';
+  if(o)g('nName').focus();
+}
+function addTool(){
+  const name=g('nName').value.trim();
+  if(!name){showToast('Tool name required','');return}
+  const tool={id:uid(),name,category:g('nCat').value,status:g('nStat').value,desc:g('nDesc').value.trim(),url:g('nUrl').value.trim(),tier:g('nTier').value,cost:parseFloat(g('nCost').value)||0,billing:g('nBill').value,pinned:false,accounts:[],notes:[],addedAt:new Date().toISOString()};
+  tools.unshift(tool);save();renderTools();refreshStats();
+  autoLog('added',tool.id,name,'Added "'+name+'" to tool inventory','',tool.tier+(tool.cost>0?' · $'+tool.cost+'/'+tool.billing:' (Free)'));
+  ['nName','nDesc','nUrl','nCost'].forEach(id=>g(id).value='');
+  g('nStat').value='current';g('nTier').value='Free';
+  toggleATP();showToast('✅ '+name+' added','g');
+}
+
+// ── FILTER + RENDER ──
+function filterTools(f,btn){curFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderTools()}
+function renderTools(){
+  const grid=g('tgrid');
+  let list=[...tools].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  if(curFilter==='current')list=list.filter(t=>t.status==='current');
+  else if(curFilter==='future')list=list.filter(t=>t.status==='future');
+  else if(curFilter==='pinned')list=list.filter(t=>t.pinned);
+  else if(curFilter!=='all')list=list.filter(t=>t.category===curFilter);
+  if(!list.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-icon">${curFilter==='pinned'?'⭐':'🛠️'}</div><div class="empty-title">${curFilter==='pinned'?'No Pinned Tools':'No Tools Found'}</div><div class="empty-desc">${curFilter==='pinned'?'Pin tools to see them here.':'Try a different filter or add a new tool.'}</div>${curFilter==='all'?'<button class="btn btn-p" onclick="toggleATP()">+ Add Your First Tool</button>':''}</div>`;return}
+  grid.innerHTML=list.map(buildCard).join('');
+}
+
+function buildCard(t){
+  const ac=(t.accounts||[]).length,nc=(t.notes||[]).length,cs=t.cost>0?'$'+fmt(t.cost):'Free';
+  return`<div class="tc${t.pinned?' pinned':''}" id="tc-${t.id}">
+    <div class="tc-head">
+      <div class="tc-ico">${ce(t.category)}</div>
+      <div class="tc-main">
+        <div class="tc-name">${t.name}</div>
+        <div class="tc-meta">
+          <span class="pill p-${t.status}">${t.status}</span>
+          <span class="pill p-cat">${t.category}</span>
+          ${t.tier==='Free'?'<span class="pill p-free">FREE</span>':'<span class="pill p-cost">'+t.tier+'</span>'}
+          ${ac>0?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--text3)">👤<span class="abadge">${ac}</span></span>`:''}
+        </div>
+      </div>
+      <div class="tc-acts">
+        <button class="xbtn${t.pinned?' pin':''}" onclick="togglePin('${t.id}')" title="${t.pinned?'Unpin':'Pin'}">⭐</button>
+        <button class="xbtn" onclick="openDetail('${t.id}')" title="Details">↗</button>
+        <button class="xbtn" onclick="delTool('${t.id}')" style="color:#EF4444" title="Delete">✕</button>
+      </div>
+    </div>
+    <div class="tc-body">
+      ${t.desc?`<div class="tc-desc">${t.desc}</div>`:''}
+      <div class="tc-cost-row">
+        <span class="tclabel">Plan</span>
+        <span class="tcval">${cs}</span>
+        ${t.cost>0?`<span class="tccycle">/ ${t.billing}</span>`:''}
+        ${t.url?`<a href="${t.url}" target="_blank" style="margin-left:auto;font-size:11px;color:var(--blue);text-decoration:none">↗ Visit</a>`:''}
+      </div>
+    </div>
+    <button class="exp-btn" onclick="toggleExp('${t.id}')">
+      <span style="display:flex;align-items:center;gap:6px"><span>👤 ${ac} account${ac!==1?'s':''}</span><span style="color:var(--text3)">·</span><span>📋 ${nc} note${nc!==1?'s':''}</span></span>
+      <span class="exp-chev">▼</span>
+    </button>
+    <div class="exp-body" id="exp-${t.id}">
+      ${buildAccts(t)}
+      ${buildNotes(t)}
+    </div>
+  </div>`;
+}
+
+function buildAccts(t){
+  const ac=t.accounts||[];
+  return`<div class="acct-sec">
+    <div class="acct-hd"><div class="sec-lbl">Accounts</div><button class="btn btn-s btn-sm" onclick="toggleMF('aaf-${t.id}','aaf-user-${t.id}')">+ Add Account</button></div>
+    <div id="accts-${t.id}">${ac.length?ac.map(a=>acctRow(a)).join(''):'<div class="no-items">No accounts logged yet.</div>'}</div>
+    <div class="mini-form" id="aaf-${t.id}">
+      <div class="mfg">
+        <div class="fg"><div class="fl">Username / Handle</div><input class="fi" id="aaf-user-${t.id}" placeholder="@username or email"></div>
+        <div class="fg"><div class="fl">Role</div><select class="fi" id="aaf-role-${t.id}"><option>Personal</option><option>Business</option><option>Client</option><option>Developer / API</option><option>Admin</option><option>Creator / Content</option><option>Owner</option><option>Collaborator</option><option>Viewer / Read-only</option><option>API / Bot</option><option>Archived</option></select></div>
+        <div class="fg"><div class="fl">Description / Job Title</div><input class="fi" id="aaf-desc-${t.id}" placeholder="e.g. Main personal, Client A admin"></div>
+        <div class="fg"><div class="fl">Status</div><select class="fi" id="aaf-stat-${t.id}"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+      </div>
+      <div class="mfact"><button class="btn btn-s btn-sm" onclick="toggleMF('aaf-${t.id}')">Cancel</button><button class="btn btn-p btn-sm" onclick="addAcct('${t.id}')">Save Account</button></div>
+    </div>
+  </div>`;
+}
+
+function acctRow(a){
+  const c=ROLE_COLORS[a.role]||'#6B7280';
+  return`<div class="acct-row">
+    <div class="rdot" style="background:${c}"></div>
+    <div class="auser">${a.username}</div>
+    ${a.desc?`<div class="adesc" title="${a.desc}">${a.desc}</div>`:''}
+    <div class="arole" style="border-color:${c}33;color:${c}">${a.role}</div>
+    <div class="astatus ${a.status}"></div>
+    <button class="xbtn" style="width:22px;height:22px;font-size:10px;color:#EF4444" onclick="removeAcct('${a.toolId}','${a.id}')">✕</button>
+  </div>`;
+}
+
+function buildNotes(t){
+  const notes=t.notes||[];
+  return`<div class="note-sec">
+    <div class="acct-hd"><div class="sec-lbl">Notes</div><button class="btn btn-s btn-sm" onclick="toggleMF('anf-${t.id}','anf-text-${t.id}')">+ Add Note</button></div>
+    <div id="notes-${t.id}">${notes.length?[...notes].reverse().map(n=>noteEntry(n)).join(''):'<div class="no-items">No notes yet.</div>'}</div>
+    <div class="mini-form" id="anf-${t.id}">
+      <div class="anf-grid">
+        <div class="fg"><div class="fl">Note / Reason</div><input class="fi" id="anf-text-${t.id}" placeholder="Why are you noting this?"></div>
+        <div class="fg"><div class="fl">Tag</div><select class="fi" id="anf-tag-${t.id}"><option value="note">Note</option><option value="added">Added</option><option value="removed">Removed</option><option value="upgraded">Upgraded</option><option value="downgraded">Downgraded</option></select></div>
+        <div class="fg" style="justify-content:flex-end"><div class="fl">&nbsp;</div><div style="display:flex;gap:8px"><button class="btn btn-s btn-sm" onclick="toggleMF('anf-${t.id}')">Cancel</button><button class="btn btn-p btn-sm" onclick="addNote('${t.id}')">Save</button></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function noteEntry(n){
+  const d=new Date(n.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return`<div class="note-entry"><div class="note-meta"><span class="ndate">${d}</span><span class="ntag ${n.tag}">${n.tag.toUpperCase()}</span></div><div class="ntext">${n.text}</div></div>`;
+}
+
+// ── TOOL ACTIONS ──
+function togglePin(id){const t=tools.find(t=>t.id===id);if(!t)return;t.pinned=!t.pinned;save();renderTools();refreshStats();showToast(t.pinned?'⭐ '+t.name+' pinned':t.name+' unpinned','')}
+function toggleExp(id){const c=g('tc-'+id);if(c)c.classList.toggle('expanded')}
+function delTool(id){const t=tools.find(t=>t.id===id);if(!t)return;if(!confirm('Remove "'+t.name+'" from your stack?'))return;
+  autoLog('removed',t.id,t.name,'Removed "'+t.name+'" from tool inventory',t.tier+(t.cost>0?' · $'+t.cost+'/'+t.billing:' (Free)'),'');
+  tools=tools.filter(x=>x.id!==id);save();renderTools();refreshStats();showToast('🗑️ '+t.name+' removed','')}
+
+// ── ACCOUNT ACTIONS ──
+function toggleMF(formId,focusId){const f=g(formId);if(f){f.classList.toggle('open');if(f.classList.contains('open')&&focusId){const fi=g(focusId);if(fi)fi.focus()}}}
+function addAcct(tid){
+  const t=tools.find(t=>t.id===tid);if(!t)return;
+  const u=g('aaf-user-'+tid).value.trim();if(!u){showToast('Username required','');return}
+  const a={id:uid(),toolId:tid,username:u,role:g('aaf-role-'+tid).value,desc:g('aaf-desc-'+tid).value.trim(),status:g('aaf-stat-'+tid).value,addedAt:new Date().toISOString()};
+  if(!t.accounts)t.accounts=[];t.accounts.push(a);save();refreshStats();
+  const ad=g('accts-'+tid);if(ad)ad.innerHTML=t.accounts.map(x=>acctRow(x)).join('');
+  const f=g('aaf-'+tid);if(f)f.classList.remove('open');
+  g('aaf-user-'+tid).value='';g('aaf-desc-'+tid).value='';
+  renderTools();g('tc-'+tid)?.classList.add('expanded');
+  showToast('👤 '+u+' added','g');
+}
+function removeAcct(tid,aid){const t=tools.find(t=>t.id===tid);if(!t)return;t.accounts=(t.accounts||[]).filter(a=>a.id!==aid);save();renderTools();refreshStats();g('tc-'+tid)?.classList.add('expanded')}
+
+// ── NOTE ACTIONS ──
+function addNote(tid){
+  const t=tools.find(t=>t.id===tid);if(!t)return;
+  const text=g('anf-text-'+tid).value.trim();if(!text){showToast('Note text required','');return}
+  const n={id:uid(),date:new Date().toISOString(),text,tag:g('anf-tag-'+tid).value};
+  if(!t.notes)t.notes=[];t.notes.push(n);save();
+  const nd=g('notes-'+tid);if(nd)nd.innerHTML=[...t.notes].reverse().map(noteEntry).join('');
+  const f=g('anf-'+tid);if(f)f.classList.remove('open');
+  g('anf-text-'+tid).value='';
+  renderTools();g('tc-'+tid)?.classList.add('expanded');
+  showToast('📋 Note saved','g');
+}
+
+// ── DETAIL PANEL ──
+function openDetail(id){
+  const t=tools.find(t=>t.id===id);if(!t)return;
+  g('dpico').textContent=ce(t.category);g('dptitle').textContent=t.name;
+  g('dpbody').innerHTML=`
+    <div class="dp-sec"><div class="dp-lbl">Overview</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="pill p-${t.status}">${t.status}</span><span class="pill p-cat">${t.category}</span>${t.tier==='Free'?'<span class="pill p-free">FREE</span>':'<span class="pill p-cost">'+t.tier+'</span>'}${t.pinned?'<span class="pill" style="background:var(--accent-dim);color:var(--accent);border-color:var(--accent)">⭐ PINNED</span>':''}</div>
+      ${t.desc?`<p style="font-size:13px;color:var(--text2);line-height:1.6">${t.desc}</p>`:''}
+      ${t.url?`<a href="${t.url}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:var(--blue)">↗ ${t.url}</a>`:''}
+    </div>
+    <div class="dp-sec"><div class="dp-lbl">Cost</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--accent)">${t.cost>0?'$'+fmt(t.cost):'Free'}</div>
+      ${t.cost>0?`<div style="font-size:12px;color:var(--text3)">Per ${t.billing} · $${fmt(t.cost*12)}/yr</div>`:''}
+    </div>
+    <div class="dp-sec"><div class="dp-lbl">Accounts (${(t.accounts||[]).length})</div>
+      ${(t.accounts||[]).length?t.accounts.map(acctRow).join(''):'<div class="no-items">No accounts logged.</div>'}
+    </div>
+    <div class="dp-sec"><div class="dp-lbl">Notes (${(t.notes||[]).length})</div>
+      ${(t.notes||[]).length?[...t.notes].reverse().map(noteEntry).join(''):'<div class="no-items">No notes yet.</div>'}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-s btn-sm" onclick="togglePin('${t.id}');closeDetail()">${t.pinned?'Unpin':'⭐ Pin'}</button>
+      <button class="btn btn-d btn-sm" onclick="delTool('${t.id}');closeDetail()">Delete Tool</button>
+    </div>`;
+  g('dovl').classList.add('open');g('dpanel').classList.add('open');
+}
+function closeDetail(){g('dovl').classList.remove('open');g('dpanel').classList.remove('open')}
+
+// ── SEARCH ──
+function openSearch(){g('sovl').classList.add('open');setTimeout(()=>g('sinp').focus(),50)}
+function closeSearch(){g('sovl').classList.remove('open')}
+function closeSOnBg(e){if(e.target===g('sovl'))closeSearch()}
+function setSF(el,f){document.querySelectorAll('.sfc').forEach(c=>c.classList.remove('active'));el.classList.add('active');curSF=f;handleSearch(g('sinp').value)}
+// ══════════════════════════════════════════════════════════
+// GLOBAL SEARCH — BATCH 4
+// ══════════════════════════════════════════════════════════
+let curSF='all', searchResultItems=[], searchSelIdx=-1;
+
+function openSearch(){
+  g('sovl').classList.add('open');
+  setTimeout(()=>{const inp=g('sinp');inp.focus();inp.select()},50);
+  searchSelIdx=-1;
+  // If already has value re-run
+  const val=g('sinp').value;
+  if(val.trim())handleSearch(val); else showSearchEmpty();
+}
+function closeSearch(){
+  g('sovl').classList.remove('open');
+  clearSearchHighlight();
+}
+function closeSOnBg(e){if(e.target===g('sovl'))closeSearch()}
+function setSF(el,f){
+  document.querySelectorAll('.sfc').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');curSF=f;
+  handleSearch(g('sinp').value);
+}
+
+function showSearchEmpty(){
+  g('sres').innerHTML=`<div class="s-empty"><div style="font-size:32px;margin-bottom:8px">🔍</div><div>Start typing to search your entire stack</div><div style="margin-top:6px;font-size:11px;color:var(--text3)">Tools · Accounts · Roles · Categories · Cost</div></div>`;
+  set('s-result-count','');
+  searchResultItems=[];
+}
+
+function highlight(str,q){
+  if(!q)return str;
+  const re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+  return str.replace(re,'<mark style="background:var(--accent-dim);color:var(--accent);border-radius:2px;padding:0 2px">$1</mark>');
+}
+
+function handleSearch(val){
+  const res=g('sres');
+  if(!val.trim()){showSearchEmpty();return}
+  const q=val.toLowerCase().trim();
+
+  // ── TOOL RESULTS ──
+  let toolResults=[];
+  if(curSF!=='accounts'){
+    toolResults=tools.filter(t=>{
+      if(curSF==='current'&&t.status!=='current')return false;
+      if(curSF==='future'&&t.status!=='future')return false;
+      if(curSF==='pinned'&&!t.pinned)return false;
+      if(curSF==='free'&&t.cost>0)return false;
+      if(curSF==='paid'&&t.cost===0)return false;
+      return(
+        t.name.toLowerCase().includes(q)||
+        t.category.toLowerCase().includes(q)||
+        (t.desc||'').toLowerCase().includes(q)||
+        t.status.includes(q)||
+        t.tier.toLowerCase().includes(q)||
+        (t.billing||'').includes(q)
+      );
+    });
+  }
+
+  // ── ACCOUNT RESULTS ──
+  let acctResults=[];
+  if(curSF!=='tools'&&curSF!=='current'&&curSF!=='future'&&curSF!=='pinned'){
+    tools.forEach(t=>{
+      (t.accounts||[]).forEach(a=>{
+        if(curSF==='free'&&t.cost>0)return;
+        if(curSF==='paid'&&t.cost===0)return;
+        if(
+          a.username.toLowerCase().includes(q)||
+          a.role.toLowerCase().includes(q)||
+          (a.desc||'').toLowerCase().includes(q)||
+          t.name.toLowerCase().includes(q)||
+          (a.notes||'').toLowerCase().includes(q)
+        ){acctResults.push({...a,toolName:t.name,toolEmoji:ce(t.category),toolId:t.id,toolCost:t.cost})}
+      });
+    });
+  }
+
+  const total=toolResults.length+acctResults.length;
+  set('s-result-count',total?total+' result'+(total!==1?'s':''):'');
+
+  if(!total){
+    res.innerHTML=`<div class="s-empty"><div style="font-size:28px;margin-bottom:8px">😶</div><div>No results for "<strong>${val}</strong>"</div><div style="margin-top:6px;font-size:11px;color:var(--text3)">Try a different term or filter</div></div>`;
+    searchResultItems=[];return;
+  }
+
+  // Build HTML + item registry for keyboard nav
+  searchResultItems=[];
+  let html='';
+
+  if(toolResults.length){
+    html+=`<div class="sgl">🛠️ Tools <span style="opacity:.5">(${toolResults.length})</span></div>`;
+    toolResults.forEach(t=>{
+      const idx=searchResultItems.length;
+      searchResultItems.push({type:'tool',id:t.id});
+      const costStr=t.cost>0?'$'+fmt(t.cost)+'/'+t.billing:'Free';
+      html+=`<div class="sri" id="sri-${idx}" tabindex="-1"
+        onclick="searchSelect(${idx})"
+        onmouseenter="searchHover(${idx})">
+        <div class="sri-ico">${ce(t.category)}</div>
+        <div class="sri-main">
+          <div class="sri-name">${highlight(t.name,q)}</div>
+          <div class="sri-meta">${highlight(t.category,q)} · ${highlight(t.status,q)} · ${highlight(costStr,q)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <span class="pill p-${t.status}">${t.status}</span>
+          ${t.pinned?'<span style="font-size:11px">⭐</span>':''}
+        </div>
+      </div>`;
+    });
+  }
+
+  if(acctResults.length){
+    if(toolResults.length)html+=`<div class="sdiv"></div>`;
+    html+=`<div class="sgl">👤 Accounts <span style="opacity:.5">(${acctResults.length})</span></div>`;
+    acctResults.forEach(a=>{
+      const idx=searchResultItems.length;
+      searchResultItems.push({type:'account',id:a.id,toolId:a.toolId});
+      const c=ROLE_COLORS[a.role]||'#6B7280';
+      html+=`<div class="sri" id="sri-${idx}" tabindex="-1"
+        onclick="searchSelect(${idx})"
+        onmouseenter="searchHover(${idx})">
+        <div class="sri-ico">${a.toolEmoji}</div>
+        <div class="sri-main">
+          <div class="sri-name">${highlight(a.username,q)}</div>
+          <div class="sri-meta">${highlight(a.toolName,q)} · ${highlight(a.role,q)}${a.desc?' · '+highlight(a.desc,q):''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:${c}22;color:${c};border:1px solid ${c}44">${a.role}</span>
+          <div style="width:7px;height:7px;border-radius:50%;background:${a.status==='active'?'#22C55E':'var(--text3)'};${a.status==='active'?'box-shadow:0 0 4px #22C55E':''}"></div>
+        </div>
+      </div>`;
+    });
+  }
+
+  res.innerHTML=html;
+  searchSelIdx=-1;
+}
+
+// ── KEYBOARD NAVIGATION ──
+function searchKeyNav(e){
+  if(!searchResultItems.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();searchSelIdx=Math.min(searchSelIdx+1,searchResultItems.length-1);applySearchSel()}
+  else if(e.key==='ArrowUp'){e.preventDefault();searchSelIdx=Math.max(searchSelIdx-1,0);applySearchSel()}
+  else if(e.key==='Enter'){e.preventDefault();if(searchSelIdx>=0)searchSelect(searchSelIdx)}
+}
+
+function applySearchSel(){
+  document.querySelectorAll('.sri').forEach((el,i)=>{
+    el.classList.toggle('sri-selected',i===searchSelIdx);
+    if(i===searchSelIdx)el.scrollIntoView({block:'nearest'});
+  });
+}
+
+function searchHover(idx){
+  searchSelIdx=idx;
+  document.querySelectorAll('.sri').forEach((el,i)=>el.classList.toggle('sri-selected',i===idx));
+}
+
+// ── SELECT A RESULT ──
+function searchSelect(idx){
+  const item=searchResultItems[idx];if(!item)return;
+  closeSearch();
+  if(item.type==='tool'){
+    // Navigate to tools view, open detail panel, and highlight card
+    showView('tools',document.querySelector('.nav-btn:nth-child(2)'));
+    setTimeout(()=>{openDetail(item.id);highlightCard('tc-'+item.id)},50);
+  } else {
+    // Navigate to accounts view and highlight card, also open edit modal
+    const t=tools.find(t=>t.id===item.toolId);
+    if(t){
+      showView('accts',document.querySelector('.nav-btn:nth-child(3)'));
+      setTimeout(()=>{openEditAcctModal(item.id);highlightAcctCard(item.id)},100);
+    }
+  }
+}
+
+// ── HIGHLIGHT IN PLACE ──
+function highlightCard(cardId){
+  const el=g(cardId);if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.classList.add('search-highlight');
+  setTimeout(()=>el.classList.remove('search-highlight'),2000);
+}
+
+function highlightAcctCard(acctId){
+  setTimeout(()=>{
+    const el=g('kbc-'+acctId);
+    if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('search-highlight');setTimeout(()=>el.classList.remove('search-highlight'),2000)}
+  },300);
+}
+
+function clearSearchHighlight(){
+  document.querySelectorAll('.search-highlight').forEach(el=>el.classList.remove('search-highlight'));
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    const tg=document.activeElement.tagName;
+    if(tg!=='INPUT'&&tg!=='TEXTAREA'&&tg!=='SELECT'){e.preventDefault();openSearch()}
+  }
+  if(e.key==='Escape'){
+    if(g('sovl').classList.contains('open'))closeSearch();
+    else if(g('editAcctModal').classList.contains('open'))closeEditAcctModal();
+    else if(g('addAcctModal').classList.contains('open'))closeAddAcctModal();
+    else closeDetail();
+  }
+});
+
+// ── TOAST ──
+function showToast(msg,type){
+  const c=g('tcon'),t=document.createElement('div');
+  t.className='toast'+(type==='b'?' b':type==='g'?' g':'');
+  t.innerHTML=`<span style="font-size:16px">${type==='g'?'✅':type==='b'?'ℹ️':'🔔'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.transition='.2s ease';t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),200)},3000);
+}
+
+// ══════════════════════════════════════════════════════════
+// AI COMPARISON — BATCH 5
+// ══════════════════════════════════════════════════════════
+let cmpData=[], cmpSort='relevance', cmpFilter='all', cmpLastRun=null, cmpRunning=false;
+
+async function loadCmpCache(){
+  try{const r=await window.storage.get('nbd-cmp-v1');if(r){const p=JSON.parse(r.value);cmpData=p.data||[];cmpLastRun=p.ts||null}}catch(e){}
+}
+async function saveCmpCache(){
+  try{await window.storage.set('nbd-cmp-v1',JSON.stringify({data:cmpData,ts:cmpLastRun}))}catch(e){}
+}
+
+function isCmpStale(){
+  if(!cmpLastRun)return true;
+  return(Date.now()-cmpLastRun)>1000*60*60*6; // stale after 6h
+}
+
+function showCmpBanner(type,msg){
+  const el=g('cmpBanner');if(!el)return;
+  el.style.display='block';
+  el.innerHTML=`<div class="cmp-banner ${type}">${type==='running'?'<div class="cmp-spinner"></div>':type==='stale'?'⚠':'✓'} ${msg}</div>`;
+}
+function hideCmpBanner(){const el=g('cmpBanner');if(el)el.style.display='none';}
+
+async function runComparison(){
+  if(cmpRunning)return;
+  if(!tools.length){showToast('Add tools first before running comparison','');return}
+  cmpRunning=true;
+  const btn=g('cmpRunBtn');if(btn){btn.disabled=true;btn.textContent='⏳ Running…'}
+  showCmpBanner('running','AI is analyzing your stack against all public alternatives…');
+  g('cmpResults').innerHTML=`<div style="text-align:center;padding:48px;color:var(--text2)"><div class="cmp-spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto 16px"></div><div style="font-family:'JetBrains Mono',monospace;font-size:13px">Analyzing your stack…</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Comparing against publicly available alternatives</div></div>`;
+
+  const toolList=tools.map(t=>`${t.name} (${t.category}, ${t.status}, ${t.cost>0?'$'+t.cost+'/'+t.billing:'Free'})`).join('\n');
+
+  const prompt=`You are an expert AI tools analyst doing a 10x operator-level review.
+
+The user's current + planned tool stack:
+${toolList}
+
+Task: Compare ALL of these tools against every publicly available alternative. Also surface 4-6 notable public tools the user is NOT using but should know about.
+
+Respond ONLY with a valid JSON array — no markdown, no explanation, no backticks:
+[
+  {
+    "name": "Tool Name",
+    "category": "LLM|Search|Code|Automation|Productivity|Design|Data|Communication|Analytics|Other",
+    "status": "current|future|available",
+    "relevance": 0-100,
+    "costTier": "Free|Low|Medium|High",
+    "costNote": "brief e.g. Free tier / $20/mo Pro",
+    "strengths": "1-2 sentence strengths",
+    "weaknesses": "1-2 sentence weaknesses",
+    "overlaps": ["Tool A","Tool B"],
+    "alternatives": ["Alt1","Alt2","Alt3"],
+    "consolidationTip": "one sentence tip if overlaps exist, else empty string",
+    "verdict": "Keep|Upgrade|Replace|Evaluate|Skip"
+  }
+]
+
+For "available" tools (not in user's stack): include them so the user can see what they're missing.
+Be specific, honest, and ruthless about overlaps. Flag any two tools that do the same job.`;
+
+  try{
+    const resp=await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await resp.json();
+    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    cmpData=JSON.parse(raw);
+    cmpLastRun=Date.now();
+    saveCmpCache();
+    renderComparison();
+    showCmpBanner('fresh','✓ Analysis complete · '+new Date().toLocaleTimeString());
+    setTimeout(hideCmpBanner,5000);
+    showToast('⚖️ Comparison ready','g');
+  }catch(e){
+    showCmpBanner('stale','⚠ Analysis failed — check your tools list and try again');
+    g('cmpResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runComparison()">Try Again</button></div>`;
+    showToast('Comparison failed: '+e.message,'');
+  }finally{
+    cmpRunning=false;
+    if(btn){btn.disabled=false;btn.textContent='⚡ AI Refresh'}
+  }
+}
+
+function setCmpSort(s,btn){
+  cmpSort=s;
+  document.querySelectorAll('#cmpSortRel,#cmpSortCost,#cmpSortName').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderComparison();
+}
+
+function setCmpFilter(f,btn){
+  cmpFilter=f;
+  document.querySelectorAll('#cmpFilterAll,#view-compare .fb').forEach(b=>{
+    if(['all','current','available','overlap'].some(v=>b.textContent.toLowerCase().includes(v)||b.textContent.includes('⚠')))b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderComparison();
+}
+
+function costClass(tier){return{Free:'free',Low:'low',Medium:'med',High:'high'}[tier]||'free'}
+function verdictColor(v){return{Keep:'#22C55E',Upgrade:'#F59E0B',Replace:'#EF4444',Evaluate:'#0EA5E9',Skip:'#6B7280'}[v]||'#6B7280'}
+
+function renderComparison(){
+  const el=g('cmpResults');if(!el)return;
+  if(!cmpData.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⚖️</div><div class="empty-title">No Data Yet</div><div class="empty-desc">Click <strong>AI Refresh</strong> to run your first comparison.</div><button class="btn btn-p" onclick="runComparison()">⚡ Run Comparison</button></div>`;
+    return;
+  }
+
+  let list=[...cmpData];
+
+  // Filter
+  if(cmpFilter==='current')list=list.filter(t=>t.status==='current');
+  else if(cmpFilter==='available')list=list.filter(t=>t.status==='available'||t.status==='future');
+  else if(cmpFilter==='overlap')list=list.filter(t=>(t.overlaps||[]).length>0);
+
+  // Sort — primary: relevance desc, secondary: cost asc
+  if(cmpSort==='relevance')list.sort((a,b)=>b.relevance-a.relevance);
+  else if(cmpSort==='cost')list.sort((a,b)=>(['Free','Low','Medium','High'].indexOf(a.costTier)||0)-(['Free','Low','Medium','High'].indexOf(b.costTier)||0));
+  else list.sort((a,b)=>a.name.localeCompare(b.name));
+
+  set('cmpCount',list.length+' TOOLS');
+
+  // Overlap map
+  const overlapSet=new Set();
+  cmpData.forEach(t=>(t.overlaps||[]).forEach(o=>overlapSet.add(o)));
+
+  el.innerHTML=`<div class="cmp-grid">${list.map(t=>buildCmpCard(t,overlapSet)).join('')}</div>`;
+}
+
+function buildCmpCard(t,overlapSet){
+  const isYours=t.status==='current'||t.status==='future';
+  const hasOverlap=(t.overlaps||[]).length>0;
+  const vc=verdictColor(t.verdict);
+  const catE={LLM:'🤖',Search:'🔍',Code:'💻',Automation:'⚙️',Productivity:'📝',Design:'🎨',Data:'📊',Communication:'💬',Analytics:'📈',Other:'🔧'}[t.category]||'🔧';
+
+  return`<div class="cmp-card${isYours?' yours':' available'}${hasOverlap?' overlap-flag':''}">
+    <div class="cmp-head">
+      <div class="cmp-ico">${catE}</div>
+      <div>
+        <div class="cmp-name">${t.name}
+          ${isYours?`<span class="pill status-yours" style="font-size:9px;margin-left:6px">${t.status}</span>`:`<span class="pill status-available" style="font-size:9px;margin-left:6px">available</span>`}
+          ${hasOverlap?`<span class="overlap-badge" style="margin-left:4px">⚠ overlaps ${t.overlaps.join(', ')}</span>`:''}
+        </div>
+        <div class="cmp-cat">${t.category}</div>
+      </div>
+      <div class="rel-bar-wrap">
+        <div class="rel-track"><div class="rel-fill" style="width:${t.relevance}%"></div></div>
+        <div class="rel-num">${t.relevance}</div>
+      </div>
+      <span class="cost-tag ${costClass(t.costTier)}">${t.costTier}${t.costNote?` · ${t.costNote}`:''}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:${vc}22;color:${vc};border:1px solid ${vc}44;white-space:nowrap">${t.verdict||'—'}</span>
+    </div>
+    <div class="cmp-body">
+      <div class="cmp-body-grid">
+        <div>
+          <div class="cmp-col-label">✅ Strengths</div>
+          <div class="cmp-text">${t.strengths||'—'}</div>
+        </div>
+        <div>
+          <div class="cmp-col-label">⚠ Weaknesses</div>
+          <div class="cmp-text">${t.weaknesses||'—'}</div>
+        </div>
+        <div>
+          <div class="cmp-col-label">🔀 Alternatives</div>
+          <div class="cmp-alts">${(t.alternatives||[]).map(a=>`<span class="cmp-alt-tag">${a}</span>`).join('')||'<span class="cmp-text">—</span>'}</div>
+          ${t.consolidationTip?`<div class="cmp-text" style="margin-top:8px;color:var(--accent);font-size:11px">💡 ${t.consolidationTip}</div>`:''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Auto-refresh stale check when switching to compare view
+function initCompareView(){
+  if(cmpData.length){
+    renderComparison();
+    if(isCmpStale())showCmpBanner('stale','Analysis is over 6 hours old — click AI Refresh to update');
+    else{const ago=Math.round((Date.now()-cmpLastRun)/60000);showCmpBanner('fresh','Last run '+ago+' min ago');setTimeout(hideCmpBanner,4000)}
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 10X ANALYSIS — BATCH 6
+// ══════════════════════════════════════════════════════════
+let tenxData={}, tenxLastRun=null, tenxRunning=false, tenxAutoTimer=null;
+const TENX_STALE_MS=1000*60*60*8; // 8 hours
+
+async function loadTenxCache(){
+  try{const r=await window.storage.get('nbd-tenx-v1');if(r){const p=JSON.parse(r.value);tenxData=p.data||{};tenxLastRun=p.ts||null}}catch(e){}
+}
+async function saveTenxCache(){
+  try{await window.storage.set('nbd-tenx-v1',JSON.stringify({data:tenxData,ts:tenxLastRun}))}catch(e){}
+}
+
+function isTenxStale(){return!tenxLastRun||(Date.now()-tenxLastRun)>TENX_STALE_MS}
+
+function populateTenxSelect(){
+  const sel=g('tenxToolSel');if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="all">— All Tools —</option>'+tools.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+}
+
+function showTenxBanner(type,msg){
+  const el=g('tenxBanner');if(!el)return;
+  el.style.display='block';
+  el.innerHTML=`<div class="tenx-banner ${type}">${type==='running'?'<div class="tenx-spinner"></div>':''}${type==='fresh'?'✓':type==='stale'?'⚠':''} ${msg}</div>`;
+}
+function hideTenxBanner(){const el=g('tenxBanner');if(el)el.style.display='none'}
+
+function updateTenxStaleBadge(){
+  const wrap=g('tenxStaleWrap'),badge=g('tenxStaleBadge');
+  if(!tenxLastRun){wrap.style.display='none';return}
+  wrap.style.display='block';
+  const minsAgo=Math.round((Date.now()-tenxLastRun)/60000);
+  const hoursAgo=(minsAgo/60).toFixed(1);
+  const isStale=isTenxStale();
+  const isVeryStale=(Date.now()-tenxLastRun)>TENX_STALE_MS*2;
+  badge.className='tenx-stale-badge '+(isVeryStale?'stale-warn':isStale?'stale':'fresh');
+  badge.textContent=isStale?`⚠ Stale · ${hoursAgo}h ago`:`✓ Fresh · ${minsAgo<2?'just now':minsAgo+'m ago'}`;
+}
+
+async function runTenX(forceRefresh=false){
+  if(tenxRunning)return;
+  if(!tools.length){showToast('Add tools first','');return}
+
+  const sel=g('tenxToolSel');
+  const selId=sel?sel.value:'all';
+  const toolsToRun=selId==='all'?tools:tools.filter(t=>t.id===selId);
+  if(!toolsToRun.length){showToast('No tools found','');return}
+
+  // Check cache — skip if fresh and not forced
+  if(!forceRefresh&&selId!=='all'&&tenxData[selId]&&!isTenxStale()){
+    renderTenx();
+    showTenxBanner('fresh','Loaded from cache · click ↺ Refresh to re-run');
+    setTimeout(hideTenxBanner,4000);
+    return;
+  }
+
+  tenxRunning=true;
+  const btn=g('tenxRunBtn'),rbtn=g('tenxRefreshBtn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Analyzing…'}
+  if(rbtn){rbtn.disabled=true}
+
+  showTenxBanner('running',`Running 10X analysis on ${toolsToRun.length} tool${toolsToRun.length!==1?'s':''}…`);
+  g('tenxResults').innerHTML=`<div style="text-align:center;padding:56px;color:var(--text2)"><div class="tenx-spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto 18px"></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px">THINKING 10X…</div><div style="font-size:12px;color:var(--text3);margin-top:6px;font-family:'JetBrains Mono',monospace">First principles analysis · ${toolsToRun.length} tool${toolsToRun.length!==1?'s':''}</div></div>`;
+
+  const toolList=toolsToRun.map(t=>`- ${t.name} (${t.category}: ${t.desc||'no description'}, ${t.cost>0?'$'+t.cost+'/'+t.billing:'Free'})`).join('\n');
+
+  const prompt=`You are a 10X strategic operator analyzing AI tools from first principles.
+
+Tools to analyze:
+${toolList}
+
+For EACH tool, deliver a ruthless, honest 10X perspective:
+- Overall score (0-100) based on value delivered vs cost + alternatives
+- One powerful 10X insight sentence (the thing most people miss)
+- 2 CURRENT options (better alternatives available RIGHT NOW — be specific, name real tools)
+- 2 FUTURE options (upgrade paths or emerging tools — specific, realistic)
+- For each option: a label (Option A/B), specific tool or approach name, detailed 2-3 sentence reasoning, and effort level 1-5
+
+Respond ONLY with valid JSON array, no markdown, no backticks:
+[
+  {
+    "id": "tool_name_slug",
+    "name": "Exact Tool Name",
+    "category": "Category",
+    "score": 0-100,
+    "scoreLabel": "one word e.g. Strong/Solid/Weak/Replace",
+    "tenxInsight": "The one sentence insight most people miss about this tool",
+    "currentOptions": [
+      {
+        "label": "Option A",
+        "title": "Specific Tool or Approach Name",
+        "tag": "Switch Now|Add On|Replace With|Try Free",
+        "reasoning": "2-3 sentence specific reasoning for why this is better right now",
+        "effort": 2
+      },
+      {
+        "label": "Option B",
+        "title": "Specific Tool or Approach Name",
+        "tag": "Switch Now|Add On|Replace With|Try Free",
+        "reasoning": "2-3 sentence specific reasoning",
+        "effort": 3
+      }
+    ],
+    "futureOptions": [
+      {
+        "label": "Option A",
+        "title": "Specific Tool or Approach Name",
+        "tag": "Watch|Beta|Emerging|Roadmap",
+        "reasoning": "2-3 sentence forward-looking reasoning",
+        "effort": 4
+      },
+      {
+        "label": "Option B",
+        "title": "Specific Tool or Approach Name",
+        "tag": "Watch|Beta|Emerging|Roadmap",
+        "reasoning": "2-3 sentence reasoning",
+        "effort": 3
+      }
+    ]
+  }
+]`;
+
+  try{
+    const resp=await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await resp.json();
+    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(raw);
+
+    // Store per-tool in cache
+    parsed.forEach(item=>{
+      const t=toolsToRun.find(t=>t.name.toLowerCase()===item.name.toLowerCase()||t.id===item.id);
+      const key=t?t.id:item.name;
+      tenxData[key]=item;
+    });
+    tenxLastRun=Date.now();
+    saveTenxCache();
+    renderTenx(parsed);
+    updateTenxStaleBadge();
+    showTenxBanner('fresh',`✓ 10X Analysis complete · ${parsed.length} tool${parsed.length!==1?'s':''} analyzed`);
+    setTimeout(hideTenxBanner,5000);
+    if(rbtn)rbtn.style.display='inline-flex';
+    showToast('🔭 10X Analysis ready','g');
+
+    // Set auto-refresh timer
+    clearTimeout(tenxAutoTimer);
+    tenxAutoTimer=setTimeout(()=>{
+      showTenxBanner('stale','Analysis is stale — auto-refreshing…');
+      runTenX(true);
+    },TENX_STALE_MS);
+
+  }catch(e){
+    showTenxBanner('stale','⚠ Analysis failed — '+e.message);
+    g('tenxResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runTenX(true)">Try Again</button></div>`;
+    showToast('10X failed: '+e.message,'');
+  }finally{
+    tenxRunning=false;
+    if(btn){btn.disabled=false;btn.textContent='🔭 Run 10X Analysis'}
+    if(rbtn)rbtn.disabled=false;
+  }
+}
+
+function renderTenx(items){
+  const el=g('tenxResults');if(!el)return;
+  // If items not passed, build from cache
+  if(!items){
+    const sel=g('tenxToolSel');const selId=sel?sel.value:'all';
+    if(selId==='all') items=Object.values(tenxData);
+    else items=tenxData[selId]?[tenxData[selId]]:[];
+  }
+  if(!items||!items.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🔭</div><div class="empty-title">No Analysis Yet</div><div class="empty-desc">Click Run 10X Analysis to get started.</div><button class="btn btn-p" onclick="runTenX()">🔭 Run 10X Analysis</button></div>`;
+    return;
+  }
+  set('tenxCount',items.length+' TOOL'+(items.length!==1?'S':''));
+  el.innerHTML=`<div class="tenx-grid">${items.map(buildTenxCard).join('')}</div>`;
+}
+
+function buildTenxCard(t){
+  const catE={LLM:'🤖',Search:'🔍',Code:'💻',Automation:'⚙️',Productivity:'📝',Design:'🎨',Data:'📊',Communication:'💬',Analytics:'📈',Other:'🔧'}[t.category]||'🔧';
+  const scoreColor=t.score>=80?'#22C55E':t.score>=60?'var(--accent)':t.score>=40?'#F59E0B':'#EF4444';
+
+  return`<div class="tenx-card" id="tenxcard-${t.id||t.name}">
+    <div class="tenx-card-head">
+      <div class="tenx-head-ico">${catE}</div>
+      <div class="tenx-head-info">
+        <div class="tenx-head-name">${t.name}</div>
+        <div class="tenx-head-meta">
+          <span class="pill p-cat">${t.category}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;background:${scoreColor}22;color:${scoreColor};border:1px solid ${scoreColor}44">${t.scoreLabel||''}</span>
+        </div>
+      </div>
+      <div style="text-align:center;flex-shrink:0">
+        <div class="tenx-score" style="color:${scoreColor}">${t.score}</div>
+        <div class="tenx-score-label">10X SCORE</div>
+      </div>
+    </div>
+
+    <div class="tenx-insight">
+      <div class="tenx-insight-icon">💡</div>
+      <div class="tenx-insight-text">${t.tenxInsight}</div>
+    </div>
+
+    <div class="tenx-cols">
+      <div class="tenx-col">
+        <div class="tenx-col-label">⚡ Better Options — Right Now</div>
+        ${(t.currentOptions||[]).map(o=>buildTenxOption(o,'cur')).join('')}
+      </div>
+      <div class="tenx-col">
+        <div class="tenx-col-label">🚀 Future Upgrade Paths</div>
+        ${(t.futureOptions||[]).map(o=>buildTenxOption(o,'fut')).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildTenxOption(o,type){
+  const pips=Array.from({length:5},(_,i)=>`<div class="tenx-effort-pip${i<(o.effort||1)?' filled':''}"></div>`).join('');
+  return`<div class="tenx-option">
+    <div class="tenx-opt-num">${o.label}</div>
+    <div class="tenx-opt-title">${o.title} <span class="tenx-opt-tag ${type}">${o.tag||''}</span></div>
+    <div class="tenx-opt-reason">${o.reasoning}</div>
+    <div class="tenx-effort">
+      <span>EFFORT</span>
+      <div class="tenx-effort-bar">${pips}</div>
+      <span>${o.effort||1}/5</span>
+    </div>
+  </div>`;
+}
+
+function initAnalysisView(){
+  populateTenxSelect();
+  updateTenxStaleBadge();
+  if(Object.keys(tenxData).length){
+    const rbtn=g('tenxRefreshBtn');if(rbtn)rbtn.style.display='inline-flex';
+    renderTenx();
+    if(isTenxStale())showTenxBanner('stale','Analysis is stale — click ↺ Refresh to update');
+    else{const ago=Math.round((Date.now()-tenxLastRun)/60000);showTenxBanner('fresh','Last run '+ago+' min ago');setTimeout(hideTenxBanner,4000)}
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// CHANGE LOG — BATCH 7
+// ══════════════════════════════════════════════════════════
+let changelog=[]; // { id, date, tag, toolId, toolName, reason, before, after, source:'auto'|'manual' }
+let clFilter='all';
+
+async function loadCL(){
+  try{const r=await window.storage.get('nbd-cl-v1');if(r)changelog=JSON.parse(r.value)}catch(e){}
+}
+async function saveCL(){
+  try{await window.storage.set('nbd-cl-v1',JSON.stringify(changelog))}catch(e){}
+}
+
+// Auto-log helper — called whenever tools change
+function autoLog(tag,toolId,toolName,reason,before='',after=''){
+  const entry={
+    id:uid(),date:new Date().toISOString(),
+    tag,toolId:toolId||'',toolName:toolName||'',
+    reason,before,after,source:'auto'
+  };
+  changelog.unshift(entry);
+  saveCL();
+}
+
+// Patch addTool / delTool / addAcct / removeAcct to auto-log
+const _origAddTool=window.addTool;
+function addTool(){
+  const name=g('nName')?.value?.trim();
+  // call original logic inline (we redefine below to avoid infinite loop)
+  _addToolCore();
+}
+
+// ── FORM ──
+function toggleCLForm(){
+  const p=g('clForm');p.classList.toggle('open');
+  if(p.classList.contains('open')){
+    populateCLToolSelect();
+    const d=new Date();g('clDate').value=d.toISOString().split('T')[0];
+    g('clReason').focus();
+  }
+}
+
+function populateCLToolSelect(){
+  const sel=g('clTool');if(!sel)return;
+  sel.innerHTML='<option value="">— General / Global —</option>'+tools.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  const tf=g('clToolFilter');if(!tf)return;
+  tf.innerHTML='<option value="">— Pick a tool —</option>'+tools.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+}
+
+function saveCLEntry(){
+  const reason=g('clReason').value.trim();
+  if(!reason){showToast('Reason is required','');return}
+  const toolId=g('clTool').value;
+  const tool=tools.find(t=>t.id===toolId);
+  const entry={
+    id:uid(),
+    date:g('clDate').value?new Date(g('clDate').value).toISOString():new Date().toISOString(),
+    tag:g('clTag').value,
+    toolId:toolId||'',
+    toolName:tool?tool.name:'',
+    reason,
+    before:g('clBefore').value.trim(),
+    after:g('clAfter').value.trim(),
+    source:'manual'
+  };
+  changelog.unshift(entry);
+  saveCL();
+  renderCL();renderCLTool(g('clToolFilter')?.value||'');
+  // Reset form
+  g('clReason').value='';g('clBefore').value='';g('clAfter').value='';
+  toggleCLForm();
+  showToast('📋 Entry saved','g');
+}
+
+function deleteCLEntry(id){
+  changelog=changelog.filter(e=>e.id!==id);
+  saveCL();renderCL();renderCLTool(g('clToolFilter')?.value||'');
+}
+
+// ── FILTER ──
+function setCLFilter(f,btn){
+  clFilter=f;
+  document.querySelectorAll('#view-changelog .fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCL();
+}
+
+// ── RENDER GLOBAL FEED ──
+function renderCL(){
+  const feed=g('clFeed');if(!feed)return;
+  let entries=[...changelog];
+  if(clFilter==='auto')entries=entries.filter(e=>e.source==='auto');
+  else if(clFilter==='manual')entries=entries.filter(e=>e.source==='manual');
+  else if(['added','removed','upgraded','downgraded','note','cost-change','account-change'].includes(clFilter))
+    entries=entries.filter(e=>e.tag===clFilter);
+
+  set('clCount',changelog.length+' ENTR'+(changelog.length===1?'Y':'IES'));
+
+  if(!entries.length){
+    feed.innerHTML='<div class="cl-empty">No entries yet'+(clFilter!=='all'?' for this filter':'')+'.</div>';
+    return;
+  }
+  feed.innerHTML=entries.map(e=>buildCLEntry(e)).join('');
+}
+
+function buildCLEntry(e){
+  const d=new Date(e.date);
+  const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return`<div class="cl-entry">
+    <div class="cl-dot-wrap"><div class="cl-dot ${e.tag}${e.source==='auto'?' auto':''}"></div></div>
+    <div class="cl-body">
+      <div class="cl-body-head">
+        <span class="cl-tag ${e.tag}">${e.tag.replace('-',' ')}</span>
+        ${e.source==='auto'?'<span class="cl-tag auto-tag">AUTO</span>':''}
+        ${e.toolName?`<span class="cl-tool-name">· ${e.toolName}</span>`:''}
+        <button class="cl-del-btn" onclick="deleteCLEntry('${e.id}')" title="Delete">✕</button>
+      </div>
+      <div class="cl-reason">${e.reason}</div>
+      ${e.before||e.after?`<div class="cl-diff">
+        ${e.before?`<span class="cl-before">${e.before}</span><span class="cl-arrow">→</span>`:''}
+        ${e.after?`<span class="cl-after">${e.after}</span>`:''}
+      </div>`:''}
+      <div class="cl-date">${dateStr} · ${timeStr}</div>
+    </div>
+  </div>`;
+}
+
+// ── RENDER PER-TOOL SIDEBAR ──
+function renderCLTool(toolId){
+  const feed=g('clToolFeed');if(!feed)return;
+  if(!toolId){feed.innerHTML='<div style="font-size:12px;color:var(--text3);padding:16px;font-style:italic">Select a tool to see its history</div>';return}
+  const entries=changelog.filter(e=>e.toolId===toolId);
+  const tool=tools.find(t=>t.id===toolId);
+  // Also include per-tool notes from the tool object
+  const toolNotes=(tool?.notes||[]).map(n=>({
+    id:n.id,date:n.date,tag:n.tag,toolId,toolName:tool.name,
+    reason:n.text,before:'',after:'',source:'manual'
+  }));
+  const allEntries=[...entries,...toolNotes].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!allEntries.length){
+    feed.innerHTML=`<div class="cl-empty">No history for ${tool?.name||'this tool'} yet.</div>`;
+    return;
+  }
+  feed.innerHTML=allEntries.map(e=>`<div class="cl-tool-entry">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
+      <span class="cl-tag ${e.tag}">${e.tag.replace('-',' ')}</span>
+      ${e.source==='auto'?'<span class="cl-tag auto-tag">AUTO</span>':''}
+      <button class="cl-del-btn" onclick="deleteCLEntry('${e.id}')" title="Delete">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:4px">${e.reason}</div>
+    ${e.before||e.after?`<div class="cl-diff" style="font-size:10px">
+      ${e.before?`<span class="cl-before">${e.before}</span><span class="cl-arrow">→</span>`:''}
+      ${e.after?`<span class="cl-after">${e.after}</span>`:''}
+    </div>`:''}
+    <div class="cl-date" style="margin-top:4px">${new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+  </div>`).join('');
+}
+
+// ── EXPORT ──
+function exportCLText(){
+  if(!changelog.length){showToast('No entries to export','');return}
+  const lines=['NBD PRO — CHANGE LOG EXPORT','Generated: '+new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),'','─'.repeat(60),''];
+  changelog.forEach(e=>{
+    const d=new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    lines.push(`[${e.tag.toUpperCase()}]${e.toolName?' — '+e.toolName:''} · ${d}${e.source==='auto'?' (auto)':''}`);
+    lines.push(e.reason);
+    if(e.before)lines.push('  Before: '+e.before);
+    if(e.after)lines.push('  After:  '+e.after);
+    lines.push('');
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='nbd-changelog-'+new Date().toISOString().split('T')[0]+'.txt';
+  a.click();showToast('📄 Change log exported','g');
+}
+
+function initChangelogView(){
+  populateCLToolSelect();
+  renderCL();
+}
+
+// ══════════════════════════════════════════════════════════
+// SETTINGS + EXPORT — BATCH 8 (FINAL)
+// ══════════════════════════════════════════════════════════
+let userSettings={name:'',company:'',role:'',defaultView:'tools',defaultAcctView:'kanban'};
+
+async function loadSettings(){
+  try{const r=await window.storage.get('nbd-settings-v1');if(r)userSettings={...userSettings,...JSON.parse(r.value)}}catch(e){}
+}
+async function saveSettings(){
+  userSettings.name=g('setProfName')?.value||userSettings.name;
+  userSettings.company=g('setProfCompany')?.value||userSettings.company;
+  userSettings.role=g('setProfRole')?.value||userSettings.role;
+  userSettings.defaultView=g('setDefaultView')?.value||userSettings.defaultView;
+  userSettings.defaultAcctView=g('setDefaultAcctView')?.value||userSettings.defaultAcctView;
+  try{await window.storage.set('nbd-settings-v1',JSON.stringify(userSettings))}catch(e){}
+}
+
+function highlightThemeBtn(mode){
+  ['Dark','Light','Auto'].forEach(m=>{
+    const el=g('setTheme'+m);
+    if(el)el.classList.toggle('theme-active',m.toLowerCase()===mode);
+  });
+}
+
+function initSettingsView(){
+  // Populate fields
+  if(g('setProfName'))g('setProfName').value=userSettings.name;
+  if(g('setProfCompany'))g('setProfCompany').value=userSettings.company;
+  if(g('setProfRole'))g('setProfRole').value=userSettings.role;
+  if(g('setDefaultView'))g('setDefaultView').value=userSettings.defaultView;
+  if(g('setDefaultAcctView'))g('setDefaultAcctView').value=userSettings.defaultAcctView;
+  // Stats
+  const tc=tools.length;
+  const ac=tools.reduce((s,t)=>s+(t.accounts||[]).length,0);
+  set('setToolCount',tc+' tool'+(tc!==1?'s':'')+' tracked');
+  set('setAcctCount',ac+' account'+(ac!==1?'s':'')+' logged');
+  set('setCLCount',changelog.length+' entr'+(changelog.length===1?'y':'ies'));
+  // Theme button state
+  const savedTheme=localStorage.getItem('nbd-theme');
+  highlightThemeBtn(savedTheme||'auto');
+}
+
+function clearAllData(){
+  if(!confirm('This will permanently delete ALL tools, accounts, change log entries, analysis cache, and settings. This cannot be undone.\n\nAre you absolutely sure?'))return;
+  tools=[];changelog=[];cmpData=[];tenxData={};cmpLastRun=null;tenxLastRun=null;
+  save();saveCL();saveCmpCache();saveTenxCache();
+  renderTools();refreshStats();initSettingsView();
+  showToast('🗑️ All data cleared','');
+}
+
+// ── CSV EXPORT ──
+function exportCSV(type='tools'){
+  let csv='',filename='';
+
+  if(type==='tools'||type==='all'){
+    const rows=[['Name','Category','Status','Tier','Monthly Cost','Billing','URL','Description','Accounts','Added']];
+    tools.forEach(t=>rows.push([
+      t.name,t.category,t.status,t.tier,t.cost||0,t.billing,t.url||'',
+      (t.desc||'').replace(/,/g,';'),
+      (t.accounts||[]).length,
+      new Date(t.addedAt).toLocaleDateString('en-US')
+    ]));
+    csv+=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    if(type==='all')csv+='\n\n';
+    filename='nbd-tools';
+  }
+
+  if(type==='accounts'||type==='all'){
+    const rows=[['Username','Role','Description','Platform','Tool Cost','Billing','Status','URL','Last Login','Added']];
+    tools.forEach(t=>(t.accounts||[]).forEach(a=>rows.push([
+      a.username,a.role,a.desc||'',t.name,t.cost||0,t.billing,
+      a.status,a.url||'',
+      a.lastLogin?new Date(a.lastLogin).toLocaleDateString('en-US'):'',
+      new Date(a.addedAt).toLocaleDateString('en-US')
+    ])));
+    if(type==='all')csv+='Accounts\n';
+    csv+=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    filename='nbd-accounts';
+  }
+
+  if(type==='all')filename='nbd-full-export';
+
+  // Show preview
+  const prev=g('exportPreview');
+  if(prev)prev.textContent=csv.split('\n').slice(0,20).join('\n')+(csv.split('\n').length>20?'\n…':'');
+
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename+'-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+  showToast('📊 CSV exported','g');
+}
+
+// ── PDF REPORT ──
+function exportPDF(){
+  const inclTools=g('pdfTools')?.checked!==false;
+  const inclAccts=g('pdfAccounts')?.checked!==false;
+  const inclCosts=g('pdfCosts')?.checked!==false;
+  const inclCL=g('pdfChangelog')?.checked;
+
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const sp=tools.filter(t=>t.status==='current').reduce((s,t)=>s+(parseFloat(t.cost)||0),0);
+  const ac=tools.reduce((s,t)=>s+(t.accounts||[]).length,0);
+  const name=userSettings.name||'Joe Deal';
+  const company=userSettings.company||'No Big Deal Home Solutions';
+
+  // Build HTML for PDF
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#0D0F14;background:#fff;padding:40px;font-size:13px;line-height:1.5}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #F97316}
+  .logo{font-family:Arial Black,sans-serif;font-size:28px;font-weight:900;letter-spacing:2px;color:#F97316}
+  .logo sub{font-size:12px;display:block;color:#6B7280;font-weight:400;letter-spacing:1px;margin-top:2px}
+  .header-right{text-align:right;font-size:11px;color:#6B7280}
+  .header-right strong{color:#0D0F14;font-size:13px}
+  h2{font-size:14px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#0D0F14;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #E5E7EB}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+  .stat-box{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px;text-align:center}
+  .stat-box .val{font-size:26px;font-weight:900;color:#F97316;line-height:1}
+  .stat-box .lbl{font-size:10px;color:#6B7280;margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px}
+  th{text-align:left;padding:8px 10px;background:#F3F4F6;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#6B7280;border:1px solid #E5E7EB}
+  td{padding:8px 10px;border:1px solid #E5E7EB;vertical-align:top}
+  tr:nth-child(even) td{background:#FAFAFA}
+  .pill{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .p-current{background:#DCFCE7;color:#15803D}
+  .p-future{background:#DBEAFE;color:#1D4ED8}
+  .p-free{background:#DCFCE7;color:#15803D}
+  .cost{font-weight:700;color:#F97316}
+  .cl-line{padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12px}
+  .cl-tag-pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;margin-right:6px;background:#F3F4F6;color:#6B7280}
+  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between;font-size:10px;color:#9CA3AF}
+  @media print{body{padding:20px}@page{margin:1cm}}
+</style>
+</head><body>
+<div class="header">
+  <div><div class="logo">NBD<sub>AI USABILITY TREE</sub></div></div>
+  <div class="header-right">
+    <strong>${name}</strong><br>
+    ${company}<br>
+    ${userSettings.role||''}<br>
+    Generated ${dateStr}
+  </div>
+</div>
+
+${inclCosts?`<div class="stats-row">
+  <div class="stat-box"><div class="val">$${fmt(sp)}</div><div class="lbl">Monthly Spend</div></div>
+  <div class="stat-box"><div class="val">$${fmt(sp*12)}</div><div class="lbl">Annual Cost</div></div>
+  <div class="stat-box"><div class="val">${tools.length}</div><div class="lbl">Tools Tracked</div></div>
+  <div class="stat-box"><div class="val">${ac}</div><div class="lbl">Accounts Logged</div></div>
+</div>`:''}
+
+${inclTools&&tools.length?`<h2>Tool Inventory</h2>
+<table>
+  <tr><th>Tool</th><th>Category</th><th>Status</th><th>Plan</th><th>Cost</th><th>Description</th></tr>
+  ${tools.map(t=>`<tr>
+    <td><strong>${t.name}</strong></td>
+    <td>${t.category}</td>
+    <td><span class="pill p-${t.status}">${t.status}</span></td>
+    <td>${t.tier}</td>
+    <td class="cost">${t.cost>0?'$'+fmt(t.cost)+'/'+t.billing:'Free'}</td>
+    <td style="color:#6B7280">${t.desc||'—'}</td>
+  </tr>`).join('')}
+</table>`:''}
+
+${inclAccts&&ac?`<h2>Account Summary</h2>
+<table>
+  <tr><th>Username</th><th>Role</th><th>Platform</th><th>Status</th><th>Description</th></tr>
+  ${tools.flatMap(t=>(t.accounts||[]).map(a=>`<tr>
+    <td style="font-family:monospace">${a.username}</td>
+    <td>${a.role}</td>
+    <td>${t.name}</td>
+    <td>${a.status}</td>
+    <td style="color:#6B7280">${a.desc||'—'}</td>
+  </tr>`)).join('')}
+</table>`:''}
+
+${inclCL&&changelog.length?`<h2>Change Log (Last 20)</h2>
+${changelog.slice(0,20).map(e=>`<div class="cl-line">
+  <span class="cl-tag-pill">${e.tag}</span>
+  ${e.toolName?`<strong>${e.toolName}</strong> · `:''}${e.reason}
+  ${e.before||e.after?` <span style="color:#9CA3AF">${e.before||''}${e.before&&e.after?' → ':''}${e.after||''}</span>`:''}
+  <span style="color:#D1D5DB;margin-left:8px">${new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+</div>`).join('')}`:''}
+
+<div class="footer">
+  <span>NBD Pro · AI Usability Tree · nobigdealwithjoedeal.com/pro</span>
+  <span>Generated ${dateStr} · ${tools.length} tools · ${ac} accounts · $${fmt(sp)}/mo</span>
+</div>
+</body></html>`;
+
+  // Show preview
+  const prev=g('exportPreview');
+  if(prev)prev.textContent=`PDF Report Preview\n─────────────────\n${name} · ${company}\nTools: ${tools.length} · Accounts: ${ac} · Spend: $${fmt(sp)}/mo\nSections: ${[inclTools?'Tools':'',inclAccts?'Accounts':'',inclCosts?'Costs':'',inclCL?'Change Log':''].filter(Boolean).join(', ')}\n\nClick button to download...`;
+
+  const win=window.open('','_blank');
+  if(!win){showToast('Allow popups to generate PDF','');return}
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{win.print();},600);
+  showToast('📑 PDF report opening — use browser Print → Save as PDF','g');
+}
+
+// ══════════════════════════════════════════════════════════
+// ACCOUNT MANAGER — BATCH 3
+// ══════════════════════════════════════════════════════════
+
+// Kanban column mapping
+const KB_COLS={
+  Personal:['Personal','Owner','Creator / Content'],
+  'Business & Client':['Business','Client','Collaborator','Viewer / Read-only'],
+  'Developer & API':['Developer / API','API / Bot','Admin'],
+  Archived:['Archived']
+};
+
+function roleToCol(role){
+  for(const[col,roles] of Object.entries(KB_COLS)){if(roles.includes(role))return col}
+  return 'Personal';
+}
+
+// Flatten all accounts across tools
+function getAllAccts(){
+  return tools.flatMap(t=>(t.accounts||[]).map(a=>({
+    ...a,
+    toolName:t.name,
+    toolEmoji:ce(t.category),
+    toolCost:t.cost,
+    toolId:t.id
+  })));
+}
+
+// ── VIEW TOGGLE ──
+let amView='kanban', amRoleFilter='all', tableSortKey='username', tableSortDir=1;
+
+function setAmView(view,btn){
+  amView=view;
+  document.querySelectorAll('#amViewKan,#amViewTbl').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  g('amKanban').style.display=view==='kanban'?'block':'none';
+  g('amTable').style.display=view==='table'?'block':'none';
+  renderAcctView();
+}
+
+function filterAccts(role,btn){
+  amRoleFilter=role;
+  document.querySelectorAll('.toolbar .fb').forEach(b=>{if(b.textContent.includes('All Roles')||['Personal','Business','Client','Dev / API','Admin'].some(r=>b.textContent.includes(r)))b.classList.remove('active')});
+  btn.classList.add('active');
+  renderAcctView();
+}
+
+function renderAcctView(){
+  let accts=getAllAccts();
+  if(amRoleFilter!=='all')accts=accts.filter(a=>a.role===amRoleFilter||(amRoleFilter==='Developer / API'&&a.role==='Developer / API'));
+  set('asc',accts.length+' ACCOUNT'+(accts.length!==1?'S':''));
+  if(amView==='kanban')renderKanban(accts);
+  else renderTableView(accts);
+}
+
+// ── KANBAN ──
+function renderKanban(accts){
+  Object.keys(KB_COLS).forEach(col=>{
+    const container=g('kCards-'+col);
+    if(!container)return;
+    const colAccts=accts.filter(a=>roleToCol(a.role)===col);
+    const countEl=g('kc-'+col);if(countEl)countEl.textContent=colAccts.length;
+    if(!colAccts.length){container.innerHTML='<div class="kb-empty">Drop accounts here</div>';return}
+    container.innerHTML=colAccts.map(a=>buildKbCard(a)).join('');
+  });
+}
+
+function buildKbCard(a){
+  const c=ROLE_COLORS[a.role]||'#6B7280';
+  const loginStr=a.lastLogin?new Date(a.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'No login';
+  return`<div class="kb-card" id="kbc-${a.id}" draggable="true"
+    style="border-left:3px solid ${c}"
+    ondragstart="onDragStart(event,'${a.id}')"
+    ondragend="onDragEnd(event)">
+    <div class="kb-card-top">
+      <div class="kb-username">${a.username}</div>
+      <div class="kb-acts">
+        <button class="xbtn" style="width:22px;height:22px;font-size:11px" onclick="openEditAcctModal('${a.id}')" title="Edit">✏️</button>
+        <button class="xbtn" style="width:22px;height:22px;font-size:11px;color:#EF4444" onclick="deleteAcct('${a.toolId}','${a.id}')" title="Delete">✕</button>
+      </div>
+    </div>
+    <div class="kb-role-tag" style="border-color:${c}44;color:${c}">
+      <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block"></span>
+      ${a.role}
+    </div>
+    ${a.desc?`<div class="kb-desc">${a.desc}</div>`:''}
+    <div class="kb-platform">${a.toolEmoji} <span>${a.toolName}</span>${a.url?`<a href="${a.url}" target="_blank" style="margin-left:4px;color:var(--blue);text-decoration:none;font-size:10px">↗</a>`:''}</div>
+    <div class="kb-status-row">
+      <div class="kb-status-dot ${a.status}"></div>
+      <span class="kb-status-lbl">${a.status}</span>
+      <span class="kb-last-login">${loginStr}</span>
+    </div>
+  </div>`;
+}
+
+// ── DRAG & DROP ──
+let dragAcctId=null;
+
+function onDragStart(e,id){
+  dragAcctId=id;
+  const card=g('kbc-'+id);if(card)card.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+
+function onDragEnd(e){
+  document.querySelectorAll('.kb-card').forEach(c=>c.classList.remove('dragging'));
+  document.querySelectorAll('.kb-col').forEach(c=>c.classList.remove('drag-over'));
+}
+
+function onDragOver(e){
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  const col=e.currentTarget.closest('.kb-col');if(col)col.classList.add('drag-over');
+}
+
+function onDrop(e,colName){
+  e.preventDefault();
+  document.querySelectorAll('.kb-col').forEach(c=>c.classList.remove('drag-over'));
+  if(!dragAcctId)return;
+  // Map col name to a default role for that column
+  const roleMap={'Personal':'Personal','Business & Client':'Business','Developer & API':'Developer / API','Archived':'Archived'};
+  const newRole=roleMap[colName]||'Personal';
+  // Find account across all tools
+  let found=null,foundTool=null;
+  for(const t of tools){const a=(t.accounts||[]).find(a=>a.id===dragAcctId);if(a){found=a;foundTool=t;break}}
+  if(!found)return;
+  found.role=newRole;
+  save();renderAcctView();
+  showToast(`👤 ${found.username} → ${newRole}`,'g');
+  dragAcctId=null;
+}
+
+// ── TABLE ──
+function renderTableView(accts){
+  const tbody=g('acctTbody');if(!tbody)return;
+  // Sort
+  const sorted=[...accts].sort((a,b)=>{
+    let av=a[tableSortKey]||'',bv=b[tableSortKey]||'';
+    if(tableSortKey==='cost'){av=a.toolCost||0;bv=b.toolCost||0;return(av-bv)*tableSortDir}
+    return av.toString().localeCompare(bv.toString())*tableSortDir;
+  });
+  if(!sorted.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3);font-style:italic">No accounts found</td></tr>`;return}
+  tbody.innerHTML=sorted.map(a=>{
+    const c=ROLE_COLORS[a.role]||'#6B7280';
+    const loginStr=a.lastLogin?new Date(a.lastLogin).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    return`<tr>
+      <td><div class="td-user"><span style="font-size:15px">${a.toolEmoji}</span>${a.username}</div></td>
+      <td><div class="td-role"><div class="td-role-dot" style="background:${c}"></div><span class="td-role-tag" style="color:${c};border-color:${c}33">${a.role}</span></div></td>
+      <td style="font-size:12px;color:var(--text2)">${a.desc||'—'}</td>
+      <td style="font-size:12px;color:var(--text2)">${a.toolName}${a.url?`<a href="${a.url}" target="_blank" style="margin-left:6px;color:var(--blue);font-size:10px">↗</a>`:''}</td>
+      <td><span class="td-status"><span class="td-status-dot ${a.status}"></span>${a.status}</span></td>
+      <td><span class="td-cost${a.toolCost>0?'':' free'}">${a.toolCost>0?'$'+fmt(a.toolCost):'Free'}</span></td>
+      <td class="td-login">${loginStr}</td>
+      <td><div class="tbl-acts">
+        <button class="xbtn" style="width:24px;height:24px;font-size:11px" onclick="openEditAcctModal('${a.id}')">✏️</button>
+        <button class="xbtn" style="width:24px;height:24px;font-size:11px;color:#EF4444" onclick="deleteAcct('${a.toolId}','${a.id}')">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(key){
+  if(tableSortKey===key)tableSortDir*=-1; else{tableSortKey=key;tableSortDir=1}
+  document.querySelectorAll('.sort-ico').forEach(el=>{el.className='sort-ico';el.textContent='↕'});
+  const ico=g('sort-'+key);if(ico){ico.classList.add(tableSortDir===1?'asc':'desc');ico.textContent=tableSortDir===1?'↑':'↓'}
+  renderAcctView();
+}
+
+// ── ADD ACCOUNT MODAL ──
+function populateToolSelect(selId,selectedId){
+  const sel=g(selId);if(!sel)return;
+  sel.innerHTML=tools.map(t=>`<option value="${t.id}"${t.id===selectedId?' selected':''}>${t.name}</option>`).join('');
+}
+
+function openAddAcctModal(preRole){
+  populateToolSelect('maTool');
+  if(preRole)g('maRole').value=preRole;
+  g('maUser').value='';g('maDesc').value='';g('maUrl').value='';g('maNotes').value='';
+  g('maStat').value='active';g('maLogin').value='';
+  g('addAcctModal').classList.add('open');
+  setTimeout(()=>g('maUser').focus(),100);
+}
+
+function closeAddAcctModal(e){
+  if(!e||e.target===g('addAcctModal'))g('addAcctModal').classList.remove('open');
+}
+
+function saveNewAcct(){
+  const toolId=g('maTool').value;const user=g('maUser').value.trim();
+  if(!toolId||!user){showToast('Platform and username required','');return}
+  const t=tools.find(t=>t.id===toolId);if(!t)return;
+  const a={id:uid(),toolId,username:user,role:g('maRole').value,desc:g('maDesc').value.trim(),url:g('maUrl').value.trim(),status:g('maStat').value,lastLogin:g('maLogin').value||null,notes:g('maNotes').value.trim(),addedAt:new Date().toISOString()};
+  if(!t.accounts)t.accounts=[];
+  t.accounts.push(a);
+  save();refreshStats();renderTools();renderAcctView();
+  autoLog('account-change',toolId,t.name,'Added account "'+user+'" ('+g('maRole').value+') to '+t.name,'',user+' · '+g('maRole').value);
+  g('addAcctModal').classList.remove('open');
+  showToast('👤 '+user+' added','g');
+}
+
+// ── EDIT ACCOUNT MODAL ──
+function openEditAcctModal(acctId){
+  let found=null,foundToolId=null;
+  for(const t of tools){const a=(t.accounts||[]).find(a=>a.id===acctId);if(a){found=a;foundToolId=t.id;break}}
+  if(!found)return;
+  populateToolSelect('eaTool',foundToolId);
+  g('eaId').value=found.id;g('eaToolId').value=foundToolId;
+  g('eaUser').value=found.username;g('eaRole').value=found.role;
+  g('eaDesc').value=found.desc||'';g('eaUrl').value=found.url||'';
+  g('eaStat').value=found.status;g('eaLogin').value=found.lastLogin||'';
+  g('eaNotes').value=found.notes||'';
+  g('editAcctModal').classList.add('open');
+  setTimeout(()=>g('eaUser').focus(),100);
+}
+
+function closeEditAcctModal(e){
+  if(!e||e.target===g('editAcctModal'))g('editAcctModal').classList.remove('open');
+}
+
+function saveEditAcct(){
+  const acctId=g('eaId').value,oldToolId=g('eaToolId').value,newToolId=g('eaTool').value;
+  const user=g('eaUser').value.trim();if(!user){showToast('Username required','');return}
+  // Remove from old tool
+  const oldTool=tools.find(t=>t.id===oldToolId);
+  if(oldTool)oldTool.accounts=(oldTool.accounts||[]).filter(a=>a.id!==acctId);
+  // Add to new tool (may be same)
+  const newTool=tools.find(t=>t.id===newToolId);
+  if(!newTool)return;
+  if(!newTool.accounts)newTool.accounts=[];
+  newTool.accounts.push({id:acctId,toolId:newToolId,username:user,role:g('eaRole').value,desc:g('eaDesc').value.trim(),url:g('eaUrl').value.trim(),status:g('eaStat').value,lastLogin:g('eaLogin').value||null,notes:g('eaNotes').value.trim(),addedAt:new Date().toISOString()});
+  save();refreshStats();renderTools();renderAcctView();
+  g('editAcctModal').classList.remove('open');
+  showToast('✅ Account updated','g');
+}
+
+function deleteAcctFromModal(){
+  const acctId=g('eaId').value,toolId=g('eaToolId').value;
+  deleteAcct(toolId,acctId);
+  g('editAcctModal').classList.remove('open');
+}
+
+function deleteAcct(toolId,acctId){
+  const t=tools.find(t=>t.id===toolId);if(!t)return;
+  t.accounts=(t.accounts||[]).filter(a=>a.id!==acctId);
+  save();refreshStats();renderTools();renderAcctView();
+  showToast('🗑️ Account removed','');
+}
+
+// ── INIT ──
+async function init(){
+  await load();
+  await loadCmpCache();
+  await loadTenxCache();
+  await loadCL();
+  await loadSettings();
+  // Apply user's preferred default view
+  const navMap={dash:1,tools:2,accts:3,compare:4,analysis:5,changelog:6,settings:7};
+  const defView=userSettings.defaultView||'tools';
+  const navIdx=navMap[defView]||2;
+  const navEl=document.querySelector(`.nav-btn:nth-child(${navIdx})`);
+  showView(defView,navEl);
+  // Apply default account view
+  if(userSettings.defaultAcctView==='table'){amView='table';}
+  renderTools();refreshStats();
+  requestAnimationFrame(()=>requestAnimationFrame(drawChart));
+  setTimeout(()=>showToast('🎉 NBD Pro — All 8 Batches Complete!','g'),700);
+}
+init();
+</script>
+</body>
+</html>
