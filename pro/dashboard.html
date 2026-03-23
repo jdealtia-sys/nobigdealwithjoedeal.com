@@ -4621,91 +4621,12 @@ function exportDrawReport() {
   ${lines.map(l=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${l.color};margin-right:6px;vertical-align:middle;"></span>${l.name}</td><td>${l.dist.toFixed(1)} ft</td></tr>`).join('')}
   </tbody></table>
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
-  <script>window.print();<\/script><div id="nbd-picker-modal">
-  <div id="nbd-picker-inner">
-    <div class="npm-head">
-      <div>
-        <div class="npm-title">🎨 Appearance</div>
-        <div class="npm-subtitle" id="npm-active-sub">NBD Default · NBD Default font</div>
-      </div>
-      <button class="npm-close" onclick="nbdPickerClose()">✕</button>
-    </div>
-    <div class="npm-tabs">
-      <button class="npm-tab on" onclick="nbdPickerTab('themes',this)">Themes</button>
-      <button class="npm-tab" onclick="nbdPickerTab('fonts',this)">Fonts</button>
-      <button class="npm-tab" onclick="nbdPickerTab('custom',this)">Custom Builder</button>
-    </div>
-    <div class="npm-body">
-      <div class="npm-panel on" id="npm-panel-themes">
-        <div class="npm-controls">
-          <input class="npm-search" id="npm-search" placeholder="Search themes…" oninput="nbdRenderThemes()">
-          <button class="npm-rnd" onclick="nbdRandom()">⚄ Random</button>
-        </div>
-        <div class="npm-cats" id="npm-cats"></div>
-        <div class="npm-grid" id="npm-grid"></div>
-      </div>
-      <div class="npm-panel" id="npm-panel-fonts">
-        <div class="npm-fonts" id="npm-fonts"></div>
-      </div>
-      <div class="npm-panel" id="npm-panel-custom">
-        <div class="npm-custom">
-          <div class="npm-custom-row">
-            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#C8541A" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
-          </div>
-          <div class="npm-custom-btns">
-            <button class="npm-btn-apply" onclick="nbdApplyCustom()">Apply Preview</button>
-            <button class="npm-btn-save"  onclick="nbdSaveCustom()">Save as Custom Theme</button>
-          </div>
-          <div style="font-size:9px;color:#5a6478;line-height:1.7;margin-top:4px;">
-            Custom themes saved to your device.<br>
-            Requires <strong style="color:var(--orange,#e8720c)">NBD Command</strong> plan to save.
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="npm-foot">
-      <div class="npm-active-lbl">Active: <strong id="npm-active-name">NBD Default</strong></div>
-      <div style="display:flex;gap:6px;">
-        <button class="npm-copy-btn" onclick="nbdHowtoOpen()">📖 Guide</button>
-        <button class="npm-copy-btn" onclick="nbdCopyFS()">Copy Firestore Write</button>
-      </div>
-    </div>
-  </div>
-</div>
+  <script>window.print();<\/script>
+</body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
 
-<div id="nbd-howto-modal">
-  <div class="nhm-inner">
-    <div class="nhm-head">
-      <div><div class="nhm-title">📖 Theme Guide</div><div class="nhm-sub">NBD PRO — APPEARANCE SYSTEM</div></div>
-      <button class="nhm-close" onclick="nbdHowtoClose()">✕</button>
-    </div>
-    <div class="nhm-section">
-      <div class="nhm-section-title">Changing Your Theme</div>
-      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Tap the <strong>🎨 palette icon</strong> in the topbar to open Appearance.</div></div>
-      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Browse by category or <strong>search by name</strong> (e.g. "batman", "matrix", "lofi").</div></div>
-      <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text">Tap any bubble to <strong>apply instantly</strong>. Saved automatically across both CRM and Daily Success.</div></div>
-      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">🔒 Locked themes require a higher plan tier.</div></div>
-    </div>
-    <div class="nhm-section">
-      <div class="nhm-section-title">Font Pairings</div>
-      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Open Appearance → tap <strong>Fonts</strong> tab for 8 curated pairings.</div></div>
-      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Each pairing sets display, body, and mono fonts across the whole app.</div></div>
-    </div>
-    <div class="nhm-section">
-      <div class="nhm-section-title">Custom Theme Builder</div>
-      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Open Appearance → tap <strong>Custom Builder</strong>.</div></div>
-      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Pick Background, Surface, Accent, Text, and Muted colors.</div></div>
-      <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text"><strong>Apply Preview</strong> to see live. <strong>Save</strong> to keep it (Command plan).</div></div>
-    </div>
-    <div class="nhm-tip">💡 Your theme and font follow you between the CRM and Daily Success — same localStorage keys.</div>
-  </div>
-</div>
 
-<div class="nbd-toast" id="nbd-toast"></div>
 <script id="nbd-unified-js">
 /* ═══════════════════════════════════════════════════════════════════
    NBD UNIFIED APPEARANCE ENGINE v1.0
@@ -5051,9 +4972,6 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
   nbdRenderCats();
 })();
 </script>
-</body></html>`;
-  const w=window.open('','_blank'); w.document.write(html); w.document.close();
-}
 
 // ══════════════════════════════════════════════
 // ESTIMATE BUILDER
@@ -8368,6 +8286,94 @@ async function seedDemoEstimates(uid) {
     <span class="mm-item-icon">⚙️</span>Settings
   </div>
 </div>
+
+
+<!-- NBD UNIFIED APPEARANCE ENGINE MODALS -->
+<div id="nbd-picker-modal">
+  <div id="nbd-picker-inner">
+    <div class="npm-head">
+      <div>
+        <div class="npm-title">🎨 Appearance</div>
+        <div class="npm-subtitle" id="npm-active-sub">NBD Default · NBD Default font</div>
+      </div>
+      <button class="npm-close" onclick="nbdPickerClose()">✕</button>
+    </div>
+    <div class="npm-tabs">
+      <button class="npm-tab on" onclick="nbdPickerTab('themes',this)">Themes</button>
+      <button class="npm-tab" onclick="nbdPickerTab('fonts',this)">Fonts</button>
+      <button class="npm-tab" onclick="nbdPickerTab('custom',this)">Custom Builder</button>
+    </div>
+    <div class="npm-body">
+      <div class="npm-panel on" id="npm-panel-themes">
+        <div class="npm-controls">
+          <input class="npm-search" id="npm-search" placeholder="Search themes…" oninput="nbdRenderThemes()">
+          <button class="npm-rnd" onclick="nbdRandom()">⚄ Random</button>
+        </div>
+        <div class="npm-cats" id="npm-cats"></div>
+        <div class="npm-grid" id="npm-grid"></div>
+      </div>
+      <div class="npm-panel" id="npm-panel-fonts">
+        <div class="npm-fonts" id="npm-fonts"></div>
+      </div>
+      <div class="npm-panel" id="npm-panel-custom">
+        <div class="npm-custom">
+          <div class="npm-custom-row">
+            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#C8541A" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
+          </div>
+          <div class="npm-custom-btns">
+            <button class="npm-btn-apply" onclick="nbdApplyCustom()">Apply Preview</button>
+            <button class="npm-btn-save"  onclick="nbdSaveCustom()">Save as Custom Theme</button>
+          </div>
+          <div style="font-size:9px;color:#5a6478;line-height:1.7;margin-top:4px;">
+            Custom themes saved to your device.<br>
+            Requires <strong style="color:var(--orange,#e8720c)">NBD Command</strong> plan to save.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="npm-foot">
+      <div class="npm-active-lbl">Active: <strong id="npm-active-name">NBD Default</strong></div>
+      <div style="display:flex;gap:6px;">
+        <button class="npm-copy-btn" onclick="nbdHowtoOpen()">📖 Guide</button>
+        <button class="npm-copy-btn" onclick="nbdCopyFS()">Copy Firestore Write</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="nbd-howto-modal">
+  <div class="nhm-inner">
+    <div class="nhm-head">
+      <div><div class="nhm-title">📖 Theme Guide</div><div class="nhm-sub">NBD PRO — APPEARANCE SYSTEM</div></div>
+      <button class="nhm-close" onclick="nbdHowtoClose()">✕</button>
+    </div>
+    <div class="nhm-section">
+      <div class="nhm-section-title">Changing Your Theme</div>
+      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Tap the <strong>🎨 palette icon</strong> in the topbar to open Appearance.</div></div>
+      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Browse by category or <strong>search by name</strong> (e.g. "batman", "matrix", "lofi").</div></div>
+      <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text">Tap any bubble to <strong>apply instantly</strong>. Saved automatically across both CRM and Daily Success.</div></div>
+      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">🔒 Locked themes require a higher plan tier.</div></div>
+    </div>
+    <div class="nhm-section">
+      <div class="nhm-section-title">Font Pairings</div>
+      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Open Appearance → tap <strong>Fonts</strong> tab for 8 curated pairings.</div></div>
+      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Each pairing sets display, body, and mono fonts across the whole app.</div></div>
+    </div>
+    <div class="nhm-section">
+      <div class="nhm-section-title">Custom Theme Builder</div>
+      <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Open Appearance → tap <strong>Custom Builder</strong>.</div></div>
+      <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Pick Background, Surface, Accent, Text, and Muted colors.</div></div>
+      <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text"><strong>Apply Preview</strong> to see live. <strong>Save</strong> to keep it (Command plan).</div></div>
+    </div>
+    <div class="nhm-tip">💡 Your theme and font follow you between the CRM and Daily Success — same localStorage keys.</div>
+  </div>
+</div>
+
+<div class="nbd-toast" id="nbd-toast"></div>
 
 </body>
 </html>
