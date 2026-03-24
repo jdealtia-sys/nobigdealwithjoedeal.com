@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NBD Pro — AI Usability Tree</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--nbd-orange:#F97316;--nbd-orange-dim:rgba(249,115,22,0.12);--nbd-orange-glow:rgba(249,115,22,0.25);--nbd-blue:#0EA5E9;--nbd-blue-dim:rgba(14,165,233,0.12);--radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--ease:cubic-bezier(0.22,1,0.36,1);--t:0.22s}
 [data-theme="dark"]{--bg:#0D0F14;--bg2:#12151C;--surface:#181C25;--surface2:#1E2330;--border:#252A38;--border2:#2E3447;--text:#F0F2F8;--text2:#9AA3BC;--text3:#5C6480;--accent:var(--nbd-orange);--accent-dim:var(--nbd-orange-dim);--accent-glow:var(--nbd-orange-glow);--blue:var(--nbd-blue);--blue-dim:var(--nbd-blue-dim);--shadow:0 4px 24px rgba(0,0,0,0.4);--shadow-lg:0 12px 48px rgba(0,0,0,0.5)}
@@ -532,6 +532,17 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
   .dpanel{width:100%}
   .anf-grid{grid-template-columns:1fr}
 }
+/* -- UNIFIED HEADER STYLES -- */
+.tb-brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
+.tb-mark{width:32px;height:32px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#fff;letter-spacing:1px;flex-shrink:0}
+.tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--text);line-height:1}
+.tb-title span{color:var(--accent)}
+.tb-sub{font-size:8px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:1px}
+.tb-actions{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+.tb-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.15s;text-decoration:none;white-space:nowrap}
+.tb-btn:hover{color:var(--text);border-color:var(--accent)}
+.tb-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.tb-btn.primary:hover{opacity:.9}
 </style>
 </head>
 <body>
@@ -911,9 +922,9 @@ window.nbdNavToggle = nbdNavToggle;
 <div class="app-wrap">
 
 <nav class="topbar">
-  <a class="logo-wrap" href="#">
-    <div class="logo-badge">NBD</div>
-    <div class="logo-text"><b>Pro Portal</b><small>AI Usability Tree</small></div>
+  <a class="tb-brand" href="/pro/">
+    <div class="tb-mark">NBD</div>
+    <div><div class="tb-title">No Big Deal <span>Pro</span></div><div class="tb-sub">AI Usability Tree</div></div>
   </a>
   <div class="topbar-nav">
     <button class="nav-btn" onclick="showView('dash',this)">Dashboard</button>
@@ -922,7 +933,12 @@ window.nbdNavToggle = nbdNavToggle;
     <button class="nav-btn" onclick="showView('compare',this)">Compare</button>
     <button class="nav-btn" onclick="showView('analysis',this)">10X Analysis</button>
     <button class="nav-btn" onclick="showView('changelog',this)">Change Log</button>
-    <button class="nav-btn" onclick="showView('settings',this)">⚙ Settings</button>
+    <button class="nav-btn" onclick="showView('settings',this)">&#9881; Settings</button>
+  </div>
+  <div class="tb-actions" style="margin-left:auto;display:flex;gap:6px;flex-shrink:0;">
+    <a class="tb-btn" href="/pro/project-codex">Project Codex</a>
+    <a class="tb-btn" href="/pro/dashboard">CRM</a>
+    <a class="tb-btn primary" href="/pro/login">My Account</a>
   </div>
   <div class="topbar-right">
     <a href="/pro/understand" style="display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">🔮 Understand</a>

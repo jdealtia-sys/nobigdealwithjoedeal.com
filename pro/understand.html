@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Understanding Tool — NBD Pro</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0A0C12;--sur:#10141E;--card:#141926;--lift:#181E2C;
@@ -369,6 +369,11 @@ body.lm .tool-card.selected{border-color:var(--or)!important;background:var(--or
   .grade-box{flex-direction:column;text-align:center}
   .tb-r .tbtn:nth-child(n+4){display:none}
 }
+/* -- UNIFIED HEADER STYLES -- */
+.tb-brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
+.tb-mark{width:32px;height:32px;background:var(--or);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#000;letter-spacing:1px;flex-shrink:0}
+.tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--tx);line-height:1}
+.tb-title span{color:var(--or)}
 </style>
 </head>
 <body>
@@ -748,16 +753,19 @@ window.nbdNavToggle = nbdNavToggle;
 
 <!-- TOPBAR -->
 <header class="tb">
-  <a class="tb-logo" href="#" onclick="goHome();return false">
-    <div class="tb-badge">NBD</div>
-    <div><div class="tb-name">Understanding Tool</div><div class="tb-sub">NBD Pro · AI Advisor</div></div>
+  <a class="tb-brand" href="/pro/">
+    <div class="tb-mark">NBD</div>
+    <div><div class="tb-title">No Big Deal <span>Pro</span></div><div class="tb-sub">Understanding Tool</div></div>
   </a>
   <div class="tb-r">
-    <button class="tbtn" onclick="openRL()" id="rlBtn">📖 <span id="rlCount">0</span> Reading List</button>
-    <button class="tbtn" onclick="openBrowse()">🧠 Browse & Learn</button>
-    <button class="tbtn" onclick="openHistory()" id="histBtn">📋 <span id="histCount">0</span> Saved</button>
+    <button class="tbtn" onclick="openRL()" id="rlBtn">?? <span id="rlCount">0</span> Reading List</button>
+    <button class="tbtn" onclick="openBrowse()">?? Browse & Learn</button>
+    <button class="tbtn" onclick="openHistory()" id="histBtn">?? <span id="histCount">0</span> Saved</button>
     <button class="tbtn" onclick="openGuide()">? Guide</button>
-    <a class="tbtn" href="/pro/ai-tree">← AI Tree</a>
+    <a class="tbtn" href="/pro/ai-tree">? AI Tree</a>
+    <a class="tbtn" href="/pro/project-codex">Project Codex</a>
+    <a class="tbtn" href="/pro/dashboard">CRM</a>
+    <a class="tbtn on" href="/pro/login">My Account</a>
     <a class="tbtn" href="/pro/codex">⬛ Codex</a>
   </div>
 </header>
