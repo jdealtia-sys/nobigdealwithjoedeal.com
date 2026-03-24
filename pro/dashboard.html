@@ -124,6 +124,8 @@
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
   // ── GLOBAL CRM STATE ───────────────────────────
+  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+  let _dragId = null;
   let _filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
 
   // ── LEADS ──────────────────────────────────────
@@ -5779,9 +5781,6 @@ async function saveLead(){
 // ══════════════════════════════════════════════
 // KANBAN CRM — renderLeads / drag-drop / filter
 // ══════════════════════════════════════════════
-
-const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-let _dragId = null;
 
 function renderLeads(leads, filtered){
   const all   = leads  || window._leads || [];
