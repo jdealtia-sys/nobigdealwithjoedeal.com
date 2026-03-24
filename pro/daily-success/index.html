@@ -1917,6 +1917,8 @@ function doSearch(q){const drop=document.getElementById('sdrop');if(!q.trim()){d
 function doPrint(){if(cur<0){toast('Open a page first');return;}saveNow();window.print();}
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
+function closeWelcome(){document.getElementById('welcomeModal').style.display='none';localStorage.setItem('nbd-welcome-seen','1');}
+function openWelcomeGuide(){openM('welcomeModal');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 
 // ═══════════════════════════════════════════
@@ -2425,6 +2427,12 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
   nbdApplyFont(localStorage.getItem('nbd-font') || 'nbd-default');
   nbdRenderCats();
 })();
+
+// Hide welcome modal if already seen
+if(localStorage.getItem('nbd-welcome-seen')){
+  const wm = document.getElementById('welcomeModal');
+  if(wm) wm.style.display='none';
+}
 
 </script>
 
