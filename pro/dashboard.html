@@ -123,6 +123,9 @@
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
+  // ── GLOBAL CRM STATE ───────────────────────────
+  let _filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
+
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
     try {
@@ -5779,7 +5782,6 @@ async function saveLead(){
 
 const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
 let _dragId = null;
-let _filteredLeads = null;
 
 function renderLeads(leads, filtered){
   const all   = leads  || window._leads || [];
