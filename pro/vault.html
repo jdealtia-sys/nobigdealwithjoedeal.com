@@ -1314,31 +1314,224 @@ function closeSessionDetail() {
 
 function renderTasks() {
   const page = document.getElementById('page-tasks');
+  
+  // Group tasks by status
+  const openTasks = CODEX.tasks.filter(t => t.status === 'open');
+  const inProgressTasks = CODEX.tasks.filter(t => t.status === 'in-progress');
+  const completedTasks = CODEX.tasks.filter(t => t.status === 'done');
+  
+  const renderTaskCard = (task) => `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${task.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${task.session} ${task.assignedTo ? `• Assigned: ${task.assignedTo}` : ''}
+          </div>
+        </div>
+        <span class="btn-xs ${task.priority === 'critical' ? 'btn-red' : task.priority === 'high' ? 'btn-outline' : 'btn-ghost'}">
+          ${task.priority || 'normal'}
+        </span>
+      </div>
+      ${task.description ? `<div class="card-body">${task.description}</div>` : ''}
+    </div>
+  `;
+  
   page.innerHTML = `
     <div class="page-header">
       <div class="page-eyebrow">Task Registry</div>
       <div class="page-title">Master Task List</div>
+      <div class="page-subtitle">${CODEX.tasks.length} total tasks • ${openTasks.length} open</div>
     </div>
-    <div class="card">
-      <div class="card-body">
-        <em style="color:var(--text3)">Task management — coming in Part 3</em>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${openTasks.length}</div>
+        <div class="stat-lbl">Open</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${inProgressTasks.length}</div>
+        <div class="stat-lbl">In Progress</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${completedTasks.length}</div>
+        <div class="stat-lbl">Completed</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.tasks.length > 0 ? Math.round((completedTasks.length / CODEX.tasks.length) * 100) : 0}%</div>
+        <div class="stat-lbl">Completion Rate</div>
       </div>
     </div>
+    
+    <!-- Open Tasks -->
+    ${openTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🔴 Open Tasks (${openTasks.length})
+        </h3>
+        ${openTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- In Progress Tasks -->
+    ${inProgressTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🟡 In Progress (${inProgressTasks.length})
+        </h3>
+        ${inProgressTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Completed Tasks -->
+    ${completedTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✅ Completed (${completedTasks.length})
+        </h3>
+        ${completedTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.tasks.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">📋</div>
+          <div style="font-size:16px; color:var(--text3);">No tasks yet</div>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
 function renderDebt() {
   const page = document.getElementById('page-debt');
+  
+  // Group debt by status and severity
+  const openDebt = CODEX.debt.filter(d => d.status === 'open');
+  const resolvedDebt = CODEX.debt.filter(d => d.status === 'resolved');
+  const criticalDebt = openDebt.filter(d => d.severity === 'critical');
+  const highDebt = openDebt.filter(d => d.severity === 'high');
+  const mediumDebt = openDebt.filter(d => d.severity === 'medium');
+  
+  const renderDebtCard = (debt) => `
+    <div class="card" style="margin-bottom:12px; border-left:3px solid ${
+      debt.severity === 'critical' ? 'var(--red)' : 
+      debt.severity === 'high' ? 'var(--orange)' : 
+      'var(--blue)'
+    };">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${debt.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${debt.session} • Open ${debt.sessionsOpen || 1} sessions
+            ${debt.category ? ` • ${debt.category}` : ''}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="btn-xs ${
+            debt.severity === 'critical' ? 'btn-red' : 
+            debt.severity === 'high' ? 'btn-outline' : 
+            'btn-ghost'
+          }">
+            ${debt.severity}
+          </span>
+          <span class="btn-xs ${debt.status === 'open' ? 'btn-red' : 'btn-ghost'}">
+            ${debt.status}
+          </span>
+        </div>
+      </div>
+      ${debt.description ? `<div class="card-body">${debt.description}</div>` : ''}
+      ${debt.impact ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Impact:</strong> ${debt.impact}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
   page.innerHTML = `
     <div class="page-header">
       <div class="page-eyebrow">Execution Debt</div>
       <div class="page-title">Debt Register</div>
+      <div class="page-subtitle">${CODEX.debt.length} total items • ${openDebt.length} open • ${criticalDebt.length} critical</div>
     </div>
-    <div class="card">
-      <div class="card-body">
-        <em style="color:var(--text3)">Debt tracking — coming in Part 3</em>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${criticalDebt.length}</div>
+        <div class="stat-lbl">Critical</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${highDebt.length}</div>
+        <div class="stat-lbl">High</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${mediumDebt.length}</div>
+        <div class="stat-lbl">Medium</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${resolvedDebt.length}</div>
+        <div class="stat-lbl">Resolved</div>
       </div>
     </div>
+    
+    <!-- Critical Debt -->
+    ${criticalDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--red); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚨 CRITICAL DEBT (${criticalDebt.length})
+        </h3>
+        ${criticalDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- High Priority Debt -->
+    ${highDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ HIGH PRIORITY (${highDebt.length})
+        </h3>
+        ${highDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Medium Priority Debt -->
+    ${mediumDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 MEDIUM PRIORITY (${mediumDebt.length})
+        </h3>
+        ${mediumDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Resolved Debt (Collapsed by default) -->
+    ${resolvedDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <details>
+          <summary style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; cursor:pointer;">
+            ✅ RESOLVED (${resolvedDebt.length})
+          </summary>
+          ${resolvedDebt.map(renderDebtCard).join('')}
+        </details>
+      </div>
+    ` : ''}
+    
+    ${CODEX.debt.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚠️</div>
+          <div style="font-size:16px; color:var(--text3);">No execution debt</div>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
@@ -1369,47 +1562,475 @@ function renderBlockers() {
 
 function renderDirectives() {
   const page = document.getElementById('page-directives');
+  
+  // Sort directives by session number (most recent first)
+  const sortedDirectives = [...CODEX.directives].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDirectives = sortedDirectives.filter(d => d.binding);
+  const advisoryDirectives = sortedDirectives.filter(d => !d.binding);
+  
+  const renderDirectiveCard = (directive) => `
+    <div class="card" style="margin-bottom:12px; ${directive.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${directive.binding ? '⚖️' : '💡'} ${directive.text}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${directive.session}
+            ${directive.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+          </div>
+        </div>
+      </div>
+      ${directive.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${directive.rationale}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
   page.innerHTML = `
     <div class="page-header">
       <div class="page-eyebrow">Immutable Laws</div>
       <div class="page-title">Architectural Directives</div>
+      <div class="page-subtitle">${CODEX.directives.length} total directives • ${bindingDirectives.length} binding</div>
     </div>
-    <div class="card">
-      <div class="card-body">
-        <em style="color:var(--text3)">Directive viewer — coming in Part 3</em>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDirectives.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDirectives.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.directives.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.directives.length > 0 ? Math.max(...CODEX.directives.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
       </div>
     </div>
+    
+    <!-- Binding Directives -->
+    ${bindingDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ BINDING DIRECTIVES (${bindingDirectives.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Warning:</strong> These directives are IMMUTABLE and must be followed in all sessions. Violation requires explicit architectural review.
+          </div>
+        </div>
+        ${bindingDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Directives -->
+    ${advisoryDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          💡 ADVISORY DIRECTIVES (${advisoryDirectives.length})
+        </h3>
+        ${advisoryDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.directives.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚖️</div>
+          <div style="font-size:16px; color:var(--text3);">No directives established</div>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
 function renderDecisions() {
   const page = document.getElementById('page-decisions');
+  
+  // Sort decisions by session number (most recent first)
+  const sortedDecisions = [...CODEX.decisions].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDecisions = sortedDecisions.filter(d => d.binding);
+  const advisoryDecisions = sortedDecisions.filter(d => !d.binding);
+  
+  const renderDecisionCard = (decision) => `
+    <div class="card" style="margin-bottom:12px; ${decision.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${decision.binding ? '🏛️' : '📋'} ${decision.decision}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${decision.session}
+            ${decision.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+            ${decision.category ? ` • ${decision.category}` : ''}
+          </div>
+        </div>
+      </div>
+      ${decision.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${decision.rationale}
+        </div>
+      ` : ''}
+      ${decision.alternatives ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Alternatives Considered:</strong> ${decision.alternatives}
+        </div>
+      ` : ''}
+      ${decision.implications ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Implications:</strong> ${decision.implications}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
   page.innerHTML = `
     <div class="page-header">
       <div class="page-eyebrow">Architecture</div>
       <div class="page-title">Binding Decisions</div>
+      <div class="page-subtitle">${CODEX.decisions.length} total decisions • ${bindingDecisions.length} binding</div>
     </div>
-    <div class="card">
-      <div class="card-body">
-        <em style="color:var(--text3)">Decision log — coming in Part 3</em>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDecisions.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDecisions.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.decisions.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.decisions.length > 0 ? Math.max(...CODEX.decisions.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
       </div>
     </div>
+    
+    <!-- Binding Decisions -->
+    ${bindingDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ BINDING DECISIONS (${bindingDecisions.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Architectural Lock:</strong> These decisions form the immutable foundation of NBD Pro. Changing them requires full architectural review and may cascade to multiple systems.
+          </div>
+        </div>
+        ${bindingDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Decisions -->
+    ${advisoryDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 ADVISORY DECISIONS (${advisoryDecisions.length})
+        </h3>
+        ${advisoryDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.decisions.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🏛️</div>
+          <div style="font-size:16px; color:var(--text3);">No architectural decisions logged</div>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
 function renderSearch() {
   const page = document.getElementById('page-search');
+  
   page.innerHTML = `
     <div class="page-header">
       <div class="page-eyebrow">Full-Text Search</div>
       <div class="page-title">Search Codex</div>
+      <div class="page-subtitle">Search across sessions, directives, decisions, tasks, and blockers</div>
     </div>
+    
+    <!-- Search Input -->
     <div class="card">
       <div class="card-body">
-        <em style="color:var(--text3)">Search system — coming in Part 3</em>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search sessions, directives, decisions, tasks..." 
+          style="width:100%; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; color:var(--text); font-size:15px; font-family:'Syne', sans-serif;"
+          oninput="executeSearch()"
+        >
       </div>
     </div>
+    
+    <!-- Search Results -->
+    <div id="searchResults"></div>
   `;
+}
+
+function executeSearch() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const resultsDiv = document.getElementById('searchResults');
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    return;
+  }
+  
+  const results = {
+    sessions: [],
+    directives: [],
+    decisions: [],
+    tasks: [],
+    debt: [],
+    blockers: []
+  };
+  
+  // Search sessions
+  CODEX.sessions.forEach(session => {
+    const searchableText = `
+      ${session.meta?.title || ''} 
+      ${session.content || ''} 
+      ${JSON.stringify(session.meta || {})}
+    `.toLowerCase();
+    
+    if (searchableText.includes(query)) {
+      results.sessions.push(session);
+    }
+  });
+  
+  // Search directives
+  CODEX.directives.forEach(directive => {
+    const searchableText = `${directive.text} ${directive.rationale || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.directives.push(directive);
+    }
+  });
+  
+  // Search decisions
+  CODEX.decisions.forEach(decision => {
+    const searchableText = `${decision.decision} ${decision.rationale || ''} ${decision.alternatives || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.decisions.push(decision);
+    }
+  });
+  
+  // Search tasks
+  CODEX.tasks.forEach(task => {
+    const searchableText = `${task.title} ${task.description || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.tasks.push(task);
+    }
+  });
+  
+  // Search debt
+  CODEX.debt.forEach(debt => {
+    const searchableText = `${debt.title} ${debt.description || ''} ${debt.impact || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.debt.push(debt);
+    }
+  });
+  
+  // Search blockers
+  CODEX.blockers.forEach(blocker => {
+    const searchableText = `${blocker.title}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.blockers.push(blocker);
+    }
+  });
+  
+  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
+  
+  if (totalResults === 0) {
+    resultsDiv.innerHTML = `
+      <div class="card" style="margin-top:24px;">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🔍</div>
+          <div style="font-size:16px; color:var(--text3);">No results found for "${query}"</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = `
+    <div style="margin-top:24px;">
+      <div style="font-size:14px; color:var(--text2); margin-bottom:16px;">
+        Found <strong style="color:var(--gold)">${totalResults}</strong> results for "<strong>${query}</strong>"
+      </div>
+  `;
+  
+  // Sessions results
+  if (results.sessions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📝 SESSIONS (${results.sessions.length})
+        </h3>
+        ${results.sessions.map(s => `
+          <div class="card" style="margin-bottom:12px; cursor:pointer;" onclick="viewSession(${s.num})">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  Session ${s.num} — ${s.meta?.title || 'Untitled'}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${s.meta?.date || 'Date unknown'}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Directives results
+  if (results.directives.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ DIRECTIVES (${results.directives.length})
+        </h3>
+        ${results.directives.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.text}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Decisions results
+  if (results.decisions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ DECISIONS (${results.decisions.length})
+        </h3>
+        ${results.decisions.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.decision}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Tasks results
+  if (results.tasks.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✓ TASKS (${results.tasks.length})
+        </h3>
+        ${results.tasks.map(t => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${t.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${t.session} • ${t.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Debt results
+  if (results.debt.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ DEBT (${results.debt.length})
+        </h3>
+        ${results.debt.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} • ${d.severity} • ${d.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Blockers results
+  if (results.blockers.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚫 BLOCKERS (${results.blockers.length})
+        </h3>
+        ${results.blockers.map(b => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${b.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${b.severity} • ${b.status} • ${b.sessionsOpen} sessions open
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  resultsDiv.innerHTML = html;
 }
 
 function renderAdmin() {
