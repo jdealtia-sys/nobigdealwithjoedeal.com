@@ -1470,6 +1470,30 @@ window.vaultImportSession = async function(sessionData) {
   renderOverview();
 };
 
+// Bulk import function for importing multiple sessions at once
+window.vaultBulkImportSessions = async function(sessionsArray) {
+  console.log(`Bulk importing ${sessionsArray.length} sessions...`);
+  
+  // Remove existing sessions with same numbers to avoid duplicates
+  const nums = sessionsArray.map(s => s.num);
+  CODEX.sessions = CODEX.sessions.filter(s => !nums.includes(s.num));
+  
+  // Add all new sessions
+  CODEX.sessions.push(...sessionsArray);
+  
+  // Sort by session number
+  CODEX.sessions.sort((a, b) => a.num - b.num);
+  
+  // Save to Firestore
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  toast(`Successfully imported ${sessionsArray.length} sessions`, 'success');
+  console.log(`✓ Bulk import complete. Total sessions: ${CODEX.sessions.length}`);
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════
    SEED DATA (Sessions 1-27 from Codex Archaeology)
    ═══════════════════════════════════════════════════════════════════════════ */
