@@ -2679,6 +2679,270 @@ window.nbdNavToggle = nbdNavToggle;
           </div>
         </div>
       </div>
+<!-- API USAGE & COST DASHBOARD -->
+<!-- Add this to Settings view in dashboard.html -->
+
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr">
+    <div>
+      <div class="panel-label">Anthropic API</div>
+      <div class="panel-title">Usage & Cost Tracking</div>
+    </div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="resetApiUsage()">Reset Stats</button>
+  </div>
+  
+  <div class="panel-body">
+    <!-- Current Session -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
+        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">This Session</div>
+        <div style="font-size:24px;font-weight:700;color:var(--orange);" id="sessionTokens">0</div>
+        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens used</div>
+      </div>
+      
+      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
+        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Session Cost</div>
+        <div style="font-size:24px;font-weight:700;color:var(--green);" id="sessionCost">$0.00</div>
+        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
+      </div>
+      
+      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
+        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Total This Month</div>
+        <div style="font-size:24px;font-weight:700;color:var(--blue);" id="monthTokens">0</div>
+        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens</div>
+      </div>
+      
+      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
+        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Monthly Cost</div>
+        <div style="font-size:24px;font-weight:700;" style="color:var(--t);" id="monthCost">$0.00</div>
+        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
+      </div>
+    </div>
+    
+    <!-- Budget Alert -->
+    <div id="budgetAlert" style="display:none;background:rgba(255,71,71,0.1);border:1px solid var(--red);border-radius:8px;padding:12px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">⚠️</span>
+        <div>
+          <div style="font-weight:600;color:var(--red);margin-bottom:2px;">Budget Alert</div>
+          <div style="font-size:12px;color:var(--m);" id="budgetAlertText">You've used 80% of your monthly budget</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Usage History -->
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Recent API Calls</div>
+      <div id="apiUsageLog" style="max-height:200px;overflow-y:auto;background:var(--s);padding:10px;border-radius:6px;border:1px solid var(--br);">
+        <div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>
+      </div>
+    </div>
+    
+    <!-- Budget Settings -->
+    <div style="border-top:1px solid var(--br);padding-top:16px;">
+      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Budget Settings</div>
+      <div style="display:flex;gap:12px;align-items:end;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--m);display:block;margin-bottom:4px;">Monthly Budget ($)</label>
+          <input type="number" id="monthlyBudget" placeholder="25.00" value="25" 
+            style="width:100%;padding:8px;background:var(--s);border:1px solid var(--br);border-radius:4px;color:var(--t);font-size:13px;">
+        </div>
+        <button class="btn btn-orange" style="padding:8px 16px;font-size:12px;" onclick="saveApiSettings()">Save Budget</button>
+      </div>
+      <div style="font-size:11px;color:var(--m);margin-top:8px;">
+        ℹ️ You'll get an alert when you hit 80% of your monthly budget
+      </div>
+    </div>
+    
+    <!-- Pricing Info -->
+    <div style="margin-top:16px;padding:12px;background:var(--s2);border-radius:6px;border:1px solid var(--br);">
+      <div style="font-weight:600;margin-bottom:8px;font-size:12px;">Claude Sonnet 4 Pricing</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+        <div><span style="color:var(--m);">Input:</span> <span style="color:var(--t);">$3.00</span> / 1M tokens</div>
+        <div><span style="color:var(--m);">Output:</span> <span style="color:var(--t);">$15.00</span> / 1M tokens</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// API USAGE TRACKING SYSTEM
+(function() {
+  const PRICING = {
+    'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 }, // per 1M tokens
+    'claude-sonnet-4': { input: 3.00, output: 15.00 }
+  };
+  
+  // Initialize usage tracking
+  if (!window._apiUsage) {
+    window._apiUsage = {
+      session: { tokens: 0, cost: 0, calls: 0 },
+      month: { tokens: 0, cost: 0, calls: 0 },
+      history: []
+    };
+  }
+  
+  // Load from localStorage
+  function loadApiUsage() {
+    try {
+      const stored = localStorage.getItem('NBD_API_USAGE');
+      if (stored) {
+        const data = JSON.parse(stored);
+        // Check if it's same month
+        const now = new Date();
+        const stored Date = new Date(data.monthStart || 0);
+        if (now.getMonth() === storedDate.getMonth() && now.getFullYear() === storedDate.getFullYear()) {
+          window._apiUsage.month = data.month;
+          window._apiUsage.history = data.history || [];
+        } else {
+          // New month, reset
+          window._apiUsage.month = { tokens: 0, cost: 0, calls: 0 };
+          window._apiUsage.history = [];
+        }
+      }
+    } catch(e) {
+      console.error('Error loading API usage:', e);
+    }
+  }
+  
+  // Save to localStorage
+  function saveApiUsage() {
+    try {
+      localStorage.setItem('NBD_API_USAGE', JSON.stringify({
+        monthStart: new Date().toISOString(),
+        month: window._apiUsage.month,
+        history: window._apiUsage.history.slice(-50) // Keep last 50
+      }));
+    } catch(e) {
+      console.error('Error saving API usage:', e);
+    }
+  }
+  
+  // Track API call
+  window.trackApiUsage = function(model, inputTokens, outputTokens) {
+    const pricing = PRICING[model] || PRICING['claude-sonnet-4'];
+    const inputCost = (inputTokens / 1000000) * pricing.input;
+    const outputCost = (outputTokens / 1000000) * pricing.output;
+    const totalCost = inputCost + outputCost;
+    const totalTokens = inputTokens + outputTokens;
+    
+    // Update session
+    window._apiUsage.session.tokens += totalTokens;
+    window._apiUsage.session.cost += totalCost;
+    window._apiUsage.session.calls++;
+    
+    // Update month
+    window._apiUsage.month.tokens += totalTokens;
+    window._apiUsage.month.cost += totalCost;
+    window._apiUsage.month.calls++;
+    
+    // Add to history
+    window._apiUsage.history.push({
+      timestamp: new Date().toISOString(),
+      model: model,
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
+      cost: totalCost
+    });
+    
+    saveApiUsage();
+    updateApiDashboard();
+    checkBudgetAlert();
+  };
+  
+  // Update dashboard UI
+  window.updateApiDashboard = function() {
+    const session = window._apiUsage.session;
+    const month = window._apiUsage.month;
+    
+    // Update session stats
+    document.getElementById('sessionTokens').textContent = session.tokens.toLocaleString();
+    document.getElementById('sessionCost').textContent = '$' + session.cost.toFixed(4);
+    
+    // Update monthly stats
+    document.getElementById('monthTokens').textContent = month.tokens.toLocaleString();
+    document.getElementById('monthCost').textContent = '$' + month.cost.toFixed(2);
+    
+    // Update history log
+    const log = document.getElementById('apiUsageLog');
+    if (window._apiUsage.history.length === 0) {
+      log.innerHTML = '<div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>';
+    } else {
+      log.innerHTML = window._apiUsage.history.slice(-10).reverse().map(call => {
+        const time = new Date(call.timestamp).toLocaleTimeString();
+        return `<div style="padding:6px;border-bottom:1px solid var(--br);font-size:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:var(--m);">${time}</span>
+            <span style="color:var(--orange);font-weight:600;">$${call.cost.toFixed(4)}</span>
+          </div>
+          <div style="color:var(--m);font-size:10px;margin-top:2px;">
+            ${call.inputTokens.toLocaleString()} in / ${call.outputTokens.toLocaleString()} out
+          </div>
+        </div>`;
+      }).join('');
+    }
+  };
+  
+  // Check budget alert
+  window.checkBudgetAlert = function() {
+    const budget = parseFloat(localStorage.getItem('NBD_API_BUDGET') || '25');
+    const spent = window._apiUsage.month.cost;
+    const percent = (spent / budget) * 100;
+    
+    const alert = document.getElementById('budgetAlert');
+    const alertText = document.getElementById('budgetAlertText');
+    
+    if (percent >= 80) {
+      alert.style.display = 'block';
+      if (percent >= 100) {
+        alertText.textContent = `⚠️ Budget exceeded! You've spent $${spent.toFixed(2)} of your $${budget.toFixed(2)} monthly budget`;
+        alert.style.background = 'rgba(255,71,71,0.15)';
+      } else {
+        alertText.textContent = `You've used ${percent.toFixed(0)}% of your monthly budget ($${spent.toFixed(2)} / $${budget.toFixed(2)})`;
+      }
+    } else {
+      alert.style.display = 'none';
+    }
+  };
+  
+  // Save budget settings
+  window.saveApiSettings = function() {
+    const budget = document.getElementById('monthlyBudget').value;
+    localStorage.setItem('NBD_API_BUDGET', budget);
+    showToast('Budget settings saved', 'success');
+    checkBudgetAlert();
+  };
+  
+  // Reset usage stats
+  window.resetApiUsage = function() {
+    if (!confirm('Reset all API usage stats? This will clear session and monthly data.')) return;
+    window._apiUsage = {
+      session: { tokens: 0, cost: 0, calls: 0 },
+      month: { tokens: 0, cost: 0, calls: 0 },
+      history: []
+    };
+    saveApiUsage();
+    updateApiDashboard();
+    showToast('Usage stats reset', 'success');
+  };
+  
+  // Load saved budget
+  const savedBudget = localStorage.getItem('NBD_API_BUDGET');
+  if (savedBudget) {
+    const budgetInput = document.getElementById('monthlyBudget');
+    if (budgetInput) budgetInput.value = savedBudget;
+  }
+  
+  // Initialize
+  loadApiUsage();
+  setTimeout(() => {
+    updateApiDashboard();
+    checkBudgetAlert();
+  }, 100);
+  
+})();
+</script>
+
 
       <!-- THEME PICKER -->
       <div class="settings-section" style="max-width:none;margin-top:0;">
