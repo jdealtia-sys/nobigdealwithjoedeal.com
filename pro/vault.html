@@ -1486,15 +1486,18 @@ function renderAdmin() {
 }
 
 function generateSessionStarter() {
-  const session27 = CODEX.sessions.find(s => s.num === 27);
+  // Find latest session and calculate next
+  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
   const blockers = CODEX.blockers.filter(b => b.status === 'open');
   const criticalDebt = CODEX.debt.filter(d => d.status === 'open' && d.severity === 'critical');
   
-  const prompt = `# SESSION 28 INITIALIZATION — NBD PRO BUILD
+  const prompt = `# SESSION ${nextSessionNum} INITIALIZATION — NBD PRO BUILD
 
-**Last Session:** v27 (Vault Firestore Integration — ${session27?.meta.date || 'March 25, 2026'})
+**Last Session:** v${latestSession?.num || 0} (${latestSession?.meta?.title || latestSession?.title || 'Untitled'} — ${latestSession?.meta?.date || latestSession?.date || 'Unknown date'})
 
-**Mission Locked:** ${extractNextMission(session27)}
+**Mission Locked:** ${extractNextMission(latestSession)}
 
 ## CRITICAL BLOCKERS (Verify Before New Work)
 
@@ -1505,10 +1508,10 @@ ${blockers.length ? blockers.map(b => `- [ ] **${b.title}** (${b.sessionsOpen} s
 1. Load Codex from Firestore (\`codex/snapshots/latest\`)
 2. Surface Execution Debt Register → prioritize critical items
 3. Verify standing blockers resolved or acknowledged
-4. Execute Session 28 mission
+4. Execute Session ${nextSessionNum} mission
 5. Log deltas in real-time (metadata + prose narrative)
 6. Generate session close payload for vault import
-7. Export CODEX v28 to Firestore
+7. Export CODEX v${nextSessionNum} to Firestore
 
 ## IMMUTABLE DIRECTIVES (Top 10)
 
@@ -1522,6 +1525,7 @@ ${blockers.length ? blockers.map(b => `- [ ] **${b.title}** (${b.sessionsOpen} s
 - **S13:** Worker URL: \`nbd-ai-proxy.jonathandeal459.workers.dev\` (gemini-2.5-flash only)
 - **S13:** Create token → use → delete (never share in chat)
 - **S27:** Vault Firestore is long-term memory — always purge cache after vault.html changes
+- **S29:** vaultImportSession() always checks for duplicates and shows resolution modal — never silently overwrite
 
 ## EXECUTION DEBT (Critical Only)
 
@@ -1533,10 +1537,10 @@ Codex loaded. Mission locked. Standing by for instructions.
 
 ---
 
-**Note:** This is the **minimal starter**. For full GOD MODE context (all 20 directives, complete debt register, architectural decisions), expand the Codex export at session start.`;
+**Note:** This is the **minimal starter**. For full GOD MODE context (all ${CODEX.directives.length} directives, complete debt register, architectural decisions), expand the Codex export at session start.`;
 
   document.getElementById('sessionStarterOutput').value = prompt;
-  toast('Session 28 starter prompt generated', 'success');
+  toast(`Session ${nextSessionNum} starter prompt generated`, 'success');
 }
 
 function copySessionStarter() {
