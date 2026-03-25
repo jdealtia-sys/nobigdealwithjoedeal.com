@@ -876,14 +876,14 @@ body::after {
           </div>
         </div>
 
-        <!-- Session 28 Mission -->
-        <div class="card">
+        <!-- Next Session Mission -->
+        <div class="card" id="nextSessionMissionCard">
           <div class="card-header">
-            <div class="card-title">🎯 Session 28 Mission</div>
-            <button class="btn-gold btn-sm" onclick="startSession28()">🚀 Start Session 28</button>
+            <div class="card-title" id="nextSessionTitle">🎯 Next Session Mission</div>
+            <button class="btn-gold btn-sm" id="startNextSessionBtn" onclick="startNextSession()">🚀 Start Next Session</button>
           </div>
-          <div class="card-body" id="session28Mission">
-            Loading mission from Session 27 close...
+          <div class="card-body" id="nextSessionMission">
+            Loading mission...
           </div>
         </div>
 
@@ -967,7 +967,14 @@ window.addEventListener('firebase-ready', async () => {
   
   await loadFromFirestore();
   renderOverview();
-  toast('Eternal Vault V2 loaded — Session 27 ready', 'success');
+  
+  // Calculate next session number dynamically
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0])
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  toast(`Eternal Vault V2 loaded — Session ${nextSessionNum} ready`, 'success');
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1142,10 +1149,17 @@ function renderOverview() {
   
   document.getElementById('blockersPreview').innerHTML = blockersHTML || '<em style="color:var(--text3)">No critical blockers 🎉</em>';
   
-  // Session 28 mission (extract from Session 27)
-  const session27 = CODEX.sessions.find(s => s.num === 27);
-  const mission = extractNextMission(session27);
-  document.getElementById('session28Mission').innerHTML = mission;
+  // Next session mission (extract from latest session)
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0])
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  document.getElementById('nextSessionTitle').textContent = `🎯 Session ${nextSessionNum} Mission`;
+  document.getElementById('startNextSessionBtn').textContent = `🚀 Start Session ${nextSessionNum}`;
+  
+  const mission = extractNextMission(latestSession, nextSessionNum);
+  document.getElementById('nextSessionMission').innerHTML = mission;
   
   // Recent sessions
   const recentHTML = CODEX.sessions
@@ -1161,14 +1175,14 @@ function renderOverview() {
   document.getElementById('recentSessions').innerHTML = recentHTML;
 }
 
-function extractNextMission(session27) {
-  if (!session27) return '<em style="color:var(--text3)">No mission data from Session 27</em>';
+function extractNextMission(latestSession, nextSessionNum) {
+  if (!latestSession) return '<em style="color:var(--text3)">No sessions yet</em>';
   
-  // Parse Session 27 content for next session mission
-  const content = session27.content;
+  // Parse latest session content for next session mission
+  const content = latestSession.content || '';
   
-  // Look for common mission patterns
-  const missionMatch = content.match(/Session 28[^:]*:([^\n]+)/i);
+  // Look for common mission patterns (e.g., "Session 31: Fix the thing")
+  const missionMatch = content.match(new RegExp(`Session ${nextSessionNum}[^:]*:([^\\n]+)`, 'i'));
   if (missionMatch) {
     return `<strong style="color:var(--gold)">Mission:</strong> ${missionMatch[1].trim()}`;
   }
@@ -1182,7 +1196,7 @@ function extractNextMission(session27) {
   return '<em style="color:var(--text3)">Continue build momentum — no specific mission locked</em>';
 }
 
-function startSession28() {
+function startNextSession() {
   navTo('admin');
   // Scroll to session starter prompt generator
   setTimeout(() => {
