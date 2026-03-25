@@ -1118,10 +1118,13 @@ function navTo(page) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function renderOverview() {
-  // Update page header - find session with HIGHEST number (not just last in array)
-  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
+  // Calculate latest session and next session number (used throughout)
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
+  // Update page header
   document.getElementById('overviewTitle').textContent = `Session ${latestSession?.num || 0} Complete`;
   document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || latestSession?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
   
@@ -1149,13 +1152,7 @@ function renderOverview() {
   
   document.getElementById('blockersPreview').innerHTML = blockersHTML || '<em style="color:var(--text3)">No critical blockers 🎉</em>';
   
-  // Next session mission (extract from latest session)
-  const latestSession = CODEX.sessions.length > 0 
-    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
-    : null;
-  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
-  
-  // Only update elements if they exist (might not exist on other pages)
+  // Next session mission - update UI elements if they exist
   const titleEl = document.getElementById('nextSessionTitle');
   const btnEl = document.getElementById('startNextSessionBtn');
   const missionEl = document.getElementById('nextSessionMission');
@@ -2056,7 +2053,9 @@ function executeSearch() {
 
 function renderAdmin() {
   // Calculate next session number
-  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
   const page = document.getElementById('page-admin');
@@ -2173,7 +2172,9 @@ function renderAdmin() {
 
 function generateSessionStarter() {
   // Find latest session and calculate next
-  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
   const blockers = CODEX.blockers.filter(b => b.status === 'open');
