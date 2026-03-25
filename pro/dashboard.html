@@ -5791,6 +5791,8 @@ async function saveLead(){
   window._modalIntel = null;
   document.querySelector('#leadModal .msave').disabled=false;
   mOk.textContent='Lead saved!';mOk.style.display='block';
+  // FIX: Navigate to CRM view so renderLeads has DOM elements to render to
+  goTo('crm');
   setTimeout(closeLeadModal,800);
 }
 
