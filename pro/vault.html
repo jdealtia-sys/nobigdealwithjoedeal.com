@@ -1413,6 +1413,10 @@ function renderSearch() {
 }
 
 function renderAdmin() {
+  // Calculate next session number
+  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
   const page = document.getElementById('page-admin');
   page.innerHTML = `
     <div class="page-header">
@@ -1423,11 +1427,11 @@ function renderAdmin() {
     <!-- Session Starter Generator -->
     <div class="card" id="sessionStarterSection">
       <div class="card-header">
-        <div class="card-title">🚀 Session 28 Starter Prompt</div>
+        <div class="card-title">🚀 Session ${nextSessionNum} Starter Prompt</div>
         <button class="btn-gold btn-sm" onclick="generateSessionStarter()">Generate Prompt</button>
       </div>
       <div class="card-body">
-        <textarea id="sessionStarterOutput" style="width:100%; min-height:400px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Click 'Generate Prompt' to create Session 28 starter..."></textarea>
+        <textarea id="sessionStarterOutput" style="width:100%; min-height:400px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Click 'Generate Prompt' to create Session ${nextSessionNum} starter..."></textarea>
         <button class="btn-outline btn-sm" style="margin-top:12px" onclick="copySessionStarter()">📋 Copy to Clipboard</button>
       </div>
     </div>
