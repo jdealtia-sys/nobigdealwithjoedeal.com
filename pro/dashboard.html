@@ -2331,6 +2331,12 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
     </div>
 
+    <!-- CRM WIDTH TOGGLE -->
+    <div class="crm-width-toggle" onclick="toggleCRMWidth()" title="Toggle workspace width">
+      <span class="toggle-icon">⇄</span>
+      <span class="toggle-label">Constrain</span>
+    </div>
+
   <!-- DELETED LEADS DRAWER -->
   <div class="deleted-drawer" id="deletedDrawer">
     <div class="deleted-drawer-hdr">
@@ -6219,6 +6225,76 @@ function exportEstimate() {
 #view-crm.active{display:flex !important;}
 #view-crm .kanban-board{display:flex !important;}
 
+
+/* ============================================
+   CRM WIDTH TOGGLE & BREATHING ROOM
+   ============================================ */
+#view-crm {
+  --crm-max-width: 100%;
+  transition: all 0.3s ease;
+}
+
+#view-crm.crm-constrained {
+  --crm-max-width: 1400px;
+}
+
+.crm-container-wrap {
+  max-width: var(--crm-max-width);
+  margin: 0 auto;
+  transition: max-width 0.3s ease;
+}
+
+.crm-width-toggle {
+  position: fixed;
+  right: 20px;
+  top: 80px;
+  z-index: 100;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#view-crm.active .crm-width-toggle {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.crm-width-toggle:hover {
+  background: var(--s3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.crm-width-toggle .toggle-icon {
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+#view-crm.crm-constrained .crm-width-toggle .toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Improved kanban spacing */
+.kanban-board {
+  gap: 14px !important;
+}
+
+.kanban-col {
+  min-width: 280px;
+}
+
 </style></head><body>
   <div class="hdr">
     <div>
@@ -8932,6 +9008,48 @@ async function seedDemoEstimates(uid) {
 
 
 
+
+
+// ============================================
+// CRM WIDTH TOGGLE
+// ============================================
+function toggleCRMWidth() {
+  const view = document.getElementById('view-crm');
+  const label = document.querySelector('.crm-width-toggle .toggle-label');
+  if (!view || !label) return;
+  
+  const isConstrained = view.classList.contains('crm-constrained');
+  
+  if (isConstrained) {
+    view.classList.remove('crm-constrained');
+    label.textContent = 'Constrain';
+    localStorage.setItem('NBD_CRM_WIDTH', 'full');
+  } else {
+    view.classList.add('crm-constrained');
+    label.textContent = 'Expand';
+    localStorage.setItem('NBD_CRM_WIDTH', 'constrained');
+  }
+}
+
+// Load saved CRM width preference
+function loadCRMWidthPreference() {
+  const savedWidth = localStorage.getItem('NBD_CRM_WIDTH');
+  const view = document.getElementById('view-crm');
+  const label = document.querySelector('.crm-width-toggle .toggle-label');
+  
+  if (!view || !label) return;
+  
+  if (savedWidth === 'constrained') {
+    view.classList.add('crm-constrained');
+    label.textContent = 'Expand';
+  } else {
+    view.classList.remove('crm-constrained');
+    label.textContent = 'Constrain';
+  }
+}
+
+// Initialize on page load
+setTimeout(loadCRMWidthPreference, 100);
 
 </script>
 
