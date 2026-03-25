@@ -2298,163 +2298,381 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
 
   <!-- ══ CRM ══ -->
-  <div class="view" id="view-crm">
+    <div class="view" id="view-crm">
 
-    <!-- HEADER BAR -->
-    <div class="crm-header">
-      <div>
-        <div class="page-title">Pipeline</div>
-        <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
-          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                 padding:7px 12px;font-size:12px;color:var(--t);width:200px;"
-          oninput="kanbanFilter()">
-        <select id="crmDmgFilter"
-          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                 padding:7px 8px;font-size:11px;color:var(--t);"
-          onchange="kanbanFilter()">
-          <option value="">All Types</option>
-          <option>Roof - Hail</option><option>Roof - Wind</option>
-          <option>Roof - Hail &amp; Wind</option><option>Siding - Hail</option>
-          <option>Siding - Wind</option><option>Gutters</option>
-          <option>Full Exterior</option><option>Fire</option><option>Water</option>
-        </select>
-        <button class="btn btn-ghost" onclick="exportLeadsCSV()"
-          style="font-size:11px;padding:6px 12px;">📤 CSV</button>
-        <button class="btn btn-ghost btn-trash-toggle" onclick="openDeletedDrawer()" title="Deleted Leads" style="position:relative;">
-          🗑 Deleted
-          <span class="trash-count-badge" id="trashCountBadge"></span>
-        </button>
-        <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
-      </div>
-    </div>
+<!-- CRM COLLAPSIBLE SIDEBAR -->
+<style>
+/* CRM Layout with Sidebar */
+#view-crm {
+  display: flex;
+  height: 100%;
+  position: relative;
+}
 
-    <!-- CRM WIDTH TOGGLE -->
-    <div class="crm-width-toggle" onclick="toggleCRMWidth()" title="Toggle workspace width">
-      <span class="toggle-icon">⇄</span>
-      <span class="toggle-label">Constrain</span>
-    </div>
+.crm-sidebar {
+  width: 280px;
+  background: var(--s);
+  border-right: 1px solid var(--br);
+  padding: 20px;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease, opacity 0.3s ease;
+  z-index: 10;
+  flex-shrink: 0;
+}
 
-  <!-- DELETED LEADS DRAWER -->
-  <div class="deleted-drawer" id="deletedDrawer">
-    <div class="deleted-drawer-hdr">
-      <div>
-        <div class="deleted-drawer-title">🗑 Deleted Leads</div>
-        <div style="font-size:10px;color:var(--m);margin-top:2px;">Restore or permanently remove</div>
-      </div>
-      <button class="deleted-drawer-close" onclick="closeDeletedDrawer()">✕</button>
+.crm-sidebar.collapsed {
+  margin-left: -280px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.crm-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar-toggle {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  background: var(--orange);
+  color: white;
+  border: none;
+  padding: 12px 8px;
+  cursor: pointer;
+  z-index: 100;
+  border-radius: 0 6px 6px 0;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 40px;
+}
+
+.sidebar-toggle:hover {
+  background: var(--orange-dark, #a03f14);
+  padding-left: 12px;
+}
+
+.sidebar-toggle.sidebar-open {
+  left: 280px;
+}
+
+/* Better spacing for CRM components */
+.crm-header {
+  padding: 16px 24px;
+  background: var(--s);
+  border-bottom: 1px solid var(--br);
+}
+
+.crm-rev-strip {
+  padding: 12px 24px;
+}
+
+.kanban-board {
+  padding: 20px 24px;
+  overflow-x: auto;
+}
+
+/* Sidebar content styling */
+.sidebar-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--br);
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--m);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.sidebar-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.sidebar-stat-label {
+  color: var(--m);
+}
+
+.sidebar-stat-value {
+  font-weight: 600;
+  color: var(--t);
+}
+
+.sidebar-filter {
+  margin-bottom: 12px;
+}
+
+.sidebar-filter label {
+  display: block;
+  font-size: 11px;
+  color: var(--m);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.sidebar-filter select,
+.sidebar-filter input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 5px;
+  color: var(--t);
+  font-size: 12px;
+}
+
+.quick-action-btn {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 6px;
+  color: var(--t);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.quick-action-btn:hover {
+  background: var(--s3);
+  border-color: var(--orange);
+}
+</style>
+
+<!-- Sidebar Toggle Button (Always Visible) -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleCRMSidebar()" title="Toggle Sidebar">
+  <span id="sidebarToggleIcon">☰</span>
+</button>
+
+<!-- CRM Sidebar -->
+<div class="crm-sidebar" id="crmSidebar">
+  <!-- Pipeline Stats -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Pipeline Overview</div>
+    <div class="sidebar-stat">
+      <span class="sidebar-stat-label">Total Leads</span>
+      <span class="sidebar-stat-value" id="sidebarTotalLeads">0</span>
     </div>
-    <div class="deleted-drawer-body" id="deletedDrawerBody">
-      <div class="deleted-empty">Loading...</div>
+    <div class="sidebar-stat">
+      <span class="sidebar-stat-label">Pipeline Value</span>
+      <span class="sidebar-stat-value" id="sidebarPipelineValue">$0</span>
+    </div>
+    <div class="sidebar-stat">
+      <span class="sidebar-stat-label">Avg Deal Size</span>
+      <span class="sidebar-stat-value" id="sidebarAvgDeal">$0</span>
+    </div>
+    <div class="sidebar-stat">
+      <span class="sidebar-stat-label">Follow-Ups Today</span>
+      <span class="sidebar-stat-value" id="sidebarFollowUps">0</span>
     </div>
   </div>
 
-    <!-- REVENUE STRIP -->
-    <div class="crm-rev-strip">
-      <div class="rev-pill"><span class="rev-num" id="crmTotalLeads">0</span><span class="rev-lbl">Leads</span></div>
-      <div class="rev-pill"><span class="rev-num" id="crmPipeVal" style="color:var(--orange);">$0</span><span class="rev-lbl">Pipeline</span></div>
-      <div class="rev-pill"><span class="rev-num" id="crmApproved">0</span><span class="rev-lbl">Approved</span></div>
-      <div class="rev-pill"><span class="rev-num" id="crmClosedRev" style="color:var(--green);">$0</span><span class="rev-lbl">Closed</span></div>
-      <div class="rev-pill" id="followUpPill" style="display:none;cursor:pointer;" onclick="scrollToFollowUps()">
-        <span class="rev-num" id="crmFollowUps" style="color:var(--red);">0</span>
-        <span class="rev-lbl" style="color:var(--red);">Overdue</span>
-      </div>
+  <!-- Filters -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Filters</div>
+    
+    <div class="sidebar-filter">
+      <label>Stage</label>
+      <select id="sidebarStageFilter" onchange="applySidebarFilters()">
+        <option value="">All Stages</option>
+        <option value="New">New</option>
+        <option value="Inspected">Inspected</option>
+        <option value="Estimate Sent">Estimate Sent</option>
+        <option value="Approved">Approved</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Complete">Complete</option>
+        <option value="Lost">Lost</option>
+      </select>
     </div>
+    
+    <div class="sidebar-filter">
+      <label>Damage Type</label>
+      <select id="sidebarDamageFilter" onchange="applySidebarFilters()">
+        <option value="">All Types</option>
+        <option>Roof - Hail</option>
+        <option>Roof - Wind</option>
+        <option>Roof - Hail & Wind</option>
+        <option>Siding - Hail</option>
+        <option>Siding - Wind</option>
+        <option>Gutters</option>
+        <option>Full Exterior</option>
+        <option>Fire</option>
+        <option>Water</option>
+      </select>
+    </div>
+    
+    <div class="sidebar-filter">
+      <label>Insurance Carrier</label>
+      <select id="sidebarCarrierFilter" onchange="applySidebarFilters()">
+        <option value="">All Carriers</option>
+        <option>State Farm</option>
+        <option>Nationwide</option>
+        <option>Allstate</option>
+        <option>Progressive</option>
+        <option>Travelers</option>
+        <option>Erie Insurance</option>
+        <option>Cincinnati Insurance</option>
+        <option>Other</option>
+      </select>
+    </div>
+    
+    <div class="sidebar-filter">
+      <label>Claim Status</label>
+      <select id="sidebarClaimFilter" onchange="applySidebarFilters()">
+        <option value="">All Statuses</option>
+        <option>No Claim</option>
+        <option>Claim Filed</option>
+        <option>Adjuster Scheduled</option>
+        <option>Approved</option>
+        <option>Supplementing</option>
+        <option>Paid Out</option>
+        <option>Denied</option>
+      </select>
+    </div>
+  </div>
 
-    <!-- FOLLOW-UP ALERTS (collapsed by default) -->
-    <div id="followUpAlerts" style="display:none;padding:0 16px 8px;"></div>
+  <!-- Quick Actions -->
+  <div class="sidebar-section">
+    <div class="sidebar-title">Quick Actions</div>
+    <button class="quick-action-btn" onclick="openLeadModal()">
+      ＋ Add New Lead
+    </button>
+    <button class="quick-action-btn" onclick="exportLeadsCSV()">
+      📤 Export to CSV
+    </button>
+    <button class="quick-action-btn" onclick="clearAllFilters()">
+      🔄 Clear All Filters
+    </button>
+    <button class="quick-action-btn" onclick="openDeletedDrawer()">
+      🗑 View Deleted (<span id="sidebarTrashCount">0</span>)
+    </button>
+  </div>
+</div>
 
-    <!-- KANBAN BOARD -->
-    <div class="kanban-board" id="kanbanBoard">
+<!-- CRM Main Content -->
+<div class="crm-main" id="crmMain">
+  <!-- Existing CRM content goes here -->
+</div>
 
-      <!-- STAGE: NEW -->
-      <div class="kanban-col" id="kcol-New">
-        <div class="kcol-header kh-new">
-          <div class="kcol-label">New Lead</div>
-          <div class="kcol-count" id="kcount-New">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-New"
-          ondragover="event.preventDefault()" ondrop="drop(event,'New')">
-          <div class="k-empty">No leads yet</div>
-        </div>
-      </div>
+<script>
+// CRM Sidebar Toggle
+let crmSidebarOpen = true; // Start open by default
 
-      <!-- STAGE: INSPECTED -->
-      <div class="kanban-col" id="kcol-Inspected">
-        <div class="kcol-header kh-insp">
-          <div class="kcol-label">Inspected</div>
-          <div class="kcol-count" id="kcount-Inspected">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Inspected"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Inspected')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+function toggleCRMSidebar() {
+  const sidebar = document.getElementById('crmSidebar');
+  const toggle = document.getElementById('sidebarToggle');
+  const icon = document.getElementById('sidebarToggleIcon');
+  
+  crmSidebarOpen = !crmSidebarOpen;
+  
+  if (crmSidebarOpen) {
+    sidebar.classList.remove('collapsed');
+    toggle.classList.add('sidebar-open');
+    icon.textContent = '✕';
+    localStorage.setItem('NBD_CRM_SIDEBAR', 'open');
+  } else {
+    sidebar.classList.add('collapsed');
+    toggle.classList.remove('sidebar-open');
+    icon.textContent = '☰';
+    localStorage.setItem('NBD_CRM_SIDEBAR', 'closed');
+  }
+}
 
-      <!-- STAGE: ESTIMATE SENT -->
-      <div class="kanban-col" id="kcol-Estimate Sent">
-        <div class="kcol-header kh-est">
-          <div class="kcol-label">Est. Sent</div>
-          <div class="kcol-count" id="kcount-Estimate Sent">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Estimate Sent"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Estimate Sent')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+// Load sidebar state on init
+function initCRMSidebar() {
+  const saved = localStorage.getItem('NBD_CRM_SIDEBAR');
+  if (saved === 'closed') {
+    crmSidebarOpen = true; // Set to true so toggle will close it
+    toggleCRMSidebar();
+  }
+  updateSidebarStats();
+}
 
-      <!-- STAGE: APPROVED -->
-      <div class="kanban-col" id="kcol-Approved">
-        <div class="kcol-header kh-appr">
-          <div class="kcol-label">Approved</div>
-          <div class="kcol-count" id="kcount-Approved">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Approved"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Approved')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+// Update sidebar stats
+function updateSidebarStats() {
+  if (!window._leads) return;
+  
+  const totalLeads = window._leads.filter(l => !l.deleted).length;
+  const pipelineValue = window._leads
+    .filter(l => !l.deleted && !['Complete', 'Lost'].includes(l.stage))
+    .reduce((sum, l) => sum + (parseFloat(l.jobValue) || 0), 0);
+  const avgDeal = totalLeads > 0 ? pipelineValue / totalLeads : 0;
+  
+  const today = new Date().toISOString().split('T')[0];
+  const followUps = window._leads.filter(l => 
+    !l.deleted && l.followUp === today
+  ).length;
+  
+  document.getElementById('sidebarTotalLeads').textContent = totalLeads;
+  document.getElementById('sidebarPipelineValue').textContent = '$' + pipelineValue.toLocaleString();
+  document.getElementById('sidebarAvgDeal').textContent = '$' + Math.round(avgDeal).toLocaleString();
+  document.getElementById('sidebarFollowUps').textContent = followUps;
+  
+  // Update trash count
+  const trashCount = window._leads.filter(l => l.deleted).length;
+  document.getElementById('sidebarTrashCount').textContent = trashCount;
+}
 
-      <!-- STAGE: IN PROGRESS -->
-      <div class="kanban-col" id="kcol-In Progress">
-        <div class="kcol-header kh-prog">
-          <div class="kcol-label">In Progress</div>
-          <div class="kcol-count" id="kcount-In Progress">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-In Progress"
-          ondragover="event.preventDefault()" ondrop="drop(event,'In Progress')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+// Apply sidebar filters
+function applySidebarFilters() {
+  const stage = document.getElementById('sidebarStageFilter').value;
+  const damage = document.getElementById('sidebarDamageFilter').value;
+  const carrier = document.getElementById('sidebarCarrierFilter').value;
+  const claim = document.getElementById('sidebarClaimFilter').value;
+  
+  // Apply to existing kanban filter
+  kanbanFilter(stage, damage, carrier, claim);
+}
 
-      <!-- STAGE: COMPLETE -->
-      <div class="kanban-col" id="kcol-Complete">
-        <div class="kcol-header kh-done">
-          <div class="kcol-label">Complete</div>
-          <div class="kcol-count" id="kcount-Complete">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Complete"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Complete')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+// Clear all filters
+function clearAllFilters() {
+  document.getElementById('sidebarStageFilter').value = '';
+  document.getElementById('sidebarDamageFilter').value = '';
+  document.getElementById('sidebarCarrierFilter').value = '';
+  document.getElementById('sidebarClaimFilter').value = '';
+  document.getElementById('crmSearch').value = '';
+  document.getElementById('crmDmgFilter').value = '';
+  kanbanFilter();
+  showToast('Filters cleared', 'success');
+}
 
-      <!-- STAGE: LOST -->
-      <div class="kanban-col" id="kcol-Lost">
-        <div class="kcol-header kh-lost">
-          <div class="kcol-label">Lost</div>
-          <div class="kcol-count" id="kcount-Lost">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Lost"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Lost')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
+// Initialize sidebar when CRM view opens
+const _origGoTo = goTo;
+goTo = function(view) {
+  _origGoTo(view);
+  if (view === 'crm') {
+    setTimeout(() => {
+      initCRMSidebar();
+      updateSidebarStats();
+    }, 100);
+  }
+};
+</script>
 
-    </div><!-- /kanban-board -->
-  </div><!-- /view-crm -->
+
+<!-- /view-crm -->
 
 <!-- ══ DAMAGE PHOTOS ══ -->
   <div class="view" id="view-photos">
