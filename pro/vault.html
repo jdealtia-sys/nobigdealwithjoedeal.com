@@ -2530,13 +2530,32 @@ EXTRACTION RULES:
     const data = await response.json();
     console.log('Raw worker response:', data);
     
-    // Worker might return {response: "..."} or {text: "..."} or {content: "..."}
-    let jsonText = data.response || data.text || data.content || '';
+    // Worker returns nested structure - try multiple paths
+    let jsonText = '';
+    
+    // Try common response paths
+    if (typeof data === 'string') {
+      jsonText = data;
+    } else if (data.response) {
+      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+    } else if (data.text) {
+      jsonText = typeof data.text === 'string' ? data.text : JSON.stringify(data.text);
+    } else if (data.content) {
+      jsonText = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
+    } else if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      // Gemini API format
+      jsonText = data.candidates[0].content.parts[0].text;
+    } else {
+      console.error('Unrecognized worker response format:', data);
+      throw new Error('Cannot find text content in worker response');
+    }
     
     if (!jsonText) {
-      console.error('No text content in worker response:', data);
+      console.error('No text content extracted from:', data);
       throw new Error('Worker returned no content');
     }
+    
+    console.log('Extracted text:', jsonText);
     
     // Strip markdown code fences if present
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
