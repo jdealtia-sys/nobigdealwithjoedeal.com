@@ -1297,6 +1297,18 @@ function renderAdmin() {
       </div>
     </div>
     
+    <!-- Export Codex -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💾 Export Codex to Firestore</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px; color:var(--text3)">Manually save current Codex state to Firestore (auto-saves every 5 minutes):</p>
+        <button class="btn-gold btn-sm" onclick="manualSaveToFirestore()">💾 Save to Firestore Now</button>
+        <div id="manualSaveStatus" style="margin-top:12px; font-size:13px; color:var(--text3)"></div>
+      </div>
+    </div>
+    
     <!-- Firestore Stats -->
     <div class="card">
       <div class="card-header">
@@ -1401,6 +1413,19 @@ function importSessionPayload() {
   } catch (error) {
     console.error('Import error:', error);
     toast('Failed to import session — check payload format', 'error');
+  }
+}
+
+async function manualSaveToFirestore() {
+  const statusDiv = document.getElementById('manualSaveStatus');
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Saving to Firestore...</span>';
+  
+  const success = await saveToFirestore();
+  
+  if (success) {
+    statusDiv.innerHTML = '<span style="color:var(--green)">✓ Saved successfully at ' + new Date().toLocaleTimeString() + '</span>';
+  } else {
+    statusDiv.innerHTML = '<span style="color:var(--red)">❌ Save failed — check console for errors</span>';
   }
 }
 
