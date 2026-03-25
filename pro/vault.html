@@ -840,8 +840,8 @@ body::after {
       <div class="page active" id="page-overview">
         <div class="page-header">
           <div class="page-eyebrow">Eternal Vault V2</div>
-          <div class="page-title">Session 27 Complete</div>
-          <div class="page-subtitle">Last updated: March 25, 2026 | Next: Session 28</div>
+          <div class="page-title" id="overviewTitle">Loading...</div>
+          <div class="page-subtitle" id="overviewSubtitle">Loading...</div>
         </div>
 
         <!-- Stat Cards -->
@@ -1109,6 +1109,13 @@ function navTo(page) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function renderOverview() {
+  // Update page header
+  const latestSession = CODEX.sessions[CODEX.sessions.length - 1];
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  document.getElementById('overviewTitle').textContent = `Session ${latestSession?.num || 0} Complete`;
+  document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
+  
   // Update stat cards
   const blockerCount = CODEX.blockers.filter(b => b.status === 'open' && b.severity === 'critical').length;
   const debtCount = CODEX.debt.filter(d => d.status === 'open').length;
