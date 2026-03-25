@@ -12,12 +12,13 @@
   import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAbLGvpeCEEIXdNnY3U0i4qwuAkdaB4wQU",
-    authDomain: "nbd-pro-86ce7.firebaseapp.com",
-    projectId: "nbd-pro-86ce7",
-    storageBucket: "nbd-pro-86ce7.firebasestorage.app",
-    messagingSenderId: "635819699498",
-    appId: "1:635819699498:web:22bf6e1a6f5d93f3c79df0"
+    apiKey: "AIzaSyDTroIHNzlYJjdGbM25BpC-FPvBi_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    databaseURL: "https://nobigdeal-pro-default-rtdb.firebaseio.com",
+    projectId: "nobigdeal-pro",
+    storageBucket: "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841578",
+    appId: "1:717435841578:web:c2338e11052c96fde02e70"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -903,7 +904,7 @@ window.addEventListener('firebase-ready', async () => {
 async function loadFromFirestore() {
   try {
     const {doc, getDoc} = firestore;
-    const docRef = doc(db, 'codex', 'snapshots', 'latest');
+    const docRef = doc(db, 'codex', 'latest');
     const snapshot = await getDoc(docRef);
     
     if (snapshot.exists()) {
@@ -927,8 +928,8 @@ async function saveToFirestore() {
   try {
     const {doc, setDoc} = firestore;
     
-    // Save to snapshots/latest
-    const latestRef = doc(db, 'codex', 'snapshots', 'latest');
+    // Save to codex/latest
+    const latestRef = doc(db, 'codex', 'latest');
     await setDoc(latestRef, {
       ...CODEX,
       lastSaved: new Date().toISOString(),
@@ -1420,7 +1421,7 @@ window.vaultImportSession = async function(sessionData) {
   
   // Also save session delta
   const {doc, setDoc} = firestore;
-  const deltaRef = doc(db, 'codex', 'sessions', `s${sessionData.num.toString().padStart(2, '0')}-delta`);
+  const deltaRef = doc(db, 'codex-sessions', `s${sessionData.num.toString().padStart(2, '0')}-delta`);
   await setDoc(deltaRef, sessionData);
   
   toast(`Session ${sessionData.num} imported and saved`, 'success');
