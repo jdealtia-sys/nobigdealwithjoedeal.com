@@ -847,7 +847,7 @@ body::after {
         <!-- Stat Cards -->
         <div class="stat-row">
           <div class="stat-chip">
-            <div class="stat-val ok">27</div>
+            <div class="stat-val ok" id="sessionCount">0</div>
             <div class="stat-lbl">Total Sessions</div>
           </div>
           <div class="stat-chip">
@@ -1115,6 +1115,7 @@ function renderOverview() {
   
   document.getElementById('blockerCount').textContent = blockerCount;
   document.getElementById('debtCount').textContent = debtCount;
+  document.getElementById('sessionCount').textContent = CODEX.sessions.length;
   document.getElementById('taskBadge').textContent = CODEX.tasks.filter(t => t.status === 'open').length;
   document.getElementById('debtBadge').textContent = debtCount;
   document.getElementById('blockerBadge').textContent = blockerCount;
