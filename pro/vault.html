@@ -970,7 +970,7 @@ window.addEventListener('firebase-ready', async () => {
   
   // Calculate next session number dynamically
   const latestSession = CODEX.sessions.length > 0 
-    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0])
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
     : null;
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
@@ -1151,15 +1151,22 @@ function renderOverview() {
   
   // Next session mission (extract from latest session)
   const latestSession = CODEX.sessions.length > 0 
-    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0])
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
     : null;
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
-  document.getElementById('nextSessionTitle').textContent = `🎯 Session ${nextSessionNum} Mission`;
-  document.getElementById('startNextSessionBtn').textContent = `🚀 Start Session ${nextSessionNum}`;
+  // Only update elements if they exist (might not exist on other pages)
+  const titleEl = document.getElementById('nextSessionTitle');
+  const btnEl = document.getElementById('startNextSessionBtn');
+  const missionEl = document.getElementById('nextSessionMission');
   
-  const mission = extractNextMission(latestSession, nextSessionNum);
-  document.getElementById('nextSessionMission').innerHTML = mission;
+  if (titleEl) titleEl.textContent = `🎯 Session ${nextSessionNum} Mission`;
+  if (btnEl) btnEl.textContent = `🚀 Start Session ${nextSessionNum}`;
+  
+  if (missionEl) {
+    const mission = extractNextMission(latestSession, nextSessionNum);
+    missionEl.innerHTML = mission;
+  }
   
   // Recent sessions
   const recentHTML = CODEX.sessions
