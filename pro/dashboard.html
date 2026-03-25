@@ -5732,7 +5732,16 @@ function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
 // ══════════════════════════════════════════════
 // CRM
 // ══════════════════════════════════════════════
-function openLeadModal(){document.getElementById('leadModal').classList.add('open');}
+function openLeadModal(){
+  document.getElementById('leadModal').classList.add('open');
+  // Re-initialize autocomplete for address field when modal opens
+  setTimeout(() => {
+    const lAddrInput = document.getElementById('lAddr');
+    if (lAddrInput && typeof initAddressAutocomplete === 'function') {
+      initAddressAutocomplete('lAddr');
+    }
+  }, 100);
+}
 function closeLeadModal(){
   document.getElementById('leadModal').classList.remove('open');
   document.getElementById('mErr').style.display='none';
