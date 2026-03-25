@@ -5734,11 +5734,52 @@ function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
 // ══════════════════════════════════════════════
 function openLeadModal(){
   document.getElementById('leadModal').classList.add('open');
-  // Re-initialize autocomplete for address field when modal opens
+  
+  // FORCED AUTOCOMPLETE INITIALIZATION FIX
   setTimeout(() => {
-    const lAddrInput = document.getElementById('lAddr');
-    if (lAddrInput && typeof initAddressAutocomplete === 'function') {
-      initAddressAutocomplete('lAddr');
+    const input = document.getElementById('lAddr');
+    const drop = document.getElementById('ac-lAddr');
+    if (!input || !drop) return;
+    
+    // Initialize globals if missing
+    if (!window._acCache) window._acCache = {};
+    if (!window._acTimers) window._acTimers = {};
+    
+    // Clone input to remove old listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    
+    // Add autocomplete listener
+    newInput.addEventListener('input', () => {
+      clearTimeout(window._acTimers['lAddr']);
+      const q = newInput.value.trim();
+      if (q.length < 3) { drop.style.display = 'none'; return; }
+      
+      window._acTimers['lAddr'] = setTimeout(async () => {
+        if (window._acCache[q]) {
+          renderAcDrop(q, window._acCache[q]); return;
+        }
+        drop.innerHTML = '<div style="padding:8px;color:var(--m);">Searching...</div>';
+        drop.style.display = 'block';
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&countrycodes=us&viewbox=-84.9,38.4,-83.6,39.7&bounded=0`;
+          const res = await fetch(url);
+          const data = await res.json();
+          window._acCache[q] = data;
+          renderAcDrop(q, data);
+        } catch(e) { drop.style.display = 'none'; }
+      }, 320);
+    });
+    
+    function renderAcDrop(q, results) {
+      if (!results.length) { drop.style.display = 'none'; return; }
+      drop.innerHTML = results.map((r, i) => {
+        const parts = r.display_name.split(',');
+        const main = parts.slice(0, 2).join(',').trim();
+        const sub = parts.slice(2, 4).join(',').trim();
+        return `<div class="ac-item" style="padding:8px;cursor:pointer;border-bottom:1px solid var(--br);" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''" onclick="((m) => { document.getElementById('lAddr').value = m; document.getElementById('ac-lAddr').style.display = 'none'; })('${main.replace(/'/g, "\\'")}')"><b>${main}</b>${sub ? `<br><span style="color:var(--m);font-size:10px;">${sub}</span>` : ''}</div>`;
+      }).join('');
+      drop.style.display = 'block';
     }
   }, 100);
 }
