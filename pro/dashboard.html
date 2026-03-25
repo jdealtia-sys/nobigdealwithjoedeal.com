@@ -113,6 +113,22 @@
     document.getElementById('dashName').textContent   = name;
     document.getElementById('settingsName').value     = user.displayName || '';
     document.getElementById('settingsEmail').value    = user.email || '';
+    
+    // ── Read user plan from Firestore ──────────────────────────
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        window._userPlan = userData.plan || 'explorer'; // default to explorer if no plan set
+        console.log('User plan loaded:', window._userPlan);
+      } else {
+        window._userPlan = 'explorer'; // new user, no plan yet
+      }
+    } catch (e) {
+      console.warn('Could not read user plan:', e);
+      window._userPlan = 'explorer'; // fallback
+    }
+    
     // Seed demo data first if this is the demo account, then load normally
     await maybeSeedDemoData(user).catch(()=>{});
     loadLeads(); loadEstimates(); loadPins();
@@ -4759,14 +4775,15 @@ const NBD_FONTS = [
 ];
 
 /* ── STATE ────────────────────────────────────────────────────────── */
-const NBD_PLAN_ORDER  = ['blueprint','foundation','infused','team','command'];
-const NBD_USER_PLAN   = 'command'; // TODO: wire to real Firestore .plan after Stripe lands
+const NBD_PLAN_ORDER  = ['explorer','professional','command'];
+// NBD_USER_PLAN is now dynamic - reads from window._userPlan (set in onAuthStateChanged)
+const NBD_USER_PLAN   = () => window._userPlan || 'explorer';
 let _nbd_activeTheme  = localStorage.getItem('nbd-theme') || 'default';
 let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';
 let _nbd_customs      = JSON.parse(localStorage.getItem('nbd-customs') || '[]');
 
-const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN) >= NBD_PLAN_ORDER.indexOf(p);
+const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN()) >= NBD_PLAN_ORDER.indexOf(p);
 const _nbdGetTheme  = id => [...NBD_THEMES, ..._nbd_customs].find(t => t.id === id);
 
 /* ── APPLY THEME ──────────────────────────────────────────────────── */
