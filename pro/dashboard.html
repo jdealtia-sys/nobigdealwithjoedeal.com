@@ -113,22 +113,6 @@
     document.getElementById('dashName').textContent   = name;
     document.getElementById('settingsName').value     = user.displayName || '';
     document.getElementById('settingsEmail').value    = user.email || '';
-    
-    // ── Read user plan from Firestore ──────────────────────────
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        window._userPlan = userData.plan || 'explorer'; // default to explorer if no plan set
-        console.log('User plan loaded:', window._userPlan);
-      } else {
-        window._userPlan = 'explorer'; // new user, no plan yet
-      }
-    } catch (e) {
-      console.warn('Could not read user plan:', e);
-      window._userPlan = 'explorer'; // fallback
-    }
-    
     // Seed demo data first if this is the demo account, then load normally
     await maybeSeedDemoData(user).catch(()=>{});
     loadLeads(); loadEstimates(); loadPins();
@@ -140,9 +124,9 @@
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
   // ── GLOBAL CRM STATE ───────────────────────────
-  window.STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-  window._dragId = null;
-  window._filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
+  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+  let _dragId = null;
+  let _filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
@@ -313,6 +297,16 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .ni.active{color:var(--orange);background:rgba(200,84,26,.08);border-left-color:var(--orange);font-weight:500;}
 .ni-icon{font-size:14px;width:18px;text-align:center;}
 .nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;}
+
+/* COLLAPSIBLE NAV SECTIONS */
+.nav-section{margin-top:8px;}
+.nav-section-header{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);cursor:pointer;user-select:none;transition:background .15s;}
+.nav-section-header:hover{background:var(--s2);}
+.nav-section-toggle{font-size:10px;transition:transform .2s;}
+.nav-section-toggle.open{transform:rotate(90deg);}
+.nav-section-content{max-height:0;overflow:hidden;transition:max-height .3s ease;}
+.nav-section-content.open{max-height:500px;}
+.nav-divider{height:1px;background:var(--br);margin:12px 0;}
 
 /* CONTENT */
 .content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
@@ -1800,24 +1794,47 @@ window.nbdNavToggle = nbdNavToggle;
 
 <!-- SIDEBAR NAV -->
 <nav class="sidebar">
-  <div class="nlabel">Main</div>
+  
+  <!-- TIER 1: PRIMARY WORKFLOW -->
   <div class="ni active" onclick="goTo('dash')" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
-  <div class="ni" onclick="goTo('map')"  id="nav-map"><span class="ni-icon">🗺️</span>Property Map</div>
-  <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing Tool</div>
+  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span></div>
   <div class="ni" onclick="goTo('est')"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
-  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>CRM Leads <span class="nbadge" id="leadBadge">0</span></div>
-  <div class="nlabel">Field Tools</div>
-  <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Damage Photos</div>
-  <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Documents</div>
-  <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Map</div>
-  <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
-  <div class="nlabel">Account</div>
-  <div class="nlabel">Tools</div>
-  <div class="ni" onclick="window.location.href='/pro/daily-success'" id="nav-daily"><span class="ni-icon">📅</span>Daily Success</div>
-  <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe <span class="nbadge" style="background:var(--green);margin-left:auto;">AI</span></div>
-  <div class="nlabel">Account</div>
+
+  <div class="nav-divider"></div>
+
+  <!-- TIER 2: TOOLS (Collapsible) -->
+  <div class="nav-section">
+    <div class="nav-section-header" onclick="toggleNavSection('tools')">
+      <span>TOOLS</span>
+      <span class="nav-section-toggle open" id="toggle-tools">▶</span>
+    </div>
+    <div class="nav-section-content open" id="section-tools">
+      <div class="ni" onclick="goTo('map')" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
+      <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
+      <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
+      <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
+    </div>
+  </div>
+
+  <!-- TIER 3: INSIGHTS (Collapsible) -->
+  <div class="nav-section">
+    <div class="nav-section-header" onclick="toggleNavSection('insights')">
+      <span>INSIGHTS</span>
+      <span class="nav-section-toggle open" id="toggle-insights">▶</span>
+    </div>
+    <div class="nav-section-content open" id="section-insights">
+      <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+      <div class="ni" onclick="window.open('/pro/daily-success/','_blank')" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
+      <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
+    </div>
+  </div>
+
+  <div class="nav-divider"></div>
+
+  <!-- TIER 4: SYSTEM (Always Visible) -->
+  <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
-  <div class="ni" onclick="openTips()" id="nav-tips"><span class="ni-icon">💡</span>Pro Tips</div>
+  
 </nav>
 
 <!-- CONTENT AREA -->
@@ -2298,387 +2315,153 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
 
   <!-- ══ CRM ══ -->
-    <div class="view" id="view-crm">
+  <div class="view" id="view-crm">
 
-<!-- CRM COLLAPSIBLE SIDEBAR -->
-<style>
-/* CRM Layout with Sidebar */
-#view-crm {
-  display: flex;
-  height: 100%;
-  position: relative;
-}
-
-.crm-sidebar {
-  width: 280px;
-  background: var(--s);
-  border-right: 1px solid var(--br);
-  padding: 20px;
-  overflow-y: auto;
-  transition: margin-left 0.3s ease, opacity 0.3s ease;
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.crm-sidebar.collapsed {
-  margin-left: -280px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.crm-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: margin-left 0.3s ease;
-}
-
-.sidebar-toggle {
-  position: fixed;
-  top: 70px;
-  left: 0;
-  background: var(--orange);
-  color: white;
-  border: none;
-  padding: 12px 8px;
-  cursor: pointer;
-  z-index: 100;
-  border-radius: 0 6px 6px 0;
-  font-size: 18px;
-  line-height: 1;
-  box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 40px;
-}
-
-.sidebar-toggle:hover {
-  background: var(--orange-dark, #a03f14);
-  padding-left: 12px;
-}
-
-.sidebar-toggle.sidebar-open {
-  left: 280px;
-}
-
-/* Better spacing for CRM components */
-.crm-header {
-  padding: 16px 24px;
-  background: var(--s);
-  border-bottom: 1px solid var(--br);
-}
-
-.crm-rev-strip {
-  padding: 12px 24px;
-}
-
-.kanban-board {
-  padding: 20px 24px;
-  overflow-x: auto;
-}
-
-/* Sidebar content styling */
-.sidebar-section {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--br);
-}
-
-.sidebar-section:last-child {
-  border-bottom: none;
-}
-
-.sidebar-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--m);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 12px;
-}
-
-.sidebar-stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  font-size: 13px;
-}
-
-.sidebar-stat-label {
-  color: var(--m);
-}
-
-.sidebar-stat-value {
-  font-weight: 600;
-  color: var(--t);
-}
-
-.sidebar-filter {
-  margin-bottom: 12px;
-}
-
-.sidebar-filter label {
-  display: block;
-  font-size: 11px;
-  color: var(--m);
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.sidebar-filter select,
-.sidebar-filter input {
-  width: 100%;
-  padding: 8px 10px;
-  background: var(--s2);
-  border: 1px solid var(--br);
-  border-radius: 5px;
-  color: var(--t);
-  font-size: 12px;
-}
-
-.quick-action-btn {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 8px;
-  background: var(--s2);
-  border: 1px solid var(--br);
-  border-radius: 6px;
-  color: var(--t);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-}
-
-.quick-action-btn:hover {
-  background: var(--s3);
-  border-color: var(--orange);
-}
-</style>
-
-<!-- Sidebar Toggle Button (Always Visible) -->
-<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleCRMSidebar()" title="Toggle Sidebar">
-  <span id="sidebarToggleIcon">☰</span>
-</button>
-
-<!-- CRM Sidebar -->
-<div class="crm-sidebar" id="crmSidebar">
-  <!-- Pipeline Stats -->
-  <div class="sidebar-section">
-    <div class="sidebar-title">Pipeline Overview</div>
-    <div class="sidebar-stat">
-      <span class="sidebar-stat-label">Total Leads</span>
-      <span class="sidebar-stat-value" id="sidebarTotalLeads">0</span>
+    <!-- HEADER BAR -->
+    <div class="crm-header">
+      <div>
+        <div class="page-title">Pipeline</div>
+        <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
+          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
+                 padding:7px 12px;font-size:12px;color:var(--t);width:200px;"
+          oninput="kanbanFilter()">
+        <select id="crmDmgFilter"
+          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
+                 padding:7px 8px;font-size:11px;color:var(--t);"
+          onchange="kanbanFilter()">
+          <option value="">All Types</option>
+          <option>Roof - Hail</option><option>Roof - Wind</option>
+          <option>Roof - Hail &amp; Wind</option><option>Siding - Hail</option>
+          <option>Siding - Wind</option><option>Gutters</option>
+          <option>Full Exterior</option><option>Fire</option><option>Water</option>
+        </select>
+        <button class="btn btn-ghost" onclick="exportLeadsCSV()"
+          style="font-size:11px;padding:6px 12px;">📤 CSV</button>
+        <button class="btn btn-ghost btn-trash-toggle" onclick="openDeletedDrawer()" title="Deleted Leads" style="position:relative;">
+          🗑 Deleted
+          <span class="trash-count-badge" id="trashCountBadge"></span>
+        </button>
+        <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
+      </div>
     </div>
-    <div class="sidebar-stat">
-      <span class="sidebar-stat-label">Pipeline Value</span>
-      <span class="sidebar-stat-value" id="sidebarPipelineValue">$0</span>
+
+  <!-- DELETED LEADS DRAWER -->
+  <div class="deleted-drawer" id="deletedDrawer">
+    <div class="deleted-drawer-hdr">
+      <div>
+        <div class="deleted-drawer-title">🗑 Deleted Leads</div>
+        <div style="font-size:10px;color:var(--m);margin-top:2px;">Restore or permanently remove</div>
+      </div>
+      <button class="deleted-drawer-close" onclick="closeDeletedDrawer()">✕</button>
     </div>
-    <div class="sidebar-stat">
-      <span class="sidebar-stat-label">Avg Deal Size</span>
-      <span class="sidebar-stat-value" id="sidebarAvgDeal">$0</span>
-    </div>
-    <div class="sidebar-stat">
-      <span class="sidebar-stat-label">Follow-Ups Today</span>
-      <span class="sidebar-stat-value" id="sidebarFollowUps">0</span>
+    <div class="deleted-drawer-body" id="deletedDrawerBody">
+      <div class="deleted-empty">Loading...</div>
     </div>
   </div>
 
-  <!-- Filters -->
-  <div class="sidebar-section">
-    <div class="sidebar-title">Filters</div>
-    
-    <div class="sidebar-filter">
-      <label>Stage</label>
-      <select id="sidebarStageFilter" onchange="applySidebarFilters()">
-        <option value="">All Stages</option>
-        <option value="New">New</option>
-        <option value="Inspected">Inspected</option>
-        <option value="Estimate Sent">Estimate Sent</option>
-        <option value="Approved">Approved</option>
-        <option value="In Progress">In Progress</option>
-        <option value="Complete">Complete</option>
-        <option value="Lost">Lost</option>
-      </select>
-    </div>
-    
-    <div class="sidebar-filter">
-      <label>Damage Type</label>
-      <select id="sidebarDamageFilter" onchange="applySidebarFilters()">
-        <option value="">All Types</option>
-        <option>Roof - Hail</option>
-        <option>Roof - Wind</option>
-        <option>Roof - Hail & Wind</option>
-        <option>Siding - Hail</option>
-        <option>Siding - Wind</option>
-        <option>Gutters</option>
-        <option>Full Exterior</option>
-        <option>Fire</option>
-        <option>Water</option>
-      </select>
-    </div>
-    
-    <div class="sidebar-filter">
-      <label>Insurance Carrier</label>
-      <select id="sidebarCarrierFilter" onchange="applySidebarFilters()">
-        <option value="">All Carriers</option>
-        <option>State Farm</option>
-        <option>Nationwide</option>
-        <option>Allstate</option>
-        <option>Progressive</option>
-        <option>Travelers</option>
-        <option>Erie Insurance</option>
-        <option>Cincinnati Insurance</option>
-        <option>Other</option>
-      </select>
-    </div>
-    
-    <div class="sidebar-filter">
-      <label>Claim Status</label>
-      <select id="sidebarClaimFilter" onchange="applySidebarFilters()">
-        <option value="">All Statuses</option>
-        <option>No Claim</option>
-        <option>Claim Filed</option>
-        <option>Adjuster Scheduled</option>
-        <option>Approved</option>
-        <option>Supplementing</option>
-        <option>Paid Out</option>
-        <option>Denied</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Quick Actions -->
-  <div class="sidebar-section">
-    <div class="sidebar-title">Quick Actions</div>
-    <button class="quick-action-btn" onclick="openLeadModal()">
-      ＋ Add New Lead
-    </button>
-    <button class="quick-action-btn" onclick="exportLeadsCSV()">
-      📤 Export to CSV
-    </button>
-    <button class="quick-action-btn" onclick="clearAllFilters()">
-      🔄 Clear All Filters
-    </button>
-    <button class="quick-action-btn" onclick="openDeletedDrawer()">
-      🗑 View Deleted (<span id="sidebarTrashCount">0</span>)
-    </button>
-  </div>
-</div>
-
-<!-- CRM Main Content -->
-<div class="crm-main" id="crmMain">
-  <!-- Existing CRM content goes here -->
-</div>
-
-<script>
-// CRM Sidebar Toggle
-let crmSidebarOpen = true; // Start open by default
-
-function toggleCRMSidebar() {
-  const sidebar = document.getElementById('crmSidebar');
-  const toggle = document.getElementById('sidebarToggle');
-  const icon = document.getElementById('sidebarToggleIcon');
-  
-  crmSidebarOpen = !crmSidebarOpen;
-  
-  if (crmSidebarOpen) {
-    sidebar.classList.remove('collapsed');
-    toggle.classList.add('sidebar-open');
-    icon.textContent = '✕';
-    localStorage.setItem('NBD_CRM_SIDEBAR', 'open');
-  } else {
-    sidebar.classList.add('collapsed');
-    toggle.classList.remove('sidebar-open');
-    icon.textContent = '☰';
-    localStorage.setItem('NBD_CRM_SIDEBAR', 'closed');
-  }
-}
-
-// Load sidebar state on init
-function initCRMSidebar() {
-  const saved = localStorage.getItem('NBD_CRM_SIDEBAR');
-  if (saved === 'closed') {
-    crmSidebarOpen = true; // Set to true so toggle will close it
-    toggleCRMSidebar();
-  }
-  updateSidebarStats();
-}
-
-// Update sidebar stats
-function updateSidebarStats() {
-  if (!window._leads) return;
-  
-  const totalLeads = window._leads.filter(l => !l.deleted).length;
-  const pipelineValue = window._leads
-    .filter(l => !l.deleted && !['Complete', 'Lost'].includes(l.stage))
-    .reduce((sum, l) => sum + (parseFloat(l.jobValue) || 0), 0);
-  const avgDeal = totalLeads > 0 ? pipelineValue / totalLeads : 0;
-  
-  const today = new Date().toISOString().split('T')[0];
-  const followUps = window._leads.filter(l => 
-    !l.deleted && l.followUp === today
-  ).length;
-  
-  document.getElementById('sidebarTotalLeads').textContent = totalLeads;
-  document.getElementById('sidebarPipelineValue').textContent = '$' + pipelineValue.toLocaleString();
-  document.getElementById('sidebarAvgDeal').textContent = '$' + Math.round(avgDeal).toLocaleString();
-  document.getElementById('sidebarFollowUps').textContent = followUps;
-  
-  // Update trash count
-  const trashCount = window._leads.filter(l => l.deleted).length;
-  document.getElementById('sidebarTrashCount').textContent = trashCount;
-}
-
-// Apply sidebar filters
-function applySidebarFilters() {
-  const stage = document.getElementById('sidebarStageFilter').value;
-  const damage = document.getElementById('sidebarDamageFilter').value;
-  const carrier = document.getElementById('sidebarCarrierFilter').value;
-  const claim = document.getElementById('sidebarClaimFilter').value;
-  
-  // Apply to existing kanban filter
-  kanbanFilter(stage, damage, carrier, claim);
-}
-
-// Clear all filters
-function clearAllFilters() {
-  document.getElementById('sidebarStageFilter').value = '';
-  document.getElementById('sidebarDamageFilter').value = '';
-  document.getElementById('sidebarCarrierFilter').value = '';
-  document.getElementById('sidebarClaimFilter').value = '';
-  document.getElementById('crmSearch').value = '';
-  document.getElementById('crmDmgFilter').value = '';
-  kanbanFilter();
-  showToast('Filters cleared', 'success');
-}
-
-// Initialize sidebar when CRM view opens
-const _origGoTo = goTo;
-goTo = function(view) {
-  _origGoTo(view);
-  if (view === 'crm') {
-    setTimeout(() => {
-      initCRMSidebar();
-      updateSidebarStats();
-    }, 100);
-  }
-};
-</script>
 
 
-<!-- /view-crm -->
+    <!-- FOLLOW-UP ALERTS (collapsed by default) -->
+    <div id="followUpAlerts" style="display:none;padding:0 16px 8px;"></div>
 
-<!-- ══ DAMAGE PHOTOS ══ -->
+    <!-- KANBAN BOARD -->
+    <div class="kanban-board" id="kanbanBoard">
+
+      <!-- STAGE: NEW -->
+      <div class="kanban-col" id="kcol-New">
+        <div class="kcol-header kh-new">
+          <div class="kcol-label">New Lead</div>
+          <div class="kcol-count" id="kcount-New">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-New"
+          ondragover="event.preventDefault()" ondrop="drop(event,'New')">
+          <div class="k-empty">No leads yet</div>
+        </div>
+      </div>
+
+      <!-- STAGE: INSPECTED -->
+      <div class="kanban-col" id="kcol-Inspected">
+        <div class="kcol-header kh-insp">
+          <div class="kcol-label">Inspected</div>
+          <div class="kcol-count" id="kcount-Inspected">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Inspected"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Inspected')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: ESTIMATE SENT -->
+      <div class="kanban-col" id="kcol-Estimate Sent">
+        <div class="kcol-header kh-est">
+          <div class="kcol-label">Est. Sent</div>
+          <div class="kcol-count" id="kcount-Estimate Sent">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Estimate Sent"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Estimate Sent')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: APPROVED -->
+      <div class="kanban-col" id="kcol-Approved">
+        <div class="kcol-header kh-appr">
+          <div class="kcol-label">Approved</div>
+          <div class="kcol-count" id="kcount-Approved">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Approved"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Approved')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: IN PROGRESS -->
+      <div class="kanban-col" id="kcol-In Progress">
+        <div class="kcol-header kh-prog">
+          <div class="kcol-label">In Progress</div>
+          <div class="kcol-count" id="kcount-In Progress">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-In Progress"
+          ondragover="event.preventDefault()" ondrop="drop(event,'In Progress')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: COMPLETE -->
+      <div class="kanban-col" id="kcol-Complete">
+        <div class="kcol-header kh-done">
+          <div class="kcol-label">Complete</div>
+          <div class="kcol-count" id="kcount-Complete">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Complete"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Complete')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+      <!-- STAGE: LOST -->
+      <div class="kanban-col" id="kcol-Lost">
+        <div class="kcol-header kh-lost">
+          <div class="kcol-label">Lost</div>
+          <div class="kcol-count" id="kcount-Lost">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-Lost"
+          ondragover="event.preventDefault()" ondrop="drop(event,'Lost')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>
+
+    </div><!-- /kanban-board -->
+  </div><!-- /view-crm -->
+
+<!-- ══ PHOTO LIBRARY ══ -->
   <div class="view" id="view-photos">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Damage Photos</div><div class="page-sub">Per-property photo documentation</div></div>
+        <div><div class="page-title">Photo Library</div><div class="page-sub">Property documentation & damage photos</div></div>
       </div>
       <div class="panel" style="margin-bottom:14px;">
         <div class="panel-hdr"><div><div class="panel-label">Field Intel</div><div class="panel-title">Damage Near Me</div></div></div>
@@ -2710,12 +2493,12 @@ goTo = function(view) {
     </div>
   </div>
 
-  <!-- ══ DOCUMENTS ══ -->
+  <!-- ══ TEMPLATES ══ -->
   <div class="view" id="view-docs">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Document Library</div><div class="page-sub">Contracts, scopes, templates, and forms</div></div>
-        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload Document</button>
+        <div><div class="page-title">Template Library</div><div class="page-sub">Contracts, scopes, and forms</div></div>
+        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload Template</button>
       </div>
 
       <!-- TEMPLATES PANEL -->
@@ -2869,305 +2652,6 @@ goTo = function(view) {
   <div class="view" id="view-settings">
     <div class="view-scroll" style="max-width:600px;">
       <div class="page-hdr"><div><div class="page-title">Settings</div><div class="page-sub">Account & preferences</div></div></div>
-      
-      <!-- ANTHROPIC API KEY CONFIGURATION -->
-      <div class="panel" style="margin-bottom:20px;">
-        <div class="panel-hdr">
-          <div>
-            <div class="panel-label">Anthropic Claude API</div>
-            <div class="panel-title">API Key Configuration</div>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div style="font-size:12px;color:var(--m);margin-bottom:12px;">
-            Enter your Anthropic API key to enable Ask Joe AI. Get your key at 
-            <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--orange);">console.anthropic.com</a>
-          </div>
-          
-          <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <input 
-              type="password" 
-              id="anthropicKeyInput" 
-              placeholder="sk-ant-api03-..." 
-              style="flex:1;padding:10px;background:var(--s);border:1px solid var(--br);border-radius:6px;color:var(--t);font-size:13px;font-family:monospace;"
-            >
-            <button class="btn btn-orange" onclick="saveAnthropicKey()" style="padding:10px 20px;white-space:nowrap;">
-              Save Key
-            </button>
-          </div>
-          
-          <div id="apiKeyStatus" style="font-size:11px;padding:8px;border-radius:4px;display:none;"></div>
-          
-          <div style="font-size:11px;color:var(--m);margin-top:12px;padding:10px;background:var(--s2);border-radius:4px;">
-            ℹ️ Your API key is stored locally in your browser and never sent to NBD servers.
-          </div>
-        </div>
-      </div>
-<!-- API USAGE & COST DASHBOARD -->
-<!-- Add this to Settings view in dashboard.html -->
-
-<div class="panel" style="margin-bottom:20px;">
-  <div class="panel-hdr">
-    <div>
-      <div class="panel-label">Anthropic API</div>
-      <div class="panel-title">Usage & Cost Tracking</div>
-    </div>
-    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="resetApiUsage()">Reset Stats</button>
-  </div>
-  
-  <div class="panel-body">
-    <!-- Current Session -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">This Session</div>
-        <div style="font-size:24px;font-weight:700;color:var(--orange);" id="sessionTokens">0</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens used</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Session Cost</div>
-        <div style="font-size:24px;font-weight:700;color:var(--green);" id="sessionCost">$0.00</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Total This Month</div>
-        <div style="font-size:24px;font-weight:700;color:var(--blue);" id="monthTokens">0</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Monthly Cost</div>
-        <div style="font-size:24px;font-weight:700;" style="color:var(--t);" id="monthCost">$0.00</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
-      </div>
-    </div>
-    
-    <!-- Budget Alert -->
-    <div id="budgetAlert" style="display:none;background:rgba(255,71,71,0.1);border:1px solid var(--red);border-radius:8px;padding:12px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:18px;">⚠️</span>
-        <div>
-          <div style="font-weight:600;color:var(--red);margin-bottom:2px;">Budget Alert</div>
-          <div style="font-size:12px;color:var(--m);" id="budgetAlertText">You've used 80% of your monthly budget</div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Usage History -->
-    <div style="margin-bottom:16px;">
-      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Recent API Calls</div>
-      <div id="apiUsageLog" style="max-height:200px;overflow-y:auto;background:var(--s);padding:10px;border-radius:6px;border:1px solid var(--br);">
-        <div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>
-      </div>
-    </div>
-    
-    <!-- Budget Settings -->
-    <div style="border-top:1px solid var(--br);padding-top:16px;">
-      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Budget Settings</div>
-      <div style="display:flex;gap:12px;align-items:end;">
-        <div style="flex:1;">
-          <label style="font-size:11px;color:var(--m);display:block;margin-bottom:4px;">Monthly Budget ($)</label>
-          <input type="number" id="monthlyBudget" placeholder="25.00" value="25" 
-            style="width:100%;padding:8px;background:var(--s);border:1px solid var(--br);border-radius:4px;color:var(--t);font-size:13px;">
-        </div>
-        <button class="btn btn-orange" style="padding:8px 16px;font-size:12px;" onclick="saveApiSettings()">Save Budget</button>
-      </div>
-      <div style="font-size:11px;color:var(--m);margin-top:8px;">
-        ℹ️ You'll get an alert when you hit 80% of your monthly budget
-      </div>
-    </div>
-    
-    <!-- Pricing Info -->
-    <div style="margin-top:16px;padding:12px;background:var(--s2);border-radius:6px;border:1px solid var(--br);">
-      <div style="font-weight:600;margin-bottom:8px;font-size:12px;">Claude Sonnet 4 Pricing</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
-        <div><span style="color:var(--m);">Input:</span> <span style="color:var(--t);">$3.00</span> / 1M tokens</div>
-        <div><span style="color:var(--m);">Output:</span> <span style="color:var(--t);">$15.00</span> / 1M tokens</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// API USAGE TRACKING SYSTEM
-(function() {
-  const PRICING = {
-    'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 }, // per 1M tokens
-    'claude-sonnet-4': { input: 3.00, output: 15.00 }
-  };
-  
-  // Initialize usage tracking
-  if (!window._apiUsage) {
-    window._apiUsage = {
-      session: { tokens: 0, cost: 0, calls: 0 },
-      month: { tokens: 0, cost: 0, calls: 0 },
-      history: []
-    };
-  }
-  
-  // Load from localStorage
-  function loadApiUsage() {
-    try {
-      const stored = localStorage.getItem('NBD_API_USAGE');
-      if (stored) {
-        const data = JSON.parse(stored);
-        // Check if it's same month
-        const now = new Date();
-        const stored Date = new Date(data.monthStart || 0);
-        if (now.getMonth() === storedDate.getMonth() && now.getFullYear() === storedDate.getFullYear()) {
-          window._apiUsage.month = data.month;
-          window._apiUsage.history = data.history || [];
-        } else {
-          // New month, reset
-          window._apiUsage.month = { tokens: 0, cost: 0, calls: 0 };
-          window._apiUsage.history = [];
-        }
-      }
-    } catch(e) {
-      console.error('Error loading API usage:', e);
-    }
-  }
-  
-  // Save to localStorage
-  function saveApiUsage() {
-    try {
-      localStorage.setItem('NBD_API_USAGE', JSON.stringify({
-        monthStart: new Date().toISOString(),
-        month: window._apiUsage.month,
-        history: window._apiUsage.history.slice(-50) // Keep last 50
-      }));
-    } catch(e) {
-      console.error('Error saving API usage:', e);
-    }
-  }
-  
-  // Track API call
-  window.trackApiUsage = function(model, inputTokens, outputTokens) {
-    const pricing = PRICING[model] || PRICING['claude-sonnet-4'];
-    const inputCost = (inputTokens / 1000000) * pricing.input;
-    const outputCost = (outputTokens / 1000000) * pricing.output;
-    const totalCost = inputCost + outputCost;
-    const totalTokens = inputTokens + outputTokens;
-    
-    // Update session
-    window._apiUsage.session.tokens += totalTokens;
-    window._apiUsage.session.cost += totalCost;
-    window._apiUsage.session.calls++;
-    
-    // Update month
-    window._apiUsage.month.tokens += totalTokens;
-    window._apiUsage.month.cost += totalCost;
-    window._apiUsage.month.calls++;
-    
-    // Add to history
-    window._apiUsage.history.push({
-      timestamp: new Date().toISOString(),
-      model: model,
-      inputTokens: inputTokens,
-      outputTokens: outputTokens,
-      cost: totalCost
-    });
-    
-    saveApiUsage();
-    updateApiDashboard();
-    checkBudgetAlert();
-  };
-  
-  // Update dashboard UI
-  window.updateApiDashboard = function() {
-    const session = window._apiUsage.session;
-    const month = window._apiUsage.month;
-    
-    // Update session stats
-    document.getElementById('sessionTokens').textContent = session.tokens.toLocaleString();
-    document.getElementById('sessionCost').textContent = '$' + session.cost.toFixed(4);
-    
-    // Update monthly stats
-    document.getElementById('monthTokens').textContent = month.tokens.toLocaleString();
-    document.getElementById('monthCost').textContent = '$' + month.cost.toFixed(2);
-    
-    // Update history log
-    const log = document.getElementById('apiUsageLog');
-    if (window._apiUsage.history.length === 0) {
-      log.innerHTML = '<div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>';
-    } else {
-      log.innerHTML = window._apiUsage.history.slice(-10).reverse().map(call => {
-        const time = new Date(call.timestamp).toLocaleTimeString();
-        return `<div style="padding:6px;border-bottom:1px solid var(--br);font-size:11px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="color:var(--m);">${time}</span>
-            <span style="color:var(--orange);font-weight:600;">$${call.cost.toFixed(4)}</span>
-          </div>
-          <div style="color:var(--m);font-size:10px;margin-top:2px;">
-            ${call.inputTokens.toLocaleString()} in / ${call.outputTokens.toLocaleString()} out
-          </div>
-        </div>`;
-      }).join('');
-    }
-  };
-  
-  // Check budget alert
-  window.checkBudgetAlert = function() {
-    const budget = parseFloat(localStorage.getItem('NBD_API_BUDGET') || '25');
-    const spent = window._apiUsage.month.cost;
-    const percent = (spent / budget) * 100;
-    
-    const alert = document.getElementById('budgetAlert');
-    const alertText = document.getElementById('budgetAlertText');
-    
-    if (percent >= 80) {
-      alert.style.display = 'block';
-      if (percent >= 100) {
-        alertText.textContent = `⚠️ Budget exceeded! You've spent $${spent.toFixed(2)} of your $${budget.toFixed(2)} monthly budget`;
-        alert.style.background = 'rgba(255,71,71,0.15)';
-      } else {
-        alertText.textContent = `You've used ${percent.toFixed(0)}% of your monthly budget ($${spent.toFixed(2)} / $${budget.toFixed(2)})`;
-      }
-    } else {
-      alert.style.display = 'none';
-    }
-  };
-  
-  // Save budget settings
-  window.saveApiSettings = function() {
-    const budget = document.getElementById('monthlyBudget').value;
-    localStorage.setItem('NBD_API_BUDGET', budget);
-    showToast('Budget settings saved', 'success');
-    checkBudgetAlert();
-  };
-  
-  // Reset usage stats
-  window.resetApiUsage = function() {
-    if (!confirm('Reset all API usage stats? This will clear session and monthly data.')) return;
-    window._apiUsage = {
-      session: { tokens: 0, cost: 0, calls: 0 },
-      month: { tokens: 0, cost: 0, calls: 0 },
-      history: []
-    };
-    saveApiUsage();
-    updateApiDashboard();
-    showToast('Usage stats reset', 'success');
-  };
-  
-  // Load saved budget
-  const savedBudget = localStorage.getItem('NBD_API_BUDGET');
-  if (savedBudget) {
-    const budgetInput = document.getElementById('monthlyBudget');
-    if (budgetInput) budgetInput.value = savedBudget;
-  }
-  
-  // Initialize
-  loadApiUsage();
-  setTimeout(() => {
-    updateApiDashboard();
-    checkBudgetAlert();
-  }, 100);
-  
-})();
-</script>
-
-
       <!-- THEME PICKER -->
       <div class="settings-section" style="max-width:none;margin-top:0;">
         <div class="settings-title" style="font-size:16px;margin-bottom:4px;">Color Theme</div>
@@ -3381,7 +2865,6 @@ goTo = function(view) {
           <div class="tc-name">Deep Space</div>
           <div class="tc-active-badge" id="tc-badge-deep-space">✓ Active</div>
         </div>
-        </div><!-- Close first theme-grid -->
 
         <!-- v5 Extended Themes -->
         <div style="font-size:11px;color:var(--m);margin:16px 0 10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">+ 44 New Themes</div>
@@ -3929,272 +3412,6 @@ goTo = function(view) {
         </div>
       </div>
 
-
-<!-- API USAGE & COST DASHBOARD -->
-<!-- Add this to Settings view in dashboard.html -->
-
-<div class="panel" style="margin-bottom:20px;">
-  <div class="panel-hdr">
-    <div>
-      <div class="panel-label">Anthropic API</div>
-      <div class="panel-title">Usage & Cost Tracking</div>
-    </div>
-    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="resetApiUsage()">Reset Stats</button>
-  </div>
-  
-  <div class="panel-body">
-    <!-- Current Session -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">This Session</div>
-        <div style="font-size:24px;font-weight:700;color:var(--orange);" id="sessionTokens">0</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens used</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Session Cost</div>
-        <div style="font-size:24px;font-weight:700;color:var(--green);" id="sessionCost">$0.00</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Total This Month</div>
-        <div style="font-size:24px;font-weight:700;color:var(--blue);" id="monthTokens">0</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">tokens</div>
-      </div>
-      
-      <div style="background:var(--s2);padding:14px;border-radius:8px;border:1px solid var(--br);">
-        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Monthly Cost</div>
-        <div style="font-size:24px;font-weight:700;" style="color:var(--t);" id="monthCost">$0.00</div>
-        <div style="font-size:11px;color:var(--m);margin-top:2px;">estimated</div>
-      </div>
-    </div>
-    
-    <!-- Budget Alert -->
-    <div id="budgetAlert" style="display:none;background:rgba(255,71,71,0.1);border:1px solid var(--red);border-radius:8px;padding:12px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:18px;">⚠️</span>
-        <div>
-          <div style="font-weight:600;color:var(--red);margin-bottom:2px;">Budget Alert</div>
-          <div style="font-size:12px;color:var(--m);" id="budgetAlertText">You've used 80% of your monthly budget</div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Usage History -->
-    <div style="margin-bottom:16px;">
-      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Recent API Calls</div>
-      <div id="apiUsageLog" style="max-height:200px;overflow-y:auto;background:var(--s);padding:10px;border-radius:6px;border:1px solid var(--br);">
-        <div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>
-      </div>
-    </div>
-    
-    <!-- Budget Settings -->
-    <div style="border-top:1px solid var(--br);padding-top:16px;">
-      <div style="font-weight:600;margin-bottom:10px;font-size:13px;">Budget Settings</div>
-      <div style="display:flex;gap:12px;align-items:end;">
-        <div style="flex:1;">
-          <label style="font-size:11px;color:var(--m);display:block;margin-bottom:4px;">Monthly Budget ($)</label>
-          <input type="number" id="monthlyBudget" placeholder="25.00" value="25" 
-            style="width:100%;padding:8px;background:var(--s);border:1px solid var(--br);border-radius:4px;color:var(--t);font-size:13px;">
-        </div>
-        <button class="btn btn-orange" style="padding:8px 16px;font-size:12px;" onclick="saveApiSettings()">Save Budget</button>
-      </div>
-      <div style="font-size:11px;color:var(--m);margin-top:8px;">
-        ℹ️ You'll get an alert when you hit 80% of your monthly budget
-      </div>
-    </div>
-    
-    <!-- Pricing Info -->
-    <div style="margin-top:16px;padding:12px;background:var(--s2);border-radius:6px;border:1px solid var(--br);">
-      <div style="font-weight:600;margin-bottom:8px;font-size:12px;">Claude Sonnet 4 Pricing</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
-        <div><span style="color:var(--m);">Input:</span> <span style="color:var(--t);">$3.00</span> / 1M tokens</div>
-        <div><span style="color:var(--m);">Output:</span> <span style="color:var(--t);">$15.00</span> / 1M tokens</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// API USAGE TRACKING SYSTEM
-(function() {
-  const PRICING = {
-    'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 }, // per 1M tokens
-    'claude-sonnet-4': { input: 3.00, output: 15.00 }
-  };
-  
-  // Initialize usage tracking
-  if (!window._apiUsage) {
-    window._apiUsage = {
-      session: { tokens: 0, cost: 0, calls: 0 },
-      month: { tokens: 0, cost: 0, calls: 0 },
-      history: []
-    };
-  }
-  
-  // Load from localStorage
-  function loadApiUsage() {
-    try {
-      const stored = localStorage.getItem('NBD_API_USAGE');
-      if (stored) {
-        const data = JSON.parse(stored);
-        // Check if it's same month
-        const now = new Date();
-        const storedDate = new Date(data.monthStart || 0);
-        if (now.getMonth() === storedDate.getMonth() && now.getFullYear() === storedDate.getFullYear()) {
-          window._apiUsage.month = data.month;
-          window._apiUsage.history = data.history || [];
-        } else {
-          // New month, reset
-          window._apiUsage.month = { tokens: 0, cost: 0, calls: 0 };
-          window._apiUsage.history = [];
-        }
-      }
-    } catch(e) {
-      console.error('Error loading API usage:', e);
-    }
-  }
-  
-  // Save to localStorage
-  function saveApiUsage() {
-    try {
-      localStorage.setItem('NBD_API_USAGE', JSON.stringify({
-        monthStart: new Date().toISOString(),
-        month: window._apiUsage.month,
-        history: window._apiUsage.history.slice(-50) // Keep last 50
-      }));
-    } catch(e) {
-      console.error('Error saving API usage:', e);
-    }
-  }
-  
-  // Track API call
-  window.trackApiUsage = function(model, inputTokens, outputTokens) {
-    const pricing = PRICING[model] || PRICING['claude-sonnet-4'];
-    const inputCost = (inputTokens / 1000000) * pricing.input;
-    const outputCost = (outputTokens / 1000000) * pricing.output;
-    const totalCost = inputCost + outputCost;
-    const totalTokens = inputTokens + outputTokens;
-    
-    // Update session
-    window._apiUsage.session.tokens += totalTokens;
-    window._apiUsage.session.cost += totalCost;
-    window._apiUsage.session.calls++;
-    
-    // Update month
-    window._apiUsage.month.tokens += totalTokens;
-    window._apiUsage.month.cost += totalCost;
-    window._apiUsage.month.calls++;
-    
-    // Add to history
-    window._apiUsage.history.push({
-      timestamp: new Date().toISOString(),
-      model: model,
-      inputTokens: inputTokens,
-      outputTokens: outputTokens,
-      cost: totalCost
-    });
-    
-    saveApiUsage();
-    updateApiDashboard();
-    checkBudgetAlert();
-  };
-  
-  // Update dashboard UI
-  window.updateApiDashboard = function() {
-    const session = window._apiUsage.session;
-    const month = window._apiUsage.month;
-    
-    // Update session stats
-    document.getElementById('sessionTokens').textContent = session.tokens.toLocaleString();
-    document.getElementById('sessionCost').textContent = '$' + session.cost.toFixed(4);
-    
-    // Update monthly stats
-    document.getElementById('monthTokens').textContent = month.tokens.toLocaleString();
-    document.getElementById('monthCost').textContent = '$' + month.cost.toFixed(2);
-    
-    // Update history log
-    const log = document.getElementById('apiUsageLog');
-    if (window._apiUsage.history.length === 0) {
-      log.innerHTML = '<div style="color:var(--m);font-size:12px;text-align:center;padding:20px;">No API calls yet</div>';
-    } else {
-      log.innerHTML = window._apiUsage.history.slice(-10).reverse().map(call => {
-        const time = new Date(call.timestamp).toLocaleTimeString();
-        return `<div style="padding:6px;border-bottom:1px solid var(--br);font-size:11px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="color:var(--m);">${time}</span>
-            <span style="color:var(--orange);font-weight:600;">$${call.cost.toFixed(4)}</span>
-          </div>
-          <div style="color:var(--m);font-size:10px;margin-top:2px;">
-            ${call.inputTokens.toLocaleString()} in / ${call.outputTokens.toLocaleString()} out
-          </div>
-        </div>`;
-      }).join('');
-    }
-  };
-  
-  // Check budget alert
-  window.checkBudgetAlert = function() {
-    const budget = parseFloat(localStorage.getItem('NBD_API_BUDGET') || '25');
-    const spent = window._apiUsage.month.cost;
-    const percent = (spent / budget) * 100;
-    
-    const alert = document.getElementById('budgetAlert');
-    const alertText = document.getElementById('budgetAlertText');
-    
-    if (percent >= 80) {
-      alert.style.display = 'block';
-      if (percent >= 100) {
-        alertText.textContent = `⚠️ Budget exceeded! You've spent $${spent.toFixed(2)} of your $${budget.toFixed(2)} monthly budget`;
-        alert.style.background = 'rgba(255,71,71,0.15)';
-      } else {
-        alertText.textContent = `You've used ${percent.toFixed(0)}% of your monthly budget ($${spent.toFixed(2)} / $${budget.toFixed(2)})`;
-      }
-    } else {
-      alert.style.display = 'none';
-    }
-  };
-  
-  // Save budget settings
-  window.saveApiSettings = function() {
-    const budget = document.getElementById('monthlyBudget').value;
-    localStorage.setItem('NBD_API_BUDGET', budget);
-    showToast('Budget settings saved', 'success');
-    checkBudgetAlert();
-  };
-  
-  // Reset usage stats
-  window.resetApiUsage = function() {
-    if (!confirm('Reset all API usage stats? This will clear session and monthly data.')) return;
-    window._apiUsage = {
-      session: { tokens: 0, cost: 0, calls: 0 },
-      month: { tokens: 0, cost: 0, calls: 0 },
-      history: []
-    };
-    saveApiUsage();
-    updateApiDashboard();
-    showToast('Usage stats reset', 'success');
-  };
-  
-  // Load saved budget
-  const savedBudget = localStorage.getItem('NBD_API_BUDGET');
-  if (savedBudget) {
-    const budgetInput = document.getElementById('monthlyBudget');
-    if (budgetInput) budgetInput.value = savedBudget;
-  }
-  
-  // Initialize
-  loadApiUsage();
-  setTimeout(() => {
-    updateApiDashboard();
-    checkBudgetAlert();
-  }, 100);
-  
-})();
-</script>
-
-
       <!-- PROFILE / SETTINGS (existing) -->
       <div class="settings-section">
         <div class="settings-title">Profile</div>
@@ -4476,6 +3693,36 @@ function goTo(name) {
   if(name==='board') renderLeaderboard();
   if(name==='photos') renderPhotoLeads();
 }
+
+// COLLAPSIBLE NAV SECTIONS
+function toggleNavSection(section) {
+  const content = document.getElementById('section-'+section);
+  const toggle = document.getElementById('toggle-'+section);
+  const isOpen = content.classList.contains('open');
+  
+  if(isOpen) {
+    content.classList.remove('open');
+    toggle.classList.remove('open');
+  } else {
+    content.classList.add('open');
+    toggle.classList.add('open');
+  }
+  
+  // Save state to localStorage
+  localStorage.setItem('nav-'+section, isOpen ? 'closed' : 'open');
+}
+
+// Restore nav section states on load
+function restoreNavSections() {
+  ['tools','insights'].forEach(section => {
+    const state = localStorage.getItem('nav-'+section);
+    if(state === 'closed') {
+      document.getElementById('section-'+section).classList.remove('open');
+      document.getElementById('toggle-'+section).classList.remove('open');
+    }
+  });
+}
+setTimeout(restoreNavSections, 100);
 
 // ══════════════════════════════════════════════
 // TOAST
@@ -5565,15 +4812,14 @@ const NBD_FONTS = [
 ];
 
 /* ── STATE ────────────────────────────────────────────────────────── */
-const NBD_PLAN_ORDER  = ['explorer','professional','command'];
-// NBD_USER_PLAN is now dynamic - reads from window._userPlan (set in onAuthStateChanged)
-const NBD_USER_PLAN   = () => window._userPlan || 'explorer';
+const NBD_PLAN_ORDER  = ['blueprint','foundation','infused','team','command'];
+const NBD_USER_PLAN   = 'command'; // TODO: wire to real Firestore .plan after Stripe lands
 let _nbd_activeTheme  = localStorage.getItem('nbd-theme') || 'default';
 let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';
 let _nbd_customs      = JSON.parse(localStorage.getItem('nbd-customs') || '[]');
 
-const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN()) >= NBD_PLAN_ORDER.indexOf(p);
+const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN) >= NBD_PLAN_ORDER.indexOf(p);
 const _nbdGetTheme  = id => [...NBD_THEMES, ..._nbd_customs].find(t => t.id === id);
 
 /* ── APPLY THEME ──────────────────────────────────────────────────── */
@@ -6443,76 +5689,6 @@ function exportEstimate() {
 #view-crm.active{display:flex !important;}
 #view-crm .kanban-board{display:flex !important;}
 
-
-/* ============================================
-   CRM WIDTH TOGGLE & BREATHING ROOM
-   ============================================ */
-#view-crm {
-  --crm-max-width: 100%;
-  transition: all 0.3s ease;
-}
-
-#view-crm.crm-constrained {
-  --crm-max-width: 1400px;
-}
-
-.crm-container-wrap {
-  max-width: var(--crm-max-width);
-  margin: 0 auto;
-  transition: max-width 0.3s ease;
-}
-
-.crm-width-toggle {
-  position: fixed;
-  right: 20px;
-  top: 80px;
-  z-index: 100;
-  background: var(--s2);
-  border: 1px solid var(--br);
-  border-radius: 8px;
-  padding: 10px 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--t);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transition: all 0.2s ease;
-  opacity: 0;
-  pointer-events: none;
-}
-
-#view-crm.active .crm-width-toggle {
-  opacity: 1;
-  pointer-events: all;
-}
-
-.crm-width-toggle:hover {
-  background: var(--s3);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.crm-width-toggle .toggle-icon {
-  font-size: 16px;
-  transition: transform 0.3s ease;
-}
-
-#view-crm.crm-constrained .crm-width-toggle .toggle-icon {
-  transform: rotate(180deg);
-}
-
-/* Improved kanban spacing */
-.kanban-board {
-  gap: 14px !important;
-}
-
-.kanban-col {
-  min-width: 280px;
-}
-
 </style></head><body>
   <div class="hdr">
     <div>
@@ -6592,57 +5768,7 @@ function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
 // ══════════════════════════════════════════════
 // CRM
 // ══════════════════════════════════════════════
-function openLeadModal(){
-  document.getElementById('leadModal').classList.add('open');
-  
-  // FORCED AUTOCOMPLETE INITIALIZATION FIX
-  setTimeout(() => {
-    const input = document.getElementById('lAddr');
-    const drop = document.getElementById('ac-lAddr');
-    if (!input || !drop) return;
-    
-    // Initialize globals if missing
-    if (!window._acCache) window._acCache = {};
-    if (!window._acTimers) window._acTimers = {};
-    
-    // Clone input to remove old listeners
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    
-    // Add autocomplete listener
-    newInput.addEventListener('input', () => {
-      clearTimeout(window._acTimers['lAddr']);
-      const q = newInput.value.trim();
-      if (q.length < 3) { drop.style.display = 'none'; return; }
-      
-      window._acTimers['lAddr'] = setTimeout(async () => {
-        if (window._acCache[q]) {
-          renderAcDrop(q, window._acCache[q]); return;
-        }
-        drop.innerHTML = '<div style="padding:8px;color:var(--m);">Searching...</div>';
-        drop.style.display = 'block';
-        try {
-          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&countrycodes=us&viewbox=-84.9,38.4,-83.6,39.7&bounded=0`;
-          const res = await fetch(url);
-          const data = await res.json();
-          window._acCache[q] = data;
-          renderAcDrop(q, data);
-        } catch(e) { drop.style.display = 'none'; }
-      }, 320);
-    });
-    
-    function renderAcDrop(q, results) {
-      if (!results.length) { drop.style.display = 'none'; return; }
-      drop.innerHTML = results.map((r, i) => {
-        const parts = r.display_name.split(',');
-        const main = parts.slice(0, 2).join(',').trim();
-        const sub = parts.slice(2, 4).join(',').trim();
-        return `<div class="ac-item" style="padding:8px;cursor:pointer;border-bottom:1px solid var(--br);" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''" onclick="((m) => { document.getElementById('lAddr').value = m; document.getElementById('ac-lAddr').style.display = 'none'; })('${main.replace(/'/g, "\\'")}')"><b>${main}</b>${sub ? `<br><span style="color:var(--m);font-size:10px;">${sub}</span>` : ''}</div>`;
-      }).join('');
-      drop.style.display = 'block';
-    }
-  }, 100);
-}
+function openLeadModal(){document.getElementById('leadModal').classList.add('open');}
 function closeLeadModal(){
   document.getElementById('leadModal').classList.remove('open');
   document.getElementById('mErr').style.display='none';
@@ -6701,8 +5827,6 @@ async function saveLead(){
   window._modalIntel = null;
   document.querySelector('#leadModal .msave').disabled=false;
   mOk.textContent='Lead saved!';mOk.style.display='block';
-  // FIX: Navigate to CRM view so renderLeads has DOM elements to render to
-  goTo('crm');
   setTimeout(closeLeadModal,800);
 }
 
@@ -6714,7 +5838,7 @@ async function saveLead(){
 function renderLeads(leads, filtered){
   const all   = leads  || window._leads || [];
   const list  = filtered !== undefined ? filtered : all;
-  window._filteredLeads = filtered !== undefined ? filtered : null;
+  _filteredLeads = filtered !== undefined ? filtered : null;
 
   // ── stat helpers ──
   const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -6777,7 +5901,7 @@ function renderLeads(leads, filtered){
     body.innerHTML = cards.map(l=>buildCard(l)).join('');
     // attach drag events
     body.querySelectorAll('.k-card').forEach(card=>{
-      card.addEventListener('dragstart', e=>{ window._dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
       card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
     });
   });
@@ -6884,11 +6008,11 @@ function handleCardClick(id, event) {
 // Drag & drop
 function drop(event, targetStage){
   event.preventDefault();
-  if(!window._dragId) return;
+  if(!_dragId) return;
   // remove drag-over highlight
   document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
-  moveCard(window._dragId, targetStage);
-  window._dragId = null;
+  moveCard(_dragId, targetStage);
+  _dragId = null;
 }
 document.addEventListener('dragover', e=>{
   const col = e.target.closest('.kcol-body');
@@ -7360,11 +6484,6 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
     if(!resp.ok) throw new Error('API ' + resp.status);
     const data = await resp.json();
-    
-    // Track API usage for Property Intel
-    if (data.usage && typeof trackApiUsage === 'function') {
-      trackApiUsage('claude-sonnet-4-20250514', data.usage.input_tokens || 0, data.usage.output_tokens || 0);
-    }
 
     // Extract text from response (may be after tool use blocks)
     let rawText = '';
@@ -8927,77 +8046,6 @@ function scrollJoeToBottom() {
 }
 
 // ── Send message ────────────────────────────────────────────────────
-
-// ============================================
-// ASK JOE AI - GLOBAL STATE INITIALIZATION
-// ============================================
-if (typeof window._joeTyping === 'undefined') {
-  window._joeTyping = false;
-  window._joeHistory = [];
-  window._joeMessages = [];
-  console.log('✅ Ask Joe AI state initialized');
-}
-
-
-// ============================================
-// ANTHROPIC API KEY MANAGEMENT
-// ============================================
-function saveAnthropicKey() {
-  const input = document.getElementById('anthropicKeyInput');
-  const status = document.getElementById('apiKeyStatus');
-  const key = input.value.trim();
-  
-  if (!key) {
-    status.style.display = 'block';
-    status.style.background = 'rgba(255,71,71,0.1)';
-    status.style.color = 'var(--red)';
-    status.textContent = '❌ Please enter an API key';
-    return;
-  }
-  
-  if (!key.startsWith('sk-ant-')) {
-    status.style.display = 'block';
-    status.style.background = 'rgba(255,71,71,0.1)';
-    status.style.color = 'var(--red)';
-    status.textContent = '❌ Invalid API key format (should start with sk-ant-)';
-    return;
-  }
-  
-  localStorage.setItem('ANTHROPIC_API_KEY', key);
-  
-  status.style.display = 'block';
-  status.style.background = 'rgba(34,197,94,0.1)';
-  status.style.color = 'var(--green)';
-  status.textContent = '✅ API key saved successfully! Ask Joe AI is now enabled.';
-  
-  input.type = 'password';
-  
-  showToast('API key saved', 'success');
-}
-
-function loadAnthropicKey() {
-  const key = localStorage.getItem('ANTHROPIC_API_KEY');
-  const input = document.getElementById('anthropicKeyInput');
-  const status = document.getElementById('apiKeyStatus');
-  
-  if (key && input) {
-    input.value = key;
-    status.style.display = 'block';
-    status.style.background = 'rgba(34,197,94,0.1)';
-    status.style.color = 'var(--green)';
-    status.textContent = '✅ API key is configured';
-  }
-}
-
-// Load key when Settings view is opened
-const originalGoTo = goTo;
-goTo = function(view) {
-  originalGoTo(view);
-  if (view === 'settings') {
-    setTimeout(loadAnthropicKey, 100);
-  }
-};
-
 async function sendJoeMessage() {
   if(_joeTyping) return;
   const inp = document.getElementById('joeInput');
@@ -9046,11 +8094,6 @@ async function sendJoeMessage() {
 
     const data = await resp.json();
     const reply = data.content?.[0]?.text || "Sorry, something went wrong. Try again.";
-    
-    // Track API usage
-    if (data.usage && typeof trackApiUsage === 'function') {
-      trackApiUsage('claude-sonnet-4-20250514', data.usage.input_tokens || 0, data.usage.output_tokens || 0);
-    }
 
     hideJoeTyping();
     appendJoeMessage('joe', reply);
@@ -9226,48 +8269,6 @@ async function seedDemoEstimates(uid) {
 
 
 
-
-
-// ============================================
-// CRM WIDTH TOGGLE
-// ============================================
-function toggleCRMWidth() {
-  const view = document.getElementById('view-crm');
-  const label = document.querySelector('.crm-width-toggle .toggle-label');
-  if (!view || !label) return;
-  
-  const isConstrained = view.classList.contains('crm-constrained');
-  
-  if (isConstrained) {
-    view.classList.remove('crm-constrained');
-    label.textContent = 'Constrain';
-    localStorage.setItem('NBD_CRM_WIDTH', 'full');
-  } else {
-    view.classList.add('crm-constrained');
-    label.textContent = 'Expand';
-    localStorage.setItem('NBD_CRM_WIDTH', 'constrained');
-  }
-}
-
-// Load saved CRM width preference
-function loadCRMWidthPreference() {
-  const savedWidth = localStorage.getItem('NBD_CRM_WIDTH');
-  const view = document.getElementById('view-crm');
-  const label = document.querySelector('.crm-width-toggle .toggle-label');
-  
-  if (!view || !label) return;
-  
-  if (savedWidth === 'constrained') {
-    view.classList.add('crm-constrained');
-    label.textContent = 'Expand';
-  } else {
-    view.classList.remove('crm-constrained');
-    label.textContent = 'Constrain';
-  }
-}
-
-// Initialize on page load
-setTimeout(loadCRMWidthPreference, 100);
 
 </script>
 
