@@ -8,7 +8,7 @@
 <!-- Firebase SDK v9 (modular) -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+  import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
   import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
   const firebaseConfig = {
@@ -24,14 +24,30 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  // AUTO-SIGN IN WITH ANONYMOUS AUTH
+  // This creates a persistent anonymous user that survives page reloads
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      // No user signed in → sign in anonymously
+      try {
+        await signInAnonymously(auth);
+        console.log('✓ Signed in anonymously');
+      } catch (error) {
+        console.error('❌ Anonymous sign-in failed:', error);
+      }
+    } else {
+      console.log('✓ User authenticated:', user.uid.substring(0, 8) + '...');
+    }
+    
+    // Signal Firebase ready AFTER auth is confirmed
+    window.dispatchEvent(new Event('firebase-ready'));
+  });
+
   // Expose to window for non-module scripts
   window._auth = auth;
   window._db = db;
   window._firestore = { doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit };
   window._authState = onAuthStateChanged;
-  
-  // Signal Firebase ready
-  window.dispatchEvent(new Event('firebase-ready'));
 </script>
 
 <!-- Google Fonts -->
