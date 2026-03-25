@@ -124,9 +124,9 @@
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
   // ── GLOBAL CRM STATE ───────────────────────────
-  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-  let _dragId = null;
-  let _filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
+  window.STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+  window._dragId = null;
+  window._filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
@@ -5785,7 +5785,7 @@ async function saveLead(){
 function renderLeads(leads, filtered){
   const all   = leads  || window._leads || [];
   const list  = filtered !== undefined ? filtered : all;
-  _filteredLeads = filtered !== undefined ? filtered : null;
+  window._filteredLeads = filtered !== undefined ? filtered : null;
 
   // ── stat helpers ──
   const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -5848,7 +5848,7 @@ function renderLeads(leads, filtered){
     body.innerHTML = cards.map(l=>buildCard(l)).join('');
     // attach drag events
     body.querySelectorAll('.k-card').forEach(card=>{
-      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      card.addEventListener('dragstart', e=>{ window._dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
       card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
     });
   });
@@ -5955,11 +5955,11 @@ function handleCardClick(id, event) {
 // Drag & drop
 function drop(event, targetStage){
   event.preventDefault();
-  if(!_dragId) return;
+  if(!window._dragId) return;
   // remove drag-over highlight
   document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
-  moveCard(_dragId, targetStage);
-  _dragId = null;
+  moveCard(window._dragId, targetStage);
+  window._dragId = null;
 }
 document.addEventListener('dragover', e=>{
   const col = e.target.closest('.kcol-body');
