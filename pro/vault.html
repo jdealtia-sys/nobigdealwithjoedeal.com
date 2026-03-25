@@ -2081,6 +2081,46 @@ function renderAdmin() {
       </div>
     </div>
     
+    <!-- AI Session Parser -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 AI Session Parser</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:16px; color:var(--text3);">
+          Use Gemini AI to automatically extract tasks, debt items, blockers, directives, and decisions from session content.
+        </p>
+        
+        <!-- Test Single Session -->
+        <div style="background:var(--lift); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:12px; color:var(--text);">Test Parse Single Session</div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input 
+              type="number" 
+              id="testSessionNum" 
+              placeholder="Session #" 
+              style="flex:1; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:8px; color:var(--text);"
+            >
+            <button class="btn-outline btn-sm" onclick="parseSessionTest()">🔍 Test Parse</button>
+          </div>
+          <div id="testParseResult" style="font-size:13px;"></div>
+        </div>
+        
+        <!-- Parse All Sessions -->
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:8px; color:var(--gold);">⚠️ Batch Parse All Sessions</div>
+          <div style="font-size:13px; color:var(--text2); margin-bottom:12px;">
+            This will parse ALL sessions with content and populate Tasks, Debt, Blockers, Directives, and Decisions.
+            Rate limited to 1 session/second. Cannot be undone (but data is saved to Firestore).
+          </div>
+          <button class="btn-gold btn-sm" id="parseAllBtn" onclick="parseAllSessions()">🔄 Parse All Sessions</button>
+        </div>
+        
+        <!-- Progress Display -->
+        <div id="parseProgress" style="font-size:13px; min-height:40px;"></div>
+      </div>
+    </div>
+    
     <!-- Firestore Stats -->
     <div class="card">
       <div class="card-header">
@@ -2386,6 +2426,303 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
   toast(`Successfully imported ${sessionsArray.length} sessions`, 'success');
   console.log(`✓ Bulk import complete. Total sessions: ${CODEX.sessions.length}`);
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION PARSER — Gemini-Powered Content Extraction
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+
+async function parseSessionWithGemini(session) {
+  const prompt = `Analyze this NBD Pro build session and extract structured data.
+
+SESSION ${session.num} (${session.meta?.date || 'unknown date'}):
+TITLE: ${session.meta?.title || 'Untitled'}
+CONTENT:
+${session.content || 'No content'}
+
+Extract and return ONLY valid JSON (no markdown, no explanation, no backticks):
+{
+  "tasks": [
+    {
+      "title": "string",
+      "description": "string",
+      "status": "open|in-progress|done",
+      "priority": "critical|high|normal",
+      "session": ${session.num},
+      "assignedTo": null
+    }
+  ],
+  "debt": [
+    {
+      "title": "string",
+      "description": "string",
+      "severity": "critical|high|medium",
+      "status": "open|resolved",
+      "category": "string",
+      "impact": "string",
+      "session": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "string",
+      "severity": "critical|high",
+      "status": "open|resolved",
+      "firstMentioned": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "directives": [
+    {
+      "text": "string",
+      "binding": true|false,
+      "rationale": "string",
+      "session": ${session.num}
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "string",
+      "rationale": "string",
+      "binding": true|false,
+      "category": "string",
+      "alternatives": "string",
+      "implications": "string",
+      "session": ${session.num}
+    }
+  ]
+}
+
+EXTRACTION RULES:
+- Only extract items EXPLICITLY mentioned in the session
+- Preserve original wording for titles and descriptions
+- Mark items as "open" unless explicitly resolved in the session
+- For blockers, use descriptive kebab-case IDs (e.g. "stripe-integration")
+- Binding directives/decisions are marked with phrases like "MUST", "ALWAYS", "NEVER", "IMMUTABLE"
+- Return empty arrays if no items found in that category
+- CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
+
+  try {
+    const response = await fetch(GEMINI_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash-exp',
+        prompt: prompt,
+        temperature: 0.1 // Low temperature for structured extraction
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Worker returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    let jsonText = data.response || data.text || '';
+    
+    // Strip markdown code fences if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const parsed = JSON.parse(jsonText);
+    
+    console.log(`✓ Parsed Session ${session.num}:`, {
+      tasks: parsed.tasks?.length || 0,
+      debt: parsed.debt?.length || 0,
+      blockers: parsed.blockers?.length || 0,
+      directives: parsed.directives?.length || 0,
+      decisions: parsed.decisions?.length || 0
+    });
+    
+    return {
+      tasks: parsed.tasks || [],
+      debt: parsed.debt || [],
+      blockers: parsed.blockers || [],
+      directives: parsed.directives || [],
+      decisions: parsed.decisions || []
+    };
+    
+  } catch (error) {
+    console.error(`❌ Failed to parse Session ${session.num}:`, error);
+    return {
+      tasks: [],
+      debt: [],
+      blockers: [],
+      directives: [],
+      decisions: []
+    };
+  }
+}
+
+async function parseAllSessions() {
+  const progressDiv = document.getElementById('parseProgress');
+  const parseBtn = document.getElementById('parseAllBtn');
+  
+  if (!progressDiv || !parseBtn) return;
+  
+  parseBtn.disabled = true;
+  parseBtn.textContent = 'Parsing...';
+  
+  const sessionsWithContent = CODEX.sessions.filter(s => s.content && s.content.length > 50);
+  
+  if (sessionsWithContent.length === 0) {
+    progressDiv.innerHTML = '<span style="color:var(--red)">❌ No sessions with content found</span>';
+    parseBtn.disabled = false;
+    parseBtn.textContent = '🔄 Parse All Sessions';
+    return;
+  }
+  
+  progressDiv.innerHTML = `<span style="color:var(--blue)">⏳ Starting parse of ${sessionsWithContent.length} sessions...</span>`;
+  
+  let totalExtracted = {
+    tasks: 0,
+    debt: 0,
+    blockers: 0,
+    directives: 0,
+    decisions: 0
+  };
+  
+  for (let i = 0; i < sessionsWithContent.length; i++) {
+    const session = sessionsWithContent[i];
+    
+    progressDiv.innerHTML = `
+      <div style="color:var(--blue); margin-bottom:8px;">
+        ⏳ Processing Session ${session.num} (${i + 1}/${sessionsWithContent.length})
+      </div>
+      <div style="background:var(--void); border-radius:var(--r); height:8px; overflow:hidden;">
+        <div style="background:var(--gold); height:100%; width:${((i + 1) / sessionsWithContent.length * 100)}%; transition:width 0.3s;"></div>
+      </div>
+    `;
+    
+    const extracted = await parseSessionWithGemini(session);
+    
+    // Merge tasks (avoid duplicates by title)
+    extracted.tasks.forEach(task => {
+      const exists = CODEX.tasks.find(t => t.title === task.title && t.session === task.session);
+      if (!exists) {
+        CODEX.tasks.push(task);
+        totalExtracted.tasks++;
+      }
+    });
+    
+    // Merge debt (avoid duplicates by title)
+    extracted.debt.forEach(debt => {
+      const exists = CODEX.debt.find(d => d.title === debt.title && d.session === debt.session);
+      if (!exists) {
+        CODEX.debt.push(debt);
+        totalExtracted.debt++;
+      }
+    });
+    
+    // Merge blockers (by ID, update sessionsOpen if exists)
+    extracted.blockers.forEach(blocker => {
+      const existing = CODEX.blockers.find(b => b.id === blocker.id);
+      if (existing) {
+        existing.sessionsOpen++;
+      } else {
+        CODEX.blockers.push(blocker);
+        totalExtracted.blockers++;
+      }
+    });
+    
+    // Merge directives (avoid duplicates by text)
+    extracted.directives.forEach(directive => {
+      const exists = CODEX.directives.find(d => d.text === directive.text);
+      if (!exists) {
+        CODEX.directives.push(directive);
+        totalExtracted.directives++;
+      }
+    });
+    
+    // Merge decisions (avoid duplicates by decision text)
+    extracted.decisions.forEach(decision => {
+      const exists = CODEX.decisions.find(d => d.decision === decision.decision);
+      if (!exists) {
+        CODEX.decisions.push(decision);
+        totalExtracted.decisions++;
+      }
+    });
+    
+    // Rate limit: 1 request per second
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  
+  // Save to Firestore
+  progressDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  // Show success
+  progressDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Parse Complete! Extracted:
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px;">
+      <div class="stat-chip">
+        <div class="stat-val ok">${totalExtracted.tasks}</div>
+        <div class="stat-lbl">Tasks</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${totalExtracted.debt}</div>
+        <div class="stat-lbl">Debt</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val critical">${totalExtracted.blockers}</div>
+        <div class="stat-lbl">Blockers</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${totalExtracted.directives}</div>
+        <div class="stat-lbl">Directives</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${totalExtracted.decisions}</div>
+        <div class="stat-lbl">Decisions</div>
+      </div>
+    </div>
+  `;
+  
+  parseBtn.disabled = false;
+  parseBtn.textContent = '🔄 Parse All Sessions';
+  
+  toast(`Extracted ${Object.values(totalExtracted).reduce((a,b) => a+b, 0)} items from ${sessionsWithContent.length} sessions`, 'success');
+}
+
+async function parseSessionTest() {
+  const testSessionNum = parseInt(document.getElementById('testSessionNum').value);
+  const resultDiv = document.getElementById('testParseResult');
+  
+  if (!testSessionNum) {
+    resultDiv.innerHTML = '<span style="color:var(--red)">Enter a session number</span>';
+    return;
+  }
+  
+  const session = CODEX.sessions.find(s => s.num === testSessionNum);
+  
+  if (!session) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} not found</span>`;
+    return;
+  }
+  
+  if (!session.content || session.content.length < 50) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} has no content to parse</span>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = '<span style="color:var(--blue)">⏳ Parsing...</span>';
+  
+  const extracted = await parseSessionWithGemini(session);
+  
+  resultDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Test Parse Complete
+    </div>
+    <pre style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:16px; overflow:auto; max-height:400px; font-size:12px; color:var(--text);">${JSON.stringify(extracted, null, 2)}</pre>
+  `;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SEED DATA (Sessions 1-27 from Codex Archaeology)
