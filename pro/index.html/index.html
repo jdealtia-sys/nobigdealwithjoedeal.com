@@ -178,14 +178,15 @@ document.addEventListener('click',function(e){
         <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted)"><span style="width:18px;height:18px;background:rgba(232,114,12,0.12);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--orange);flex-shrink:0;font-weight:700">&#10003;</span>Referral system setup</li>
       </ul>
     </div>
-    <div style="background:var(--dark-card);border:1px solid rgba(232,114,12,0.25);border-radius:12px;padding:36px;position:relative;overflow:hidden">
+    <div id="blueprintForm" style="background:var(--dark-card);border:1px solid rgba(232,114,12,0.25);border-radius:12px;padding:36px;position:relative;overflow:hidden">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;margin-bottom:4px">GET THE PDF</div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:24px">Delivered to your inbox instantly.</div>
-      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">First Name</label><input type="text" placeholder="Joe" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
-      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Email Address</label><input type="email" placeholder="you@email.com" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
-      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Your Market / City</label><input type="text" placeholder="Cincinnati, OH" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
-      <button type="button" style="width:100%;background:var(--orange);color:#fff;padding:14px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;margin-top:4px">Send Me the Blueprint &rarr;</button>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">First Name</label><input type="text" id="blueprintFirst" placeholder="Joe" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Email Address</label><input type="email" id="blueprintEmail" placeholder="you@email.com" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Your Market / City</label><input type="text" id="blueprintMarket" placeholder="Cincinnati, OH" style="width:100%;background:#0d1117;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:12px 14px;font-size:13px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none"></div>
+      <button type="button" id="blueprintBtn" onclick="submitBlueprint()" style="width:100%;background:var(--orange);color:#fff;padding:14px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;margin-top:4px">Send Me the Blueprint &rarr;</button>
       <div style="font-size:11px;color:#444d5a;text-align:center;margin-top:10px">No spam. Unsubscribe anytime.</div>
+      <div id="blueprintSuccess" style="display:none;text-align:center;margin-top:16px;padding:16px;background:rgba(59,185,80,0.1);border:1px solid rgba(59,185,80,0.3);border-radius:6px;color:#3fb950;font-size:13px">✓ Check your email! Blueprint PDF on the way.</div>
     </div>
   </div>
 </div>
@@ -196,9 +197,10 @@ document.addEventListener('click',function(e){
     <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,4vw,56px);letter-spacing:2px;margin-bottom:16px">STAY IN THE <span style="color:var(--orange)">LOOP.</span> STAY IN THE MONEY.</h2>
     <p style="font-size:15px;color:rgba(255,255,255,.6);max-width:580px;margin:0 auto 36px;line-height:1.7">Weekly emails from Joe. Real market intel, lead tactics, and what's actually working right now in Greater Cincinnati restoration.</p>
     <div style="display:flex;gap:12px;max-width:520px;margin:0 auto 24px">
-      <input type="email" placeholder="your@email.com" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:14px 18px;font-size:14px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none">
-      <button type="button" style="background:var(--orange);color:#fff;padding:14px 28px;border-radius:6px;font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap">Subscribe Free</button>
+      <input type="email" id="mailerEmail" placeholder="your@email.com" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:14px 18px;font-size:14px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none">
+      <button type="button" id="mailerBtn" onclick="submitMailer()" style="background:var(--orange);color:#fff;padding:14px 28px;border-radius:6px;font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap">Subscribe Free</button>
     </div>
+    <div id="mailerSuccess" style="display:none;max-width:520px;margin:0 auto 24px;padding:16px;background:rgba(59,185,80,0.1);border:1px solid rgba(59,185,80,0.3);border-radius:6px;color:#3fb950;font-size:14px">✓ You're in! Check your email to confirm.</div>
     <div style="display:flex;justify-content:center;gap:28px;flex-wrap:wrap">
       <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Weekly field intel</span>
       <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.55)"><span style="color:#3fb950">&#10003;</span> Early tool access</span>
@@ -719,6 +721,96 @@ document.addEventListener('click',function(e){
   </div>
   <a href="/pro/login.html" style="background:rgba(232,114,12,0.1);border:1px solid rgba(232,114,12,0.25);color:var(--orange);padding:10px 20px;border-radius:4px;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;text-decoration:none">Member Login &rarr;</a>
 </footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// MAILERLITE SUBSCRIPTION HANDLERS
+// ══════════════════════════════════════════════════════════════
+
+// Blueprint lead magnet form
+async function submitBlueprint() {
+  const firstName = document.getElementById('blueprintFirst').value.trim();
+  const email = document.getElementById('blueprintEmail').value.trim();
+  const market = document.getElementById('blueprintMarket').value.trim();
+  const btn = document.getElementById('blueprintBtn');
+
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
+  btn.textContent = 'Subscribing...';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch('https://nbd-mailerlite.jonathandeal459.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        firstName,
+        market,
+        source: 'blueprint-leadmagnet'
+      })
+    });
+
+    if (response.ok) {
+      document.getElementById('blueprintForm').style.opacity = '0.5';
+      document.getElementById('blueprintSuccess').style.display = 'block';
+      btn.textContent = '✓ Subscribed';
+      // Reset form
+      setTimeout(() => {
+        document.getElementById('blueprintFirst').value = '';
+        document.getElementById('blueprintEmail').value = '';
+        document.getElementById('blueprintMarket').value = '';
+      }, 2000);
+    } else {
+      throw new Error('Subscription failed');
+    }
+  } catch (error) {
+    btn.textContent = 'Send Me the Blueprint →';
+    btn.disabled = false;
+    alert('Something went wrong. Please try again or email jd@nobigdealwithjoedeal.com');
+  }
+}
+
+// Success Mailer newsletter form
+async function submitMailer() {
+  const email = document.getElementById('mailerEmail').value.trim();
+  const btn = document.getElementById('mailerBtn');
+
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
+  btn.textContent = 'Subscribing...';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch('https://nbd-mailerlite.jonathandeal459.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        source: 'success-mailer'
+      })
+    });
+
+    if (response.ok) {
+      document.getElementById('mailerEmail').style.display = 'none';
+      btn.style.display = 'none';
+      document.getElementById('mailerSuccess').style.display = 'block';
+    } else {
+      throw new Error('Subscription failed');
+    }
+  } catch (error) {
+    btn.textContent = 'Subscribe Free';
+    btn.disabled = false;
+    alert('Something went wrong. Please try again or email jd@nobigdealwithjoedeal.com');
+  }
+}
+</script>
 
 </body>
 </html>
