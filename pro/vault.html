@@ -1111,12 +1111,12 @@ function navTo(page) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function renderOverview() {
-  // Update page header
-  const latestSession = CODEX.sessions[CODEX.sessions.length - 1];
+  // Update page header - find session with HIGHEST number (not just last in array)
+  const latestSession = CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max, CODEX.sessions[0]);
   const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
   
   document.getElementById('overviewTitle').textContent = `Session ${latestSession?.num || 0} Complete`;
-  document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
+  document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || latestSession?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
   
   // Update stat cards
   const blockerCount = CODEX.blockers.filter(b => b.status === 'open' && b.severity === 'critical').length;
@@ -1580,8 +1580,15 @@ async function manualSaveToFirestore() {
 window.vaultImportSession = async function(sessionData) {
   console.log('Importing session:', sessionData);
   
-  // Add session to CODEX
-  CODEX.sessions.push(sessionData);
+  // Check for duplicate session number
+  const existingIndex = CODEX.sessions.findIndex(s => s.num === sessionData.num);
+  if (existingIndex !== -1) {
+    console.warn(`⚠️ Session ${sessionData.num} already exists. Replacing...`);
+    CODEX.sessions[existingIndex] = sessionData;
+  } else {
+    // Add new session
+    CODEX.sessions.push(sessionData);
+  }
   
   // Update blockers if provided
   if (sessionData.blockers) {
