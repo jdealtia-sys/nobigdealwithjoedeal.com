@@ -28,19 +28,27 @@
   // AUTO-SIGN IN WITH ANONYMOUS AUTH
   // This creates a persistent anonymous user that survives page reloads
   onAuthStateChanged(auth, async (user) => {
+    console.log('🔐 Auth state changed. User:', user ? 'EXISTS' : 'NULL');
+    
     if (!user) {
       // No user signed in → sign in anonymously
+      console.log('🔄 Attempting anonymous sign-in...');
       try {
-        await signInAnonymously(auth);
-        console.log('✓ Signed in anonymously');
+        const userCredential = await signInAnonymously(auth);
+        console.log('✓ Anonymous sign-in SUCCESS:', userCredential.user.uid.substring(0, 8) + '...');
       } catch (error) {
-        console.error('❌ Anonymous sign-in failed:', error);
+        console.error('❌ Anonymous sign-in FAILED:', error.code, error.message);
+        console.error('Full error:', error);
+        // Try to continue anyway - maybe rules allow unauthenticated reads
+        window.dispatchEvent(new Event('firebase-ready'));
+        return;
       }
     } else {
       console.log('✓ User authenticated:', user.uid.substring(0, 8) + '...');
     }
     
     // Signal Firebase ready AFTER auth is confirmed
+    console.log('📢 Dispatching firebase-ready event');
     window.dispatchEvent(new Event('firebase-ready'));
   });
 
@@ -889,8 +897,13 @@ let db, firestore;
    ═══════════════════════════════════════════════════════════════════════════ */
 
 window.addEventListener('firebase-ready', async () => {
+  console.log('🚀 firebase-ready event received');
+  
   db = window._db;
   firestore = window._firestore;
+  
+  console.log('📦 DB object:', db ? 'LOADED' : 'NULL');
+  console.log('📦 Firestore helpers:', firestore ? 'LOADED' : 'NULL');
   
   await loadFromFirestore();
   renderOverview();
@@ -902,9 +915,12 @@ window.addEventListener('firebase-ready', async () => {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 async function loadFromFirestore() {
+  console.log('📥 loadFromFirestore() called');
   try {
     const {doc, getDoc} = firestore;
     const docRef = doc(db, 'codex', 'latest');
+    
+    console.log('🔍 Attempting to read: codex/latest');
     const snapshot = await getDoc(docRef);
     
     if (snapshot.exists()) {
@@ -913,12 +929,13 @@ async function loadFromFirestore() {
       updateSaveIndicator(true);
       return true;
     } else {
-      console.warn('⚠ No Firestore data found — using seed data');
+      console.warn('⚠ No Firestore data found at codex/latest — using seed data');
       await seedFirestore();
       return false;
     }
   } catch (error) {
-    console.error('❌ Firestore load error:', error);
+    console.error('❌ Firestore load error:', error.code, error.message);
+    console.error('Full error object:', error);
     toast('Failed to load from Firestore — using local data', 'error');
     return false;
   }
