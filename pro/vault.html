@@ -575,11 +575,13 @@ body::after {
   border-radius: var(--r);
   padding: 16px;
   text-align: center;
-  transition: border-color var(--t) var(--ease);
+  transition: all var(--t) var(--ease);
 }
 
 .stat-chip:hover {
-  border-color: var(--border2);
+  border-color: var(--gold);
+  background: var(--lift);
+  transform: translateY(-2px);
 }
 
 .stat-val {
@@ -846,19 +848,19 @@ body::after {
 
         <!-- Stat Cards -->
         <div class="stat-row">
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="navTo('sessions')" style="cursor:pointer;">
             <div class="stat-val ok" id="sessionCount">0</div>
             <div class="stat-lbl">Total Sessions</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="navTo('blockers')" style="cursor:pointer;">
             <div class="stat-val critical" id="blockerCount">1</div>
             <div class="stat-lbl">Critical Blockers</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="navTo('debt')" style="cursor:pointer;">
             <div class="stat-val high" id="debtCount">7</div>
             <div class="stat-lbl">Open Debt Items</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" style="cursor:default; opacity:0.6;">
             <div class="stat-val gold">6</div>
             <div class="stat-lbl">Days Straight</div>
           </div>
