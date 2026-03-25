@@ -732,7 +732,7 @@ body::after {
       <button class="nav-item" data-page="sessions" onclick="navTo('sessions')">
         <span class="nav-item-icon">📝</span>
         <span class="nav-item-label">Sessions</span>
-        <span class="nav-item-badge ok">27</span>
+        <span class="nav-item-badge ok" id="sessionsBadge">0</span>
       </button>
       <button class="nav-item" data-page="tasks" onclick="navTo('tasks')">
         <span class="nav-item-icon">✓</span>
@@ -1059,6 +1059,7 @@ function renderOverview() {
   document.getElementById('taskBadge').textContent = CODEX.tasks.filter(t => t.status === 'open').length;
   document.getElementById('debtBadge').textContent = debtCount;
   document.getElementById('blockerBadge').textContent = blockerCount;
+  document.getElementById('sessionsBadge').textContent = CODEX.sessions.length;
   
   // Render blockers
   const blockersHTML = CODEX.blockers
