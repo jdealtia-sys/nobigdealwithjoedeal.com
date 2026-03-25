@@ -2511,17 +2511,32 @@ EXTRACTION RULES:
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         model: 'gemini-2.0-flash-exp',
-        prompt: prompt,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
         temperature: 0.1 // Low temperature for structured extraction
       })
     });
     
     if (!response.ok) {
-      throw new Error(`Worker returned ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Worker error (${response.status}):`, errorText);
+      throw new Error(`Worker returned ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();
-    let jsonText = data.response || data.text || '';
+    console.log('Raw worker response:', data);
+    
+    // Worker might return {response: "..."} or {text: "..."} or {content: "..."}
+    let jsonText = data.response || data.text || data.content || '';
+    
+    if (!jsonText) {
+      console.error('No text content in worker response:', data);
+      throw new Error('Worker returned no content');
+    }
     
     // Strip markdown code fences if present
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
