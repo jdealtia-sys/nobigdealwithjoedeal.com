@@ -3663,6 +3663,121 @@ window.nbdNavToggle = nbdNavToggle;
 </div>
 
 
+<!-- PROPERTY INTEL SELECTION MODAL -->
+<div class="modal-bg" id="propertyIntelModal" style="display:none;">
+  <div class="modal" style="max-width:520px;">
+    <button class="modal-close" onclick="closePropertyIntelModal()">✕</button>
+    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">🏠 Pull Property Intel</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
+    
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
+        onmouseenter="this.style.borderColor='var(--border2)'"
+        onmouseleave="this.style.borderColor='transparent'">
+        <input type="checkbox" id="piOwnerContact" onchange="updatePropertyIntelCost()" 
+          style="width:18px;height:18px;cursor:pointer;">
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--text);font-size:14px;">Owner Name & Contact</div>
+          <div style="font-size:12px;color:var(--text3);">Name, phone, mailing address</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.30</div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
+        onmouseenter="this.style.borderColor='var(--border2)'"
+        onmouseleave="this.style.borderColor='transparent'">
+        <input type="checkbox" id="piPropertyDetails" onchange="updatePropertyIntelCost()"
+          style="width:18px;height:18px;cursor:pointer;">
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--text);font-size:14px;">Property Details</div>
+          <div style="font-size:12px;color:var(--text3);">Year built, sq ft, bedrooms, baths</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.15</div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
+        onmouseenter="this.style.borderColor='var(--border2)'"
+        onmouseleave="this.style.borderColor='transparent'">
+        <input type="checkbox" id="piZestimate" onchange="updatePropertyIntelCost()"
+          style="width:18px;height:18px;cursor:pointer;">
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--text);font-size:14px;">Zillow Zestimate</div>
+          <div style="font-size:12px;color:var(--text3);">Estimated home value</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.05</div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
+        onmouseenter="this.style.borderColor='var(--border2)'"
+        onmouseleave="this.style.borderColor='transparent'">
+        <input type="checkbox" id="piTaxData" onchange="updatePropertyIntelCost()"
+          style="width:18px;height:18px;cursor:pointer;">
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--text);font-size:14px;">Tax Assessor Data</div>
+          <div style="font-size:12px;color:var(--text3);">Assessed value, tax records</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.10</div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--green-dim);border-radius:var(--r);cursor:pointer;border:1px solid var(--green);"
+        title="Calculated from property age - no API cost">
+        <input type="checkbox" id="piRoofAge" checked disabled
+          style="width:18px;height:18px;cursor:not-allowed;opacity:0.6;">
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--text);font-size:14px;">Roof Age Estimate</div>
+          <div style="font-size:12px;color:var(--text3);">Calculated from year built</div>
+        </div>
+        <div style="font-weight:700;color:var(--green);font-size:14px;">FREE</div>
+      </label>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--card);border-radius:var(--r);margin-bottom:16px;">
+      <div style="font-weight:700;font-size:16px;color:var(--text);">Total Cost:</div>
+      <div style="font-weight:800;font-size:24px;color:var(--gold);" id="piTotalCost">$0.00</div>
+    </div>
+
+    <div style="display:flex;gap:12px;">
+      <button onclick="closePropertyIntelModal()" 
+        style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
+        Cancel
+      </button>
+      <button onclick="confirmPropertyIntelPull()" id="piPullBtn"
+        style="flex:1;padding:12px;background:var(--gold);border:none;color:#000;border-radius:var(--r);font-weight:700;cursor:pointer;">
+        Pull Selected Data →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PROPERTY INTEL CONFIRMATION MODAL -->
+<div class="modal-bg" id="propertyIntelConfirmModal" style="display:none;">
+  <div class="modal" style="max-width:420px;">
+    <button class="modal-close" onclick="closePropertyIntelConfirmModal()">✕</button>
+    <div style="font-size:32px;text-align:center;margin-bottom:16px;">💰</div>
+    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;text-align:center;">Confirm Data Pull</div>
+    <div style="font-size:24px;font-weight:800;color:var(--gold);margin-bottom:24px;text-align:center;" id="piConfirmCost">$0.00</div>
+    
+    <div style="margin-bottom:24px;padding:16px;background:var(--lift);border-radius:var(--r);">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">You selected:</div>
+      <ul id="piConfirmList" style="margin:0;padding-left:20px;font-size:13px;color:var(--text3);">
+        <!-- Populated by JS -->
+      </ul>
+    </div>
+
+    <div style="display:flex;gap:12px;">
+      <button onclick="closePropertyIntelConfirmModal()" 
+        style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
+        Go Back
+      </button>
+      <button onclick="executePullPropertyIntel()" id="piConfirmBtn"
+        style="flex:1;padding:12px;background:var(--gold);border:none;color:#000;border-radius:var(--r);font-weight:700;cursor:pointer;">
+        Confirm & Pull
+      </button>
+    </div>
+  </div>
+</div>
+
+
 <!-- TASK MODAL -->
 <div class="modal-bg" id="taskModal">
   <div class="modal" style="max-width:480px;">
@@ -6632,24 +6747,138 @@ function renderIntelCard(targetElId, intel, county, address) {
 }
 
 // ── Pull intel inside lead modal ──────────────────────────────
+// PROPERTY INTEL SELECTIVE PULL SYSTEM
 async function pullIntelForModal() {
   const addr = document.getElementById('lAddr')?.value?.trim();
   if(!addr) { showToast('Enter an address first','error'); return; }
+  
+  // Store address for later use
+  window._pendingIntelAddress = addr;
+  
+  // Reset selections
+  document.getElementById('piOwnerContact').checked = false;
+  document.getElementById('piPropertyDetails').checked = false;
+  document.getElementById('piZestimate').checked = false;
+  document.getElementById('piTaxData').checked = false;
+  updatePropertyIntelCost();
+  
+  // Show selection modal
+  document.getElementById('propertyIntelModal').style.display = 'flex';
+}
 
-  const btn = document.getElementById('pullIntelBtn');
-  const resultEl = document.getElementById('modalIntelResult');
-  btn.classList.add('loading');
-  btn.textContent = '⏳ Looking up...';
-  resultEl.classList.remove('visible');
+function closePropertyIntelModal() {
+  document.getElementById('propertyIntelModal').style.display = 'none';
+}
 
-  // Geocode address to get county
-  const geo = await geocode(addr);
-  if(!geo) { btn.classList.remove('loading'); btn.innerHTML='🏠 Pull Property Intel'; return; }
+function closePropertyIntelConfirmModal() {
+  document.getElementById('propertyIntelConfirmModal').style.display = 'none';
+}
 
-  // Use geocode data to run intel
-  await fetchPropertyIntelModal(geo, addr);
-  btn.classList.remove('loading');
-  btn.innerHTML = '🏠 Pull Property Intel';
+function updatePropertyIntelCost() {
+  const prices = {
+    piOwnerContact: 0.30,
+    piPropertyDetails: 0.15,
+    piZestimate: 0.05,
+    piTaxData: 0.10
+  };
+  
+  let total = 0;
+  for (const [id, price] of Object.entries(prices)) {
+    if (document.getElementById(id)?.checked) {
+      total += price;
+    }
+  }
+  
+  document.getElementById('piTotalCost').textContent = '$' + total.toFixed(2);
+  
+  // Disable pull button if nothing selected
+  const btn = document.getElementById('piPullBtn');
+  if (total === 0) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  }
+}
+
+function confirmPropertyIntelPull() {
+  const selections = {
+    'Owner Name & Contact': document.getElementById('piOwnerContact').checked,
+    'Property Details': document.getElementById('piPropertyDetails').checked,
+    'Zillow Zestimate': document.getElementById('piZestimate').checked,
+    'Tax Assessor Data': document.getElementById('piTaxData').checked
+  };
+  
+  const selected = Object.entries(selections).filter(([_, checked]) => checked).map(([name, _]) => name);
+  
+  if (selected.length === 0) {
+    showToast('Select at least one data source', 'error');
+    return;
+  }
+  
+  // Calculate cost
+  const prices = { 'Owner Name & Contact': 0.30, 'Property Details': 0.15, 'Zillow Zestimate': 0.05, 'Tax Assessor Data': 0.10 };
+  const cost = selected.reduce((sum, name) => sum + prices[name], 0);
+  
+  // Update confirmation modal
+  document.getElementById('piConfirmCost').textContent = '$' + cost.toFixed(2);
+  const listEl = document.getElementById('piConfirmList');
+  listEl.innerHTML = selected.map(name => `<li>${name}</li>`).join('');
+  
+  // Hide selection modal, show confirmation
+  document.getElementById('propertyIntelModal').style.display = 'none';
+  document.getElementById('propertyIntelConfirmModal').style.display = 'flex';
+}
+
+async function executePullPropertyIntel() {
+  const confirmBtn = document.getElementById('piConfirmBtn');
+  const originalText = confirmBtn.textContent;
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = '⏳ Pulling...';
+  
+  try {
+    const addr = window._pendingIntelAddress;
+    if (!addr) throw new Error('No address found');
+    
+    // Get selections
+    const selections = {
+      ownerContact: document.getElementById('piOwnerContact').checked,
+      propertyDetails: document.getElementById('piPropertyDetails').checked,
+      zestimate: document.getElementById('piZestimate').checked,
+      taxData: document.getElementById('piTaxData').checked
+    };
+    
+    // Calculate actual cost
+    const prices = { ownerContact: 0.30, propertyDetails: 0.15, zestimate: 0.05, taxData: 0.10 };
+    const cost = Object.entries(selections)
+      .filter(([_, checked]) => checked)
+      .reduce((sum, [key, _]) => sum + prices[key], 0);
+    
+    // Geocode address first
+    const geo = await geocode(addr);
+    if (!geo) throw new Error('Could not geocode address');
+    
+    // TODO: Call actual property data APIs based on selections
+    // For now, simulate with existing fetchPropertyIntel
+    await fetchPropertyIntelModal(geo, addr);
+    
+    // Close modals
+    closePropertyIntelConfirmModal();
+    
+    // Show success with cost
+    const selectedCount = Object.values(selections).filter(Boolean).length;
+    showToast(`✓ Pulled ${selectedCount} data point${selectedCount > 1 ? 's' : ''} for $${cost.toFixed(2)}`, 'success');
+    
+  } catch (error) {
+    console.error('Property intel pull error:', error);
+    showToast('Failed to pull property data: ' + error.message, 'error');
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = originalText;
+  }
 }
 
 async function fetchPropertyIntelModal(geo, addr) {
