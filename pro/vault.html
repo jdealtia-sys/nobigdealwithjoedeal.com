@@ -1260,6 +1260,35 @@ function renderSessions() {
       <div class="page-subtitle">Complete build timeline</div>
     </div>
     
+    <!-- AI Session Analyzer -->
+    <div class="card" style="background: linear-gradient(135deg, var(--card) 0%, var(--lift) 100%); border: 1px solid var(--gold); border-radius: var(--rlg); margin-bottom: 24px;">
+      <div class="card-header" style="border-bottom: 1px solid var(--border2);">
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          <div style="font-size: 24px;">🧠</div>
+          <div>
+            <div class="card-title" style="color: var(--gold); margin: 0;">AI Session Analyzer</div>
+            <div style="font-size: 12px; color: var(--text3); margin-top: 4px;">Auto-analyze sessions to update tasks, debt, and blockers</div>
+          </div>
+        </div>
+        <button 
+          class="btn-gold" 
+          id="aiAnalyzeBtn" 
+          onclick="analyzeSessionsWithAI()"
+          style="white-space: nowrap;"
+        >
+          🔄 Analyze & Update Backlog
+        </button>
+      </div>
+      <div class="card-body" style="padding: 16px;">
+        <div id="aiAnalyzerStatus" style="font-size: 13px; color: var(--text3); font-family: 'Syne Mono', monospace;">
+          <span style="color: var(--text2);">💡 Click "Analyze & Update Backlog" to scan all sessions and auto-update your work queue</span>
+        </div>
+        <div id="aiAnalyzerTimestamp" style="font-size: 11px; color: var(--text3); margin-top: 12px; font-family: 'Syne Mono', monospace; display: none;">
+          Last refreshed: <span id="lastAnalyzedTime">Never</span>
+        </div>
+      </div>
+    </div>
+    
     <div class="card">
       <div class="card-header">
         <input 
@@ -2745,6 +2774,232 @@ async function parseAllSessions() {
   parseBtn.textContent = '🔄 Parse All Sessions';
   
   toast(`Extracted ${Object.values(totalExtracted).reduce((a,b) => a+b, 0)} items from ${sessionsWithContent.length} sessions`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION ANALYZER — Consolidated Backlog Update
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function analyzeSessionsWithAI() {
+  const btn = document.getElementById('aiAnalyzeBtn');
+  const statusDiv = document.getElementById('aiAnalyzerStatus');
+  const timestampDiv = document.getElementById('aiAnalyzerTimestamp');
+  const timestampSpan = document.getElementById('lastAnalyzedTime');
+  
+  if (!btn || !statusDiv) return;
+  
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = '🔄 Analyzing...';
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Scanning all sessions and extracting work items...</span>';
+  
+  try {
+    // Collect all session data (last 20 sessions for token efficiency)
+    const recentSessions = CODEX.sessions
+      .sort((a, b) => b.num - a.num)
+      .slice(0, 20)
+      .reverse(); // Chronological order for AI
+    
+    if (recentSessions.length === 0) {
+      throw new Error('No sessions found to analyze');
+    }
+    
+    // Build comprehensive prompt
+    const sessionsText = recentSessions.map(s => `
+═══════════════════════════════════════════════════════════════
+SESSION ${s.num} — ${s.meta?.title || s.title || 'Untitled'}
+Date: ${s.meta?.date || s.date || 'Unknown'}
+Status: ${s.status || 'Unknown'}
+═══════════════════════════════════════════════════════════════
+
+${s.summary || s.content || 'No content'}
+
+${s.blockers ? '🚫 BLOCKERS:\n' + JSON.stringify(s.blockers, null, 2) : ''}
+${s.debt ? '⚠️ DEBT:\n' + JSON.stringify(s.debt, null, 2) : ''}
+${s.completed ? '✅ COMPLETED:\n' + JSON.stringify(s.completed, null, 2) : ''}
+${s.nextSession ? '🎯 NEXT:\n' + JSON.stringify(s.nextSession, null, 2) : ''}
+    `).join('\n\n');
+    
+    const prompt = `You are analyzing the NBD Pro build history to extract the current work backlog.
+
+INSTRUCTIONS:
+Read all ${recentSessions.length} sessions below and extract:
+1. **OPEN BLOCKERS** - Issues explicitly marked as blockers that are NOT resolved/closed
+2. **EXECUTION DEBT** - High/critical severity debt items still open
+3. **PRIORITY TASKS** - Next 5-10 most important tasks based on session missions and deferred work
+4. **INSIGHTS** - 2-3 key patterns (recurring issues, zombie debt, risk zones)
+
+CRITICAL RULES:
+- Only include items explicitly mentioned in sessions
+- Mark status as "open" UNLESS explicitly resolved/closed in content
+- For blockers: check latest session mentions to determine if still open
+- For debt: prioritize severity "critical" and "high" only
+- For tasks: focus on "next session" priorities and deferred work
+- Return ONLY valid JSON, no markdown formatting, no backticks, no explanatory text
+
+SESSIONS TO ANALYZE:
+${sessionsText}
+
+Return this exact JSON structure:
+{
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "Brief title",
+      "severity": "critical|high",
+      "status": "open",
+      "sessionsOpen": number,
+      "resolutionPath": "Brief next step"
+    }
+  ],
+  "debt": [
+    {
+      "title": "Brief title",
+      "severity": "critical|high",
+      "category": "infrastructure|ux-polish|error-handling|etc",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "impact": "Brief impact statement"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Brief title",
+      "priority": "critical|high|normal",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "dependencies": []
+    }
+  ],
+  "insights": [
+    "Pattern 1",
+    "Pattern 2",
+    "Pattern 3"
+  ]
+}`;
+
+    statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
+    
+    // Call Gemini API
+    const response = await fetch(GEMINI_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash-exp',
+        messages: [{
+          role: 'user',
+          content: prompt
+        }],
+        temperature: 0.1
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Extract response text (handle multiple possible formats)
+    let jsonText = '';
+    if (typeof data === 'string') {
+      jsonText = data;
+    } else if (data.response) {
+      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+    } else if (data.text) {
+      jsonText = data.text;
+    } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      jsonText = data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error('Cannot parse AI response format');
+    }
+    
+    // Clean markdown fences
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    statusDiv.innerHTML = '<span style="color:var(--blue)">📊 Processing results...</span>';
+    
+    const parsed = JSON.parse(jsonText);
+    
+    // OVERWRITE existing backlog with AI analysis
+    CODEX.blockers = parsed.blockers || [];
+    CODEX.debt = parsed.debt || [];
+    CODEX.tasks = parsed.tasks || [];
+    
+    // Store insights in CODEX
+    CODEX.aiInsights = {
+      lastAnalyzed: new Date().toISOString(),
+      patterns: parsed.insights || [],
+      sessionsAnalyzed: recentSessions.length,
+      itemsExtracted: {
+        blockers: CODEX.blockers.length,
+        debt: CODEX.debt.length,
+        tasks: CODEX.tasks.length
+      }
+    };
+    
+    // Save to Firestore
+    statusDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+    await saveToFirestore();
+    
+    // Update UI
+    renderOverview();
+    renderTasks();
+    renderDebt();
+    renderBlockers();
+    
+    // Update timestamp
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    timestampSpan.textContent = timeStr;
+    timestampDiv.style.display = 'block';
+    
+    // Show success
+    const total = CODEX.blockers.length + CODEX.debt.length + CODEX.tasks.length;
+    statusDiv.innerHTML = `
+      <div style="color:var(--green); font-weight:600; margin-bottom:8px;">
+        ✅ Analysis Complete! Updated from ${recentSessions.length} sessions
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:12px;">
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--red);">${CODEX.blockers.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Blockers</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--orange);">${CODEX.debt.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Debt Items</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--blue);">${CODEX.tasks.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Priority Tasks</div>
+        </div>
+      </div>
+      ${parsed.insights && parsed.insights.length > 0 ? `
+        <div style="background:var(--void); border:1px solid var(--border2); border-radius:var(--r); padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:var(--gold); margin-bottom:8px;">💡 AI Insights:</div>
+          ${parsed.insights.map(insight => `<div style="font-size:12px; color:var(--text2); margin-bottom:4px;">• ${insight}</div>`).join('')}
+        </div>
+      ` : ''}
+    `;
+    
+    toast(`Backlog updated: ${total} items extracted from ${recentSessions.length} sessions`, 'success');
+    
+  } catch (error) {
+    console.error('AI analysis error:', error);
+    statusDiv.innerHTML = `<span style="color:var(--red)">❌ Analysis failed: ${error.message}</span>`;
+    toast('AI analysis failed — check console', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Analyze & Update Backlog';
+  }
 }
 
 async function parseSessionTest() {
