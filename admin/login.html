@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Access — NBD Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void: #050608;
+  --surface: #0D1117;
+  --card: #111722;
+  --lift: #161E2B;
+  --border: #1C2535;
+  --border2: #243044;
+  --gold: #C9A84C;
+  --gold-glow: rgba(201,168,76,0.22);
+  --red: #E05252;
+  --red-dim: rgba(224,82,82,0.10);
+  --text: #E2E8F0;
+  --text2: #8892A4;
+  --text3: #4A5568;
+  --ease: cubic-bezier(0.22,1,0.36,1);
+  --t: 0.2s;
+  --r: 8px;
+  --rlg: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Syne', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--void);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-container {
+  max-width: 450px;
+  width: 100%;
+}
+
+.logo {
+  text-align: center;
+  margin-bottom: 48px;
+  animation: fadeIn 0.6s var(--ease);
+}
+
+.logo-seal {
+  display: inline-block;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--gold) 0%, #8B7333 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: #000;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px var(--gold-glow);
+}
+
+.logo-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.logo-subtitle {
+  font-family: 'Syne Mono', monospace;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+.login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rlg);
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: slideUp 0.6s var(--ease);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  font-size: 13px;
+  color: var(--text3);
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  color: var(--text);
+  font-size: 15px;
+  font-family: 'Syne Mono', monospace;
+  letter-spacing: 2px;
+  transition: all var(--t) var(--ease);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--lift);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+.btn-login {
+  width: 100%;
+  background: var(--gold);
+  color: #000;
+  border: none;
+  padding: 14px;
+  border-radius: var(--r);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  box-shadow: 0 4px 16px var(--gold-glow);
+}
+
+.btn-login:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--gold-glow);
+}
+
+.btn-login:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-msg {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 16px;
+  text-align: center;
+  animation: shake 0.3s var(--ease);
+}
+
+.admin-links {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+
+.admin-links.active {
+  display: block;
+  animation: fadeIn 0.4s var(--ease);
+}
+
+.admin-links h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.link-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.admin-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  text-decoration: none;
+  transition: all var(--t) var(--ease);
+}
+
+.admin-link:hover {
+  border-color: var(--gold);
+  background: var(--lift);
+  transform: translateX(4px);
+}
+
+.admin-link-icon {
+  font-size: 24px;
+}
+
+.admin-link-info {
+  flex: 1;
+}
+
+.admin-link-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.admin-link-desc {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.logout-btn {
+  margin-top: 16px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  padding: 10px;
+  border-radius: var(--r);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.logout-btn:hover {
+  background: var(--lift);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+</style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="logo">
+    <div class="logo-seal">🔐</div>
+    <div class="logo-title">NBD Pro Admin</div>
+    <div class="logo-subtitle">Restricted Access</div>
+  </div>
+
+  <div class="login-card">
+    <div id="loginForm">
+      <div class="login-header">
+        <h1>Admin Authentication</h1>
+        <p>Enter your access code to continue</p>
+      </div>
+
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="passcode">Access Code</label>
+          <input 
+            type="password" 
+            id="passcode" 
+            class="form-input" 
+            placeholder="••••••••"
+            autocomplete="off"
+            autofocus
+          />
+        </div>
+
+        <button type="submit" class="btn-login" id="loginBtn">
+          🔓 Unlock Admin Access
+        </button>
+      </form>
+
+      <div id="errorMsg"></div>
+    </div>
+
+    <div class="admin-links" id="adminLinks">
+      <h3>Admin Tools</h3>
+      <div class="link-grid">
+        <a href="vault.html" class="admin-link">
+          <div class="admin-link-icon">📜</div>
+          <div class="admin-link-info">
+            <div class="admin-link-title">Eternal Vault</div>
+            <div class="admin-link-desc">Session history & AI analyzer</div>
+          </div>
+        </a>
+        
+        <a href="analytics.html" class="admin-link">
+          <div class="admin-link-icon">📊</div>
+          <div class="admin-link-info">
+            <div class="admin-link-title">API Analytics</div>
+            <div class="admin-link-desc">Usage stats & cost monitoring</div>
+          </div>
+        </a>
+        
+        <a href="project-codex.html" class="admin-link">
+          <div class="admin-link-icon">⚡</div>
+          <div class="admin-link-info">
+            <div class="admin-link-title">Project Codex</div>
+            <div class="admin-link-desc">Build tracker & versioning</div>
+          </div>
+        </a>
+      </div>
+
+      <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PASSCODE = 'eternal';
+const SESSION_KEY = 'nbd_admin_session';
+const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+// Check existing session on load
+window.addEventListener('DOMContentLoaded', () => {
+  checkSession();
+});
+
+function checkSession() {
+  const session = localStorage.getItem(SESSION_KEY);
+  
+  if (session) {
+    try {
+      const data = JSON.parse(session);
+      const now = Date.now();
+      
+      // Check if session is still valid
+      if (data.expires > now) {
+        showAdminLinks();
+        return;
+      }
+    } catch (e) {
+      // Invalid session data
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }
+  
+  // No valid session - show login form
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('adminLinks').classList.remove('active');
+}
+
+function handleLogin(event) {
+  event.preventDefault();
+  
+  const input = document.getElementById('passcode');
+  const errorDiv = document.getElementById('errorMsg');
+  const btn = document.getElementById('loginBtn');
+  
+  const value = input.value.trim();
+  
+  // Clear previous errors
+  errorDiv.innerHTML = '';
+  
+  if (!value) {
+    showError('Please enter an access code');
+    return;
+  }
+  
+  // Disable button during check
+  btn.disabled = true;
+  btn.textContent = '🔄 Verifying...';
+  
+  // Simulate small delay (security theater)
+  setTimeout(() => {
+    if (value === PASSCODE) {
+      // Create session
+      const session = {
+        authenticated: true,
+        timestamp: Date.now(),
+        expires: Date.now() + SESSION_DURATION
+      };
+      
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      
+      // Show admin links
+      showAdminLinks();
+      
+      // Clear input
+      input.value = '';
+      
+    } else {
+      showError('Invalid access code');
+      btn.disabled = false;
+      btn.textContent = '🔓 Unlock Admin Access';
+      input.value = '';
+      input.focus();
+    }
+  }, 500);
+}
+
+function showAdminLinks() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('adminLinks').classList.add('active');
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('errorMsg');
+  errorDiv.innerHTML = `<div class="error-msg">${message}</div>`;
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+// Auto-logout on session expiry
+setInterval(() => {
+  const session = localStorage.getItem(SESSION_KEY);
+  if (session) {
+    try {
+      const data = JSON.parse(session);
+      if (data.expires <= Date.now()) {
+        logout();
+      }
+    } catch (e) {
+      logout();
+    }
+  }
+}, 60000); // Check every minute
+</script>
+
+</body>
+</html>

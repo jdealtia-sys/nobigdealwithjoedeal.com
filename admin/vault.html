@@ -1,0 +1,3100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eternal Vault V2 — NBD Pro</title>
+
+<!-- Admin Session Gate -->
+<script>
+(function() {
+  const SESSION_KEY = 'nbd_admin_session';
+  const session = localStorage.getItem(SESSION_KEY);
+  
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+  
+  try {
+    const data = JSON.parse(session);
+    if (data.expires <= Date.now()) {
+      localStorage.removeItem(SESSION_KEY);
+      window.location.href = 'login.html';
+      return;
+    }
+  } catch (e) {
+    localStorage.removeItem(SESSION_KEY);
+    window.location.href = 'login.html';
+  }
+})();
+</script>
+
+<!-- Firebase SDK v9 (modular) -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+  import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    projectId: "nobigdeal-pro",
+    storageBucket: "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841570",
+    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // AUTO-SIGN IN WITH ANONYMOUS AUTH
+  // This creates a persistent anonymous user that survives page reloads
+  onAuthStateChanged(auth, async (user) => {
+    console.log('🔐 Auth state changed. User:', user ? 'EXISTS' : 'NULL');
+    
+    if (!user) {
+      // No user signed in → sign in anonymously
+      console.log('🔄 Attempting anonymous sign-in...');
+      try {
+        const userCredential = await signInAnonymously(auth);
+        console.log('✓ Anonymous sign-in SUCCESS:', userCredential.user.uid.substring(0, 8) + '...');
+      } catch (error) {
+        console.error('❌ Anonymous sign-in FAILED:', error.code, error.message);
+        console.error('Full error:', error);
+        // Try to continue anyway - maybe rules allow unauthenticated reads
+        window.dispatchEvent(new Event('firebase-ready'));
+        return;
+      }
+    } else {
+      console.log('✓ User authenticated:', user.uid.substring(0, 8) + '...');
+    }
+    
+    // Signal Firebase ready AFTER auth is confirmed
+    console.log('📢 Dispatching firebase-ready event');
+    window.dispatchEvent(new Event('firebase-ready'));
+  });
+
+  // Expose to window for non-module scripts
+  window._auth = auth;
+  window._db = db;
+  window._firestore = { doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit };
+  window._authState = onAuthStateChanged;
+</script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETERNAL VAULT V2 — CORE DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Colors — Dark Vault Theme */
+  --void: #050608;
+  --surface: #0D1117;
+  --card: #111722;
+  --lift: #161E2B;
+  --border: #1C2535;
+  --border2: #243044;
+  
+  /* Accent Colors */
+  --gold: #C9A84C;
+  --gold-dim: rgba(201,168,76,0.10);
+  --gold-glow: rgba(201,168,76,0.22);
+  --orange: #F97316;
+  --orange-dim: rgba(249,115,22,0.10);
+  --red: #E05252;
+  --red-dim: rgba(224,82,82,0.10);
+  --green: #3DD68C;
+  --green-dim: rgba(61,214,140,0.10);
+  --blue: #4E9BF5;
+  --blue-dim: rgba(78,155,245,0.10);
+  
+  /* Text */
+  --text: #E2E8F0;
+  --text2: #8892A4;
+  --text3: #4A5568;
+  
+  /* Animation */
+  --ease: cubic-bezier(0.22,1,0.36,1);
+  --t: 0.2s;
+  
+  /* Spacing */
+  --r: 8px;
+  --rlg: 14px;
+}
+
+* {box-sizing:border-box;margin:0;padding:0}
+
+html {
+  scroll-behavior:smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: 'Crimson Pro', serif;
+  background: var(--void);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Background grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Background glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: -300px;
+  right: -200px;
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOP BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.topbar {
+  height: 60px;
+  background: rgba(5,6,8,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logo-seal {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne Mono', monospace;
+  font-size: 11px;
+  color: var(--gold);
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.logo-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.logo-sub {
+  font-family: 'Syne Mono', monospace;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+.topbar-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Syne Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.save-indicator {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  letter-spacing: 0.5px;
+  transition: all var(--t) var(--ease);
+}
+
+.save-indicator.saved {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-dim);
+}
+
+.save-indicator.unsaved {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: var(--orange-dim);
+}
+
+.btn-save {
+  background: var(--gold);
+  color: #000;
+  border: none;
+  padding: 7px 16px;
+  border-radius: var(--r);
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  box-shadow: 0 3px 12px var(--gold-glow);
+}
+
+.btn-save:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--gold-glow);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sidebar {
+  width: 240px;
+  background: rgba(8,11,16,0.98);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 16px 12px 8px;
+  font-family: 'Syne Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  border-left: 2px solid transparent;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+}
+
+.nav-item:hover {
+  color: var(--text);
+  background: var(--lift);
+  border-left-color: var(--border2);
+}
+
+.nav-item.active {
+  color: var(--gold);
+  background: var(--gold-dim);
+  border-left-color: var(--gold);
+}
+
+.nav-item-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.nav-item-label {
+  flex: 1;
+}
+
+.nav-item-badge {
+  font-family: 'Syne Mono', monospace;
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--red);
+  color: #fff;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+}
+
+.nav-item-badge.ok {
+  background: var(--green);
+}
+
+.nav-item-badge.warn {
+  background: var(--orange);
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN CONTENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.page {
+  display: none;
+  padding: 32px;
+  animation: fadeUp 0.25s var(--ease) both;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page.active {
+  display: block;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE HEADER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-eyebrow {
+  font-family: 'Syne Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.page-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: var(--text2);
+  font-family: 'Syne Mono', monospace;
+  letter-spacing: 0.3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rlg);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--r);
+  border: none;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  white-space: nowrap;
+}
+
+.btn-gold {
+  background: var(--gold);
+  color: #000;
+  box-shadow: 0 3px 12px var(--gold-glow);
+}
+
+.btn-gold:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--gold-glow);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+
+.btn-outline:hover {
+  background: var(--gold-dim);
+}
+
+.btn-ghost {
+  background: var(--lift);
+  color: var(--text2);
+  border: 1px solid var(--border2);
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--gold);
+}
+
+.btn-red {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid rgba(224,82,82,0.3);
+}
+
+.btn-red:hover {
+  background: var(--red-dim);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 10px;
+}
+
+.btn-xs {
+  padding: 4px 10px;
+  font-size: 9px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STAT CHIPS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+  text-align: center;
+  transition: all var(--t) var(--ease);
+}
+
+.stat-chip:hover {
+  border-color: var(--gold);
+  background: var(--lift);
+  transform: translateY(-2px);
+}
+
+.stat-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-val.critical {color: var(--red)}
+.stat-val.high {color: var(--orange)}
+.stat-val.ok {color: var(--green)}
+.stat-val.info {color: var(--blue)}
+.stat-val.gold {color: var(--gold)}
+
+.stat-lbl {
+  font-family: 'Syne Mono', monospace;
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 18px;
+  font-family: 'Syne Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  pointer-events: all;
+  animation: toastSlideIn 0.3s var(--ease) both;
+  max-width: 400px;
+}
+
+.toast.success {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.toast.error {
+  border-color: var(--red);
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.toast.info {
+  border-color: var(--blue);
+  background: var(--blue-dim);
+  color: var(--blue);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SESSION CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.session-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--lift);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.session-card:hover {
+  background: var(--card);
+  border-color: var(--gold);
+  transform: translateX(4px);
+}
+
+.session-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 48px;
+  text-align: center;
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.session-meta {
+  font-size: 13px;
+  color: var(--text3);
+}
+
+.session-arrow {
+  font-size: 18px;
+  color: var(--text3);
+  opacity: 0;
+  transition: opacity var(--t) var(--ease);
+}
+
+.session-card:hover .session-arrow {
+  opacity: 1;
+  color: var(--gold);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+  
+  .page {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -240px;
+    top: 60px;
+    width: 240px;
+    height: calc(100vh - 60px);
+    z-index: 199;
+    transition: left 0.3s var(--ease);
+  }
+  
+  .sidebar.open {
+    left: 0;
+  }
+  
+  .page {
+    padding: 20px;
+  }
+  
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <a href="#" class="topbar-logo" onclick="navTo('overview'); return false">
+      <div class="logo-seal">V2</div>
+      <div class="logo-text">
+        <div class="logo-title">Eternal Vault</div>
+        <div class="logo-sub">NBD Pro Build Memory</div>
+      </div>
+    </a>
+    
+    <div class="topbar-status">
+      <span class="save-indicator" id="saveIndicator">✓ Synced</span>
+      <button class="btn-save" onclick="manualSave()">💾 Save Now</button>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">Navigation</div>
+      <button class="nav-item active" data-page="overview" onclick="navTo('overview')">
+        <span class="nav-item-icon">📊</span>
+        <span class="nav-item-label">Overview</span>
+      </button>
+      <button class="nav-item" data-page="sessions" onclick="navTo('sessions')">
+        <span class="nav-item-icon">📝</span>
+        <span class="nav-item-label">Sessions</span>
+        <span class="nav-item-badge ok" id="sessionsBadge">0</span>
+      </button>
+      <button class="nav-item" data-page="tasks" onclick="navTo('tasks')">
+        <span class="nav-item-icon">✓</span>
+        <span class="nav-item-label">Tasks</span>
+        <span class="nav-item-badge warn" id="taskBadge">12</span>
+      </button>
+      <button class="nav-item" data-page="debt" onclick="navTo('debt')">
+        <span class="nav-item-icon">⚠️</span>
+        <span class="nav-item-label">Execution Debt</span>
+        <span class="nav-item-badge" id="debtBadge">7</span>
+      </button>
+      <button class="nav-item" data-page="blockers" onclick="navTo('blockers')">
+        <span class="nav-item-icon">🚫</span>
+        <span class="nav-item-label">Blockers</span>
+        <span class="nav-item-badge" id="blockerBadge">1</span>
+      </button>
+      
+      <div class="sidebar-divider"></div>
+      
+      <div class="sidebar-section">Memory</div>
+      <button class="nav-item" data-page="directives" onclick="navTo('directives')">
+        <span class="nav-item-icon">⚖️</span>
+        <span class="nav-item-label">Directives</span>
+      </button>
+      <button class="nav-item" data-page="decisions" onclick="navTo('decisions')">
+        <span class="nav-item-icon">🏛️</span>
+        <span class="nav-item-label">Arch Decisions</span>
+      </button>
+      <button class="nav-item" data-page="search" onclick="navTo('search')">
+        <span class="nav-item-icon">🔍</span>
+        <span class="nav-item-label">Search</span>
+      </button>
+      
+      <div class="sidebar-divider"></div>
+      
+      <div class="sidebar-section">System</div>
+      <button class="nav-item" data-page="admin" onclick="navTo('admin')">
+        <span class="nav-item-icon">⚙️</span>
+        <span class="nav-item-label">Admin</span>
+      </button>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- OVERVIEW PAGE -->
+      <div class="page active" id="page-overview">
+        <div class="page-header">
+          <div class="page-eyebrow">Eternal Vault V2</div>
+          <div class="page-title" id="overviewTitle">Loading...</div>
+          <div class="page-subtitle" id="overviewSubtitle">Loading...</div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stat-row">
+          <div class="stat-chip" onclick="navTo('sessions')" style="cursor:pointer;">
+            <div class="stat-val ok" id="sessionCount">0</div>
+            <div class="stat-lbl">Total Sessions</div>
+          </div>
+          <div class="stat-chip" onclick="navTo('blockers')" style="cursor:pointer;">
+            <div class="stat-val critical" id="blockerCount">1</div>
+            <div class="stat-lbl">Critical Blockers</div>
+          </div>
+          <div class="stat-chip" onclick="navTo('debt')" style="cursor:pointer;">
+            <div class="stat-val high" id="debtCount">7</div>
+            <div class="stat-lbl">Open Debt Items</div>
+          </div>
+          <div class="stat-chip" style="cursor:default; opacity:0.6;">
+            <div class="stat-val gold">6</div>
+            <div class="stat-lbl">Days Straight</div>
+          </div>
+        </div>
+
+        <!-- Critical Blockers Banner -->
+        <div class="card" id="blockersCard">
+          <div class="card-header">
+            <div class="card-title">🚫 CRITICAL BLOCKERS</div>
+          </div>
+          <div class="card-body" id="blockersPreview">
+            Loading blockers...
+          </div>
+        </div>
+
+        <!-- Next Session Mission -->
+        <div class="card" id="nextSessionMissionCard">
+          <div class="card-header">
+            <div class="card-title" id="nextSessionTitle">🎯 Next Session Mission</div>
+            <button class="btn-gold btn-sm" id="startNextSessionBtn" onclick="startNextSession()">🚀 Start Next Session</button>
+          </div>
+          <div class="card-body" id="nextSessionMission">
+            Loading mission...
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 Recent Sessions</div>
+            <button class="btn-ghost btn-sm" onclick="navTo('sessions')">View All →</button>
+          </div>
+          <div class="card-body" id="recentSessions">
+            Loading recent sessions...
+          </div>
+        </div>
+      </div>
+
+      <!-- Placeholder pages (will be built in Part 2) -->
+      <div class="page" id="page-sessions"></div>
+      <div class="page" id="page-tasks"></div>
+      <div class="page" id="page-debt"></div>
+      <div class="page" id="page-blockers"></div>
+      <div class="page" id="page-directives"></div>
+      <div class="page" id="page-decisions"></div>
+      <div class="page" id="page-search"></div>
+      <div class="page" id="page-admin"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Continue in Part 2... -->
+</body>
+</html>
+
+<!-- ETERNAL VAULT V2 — PART 2: JAVASCRIPT CORE -->
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETERNAL VAULT V2 — CORE ENGINE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// V2 Data Model (matches Firestore schema)
+let CODEX = {
+  version: "2.0",
+  projectName: "NBD PRO BUILD",
+  githubRepo: "https://github.com/jdealtia-sys/nobigdealwithjoedeal.com",
+  
+  sessions: [],
+  tasks: [],
+  debt: [],
+  directives: [],
+  versions: [],
+  
+  // NEW in V2
+  blockers: [],
+  alerts: [],
+  sessionMissions: [],
+  architecturalDecisions: []
+};
+
+// Auto-save state
+let unsavedChanges = false;
+let autoSaveTimer = null;
+const AUTOSAVE_DELAY = 60000; // 60s debounce
+
+// Firebase references (set by module script)
+let db, firestore;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INITIALIZATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+window.addEventListener('firebase-ready', async () => {
+  console.log('🚀 firebase-ready event received');
+  
+  db = window._db;
+  firestore = window._firestore;
+  
+  console.log('📦 DB object:', db ? 'LOADED' : 'NULL');
+  console.log('📦 Firestore helpers:', firestore ? 'LOADED' : 'NULL');
+  
+  await loadFromFirestore();
+  renderOverview();
+  
+  // Calculate next session number dynamically
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  toast(`Eternal Vault V2 loaded — Session ${nextSessionNum} ready`, 'success');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIRESTORE OPERATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function loadFromFirestore() {
+  console.log('📥 loadFromFirestore() called');
+  try {
+    const {doc, getDoc} = firestore;
+    const docRef = doc(db, 'codex', 'latest');
+    
+    console.log('🔍 Attempting to read: codex/latest');
+    const snapshot = await getDoc(docRef);
+    
+    if (snapshot.exists()) {
+      CODEX = snapshot.data();
+      console.log('✓ Loaded from Firestore:', CODEX.sessions.length, 'sessions');
+      updateSaveIndicator(true);
+      return true;
+    } else {
+      console.warn('⚠ No Firestore data found at codex/latest — using seed data');
+      await seedFirestore();
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Firestore load error:', error.code, error.message);
+    console.error('Full error object:', error);
+    toast('Failed to load from Firestore — using local data', 'error');
+    return false;
+  }
+}
+
+async function saveToFirestore() {
+  try {
+    const {doc, setDoc} = firestore;
+    
+    // Save to codex/latest
+    const latestRef = doc(db, 'codex', 'latest');
+    await setDoc(latestRef, {
+      ...CODEX,
+      lastSaved: new Date().toISOString(),
+      savedBy: 'vault-v2'
+    });
+    
+    console.log('✓ Saved to Firestore');
+    updateSaveIndicator(true);
+    unsavedChanges = false;
+    toast('Saved to Firestore', 'success');
+    return true;
+  } catch (error) {
+    console.error('❌ Firestore save error:', error);
+    toast('Failed to save to Firestore', 'error');
+    return false;
+  }
+}
+
+async function seedFirestore() {
+  // Initial seed with 27 sessions from archaeology
+  CODEX.sessions = SEED_SESSIONS; // Defined below
+  CODEX.blockers = SEED_BLOCKERS;
+  CODEX.directives = SEED_DIRECTIVES;
+  CODEX.architecturalDecisions = SEED_DECISIONS;
+  
+  await saveToFirestore();
+  toast('Firestore seeded with 27 sessions', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTO-SAVE SYSTEM (60s Debounce)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function markUnsaved() {
+  unsavedChanges = true;
+  updateSaveIndicator(false);
+  
+  // Reset debounce timer
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(async () => {
+    if (unsavedChanges) {
+      await saveToFirestore();
+    }
+  }, AUTOSAVE_DELAY);
+}
+
+function updateSaveIndicator(saved) {
+  const indicator = document.getElementById('saveIndicator');
+  if (!indicator) return;
+  
+  if (saved) {
+    const now = new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
+    indicator.textContent = `✓ Auto-saved at ${now}`;
+    indicator.className = 'save-indicator saved';
+  } else {
+    indicator.textContent = '💾 Unsaved changes';
+    indicator.className = 'save-indicator unsaved';
+  }
+}
+
+function manualSave() {
+  clearTimeout(autoSaveTimer);
+  saveToFirestore();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function navTo(page) {
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('data-page') === page) {
+      item.classList.add('active');
+    }
+  });
+  
+  // Update pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const targetPage = document.getElementById(`page-${page}`);
+  if (targetPage) {
+    targetPage.classList.add('active');
+    
+    // Render page content
+    switch(page) {
+      case 'overview': renderOverview(); break;
+      case 'sessions': renderSessions(); break;
+      case 'tasks': renderTasks(); break;
+      case 'debt': renderDebt(); break;
+      case 'blockers': renderBlockers(); break;
+      case 'directives': renderDirectives(); break;
+      case 'decisions': renderDecisions(); break;
+      case 'search': renderSearch(); break;
+      case 'admin': renderAdmin(); break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERVIEW PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderOverview() {
+  // Calculate latest session and next session number (used throughout)
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  // Update page header
+  document.getElementById('overviewTitle').textContent = `Session ${latestSession?.num || 0} Complete`;
+  document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || latestSession?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
+  
+  // Update stat cards
+  const blockerCount = CODEX.blockers.filter(b => b.status === 'open' && b.severity === 'critical').length;
+  const debtCount = CODEX.debt.filter(d => d.status === 'open').length;
+  
+  document.getElementById('blockerCount').textContent = blockerCount;
+  document.getElementById('debtCount').textContent = debtCount;
+  document.getElementById('sessionCount').textContent = CODEX.sessions.length;
+  document.getElementById('taskBadge').textContent = CODEX.tasks.filter(t => t.status === 'open').length;
+  document.getElementById('debtBadge').textContent = debtCount;
+  document.getElementById('blockerBadge').textContent = blockerCount;
+  document.getElementById('sessionsBadge').textContent = CODEX.sessions.length;
+  
+  // Render blockers
+  const blockersHTML = CODEX.blockers
+    .filter(b => b.status === 'open' && b.severity === 'critical')
+    .map(b => `
+      <div style="margin-bottom:12px; padding:12px; background:var(--red-dim); border:1px solid rgba(224,82,82,0.3); border-radius:var(--r)">
+        <strong style="color:var(--red)">${b.title}</strong><br>
+        <span style="font-size:13px; color:var(--text3)">Open for ${b.sessionsOpen} sessions</span>
+      </div>
+    `).join('');
+  
+  document.getElementById('blockersPreview').innerHTML = blockersHTML || '<em style="color:var(--text3)">No critical blockers 🎉</em>';
+  
+  // Next session mission - update UI elements if they exist
+  const titleEl = document.getElementById('nextSessionTitle');
+  const btnEl = document.getElementById('startNextSessionBtn');
+  const missionEl = document.getElementById('nextSessionMission');
+  
+  if (titleEl) titleEl.textContent = `🎯 Session ${nextSessionNum} Mission`;
+  if (btnEl) btnEl.textContent = `🚀 Start Session ${nextSessionNum}`;
+  
+  if (missionEl) {
+    const mission = extractNextMission(latestSession, nextSessionNum);
+    missionEl.innerHTML = mission;
+  }
+  
+  // Recent sessions
+  const recentHTML = CODEX.sessions
+    .slice(-5)
+    .reverse()
+    .map(s => `
+      <div style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer" onclick="viewSession(${s.num})">
+        <strong style="color:var(--text)">Session ${s.num}</strong> — ${s.meta.date || 'No date'}<br>
+        <span style="font-size:13px; color:var(--text3)">${s.meta.title || 'Untitled'}</span>
+      </div>
+    `).join('');
+  
+  document.getElementById('recentSessions').innerHTML = recentHTML;
+}
+
+function extractNextMission(latestSession, nextSessionNum) {
+  if (!latestSession) return '<em style="color:var(--text3)">No sessions yet</em>';
+  
+  // Parse latest session content for next session mission
+  const content = latestSession.content || '';
+  
+  // Look for common mission patterns (e.g., "Session 31: Fix the thing")
+  const missionMatch = content.match(new RegExp(`Session ${nextSessionNum}[^:]*:([^\\n]+)`, 'i'));
+  if (missionMatch) {
+    return `<strong style="color:var(--gold)">Mission:</strong> ${missionMatch[1].trim()}`;
+  }
+  
+  // Fallback: extract from blockers
+  const openBlockers = CODEX.blockers.filter(b => b.status === 'open');
+  if (openBlockers.length > 0) {
+    return `<strong style="color:var(--gold)">Priority:</strong> Resolve ${openBlockers.length} standing blocker(s)<br><ul style="margin-top:8px; color:var(--text3)">${openBlockers.map(b => `<li>${b.title}</li>`).join('')}</ul>`;
+  }
+  
+  return '<em style="color:var(--text3)">Continue build momentum — no specific mission locked</em>';
+}
+
+function startNextSession() {
+  navTo('admin');
+  // Scroll to session starter prompt generator
+  setTimeout(() => {
+    const adminPage = document.getElementById('page-admin');
+    const starterSection = adminPage.querySelector('#sessionStarterSection');
+    if (starterSection) starterSection.scrollIntoView({behavior: 'smooth'});
+  }, 300);
+}
+
+function viewSession(num) {
+  navTo('sessions');
+  // TODO: Implement session detail view
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'toastSlideIn 0.3s var(--ease) reverse both';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PLACEHOLDER RENDER FUNCTIONS (Will be built in next iteration)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderSessions() {
+  const page = document.getElementById('page-sessions');
+  
+  const sessionsHTML = CODEX.sessions
+    .sort((a, b) => b.num - a.num) // Newest first
+    .map(s => `
+      <div class="session-card" onclick="viewSessionDetail(${s.num})">
+        <div class="session-num">S${s.num}</div>
+        <div class="session-info">
+          <div class="session-title">${s.meta?.title || s.title || 'Untitled'}</div>
+          <div class="session-meta">${s.meta?.date || s.date || 'No date'}</div>
+        </div>
+        <div class="session-arrow">→</div>
+      </div>
+    `).join('');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Session History</div>
+      <div class="page-title">${CODEX.sessions.length} Sessions</div>
+      <div class="page-subtitle">Complete build timeline</div>
+    </div>
+    
+    <!-- AI Session Analyzer -->
+    <div class="card" style="background: linear-gradient(135deg, var(--card) 0%, var(--lift) 100%); border: 1px solid var(--gold); border-radius: var(--rlg); margin-bottom: 24px;">
+      <div class="card-header" style="border-bottom: 1px solid var(--border2);">
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          <div style="font-size: 24px;">🧠</div>
+          <div>
+            <div class="card-title" style="color: var(--gold); margin: 0;">AI Session Analyzer</div>
+            <div style="font-size: 12px; color: var(--text3); margin-top: 4px;">Auto-analyze sessions to update tasks, debt, and blockers</div>
+          </div>
+        </div>
+        <button 
+          class="btn-gold" 
+          id="aiAnalyzeBtn" 
+          onclick="analyzeSessionsWithAI()"
+          style="white-space: nowrap;"
+        >
+          🔄 Analyze & Update Backlog
+        </button>
+      </div>
+      <div class="card-body" style="padding: 16px;">
+        <div id="aiAnalyzerStatus" style="font-size: 13px; color: var(--text3); font-family: 'Syne Mono', monospace;">
+          <span style="color: var(--text2);">💡 Click "Analyze & Update Backlog" to scan all sessions and auto-update your work queue</span>
+        </div>
+        <div id="aiAnalyzerTimestamp" style="font-size: 11px; color: var(--text3); margin-top: 12px; font-family: 'Syne Mono', monospace; display: none;">
+          Last refreshed: <span id="lastAnalyzedTime">Never</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">
+        <input 
+          type="text" 
+          id="sessionSearch" 
+          placeholder="Search sessions..." 
+          style="
+            width:100%;
+            background:var(--void);
+            border:1px solid var(--border);
+            border-radius:var(--r);
+            padding:10px 14px;
+            color:var(--text);
+            font-size:14px;
+          "
+          oninput="filterSessions(this.value)"
+        />
+      </div>
+      <div class="card-body" id="sessionsList" style="max-height:600px; overflow-y:auto;">
+        ${sessionsHTML}
+      </div>
+    </div>
+    
+    <div id="sessionDetail" style="display:none; margin-top:24px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="sessionDetailTitle">Session X</div>
+          <button class="btn-outline btn-sm" onclick="closeSessionDetail()">Close</button>
+        </div>
+        <div class="card-body" id="sessionDetailContent" style="
+          white-space:pre-wrap;
+          font-family:monospace;
+          font-size:13px;
+          line-height:1.6;
+        "></div>
+      </div>
+    </div>
+  `;
+}
+
+function filterSessions(query) {
+  const cards = document.querySelectorAll('.session-card');
+  const q = query.toLowerCase();
+  
+  cards.forEach(card => {
+    const title = card.querySelector('.session-title').textContent.toLowerCase();
+    const date = card.querySelector('.session-meta').textContent.toLowerCase();
+    card.style.display = (title.includes(q) || date.includes(q)) ? 'flex' : 'none';
+  });
+}
+
+function viewSessionDetail(num) {
+  const session = CODEX.sessions.find(s => s.num === num);
+  if (!session) return;
+  
+  const detailDiv = document.getElementById('sessionDetail');
+  const titleDiv = document.getElementById('sessionDetailTitle');
+  const contentDiv = document.getElementById('sessionDetailContent');
+  
+  titleDiv.textContent = `Session ${num} — ${session.meta?.title || session.title || 'Untitled'}`;
+  contentDiv.textContent = session.content || 'No content available';
+  
+  detailDiv.style.display = 'block';
+  detailDiv.scrollIntoView({behavior: 'smooth'});
+}
+
+function closeSessionDetail() {
+  document.getElementById('sessionDetail').style.display = 'none';
+}
+
+function renderTasks() {
+  const page = document.getElementById('page-tasks');
+  
+  // Group tasks by status
+  const openTasks = CODEX.tasks.filter(t => t.status === 'open');
+  const inProgressTasks = CODEX.tasks.filter(t => t.status === 'in-progress');
+  const completedTasks = CODEX.tasks.filter(t => t.status === 'done');
+  
+  const renderTaskCard = (task) => `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${task.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${task.session} ${task.assignedTo ? `• Assigned: ${task.assignedTo}` : ''}
+          </div>
+        </div>
+        <span class="btn-xs ${task.priority === 'critical' ? 'btn-red' : task.priority === 'high' ? 'btn-outline' : 'btn-ghost'}">
+          ${task.priority || 'normal'}
+        </span>
+      </div>
+      ${task.description ? `<div class="card-body">${task.description}</div>` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Task Registry</div>
+      <div class="page-title">Master Task List</div>
+      <div class="page-subtitle">${CODEX.tasks.length} total tasks • ${openTasks.length} open</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${openTasks.length}</div>
+        <div class="stat-lbl">Open</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${inProgressTasks.length}</div>
+        <div class="stat-lbl">In Progress</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${completedTasks.length}</div>
+        <div class="stat-lbl">Completed</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.tasks.length > 0 ? Math.round((completedTasks.length / CODEX.tasks.length) * 100) : 0}%</div>
+        <div class="stat-lbl">Completion Rate</div>
+      </div>
+    </div>
+    
+    <!-- Open Tasks -->
+    ${openTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🔴 Open Tasks (${openTasks.length})
+        </h3>
+        ${openTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- In Progress Tasks -->
+    ${inProgressTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🟡 In Progress (${inProgressTasks.length})
+        </h3>
+        ${inProgressTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Completed Tasks -->
+    ${completedTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✅ Completed (${completedTasks.length})
+        </h3>
+        ${completedTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.tasks.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">📋</div>
+          <div style="font-size:16px; color:var(--text3);">No tasks yet</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderDebt() {
+  const page = document.getElementById('page-debt');
+  
+  // Group debt by status and severity
+  const openDebt = CODEX.debt.filter(d => d.status === 'open');
+  const resolvedDebt = CODEX.debt.filter(d => d.status === 'resolved');
+  const criticalDebt = openDebt.filter(d => d.severity === 'critical');
+  const highDebt = openDebt.filter(d => d.severity === 'high');
+  const mediumDebt = openDebt.filter(d => d.severity === 'medium');
+  
+  const renderDebtCard = (debt) => `
+    <div class="card" style="margin-bottom:12px; border-left:3px solid ${
+      debt.severity === 'critical' ? 'var(--red)' : 
+      debt.severity === 'high' ? 'var(--orange)' : 
+      'var(--blue)'
+    };">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${debt.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${debt.session} • Open ${debt.sessionsOpen || 1} sessions
+            ${debt.category ? ` • ${debt.category}` : ''}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="btn-xs ${
+            debt.severity === 'critical' ? 'btn-red' : 
+            debt.severity === 'high' ? 'btn-outline' : 
+            'btn-ghost'
+          }">
+            ${debt.severity}
+          </span>
+          <span class="btn-xs ${debt.status === 'open' ? 'btn-red' : 'btn-ghost'}">
+            ${debt.status}
+          </span>
+        </div>
+      </div>
+      ${debt.description ? `<div class="card-body">${debt.description}</div>` : ''}
+      ${debt.impact ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Impact:</strong> ${debt.impact}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Execution Debt</div>
+      <div class="page-title">Debt Register</div>
+      <div class="page-subtitle">${CODEX.debt.length} total items • ${openDebt.length} open • ${criticalDebt.length} critical</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${criticalDebt.length}</div>
+        <div class="stat-lbl">Critical</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${highDebt.length}</div>
+        <div class="stat-lbl">High</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${mediumDebt.length}</div>
+        <div class="stat-lbl">Medium</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${resolvedDebt.length}</div>
+        <div class="stat-lbl">Resolved</div>
+      </div>
+    </div>
+    
+    <!-- Critical Debt -->
+    ${criticalDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--red); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚨 CRITICAL DEBT (${criticalDebt.length})
+        </h3>
+        ${criticalDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- High Priority Debt -->
+    ${highDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ HIGH PRIORITY (${highDebt.length})
+        </h3>
+        ${highDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Medium Priority Debt -->
+    ${mediumDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 MEDIUM PRIORITY (${mediumDebt.length})
+        </h3>
+        ${mediumDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Resolved Debt (Collapsed by default) -->
+    ${resolvedDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <details>
+          <summary style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; cursor:pointer;">
+            ✅ RESOLVED (${resolvedDebt.length})
+          </summary>
+          ${resolvedDebt.map(renderDebtCard).join('')}
+        </details>
+      </div>
+    ` : ''}
+    
+    ${CODEX.debt.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚠️</div>
+          <div style="font-size:16px; color:var(--text3);">No execution debt</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderBlockers() {
+  const page = document.getElementById('page-blockers');
+  const blockersHTML = CODEX.blockers.map(b => `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">${b.severity === 'critical' ? '🚫' : '⚠️'} ${b.title}</div>
+        <span class="btn-sm ${b.status === 'open' ? 'btn-red' : 'btn-ghost'}">${b.status.toUpperCase()}</span>
+      </div>
+      <div class="card-body">
+        <strong>Severity:</strong> ${b.severity}<br>
+        <strong>Open for:</strong> ${b.sessionsOpen} sessions<br>
+        <strong>First mentioned:</strong> Session ${b.firstMentioned || 'Unknown'}
+      </div>
+    </div>
+  `).join('');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Critical Blockers</div>
+      <div class="page-title">Standing Blockers</div>
+    </div>
+    ${blockersHTML || '<div class="card"><div class="card-body"><em style="color:var(--text3)">No blockers</em></div></div>'}
+  `;
+}
+
+function renderDirectives() {
+  const page = document.getElementById('page-directives');
+  
+  // Sort directives by session number (most recent first)
+  const sortedDirectives = [...CODEX.directives].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDirectives = sortedDirectives.filter(d => d.binding);
+  const advisoryDirectives = sortedDirectives.filter(d => !d.binding);
+  
+  const renderDirectiveCard = (directive) => `
+    <div class="card" style="margin-bottom:12px; ${directive.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${directive.binding ? '⚖️' : '💡'} ${directive.text}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${directive.session}
+            ${directive.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+          </div>
+        </div>
+      </div>
+      ${directive.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${directive.rationale}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Immutable Laws</div>
+      <div class="page-title">Architectural Directives</div>
+      <div class="page-subtitle">${CODEX.directives.length} total directives • ${bindingDirectives.length} binding</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDirectives.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDirectives.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.directives.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.directives.length > 0 ? Math.max(...CODEX.directives.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
+      </div>
+    </div>
+    
+    <!-- Binding Directives -->
+    ${bindingDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ BINDING DIRECTIVES (${bindingDirectives.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Warning:</strong> These directives are IMMUTABLE and must be followed in all sessions. Violation requires explicit architectural review.
+          </div>
+        </div>
+        ${bindingDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Directives -->
+    ${advisoryDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          💡 ADVISORY DIRECTIVES (${advisoryDirectives.length})
+        </h3>
+        ${advisoryDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.directives.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚖️</div>
+          <div style="font-size:16px; color:var(--text3);">No directives established</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderDecisions() {
+  const page = document.getElementById('page-decisions');
+  
+  // Sort decisions by session number (most recent first)
+  const sortedDecisions = [...CODEX.decisions].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDecisions = sortedDecisions.filter(d => d.binding);
+  const advisoryDecisions = sortedDecisions.filter(d => !d.binding);
+  
+  const renderDecisionCard = (decision) => `
+    <div class="card" style="margin-bottom:12px; ${decision.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${decision.binding ? '🏛️' : '📋'} ${decision.decision}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${decision.session}
+            ${decision.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+            ${decision.category ? ` • ${decision.category}` : ''}
+          </div>
+        </div>
+      </div>
+      ${decision.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${decision.rationale}
+        </div>
+      ` : ''}
+      ${decision.alternatives ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Alternatives Considered:</strong> ${decision.alternatives}
+        </div>
+      ` : ''}
+      ${decision.implications ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Implications:</strong> ${decision.implications}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Architecture</div>
+      <div class="page-title">Binding Decisions</div>
+      <div class="page-subtitle">${CODEX.decisions.length} total decisions • ${bindingDecisions.length} binding</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDecisions.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDecisions.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.decisions.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.decisions.length > 0 ? Math.max(...CODEX.decisions.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
+      </div>
+    </div>
+    
+    <!-- Binding Decisions -->
+    ${bindingDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ BINDING DECISIONS (${bindingDecisions.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Architectural Lock:</strong> These decisions form the immutable foundation of NBD Pro. Changing them requires full architectural review and may cascade to multiple systems.
+          </div>
+        </div>
+        ${bindingDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Decisions -->
+    ${advisoryDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 ADVISORY DECISIONS (${advisoryDecisions.length})
+        </h3>
+        ${advisoryDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.decisions.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🏛️</div>
+          <div style="font-size:16px; color:var(--text3);">No architectural decisions logged</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderSearch() {
+  const page = document.getElementById('page-search');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Full-Text Search</div>
+      <div class="page-title">Search Codex</div>
+      <div class="page-subtitle">Search across sessions, directives, decisions, tasks, and blockers</div>
+    </div>
+    
+    <!-- Search Input -->
+    <div class="card">
+      <div class="card-body">
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search sessions, directives, decisions, tasks..." 
+          style="width:100%; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; color:var(--text); font-size:15px; font-family:'Syne', sans-serif;"
+          oninput="executeSearch()"
+        >
+      </div>
+    </div>
+    
+    <!-- Search Results -->
+    <div id="searchResults"></div>
+  `;
+}
+
+function executeSearch() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const resultsDiv = document.getElementById('searchResults');
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    return;
+  }
+  
+  const results = {
+    sessions: [],
+    directives: [],
+    decisions: [],
+    tasks: [],
+    debt: [],
+    blockers: []
+  };
+  
+  // Search sessions
+  CODEX.sessions.forEach(session => {
+    const searchableText = `
+      ${session.meta?.title || ''} 
+      ${session.content || ''} 
+      ${JSON.stringify(session.meta || {})}
+    `.toLowerCase();
+    
+    if (searchableText.includes(query)) {
+      results.sessions.push(session);
+    }
+  });
+  
+  // Search directives
+  CODEX.directives.forEach(directive => {
+    const searchableText = `${directive.text} ${directive.rationale || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.directives.push(directive);
+    }
+  });
+  
+  // Search decisions
+  CODEX.decisions.forEach(decision => {
+    const searchableText = `${decision.decision} ${decision.rationale || ''} ${decision.alternatives || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.decisions.push(decision);
+    }
+  });
+  
+  // Search tasks
+  CODEX.tasks.forEach(task => {
+    const searchableText = `${task.title} ${task.description || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.tasks.push(task);
+    }
+  });
+  
+  // Search debt
+  CODEX.debt.forEach(debt => {
+    const searchableText = `${debt.title} ${debt.description || ''} ${debt.impact || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.debt.push(debt);
+    }
+  });
+  
+  // Search blockers
+  CODEX.blockers.forEach(blocker => {
+    const searchableText = `${blocker.title}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.blockers.push(blocker);
+    }
+  });
+  
+  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
+  
+  if (totalResults === 0) {
+    resultsDiv.innerHTML = `
+      <div class="card" style="margin-top:24px;">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🔍</div>
+          <div style="font-size:16px; color:var(--text3);">No results found for "${query}"</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = `
+    <div style="margin-top:24px;">
+      <div style="font-size:14px; color:var(--text2); margin-bottom:16px;">
+        Found <strong style="color:var(--gold)">${totalResults}</strong> results for "<strong>${query}</strong>"
+      </div>
+  `;
+  
+  // Sessions results
+  if (results.sessions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📝 SESSIONS (${results.sessions.length})
+        </h3>
+        ${results.sessions.map(s => `
+          <div class="card" style="margin-bottom:12px; cursor:pointer;" onclick="viewSession(${s.num})">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  Session ${s.num} — ${s.meta?.title || 'Untitled'}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${s.meta?.date || 'Date unknown'}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Directives results
+  if (results.directives.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ DIRECTIVES (${results.directives.length})
+        </h3>
+        ${results.directives.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.text}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Decisions results
+  if (results.decisions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ DECISIONS (${results.decisions.length})
+        </h3>
+        ${results.decisions.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.decision}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Tasks results
+  if (results.tasks.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✓ TASKS (${results.tasks.length})
+        </h3>
+        ${results.tasks.map(t => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${t.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${t.session} • ${t.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Debt results
+  if (results.debt.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ DEBT (${results.debt.length})
+        </h3>
+        ${results.debt.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} • ${d.severity} • ${d.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Blockers results
+  if (results.blockers.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚫 BLOCKERS (${results.blockers.length})
+        </h3>
+        ${results.blockers.map(b => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${b.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${b.severity} • ${b.status} • ${b.sessionsOpen} sessions open
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  resultsDiv.innerHTML = html;
+}
+
+function renderAdmin() {
+  // Calculate next session number
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  const page = document.getElementById('page-admin');
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">System Admin</div>
+      <div class="page-title">Vault Administration</div>
+    </div>
+    
+    <!-- Session Starter Generator -->
+    <div class="card" id="sessionStarterSection">
+      <div class="card-header">
+        <div class="card-title">🚀 Session ${nextSessionNum} Starter Prompt</div>
+        <button class="btn-gold btn-sm" onclick="generateSessionStarter()">Generate Prompt</button>
+      </div>
+      <div class="card-body">
+        <textarea id="sessionStarterOutput" style="width:100%; min-height:400px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Click 'Generate Prompt' to create Session ${nextSessionNum} starter..."></textarea>
+        <button class="btn-outline btn-sm" style="margin-top:12px" onclick="copySessionStarter()">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+    
+    <!-- Import Session -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📥 Import Session from Claude</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px; color:var(--text3)">Paste the JavaScript payload Claude gives you at session close:</p>
+        <textarea id="sessionImportPayload" style="width:100%; min-height:200px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="vaultImportSession({...})"></textarea>
+        <button class="btn-gold btn-sm" style="margin-top:12px" onclick="importSessionPayload()">Import to Firestore</button>
+      </div>
+    </div>
+    
+    <!-- Export Codex -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💾 Export Codex to Firestore</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px; color:var(--text3)">Manually save current Codex state to Firestore (auto-saves every 5 minutes):</p>
+        <button class="btn-gold btn-sm" onclick="manualSaveToFirestore()">💾 Save to Firestore Now</button>
+        <div id="manualSaveStatus" style="margin-top:12px; font-size:13px; color:var(--text3)"></div>
+      </div>
+    </div>
+    
+    <!-- AI Session Parser -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 AI Session Parser</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:16px; color:var(--text3);">
+          Use Gemini AI to automatically extract tasks, debt items, blockers, directives, and decisions from session content.
+        </p>
+        
+        <!-- Test Single Session -->
+        <div style="background:var(--lift); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:12px; color:var(--text);">Test Parse Single Session</div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input 
+              type="number" 
+              id="testSessionNum" 
+              placeholder="Session #" 
+              style="flex:1; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:8px; color:var(--text);"
+            >
+            <button class="btn-outline btn-sm" onclick="parseSessionTest()">🔍 Test Parse</button>
+          </div>
+          <div id="testParseResult" style="font-size:13px;"></div>
+        </div>
+        
+        <!-- Parse All Sessions -->
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:8px; color:var(--gold);">⚠️ Batch Parse All Sessions</div>
+          <div style="font-size:13px; color:var(--text2); margin-bottom:12px;">
+            This will parse ALL sessions with content and populate Tasks, Debt, Blockers, Directives, and Decisions.
+            Rate limited to 1 session/second. Cannot be undone (but data is saved to Firestore).
+          </div>
+          <button class="btn-gold btn-sm" id="parseAllBtn" onclick="parseAllSessions()">🔄 Parse All Sessions</button>
+        </div>
+        
+        <!-- Progress Display -->
+        <div id="parseProgress" style="font-size:13px; min-height:40px;"></div>
+      </div>
+    </div>
+    
+    <!-- Firestore Stats -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📊 Vault Statistics</div>
+      </div>
+      <div class="card-body">
+        <div class="stat-row">
+          <div class="stat-chip">
+            <div class="stat-val gold">${CODEX.sessions.length}</div>
+            <div class="stat-lbl">Sessions</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val info">${Math.round(JSON.stringify(CODEX).length / 1024)}KB</div>
+            <div class="stat-lbl">Total Size</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val ok">Firestore</div>
+            <div class="stat-lbl">Storage Mode</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val gold">Live</div>
+            <div class="stat-lbl">Sync Status</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function generateSessionStarter() {
+  // Find latest session and calculate next
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  const blockers = CODEX.blockers.filter(b => b.status === 'open');
+  const criticalDebt = CODEX.debt.filter(d => d.status === 'open' && d.severity === 'critical');
+  
+  const prompt = `# SESSION ${nextSessionNum} INITIALIZATION — NBD PRO BUILD
+
+**Last Session:** v${latestSession?.num || 0} (${latestSession?.meta?.title || latestSession?.title || 'Untitled'} — ${latestSession?.meta?.date || latestSession?.date || 'Unknown date'})
+
+**Mission Locked:** ${extractNextMission(latestSession)}
+
+## CRITICAL BLOCKERS (Verify Before New Work)
+
+${blockers.length ? blockers.map(b => `- [ ] **${b.title}** (${b.sessionsOpen} sessions open)`).join('\n') : '_No critical blockers_'}
+
+## PROTOCOL SEQUENCE
+
+1. Load Codex from Firestore (\`codex/snapshots/latest\`)
+2. Surface Execution Debt Register → prioritize critical items
+3. Verify standing blockers resolved or acknowledged
+4. Execute Session ${nextSessionNum} mission
+5. Log deltas in real-time (metadata + prose narrative)
+6. Generate session close payload for vault import
+7. Export CODEX v${nextSessionNum} to Firestore
+
+## IMMUTABLE DIRECTIVES (Top 10)
+
+- **S5:** "Never lose a job" — soft delete only in CRM
+- **S6:** \`crm-leads.js\` is single source of truth for lead/job Firestore ops
+- **S7:** \`nbdApplyTheme()\` is single point of theme write — never bypass
+- **S7:** Stripe is standing blocker until verified shipped
+- **S8:** Close before opening — 2+ session loops must close first
+- **S8:** Execution Debt Register updated every session
+- **S10:** CRM file path is \`pro/dashboard.html\` — not \`pro/crm/index.html\`
+- **S13:** Worker URL: \`nbd-ai-proxy.jonathandeal459.workers.dev\` (gemini-2.5-flash only)
+- **S13:** Create token → use → delete (never share in chat)
+- **S27:** Vault Firestore is long-term memory — always purge cache after vault.html changes
+- **S29:** vaultImportSession() always checks for duplicates and shows resolution modal — never silently overwrite
+
+## EXECUTION DEBT (Critical Only)
+
+${criticalDebt.length ? criticalDebt.map(d => `- ${d.title} (${d.sessionsOpen} sessions open)`).join('\n') : '_No critical debt_'}
+
+## READY STATE
+
+Codex loaded. Mission locked. Standing by for instructions.
+
+---
+
+**Note:** This is the **minimal starter**. For full GOD MODE context (all ${CODEX.directives.length} directives, complete debt register, architectural decisions), expand the Codex export at session start.`;
+
+  document.getElementById('sessionStarterOutput').value = prompt;
+  toast(`Session ${nextSessionNum} starter prompt generated`, 'success');
+}
+
+function copySessionStarter() {
+  const textarea = document.getElementById('sessionStarterOutput');
+  textarea.select();
+  document.execCommand('copy');
+  toast('Copied to clipboard', 'success');
+}
+
+function importSessionPayload() {
+  const payload = document.getElementById('sessionImportPayload').value.trim();
+  if (!payload) {
+    toast('Paste the payload first', 'error');
+    return;
+  }
+  
+  try {
+    // Execute the payload (it calls vaultImportSession)
+    eval(payload);
+    toast('Session imported successfully', 'success');
+  } catch (error) {
+    console.error('Import error:', error);
+    toast('Failed to import session — check payload format', 'error');
+  }
+}
+
+async function manualSaveToFirestore() {
+  const statusDiv = document.getElementById('manualSaveStatus');
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Saving to Firestore...</span>';
+  
+  const success = await saveToFirestore();
+  
+  if (success) {
+    statusDiv.innerHTML = '<span style="color:var(--green)">✓ Saved successfully at ' + new Date().toLocaleTimeString() + '</span>';
+  } else {
+    statusDiv.innerHTML = '<span style="color:var(--red)">❌ Save failed — check console for errors</span>';
+  }
+}
+
+// This function is called by the payload Claude generates
+window.vaultImportSession = async function(sessionData) {
+  console.log('Importing session:', sessionData);
+  
+  // SMART DUPLICATE DETECTION
+  const existingIndex = CODEX.sessions.findIndex(s => s.num === sessionData.num);
+  
+  if (existingIndex !== -1) {
+    // Duplicate detected - show resolution modal
+    console.warn(`⚠️ Session ${sessionData.num} already exists`);
+    
+    const maxSessionNum = CODEX.sessions.reduce((max, s) => Math.max(max, s.num), 0);
+    const suggestedNum = maxSessionNum + 1;
+    
+    // Count existing versions of this session
+    const versionCount = CODEX.sessions.filter(s => 
+      s.num === sessionData.num || 
+      (s.meta?.originalNum === sessionData.num)
+    ).length;
+    const versionSuffix = `-v${versionCount + 1}`;
+    
+    return new Promise((resolve) => {
+      showDuplicateModal(sessionData, suggestedNum, versionSuffix, async (action, newNum) => {
+        if (action === 'rename') {
+          sessionData.num = newNum;
+          console.log(`✓ Renamed to Session ${newNum}`);
+          await proceedWithImport(sessionData);
+          resolve();
+        } else if (action === 'version') {
+          // Keep original num but add version metadata
+          sessionData.meta = sessionData.meta || {};
+          sessionData.meta.originalNum = sessionData.num;
+          sessionData.meta.version = versionSuffix;
+          sessionData.meta.title = `${sessionData.meta.title || sessionData.title}${versionSuffix}`;
+          console.log(`✓ Versioned as Session ${sessionData.num}${versionSuffix}`);
+          CODEX.sessions.push(sessionData);
+          await saveSessionToFirestore(sessionData);
+          toast(`Session ${sessionData.num}${versionSuffix} imported`, 'success');
+          renderOverview();
+          renderSessions();
+          resolve();
+        } else {
+          console.log('Import cancelled by user');
+          toast('Import cancelled', 'info');
+          resolve();
+        }
+      });
+    });
+  } else {
+    // No duplicate - proceed normally
+    await proceedWithImport(sessionData);
+  }
+};
+
+async function proceedWithImport(sessionData) {
+  CODEX.sessions.push(sessionData);
+  
+  // Update blockers if provided
+  if (sessionData.blockers) {
+    sessionData.blockers.forEach(b => {
+      const existing = CODEX.blockers.find(x => x.id === b.id);
+      if (existing) {
+        Object.assign(existing, b);
+      }
+    });
+  }
+  
+  // Add new directives
+  if (sessionData.directivesAdded) {
+    sessionData.directivesAdded.forEach(d => {
+      CODEX.directives.push({
+        session: sessionData.num,
+        text: d,
+        binding: true
+      });
+    });
+  }
+  
+  await saveSessionToFirestore(sessionData);
+  toast(`Session ${sessionData.num} imported and saved`, 'success');
+  renderOverview();
+  renderSessions();
+}
+
+async function saveSessionToFirestore(sessionData) {
+  // Save full CODEX
+  await saveToFirestore();
+  
+  // Also save session delta
+  const {doc, setDoc} = firestore;
+  const deltaRef = doc(db, 'codex-sessions', `s${sessionData.num.toString().padStart(2, '0')}-delta`);
+  await setDoc(deltaRef, sessionData);
+}
+
+function showDuplicateModal(sessionData, suggestedNum, versionSuffix, callback) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s var(--ease);
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: var(--rlg); padding: 32px; max-width: 500px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    ">
+      <div style="font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+        ⚠️ Duplicate Session Detected
+      </div>
+      <div style="font-size: 14px; color: var(--text3); margin-bottom: 24px;">
+        Session ${sessionData.num} already exists in the vault.
+      </div>
+      
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 24px;">
+        <div style="font-size: 13px; color: var(--text3); margin-bottom: 8px;">Existing Session:</div>
+        <div style="font-size: 15px; font-weight: 600; color: var(--text);">
+          Session ${sessionData.num} — ${CODEX.sessions.find(s => s.num === sessionData.num)?.meta?.title || 'Untitled'}
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px;">
+          Choose an action:
+        </div>
+        
+        <button class="btn-gold" onclick="handleDuplicateAction('rename', ${suggestedNum})" style="width: 100%; margin-bottom: 12px; justify-content: flex-start;">
+          <span style="flex: 1; text-align: left;">
+            <strong>✓ Auto-rename to Session ${suggestedNum}</strong><br>
+            <span style="font-size: 12px; opacity: 0.7;">Recommended — continues session sequence</span>
+          </span>
+        </button>
+        
+        <button class="btn-outline" onclick="handleDuplicateAction('version')" style="width: 100%; margin-bottom: 12px; justify-content: flex-start;">
+          <span style="flex: 1; text-align: left;">
+            <strong>Keep as Session ${sessionData.num}${versionSuffix}</strong><br>
+            <span style="font-size: 12px; opacity: 0.7;">Adds version suffix, preserves original number</span>
+          </span>
+        </button>
+        
+        <button class="btn-ghost" onclick="handleDuplicateAction('cancel')" style="width: 100%;">
+          Cancel Import
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  window.handleDuplicateAction = (action, newNum) => {
+    document.body.removeChild(modal);
+    delete window.handleDuplicateAction;
+    callback(action, newNum);
+  };
+}
+
+// Bulk import function for importing multiple sessions at once
+window.vaultBulkImportSessions = async function(sessionsArray) {
+  console.log(`Bulk importing ${sessionsArray.length} sessions...`);
+  
+  // Remove existing sessions with same numbers to avoid duplicates
+  const nums = sessionsArray.map(s => s.num);
+  CODEX.sessions = CODEX.sessions.filter(s => !nums.includes(s.num));
+  
+  // Add all new sessions
+  CODEX.sessions.push(...sessionsArray);
+  
+  // Sort by session number
+  CODEX.sessions.sort((a, b) => a.num - b.num);
+  
+  // Save to Firestore
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  toast(`Successfully imported ${sessionsArray.length} sessions`, 'success');
+  console.log(`✓ Bulk import complete. Total sessions: ${CODEX.sessions.length}`);
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION PARSER — Gemini-Powered Content Extraction
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+
+async function parseSessionWithGemini(session) {
+  const prompt = `Analyze this NBD Pro build session and extract structured data.
+
+SESSION ${session.num} (${session.meta?.date || 'unknown date'}):
+TITLE: ${session.meta?.title || 'Untitled'}
+CONTENT:
+${session.content || 'No content'}
+
+Extract and return ONLY valid JSON (no markdown, no explanation, no backticks):
+{
+  "tasks": [
+    {
+      "title": "string",
+      "description": "string",
+      "status": "open|in-progress|done",
+      "priority": "critical|high|normal",
+      "session": ${session.num},
+      "assignedTo": null
+    }
+  ],
+  "debt": [
+    {
+      "title": "string",
+      "description": "string",
+      "severity": "critical|high|medium",
+      "status": "open|resolved",
+      "category": "string",
+      "impact": "string",
+      "session": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "string",
+      "severity": "critical|high",
+      "status": "open|resolved",
+      "firstMentioned": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "directives": [
+    {
+      "text": "string",
+      "binding": true|false,
+      "rationale": "string",
+      "session": ${session.num}
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "string",
+      "rationale": "string",
+      "binding": true|false,
+      "category": "string",
+      "alternatives": "string",
+      "implications": "string",
+      "session": ${session.num}
+    }
+  ]
+}
+
+EXTRACTION RULES:
+- Only extract items EXPLICITLY mentioned in the session
+- Preserve original wording for titles and descriptions
+- Mark items as "open" unless explicitly resolved in the session
+- For blockers, use descriptive kebab-case IDs (e.g. "stripe-integration")
+- Binding directives/decisions are marked with phrases like "MUST", "ALWAYS", "NEVER", "IMMUTABLE"
+- Return empty arrays if no items found in that category
+- CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
+
+  try {
+    const response = await fetch(GEMINI_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash-exp',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1 // Low temperature for structured extraction
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Worker error (${response.status}):`, errorText);
+      throw new Error(`Worker returned ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Raw worker response:', data);
+    
+    // Worker returns nested structure - try multiple paths
+    let jsonText = '';
+    
+    // Try common response paths
+    if (typeof data === 'string') {
+      jsonText = data;
+    } else if (data.response) {
+      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+    } else if (data.text) {
+      jsonText = typeof data.text === 'string' ? data.text : JSON.stringify(data.text);
+    } else if (data.content) {
+      jsonText = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
+    } else if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      // Gemini API format
+      jsonText = data.candidates[0].content.parts[0].text;
+    } else {
+      console.error('Unrecognized worker response format:', data);
+      throw new Error('Cannot find text content in worker response');
+    }
+    
+    if (!jsonText) {
+      console.error('No text content extracted from:', data);
+      throw new Error('Worker returned no content');
+    }
+    
+    console.log('Extracted text:', jsonText);
+    
+    // Strip markdown code fences if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const parsed = JSON.parse(jsonText);
+    
+    console.log(`✓ Parsed Session ${session.num}:`, {
+      tasks: parsed.tasks?.length || 0,
+      debt: parsed.debt?.length || 0,
+      blockers: parsed.blockers?.length || 0,
+      directives: parsed.directives?.length || 0,
+      decisions: parsed.decisions?.length || 0
+    });
+    
+    return {
+      tasks: parsed.tasks || [],
+      debt: parsed.debt || [],
+      blockers: parsed.blockers || [],
+      directives: parsed.directives || [],
+      decisions: parsed.decisions || []
+    };
+    
+  } catch (error) {
+    console.error(`❌ Failed to parse Session ${session.num}:`, error);
+    return {
+      tasks: [],
+      debt: [],
+      blockers: [],
+      directives: [],
+      decisions: []
+    };
+  }
+}
+
+async function parseAllSessions() {
+  const progressDiv = document.getElementById('parseProgress');
+  const parseBtn = document.getElementById('parseAllBtn');
+  
+  if (!progressDiv || !parseBtn) return;
+  
+  parseBtn.disabled = true;
+  parseBtn.textContent = 'Parsing...';
+  
+  const sessionsWithContent = CODEX.sessions.filter(s => s.content && s.content.length > 50);
+  
+  if (sessionsWithContent.length === 0) {
+    progressDiv.innerHTML = '<span style="color:var(--red)">❌ No sessions with content found</span>';
+    parseBtn.disabled = false;
+    parseBtn.textContent = '🔄 Parse All Sessions';
+    return;
+  }
+  
+  progressDiv.innerHTML = `<span style="color:var(--blue)">⏳ Starting parse of ${sessionsWithContent.length} sessions...</span>`;
+  
+  let totalExtracted = {
+    tasks: 0,
+    debt: 0,
+    blockers: 0,
+    directives: 0,
+    decisions: 0
+  };
+  
+  for (let i = 0; i < sessionsWithContent.length; i++) {
+    const session = sessionsWithContent[i];
+    
+    progressDiv.innerHTML = `
+      <div style="color:var(--blue); margin-bottom:8px;">
+        ⏳ Processing Session ${session.num} (${i + 1}/${sessionsWithContent.length})
+      </div>
+      <div style="background:var(--void); border-radius:var(--r); height:8px; overflow:hidden;">
+        <div style="background:var(--gold); height:100%; width:${((i + 1) / sessionsWithContent.length * 100)}%; transition:width 0.3s;"></div>
+      </div>
+    `;
+    
+    const extracted = await parseSessionWithGemini(session);
+    
+    // Merge tasks (avoid duplicates by title)
+    extracted.tasks.forEach(task => {
+      const exists = CODEX.tasks.find(t => t.title === task.title && t.session === task.session);
+      if (!exists) {
+        CODEX.tasks.push(task);
+        totalExtracted.tasks++;
+      }
+    });
+    
+    // Merge debt (avoid duplicates by title)
+    extracted.debt.forEach(debt => {
+      const exists = CODEX.debt.find(d => d.title === debt.title && d.session === debt.session);
+      if (!exists) {
+        CODEX.debt.push(debt);
+        totalExtracted.debt++;
+      }
+    });
+    
+    // Merge blockers (by ID, update sessionsOpen if exists)
+    extracted.blockers.forEach(blocker => {
+      const existing = CODEX.blockers.find(b => b.id === blocker.id);
+      if (existing) {
+        existing.sessionsOpen++;
+      } else {
+        CODEX.blockers.push(blocker);
+        totalExtracted.blockers++;
+      }
+    });
+    
+    // Merge directives (avoid duplicates by text)
+    extracted.directives.forEach(directive => {
+      const exists = CODEX.directives.find(d => d.text === directive.text);
+      if (!exists) {
+        CODEX.directives.push(directive);
+        totalExtracted.directives++;
+      }
+    });
+    
+    // Merge decisions (avoid duplicates by decision text)
+    extracted.decisions.forEach(decision => {
+      const exists = CODEX.decisions.find(d => d.decision === decision.decision);
+      if (!exists) {
+        CODEX.decisions.push(decision);
+        totalExtracted.decisions++;
+      }
+    });
+    
+    // Rate limit: 1 request per second
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  
+  // Save to Firestore
+  progressDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  // Show success
+  progressDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Parse Complete! Extracted:
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px;">
+      <div class="stat-chip">
+        <div class="stat-val ok">${totalExtracted.tasks}</div>
+        <div class="stat-lbl">Tasks</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${totalExtracted.debt}</div>
+        <div class="stat-lbl">Debt</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val critical">${totalExtracted.blockers}</div>
+        <div class="stat-lbl">Blockers</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${totalExtracted.directives}</div>
+        <div class="stat-lbl">Directives</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${totalExtracted.decisions}</div>
+        <div class="stat-lbl">Decisions</div>
+      </div>
+    </div>
+  `;
+  
+  parseBtn.disabled = false;
+  parseBtn.textContent = '🔄 Parse All Sessions';
+  
+  toast(`Extracted ${Object.values(totalExtracted).reduce((a,b) => a+b, 0)} items from ${sessionsWithContent.length} sessions`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION ANALYZER — Consolidated Backlog Update
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function analyzeSessionsWithAI() {
+  const btn = document.getElementById('aiAnalyzeBtn');
+  const statusDiv = document.getElementById('aiAnalyzerStatus');
+  const timestampDiv = document.getElementById('aiAnalyzerTimestamp');
+  const timestampSpan = document.getElementById('lastAnalyzedTime');
+  
+  if (!btn || !statusDiv) return;
+  
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = '🔄 Analyzing...';
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Scanning all sessions and extracting work items...</span>';
+  
+  try {
+    // Collect all session data (last 20 sessions for token efficiency)
+    const recentSessions = CODEX.sessions
+      .sort((a, b) => b.num - a.num)
+      .slice(0, 20)
+      .reverse(); // Chronological order for AI
+    
+    if (recentSessions.length === 0) {
+      throw new Error('No sessions found to analyze');
+    }
+    
+    // Build comprehensive prompt
+    const sessionsText = recentSessions.map(s => `
+═══════════════════════════════════════════════════════════════
+SESSION ${s.num} — ${s.meta?.title || s.title || 'Untitled'}
+Date: ${s.meta?.date || s.date || 'Unknown'}
+Status: ${s.status || 'Unknown'}
+═══════════════════════════════════════════════════════════════
+
+${s.summary || s.content || 'No content'}
+
+${s.blockers ? '🚫 BLOCKERS:\n' + JSON.stringify(s.blockers, null, 2) : ''}
+${s.debt ? '⚠️ DEBT:\n' + JSON.stringify(s.debt, null, 2) : ''}
+${s.completed ? '✅ COMPLETED:\n' + JSON.stringify(s.completed, null, 2) : ''}
+${s.nextSession ? '🎯 NEXT:\n' + JSON.stringify(s.nextSession, null, 2) : ''}
+    `).join('\n\n');
+    
+    const prompt = `You are analyzing the NBD Pro build history to extract the current work backlog.
+
+INSTRUCTIONS:
+Read all ${recentSessions.length} sessions below and extract:
+1. **OPEN BLOCKERS** - Issues explicitly marked as blockers that are NOT resolved/closed
+2. **EXECUTION DEBT** - High/critical severity debt items still open
+3. **PRIORITY TASKS** - Next 5-10 most important tasks based on session missions and deferred work
+4. **INSIGHTS** - 2-3 key patterns (recurring issues, zombie debt, risk zones)
+
+CRITICAL RULES:
+- Only include items explicitly mentioned in sessions
+- Mark status as "open" UNLESS explicitly resolved/closed in content
+- For blockers: check latest session mentions to determine if still open
+- For debt: prioritize severity "critical" and "high" only
+- For tasks: focus on "next session" priorities and deferred work
+- Return ONLY valid JSON, no markdown formatting, no backticks, no explanatory text
+
+SESSIONS TO ANALYZE:
+${sessionsText}
+
+Return this exact JSON structure:
+{
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "Brief title",
+      "severity": "critical|high",
+      "status": "open",
+      "sessionsOpen": number,
+      "resolutionPath": "Brief next step"
+    }
+  ],
+  "debt": [
+    {
+      "title": "Brief title",
+      "severity": "critical|high",
+      "category": "infrastructure|ux-polish|error-handling|etc",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "impact": "Brief impact statement"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Brief title",
+      "priority": "critical|high|normal",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "dependencies": []
+    }
+  ],
+  "insights": [
+    "Pattern 1",
+    "Pattern 2",
+    "Pattern 3"
+  ]
+}`;
+
+    statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
+    
+    // Call Gemini API
+    const currentUser = window._currentUser || window._auth?.currentUser;
+    const response = await fetch(GEMINI_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash-exp',
+        messages: [{
+          role: 'user',
+          content: prompt
+        }],
+        temperature: 0.1,
+        uid: currentUser?.uid || 'anonymous',
+        feature: 'vault-analyzer'
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Extract response text (handle multiple possible formats)
+    let jsonText = '';
+    if (typeof data === 'string') {
+      jsonText = data;
+    } else if (data.response) {
+      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+    } else if (data.text) {
+      jsonText = data.text;
+    } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      jsonText = data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error('Cannot parse AI response format');
+    }
+    
+    // Clean markdown fences
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    statusDiv.innerHTML = '<span style="color:var(--blue)">📊 Processing results...</span>';
+    
+    const parsed = JSON.parse(jsonText);
+    
+    // OVERWRITE existing backlog with AI analysis
+    CODEX.blockers = parsed.blockers || [];
+    CODEX.debt = parsed.debt || [];
+    CODEX.tasks = parsed.tasks || [];
+    
+    // Store insights in CODEX
+    CODEX.aiInsights = {
+      lastAnalyzed: new Date().toISOString(),
+      patterns: parsed.insights || [],
+      sessionsAnalyzed: recentSessions.length,
+      itemsExtracted: {
+        blockers: CODEX.blockers.length,
+        debt: CODEX.debt.length,
+        tasks: CODEX.tasks.length
+      }
+    };
+    
+    // Save to Firestore
+    statusDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+    await saveToFirestore();
+    
+    // Update UI
+    renderOverview();
+    renderTasks();
+    renderDebt();
+    renderBlockers();
+    
+    // Update timestamp
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    timestampSpan.textContent = timeStr;
+    timestampDiv.style.display = 'block';
+    
+    // Show success
+    const total = CODEX.blockers.length + CODEX.debt.length + CODEX.tasks.length;
+    statusDiv.innerHTML = `
+      <div style="color:var(--green); font-weight:600; margin-bottom:8px;">
+        ✅ Analysis Complete! Updated from ${recentSessions.length} sessions
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:12px;">
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--red);">${CODEX.blockers.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Blockers</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--orange);">${CODEX.debt.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Debt Items</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--blue);">${CODEX.tasks.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Priority Tasks</div>
+        </div>
+      </div>
+      ${parsed.insights && parsed.insights.length > 0 ? `
+        <div style="background:var(--void); border:1px solid var(--border2); border-radius:var(--r); padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:var(--gold); margin-bottom:8px;">💡 AI Insights:</div>
+          ${parsed.insights.map(insight => `<div style="font-size:12px; color:var(--text2); margin-bottom:4px;">• ${insight}</div>`).join('')}
+        </div>
+      ` : ''}
+    `;
+    
+    toast(`Backlog updated: ${total} items extracted from ${recentSessions.length} sessions`, 'success');
+    
+  } catch (error) {
+    console.error('AI analysis error:', error);
+    statusDiv.innerHTML = `<span style="color:var(--red)">❌ Analysis failed: ${error.message}</span>`;
+    toast('AI analysis failed — check console', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Analyze & Update Backlog';
+  }
+}
+
+async function parseSessionTest() {
+  const testSessionNum = parseInt(document.getElementById('testSessionNum').value);
+  const resultDiv = document.getElementById('testParseResult');
+  
+  if (!testSessionNum) {
+    resultDiv.innerHTML = '<span style="color:var(--red)">Enter a session number</span>';
+    return;
+  }
+  
+  const session = CODEX.sessions.find(s => s.num === testSessionNum);
+  
+  if (!session) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} not found</span>`;
+    return;
+  }
+  
+  if (!session.content || session.content.length < 50) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} has no content to parse</span>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = '<span style="color:var(--blue)">⏳ Parsing...</span>';
+  
+  const extracted = await parseSessionWithGemini(session);
+  
+  resultDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Test Parse Complete
+    </div>
+    <pre style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:16px; overflow:auto; max-height:400px; font-size:12px; color:var(--text);">${JSON.stringify(extracted, null, 2)}</pre>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEED DATA (Sessions 1-27 from Codex Archaeology)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SEED_SESSIONS = [
+  // Will be populated from codex-parser output
+  // For now, minimal stubs for testing
+  {num: 1, meta: {date: "2026-03-19", title: "Project DNA & Full Scope Drop"}, content: "Session 1 content..."},
+  {num: 27, meta: {date: "2026-03-25", title: "Vault Firestore Integration"}, content: "Session 27 content..."}
+];
+
+const SEED_BLOCKERS = [
+  {
+    id: "stripe-integration",
+    title: "Stripe Integration — Payment Links + .plan Firestore write",
+    severity: "critical",
+    status: "open",
+    sessionsOpen: 14,
+    firstMentioned: 6,
+    assignedTo: null
+  }
+];
+
+const SEED_DIRECTIVES = [
+  {session: 5, text: '"Never lose a job" — soft delete only in CRM', binding: true},
+  {session: 7, text: 'nbdApplyTheme() is single point of theme write', binding: true},
+  {session: 13, text: 'Worker URL: nbd-ai-proxy.jonathandeal459.workers.dev (gemini-2.5-flash only)', binding: true}
+];
+
+const SEED_DECISIONS = [
+  {session: 7, decision: 'nbdApplyTheme() is single source of truth for theme state', rationale: 'Unified theme system across all pages', binding: true}
+];
+
+</script>
+</body></html>
