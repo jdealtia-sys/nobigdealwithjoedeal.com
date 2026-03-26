@@ -284,6 +284,33 @@ body {
   font-family: 'Syne Mono', monospace;
   margin-top: 8px;
 }
+
+.time-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  padding: 10px 20px;
+  border-radius: var(--r);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.time-tab:hover {
+  border-color: var(--border2);
+  color: var(--text2);
+  transform: translateY(-1px);
+}
+
+.time-tab.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+}
 </style>
 
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
@@ -297,22 +324,30 @@ body {
     <div class="page-subtitle">Real-time usage, costs, and abuse monitoring</div>
   </div>
 
-  <!-- Today's Stats -->
+  <!-- Time Range Selector -->
+  <div style="display:flex; gap:12px; margin-bottom:24px; border-bottom:1px solid var(--border); padding-bottom:16px;">
+    <button class="time-tab active" data-range="today" onclick="switchTimeRange('today')">Today</button>
+    <button class="time-tab" data-range="weekly" onclick="switchTimeRange('weekly')">Weekly</button>
+    <button class="time-tab" data-range="monthly" onclick="switchTimeRange('monthly')">Monthly</button>
+    <button class="time-tab" data-range="alltime" onclick="switchTimeRange('alltime')">All-Time</button>
+  </div>
+
+  <!-- Stats Grid (Dynamic Labels) -->
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-label">Requests Today</div>
+      <div class="stat-label" id="requestsLabel">Requests Today</div>
       <div class="stat-value blue" id="requestsToday">0</div>
       <div class="stat-meta">Last hour: <span id="requestsLastHour">0</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Tokens Used Today</div>
+      <div class="stat-label" id="tokensLabel">Tokens Used Today</div>
       <div class="stat-value orange" id="tokensToday">0</div>
       <div class="stat-meta">Avg per request: <span id="avgTokens">0</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Cost Today</div>
+      <div class="stat-label" id="costLabel">Cost Today</div>
       <div class="stat-value green" id="costToday">$0.00</div>
-      <div class="stat-meta">Projected monthly: <span id="projectedCost">$0.00</span></div>
+      <div class="stat-meta" id="costMeta">Projected monthly: <span id="projectedCost">$0.00</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Success Rate</div>
@@ -321,10 +356,10 @@ body {
     </div>
   </div>
 
-  <!-- 24-Hour Activity Chart -->
+  <!-- Activity Chart (Dynamic Time Range) -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📈 Last 24 Hours Activity</div>
+      <div class="card-title" id="chartTitle">📈 Last 24 Hours Activity</div>
       <button class="refresh-btn" onclick="loadAnalytics()">🔄 Refresh</button>
     </div>
     <div class="card-body">
@@ -335,10 +370,10 @@ body {
     </div>
   </div>
 
-  <!-- Top Users -->
+  <!-- Top Users (Dynamic) -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title">👥 Top 10 Users (Today)</div>
+      <div class="card-title" id="usersTitle">👥 Top 10 Users (Today)</div>
     </div>
     <div class="card-body">
       <div class="user-list" id="topUsers">
@@ -347,10 +382,10 @@ body {
     </div>
   </div>
 
-  <!-- Feature Breakdown -->
+  <!-- Feature Breakdown (Dynamic) -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title">🎯 Usage by Feature (Today)</div>
+      <div class="card-title" id="featuresTitle">🎯 Usage by Feature (Today)</div>
     </div>
     <div class="card-body">
       <div id="featureBreakdown">
@@ -364,6 +399,19 @@ body {
 const WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
 
 let autoRefreshTimer = null;
+let currentTimeRange = 'today'; // today | weekly | monthly | alltime
+
+function switchTimeRange(range) {
+  currentTimeRange = range;
+  
+  // Update active tab
+  document.querySelectorAll('.time-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.range === range);
+  });
+  
+  // Reload analytics with new range
+  loadAnalytics();
+}
 
 window.addEventListener('auth-ready', () => {
   const user = window._currentUser;
@@ -382,48 +430,43 @@ window.addEventListener('auth-ready', () => {
 
 async function loadAnalytics() {
   try {
-    // TODO: Call worker endpoint to fetch KV analytics data
-    // For now, show mock data until worker endpoint is built
+    // TODO: Call worker endpoint with ?range={currentTimeRange}
+    // For now, generate mock data based on time range
     
     const now = new Date();
-    const mockData = {
-      today: {
-        requests: 247,
-        tokens: 52840,
-        cost: 0.0158,
-        errors: 3,
-        rateLimits: 1,
-        lastHour: 18
-      },
-      hourly: generateMockHourlyData(),
-      topUsers: [
-        { email: 'demo@nbdpro.com', requests: 142, tokens: 31200, cost: 0.0094 },
-        { email: 'jdeal@nobigdealsolutions.com', requests: 89, tokens: 18400, cost: 0.0055 },
-        { email: 'contractor1@example.com', requests: 16, tokens: 3240, cost: 0.0009 }
-      ],
-      features: {
-        'ask-joe': { requests: 198, tokens: 44200, cost: 0.0133 },
-        'vault-analyzer': { requests: 32, tokens: 6800, cost: 0.0020 },
-        'property-intel': { requests: 17, tokens: 1840, cost: 0.0005 }
-      }
-    };
+    const mockData = generateMockDataForRange(currentTimeRange);
+    
+    // Update UI labels based on time range
+    updateUILabels(currentTimeRange);
     
     // Update stats
-    document.getElementById('requestsToday').textContent = mockData.today.requests.toLocaleString();
-    document.getElementById('requestsLastHour').textContent = mockData.today.lastHour;
-    document.getElementById('tokensToday').textContent = mockData.today.tokens.toLocaleString();
-    document.getElementById('avgTokens').textContent = Math.round(mockData.today.tokens / mockData.today.requests);
-    document.getElementById('costToday').textContent = `$${mockData.today.cost.toFixed(4)}`;
-    document.getElementById('projectedCost').textContent = `$${(mockData.today.cost * 30).toFixed(2)}`;
+    document.getElementById('requestsToday').textContent = mockData.total.requests.toLocaleString();
+    document.getElementById('requestsLastHour').textContent = mockData.total.lastPeriod || 0;
+    document.getElementById('tokensToday').textContent = mockData.total.tokens.toLocaleString();
+    document.getElementById('avgTokens').textContent = Math.round(mockData.total.tokens / mockData.total.requests);
+    document.getElementById('costToday').textContent = `$${mockData.total.cost.toFixed(currentTimeRange === 'alltime' ? 2 : 4)}`;
     
-    const successRate = ((mockData.today.requests - mockData.today.errors) / mockData.today.requests * 100).toFixed(1);
+    // Update cost meta based on range
+    const costMetaEl = document.getElementById('costMeta');
+    if (currentTimeRange === 'today') {
+      document.getElementById('projectedCost').textContent = `$${(mockData.total.cost * 30).toFixed(2)}`;
+      costMetaEl.innerHTML = 'Projected monthly: <span id="projectedCost">$' + (mockData.total.cost * 30).toFixed(2) + '</span>';
+    } else if (currentTimeRange === 'weekly') {
+      costMetaEl.innerHTML = 'Daily avg: $' + (mockData.total.cost / 7).toFixed(4);
+    } else if (currentTimeRange === 'monthly') {
+      costMetaEl.innerHTML = 'Daily avg: $' + (mockData.total.cost / 30).toFixed(4);
+    } else {
+      costMetaEl.innerHTML = 'Monthly avg: $' + (mockData.total.cost / mockData.total.months).toFixed(2);
+    }
+    
+    const successRate = ((mockData.total.requests - mockData.total.errors) / mockData.total.requests * 100).toFixed(1);
     document.getElementById('successRate').textContent = `${successRate}%`;
     document.getElementById('successRate').className = 'stat-value ' + (successRate >= 99 ? 'green' : successRate >= 95 ? 'orange' : 'red');
-    document.getElementById('errorCount').textContent = mockData.today.errors;
-    document.getElementById('rateLimitCount').textContent = mockData.today.rateLimits;
+    document.getElementById('errorCount').textContent = mockData.total.errors;
+    document.getElementById('rateLimitCount').textContent = mockData.total.rateLimits;
     
     // Render chart
-    renderChart(mockData.hourly);
+    renderChart(mockData.chartData, currentTimeRange);
     
     // Render top users
     renderTopUsers(mockData.topUsers);
@@ -440,30 +483,143 @@ async function loadAnalytics() {
   }
 }
 
-function generateMockHourlyData() {
-  const data = [];
+function updateUILabels(range) {
+  const labels = {
+    today: {
+      requests: 'Requests Today',
+      tokens: 'Tokens Used Today',
+      cost: 'Cost Today',
+      chart: '📈 Last 24 Hours Activity',
+      users: '👥 Top 10 Users (Today)',
+      features: '🎯 Usage by Feature (Today)'
+    },
+    weekly: {
+      requests: 'Requests This Week',
+      tokens: 'Tokens Used (7 Days)',
+      cost: 'Cost This Week',
+      chart: '📈 Last 7 Days Activity',
+      users: '👥 Top 10 Users (This Week)',
+      features: '🎯 Usage by Feature (This Week)'
+    },
+    monthly: {
+      requests: 'Requests This Month',
+      tokens: 'Tokens Used (30 Days)',
+      cost: 'Cost This Month',
+      chart: '📈 Last 30 Days Activity',
+      users: '👥 Top 10 Users (This Month)',
+      features: '🎯 Usage by Feature (This Month)'
+    },
+    alltime: {
+      requests: 'Total Requests',
+      tokens: 'Total Tokens Used',
+      cost: 'Total Cost',
+      chart: '📈 All-Time Activity (Monthly)',
+      users: '👥 Top 10 Users (All-Time)',
+      features: '🎯 Usage by Feature (All-Time)'
+    }
+  };
+  
+  const l = labels[range];
+  document.getElementById('requestsLabel').textContent = l.requests;
+  document.getElementById('tokensLabel').textContent = l.tokens;
+  document.getElementById('costLabel').textContent = l.cost;
+  document.getElementById('chartTitle').textContent = l.chart;
+  document.getElementById('usersTitle').textContent = l.users;
+  document.getElementById('featuresTitle').textContent = l.features;
+}
+
+function generateMockDataForRange(range) {
+  const baseMultipliers = {
+    today: 1,
+    weekly: 7,
+    monthly: 30,
+    alltime: 180 // ~6 months
+  };
+  
+  const mult = baseMultipliers[range];
+  
+  return {
+    total: {
+      requests: 247 * mult + Math.floor(Math.random() * 50),
+      tokens: 52840 * mult + Math.floor(Math.random() * 1000),
+      cost: (0.0158 * mult) + (Math.random() * 0.01),
+      errors: 3 * mult,
+      rateLimits: 1 * mult,
+      lastPeriod: range === 'today' ? 18 : Math.floor((247 * mult) / (range === 'weekly' ? 7 : range === 'monthly' ? 30 : 180)),
+      months: range === 'alltime' ? 6 : 1
+    },
+    chartData: generateChartData(range),
+    topUsers: [
+      { email: 'demo@nbdpro.com', requests: 142 * mult, tokens: 31200 * mult, cost: 0.0094 * mult },
+      { email: 'jdeal@nobigdealsolutions.com', requests: 89 * mult, tokens: 18400 * mult, cost: 0.0055 * mult },
+      { email: 'contractor1@example.com', requests: 16 * mult, tokens: 3240 * mult, cost: 0.0009 * mult }
+    ],
+    features: {
+      'ask-joe': { requests: 198 * mult, tokens: 44200 * mult, cost: 0.0133 * mult },
+      'vault-analyzer': { requests: 32 * mult, tokens: 6800 * mult, cost: 0.0020 * mult },
+      'property-intel': { requests: 17 * mult, tokens: 1840 * mult, cost: 0.0005 * mult }
+    }
+  };
+}
+
+function generateChartData(range) {
   const now = new Date();
-  for (let i = 23; i >= 0; i--) {
-    const hour = new Date(now.getTime() - i * 3600000);
-    data.push({
-      hour: hour.getHours(),
-      requests: Math.floor(Math.random() * 20) + 5
-    });
+  const data = [];
+  
+  if (range === 'today') {
+    // Hourly for last 24 hours
+    for (let i = 23; i >= 0; i--) {
+      const hour = new Date(now.getTime() - i * 3600000);
+      data.push({
+        label: hour.getHours(),
+        requests: Math.floor(Math.random() * 20) + 5
+      });
+    }
+  } else if (range === 'weekly') {
+    // Daily for last 7 days
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(now.getTime() - i * 86400000);
+      data.push({
+        label: days[day.getDay()],
+        requests: Math.floor(Math.random() * 100) + 150
+      });
+    }
+  } else if (range === 'monthly') {
+    // Daily for last 30 days (show every 5th day for readability)
+    for (let i = 29; i >= 0; i--) {
+      const day = new Date(now.getTime() - i * 86400000);
+      data.push({
+        label: i % 5 === 0 ? (day.getMonth() + 1) + '/' + day.getDate() : '',
+        requests: Math.floor(Math.random() * 100) + 200
+      });
+    }
+  } else {
+    // Monthly for last 6 months
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 5; i >= 0; i--) {
+      const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      data.push({
+        label: months[month.getMonth()],
+        requests: Math.floor(Math.random() * 3000) + 5000
+      });
+    }
   }
+  
   return data;
 }
 
-function renderChart(hourlyData) {
+function renderChart(chartData, range) {
   const container = document.getElementById('chartContainer');
-  const max = Math.max(...hourlyData.map(d => d.requests));
+  const max = Math.max(...chartData.map(d => d.requests));
   
-  let html = '<div style="display:flex; align-items:flex-end; gap:8px; height:100%; padding:20px 0;">';
+  let html = '<div style="display:flex; align-items:flex-end; gap:' + (range === 'monthly' ? '4px' : '8px') + '; height:100%; padding:20px 0;">';
   
-  hourlyData.forEach(d => {
+  chartData.forEach(d => {
     const height = (d.requests / max) * 100;
     html += `
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <div style="font-size:11px; color:var(--text3); font-family:'Syne Mono',monospace;">${d.requests}</div>
+        <div style="font-size:${range === 'monthly' ? '9px' : '11px'}; color:var(--text3); font-family:'Syne Mono',monospace;">${d.requests}</div>
         <div style="
           width:100%;
           background:var(--blue);
@@ -471,8 +627,8 @@ function renderChart(hourlyData) {
           border-radius:4px 4px 0 0;
           transition:all 0.3s var(--ease);
           opacity:0.7;
-        " title="${d.requests} requests at ${d.hour}:00"></div>
-        <div style="font-size:10px; color:var(--text3);">${d.hour}</div>
+        " title="${d.requests} requests - ${d.label}"></div>
+        <div style="font-size:${range === 'monthly' ? '8px' : '10px'}; color:var(--text3);">${d.label}</div>
       </div>
     `;
   });
