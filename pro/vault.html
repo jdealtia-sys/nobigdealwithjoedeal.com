@@ -1165,16 +1165,20 @@ function renderOverview() {
     missionEl.innerHTML = mission;
   }
   
-  // Recent sessions
+  // Recent sessions - with null-safe meta access
   const recentHTML = CODEX.sessions
     .slice(-5)
     .reverse()
-    .map(s => `
-      <div style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer" onclick="viewSession(${s.num})">
-        <strong style="color:var(--text)">Session ${s.num}</strong> — ${s.meta.date || 'No date'}<br>
-        <span style="font-size:13px; color:var(--text3)">${s.meta.title || 'Untitled'}</span>
-      </div>
-    `).join('');
+    .map(s => {
+      const date = s.meta?.date || s.date || 'No date';
+      const title = s.meta?.title || s.title || 'Untitled';
+      return `
+        <div style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer" onclick="viewSession(${s.num})">
+          <strong style="color:var(--text)">Session ${s.num}</strong> — ${date}<br>
+          <span style="font-size:13px; color:var(--text3)">${title}</span>
+        </div>
+      `;
+    }).join('');
   
   document.getElementById('recentSessions').innerHTML = recentHTML;
 }
@@ -2300,6 +2304,26 @@ async function manualSaveToFirestore() {
 window.vaultImportSession = async function(sessionData) {
   console.log('Importing session:', sessionData);
   
+  // VALIDATION GATE - Check required fields before import
+  const requiredFields = ['num', 'meta'];
+  const missing = requiredFields.filter(f => !sessionData[f]);
+  
+  if (missing.length > 0) {
+    console.error('❌ Session validation failed. Missing fields:', missing);
+    toast(`Cannot import session: missing required fields (${missing.join(', ')})`, 'error');
+    return;
+  }
+  
+  // Ensure meta has minimum required structure
+  if (!sessionData.meta.date) {
+    console.warn('⚠️ Session missing meta.date - adding current date');
+    sessionData.meta.date = new Date().toISOString().split('T')[0];
+  }
+  if (!sessionData.meta.title) {
+    console.warn('⚠️ Session missing meta.title - adding default');
+    sessionData.meta.title = `Session ${sessionData.num}`;
+  }
+  
   // SMART DUPLICATE DETECTION
   const existingIndex = CODEX.sessions.findIndex(s => s.num === sessionData.num);
   
@@ -2561,7 +2585,7 @@ EXTRACTION RULES:
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-1.5-flash', // Stable production model (gemini-2.0-flash-exp does not exist)
         messages: [
           {
             role: 'user',
@@ -2886,7 +2910,7 @@ Return this exact JSON structure:
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-1.5-flash', // Stable production model (gemini-2.0-flash-exp does not exist)
         messages: [{
           role: 'user',
           content: prompt
