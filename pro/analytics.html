@@ -317,7 +317,18 @@ body {
 </head>
 <body>
 
-<div class="container">
+<div id="authLoading" style="
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--void); display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+">
+  <div style="text-align: center;">
+    <div style="font-size: 24px; color: var(--gold); margin-bottom: 12px;">🔐</div>
+    <div style="color: var(--text); font-size: 14px;">Authenticating...</div>
+  </div>
+</div>
+
+<div class="container" id="mainContent" style="display:none;">
   <div class="page-header">
     <div class="page-eyebrow">Admin Dashboard</div>
     <div class="page-title">📊 API Analytics</div>
@@ -423,7 +434,12 @@ window.addEventListener('auth-ready', () => {
   ];
   
   if (!ADMIN_UIDS.includes(user.uid)) {
-    document.body.innerHTML = `
+    // Hide loading screen
+    document.getElementById('authLoading').style.display = 'none';
+    
+    // Show access denied (don't replace entire body)
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainContent').innerHTML = `
       <div style="text-align:center; padding:100px;">
         <div style="color:var(--red); font-size:24px; margin-bottom:16px;">🚫 Admin Access Required</div>
         <div style="color:var(--text3); font-size:14px; font-family:'Syne Mono',monospace;">
@@ -437,6 +453,10 @@ window.addEventListener('auth-ready', () => {
     `;
     return;
   }
+  
+  // Auth passed - show main content and load analytics
+  document.getElementById('authLoading').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
   
   loadAnalytics();
   
