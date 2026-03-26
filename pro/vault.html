@@ -2881,6 +2881,7 @@ Return this exact JSON structure:
     statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
     
     // Call Gemini API
+    const currentUser = window._currentUser || window._auth?.currentUser;
     const response = await fetch(GEMINI_WORKER_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -2890,7 +2891,9 @@ Return this exact JSON structure:
           role: 'user',
           content: prompt
         }],
-        temperature: 0.1
+        temperature: 0.1,
+        uid: currentUser?.uid || 'anonymous',
+        feature: 'vault-analyzer'
       })
     });
     
