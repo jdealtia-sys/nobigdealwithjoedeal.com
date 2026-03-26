@@ -416,9 +416,25 @@ function switchTimeRange(range) {
 window.addEventListener('auth-ready', () => {
   const user = window._currentUser;
   
-  // Admin-only check (demo account bypass)
-  if (user.email !== 'demo@nbdpro.com' && user.email !== 'jdeal@nobigdealsolutions.com') {
-    document.body.innerHTML = '<div style="text-align:center; padding:100px; color:var(--red);">🚫 Admin access required</div>';
+  // Admin-only check - UID-based (more reliable than email)
+  const ADMIN_UIDS = [
+    'iBDSBm9kqcPRWNim5sl0b7XykPB3', // Your primary UID
+    'demo-uid-placeholder' // Demo account placeholder
+  ];
+  
+  if (!ADMIN_UIDS.includes(user.uid)) {
+    document.body.innerHTML = `
+      <div style="text-align:center; padding:100px;">
+        <div style="color:var(--red); font-size:24px; margin-bottom:16px;">🚫 Admin Access Required</div>
+        <div style="color:var(--text3); font-size:14px; font-family:'Syne Mono',monospace;">
+          Your UID: ${user.uid}<br>
+          Email: ${user.email || 'No email'}
+        </div>
+        <div style="margin-top:24px; font-size:12px; color:var(--text3);">
+          Contact admin to whitelist your UID
+        </div>
+      </div>
+    `;
     return;
   }
   
