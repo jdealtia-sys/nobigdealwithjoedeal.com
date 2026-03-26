@@ -88,6 +88,12 @@
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
+  // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
+  // Per S27 architectural rule: All CRM global state declared before any function definitions
+  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+  let _dragId = null;
+  let _filteredLeads = null;
+
   const firebaseConfig = {
     apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
     authDomain: "nobigdeal-pro.firebaseapp.com",
@@ -162,10 +168,7 @@
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
-  // ── GLOBAL CRM STATE ───────────────────────────
-  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-  let _dragId = null;
-  let _filteredLeads = null;  // CRM filter state - must be declared before renderLeads()
+  // STAGES, _dragId, _filteredLeads now declared at top-level (lines 91-93)
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
