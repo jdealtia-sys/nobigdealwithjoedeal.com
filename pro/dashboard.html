@@ -90,9 +90,15 @@
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
+  // NOTE: Module scope is isolated - must expose to window for global access
   const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
   let _dragId = null;
   let _filteredLeads = null;
+  
+  // Expose to window for global access (module scope is isolated)
+  window.STAGES = STAGES;
+  window._dragId = _dragId;
+  window._filteredLeads = _filteredLeads;
 
   const firebaseConfig = {
     apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -5930,6 +5936,7 @@ function renderLeads(leads, filtered){
 
   // ── Build kanban columns ──
   const byStage = {};
+  const STAGES = window.STAGES || ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
   STAGES.forEach(s=>byStage[s]=[]);
   list.forEach(l=>{ const s=l.stage||'New'; if(byStage[s]) byStage[s].push(l); else byStage['New'].push(l); });
 
