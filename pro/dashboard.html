@@ -197,6 +197,114 @@
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
 
+  // ── GLOBAL KEYBOARD SHORTCUTS ──
+  document.addEventListener('keydown', (e) => {
+    // Don't trigger if user is typing in input/textarea
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    
+    // ESC - Close modals
+    if (e.key === 'Escape') {
+      closeLeadModal();
+      closeCardDetailModal();
+      closeTaskModal();
+    }
+    
+    // N - New lead
+    if (e.key === 'n' || e.key === 'N') {
+      goTo('crm');
+      setTimeout(() => openLeadModal(), 100);
+    }
+    
+    // E - New estimate
+    if (e.key === 'e' || e.key === 'E') {
+      goTo('est');
+      setTimeout(() => startNewEstimate(), 100);
+    }
+    
+    // / - Focus search (if implemented)
+    if (e.key === '/') {
+      e.preventDefault();
+      const searchInput = document.querySelector('#crmSearch, #mapSearch');
+      if (searchInput) searchInput.focus();
+    }
+    
+    // ? - Show shortcuts help
+    if (e.key === '?') {
+      showShortcutsHelp();
+    }
+  });
+  
+  function showShortcutsHelp() {
+    const helpHTML = `
+      <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:99999;display:flex;align-items:center;justify-content:center;" onclick="this.remove()">
+        <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;padding:24px;max-width:400px;width:90%;" onclick="event.stopPropagation()">
+          <div style="font-size:18px;font-weight:700;margin-bottom:16px;font-family:'Barlow Condensed',sans-serif;">⌨️ Keyboard Shortcuts</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px;">
+            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">N</kbd>
+            <span>New Lead</span>
+            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">E</kbd>
+            <span>New Estimate</span>
+            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">/</kbd>
+            <span>Focus Search</span>
+            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">ESC</kbd>
+            <span>Close Modals</span>
+            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">?</kbd>
+            <span>Show This Help</span>
+          </div>
+          <button class="btn btn-orange" style="width:100%;margin-top:16px;justify-content:center;" onclick="this.closest('div[style*=fixed]').remove()">Got it</button>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', helpHTML);
+  }
+  window.showShortcutsHelp = showShortcutsHelp;
+
+  // ── RECENTLY VIEWED CUSTOMERS ──
+  function toggleRecentDropdown() {
+    const dropdown = document.getElementById('recentDropdown');
+    const isOpen = dropdown.style.display === 'block';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) renderRecentCustomers();
+  }
+  window.toggleRecentDropdown = toggleRecentDropdown;
+  
+  function renderRecentCustomers() {
+    try {
+      const recent = JSON.parse(localStorage.getItem('nbd_recent_customers') || '[]');
+      const list = document.getElementById('recentList');
+      if (!recent.length) {
+        list.innerHTML = '<div style="font-size:12px;color:var(--m);padding:8px;">No recent customers</div>';
+        return;
+      }
+      const leads = window._leads || [];
+      list.innerHTML = recent.map(r => {
+        const lead = leads.find(l => l.id === r.id);
+        if (!lead) return '';
+        const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown';
+        return `
+          <div style="padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;font-size:12px;" 
+               onmouseover="this.style.background='var(--s2)'" 
+               onmouseout="this.style.background='transparent'"
+               onclick="window.location.href='/pro/customer.html?id=${r.id}'">
+            <div style="font-weight:600;margin-bottom:2px;">${name}</div>
+            <div style="font-size:10px;color:var(--m);">${(lead.address || '').split(',')[0]}</div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+    } catch (e) {
+      console.error('Failed to render recent:', e);
+    }
+  }
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('recentDropdown');
+    const btn = document.getElementById('recentBtn');
+    if (dropdown && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+
   // STAGES, _dragId, _filteredLeads now declared at top-level (lines 91-93)
 
   // ── LEADS ──────────────────────────────────────
@@ -811,10 +919,12 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .tip-text{font-size:12px;color:var(--t);line-height:1.5;}
 
 /* TOAST */
-.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:3000;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:3000;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
 .toast.show{transform:translateY(0);opacity:1;}
 .toast.success{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
+.toast-progress{height:3px;background:currentColor;border-radius:3px;animation:toast-progress 2.8s linear;}
+@keyframes toast-progress{from{width:100%;}to{width:0%;}}
 
 /* TOGGLE SWITCH */
 .toggle-switch{position:relative;display:inline-block;width:44px;height:24px;}
@@ -1962,6 +2072,13 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
   <div class="hright">
   <div style="display:flex;align-items:center;gap:4px;margin-right:8px;">
+    <div style="position:relative;">
+      <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
+      <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
+        <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
+        <div id="recentList"></div>
+      </div>
+    </div>
     <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
     <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
     <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
@@ -4140,11 +4257,43 @@ setTimeout(restoreNavSections, 100);
 // ══════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════
+const toastQueue = [];
+let toastActive = false;
+
 function showToast(msg, type='success') {
+  toastQueue.push({ msg, type });
+  if (!toastActive) processToastQueue();
+}
+
+function processToastQueue() {
+  if (!toastQueue.length) {
+    toastActive = false;
+    return;
+  }
+  
+  toastActive = true;
+  const { msg, type } = toastQueue.shift();
+  
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show '+(type==='error'?'error':'success');
-  setTimeout(() => t.classList.remove('show'), 2800);
+  if (!t) {
+    // Create toast if doesn't exist
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  
+  const toast = document.getElementById('toast');
+  toast.innerHTML = `
+    <div style="flex:1;">${msg}</div>
+    <div class="toast-progress"></div>
+  `;
+  toast.className = 'toast show '+(type==='error'?'error':'success');
+  
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => processToastQueue(), 200);
+  }, 2800);
 }
 
 // ══════════════════════════════════════════════
@@ -6457,9 +6606,20 @@ function buildCard(l){
   const carrier = l.insCarrier||l.insuranceCarrier||'';
   const claimNum = l.claimNumber||l.claimNum||'';
   const claimStatus = l.claimStatus||'';
+  
+  // Count badges for estimates and photos
+  const estimates = (window._estimates || []).filter(e => e.leadId === l.id);
+  const estCount = estimates.length;
+  const photoCount = photos.length;
 
   return `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
-    ${val ? `<div class="kc-val-badge">${val}</div>` : ''}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      ${val ? `<div class="kc-val-badge">${val}</div>` : '<div></div>'}
+      <div style="display:flex;gap:4px;">
+        ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);">📋 ${estCount}</span>` : ''}
+        ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);">📸 ${photoCount}</span>` : ''}
+      </div>
+    </div>
     <div class="kc-name">${name}</div>
     ${addr ? `<div class="kc-addr" title="${l.address||''}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">

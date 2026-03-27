@@ -410,6 +410,9 @@ onAuthStateChanged(auth, async (user) => {
 
 async function loadCustomerData(id) {
   try {
+    // Track recently viewed
+    trackRecentlyViewed(id);
+    
     // Load customer (lead) data
     const leadSnap = await getDoc(doc(db, 'leads', id));
     if (!leadSnap.exists()) {
@@ -836,6 +839,21 @@ function showToast(message) {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2000);
+}
+
+function trackRecentlyViewed(customerId) {
+  try {
+    let recent = JSON.parse(localStorage.getItem('nbd_recent_customers') || '[]');
+    // Remove if already exists
+    recent = recent.filter(r => r.id !== customerId);
+    // Add to front with timestamp
+    recent.unshift({ id: customerId, timestamp: Date.now() });
+    // Keep only last 5
+    recent = recent.slice(0, 5);
+    localStorage.setItem('nbd_recent_customers', JSON.stringify(recent));
+  } catch (e) {
+    console.error('Failed to track recent view:', e);
+  }
 }
 </script>
 
