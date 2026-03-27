@@ -226,10 +226,62 @@
     try {
       const editId = data.id;
       delete data.id;
-      if(editId && !editId.startsWith('d-')) {
-        await updateDoc(doc(db,'leads',editId), {...data, updatedAt:serverTimestamp()});
+      
+      // NEW LEAD: Geocode address and create map pin
+      if (!editId || editId.startsWith('d-')) {
+        if (data.address) {
+          try {
+            const geo = await geocode(data.address);
+            if (geo && geo.lat && geo.lon) {
+              // Store lat/lng on lead
+              data.lat = parseFloat(geo.lat);
+              data.lng = parseFloat(geo.lon);
+              
+              // Create map pin
+              const pinData = {
+                lat: data.lat,
+                lng: data.lng,
+                name: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+                address: data.address,
+                leadId: null, // Will be set after lead is created
+                stage: data.stage || 'New',
+                type: 'customer'
+              };
+              
+              // Save lead first to get ID
+              const leadRef = await addDoc(collection(db,'leads'), {
+                ...data, 
+                createdAt: serverTimestamp(), 
+                userId: window._user?.uid
+              });
+              
+              // Now save pin with leadId
+              pinData.leadId = leadRef.id;
+              await window._savePin(pinData);
+              
+              console.log('✓ Auto-pinned lead:', leadRef.id);
+              await loadPins(); // Refresh map pins
+              await loadLeads();
+              return;
+            }
+          } catch (geoError) {
+            console.warn('Geocoding failed, creating lead without pin:', geoError);
+            // Continue to create lead without pin
+          }
+        }
+        
+        // Fallback: create lead without geocoding
+        await addDoc(collection(db,'leads'), {
+          ...data, 
+          createdAt: serverTimestamp(), 
+          userId: window._user?.uid
+        });
       } else {
-        await addDoc(collection(db,'leads'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+        // EDIT EXISTING: Just update
+        await updateDoc(doc(db,'leads',editId), {
+          ...data, 
+          updatedAt: serverTimestamp()
+        });
       }
     } catch(e) {
       console.error('saveLead error:', e);
@@ -4042,6 +4094,17 @@ let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={};
 const PIN_LABELS = {'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested','signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock','left-material':'Left Material','follow-up':'Follow Up'};
 const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#C8541A'};
 
+// Stage colors for customer pins (matches kanban)
+const STAGE_COLORS = {
+  'New': '#9CA3AF',
+  'Inspection': '#4A9EFF',
+  'Estimate': '#D4A017',
+  'Approved': '#9B6DFF',
+  'In Progress': '#22C55E',
+  'Complete': '#4ade80',
+  'Lost': '#E05252'
+};
+
 // ══════════════════════════════════════════════
 // MAP OVERLAY SYSTEM
 // ══════════════════════════════════════════════
@@ -4210,7 +4273,14 @@ async function dropPin(lat,lng,status,color,existingId,notes) {
 
 function addPinMarker(p) {
   if(!mainMap) return;
-  const m = L.marker([p.lat,p.lng],{icon:makePinIcon(p.color||PIN_COLORS[p.status],p.status)});
+  
+  // Determine pin color: use stage color for customer pins, status color otherwise
+  let pinColor = p.color || PIN_COLORS[p.status] || '#9CA3AF';
+  if (p.type === 'customer' && p.stage && STAGE_COLORS[p.stage]) {
+    pinColor = STAGE_COLORS[p.stage];
+  }
+  
+  const m = L.marker([p.lat,p.lng],{icon:makePinIcon(pinColor, p.status || p.stage)});
   m.on('click', () => openPinLeadPopup(p, m));
   m.addTo(mainMap);
   pinMarkers[p.id] = m;
@@ -4260,33 +4330,58 @@ function buildPinPopupHTML(p, lead) {
 }
 
 function openPinLeadPopup(p, marker) {
-  // Match lead by address proximity or notes
   const leads = window._leads || [];
-  const pinLat = parseFloat(p.lat), pinLng = parseFloat(p.lng);
   let matched = null;
-  // Try matching notes → address
-  if(p.notes) {
-    const notesLower = p.notes.toLowerCase();
-    matched = leads.find(l => {
-      const addr = (l.address||'').toLowerCase();
-      return addr && notesLower.includes(addr.split(',')[0].toLowerCase());
-    });
+  
+  // NEW: Match by leadId if available (from auto-pinned leads)
+  if (p.leadId) {
+    matched = leads.find(l => l.id === p.leadId);
   }
-  // Try reverse: lead address geocache match by lat/lng proximity (< 50m)
-  if(!matched) {
-    matched = leads.find(l => {
-      if(!l._lat || !l._lng) return false;
-      const dlat = Math.abs(parseFloat(l._lat) - pinLat);
-      const dlng = Math.abs(parseFloat(l._lng) - pinLng);
-      return dlat < 0.0005 && dlng < 0.0005;
-    });
+  
+  // FALLBACK: Match by address proximity or notes (old pins)
+  if (!matched) {
+    const pinLat = parseFloat(p.lat), pinLng = parseFloat(p.lng);
+    
+    // Try matching notes → address
+    if (p.notes) {
+      const notesLower = p.notes.toLowerCase();
+      matched = leads.find(l => {
+        const addr = (l.address||'').toLowerCase();
+        return addr && notesLower.includes(addr.split(',')[0].toLowerCase());
+      });
+    }
+    
+    // Try reverse: lead address geocache match by lat/lng proximity (< 50m)
+    if (!matched) {
+      matched = leads.find(l => {
+        if (!l.lat || !l.lng) return false;
+        const dlat = Math.abs(parseFloat(l.lat) - pinLat);
+        const dlng = Math.abs(parseFloat(l.lng) - pinLng);
+        return dlat < 0.0005 && dlng < 0.0005;
+      });
+    }
   }
+  
   const popupHTML = buildPinPopupHTML(p, matched);
-  marker.bindPopup(popupHTML, {
+  const popup = marker.bindPopup(popupHTML, {
     maxWidth: 280, minWidth: 220,
     className: 'nbd-pin-popup',
     closeButton: true
   }).openPopup();
+  
+  // NEW: Add click handler to open card detail modal
+  if (matched && matched.id) {
+    popup.on('popupopen', () => {
+      const popupEl = document.querySelector('.nbd-pin-popup');
+      if (popupEl) {
+        popupEl.style.cursor = 'pointer';
+        popupEl.addEventListener('click', () => {
+          goTo('crm');
+          setTimeout(() => openCardDetailModal(matched.id), 300);
+        });
+      }
+    });
+  }
 }
 
 function goToLeadFromPin(leadId) {
