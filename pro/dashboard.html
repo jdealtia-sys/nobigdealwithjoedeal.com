@@ -352,8 +352,18 @@
     // Revenue added this week (from new leads)
     const weekRevenue = newLeads.reduce((sum, l) => sum + parseFloat(l.jobValue || 0), 0);
     
-    // Tasks completed this week (TODO: implement when task completion tracking added)
-    const weekTasks = 0;
+    // Tasks completed this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    let weekTasks = 0;
+    Object.values(window._taskCache || {}).forEach(tasks => {
+      tasks.forEach(t => {
+        if (!t.done || !t.completedAt) return;
+        const completedDate = t.completedAt.toDate ? t.completedAt.toDate() : new Date(t.completedAt);
+        if (completedDate >= weekAgo) weekTasks++;
+      });
+    });
     
     // Update DOM
     document.getElementById('weekNewLeads').textContent = newLeads.length;
@@ -6571,12 +6581,25 @@ function buildCard(l){
   // Task badge
   const tasks = window._taskCache?.[l.id] || [];
   const totalT = tasks.length;
+  
+  // Task completion rate
+  let completionRate = 0;
+  if(totalT > 0) {
+    completionRate = Math.round((doneT / totalT) * 100);
+  }
   const doneT  = tasks.filter(t=>t.done).length;
   const overdueT = tasks.filter(t=>!t.done && t.dueDate && new Date(t.dueDate+'T23:59:59') < new Date()).length;
   let taskBadgeClass = 'kc-task-badge';
   let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+ Tasks';
   if(totalT && overdueT){ taskBadgeClass += ' has-overdue'; taskBadgeLabel = `⚠ ${overdueT} overdue`; }
-  else if(totalT && doneT===totalT) taskBadgeClass += ' all-done';
+  else if(totalT && doneT===totalT) { 
+    taskBadgeClass += ' all-done'; 
+    taskBadgeLabel = `✓ 100%`;
+  }
+  else if(totalT && completionRate >= 50) {
+    taskBadgeClass += ' has-tasks';
+    taskBadgeLabel = `☑ ${doneT}/${totalT} (${completionRate}%)`;
+  }
   else if(totalT) taskBadgeClass += ' has-tasks';
 
   // Days since last contact / created
@@ -8625,7 +8648,12 @@ async function _saveTask(leadId, text, dueDate) {
   } catch(e){ return null; }
 }
 async function _toggleTask(leadId, taskId, done) {
-  try { await updateDoc(doc(db,'leads',leadId,'tasks',taskId),{done}); } catch(e){}
+  try { 
+    await updateDoc(doc(db,'leads',leadId,'tasks',taskId), {
+      done,
+      completedAt: done ? serverTimestamp() : null
+    }); 
+  } catch(e){}
 }
 async function _deleteTask(leadId, taskId) {
   try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); } catch(e){}
