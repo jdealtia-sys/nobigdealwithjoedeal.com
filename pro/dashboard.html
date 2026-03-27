@@ -6939,6 +6939,15 @@ function renderNotifications() {
   const list = document.getElementById('notifList');
   if (!list) return;
   
+  // Count unread notifications
+  const unreadCount = window._notifications.filter(n => !n.read).length;
+  
+  // Show/hide "Mark all read" button based on unread count
+  const markAllBtn = document.querySelector('[onclick="markAllNotificationsRead()"]');
+  if (markAllBtn) {
+    markAllBtn.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+  }
+  
   if (window._notifications.length === 0) {
     list.innerHTML = `
       <div style="padding:40px 20px;text-align:center;color:var(--m);">
@@ -9017,6 +9026,9 @@ window.executePullPropertyIntel = executePullPropertyIntel;
 window.confirmPropertyIntelPull = confirmPropertyIntelPull;
 window.closePropertyIntelModal = closePropertyIntelModal;
 window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
+// Notifications
+window.markAllNotificationsRead = markAllNotificationsRead;
+window.markNotificationRead = markNotificationRead;
 window.dsPickTheme = dsPickTheme;
 window.renderLeaderboard = renderLeaderboard;
 
