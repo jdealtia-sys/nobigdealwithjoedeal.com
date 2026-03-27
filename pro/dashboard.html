@@ -323,7 +323,7 @@
         window._photoCache[p.leadId].push(p);
       });
     } catch(e) { window._photoCache = {}; }
-    renderLeads(window._leads);
+    renderLeads(window._leads); restoreCrmSearch();
     updatePipeline(window._leads);
     calculateWeeklyStats();
   }
@@ -2669,10 +2669,19 @@ window.nbdNavToggle = nbdNavToggle;
         <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
-          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                 padding:7px 12px;font-size:12px;color:var(--t);width:200px;"
-          oninput="kanbanFilter()">
+        <div style="position:relative;width:240px;">
+          <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
+            style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
+                   padding:7px 32px 7px 12px;font-size:12px;color:var(--t);width:100%;"
+            oninput="kanbanFilter()">
+          <button id="crmSearchClear" 
+            style="position:absolute;right:4px;top:50%;transform:translateY(-50%);
+                   background:none;border:none;color:var(--m);cursor:pointer;
+                   width:24px;height:24px;display:none;font-size:14px;
+                   border-radius:4px;transition:all .2s;"
+            onclick="clearCrmSearch()" title="Clear search">✕</button>
+        </div>
+        <span id="crmSearchCount" style="font-size:11px;color:var(--m);white-space:nowrap;"></span>
         <select id="crmDmgFilter"
           style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
                  padding:7px 8px;font-size:11px;color:var(--t);"
@@ -6599,6 +6608,16 @@ function buildCard(l){
     const age = new Date().getFullYear() - parseInt(l.yearBuilt);
     const cls = age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient';
     return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr</span>`;
+  
+  // Apply search highlighting
+  if(window._searchQuery && window._searchQuery.length >= 2){
+    const query = window._searchQuery;
+    const regex = new RegExp(\`(\${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\`, 'gi');
+    html = html.replace(regex, '<mark style="background:var(--orange);color:#000;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
+  }
+  
+  return html;
+
   })();
 
   const phone = l.phone||'';
@@ -6694,15 +6713,66 @@ function tagClass(s){
 }
 
 function kanbanFilter(){
-  const search = (document.getElementById('crmSearch')?.value||'').toLowerCase();
+  const searchInput = document.getElementById('crmSearch');
+  const search = (searchInput?.value||'').toLowerCase().trim();
   const dmg    = (document.getElementById('crmDmgFilter')?.value||'').toLowerCase();
-  if(!search && !dmg){ renderLeads(window._leads); return; }
+  
+  // Persist search state
+  if(search) localStorage.setItem('nbd_crm_search', search);
+  else localStorage.removeItem('nbd_crm_search');
+  
+  // Show/hide clear button
+  const clearBtn = document.getElementById('crmSearchClear');
+  if(clearBtn) clearBtn.style.display = search ? 'flex' : 'none';
+  
+  if(!search && !dmg){ 
+    window._searchQuery = null;
+    const countSpan = document.getElementById('crmSearchCount');
+    if(countSpan) countSpan.textContent = '';
+    renderLeads(window._leads); 
+    return; 
+  }
+  
+  window._searchQuery = search;
+  
+  // Filter with email + notes included
   const filtered = (window._leads||[]).filter(l=>{
-    const matchS = !search || (l.firstName+' '+l.lastName+' '+l.address+' '+(l.damageType||'')+(l.phone||'')).toLowerCase().includes(search);
+    const searchStr = [
+      l.firstName||'', l.lastName||'', l.address||'', 
+      l.damageType||'', l.phone||'', l.email||'', l.notes||''
+    ].join(' ').toLowerCase();
+    
+    const matchS = !search || searchStr.includes(search);
     const matchD = !dmg    || (l.damageType||'').toLowerCase()===dmg;
     return matchS && matchD;
   });
+  
+  const countSpan = document.getElementById('crmSearchCount');
+  if(countSpan) countSpan.textContent = `${filtered.length} match${filtered.length===1?'':'es'}`;
+  
   renderLeads(window._leads, filtered);
+}
+
+
+function clearCrmSearch(){
+  const searchInput = document.getElementById('crmSearch');
+  const dmgFilter = document.getElementById('crmDmgFilter');
+  if(searchInput) searchInput.value = '';
+  if(dmgFilter) dmgFilter.value = '';
+  localStorage.removeItem('nbd_crm_search');
+  window._searchQuery = null;
+  kanbanFilter();
+}
+
+function restoreCrmSearch(){
+  const saved = localStorage.getItem('nbd_crm_search');
+  if(saved){
+    const searchInput = document.getElementById('crmSearch');
+    if(searchInput){
+      searchInput.value = saved;
+      kanbanFilter();
+    }
+  }
 }
 
 function scrollToFollowUps(){
