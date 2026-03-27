@@ -310,6 +310,9 @@ header {
     <div class="quick-actions">
       <a class="btn" id="callLink" href="tel:">📞 Call</a>
       <a class="btn" id="emailLink" href="mailto:">✉️ Email</a>
+      <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
+        📄 Export PDF
+      </button>
       <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
         → Move to Next Stage
       </button>
@@ -447,6 +450,7 @@ header {
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -1267,6 +1271,169 @@ window.openEstimateModal = function(estimateId) {
 window.closeEstimateModal = function() {
   document.getElementById('estimateModal').classList.remove('active');
   window._currentEstimateId = null;
+};
+
+
+// ============================================
+// CUSTOMER PDF EXPORT
+// ============================================
+
+window.exportCustomerPDF = async function() {
+  if (!window._customerId) {
+    alert('Customer data not loaded');
+    return;
+  }
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Get customer data from DOM
+    const customerName = document.getElementById('customerName')?.textContent || 'Customer';
+    const customerAddress = document.getElementById('customerAddress')?.textContent || '';
+    const customerPhone = document.getElementById('customerPhone')?.textContent || '';
+    const customerEmail = document.getElementById('customerEmail')?.textContent || '';
+    const customerStage = document.getElementById('customerStage')?.textContent || '';
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(200, 84, 26); // NBD orange
+    doc.text('Customer Report', 20, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated ${new Date().toLocaleDateString()}`, 20, 27);
+    
+    // Customer Info Section
+    let y = 40;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(customerName, 20, y);
+    
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Stage: ${customerStage}`, 20, y);
+    
+    y += 6;
+    if (customerAddress && customerAddress !== '—') {
+      doc.text(`📍 ${customerAddress}`, 20, y);
+      y += 6;
+    }
+    if (customerPhone && customerPhone !== '—') {
+      doc.text(`📞 ${customerPhone}`, 20, y);
+      y += 6;
+    }
+    if (customerEmail && customerEmail !== '—') {
+      doc.text(`✉️ ${customerEmail}`, 20, y);
+      y += 6;
+    }
+    
+    // Timeline Section
+    y += 10;
+    doc.setFontSize(12);
+    doc.setTextColor(200, 84, 26);
+    doc.text('Timeline', 20, y);
+    
+    y += 8;
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const timelineItems = document.querySelectorAll('#timelineList .timeline-item');
+    let itemCount = 0;
+    timelineItems.forEach(item => {
+      if (itemCount >= 10) return; // Limit to 10 items
+      if (y > 270) return; // Page limit
+      
+      const title = item.querySelector('.timeline-title')?.textContent?.trim() || '';
+      const desc = item.querySelector('.timeline-desc')?.textContent?.trim() || '';
+      const time = item.querySelector('.timeline-time')?.textContent?.trim() || '';
+      
+      doc.setTextColor(0, 0, 0);
+      doc.text(`• ${title}`, 22, y);
+      y += 5;
+      
+      if (desc) {
+        doc.setTextColor(100, 100, 100);
+        doc.text(`  ${desc}`, 24, y);
+        y += 5;
+      }
+      
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(8);
+      doc.text(`  ${time}`, 24, y);
+      y += 7;
+      doc.setFontSize(9);
+      
+      itemCount++;
+    });
+    
+    // Estimates Section (if space available)
+    if (y < 220 && window._customerEstimates && window._customerEstimates.length > 0) {
+      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(200, 84, 26);
+      doc.text('Estimates', 20, y);
+      
+      y += 8;
+      doc.setFontSize(9);
+      
+      window._customerEstimates.forEach(est => {
+        if (y > 270) return;
+        
+        const title = est.title || 'Estimate';
+        const amount = est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft';
+        const date = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
+        
+        doc.setTextColor(0, 0, 0);
+        doc.text(`• ${title}`, 22, y);
+        
+        doc.setTextColor(200, 84, 26);
+        doc.text(amount, 150, y);
+        
+        y += 5;
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text(`  ${date}`, 24, y);
+        y += 7;
+        doc.setFontSize(9);
+      });
+    }
+    
+    // Notes Section (if space available and notes exist)
+    const notes = document.getElementById('customerNotes')?.textContent?.trim();
+    if (y < 240 && notes && notes !== 'No notes') {
+      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(200, 84, 26);
+      doc.text('Notes', 20, y);
+      
+      y += 8;
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      
+      // Wrap text
+      const splitNotes = doc.splitTextToSize(notes, 170);
+      splitNotes.forEach(line => {
+        if (y > 280) return;
+        doc.text(line, 20, y);
+        y += 5;
+      });
+    }
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('No Big Deal Home Solutions — Professional CRM', 20, 285);
+    
+    // Save PDF
+    const fileName = `${customerName.replace(/[^a-z0-9]/gi, '_')}_report_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(fileName);
+    
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert('Failed to generate PDF. Please try again.');
+  }
 };
 
 </script>
