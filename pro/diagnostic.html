@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>NBD Pro - Emergency Diagnostic</title>
+<style>
+body { font-family: monospace; padding: 20px; background: #0a0c0f; color: #e8eaf0; }
+.test { padding: 10px; margin: 10px 0; border-left: 3px solid #666; }
+.pass { border-color: #2ecc8a; }
+.fail { border-color: #e05252; }
+h1 { color: #e8621e; }
+pre { background: #111418; padding: 10px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>🔧 NBD Pro Dashboard Diagnostic</h1>
+<p>Testing all critical functions...</p>
+<div id="results"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const results = document.getElementById('results');
+
+function log(test, pass, detail) {
+  const div = document.createElement('div');
+  div.className = 'test ' + (pass ? 'pass' : 'fail');
+  div.innerHTML = `<strong>${pass ? '✓' : '✗'} ${test}</strong><pre>${detail}</pre>`;
+  results.appendChild(div);
+}
+
+// TEST 1: Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyBLe2hz9W5eN7zLE0tr8xS-cnyQd9sxEGE",
+  authDomain: "no-big-deal-home-solutions.firebaseapp.com",
+  projectId: "no-big-deal-home-solutions",
+  storageBucket: "no-big-deal-home-solutions.firebasestorage.app",
+  messagingSenderId: "690022849848",
+  appId: "1:690022849848:web:eff6eea5b0f1d854e07c3c"
+};
+
+try {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  log('Firebase Init', true, 'Connected successfully');
+  
+  // TEST 2: Auth State
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      log('Auth State', true, `Logged in as: ${user.email}`);
+      
+      // TEST 3: Firestore Read - Leads
+      try {
+        const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
+        const leads = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(l => !l.deleted);
+        log('Firestore - Leads', true, `Found ${leads.length} active leads:\n${JSON.stringify(leads.slice(0, 3), null, 2)}`);
+        
+        // TEST 4: Window Functions
+        setTimeout(() => {
+          const funcs = ['goTo', 'nbdPickerOpen', 'toggleNavSection', 'openLeadModal'];
+          const missing = funcs.filter(f => typeof window[f] !== 'function');
+          if (missing.length === 0) {
+            log('Window Functions', true, `All ${funcs.length} critical functions exposed`);
+          } else {
+            log('Window Functions', false, `MISSING: ${missing.join(', ')}`);
+          }
+        }, 1000);
+        
+      } catch (e) {
+        log('Firestore - Leads', false, `Error: ${e.message}\n${e.stack}`);
+      }
+      
+    } else {
+      log('Auth State', false, 'Not logged in - redirecting to login...');
+      setTimeout(() => window.location.href = '/pro/', 2000);
+    }
+  });
+  
+} catch (e) {
+  log('Firebase Init', false, `Error: ${e.message}\n${e.stack}`);
+}
+</script>
+</body>
+</html>
