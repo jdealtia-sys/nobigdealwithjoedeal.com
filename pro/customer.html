@@ -426,6 +426,17 @@ header {
       <button class="modal-close" onclick="closeUploadModal()">×</button>
     </div>
     
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:var(--m);display:block;margin-bottom:6px;">Photo Category</label>
+      <select id="photoCategory" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px;font-size:13px;color:var(--t);">
+        <option>Exterior</option>
+        <option>Roof</option>
+        <option>Interior</option>
+        <option>Damage</option>
+        <option>Other</option>
+      </select>
+    </div>
+    
     <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
@@ -447,51 +458,10 @@ header {
   </div>
 </div>
 
-<!-- DOCUMENT UPLOAD MODAL -->
-<div class="modal" id="documentModal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <div class="modal-title">Upload Documents</div>
-      <button class="modal-close" onclick="closeDocumentModal()">×</button>
-    </div>
-    
-    <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png" multiple style="display:none;" onchange="handleDocFileSelect(event)">
-    
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px;color:var(--m);display:block;margin-bottom:6px;">Category</label>
-      <select id="docCategory" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px;font-size:13px;color:var(--t);">
-        <option>Contract</option>
-        <option>Invoice</option>
-        <option>Estimate PDF</option>
-        <option>Insurance</option>
-        <option>Other</option>
-      </select>
-    </div>
-    
-    <div class="upload-zone" id="docUploadZone" onclick="document.getElementById('docFileInput').click()">
-      <div class="upload-icon">📤</div>
-      <div class="upload-text">Click to browse or drag documents here</div>
-      <div class="upload-hint">Supports: PDF, Word, Excel, Images • Max 25MB per file</div>
-    </div>
-    
-    <div class="upload-preview" id="docUploadPreview"></div>
-    
-    <div style="margin-top:20px; display:flex; gap:8px;">
-      <button class="btn btn-orange" id="docUploadBtn" onclick="uploadDocuments()" style="flex:1; display:none;">
-        📤 Upload <span id="docUploadCount">0</span> Documents
-      </button>
-      <button class="btn" onclick="closeDocumentModal()" style="flex:1;">
-        Cancel
-      </button>
-    </div>
-  </div>
-</div>
-
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -738,26 +708,6 @@ async function loadTimeline(leadId, lead) {
     console.log('No photos found for timeline');
   }
 
-  // Load documents for timeline
-  try {
-    const docSnap = await getDocs(
-      query(collection(db, 'documents'), where('leadId', '==', leadId))
-    );
-    docSnap.docs.forEach(d => {
-      const doc = d.data();
-      if (doc.uploadedAt) {
-        timeline.push({
-          time: doc.uploadedAt?.toDate ? doc.uploadedAt.toDate() : new Date(doc.uploadedAt),
-          icon: '📄',
-          title: 'Document uploaded',
-          desc: `${doc.category}: ${doc.filename}`
-        });
-      }
-    });
-  } catch (e) {
-    console.log('No documents found for timeline');
-  }
-
   // Sort by time (newest first)
   timeline.sort((a, b) => b.time - a.time);
 
@@ -815,14 +765,40 @@ async function loadPhotos(leadId) {
 
     window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
-    const html = window._customerPhotos.map((photo, idx) => 
-      `<div class="photo-item" onclick="openLightbox(${idx})">
+    // Category colors
+    const catColors = {
+      'Exterior': 'var(--blue)',
+      'Roof': 'var(--orange)',
+      'Interior': 'var(--green)',
+      'Damage': 'var(--red)',
+      'Other': 'var(--m)'
+    };
+    
+    const html = window._customerPhotos.map((photo, idx) => {
+      const catColor = catColors[photo.category] || 'var(--m)';
+      return `<div class="photo-item" onclick="openLightbox(${idx})" style="position:relative;">
         <img src="${photo.url}" alt="Property photo">
-      </div>`
-    ).join('');
+        <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;border-left:2px solid ${catColor};">
+          ${photo.category || 'Property'}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Category filter buttons
+    const categories = [...new Set(window._customerPhotos.map(p => p.category || 'Property'))];
+    const filterHTML = categories.length > 1 ? `
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn" style="font-size:11px;padding:4px 10px;" onclick="filterPhotos('all')">All (${window._customerPhotos.length})</button>
+        ${categories.map(cat => {
+          const count = window._customerPhotos.filter(p => (p.category||'Property') === cat).length;
+          return `<button class="btn" style="font-size:11px;padding:4px 10px;" onclick="filterPhotos('${cat}')">${cat} (${count})</button>`;
+        }).join('')}
+      </div>
+    ` : '';
 
     document.getElementById('photoList').innerHTML = `
-      <div class="photo-grid">${html}</div>
+      ${filterHTML}
+      <div class="photo-grid" id="photoGrid">${html}</div>
       <button class="btn btn-orange" style="margin-top:12px; width:100%;" onclick="openUploadModal()">
         📤 Upload More Photos
       </button>
@@ -838,72 +814,12 @@ async function loadPhotos(leadId) {
 }
 
 async function loadDocuments(leadId) {
-  try {
-    const docSnap = await getDocs(
-      query(collection(db, 'documents'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
-    );
-    
-    if (docSnap.empty) {
-      document.getElementById('docList').innerHTML = `
-        <div class="upload-zone" onclick="openDocumentModal()" style="cursor:pointer;padding:30px 20px;">
-          <div class="upload-icon" style="font-size:36px;margin-bottom:8px;">📄</div>
-          <div class="upload-text" style="font-size:13px;">No documents yet</div>
-          <div class="upload-hint">Click to upload documents</div>
-        </div>`;
-      return;
-    }
-
-    const docs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    const html = docs.map(doc => {
-      const sizeKB = doc.size ? Math.round(doc.size / 1024) : 0;
-      const sizeDisplay = sizeKB > 1024 ? `${(sizeKB/1024).toFixed(1)} MB` : `${sizeKB} KB`;
-      const date = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
-      const categoryColor = {
-        'Contract': 'var(--purple)',
-        'Invoice': 'var(--green)',
-        'Estimate PDF': 'var(--gold)',
-        'Insurance': 'var(--blue)',
-        'Other': 'var(--m)'
-      }[doc.category] || 'var(--m)';
-      
-      return `
-        <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;">
-          <div style="font-size:24px;">📄</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${doc.filename}</div>
-            <div style="font-size:11px;color:var(--m);display:flex;gap:8px;flex-wrap:wrap;">
-              <span style="color:${categoryColor};">${doc.category}</span>
-              <span>•</span>
-              <span>${sizeDisplay}</span>
-              <span>•</span>
-              <span>${date}</span>
-            </div>
-          </div>
-          <a href="${doc.url}" download="${doc.filename}" class="btn" style="font-size:11px;padding:4px 10px;text-decoration:none;" onclick="event.stopPropagation();">
-            ⬇ Download
-          </a>
-          <button class="btn" style="font-size:11px;padding:4px 10px;background:var(--red);border-color:var(--red);color:#fff;" onclick="deleteDocument('${doc.id}')">
-            🗑
-          </button>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('docList').innerHTML = `
-      ${html}
-      <button class="btn btn-orange" style="margin-top:12px;width:100%;" onclick="openDocumentModal()">
-        📤 Upload More Documents
-      </button>
-    `;
-  } catch (e) {
-    console.error('Error loading documents:', e);
-    document.getElementById('docList').innerHTML = `
-      <div class="upload-zone" onclick="openDocumentModal()">
-        <div class="upload-icon">📄</div>
-        <div class="upload-text">Click to upload documents</div>
-      </div>`;
-  }
+  // Document loading will be implemented in next strike
+  document.getElementById('docList').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📄</div>
+      No documents yet
+    </div>`;
 }
 
 async function loadEstimates(leadId) {
@@ -1215,6 +1131,8 @@ async function uploadSinglePhoto(item, index) {
         try {
           const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
           
+          const photoCategory = document.getElementById('photoCategory')?.value || 'Property';
+          
           await window.addDoc(window.collection(window.db, 'photos'), {
             leadId: window._customerId,
             url: downloadURL,
@@ -1222,7 +1140,7 @@ async function uploadSinglePhoto(item, index) {
             size: file.size,
             type: file.type,
             uploadedAt: window.serverTimestamp(),
-            category: 'Property'
+            category: photoCategory
           });
           
           resolve();
@@ -1235,211 +1153,34 @@ async function uploadSinglePhoto(item, index) {
 }
 
 
-// ============================================
-// DOCUMENT UPLOAD SYSTEM
-// ============================================
-
-window._docUploadQueue = [];
-
-window.openDocumentModal = function() {
-  document.getElementById('documentModal').classList.add('active');
-  window._docUploadQueue = [];
-  updateDocUploadPreview();
-};
-
-window.closeDocumentModal = function() {
-  document.getElementById('documentModal').classList.remove('active');
-  window._docUploadQueue = [];
-  updateDocUploadPreview();
-};
-
-// Drag and drop for documents
-const docUploadZone = document.getElementById('docUploadZone');
-if(docUploadZone) {
-  docUploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    docUploadZone.classList.add('drag-over');
-  });
-
-  docUploadZone.addEventListener('dragleave', () => {
-    docUploadZone.classList.remove('drag-over');
-  });
-
-  docUploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    docUploadZone.classList.remove('drag-over');
-    const files = Array.from(e.dataTransfer.files);
-    addDocsToQueue(files);
-  });
-}
-
-window.handleDocFileSelect = function(event) {
-  const files = Array.from(event.target.files);
-  addDocsToQueue(files);
-  event.target.value = '';
-};
-
-function addDocsToQueue(files) {
-  files.forEach(file => {
-    // Validate file size (max 25MB)
-    if (file.size > 25 * 1024 * 1024) {
-      alert(`File ${file.name} is too large. Max size is 25MB.`);
-      return;
-    }
-    
-    window._docUploadQueue.push({
-      file: file,
-      progress: 0,
-      uploading: false
-    });
-  });
-  updateDocUploadPreview();
-}
-
-function updateDocUploadPreview() {
-  const container = document.getElementById('docUploadPreview');
-  const uploadBtn = document.getElementById('docUploadBtn');
-  const uploadCount = document.getElementById('docUploadCount');
+window.filterPhotos = function(category) {
+  if (!window._customerPhotos) return;
   
-  if (window._docUploadQueue.length === 0) {
-    container.innerHTML = '';
-    uploadBtn.style.display = 'none';
-    return;
-  }
+  const filtered = category === 'all' 
+    ? window._customerPhotos 
+    : window._customerPhotos.filter(p => (p.category || 'Property') === category);
   
-  const html = window._docUploadQueue.map((item, idx) => {
-    const sizeKB = Math.round(item.file.size / 1024);
-    const sizeDisplay = sizeKB > 1024 ? `${(sizeKB/1024).toFixed(1)} MB` : `${sizeKB} KB`;
-    
-    return `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:6px;position:relative;">
-        <div style="font-size:20px;">📄</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.file.name}</div>
-          <div style="font-size:10px;color:var(--m);">${sizeDisplay}</div>
-        </div>
-        ${!item.uploading ? `
-          <button style="background:none;border:none;color:var(--m);cursor:pointer;font-size:16px;" onclick="removeDocFromQueue(${idx})">×</button>
-        ` : ''}
-        ${item.uploading ? `
-          <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--s3);">
-            <div style="height:100%;background:var(--orange);width:${item.progress}%;transition:width .3s;"></div>
-          </div>
-        ` : ''}
+  const catColors = {
+    'Exterior': 'var(--blue)',
+    'Roof': 'var(--orange)',
+    'Interior': 'var(--green)',
+    'Damage': 'var(--red)',
+    'Other': 'var(--m)'
+  };
+  
+  const html = filtered.map((photo, idx) => {
+    const actualIdx = window._customerPhotos.indexOf(photo);
+    const catColor = catColors[photo.category] || 'var(--m)';
+    return `<div class="photo-item" onclick="openLightbox(${actualIdx})" style="position:relative;">
+      <img src="${photo.url}" alt="Property photo">
+      <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;border-left:2px solid ${catColor};">
+        ${photo.category || 'Property'}
       </div>
-    `;
+    </div>`;
   }).join('');
   
-  container.innerHTML = html;
-  uploadBtn.style.display = 'block';
-  uploadCount.textContent = window._docUploadQueue.length;
-}
-
-window.removeDocFromQueue = function(index) {
-  window._docUploadQueue.splice(index, 1);
-  updateDocUploadPreview();
+  document.getElementById('photoGrid').innerHTML = html;
 };
-
-window.uploadDocuments = async function() {
-  if (window._docUploadQueue.length === 0) return;
-  if (!window._customerId) {
-    alert('Customer ID not found');
-    return;
-  }
-  
-  const category = document.getElementById('docCategory').value;
-  const uploadBtn = document.getElementById('docUploadBtn');
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
-  
-  try {
-    for (let i = 0; i < window._docUploadQueue.length; i++) {
-      const item = window._docUploadQueue[i];
-      item.uploading = true;
-      updateDocUploadPreview();
-      
-      await uploadSingleDocument(item, i, category);
-    }
-    
-    alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
-    closeDocumentModal();
-    await loadDocuments(window._customerId);
-    
-    // Reload timeline
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
-    }
-    
-  } catch (error) {
-    console.error('Upload error:', error);
-    alert('Upload failed. Please try again.');
-  } finally {
-    uploadBtn.disabled = false;
-    uploadBtn.textContent = '📤 Upload Documents';
-  }
-};
-
-async function uploadSingleDocument(item, index, category) {
-  const file = item.file;
-  const timestamp = Date.now();
-  const filename = `${window._customerId}_${timestamp}_${file.name}`;
-  const storageRef = window.ref(window.storage, `documents/${filename}`);
-  
-  const uploadTask = window.uploadBytesResumable(storageRef, file);
-  
-  return new Promise((resolve, reject) => {
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        window._docUploadQueue[index].progress = progress;
-        updateDocUploadPreview();
-      },
-      (error) => {
-        console.error('Upload error:', error);
-        reject(error);
-      },
-      async () => {
-        try {
-          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
-          
-          await window.addDoc(window.collection(window.db, 'documents'), {
-            leadId: window._customerId,
-            url: downloadURL,
-            filename: file.name,
-            size: file.size,
-            type: file.type,
-            category: category,
-            uploadedAt: window.serverTimestamp()
-          });
-          
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      }
-    );
-  });
-}
-
-window.deleteDocument = async function(docId) {
-  if (!confirm('Delete this document? This cannot be undone.')) return;
-  
-  try {
-    await deleteDoc(doc(db, 'documents', docId));
-    await loadDocuments(window._customerId);
-    
-    // Reload timeline
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
-    }
-  } catch (error) {
-    console.error('Delete error:', error);
-    alert('Failed to delete document.');
-  }
-};
-
 
 </script>
 
