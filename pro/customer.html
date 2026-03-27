@@ -98,13 +98,28 @@ header {
 /* PANEL */
 .panel {
   background:var(--s); border:1px solid var(--br); border-radius:10px;
-  padding:20px; margin-bottom:20px;
+  padding:18px; margin-bottom:20px;
 }
 .panel-title {
-  font-family:'Barlow Condensed',sans-serif; font-size:16px;
-  font-weight:700; text-transform:uppercase; letter-spacing:.08em;
-  margin-bottom:16px; padding-bottom:10px;
-  border-bottom:1px solid var(--br);
+  font-family:'Barlow Condensed',sans-serif; font-size:14px;
+  font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  margin-bottom:12px; color:var(--orange);
+}
+
+/* INFO GRID */
+.info-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+}
+.info-item {
+  display:flex; flex-direction:column; gap:4px;
+}
+.info-label {
+  font-size:11px; color:var(--m); font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.info-value {
+  font-size:14px; color:var(--t);
 }
 
 /* TIMELINE */
@@ -114,9 +129,9 @@ header {
 }
 .timeline-item:last-child { border-bottom:none; }
 .timeline-icon {
-  width:32px; height:32px; border-radius:50%;
-  background:var(--s2); display:flex; align-items:center;
-  justify-content:center; font-size:14px; flex-shrink:0;
+  width:32px; height:32px; background:var(--s2); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; flex-shrink:0;
 }
 .timeline-content { flex:1; }
 .timeline-title {
@@ -126,234 +141,272 @@ header {
   font-size:12px; color:var(--m); margin-bottom:4px;
 }
 .timeline-time {
-  font-size:10px; color:var(--m); font-family:'DM Mono',monospace;
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
 }
 
-/* PHOTO GRID */
+/* PHOTOS */
 .photo-grid {
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
-  gap:10px;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  gap:8px;
 }
 .photo-item {
-  aspect-ratio:1; background:var(--s2); border:1px solid var(--br);
-  border-radius:6px; overflow:hidden; cursor:pointer;
-  transition:all .15s;
+  aspect-ratio:1; border-radius:8px; overflow:hidden;
+  cursor:pointer; background:var(--s2); position:relative;
+  transition:all .2s;
 }
-.photo-item:hover { border-color:var(--orange); }
+.photo-item:hover { transform:scale(1.05); box-shadow:0 4px 12px rgba(0,0,0,.3); }
 .photo-item img {
   width:100%; height:100%; object-fit:cover;
 }
 
-/* DOCS LIST */
-.doc-item {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:10px 12px; background:var(--s2); border:1px solid var(--br);
-  border-radius:6px; margin-bottom:8px;
+/* UPLOAD ZONE */
+.upload-zone {
+  border:2px dashed var(--br); border-radius:10px;
+  padding:40px 20px; text-align:center; cursor:pointer;
+  transition:all .2s; background:var(--s2);
 }
-.doc-icon {
-  font-size:20px; margin-right:10px;
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color:var(--orange); background:var(--og);
 }
-.doc-info { flex:1; }
-.doc-name {
-  font-size:13px; font-weight:600; margin-bottom:2px;
+.upload-icon {
+  font-size:48px; margin-bottom:12px; opacity:.6;
 }
-.doc-meta {
-  font-size:11px; color:var(--m);
+.upload-text {
+  font-size:14px; color:var(--m); margin-bottom:8px;
 }
-
-/* INFO GRID */
-.info-grid {
-  display:grid; grid-template-columns:1fr 1fr; gap:12px;
-}
-.info-item {
-  background:var(--s2); border:1px solid var(--br); border-radius:6px;
-  padding:12px;
-}
-.info-label {
-  font-size:9px; color:var(--m); text-transform:uppercase;
-  letter-spacing:.08em; margin-bottom:6px;
-}
-.info-value {
-  font-size:13px; color:var(--t); font-weight:500;
+.upload-hint {
+  font-size:11px; color:var(--m); opacity:.7;
 }
 
-/* EMPTY STATE */
-.empty {
-  text-align:center; padding:40px 20px; color:var(--m);
-  font-size:13px;
+/* UPLOAD PREVIEW */
+.upload-preview {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
+  gap:8px; margin-top:12px;
 }
-.empty-icon {
-  font-size:32px; margin-bottom:8px; opacity:.5;
+.preview-item {
+  position:relative; aspect-ratio:1; border-radius:8px;
+  overflow:hidden; background:var(--s2);
+}
+.preview-item img {
+  width:100%; height:100%; object-fit:cover;
+}
+.preview-remove {
+  position:absolute; top:4px; right:4px;
+  width:24px; height:24px; border-radius:50%;
+  background:var(--red); color:#fff; border:none;
+  cursor:pointer; display:flex; align-items:center;
+  justify-content:center; font-size:16px; line-height:1;
+  opacity:.9; transition:opacity .2s;
+}
+.preview-remove:hover { opacity:1; }
+.preview-progress {
+  position:absolute; bottom:0; left:0; right:0;
+  height:4px; background:var(--s3);
+}
+.preview-progress-bar {
+  height:100%; background:var(--orange); transition:width .3s;
 }
 
 /* LIGHTBOX */
 .lightbox {
-  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
-  background:rgba(0,0,0,.95); z-index:9999; align-items:center;
-  justify-content:center; backdrop-filter:blur(8px);
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,.95); display:none; align-items:center;
+  justify-content:center; z-index:9999;
 }
 .lightbox.active { display:flex; }
 .lightbox-img {
-  max-width:90vw; max-height:90vh; border-radius:8px;
-  box-shadow:0 20px 60px rgba(0,0,0,.8);
+  max-width:90%; max-height:90%; object-fit:contain;
 }
-.lightbox-close {
-  position:absolute; top:20px; right:20px; width:40px; height:40px;
-  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
-  border-radius:50%; color:#fff; font-size:24px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-  transition:all .15s;
+.lightbox-close, .lightbox-nav {
+  position:absolute; background:rgba(255,255,255,.1);
+  border:none; color:#fff; cursor:pointer;
+  width:48px; height:48px; border-radius:50%;
+  font-size:32px; display:flex; align-items:center;
+  justify-content:center; transition:all .2s;
 }
-.lightbox-close:hover {
-  background:rgba(255,255,255,.2); transform:scale(1.1);
-}
-.lightbox-nav {
-  position:absolute; top:50%; transform:translateY(-50%);
-  width:50px; height:50px; background:rgba(255,255,255,.1);
-  border:1px solid rgba(255,255,255,.2); border-radius:50%;
-  color:#fff; font-size:20px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-  transition:all .15s;
-}
-.lightbox-nav:hover {
-  background:rgba(255,255,255,.2); transform:translateY(-50%) scale(1.1);
+.lightbox-close { top:20px; right:20px; }
+.lightbox-close:hover, .lightbox-nav:hover {
+  background:rgba(255,255,255,.2);
 }
 .lightbox-prev { left:20px; }
 .lightbox-next { right:20px; }
 
-/* LOADING */
-.loading {
-  display:flex; justify-content:center; align-items:center;
-  padding:40px; color:var(--m);
+/* EMPTY STATE */
+.empty {
+  text-align:center; padding:40px 20px; color:var(--m);
 }
+.empty-icon {
+  font-size:48px; margin-bottom:12px; opacity:.5;
+}
+
+/* ESTIMATE ITEM */
+.estimate-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.estimate-item:last-child { border-bottom:none; }
+.estimate-title {
+  font-size:13px; font-weight:600;
+}
+.estimate-amount {
+  font-size:14px; color:var(--orange); font-weight:700;
+}
+
+/* MODAL */
+.modal {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,.7); display:none; align-items:center;
+  justify-content:center; z-index:9998; padding:20px;
+}
+.modal.active { display:flex; }
+.modal-content {
+  background:var(--s); border:1px solid var(--br); border-radius:10px;
+  max-width:500px; width:100%; max-height:90vh; overflow-y:auto;
+  padding:24px;
+}
+.modal-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--br);
+}
+.modal-title {
+  font-family:'Barlow Condensed',sans-serif; font-size:20px;
+  font-weight:700;
+}
+.modal-close {
+  background:none; border:none; color:var(--m); cursor:pointer;
+  font-size:28px; line-height:1; padding:0; width:32px; height:32px;
+}
+.modal-close:hover { color:var(--t); }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">NBD<span>PRO</span></div>
-  <a href="dashboard.html" class="back-btn">← Back to CRM</a>
+  <div class="logo">NBD <span>PRO</span></div>
+  <a href="dashboard.html" class="back-btn">
+    ← Back to Dashboard
+  </a>
 </header>
 
 <div class="container">
-  <div id="loadingState" class="loading">Loading customer details...</div>
-  
-  <div id="customerContent" style="display:none;">
-    <!-- CUSTOMER HEADER -->
-    <div class="customer-header">
-      <div class="customer-name" id="customerName">—</div>
-      <div class="customer-meta">
-        <span class="stage-badge" id="customerStage">—</span>
-        <div class="meta-item" id="lastUpdated" style="color:var(--m);font-size:11px;"></div>
-        <div class="meta-item">📍 <span id="customerAddress">—</span></div>
-        <div class="meta-item">📞 <span id="customerPhone">—</span></div>
-        <div class="meta-item">📧 <span id="customerEmail">—</span></div>
+  <div class="customer-header">
+    <div class="customer-name" id="customerName">Loading...</div>
+    <div class="customer-meta">
+      <div class="meta-item">
+        <span class="stage-badge" id="customerStage">New</span>
       </div>
-      <div class="quick-actions">
-        <button class="btn btn-orange" onclick="openEditModal()">✎ Edit Details</button>
-        <button class="btn" id="stageProgressBtn" onclick="progressStage()" style="display:none;">→ Next Stage</button>
-        <button class="btn" onclick="openTaskModal()">✓ Manage Tasks</button>
-        <button class="btn" onclick="window.location.href='dashboard.html#est'">📋 New Estimate</button>
-        <button class="btn" onclick="copyAddress()">📋 Copy Address</button>
-        <button class="btn" onclick="openInMaps()">🗺️ Open in Maps</button>
-        <a class="btn" id="callLink" href="#">📞 Call</a>
-        <a class="btn" id="emailLink" href="#">📧 Email</a>
+      <div class="meta-item">
+        📍 <span id="customerAddress">—</span>
+      </div>
+      <div class="meta-item">
+        📞 <span id="customerPhone">—</span>
+      </div>
+      <div class="meta-item">
+        ✉️ <span id="customerEmail">—</span>
+      </div>
+      <div class="meta-item" id="lastUpdated">⏱ Loading...</div>
+    </div>
+    
+    <div class="quick-actions">
+      <a class="btn" id="callLink" href="tel:">📞 Call</a>
+      <a class="btn" id="emailLink" href="mailto:">✉️ Email</a>
+      <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
+        → Move to Next Stage
+      </button>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- TIMELINE -->
+      <div class="panel">
+        <div class="panel-title">Timeline & Tasks</div>
+        <div id="timelineList">
+          <div class="empty">
+            <div class="empty-icon">📅</div>
+            Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- PHOTOS -->
+      <div class="panel">
+        <div class="panel-title">Photos</div>
+        <div id="photoList">
+          <div class="empty">
+            <div class="empty-icon">📸</div>
+            Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTS -->
+      <div class="panel">
+        <div class="panel-title">Documents</div>
+        <div id="docList">
+          <div class="empty">
+            <div class="empty-icon">📄</div>
+            No documents yet
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- CONTENT GRID -->
-    <div class="content-grid">
-      
-      <!-- LEFT COLUMN -->
-      <div>
-        <!-- TIMELINE -->
-        <div class="panel">
-          <div class="panel-title">Activity Timeline</div>
-          <div id="timelineList">
-            <div class="empty">
-              <div class="empty-icon">📅</div>
-              No activity yet
-            </div>
+    <!-- RIGHT COLUMN -->
+    <div>
+      <!-- CUSTOMER INFO -->
+      <div class="panel">
+        <div class="panel-title">Customer Info</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Job Value</div>
+            <div class="info-value" id="infoJobValue">—</div>
           </div>
-        </div>
-
-        <!-- PHOTOS -->
-        <div class="panel">
-          <div class="panel-title">Photos</div>
-          <div id="photoList" class="photo-grid">
-            <div class="empty">
-              <div class="empty-icon">📸</div>
-              No photos yet
-            </div>
+          <div class="info-item">
+            <div class="info-label">Damage Type</div>
+            <div class="info-value" id="infoDamageType">—</div>
           </div>
-        </div>
-
-        <!-- DOCUMENTS -->
-        <div class="panel">
-          <div class="panel-title">Documents</div>
-          <div id="docList">
-            <div class="empty">
-              <div class="empty-icon">📄</div>
-              No documents yet
-            </div>
+          <div class="info-item">
+            <div class="info-label">Source</div>
+            <div class="info-value" id="infoSource">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Insurance Carrier</div>
+            <div class="info-value" id="infoCarrier">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Claim Status</div>
+            <div class="info-value" id="infoClaimStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Follow Up</div>
+            <div class="info-value" id="infoFollowUp">—</div>
           </div>
         </div>
       </div>
 
-      <!-- RIGHT COLUMN -->
-      <div>
-        <!-- CUSTOMER INFO -->
-        <div class="panel">
-          <div class="panel-title">Customer Info</div>
-          <div class="info-grid" id="customerInfo">
-            <div class="info-item">
-              <div class="info-label">Job Value</div>
-              <div class="info-value" id="infoJobValue">—</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Damage Type</div>
-              <div class="info-value" id="infoDamageType">—</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Source</div>
-              <div class="info-value" id="infoSource">—</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Insurance Carrier</div>
-              <div class="info-value" id="infoCarrier">—</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Claim Status</div>
-              <div class="info-value" id="infoClaimStatus">—</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Follow-Up Date</div>
-              <div class="info-value" id="infoFollowUp">—</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ESTIMATES -->
-        <div class="panel">
-          <div class="panel-title">Estimates</div>
-          <div id="estimateList">
-            <div class="empty">
-              <div class="empty-icon">📋</div>
-              No estimates yet
-            </div>
-          </div>
-        </div>
-
-        <!-- NOTES -->
-        <div class="panel">
-          <div class="panel-title">Notes</div>
-          <div id="customerNotes" style="font-size:13px;line-height:1.6;color:var(--m);">
-            No notes
+      <!-- ESTIMATES -->
+      <div class="panel">
+        <div class="panel-title">Estimates</div>
+        <div id="estimateList">
+          <div class="empty">
+            <div class="empty-icon">📋</div>
+            No estimates yet
           </div>
         </div>
       </div>
 
+      <!-- NOTES -->
+      <div class="panel">
+        <div class="panel-title">Notes</div>
+        <div id="customerNotes" style="font-size:13px;line-height:1.6;color:var(--m);">
+          No notes
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -365,10 +418,40 @@ header {
   <button class="lightbox-nav lightbox-next" onclick="nextPhoto()">›</button>
 </div>
 
+<!-- PHOTO UPLOAD MODAL -->
+<div class="modal" id="uploadModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Upload Photos</div>
+      <button class="modal-close" onclick="closeUploadModal()">×</button>
+    </div>
+    
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
+    
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon">📤</div>
+      <div class="upload-text">Click to browse or drag photos here</div>
+      <div class="upload-hint">Supports: JPG, PNG, HEIC • Max 10MB per file</div>
+    </div>
+    
+    <div class="upload-preview" id="uploadPreview"></div>
+    
+    <div style="margin-top:20px; display:flex; gap:8px;">
+      <button class="btn btn-orange" id="uploadBtn" onclick="uploadPhotos()" style="flex:1; display:none;">
+        📤 Upload <span id="uploadCount">0</span> Photos
+      </button>
+      <button class="btn" onclick="closeUploadModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBT_s6kJiy3eB3X4XdCTWyK6IDBe1xgV4k",
@@ -382,21 +465,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-// Get customer ID from URL
-const params = new URLSearchParams(window.location.search);
-const customerId = params.get('id');
+// Make them globally accessible
+window.db = db;
+window.auth = auth;
+window.storage = storage;
+window.addDoc = addDoc;
+window.collection = collection;
+window.serverTimestamp = serverTimestamp;
+window.ref = ref;
+window.uploadBytesResumable = uploadBytesResumable;
+window.getDownloadURL = getDownloadURL;
 
-if (!customerId) {
-  document.getElementById('loadingState').innerHTML = 
-    '<div class="empty"><div class="empty-icon">❌</div>No customer ID provided</div>';
-}
-
+// Auth guard
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.replace("/pro/login.html");
+    window.location.href = '../login.html';
     return;
   }
+
+  // Get customer ID from URL
+  const params = new URLSearchParams(window.location.search);
+  const customerId = params.get('id');
 
   if (!customerId) return;
 
@@ -498,79 +589,61 @@ async function loadCustomerData(id) {
     
     try { await loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
-
-    // Show content, hide loading
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('customerContent').style.display = 'block';
     
   } catch (error) {
-    console.error('Error loading customer:', error);
-    showError(
-      'Failed to load customer', 
-      error.message || 'An unexpected error occurred. Please try refreshing the page.'
-    );
+    console.error('Error loading customer data:', error);
+    showError('Load Error', 'Could not load customer data');
   }
 }
 
-function showError(title, message) {
-  document.getElementById('loadingState').innerHTML = `
-    <div class="empty">
-      <div class="empty-icon">❌</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${title}</div>
-      <div style="font-size:13px;color:var(--m);max-width:400px;margin:0 auto 16px;">${message}</div>
-      <button class="btn btn-orange" onclick="window.location.href='dashboard.html'">← Back to Dashboard</button>
-    </div>
-  `;
+// Recently viewed tracking
+function trackRecentlyViewed(leadId) {
+  try {
+    let recent = JSON.parse(localStorage.getItem('nbd_recent_views') || '[]');
+    recent = recent.filter(id => id !== leadId);
+    recent.unshift(leadId);
+    recent = recent.slice(0, 10);
+    localStorage.setItem('nbd_recent_views', JSON.stringify(recent));
+  } catch (e) {
+    console.log('Could not track recent view');
+  }
 }
 
 async function loadTimeline(leadId, lead) {
   const timeline = [];
 
-  // Add creation event
+  // Lead created event
   if (lead.createdAt) {
     timeline.push({
-      time: lead.createdAt.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
-      icon: '✨',
+      time: lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
+      icon: '🎯',
       title: 'Lead created',
-      desc: `Added to CRM as ${lead.stage || 'New'} lead`
-    });
-  }
-
-  // Add stage change events (if stored)
-  if (lead.stageHistory && Array.isArray(lead.stageHistory)) {
-    lead.stageHistory.forEach(change => {
-      timeline.push({
-        time: change.timestamp?.toDate ? change.timestamp.toDate() : new Date(change.timestamp),
-        icon: '🔄',
-        title: 'Stage changed',
-        desc: `Moved to ${change.stage}`
-      });
+      desc: `Source: ${lead.source || 'Unknown'}`
     });
   }
 
   // Load tasks
   try {
     const taskSnap = await getDocs(
-      query(collection(db, 'leads', leadId, 'tasks'), orderBy('createdAt', 'desc'))
+      query(collection(db, 'tasks'), where('leadId', '==', leadId))
     );
     taskSnap.docs.forEach(d => {
       const task = d.data();
-      const taskId = d.id;
       timeline.push({
-        time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(),
-        icon: task.done ? '✅' : '📝',
-        title: task.done ? 'Task completed' : 'Task',
-        desc: task.text,
+        time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt || Date.now()),
+        icon: task.done ? '✅' : '⏰',
+        title: task.title || 'Task',
+        desc: task.dueDate || '',
         isTask: true,
-        taskId: taskId,
-        taskDone: task.done
+        taskId: d.id,
+        taskDone: task.done || false
       });
     });
   } catch (e) {
-    console.log('No tasks found');
+    console.log('No tasks found for timeline');
   }
 
-  // Load estimate events
+  // Load estimates
   try {
     const estSnap = await getDocs(
       query(collection(db, 'estimates'), where('leadId', '==', leadId))
@@ -582,7 +655,7 @@ async function loadTimeline(leadId, lead) {
           time: est.createdAt?.toDate ? est.createdAt.toDate() : new Date(est.createdAt),
           icon: '📋',
           title: 'Estimate created',
-          desc: `${est.roofType || 'Estimate'} - ${est.sqft || 0} sqft`
+          desc: est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'
         });
       }
     });
@@ -590,7 +663,7 @@ async function loadTimeline(leadId, lead) {
     console.log('No estimates found for timeline');
   }
 
-  // Load photo upload events
+  // Load photos for timeline
   try {
     const photoSnap = await getDocs(
       query(collection(db, 'photos'), where('leadId', '==', leadId))
@@ -652,22 +725,20 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId))
+      query(collection(db, 'photos'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
     );
     
     if (photoSnap.empty) {
       document.getElementById('photoList').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">📸</div>
-          No photos yet
-          <button class="btn btn-orange" style="margin-top:12px;" onclick="alert('Photo upload coming soon!')">
-            📤 Upload Photos
-          </button>
+        <div class="upload-zone" onclick="openUploadModal()">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">No photos yet</div>
+          <div class="upload-hint">Click to upload your first photo</div>
         </div>`;
       return;
     }
 
-    window._customerPhotos = photoSnap.docs.map(d => d.data());
+    window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
     const html = window._customerPhotos.map((photo, idx) => 
       `<div class="photo-item" onclick="openLightbox(${idx})">
@@ -675,9 +746,62 @@ async function loadPhotos(leadId) {
       </div>`
     ).join('');
 
-    document.getElementById('photoList').innerHTML = html;
+    document.getElementById('photoList').innerHTML = `
+      <div class="photo-grid">${html}</div>
+      <button class="btn btn-orange" style="margin-top:12px; width:100%;" onclick="openUploadModal()">
+        📤 Upload More Photos
+      </button>
+    `;
   } catch (e) {
     console.error('Error loading photos:', e);
+    document.getElementById('photoList').innerHTML = `
+      <div class="upload-zone" onclick="openUploadModal()">
+        <div class="upload-icon">📸</div>
+        <div class="upload-text">Click to upload photos</div>
+      </div>`;
+  }
+}
+
+async function loadDocuments(leadId) {
+  // Document loading will be implemented in next strike
+  document.getElementById('docList').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📄</div>
+      No documents yet
+    </div>`;
+}
+
+async function loadEstimates(leadId) {
+  try {
+    const estSnap = await getDocs(
+      query(collection(db, 'estimates'), where('leadId', '==', leadId))
+    );
+    
+    if (estSnap.empty) {
+      document.getElementById('estimateList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          No estimates yet
+        </div>`;
+      return;
+    }
+
+    const html = estSnap.docs.map(d => {
+      const est = d.data();
+      return `
+        <div class="estimate-item">
+          <div>
+            <div class="estimate-title">${est.title || 'Estimate'}</div>
+            <div style="font-size:11px;color:var(--m);">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
+          </div>
+          <div class="estimate-amount">${est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'}</div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('estimateList').innerHTML = html;
+  } catch (e) {
+    console.error('Error loading estimates:', e);
   }
 }
 
@@ -708,102 +832,17 @@ window.prevPhoto = function() {
   document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
 };
 
-// ESC key to close
+// Keyboard navigation for lightbox
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') window.closeLightbox();
-  if (e.key === 'ArrowRight') window.nextPhoto();
-  if (e.key === 'ArrowLeft') window.prevPhoto();
+  if (!document.getElementById('lightbox').classList.contains('active')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowRight') nextPhoto();
+  if (e.key === 'ArrowLeft') prevPhoto();
 });
 
-async function loadDocuments(leadId) {
-  // TODO: Implement document loading when document system is built
-  document.getElementById('docList').innerHTML = `
-    <div class="empty">
-      <div class="empty-icon">📄</div>
-      No documents yet
-      <button class="btn btn-orange" style="margin-top:12px;" onclick="alert('Document upload coming soon!')">
-        📤 Upload Documents
-      </button>
-    </div>`;
-}
-
-async function loadEstimates(leadId) {
-  try {
-    const estSnap = await getDocs(
-      query(collection(db, 'estimates'), where('leadId', '==', leadId))
-    );
-    
-    if (estSnap.empty) {
-      document.getElementById('estimateList').innerHTML = 
-        '<div class="empty"><div class="empty-icon">📋</div>No estimates yet</div>';
-      return;
-    }
-
-    const html = estSnap.docs.map(d => {
-      const est = d.data();
-      return `
-        <div class="doc-item" style="cursor:pointer;" onclick="window.location.href='dashboard.html#est'">
-          <span class="doc-icon">📋</span>
-          <div class="doc-info">
-            <div class="doc-name">${est.address || 'Estimate'}</div>
-            <div class="doc-meta">${est.roofType || 'Unknown type'} • ${est.sqft || 0} sqft</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('estimateList').innerHTML = html;
-  } catch (e) {
-    console.error('Error loading estimates:', e);
-  }
-}
-
-window.openEditModal = function() {
-  window.location.href = `dashboard.html?edit=${customerId}`;
-};
-
-window.openTaskModal = function() {
-  window.location.href = `dashboard.html?tasks=${customerId}`;
-};
-
-window.copyAddress = function() {
-  const addr = document.getElementById('customerAddress').textContent;
-  if (addr && addr !== '—') {
-    navigator.clipboard.writeText(addr).then(() => {
-      showToast('Address copied to clipboard!');
-    });
-  }
-};
-
-window.openInMaps = function() {
-  const addr = document.getElementById('customerAddress').textContent;
-  if (addr && addr !== '—') {
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
-    window.open(mapsUrl, '_blank');
-  }
-};
-
-window.toggleTask = async function(taskId, newDoneState) {
-  try {
-    await updateDoc(doc(db, 'leads', customerId, 'tasks', taskId), {
-      done: newDoneState,
-      completedAt: newDoneState ? serverTimestamp() : null
-    });
-    showToast(newDoneState ? '✓ Task completed' : 'Task reopened');
-    // Reload timeline to reflect change
-    const leadSnap = await getDoc(doc(db, 'leads', customerId));
-    if (leadSnap.exists()) {
-      const lead = { id: leadSnap.id, ...leadSnap.data() };
-      await loadTimeline(customerId, lead);
-    }
-  } catch (error) {
-    console.error('Error toggling task:', error);
-    showToast('Failed to update task');
-  }
-};
-
+// Stage progression
 window.progressStage = async function() {
-  const stageProgression = {
+  const stageMap = {
     'New': 'Inspection',
     'Inspection': 'Estimate',
     'Estimate': 'Approved',
@@ -811,50 +850,246 @@ window.progressStage = async function() {
     'In Progress': 'Complete'
   };
   
-  const nextStage = stageProgression[window._currentStage];
+  const nextStage = stageMap[window._currentStage];
   if (!nextStage) return;
+  
+  if (!confirm(`Move customer to "${nextStage}" stage?`)) return;
   
   try {
     await updateDoc(doc(db, 'leads', window._customerId), {
       stage: nextStage,
       updatedAt: serverTimestamp()
     });
-    showToast(`✓ Moved to ${nextStage}`);
+    
     // Reload page to reflect changes
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (error) {
-    console.error('Error updating stage:', error);
-    showToast('Failed to update stage');
+    window.location.reload();
+  } catch (e) {
+    console.error('Error updating stage:', e);
+    alert('Failed to update stage. Please try again.');
   }
 };
 
-function showToast(message) {
-  const toast = document.createElement('div');
-  toast.style.cssText = `
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--s); border: 1px solid var(--br); border-radius: 8px;
-    padding: 12px 20px; font-size: 13px; color: var(--t); z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+// Task toggle
+window.toggleTask = async function(taskId, newDoneState) {
+  try {
+    await updateDoc(doc(db, 'tasks', taskId), {
+      done: newDoneState,
+      completedAt: newDoneState ? serverTimestamp() : null,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Reload timeline
+    await loadTimeline(window._customerId, { createdAt: new Date() });
+  } catch (e) {
+    console.error('Error toggling task:', e);
+  }
+};
+
+// Error display
+function showError(title, message) {
+  const container = document.querySelector('.container');
+  container.innerHTML = `
+    <div style="text-align:center; padding:60px 20px;">
+      <div style="font-size:64px; margin-bottom:20px;">⚠️</div>
+      <div style="font-size:24px; font-weight:700; margin-bottom:12px;">${title}</div>
+      <div style="color:var(--m); margin-bottom:24px;">${message}</div>
+      <a href="dashboard.html" class="btn btn-orange">← Back to Dashboard</a>
+    </div>
   `;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
 }
 
-function trackRecentlyViewed(customerId) {
-  try {
-    let recent = JSON.parse(localStorage.getItem('nbd_recent_customers') || '[]');
-    // Remove if already exists
-    recent = recent.filter(r => r.id !== customerId);
-    // Add to front with timestamp
-    recent.unshift({ id: customerId, timestamp: Date.now() });
-    // Keep only last 5
-    recent = recent.slice(0, 5);
-    localStorage.setItem('nbd_recent_customers', JSON.stringify(recent));
-  } catch (e) {
-    console.error('Failed to track recent view:', e);
-  }
+// ============================================
+// PHOTO UPLOAD SYSTEM
+// ============================================
+
+window._uploadQueue = [];
+
+window.openUploadModal = function() {
+  document.getElementById('uploadModal').classList.add('active');
+  window._uploadQueue = [];
+  updateUploadPreview();
+};
+
+window.closeUploadModal = function() {
+  document.getElementById('uploadModal').classList.remove('active');
+  window._uploadQueue = [];
+  updateUploadPreview();
+};
+
+// Drag and drop handlers
+const uploadZone = document.getElementById('uploadZone');
+
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('drag-over');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('drag-over');
+});
+
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  addFilesToQueue(files);
+});
+
+window.handleFileSelect = function(event) {
+  const files = Array.from(event.target.files);
+  addFilesToQueue(files);
+  event.target.value = ''; // Reset input
+};
+
+function addFilesToQueue(files) {
+  files.forEach(file => {
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`File ${file.name} is too large. Max size is 10MB.`);
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert(`File ${file.name} is not an image.`);
+      return;
+    }
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      window._uploadQueue.push({
+        file: file,
+        preview: e.target.result,
+        progress: 0,
+        uploading: false
+      });
+      updateUploadPreview();
+    };
+    reader.readAsDataURL(file);
+  });
 }
+
+function updateUploadPreview() {
+  const container = document.getElementById('uploadPreview');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadCount = document.getElementById('uploadCount');
+  
+  if (window._uploadQueue.length === 0) {
+    container.innerHTML = '';
+    uploadBtn.style.display = 'none';
+    return;
+  }
+  
+  const html = window._uploadQueue.map((item, idx) => `
+    <div class="preview-item">
+      <img src="${item.preview}" alt="Preview">
+      ${!item.uploading ? `
+        <button class="preview-remove" onclick="removeFromQueue(${idx})">×</button>
+      ` : ''}
+      ${item.uploading ? `
+        <div class="preview-progress">
+          <div class="preview-progress-bar" style="width:${item.progress}%"></div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+  
+  container.innerHTML = html;
+  uploadBtn.style.display = 'block';
+  uploadCount.textContent = window._uploadQueue.length;
+}
+
+window.removeFromQueue = function(index) {
+  window._uploadQueue.splice(index, 1);
+  updateUploadPreview();
+};
+
+window.uploadPhotos = async function() {
+  if (window._uploadQueue.length === 0) return;
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('uploadBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+  
+  try {
+    for (let i = 0; i < window._uploadQueue.length; i++) {
+      const item = window._uploadQueue[i];
+      item.uploading = true;
+      updateUploadPreview();
+      
+      await uploadSinglePhoto(item, i);
+    }
+    
+    // Success - reload photos and close modal
+    alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
+    closeUploadModal();
+    await loadPhotos(window._customerId);
+    
+    // Reload timeline to show photo upload events
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '📤 Upload Photos';
+  }
+};
+
+async function uploadSinglePhoto(item, index) {
+  const file = item.file;
+  const timestamp = Date.now();
+  const filename = `${window._customerId}_${timestamp}_${file.name}`;
+  const storageRef = window.ref(window.storage, `photos/${filename}`);
+  
+  const uploadTask = window.uploadBytesResumable(storageRef, file);
+  
+  return new Promise((resolve, reject) => {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        // Progress tracking
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        window._uploadQueue[index].progress = progress;
+        updateUploadPreview();
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        // Upload complete - get download URL and save to Firestore
+        try {
+          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
+          
+          await window.addDoc(window.collection(window.db, 'photos'), {
+            leadId: window._customerId,
+            url: downloadURL,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: window.serverTimestamp(),
+            category: 'Property'
+          });
+          
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
 </script>
 
 </body>
