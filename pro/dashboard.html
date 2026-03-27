@@ -1197,6 +1197,11 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   cursor: pointer;
   transition: border-color .2s, transform .15s;
   position: relative;
+  min-height: 100px;
+  max-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .theme-card:hover { border-color: var(--orange); transform: translateY(-2px); }
 .theme-card.active { border-color: var(--orange); background: var(--og); }
@@ -8356,26 +8361,21 @@ window.closeCardDetailModal = closeCardDetailModal;
 
 function openPhotosForLead() {
   if (!window._cardDetailLeadId) return;
-  closeCardDetailModal();
-  goTo('photos');
-  // TODO Session 28: Filter photos view to this customer
+  // Navigate to customer detail page which shows photos
+  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#photos`;
 }
 window.openPhotosForLead = openPhotosForLead;
 
 function openDocsForLead() {
   if (!window._cardDetailLeadId) return;
-  closeCardDetailModal();
-  goTo('docs');
-  // TODO Session 28: Filter docs view to this customer
+  // Navigate to customer detail page which shows documents
+  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#documents`;
 }
 window.openDocsForLead = openDocsForLead;
 
 function openFullCustomerDetails() {
   if (!window._cardDetailLeadId) return;
-  // TODO Session 28: Create /pro/customer.html?id=xxx page
-  showToast('Customer detail page coming in Session 28');
-  // closeCardDetailModal();
-  // window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
+  window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
 }
 window.openFullCustomerDetails = openFullCustomerDetails;
 
