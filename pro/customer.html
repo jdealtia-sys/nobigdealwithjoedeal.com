@@ -426,17 +426,6 @@ header {
       <button class="modal-close" onclick="closeUploadModal()">×</button>
     </div>
     
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px;color:var(--m);display:block;margin-bottom:6px;">Photo Category</label>
-      <select id="photoCategory" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px;font-size:13px;color:var(--t);">
-        <option>Exterior</option>
-        <option>Roof</option>
-        <option>Interior</option>
-        <option>Damage</option>
-        <option>Other</option>
-      </select>
-    </div>
-    
     <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
@@ -765,40 +754,14 @@ async function loadPhotos(leadId) {
 
     window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
-    // Category colors
-    const catColors = {
-      'Exterior': 'var(--blue)',
-      'Roof': 'var(--orange)',
-      'Interior': 'var(--green)',
-      'Damage': 'var(--red)',
-      'Other': 'var(--m)'
-    };
-    
-    const html = window._customerPhotos.map((photo, idx) => {
-      const catColor = catColors[photo.category] || 'var(--m)';
-      return `<div class="photo-item" onclick="openLightbox(${idx})" style="position:relative;">
+    const html = window._customerPhotos.map((photo, idx) => 
+      `<div class="photo-item" onclick="openLightbox(${idx})">
         <img src="${photo.url}" alt="Property photo">
-        <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;border-left:2px solid ${catColor};">
-          ${photo.category || 'Property'}
-        </div>
-      </div>`;
-    }).join('');
-
-    // Category filter buttons
-    const categories = [...new Set(window._customerPhotos.map(p => p.category || 'Property'))];
-    const filterHTML = categories.length > 1 ? `
-      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
-        <button class="btn" style="font-size:11px;padding:4px 10px;" onclick="filterPhotos('all')">All (${window._customerPhotos.length})</button>
-        ${categories.map(cat => {
-          const count = window._customerPhotos.filter(p => (p.category||'Property') === cat).length;
-          return `<button class="btn" style="font-size:11px;padding:4px 10px;" onclick="filterPhotos('${cat}')">${cat} (${count})</button>`;
-        }).join('')}
-      </div>
-    ` : '';
+      </div>`
+    ).join('');
 
     document.getElementById('photoList').innerHTML = `
-      ${filterHTML}
-      <div class="photo-grid" id="photoGrid">${html}</div>
+      <div class="photo-grid">${html}</div>
       <button class="btn btn-orange" style="margin-top:12px; width:100%;" onclick="openUploadModal()">
         📤 Upload More Photos
       </button>
@@ -837,10 +800,12 @@ async function loadEstimates(leadId) {
       return;
     }
 
-    const html = estSnap.docs.map(d => {
-      const est = d.data();
+    // Store estimates globally for modal access
+    window._customerEstimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const html = window._customerEstimates.map(est => {
       return `
-        <div class="estimate-item">
+        <div class="estimate-item" onclick="openEstimateModal('${est.id}')" style="cursor:pointer;transition:all .2s;">
           <div>
             <div class="estimate-title">${est.title || 'Estimate'}</div>
             <div style="font-size:11px;color:var(--m);">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
@@ -851,6 +816,18 @@ async function loadEstimates(leadId) {
     }).join('');
 
     document.getElementById('estimateList').innerHTML = html;
+    
+    // Add hover effect via CSS
+    document.querySelectorAll('.estimate-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--s2)';
+        item.style.borderLeft = '3px solid var(--orange)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = '';
+        item.style.borderLeft = '';
+      });
+    });
   } catch (e) {
     console.error('Error loading estimates:', e);
   }
@@ -1131,8 +1108,6 @@ async function uploadSinglePhoto(item, index) {
         try {
           const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
           
-          const photoCategory = document.getElementById('photoCategory')?.value || 'Property';
-          
           await window.addDoc(window.collection(window.db, 'photos'), {
             leadId: window._customerId,
             url: downloadURL,
@@ -1140,7 +1115,7 @@ async function uploadSinglePhoto(item, index) {
             size: file.size,
             type: file.type,
             uploadedAt: window.serverTimestamp(),
-            category: photoCategory
+            category: 'Property'
           });
           
           resolve();
@@ -1153,33 +1128,145 @@ async function uploadSinglePhoto(item, index) {
 }
 
 
-window.filterPhotos = function(category) {
-  if (!window._customerPhotos) return;
+// ============================================
+// ESTIMATE DETAIL MODAL
+// ============================================
+
+window._currentEstimateId = null;
+
+window.openEstimateModal = function(estimateId) {
+  const estimate = (window._customerEstimates || []).find(e => e.id === estimateId);
+  if (!estimate) {
+    alert('Estimate not found');
+    return;
+  }
   
-  const filtered = category === 'all' 
-    ? window._customerPhotos 
-    : window._customerPhotos.filter(p => (p.category || 'Property') === category);
+  window._currentEstimateId = estimateId;
   
-  const catColors = {
-    'Exterior': 'var(--blue)',
-    'Roof': 'var(--orange)',
-    'Interior': 'var(--green)',
-    'Damage': 'var(--red)',
-    'Other': 'var(--m)'
+  // Parse line items if they exist
+  let lineItemsHTML = '';
+  if (estimate.lineItems && Array.isArray(estimate.lineItems) && estimate.lineItems.length > 0) {
+    lineItemsHTML = `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;color:var(--m);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Line Items</div>
+        <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;overflow:hidden;">
+          ${estimate.lineItems.map(item => `
+            <div style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--br);">
+              <div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:2px;">${item.description || item.name || 'Item'}</div>
+                ${item.quantity ? `<div style="font-size:11px;color:var(--m);">Qty: ${item.quantity} ${item.unit || ''}</div>` : ''}
+              </div>
+              <div style="font-size:14px;font-weight:700;color:var(--orange);">
+                ${item.amount ? `$${parseFloat(item.amount).toLocaleString()}` : '—'}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // Build pricing breakdown
+  const subtotal = parseFloat(estimate.subtotal || estimate.amount || 0);
+  const tax = parseFloat(estimate.tax || 0);
+  const total = parseFloat(estimate.total || estimate.amount || 0);
+  
+  const pricingHTML = `
+    <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:13px;color:var(--m);">Subtotal</div>
+        <div style="font-size:14px;font-weight:600;">$${subtotal.toLocaleString()}</div>
+      </div>
+      ${tax > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:13px;color:var(--m);">Tax</div>
+          <div style="font-size:14px;font-weight:600;">$${tax.toLocaleString()}</div>
+        </div>
+      ` : ''}
+      <div style="border-top:1px solid var(--br);margin:12px 0;"></div>
+      <div style="display:flex;justify-content:space-between;">
+        <div style="font-size:15px;font-weight:700;">Total</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);">$${total.toLocaleString()}</div>
+      </div>
+    </div>
+  `;
+  
+  // Estimate metadata
+  const createdDate = estimate.createdAt?.toDate ? estimate.createdAt.toDate().toLocaleDateString() : '—';
+  const status = estimate.status || 'Draft';
+  const statusColor = {
+    'Draft': 'var(--m)',
+    'Sent': 'var(--blue)',
+    'Approved': 'var(--green)',
+    'Rejected': 'var(--red)'
+  }[status] || 'var(--m)';
+  
+  const metadataHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Title</div>
+        <div style="font-size:14px;font-weight:600;">${estimate.title || 'Untitled Estimate'}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Status</div>
+        <div style="font-size:13px;font-weight:600;color:${statusColor};">${status}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Created</div>
+        <div style="font-size:13px;">${createdDate}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Estimate #</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;">${estimate.id.substring(0,8).toUpperCase()}</div>
+      </div>
+    </div>
+  `;
+  
+  // Notes
+  const notesHTML = estimate.notes ? `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:600;color:var(--m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Notes</div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:12px;font-size:13px;line-height:1.6;color:var(--m);">
+        ${estimate.notes}
+      </div>
+    </div>
+  ` : '';
+  
+  // Assemble modal content
+  document.getElementById('estimateModalContent').innerHTML = metadataHTML + lineItemsHTML + notesHTML + pricingHTML;
+  
+  // Wire up action buttons
+  document.getElementById('editEstimateBtn').onclick = () => {
+    // TODO: Link to estimate editing page or inline edit
+    window.open(`/pro/estimates.html?edit=${estimateId}`, '_blank');
   };
   
-  const html = filtered.map((photo, idx) => {
-    const actualIdx = window._customerPhotos.indexOf(photo);
-    const catColor = catColors[photo.category] || 'var(--m)';
-    return `<div class="photo-item" onclick="openLightbox(${actualIdx})" style="position:relative;">
-      <img src="${photo.url}" alt="Property photo">
-      <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;border-left:2px solid ${catColor};">
-        ${photo.category || 'Property'}
-      </div>
-    </div>`;
-  }).join('');
+  document.getElementById('deleteEstimateBtn').onclick = async () => {
+    if (!confirm('Delete this estimate? This cannot be undone.')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'estimates', estimateId));
+      closeEstimateModal();
+      await loadEstimates(window._customerId);
+      
+      // Reload timeline
+      const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+      if (leadSnap.exists()) {
+        await loadTimeline(window._customerId, leadSnap.data());
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete estimate.');
+    }
+  };
   
-  document.getElementById('photoGrid').innerHTML = html;
+  // Show modal
+  document.getElementById('estimateModal').classList.add('active');
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').classList.remove('active');
+  window._currentEstimateId = null;
 };
 
 </script>
