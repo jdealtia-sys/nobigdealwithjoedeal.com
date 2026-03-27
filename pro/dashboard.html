@@ -167,6 +167,29 @@
     // Seed demo data first if this is the demo account, then load normally
     await maybeSeedDemoData(user).catch(()=>{});
     loadLeads(); loadEstimates(); loadPins();
+    
+    // Check for query params (edit=xxx or tasks=xxx from customer.html)
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('edit');
+    const tasksId = urlParams.get('tasks');
+    
+    if (editId) {
+      // Wait for leads to load, then open edit modal
+      setTimeout(() => {
+        goTo('crm');
+        editLead(editId);
+        // Clean URL
+        window.history.replaceState({}, '', '/pro/dashboard.html');
+      }, 500);
+    } else if (tasksId) {
+      // Wait for leads to load, then open task modal
+      setTimeout(() => {
+        goTo('crm');
+        openTaskModal(tasksId);
+        // Clean URL
+        window.history.replaceState({}, '', '/pro/dashboard.html');
+      }, 500);
+    }
   });
 
   window._auth    = auth;

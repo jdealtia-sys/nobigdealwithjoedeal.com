@@ -65,6 +65,12 @@ header {
   border-radius:12px; font-size:11px; font-weight:600;
   font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
 }
+.stage-badge.stage-new { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
+.stage-badge.stage-inspection { background:#1a2e4a; color:#4A9EFF; border-color:#2d5a8e; }
+.stage-badge.stage-estimate { background:#2a2414; color:#D4A017; border-color:#6b5010; }
+.stage-badge.stage-approved { background:#221a3a; color:#9B6DFF; border-color:#5a3da0; }
+.stage-badge.stage-progress { background:#142a22; color:#22C55E; border-color:#166534; }
+.stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
 }
@@ -84,6 +90,9 @@ header {
 }
 @media (max-width:900px) {
   .content-grid { grid-template-columns:1fr; }
+  .info-grid { grid-template-columns:1fr; }
+  .quick-actions { flex-direction:column; }
+  .quick-actions .btn { width:100%; justify-content:center; }
 }
 
 /* PANEL */
@@ -367,7 +376,12 @@ async function loadCustomerData(id) {
   // Populate header
   const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
   document.getElementById('customerName').textContent = name;
-  document.getElementById('customerStage').textContent = lead.stage || 'New';
+  
+  const stageBadge = document.getElementById('customerStage');
+  const stage = lead.stage || 'New';
+  stageBadge.textContent = stage;
+  stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/\s+/g, '-');
+  
   document.getElementById('customerAddress').textContent = lead.address || '—';
   document.getElementById('customerPhone').textContent = lead.phone || '—';
   document.getElementById('customerEmail').textContent = lead.email || '—';
@@ -420,6 +434,18 @@ async function loadTimeline(leadId, lead) {
     });
   }
 
+  // Add stage change events (if stored)
+  if (lead.stageHistory && Array.isArray(lead.stageHistory)) {
+    lead.stageHistory.forEach(change => {
+      timeline.push({
+        time: change.timestamp?.toDate ? change.timestamp.toDate() : new Date(change.timestamp),
+        icon: '🔄',
+        title: 'Stage changed',
+        desc: `Moved to ${change.stage}`
+      });
+    });
+  }
+
   // Load tasks
   try {
     const taskSnap = await getDocs(
@@ -436,6 +462,46 @@ async function loadTimeline(leadId, lead) {
     });
   } catch (e) {
     console.log('No tasks found');
+  }
+
+  // Load estimate events
+  try {
+    const estSnap = await getDocs(
+      query(collection(db, 'estimates'), where('leadId', '==', leadId))
+    );
+    estSnap.docs.forEach(d => {
+      const est = d.data();
+      if (est.createdAt) {
+        timeline.push({
+          time: est.createdAt?.toDate ? est.createdAt.toDate() : new Date(est.createdAt),
+          icon: '📋',
+          title: 'Estimate created',
+          desc: `${est.roofType || 'Estimate'} - ${est.sqft || 0} sqft`
+        });
+      }
+    });
+  } catch (e) {
+    console.log('No estimates found for timeline');
+  }
+
+  // Load photo upload events
+  try {
+    const photoSnap = await getDocs(
+      query(collection(db, 'photos'), where('leadId', '==', leadId))
+    );
+    photoSnap.docs.forEach(d => {
+      const photo = d.data();
+      if (photo.uploadedAt) {
+        timeline.push({
+          time: photo.uploadedAt?.toDate ? photo.uploadedAt.toDate() : new Date(photo.uploadedAt),
+          icon: '📸',
+          title: 'Photo uploaded',
+          desc: photo.category || 'Property photo'
+        });
+      }
+    });
+  } catch (e) {
+    console.log('No photos found for timeline');
   }
 
   // Sort by time (newest first)
@@ -518,11 +584,11 @@ async function loadEstimates(leadId) {
 }
 
 window.openEditModal = function() {
-  window.location.href = `dashboard.html#edit=${customerId}`;
+  window.location.href = `dashboard.html?edit=${customerId}`;
 };
 
 window.openTaskModal = function() {
-  window.location.href = `dashboard.html#tasks=${customerId}`;
+  window.location.href = `dashboard.html?tasks=${customerId}`;
 };
 </script>
 
