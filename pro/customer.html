@@ -450,7 +450,7 @@ header {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -471,6 +471,7 @@ const storage = getStorage(app);
 window.db = db;
 window.auth = auth;
 window.storage = storage;
+window.arrayUnion = arrayUnion;
 window.addDoc = addDoc;
 window.collection = collection;
 window.serverTimestamp = serverTimestamp;
@@ -611,6 +612,19 @@ function trackRecentlyViewed(leadId) {
 
 async function loadTimeline(leadId, lead) {
   const timeline = [];
+
+  // Load stage history
+  if(lead.stageHistory && Array.isArray(lead.stageHistory)){
+    lead.stageHistory.forEach(h => {
+      timeline.push({
+        time: h.timestamp ? new Date(h.timestamp) : new Date(),
+        icon: '🔄',
+        title: `Stage: ${h.from} → ${h.to}`,
+        desc: h.user || 'System'
+      });
+    });
+  }
+
 
   // Lead created event
   if (lead.createdAt) {
@@ -856,9 +870,18 @@ window.progressStage = async function() {
   if (!confirm(`Move customer to "${nextStage}" stage?`)) return;
   
   try {
-    await updateDoc(doc(db, 'leads', window._customerId), {
+    const oldStage = window._currentStage;
+    const historyEvent = {
+      from: oldStage,
+      to: nextStage,
+      timestamp: new Date().toISOString(),
+      user: window.auth?.currentUser?.email || 'unknown'
+    };
+    
+    await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
       stage: nextStage,
-      updatedAt: serverTimestamp()
+      updatedAt: window.serverTimestamp(),
+      stageHistory: window.arrayUnion(historyEvent)
     });
     
     // Reload page to reflect changes
