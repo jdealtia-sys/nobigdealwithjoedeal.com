@@ -244,14 +244,18 @@ header {
       <div class="customer-name" id="customerName">—</div>
       <div class="customer-meta">
         <span class="stage-badge" id="customerStage">—</span>
+        <div class="meta-item" id="lastUpdated" style="color:var(--m);font-size:11px;"></div>
         <div class="meta-item">📍 <span id="customerAddress">—</span></div>
         <div class="meta-item">📞 <span id="customerPhone">—</span></div>
         <div class="meta-item">📧 <span id="customerEmail">—</span></div>
       </div>
       <div class="quick-actions">
         <button class="btn btn-orange" onclick="openEditModal()">✎ Edit Details</button>
+        <button class="btn" id="stageProgressBtn" onclick="progressStage()" style="display:none;">→ Next Stage</button>
         <button class="btn" onclick="openTaskModal()">✓ Manage Tasks</button>
         <button class="btn" onclick="window.location.href='dashboard.html#est'">📋 New Estimate</button>
+        <button class="btn" onclick="copyAddress()">📋 Copy Address</button>
+        <button class="btn" onclick="openInMaps()">🗺️ Open in Maps</button>
         <a class="btn" id="callLink" href="#">📞 Call</a>
         <a class="btn" id="emailLink" href="#">📧 Email</a>
       </div>
@@ -364,7 +368,7 @@ header {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBT_s6kJiy3eB3X4XdCTWyK6IDBe1xgV4k",
@@ -428,6 +432,20 @@ async function loadCustomerData(id) {
     document.getElementById('customerPhone').textContent = lead.phone || '—';
     document.getElementById('customerEmail').textContent = lead.email || '—';
     
+    // Last updated indicator
+    const updatedAt = lead.updatedAt?.toDate ? lead.updatedAt.toDate() : 
+                      lead.createdAt?.toDate ? lead.createdAt.toDate() : null;
+    if (updatedAt) {
+      const elapsed = Date.now() - updatedAt.getTime();
+      const hours = Math.floor(elapsed / (1000 * 60 * 60));
+      const days = Math.floor(hours / 24);
+      let timeAgo = '';
+      if (days > 0) timeAgo = `Updated ${days}d ago`;
+      else if (hours > 0) timeAgo = `Updated ${hours}h ago`;
+      else timeAgo = 'Updated recently';
+      document.getElementById('lastUpdated').textContent = '⏱ ' + timeAgo;
+    }
+    
     // Contact links
     if (lead.phone) {
       document.getElementById('callLink').href = `tel:${lead.phone.replace(/\D/g, '')}`;
@@ -445,6 +463,25 @@ async function loadCustomerData(id) {
     document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
     document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
     document.getElementById('customerNotes').textContent = lead.notes || 'No notes';
+
+    // Stage progression button
+    const stageProgression = {
+      'New': 'Inspection',
+      'Inspection': 'Estimate',
+      'Estimate': 'Approved',
+      'Approved': 'In Progress',
+      'In Progress': 'Complete'
+    };
+    
+    window._currentStage = lead.stage || 'New';
+    window._customerId = id;
+    
+    const nextStage = stageProgression[lead.stage];
+    if (nextStage) {
+      const btn = document.getElementById('stageProgressBtn');
+      btn.style.display = 'inline-flex';
+      btn.textContent = `→ Move to ${nextStage}`;
+    }
 
     // Load related data with individual error handling
     try { await loadTimeline(id, lead); } 
@@ -515,11 +552,15 @@ async function loadTimeline(leadId, lead) {
     );
     taskSnap.docs.forEach(d => {
       const task = d.data();
+      const taskId = d.id;
       timeline.push({
         time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(),
         icon: task.done ? '✅' : '📝',
-        title: task.done ? 'Task completed' : 'Task created',
-        desc: task.text
+        title: task.done ? 'Task completed' : 'Task',
+        desc: task.text,
+        isTask: true,
+        taskId: taskId,
+        taskDone: task.done
       });
     });
   } catch (e) {
@@ -570,16 +611,36 @@ async function loadTimeline(leadId, lead) {
   timeline.sort((a, b) => b.time - a.time);
 
   // Render
-  const html = timeline.map(item => `
-    <div class="timeline-item">
-      <div class="timeline-icon">${item.icon}</div>
-      <div class="timeline-content">
-        <div class="timeline-title">${item.title}</div>
-        <div class="timeline-desc">${item.desc}</div>
-        <div class="timeline-time">${item.time.toLocaleString()}</div>
-      </div>
-    </div>
-  `).join('');
+  const html = timeline.map(item => {
+    if (item.isTask) {
+      return `
+        <div class="timeline-item" style="cursor:pointer;" onclick="toggleTask('${item.taskId}', ${!item.taskDone})">
+          <div class="timeline-icon">${item.icon}</div>
+          <div class="timeline-content">
+            <div class="timeline-title" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" ${item.taskDone ? 'checked' : ''} 
+                style="width:16px;height:16px;cursor:pointer;" 
+                onclick="event.stopPropagation();toggleTask('${item.taskId}', !this.checked)">
+              <span style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.title}</span>
+            </div>
+            <div class="timeline-desc" style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.desc}</div>
+            <div class="timeline-time">${item.time.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="timeline-item">
+          <div class="timeline-icon">${item.icon}</div>
+          <div class="timeline-content">
+            <div class="timeline-title">${item.title}</div>
+            <div class="timeline-desc">${item.desc}</div>
+            <div class="timeline-time">${item.time.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    }
+  }).join('');
 
   document.getElementById('timelineList').innerHTML = html || 
     '<div class="empty"><div class="empty-icon">📅</div>No activity yet</div>';
@@ -701,6 +762,81 @@ window.openEditModal = function() {
 window.openTaskModal = function() {
   window.location.href = `dashboard.html?tasks=${customerId}`;
 };
+
+window.copyAddress = function() {
+  const addr = document.getElementById('customerAddress').textContent;
+  if (addr && addr !== '—') {
+    navigator.clipboard.writeText(addr).then(() => {
+      showToast('Address copied to clipboard!');
+    });
+  }
+};
+
+window.openInMaps = function() {
+  const addr = document.getElementById('customerAddress').textContent;
+  if (addr && addr !== '—') {
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+    window.open(mapsUrl, '_blank');
+  }
+};
+
+window.toggleTask = async function(taskId, newDoneState) {
+  try {
+    await updateDoc(doc(db, 'leads', customerId, 'tasks', taskId), {
+      done: newDoneState,
+      completedAt: newDoneState ? serverTimestamp() : null
+    });
+    showToast(newDoneState ? '✓ Task completed' : 'Task reopened');
+    // Reload timeline to reflect change
+    const leadSnap = await getDoc(doc(db, 'leads', customerId));
+    if (leadSnap.exists()) {
+      const lead = { id: leadSnap.id, ...leadSnap.data() };
+      await loadTimeline(customerId, lead);
+    }
+  } catch (error) {
+    console.error('Error toggling task:', error);
+    showToast('Failed to update task');
+  }
+};
+
+window.progressStage = async function() {
+  const stageProgression = {
+    'New': 'Inspection',
+    'Inspection': 'Estimate',
+    'Estimate': 'Approved',
+    'Approved': 'In Progress',
+    'In Progress': 'Complete'
+  };
+  
+  const nextStage = stageProgression[window._currentStage];
+  if (!nextStage) return;
+  
+  try {
+    await updateDoc(doc(db, 'leads', window._customerId), {
+      stage: nextStage,
+      updatedAt: serverTimestamp()
+    });
+    showToast(`✓ Moved to ${nextStage}`);
+    // Reload page to reflect changes
+    setTimeout(() => window.location.reload(), 1000);
+  } catch (error) {
+    console.error('Error updating stage:', error);
+    showToast('Failed to update stage');
+  }
+};
+
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--s); border: 1px solid var(--br); border-radius: 8px;
+    padding: 12px 20px; font-size: 13px; color: var(--t); z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
+}
 </script>
 
 </body>

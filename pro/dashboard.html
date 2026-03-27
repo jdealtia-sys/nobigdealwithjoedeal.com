@@ -217,10 +217,42 @@
     } catch(e) { window._photoCache = {}; }
     renderLeads(window._leads);
     updatePipeline(window._leads);
+    calculateWeeklyStats();
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
   loadLeads().then(()=>{ if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800); });
+
+  function calculateWeeklyStats() {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    // New leads this week
+    const newLeads = (window._leads || []).filter(l => {
+      if (!l.createdAt) return false;
+      const createdDate = l.createdAt.toDate ? l.createdAt.toDate() : new Date(l.createdAt);
+      return createdDate >= weekAgo;
+    });
+    
+    // Estimates this week
+    const newEstimates = (window._estimates || []).filter(e => {
+      if (!e.createdAt) return false;
+      const createdDate = e.createdAt.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
+      return createdDate >= weekAgo;
+    });
+    
+    // Revenue added this week (from new leads)
+    const weekRevenue = newLeads.reduce((sum, l) => sum + parseFloat(l.jobValue || 0), 0);
+    
+    // Tasks completed this week (TODO: implement when task completion tracking added)
+    const weekTasks = 0;
+    
+    // Update DOM
+    document.getElementById('weekNewLeads').textContent = newLeads.length;
+    document.getElementById('weekEstimates').textContent = newEstimates.length;
+    document.getElementById('weekRevenue').textContent = '$' + weekRevenue.toLocaleString();
+    document.getElementById('weekTasks').textContent = weekTasks;
+  }
 
   window._saveLead = async (data) => {
     try {
@@ -1999,6 +2031,34 @@ window.nbdNavToggle = nbdNavToggle;
         <div><div class="page-title">Welcome Back, <span id="dashName">Jonathan</span></div><div class="page-sub">Roofing operations overview</div></div>
         <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
       </div>
+      
+      <!-- THIS WEEK QUICK STATS -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Activity</div><div class="panel-title">This Week</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+              <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">New Leads</div>
+              <div style="font-size:24px;font-weight:700;color:var(--blue);" id="weekNewLeads">0</div>
+            </div>
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+              <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Estimates Created</div>
+              <div style="font-size:24px;font-weight:700;color:var(--gold);" id="weekEstimates">0</div>
+            </div>
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+              <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Revenue Added</div>
+              <div style="font-size:24px;font-weight:700;color:var(--green);" id="weekRevenue">$0</div>
+            </div>
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+              <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Tasks Completed</div>
+              <div style="font-size:24px;font-weight:700;color:var(--purple);" id="weekTasks">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="sgrid">
         <div class="stat-card"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
         <div class="stat-card"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
@@ -6190,6 +6250,9 @@ function renderEstimatesList(ests) {
       <div class="est-meta">${e.tierName||''}</div></div>
       <div class="est-total" style="font-size:16px;">$${(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
     </div>`).join('');
+  
+  // Update weekly stats
+  if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
 }
 
 function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
