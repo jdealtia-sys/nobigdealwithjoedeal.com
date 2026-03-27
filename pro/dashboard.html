@@ -124,7 +124,8 @@
     
     if (!isDemoAccount) {
       try {
-        const subSnap = await getDoc(doc(db, `users/${user.uid}/subscription`));
+        // Correct path: subscriptions/{userId} (2 segments = valid document path)
+        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
         
         if (!subSnap.exists()) {
           // No subscription found - redirect to pricing
@@ -5574,7 +5575,12 @@ function _nbdUpdateLabels(t) {
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
 function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderThemes(); nbdRenderFonts(); }
 function nbdPickerClose() { document.getElementById('nbd-picker-modal').classList.remove('open'); }
-document.getElementById('nbd-picker-modal').addEventListener('click', function(e) { if (e.target === this) nbdPickerClose(); });
+
+// Add modal click handler after DOM loads
+const pickerModal = document.getElementById('nbd-picker-modal');
+if (pickerModal) {
+  pickerModal.addEventListener('click', function(e) { if (e.target === this) nbdPickerClose(); });
+}
 
 function nbdPickerTab(tab, el) {
   document.querySelectorAll('.npm-tab').forEach(t => t.classList.remove('on'));
