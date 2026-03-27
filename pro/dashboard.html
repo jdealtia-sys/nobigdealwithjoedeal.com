@@ -5580,7 +5580,9 @@ const NBD_FONTS = [
 
 /* ── STATE ────────────────────────────────────────────────────────── */
 const NBD_PLAN_ORDER  = ['blueprint','foundation','infused','team','command'];
-const NBD_USER_PLAN   = 'command'; // TODO: wire to real Firestore .plan after Stripe lands
+// Read actual plan from window._userPlan (set by subscription check above)
+// Fallback to 'blueprint' (lowest tier) if not set
+const NBD_USER_PLAN   = window._userPlan || 'blueprint';
 let _nbd_activeTheme  = localStorage.getItem('nbd-theme') || 'default';
 let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';
