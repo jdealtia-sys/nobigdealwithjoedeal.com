@@ -123,37 +123,45 @@
     const isDemoAccount = user.email === 'demo@nbdpro.com';
     
     // ──────────────────────────────────────────────────────────
-    // SUBSCRIPTION CHECK - TEMPORARILY DISABLED FOR TESTING
-    // TODO: Re-enable once subscription data is migrated to subscriptions/{uid}
+    // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
+    const BYPASS_SUBSCRIPTION_CHECK = false;
     // ──────────────────────────────────────────────────────────
     
-    // Set default plan for now
-    window._userPlan = 'professional';
-    window._subscription = { plan: 'professional', status: 'active' };
-    
-    /* ORIGINAL CODE (disabled):
-    if (!isDemoAccount) {
+    if (BYPASS_SUBSCRIPTION_CHECK) {
+      // Testing mode - grant full access
+      window._userPlan = 'professional';
+      window._subscription = { plan: 'professional', status: 'active' };
+      console.warn('⚠️ SUBSCRIPTION CHECK BYPASSED - Testing mode active');
+    } else if (!isDemoAccount) {
+      // Production mode - enforce subscription
       try {
         const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
         if (!subSnap.exists()) {
-          window.location.replace("/pro/index.html/index.html#pricing");
+          console.log('No subscription found - redirecting to pricing');
+          window.location.replace("/pro/landing.html#pricing");
           return;
         }
         const subscription = subSnap.data();
         if (subscription.status !== 'active') {
-          window.location.replace("/pro/index.html/index.html#pricing");
+          console.log('Inactive subscription - redirecting to pricing');
+          window.location.replace("/pro/landing.html#pricing");
           return;
         }
         window._subscription = subscription;
         window._userPlan = subscription.plan;
-        console.log(`Active subscription: ${subscription.plan}`);
+        console.log(`✓ Active subscription: ${subscription.plan}`);
       } catch (error) {
         console.error('Subscription check error:', error);
+        // Fail closed - redirect to pricing on error
+        window.location.replace("/pro/landing.html#pricing");
+        return;
       }
+    } else {
+      // Demo account - grant access
+      window._userPlan = 'professional';
+      window._subscription = { plan: 'professional', status: 'active' };
+      console.log('Demo account access granted');
     }
-    */
-    // ──────────────────────────────────────────────────────────
-    // ──────────────────────────────────────────────────────────
     
     document.documentElement.style.visibility="visible";
     window._user = user;

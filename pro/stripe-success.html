@@ -220,7 +220,8 @@ async function activateSubscription(user) {
     const plan = urlParams.get('plan') || 'professional'; // Fallback
     
     // Write subscription to Firestore
-    await setDoc(doc(db, `users/${user.uid}/subscription`), {
+    // Path matches dashboard.html subscription check (subscriptions/{uid})
+    await setDoc(doc(db, 'subscriptions', user.uid), {
       plan: plan,
       status: 'active',
       stripeSessionId: sessionId,
