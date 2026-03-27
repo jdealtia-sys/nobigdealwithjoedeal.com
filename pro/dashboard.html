@@ -6640,13 +6640,13 @@ function buildCard(l){
   // Task badge
   const tasks = window._taskCache?.[l.id] || [];
   const totalT = tasks.length;
+  const doneT  = tasks.filter(t=>t.done).length;
   
   // Task completion rate
   let completionRate = 0;
   if(totalT > 0) {
     completionRate = Math.round((doneT / totalT) * 100);
   }
-  const doneT  = tasks.filter(t=>t.done).length;
   const overdueT = tasks.filter(t=>!t.done && t.dueDate && new Date(t.dueDate+'T23:59:59') < new Date()).length;
   let taskBadgeClass = 'kc-task-badge';
   let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+ Tasks';
@@ -6668,9 +6668,16 @@ function buildCard(l){
     if(l.updatedAt?.toDate) ref = l.updatedAt.toDate();
     else if(l.createdAt?.toDate) ref = l.createdAt.toDate();
     else if(l.createdAt instanceof Date) ref = l.createdAt;
-    if(ref) {
-      const days = Math.floor((today - ref) / 86400000);
-      if(days === 0)      { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; }
+    else if(l.createdAt) ref = new Date(l.createdAt);
+    
+    if(ref && ref instanceof Date && !isNaN(ref)) {
+      // Normalize ref to midnight for accurate day comparison
+      const refNorm = new Date(ref);
+      refNorm.setHours(0,0,0,0);
+      const days = Math.floor((today - refNorm) / 86400000);
+      
+      if(days < 0)        { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; } // Future date edge case
+      else if(days === 0) { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; }
       else if(days === 1) { daysLabel = '1d ago';       daysClass = 'kc-days-fresh'; }
       else if(days <= 5)  { daysLabel = `${days}d ago`; daysClass = 'kc-days-warm'; }
       else                { daysLabel = `${days}d ago`; daysClass = 'kc-days-cold'; }
