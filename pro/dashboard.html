@@ -894,6 +894,36 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 /* SETTINGS */
 .settings-section{margin-bottom:24px;}
+.settings-section.collapsible { border: 1px solid var(--br); border-radius: 8px; padding: 0; background: var(--s); }
+.settings-section.collapsible .settings-title { 
+  cursor: pointer; 
+  user-select: none; 
+  margin: 0; 
+  padding: 14px 16px; 
+  border-bottom: none; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  transition: background .15s; 
+}
+.settings-section.collapsible .settings-title:hover { background: var(--s2); }
+.settings-section.collapsible .settings-title::after { 
+  content: '▼'; 
+  font-size: 10px; 
+  color: var(--m); 
+  transition: transform .2s; 
+}
+.settings-section.collapsible.collapsed .settings-title::after { transform: rotate(-90deg); }
+.settings-section-content { 
+  padding: 0 16px 16px; 
+  overflow: hidden; 
+  transition: max-height .3s ease, opacity .2s ease; 
+}
+.settings-section.collapsed .settings-section-content { 
+  max-height: 0 !important; 
+  opacity: 0; 
+  padding: 0 16px; 
+}
 .settings-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--br);}
 .sf-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
 .sf label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
@@ -1408,7 +1438,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 /* ── THEME PICKER ── */
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 32px;
 }
@@ -3125,10 +3155,12 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="view" id="view-settings">
     <div class="view-scroll" style="max-width:600px;">
       <div class="page-hdr"><div><div class="page-title">Settings</div><div class="page-sub">Account & preferences</div></div></div>
-      <!-- THEME PICKER -->
-      <div class="settings-section" style="max-width:none;margin-top:0;">
-        <div class="settings-title" style="font-size:16px;margin-bottom:4px;">Color Theme</div>
-        <div style="font-size:12px;color:var(--m);margin-bottom:20px;">60 themes — your choice persists across sessions. Changes apply instantly.</div>
+      
+      <!-- THEME PICKER (Collapsible) -->
+      <div class="settings-section collapsible" id="settings-themes">
+        <div class="settings-title" style="font-size:16px;margin-bottom:0;" onclick="toggleSettingsSection('themes')">Color Theme</div>
+        <div class="settings-section-content">
+        <div style="font-size:12px;color:var(--m);margin-bottom:20px;margin-top:12px;">60 themes — your choice persists across sessions. Changes apply instantly.</div>
         <div class="theme-grid">
         <div class="theme-card" data-key="nbd-original" onclick="applyTheme('nbd-original')">
           <div class="tc-dots">
@@ -3898,10 +3930,13 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
         <button class="btn btn-orange" onclick="window._saveSettings()">Save Profile</button>
       </div>
+      </div>
+      </div>
 
-      <!-- CRM SETTINGS -->
-      <div class="settings-section">
-        <div class="settings-title">CRM & Pipeline</div>
+      <!-- CRM SETTINGS (Collapsible) -->
+      <div class="settings-section collapsible" id="settings-crm">
+        <div class="settings-title" onclick="toggleSettingsSection('crm')">CRM & Pipeline</div>
+        <div class="settings-section-content">
         <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Customize your CRM experience</div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:14px;">
           <div>
@@ -3916,9 +3951,12 @@ window.nbdNavToggle = nbdNavToggle;
           </div>
         </div>
       </div>
+      </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Estimate Defaults</div>
+      <!-- ESTIMATE DEFAULTS (Collapsible) -->
+      <div class="settings-section collapsible collapsed" id="settings-estimates">
+        <div class="settings-title" onclick="toggleSettingsSection('estimates')">Estimate Defaults</div>
+        <div class="settings-section-content">
         <div class="sf-row">
           <div class="sf"><label>Default Pitch</label>
             <input type="text" id="defPitch" placeholder="8/12">
@@ -3936,10 +3974,13 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
         </div>
         <button class="btn btn-ghost" onclick="showToast('Rates saved!')">Save Rates</button>
+        </div>
       </div>
-      <!-- DAILY PROGRAM SETTINGS -->
-      <div class="settings-section" id="ds-settings-section">
-        <div class="settings-title">Daily Program</div>
+      
+      <!-- DAILY PROGRAM SETTINGS (Collapsible) -->
+      <div class="settings-section collapsible collapsed" id="settings-daily">
+        <div class="settings-title" onclick="toggleSettingsSection('daily')">Daily Program</div>
+        <div class="settings-section-content">
         <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Configure your Daily OS — floors, north star goal, and theme. Changes sync instantly to the Daily Program page.</div>
 
         <!-- North Star -->
@@ -4009,6 +4050,7 @@ window.nbdNavToggle = nbdNavToggle;
           <a href="/pro/daily-success" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;margin-left:4px;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -4318,6 +4360,41 @@ function toggleNavSection(section) {
   // Save state to localStorage
   localStorage.setItem('nav-'+section, isOpen ? 'closed' : 'open');
 }
+
+// SETTINGS PAGE COLLAPSIBLE SECTIONS
+function toggleSettingsSection(section) {
+  const container = document.getElementById('settings-'+section);
+  if (!container) return;
+  
+  const isCollapsed = container.classList.contains('collapsed');
+  
+  if(isCollapsed) {
+    container.classList.remove('collapsed');
+  } else {
+    container.classList.add('collapsed');
+  }
+  
+  // Save state to localStorage
+  localStorage.setItem('settings-'+section, isCollapsed ? 'open' : 'collapsed');
+}
+
+// Restore settings section states on load
+function restoreSettingsSections() {
+  ['themes', 'crm', 'estimates', 'daily'].forEach(section => {
+    const state = localStorage.getItem('settings-'+section);
+    const container = document.getElementById('settings-'+section);
+    if (!container) return;
+    
+    // Apply saved state, or use default (themes/crm open, estimates/daily collapsed)
+    if (state === 'collapsed') {
+      container.classList.add('collapsed');
+    } else if (state === 'open') {
+      container.classList.remove('collapsed');
+    }
+    // If no saved state, leave as-is (HTML default)
+  });
+}
+
 
 // Restore nav section states on load
 function restoreNavSections() {
@@ -8563,6 +8640,7 @@ window.goTo = function(view) {
   if (_origGoTo) _origGoTo(view);
   if (view === 'settings') {
     setTimeout(dsLoadConfig, 80);
+    setTimeout(restoreSettingsSections, 100);
     // Load CRM secondary header toggle state
     setTimeout(() => {
       const toggle = document.getElementById('crmSecHeaderToggle');
@@ -8574,6 +8652,7 @@ window.goTo = function(view) {
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('view-settings')?.classList.contains('active')) {
     dsLoadConfig();
+    restoreSettingsSections();
   }
 });
 // ── END DAILY PROGRAM SETTINGS ────────────────────────────────────────────
@@ -9019,6 +9098,7 @@ window.nbdSaveCustom = nbdSaveCustom;
 window.nbdSetCat = nbdSetCat;
 // Navigation
 window.toggleNavSection = toggleNavSection;
+window.toggleSettingsSection = toggleSettingsSection;
 // CRM Search & Filters
 window.clearCrmSearch = clearCrmSearch;
 // Property Intel
