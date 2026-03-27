@@ -2117,7 +2117,10 @@ function renderAdmin() {
       </div>
       <div class="card-body">
         <p style="margin-bottom:12px; color:var(--text3)">Paste the JavaScript payload Claude gives you at session close:</p>
-        <textarea id="sessionImportPayload" style="width:100%; min-height:200px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="vaultImportSession({...})"></textarea>
+        <textarea id="sessionImportPayload" style="width:100%; min-height:200px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Paste anything: JavaScript payload, JSON, markdown, or plain text..."></textarea>
+        <div style="font-size:11px; color:var(--text3); margin-top:8px;">
+          ✓ Accepts: JavaScript code, JSON objects, markdown with Session #, or any text (auto-creates session)
+        </div>
         <button class="btn-gold btn-sm" style="margin-top:12px" onclick="importSessionPayload()">Import to Firestore</button>
       </div>
     </div>
@@ -2278,13 +2281,105 @@ function importSessionPayload() {
   }
   
   try {
-    // Execute the payload (it calls vaultImportSession)
-    eval(payload);
-    toast('Session imported successfully', 'success');
+    // TRY FORMAT 1: JavaScript code that calls vaultImportSession()
+    if (payload.includes('vaultImportSession')) {
+      eval(payload);
+      toast('Session imported successfully', 'success');
+      return;
+    }
+    
+    // TRY FORMAT 2: Direct JSON object
+    let sessionData;
+    try {
+      sessionData = JSON.parse(payload);
+      if (sessionData.num && sessionData.meta) {
+        vaultImportSession(sessionData);
+        return;
+      }
+    } catch (e) {
+      // Not valid JSON, continue to text parsing
+    }
+    
+    // TRY FORMAT 3: Markdown/text format (parse session number and content)
+    const parsedSession = parseTextToSession(payload);
+    if (parsedSession) {
+      vaultImportSession(parsedSession);
+      return;
+    }
+    
+    // FALLBACK: Create generic session from any text
+    const fallbackSession = createGenericSession(payload);
+    vaultImportSession(fallbackSession);
+    
   } catch (error) {
     console.error('Import error:', error);
-    toast('Failed to import session — check payload format', 'error');
+    toast('Failed to import session — ' + error.message, 'error');
   }
+}
+
+// Parse markdown/text into session format
+function parseTextToSession(text) {
+  // Extract session number from common patterns
+  const sessionMatch = text.match(/Session[:\s#]*(\d+)/i);
+  const dateMatch = text.match(/Date[:\s]*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|[A-Z][a-z]{2,8}\s+\d{1,2},?\s+\d{4})/i);
+  const titleMatch = text.match(/Title[:\s]*(.+?)(?:\n|$)/i);
+  
+  if (!sessionMatch) {
+    return null; // Can't determine session number
+  }
+  
+  const sessionNum = parseInt(sessionMatch[1]);
+  const date = dateMatch ? parseDateString(dateMatch[1]) : new Date().toISOString().split('T')[0];
+  const title = titleMatch ? titleMatch[1].trim() : `Session ${sessionNum}`;
+  
+  // Extract summary/notes (everything after metadata)
+  let summary = text;
+  // Remove metadata lines
+  summary = summary.replace(/Session[:\s#]*\d+/gi, '');
+  summary = summary.replace(/Date[:\s]*[\d\-\/A-Za-z,\s]+/gi, '');
+  summary = summary.replace(/Title[:\s]*.+/gi, '');
+  summary = summary.trim();
+  
+  return {
+    num: sessionNum,
+    meta: {
+      date: date,
+      title: title,
+      status: 'imported'
+    },
+    summary: summary.substring(0, 500), // First 500 chars as summary
+    notes: summary, // Full text as notes
+    changes: [],
+    blockers: []
+  };
+}
+
+// Parse various date formats
+function parseDateString(dateStr) {
+  const date = new Date(dateStr);
+  if (isNaN(date)) {
+    return new Date().toISOString().split('T')[0];
+  }
+  return date.toISOString().split('T')[0];
+}
+
+// Create generic session from any pasted text
+function createGenericSession(text) {
+  const maxSessionNum = CODEX.sessions.reduce((max, s) => Math.max(max, s.num), 0);
+  const nextNum = maxSessionNum + 1;
+  
+  return {
+    num: nextNum,
+    meta: {
+      date: new Date().toISOString().split('T')[0],
+      title: `Imported Session ${nextNum}`,
+      status: 'imported'
+    },
+    summary: text.substring(0, 300).trim() + (text.length > 300 ? '...' : ''),
+    notes: text,
+    changes: [],
+    blockers: []
+  };
 }
 
 async function manualSaveToFirestore() {

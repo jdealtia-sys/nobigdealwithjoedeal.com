@@ -709,6 +709,27 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .toast.success{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
 
+/* TOGGLE SWITCH */
+.toggle-switch{position:relative;display:inline-block;width:44px;height:24px;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+  background:var(--s3);border:1px solid var(--br);border-radius:24px;
+  transition:all .25s ease;
+}
+.toggle-slider:before{
+  content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;
+  background:var(--m);border-radius:50%;transition:all .25s ease;
+}
+.toggle-switch input:checked + .toggle-slider{
+  background:var(--orange);border-color:var(--orange);
+}
+.toggle-switch input:checked + .toggle-slider:before{
+  background:#fff;transform:translateX(20px);
+}
+.toggle-slider:hover{border-color:var(--orange);}
+
+
 /* MEAS LABEL */
 .meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
 
@@ -762,6 +783,9 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .crm-header input[type=text]{width:100%!important;flex:1;}
   .crm-header select{flex:1;}
   .crm-header .btn{flex:1;justify-content:center;font-size:11px;padding:7px 8px;}
+  /* Hide secondary CRM header on mobile (use bottom nav instead) */
+  .crm-secondary-header{display:none!important;}
+  .crm-sec-restore{display:none!important;}
   .crm-rev-strip{padding:4px 12px 8px;overflow-x:auto;flex-wrap:nowrap;}
   .rev-pill{padding:6px 12px;flex-shrink:0;}
   .sf-row{flex-direction:column;gap:8px;}
@@ -1940,6 +1964,11 @@ window.nbdNavToggle = nbdNavToggle;
     <div class="map-view active" style="flex:1;">
       <div class="map-sidebar" id="map-sidebar-map">
 
+        <!-- BREADCRUMB -->
+        <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
+          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+        </div>
+
         <!-- ADDRESS SEARCH -->
         <div class="slabel2">Address Search</div>
         <div class="search-row">
@@ -2101,6 +2130,11 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="view" id="view-draw">
     <div class="map-view active" style="flex:1;">
       <div class="map-sidebar" id="map-sidebar-draw">
+        <!-- BREADCRUMB -->
+        <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
+          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+        </div>
+
         <div class="slabel2">Property Address</div>
         <div class="search-row">
           <div class="ac-wrap" style="flex:1;">
@@ -2210,7 +2244,13 @@ window.nbdNavToggle = nbdNavToggle;
     <!-- Step 0: List -->
     <div id="est-list" class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Estimates</div><div class="page-sub">All roofing estimates</div></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+          </div>
+          <div class="page-title">Estimates</div>
+          <div class="page-sub">All roofing estimates</div>
+        </div>
         <button class="btn btn-orange" onclick="startNewEstimate()">＋ New Estimate</button>
       </div>
       <div id="estListWrap"><div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div></div>
@@ -2396,6 +2436,40 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
     </div>
 
+    <!-- SECONDARY TOOLBAR (auto-hides on scroll) -->
+    <div class="crm-secondary-header" id="crmSecondaryHeader">
+      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates">
+        <span class="crm-sec-icon">📋</span>
+        <span class="crm-sec-label">Estimates</span>
+      </button>
+      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library">
+        <span class="crm-sec-icon">📸</span>
+        <span class="crm-sec-label">Photos</span>
+      </button>
+      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates">
+        <span class="crm-sec-icon">📄</span>
+        <span class="crm-sec-label">Documents</span>
+      </button>
+      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map">
+        <span class="crm-sec-icon">🗺</span>
+        <span class="crm-sec-label">Map</span>
+      </button>
+      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool">
+        <span class="crm-sec-icon">✏️</span>
+        <span class="crm-sec-label">Drawing Tool</span>
+      </button>
+      <div style="flex:1;"></div>
+      <button class="crm-sec-btn" onclick="goTo('home')" title="Back to dashboard">
+        <span class="crm-sec-icon">🏠</span>
+        <span class="crm-sec-label">Dashboard</span>
+      </button>
+    </div>
+
+    <!-- Secondary header restore button (shows when hidden) -->
+    <div class="crm-sec-restore" id="crmSecRestoreBtn" style="display:none;" onclick="restoreCrmSecondary()">
+      <span>↓</span> Show Toolbar
+    </div>
+
   <!-- DELETED LEADS DRAWER -->
   <div class="deleted-drawer" id="deletedDrawer">
     <div class="deleted-drawer-hdr">
@@ -2509,7 +2583,13 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="view" id="view-photos">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Photo Library</div><div class="page-sub">Property documentation & damage photos</div></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+          </div>
+          <div class="page-title">Photo Library</div>
+          <div class="page-sub">Property documentation & damage photos</div>
+        </div>
       </div>
       <div class="panel" style="margin-bottom:14px;">
         <div class="panel-hdr"><div><div class="panel-label">Field Intel</div><div class="panel-title">Damage Near Me</div></div></div>
@@ -2529,6 +2609,11 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="view" id="view-storm">
     <div class="map-view active" style="flex:1;">
       <div class="map-sidebar" id="map-sidebar-storm">
+        <!-- BREADCRUMB -->
+        <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
+          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+        </div>
+
         <div class="slabel2">Live NOAA Alerts</div>
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadStorm()">↻ Refresh Alerts</button>
         <div id="alertsList"><div style="font-size:11px;color:var(--m);">Click Refresh to load live Ohio alerts.</div></div>
@@ -2545,7 +2630,13 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="view" id="view-docs">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Template Library</div><div class="page-sub">Contracts, scopes, and forms</div></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+          </div>
+          <div class="page-title">Template Library</div>
+          <div class="page-sub">Contracts, scopes, and forms</div>
+        </div>
         <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload Template</button>
       </div>
 
@@ -3473,6 +3564,25 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
         <button class="btn btn-orange" onclick="window._saveSettings()">Save Profile</button>
       </div>
+
+      <!-- CRM SETTINGS -->
+      <div class="settings-section">
+        <div class="settings-title">CRM & Pipeline</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Customize your CRM experience</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:3px;">Secondary Toolbar</div>
+            <div style="font-size:11px;color:var(--m);">Quick navigation to Estimates, Photos, Docs, Map, Drawing Tool</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div class="settings-section">
         <div class="settings-title">Estimate Defaults</div>
         <div class="sf-row">
@@ -5705,6 +5815,39 @@ function exportEstimate() {
   padding:16px 20px 10px;flex-shrink:0;
 }
 
+/* Secondary toolbar */
+.crm-secondary-header{
+  display:flex;gap:6px;padding:6px 20px 12px;flex-shrink:0;
+  border-bottom:1px solid var(--br);align-items:center;
+  transition:all .25s ease;
+}
+.crm-secondary-header.hidden{
+  max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden;
+  border-bottom:none;
+}
+.crm-sec-btn{
+  display:flex;align-items:center;gap:6px;
+  background:var(--s2);border:1px solid var(--br);border-radius:6px;
+  padding:6px 12px;font-size:11px;color:var(--t);cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;
+  transition:all .15s ease;
+}
+.crm-sec-btn:hover{background:var(--s3);border-color:var(--orange);}
+.crm-sec-icon{font-size:13px;line-height:1;}
+.crm-sec-label{font-weight:600;}
+
+/* Restore button (shows when secondary header is hidden) */
+.crm-sec-restore{
+  display:none;padding:4px 16px;text-align:center;
+  font-size:10px;color:var(--orange);cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;
+  border-bottom:1px solid var(--br);flex-shrink:0;
+  transition:all .15s ease;
+}
+.crm-sec-restore:hover{background:var(--s2);color:var(--orange);}
+.crm-sec-restore span{font-size:12px;margin-right:4px;}
+
+
 /* Revenue strip */
 .crm-rev-strip{
   display:flex;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;
@@ -6164,9 +6307,10 @@ function buildCard(l){
 }
 
 function handleCardClick(id, event) {
-  // If clicking a button/link inside card, don't open edit
+  // If clicking a button/link inside card, don't open modal
   if(event.target.closest('button,a')) return;
-  editLead(id);
+  // Open card detail modal (snapshot view with quick actions)
+  openCardDetailModal(id);
 }
 
 // Drag & drop
@@ -7519,6 +7663,11 @@ window.goTo = function(view) {
   if (_origGoTo) _origGoTo(view);
   if (view === 'settings') {
     setTimeout(dsLoadConfig, 80);
+    // Load CRM secondary header toggle state
+    setTimeout(() => {
+      const toggle = document.getElementById('crmSecHeaderToggle');
+      if (toggle) toggle.checked = getCrmSecHeaderEnabled();
+    }, 100);
   }
 };
 // Also load on page ready in case settings is the first view
@@ -8095,6 +8244,150 @@ async function checkTask(taskId,done){if(!_taskModalLeadId)return;const t=(windo
 async function removeTask(taskId){if(!_taskModalLeadId)return;await _deleteTask(_taskModalLeadId,taskId);renderTaskList(await _loadTasks(_taskModalLeadId));}
 window.addEventListener('load',()=>{setTimeout(loadAllTasks,1800);});
 // ══ END TASK SYSTEM ══════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════
+// CRM SECONDARY HEADER — AUTO-HIDE ON SCROLL + SETTINGS TOGGLE
+// ══════════════════════════════════════════════════════════════════════
+
+const CRM_SEC_HEADER_SETTING = 'nbd_crm_sec_header_enabled';
+
+function getCrmSecHeaderEnabled() {
+  try {
+    const val = localStorage.getItem(CRM_SEC_HEADER_SETTING);
+    return val === null ? true : val === 'true'; // default ON
+  } catch { return true; }
+}
+
+function setCrmSecHeaderEnabled(enabled) {
+  try { localStorage.setItem(CRM_SEC_HEADER_SETTING, String(enabled)); } catch {}
+  applyCrmSecHeaderState();
+}
+
+function applyCrmSecHeaderState() {
+  const enabled = getCrmSecHeaderEnabled();
+  const header = document.getElementById('crmSecondaryHeader');
+  const restoreBtn = document.getElementById('crmSecRestoreBtn');
+  if (!header || !restoreBtn) return;
+
+  if (!enabled) {
+    header.classList.add('hidden');
+    restoreBtn.style.display = 'none';
+  } else {
+    header.classList.remove('hidden');
+    restoreBtn.style.display = 'none';
+  }
+}
+
+function restoreCrmSecondary() {
+  const header = document.getElementById('crmSecondaryHeader');
+  const restoreBtn = document.getElementById('crmSecRestoreBtn');
+  if (!header || !restoreBtn) return;
+  header.classList.remove('hidden');
+  restoreBtn.style.display = 'none';
+}
+window.restoreCrmSecondary = restoreCrmSecondary;
+
+// Auto-hide on scroll within kanban board
+let _lastScrollTop = 0;
+const kanbanBoard = document.getElementById('kanbanBoard');
+if (kanbanBoard) {
+  kanbanBoard.addEventListener('scroll', function() {
+    const enabled = getCrmSecHeaderEnabled();
+    if (!enabled) return; // Don't auto-hide if setting is off
+
+    const header = document.getElementById('crmSecondaryHeader');
+    const restoreBtn = document.getElementById('crmSecRestoreBtn');
+    if (!header || !restoreBtn) return;
+
+    const scrollTop = kanbanBoard.scrollLeft; // horizontal scroll
+    const currentView = document.querySelector('.view.active');
+    const isCrmView = currentView && currentView.id === 'view-crm';
+    if (!isCrmView) return;
+
+    if (scrollTop > 50 && scrollTop > _lastScrollTop) {
+      // Scrolling right → hide
+      header.classList.add('hidden');
+      restoreBtn.style.display = 'block';
+    } else if (scrollTop < 20) {
+      // Scrolled back to start → show
+      header.classList.remove('hidden');
+      restoreBtn.style.display = 'none';
+    }
+    _lastScrollTop = scrollTop;
+  });
+}
+
+// Apply state on page load
+document.addEventListener('DOMContentLoaded', applyCrmSecHeaderState);
+// ══ END CRM SECONDARY HEADER ═════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════
+// KANBAN CARD DETAIL MODAL
+// ══════════════════════════════════════════════════════════════════════
+
+window._cardDetailLeadId = null;
+
+function openCardDetailModal(leadId) {
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  
+  window._cardDetailLeadId = leadId;
+  
+  // Populate modal
+  document.getElementById('cardDetailName').textContent = 
+    `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead';
+  document.getElementById('cardDetailStage').textContent = lead.stage || 'New';
+  document.getElementById('cardDetailAddress').textContent = lead.address || '—';
+  document.getElementById('cardDetailPhone').textContent = lead.phone || '—';
+  document.getElementById('cardDetailDamage').textContent = lead.damageType || '—';
+  document.getElementById('cardDetailValue').textContent = 
+    lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
+  
+  // Show modal
+  document.getElementById('cardDetailModal').classList.add('open');
+}
+window.openCardDetailModal = openCardDetailModal;
+
+function closeCardDetailModal() {
+  document.getElementById('cardDetailModal').classList.remove('open');
+  window._cardDetailLeadId = null;
+}
+window.closeCardDetailModal = closeCardDetailModal;
+
+function openPhotosForLead() {
+  if (!window._cardDetailLeadId) return;
+  closeCardDetailModal();
+  goTo('photos');
+  // TODO Session 28: Filter photos view to this customer
+}
+window.openPhotosForLead = openPhotosForLead;
+
+function openDocsForLead() {
+  if (!window._cardDetailLeadId) return;
+  closeCardDetailModal();
+  goTo('docs');
+  // TODO Session 28: Filter docs view to this customer
+}
+window.openDocsForLead = openDocsForLead;
+
+function openFullCustomerDetails() {
+  if (!window._cardDetailLeadId) return;
+  // TODO Session 28: Create /pro/customer.html?id=xxx page
+  showToast('Customer detail page coming in Session 28');
+  // closeCardDetailModal();
+  // window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
+}
+window.openFullCustomerDetails = openFullCustomerDetails;
+
+function editCardDetails() {
+  if (!window._cardDetailLeadId) return;
+  closeCardDetailModal();
+  editLead(window._cardDetailLeadId);
+}
+window.editCardDetails = editCardDetails;
+
+// ══ END KANBAN CARD DETAIL MODAL ══════════════════════════════════════
+
 
 // ══════════════════════════════════════════════════════════════════════
 // ASK JOE AI
@@ -8708,6 +9001,65 @@ async function seedDemoEstimates(uid) {
 </div>
 
 <div class="nbd-toast" id="nbd-toast"></div>
+
+<!-- KANBAN CARD DETAIL MODAL -->
+<div class="modal-bg" id="cardDetailModal">
+  <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
+    <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
+    
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
+      <div style="flex:1;"></div>
+      <div id="cardDetailStage" style="font-size:10px;padding:4px 10px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;"></div>
+    </div>
+    
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px;" id="cardDetailName"></div>
+    
+    <!-- Quick Info Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
+        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Address</div>
+        <div id="cardDetailAddress" style="font-size:13px;color:var(--t);"></div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
+        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Phone</div>
+        <div id="cardDetailPhone" style="font-size:13px;color:var(--t);"></div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
+        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Damage Type</div>
+        <div id="cardDetailDamage" style="font-size:13px;color:var(--t);"></div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
+        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Job Value</div>
+        <div id="cardDetailValue" style="font-size:13px;color:var(--t);font-family:'Barlow Condensed',sans-serif;font-weight:700;"></div>
+      </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openPhotosForLead()">
+        📸 Photos
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openDocsForLead()">
+        📄 Documents
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openTaskModal(window._cardDetailLeadId,null)">
+        ✓ Tasks
+      </button>
+    </div>
+    
+    <!-- Full Customer Details Link -->
+    <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="openFullCustomerDetails()">
+      View Full Customer Details →
+    </button>
+    
+    <!-- Edit Link -->
+    <div style="text-align:center;margin-top:14px;">
+      <span style="font-size:11px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;" onclick="editCardDetails()">✎ Edit Details</span>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
