@@ -1478,6 +1478,55 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
     border-left:3px solid transparent;
   }
   /* Stage-colored left border per card */
+
+/* Bulk selection mode */
+.bulk-mode-active .k-card {
+  cursor: pointer;
+}
+.k-card-checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  background: var(--s);
+  border: 2px solid var(--br);
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+}
+.bulk-mode-active .k-card-checkbox {
+  display: flex;
+}
+.k-card.bulk-selected .k-card-checkbox {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+.k-card.bulk-selected {
+  background: var(--og);
+  box-shadow: 0 0 0 2px var(--orange);
+}
+.k-card-checkbox-icon {
+  font-size: 12px;
+  color: #fff;
+  display: none;
+}
+.k-card.bulk-selected .k-card-checkbox-icon {
+  display: block;
+}
+#bulkActionBar {
+  display: none;
+}
+#bulkActionBar.active {
+  display: flex;
+}
+.bulk-mode-active .k-card {
+  position: relative;
+}
+
   #kbody-New .k-card{border-left-color:#374151;}
   #kbody-Inspected .k-card{border-left-color:#2d5a8e;}
   #kbody-Estimate\ Sent .k-card{border-left-color:#D4A017;}
@@ -6655,6 +6704,9 @@ function buildCard(l){
   const photoCount = photos.length;
 
   return `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
+    <div class="k-card-checkbox" onclick="event.stopPropagation();toggleCardSelection('${l.id}')">
+      <span class="k-card-checkbox-icon">✓</span>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       ${val ? `<div class="kc-val-badge">${val}</div>` : '<div></div>'}
       <div style="display:flex;gap:4px;">
@@ -6810,6 +6862,149 @@ function clearCrmSearch(){
   window._searchQuery = null;
   kanbanFilter();
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// BULK ACTIONS SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+window._bulkMode = false;
+window._bulkSelected = new Set();
+
+function toggleBulkMode() {
+  window._bulkMode = !window._bulkMode;
+  const btn = document.getElementById('bulkModeBtn');
+  const kanbanBoard = document.querySelector('.kanban-board');
+  
+  if (window._bulkMode) {
+    btn.textContent = '✕ Cancel';
+    btn.classList.add('btn-orange');
+    btn.classList.remove('btn-ghost');
+    kanbanBoard.classList.add('bulk-mode-active');
+  } else {
+    btn.textContent = '☑ Select';
+    btn.classList.remove('btn-orange');
+    btn.classList.add('btn-ghost');
+    kanbanBoard.classList.remove('bulk-mode-active');
+    clearBulkSelection();
+  }
+}
+
+function toggleCardSelection(leadId) {
+  if (!window._bulkMode) return;
+  
+  const card = document.querySelector(`.k-card[data-id="${leadId}"]`);
+  if (!card) return;
+  
+  if (window._bulkSelected.has(leadId)) {
+    window._bulkSelected.delete(leadId);
+    card.classList.remove('bulk-selected');
+  } else {
+    window._bulkSelected.add(leadId);
+    card.classList.add('bulk-selected');
+  }
+  
+  updateBulkToolbar();
+}
+
+function updateBulkToolbar() {
+  const count = window._bulkSelected.size;
+  const toolbar = document.getElementById('bulkActionBar');
+  const countSpan = document.getElementById('bulkSelectedCount');
+  
+  if (countSpan) countSpan.textContent = count;
+  
+  if (count > 0) {
+    toolbar.classList.add('active');
+    toolbar.style.display = 'flex';
+  } else {
+    toolbar.classList.remove('active');
+    toolbar.style.display = 'none';
+  }
+}
+
+function clearBulkSelection() {
+  window._bulkSelected.clear();
+  document.querySelectorAll('.k-card.bulk-selected').forEach(card => {
+    card.classList.remove('bulk-selected');
+  });
+  updateBulkToolbar();
+}
+
+async function bulkMoveStage() {
+  const stageSelect = document.getElementById('bulkStageSelect');
+  const newStage = stageSelect.value;
+  
+  if (!newStage) {
+    alert('Please select a stage');
+    return;
+  }
+  
+  if (window._bulkSelected.size === 0) {
+    alert('No cards selected');
+    return;
+  }
+  
+  if (!confirm(`Move ${window._bulkSelected.size} lead(s) to "${newStage}"?`)) {
+    return;
+  }
+  
+  const selectedIds = Array.from(window._bulkSelected);
+  
+  try {
+    // Move each card
+    for (const leadId of selectedIds) {
+      await moveCard(leadId, newStage);
+    }
+    
+    // Clear selection and exit bulk mode
+    clearBulkSelection();
+    toggleBulkMode();
+    
+    showToast(`Moved ${selectedIds.length} lead(s) to ${newStage}`, 'ok');
+    
+  } catch (error) {
+    console.error('Bulk move error:', error);
+    showToast('Some moves failed. Please try again.', 'error');
+  }
+}
+
+async function bulkDelete() {
+  if (window._bulkSelected.size === 0) {
+    alert('No cards selected');
+    return;
+  }
+  
+  if (!confirm(`Delete ${window._bulkSelected.size} lead(s)? They will be moved to the trash.`)) {
+    return;
+  }
+  
+  const selectedIds = Array.from(window._bulkSelected);
+  
+  try {
+    for (const leadId of selectedIds) {
+      // Soft delete - mark as deleted
+      await updateDoc(doc(db, 'leads', leadId), {
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
+    }
+    
+    // Reload leads
+    await loadLeads();
+    
+    // Clear selection and exit bulk mode
+    clearBulkSelection();
+    toggleBulkMode();
+    
+    showToast(`Deleted ${selectedIds.length} lead(s)`, 'ok');
+    
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    showToast('Some deletions failed. Please try again.', 'error');
+  }
+}
+
 
 function restoreCrmSearch(){
   const saved = localStorage.getItem('nbd_crm_search');
