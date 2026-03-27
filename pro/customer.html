@@ -186,6 +186,41 @@ header {
   font-size:32px; margin-bottom:8px; opacity:.5;
 }
 
+/* LIGHTBOX */
+.lightbox {
+  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,.95); z-index:9999; align-items:center;
+  justify-content:center; backdrop-filter:blur(8px);
+}
+.lightbox.active { display:flex; }
+.lightbox-img {
+  max-width:90vw; max-height:90vh; border-radius:8px;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);
+}
+.lightbox-close {
+  position:absolute; top:20px; right:20px; width:40px; height:40px;
+  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+  border-radius:50%; color:#fff; font-size:24px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .15s;
+}
+.lightbox-close:hover {
+  background:rgba(255,255,255,.2); transform:scale(1.1);
+}
+.lightbox-nav {
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:50px; height:50px; background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2); border-radius:50%;
+  color:#fff; font-size:20px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .15s;
+}
+.lightbox-nav:hover {
+  background:rgba(255,255,255,.2); transform:translateY(-50%) scale(1.1);
+}
+.lightbox-prev { left:20px; }
+.lightbox-next { right:20px; }
+
 /* LOADING */
 .loading {
   display:flex; justify-content:center; align-items:center;
@@ -318,6 +353,14 @@ header {
   </div>
 </div>
 
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <button class="lightbox-nav lightbox-prev" onclick="prevPhoto()">‹</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Photo">
+  <button class="lightbox-nav lightbox-next" onclick="nextPhoto()">›</button>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -356,69 +399,88 @@ onAuthStateChanged(auth, async (user) => {
   try {
     await loadCustomerData(customerId);
   } catch (error) {
-    console.error('Error loading customer:', error);
-    document.getElementById('loadingState').innerHTML = 
-      '<div class="empty"><div class="empty-icon">❌</div>Failed to load customer data</div>';
+    console.error('Critical error:', error);
+    showError('Something went wrong', 'Unable to load customer data. Please try again.');
   }
 });
 
 async function loadCustomerData(id) {
-  // Load customer (lead) data
-  const leadSnap = await getDoc(doc(db, 'leads', id));
-  if (!leadSnap.exists()) {
-    document.getElementById('loadingState').innerHTML = 
-      '<div class="empty"><div class="empty-icon">❌</div>Customer not found</div>';
-    return;
+  try {
+    // Load customer (lead) data
+    const leadSnap = await getDoc(doc(db, 'leads', id));
+    if (!leadSnap.exists()) {
+      showError('Customer not found', 'The customer you\'re looking for doesn\'t exist or has been deleted.');
+      return;
+    }
+
+    const lead = { id: leadSnap.id, ...leadSnap.data() };
+    
+    // Populate header
+    const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
+    document.getElementById('customerName').textContent = name;
+    
+    const stageBadge = document.getElementById('customerStage');
+    const stage = lead.stage || 'New';
+    stageBadge.textContent = stage;
+    stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/\s+/g, '-');
+    
+    document.getElementById('customerAddress').textContent = lead.address || '—';
+    document.getElementById('customerPhone').textContent = lead.phone || '—';
+    document.getElementById('customerEmail').textContent = lead.email || '—';
+    
+    // Contact links
+    if (lead.phone) {
+      document.getElementById('callLink').href = `tel:${lead.phone.replace(/\D/g, '')}`;
+    }
+    if (lead.email) {
+      document.getElementById('emailLink').href = `mailto:${lead.email}`;
+    }
+
+    // Populate info
+    document.getElementById('infoJobValue').textContent = 
+      lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
+    document.getElementById('infoDamageType').textContent = lead.damageType || '—';
+    document.getElementById('infoSource').textContent = lead.source || '—';
+    document.getElementById('infoCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || '—';
+    document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
+    document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
+    document.getElementById('customerNotes').textContent = lead.notes || 'No notes';
+
+    // Load related data with individual error handling
+    try { await loadTimeline(id, lead); } 
+    catch (e) { console.error('Timeline load failed:', e); }
+    
+    try { await loadPhotos(id); } 
+    catch (e) { console.error('Photos load failed:', e); }
+    
+    try { await loadDocuments(id); } 
+    catch (e) { console.error('Documents load failed:', e); }
+    
+    try { await loadEstimates(id); } 
+    catch (e) { console.error('Estimates load failed:', e); }
+
+    // Show content, hide loading
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('customerContent').style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error loading customer:', error);
+    showError(
+      'Failed to load customer', 
+      error.message || 'An unexpected error occurred. Please try refreshing the page.'
+    );
   }
+}
 
-  const lead = { id: leadSnap.id, ...leadSnap.data() };
-  
-  // Populate header
-  const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
-  document.getElementById('customerName').textContent = name;
-  
-  const stageBadge = document.getElementById('customerStage');
-  const stage = lead.stage || 'New';
-  stageBadge.textContent = stage;
-  stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/\s+/g, '-');
-  
-  document.getElementById('customerAddress').textContent = lead.address || '—';
-  document.getElementById('customerPhone').textContent = lead.phone || '—';
-  document.getElementById('customerEmail').textContent = lead.email || '—';
-  
-  // Contact links
-  if (lead.phone) {
-    document.getElementById('callLink').href = `tel:${lead.phone.replace(/\D/g, '')}`;
-  }
-  if (lead.email) {
-    document.getElementById('emailLink').href = `mailto:${lead.email}`;
-  }
-
-  // Populate info
-  document.getElementById('infoJobValue').textContent = 
-    lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
-  document.getElementById('infoDamageType').textContent = lead.damageType || '—';
-  document.getElementById('infoSource').textContent = lead.source || '—';
-  document.getElementById('infoCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || '—';
-  document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
-  document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
-  document.getElementById('customerNotes').textContent = lead.notes || 'No notes';
-
-  // Load timeline (stage changes + tasks)
-  await loadTimeline(id, lead);
-
-  // Load photos
-  await loadPhotos(id);
-
-  // Load documents
-  await loadDocuments(id);
-
-  // Load estimates
-  await loadEstimates(id);
-
-  // Show content, hide loading
-  document.getElementById('loadingState').style.display = 'none';
-  document.getElementById('customerContent').style.display = 'block';
+function showError(title, message) {
+  document.getElementById('loadingState').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">❌</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${title}</div>
+      <div style="font-size:13px;color:var(--m);max-width:400px;margin:0 auto 16px;">${message}</div>
+      <button class="btn btn-orange" onclick="window.location.href='dashboard.html'">← Back to Dashboard</button>
+    </div>
+  `;
 }
 
 async function loadTimeline(leadId, lead) {
@@ -530,15 +592,24 @@ async function loadPhotos(leadId) {
     );
     
     if (photoSnap.empty) {
-      document.getElementById('photoList').innerHTML = 
-        '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+      document.getElementById('photoList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📸</div>
+          No photos yet
+          <button class="btn btn-orange" style="margin-top:12px;" onclick="alert('Photo upload coming soon!')">
+            📤 Upload Photos
+          </button>
+        </div>`;
       return;
     }
 
-    const html = photoSnap.docs.map(d => {
-      const photo = d.data();
-      return `<div class="photo-item"><img src="${photo.url}" alt="Property photo"></div>`;
-    }).join('');
+    window._customerPhotos = photoSnap.docs.map(d => d.data());
+    
+    const html = window._customerPhotos.map((photo, idx) => 
+      `<div class="photo-item" onclick="openLightbox(${idx})">
+        <img src="${photo.url}" alt="Property photo">
+      </div>`
+    ).join('');
 
     document.getElementById('photoList').innerHTML = html;
   } catch (e) {
@@ -546,10 +617,50 @@ async function loadPhotos(leadId) {
   }
 }
 
+// Lightbox functionality
+window._customerPhotos = [];
+window._lightboxIndex = 0;
+
+window.openLightbox = function(index) {
+  window._lightboxIndex = index;
+  const photo = window._customerPhotos[index];
+  document.getElementById('lightboxImg').src = photo.url;
+  document.getElementById('lightbox').classList.add('active');
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.body.style.overflow = '';
+};
+
+window.nextPhoto = function() {
+  window._lightboxIndex = (window._lightboxIndex + 1) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+};
+
+window.prevPhoto = function() {
+  window._lightboxIndex = (window._lightboxIndex - 1 + window._customerPhotos.length) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+};
+
+// ESC key to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') window.closeLightbox();
+  if (e.key === 'ArrowRight') window.nextPhoto();
+  if (e.key === 'ArrowLeft') window.prevPhoto();
+});
+
 async function loadDocuments(leadId) {
   // TODO: Implement document loading when document system is built
-  document.getElementById('docList').innerHTML = 
-    '<div class="empty"><div class="empty-icon">📄</div>No documents yet</div>';
+  document.getElementById('docList').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📄</div>
+      No documents yet
+      <button class="btn btn-orange" style="margin-top:12px;" onclick="alert('Document upload coming soon!')">
+        📤 Upload Documents
+      </button>
+    </div>`;
 }
 
 async function loadEstimates(leadId) {
@@ -567,7 +678,7 @@ async function loadEstimates(leadId) {
     const html = estSnap.docs.map(d => {
       const est = d.data();
       return `
-        <div class="doc-item">
+        <div class="doc-item" style="cursor:pointer;" onclick="window.location.href='dashboard.html#est'">
           <span class="doc-icon">📋</span>
           <div class="doc-info">
             <div class="doc-name">${est.address || 'Estimate'}</div>
