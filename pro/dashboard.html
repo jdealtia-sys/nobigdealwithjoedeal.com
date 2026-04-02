@@ -124,7 +124,7 @@
     
     // ──────────────────────────────────────────────────────────
     // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
-    const BYPASS_SUBSCRIPTION_CHECK = false;
+    const BYPASS_SUBSCRIPTION_CHECK = true; // TEMP: flip off after activateMyAccount() run
     // ──────────────────────────────────────────────────────────
     
     if (BYPASS_SUBSCRIPTION_CHECK) {
@@ -207,20 +207,19 @@
 
   // ── ACCOUNT ACTIVATION HELPER (run once per user from console) ──
   window.activateMyAccount = async () => {
-    const user = auth.currentUser;
-    if (!user) { console.error('Not logged in'); return; }
+    const user = window._auth?.currentUser;
+    if (!user) { console.error('❌ Not logged in or auth not ready'); return; }
     try {
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js").then(async ({setDoc, doc: _doc}) => {
-        await setDoc(_doc(db, 'subscriptions', user.uid), {
-          status: 'active',
-          plan: 'professional',
-          email: user.email,
-          activatedAt: new Date().toISOString()
-        });
-        console.log('✅ Account activated for', user.email, '| UID:', user.uid);
-        alert('✅ Activated! Refresh the page.');
+      const {setDoc, doc: _doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      await setDoc(_doc(window._db, 'subscriptions', user.uid), {
+        status: 'active',
+        plan: 'professional',
+        email: user.email,
+        activatedAt: new Date().toISOString()
       });
-    } catch(e) { console.error('Activation failed:', e); }
+      console.log('✅ Account activated for', user.email, '| UID:', user.uid);
+      alert('✅ Activated! Refresh the page.');
+    } catch(e) { console.error('❌ Activation failed:', e); }
   };
 
   // ── GLOBAL KEYBOARD SHORTCUTS ──
@@ -7005,16 +7004,20 @@ window._notifDropdownOpen = false;
 
 async function loadNotifications() {
   try {
-    const user = auth.currentUser;
+    const _auth = window._auth || auth;
+    const _db   = window._db   || db;
+    const user  = _auth.currentUser;
     if (!user) return;
     
     // Load notifications from Firestore
-    const notifSnap = await getDocs(
-      query(
-        collection(db, 'notifications'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc'),
-        limit(20)
+    const {getDocs: _getDocs, query: _query, collection: _col, where: _where, orderBy: _order, limit: _limit} =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const notifSnap = await _getDocs(
+      _query(
+        _col(_db, 'notifications'),
+        _where('userId', '==', user.uid),
+        _order('createdAt', 'desc'),
+        _limit(20)
       )
     );
     
