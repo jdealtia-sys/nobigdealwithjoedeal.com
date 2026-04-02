@@ -11,6 +11,18 @@
 <style id="theme-system">
 /* Theme system matches dashboard.html */
 [data-theme="nbd-original"] { --orange:#C8541A; --ob:#E8621E; --og:rgba(200,84,26,.22); --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229; --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280; --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017; --paper:#1E2229; --ink:#E8EAF0; --rule:rgba(255,255,255,.09); }
+
+/* EMPTY STATES */
+.empty {
+  text-align:center;
+  padding:40px 20px;
+  color:var(--m);
+}
+.empty-icon {
+  font-size:48px;
+  opacity:.4;
+  margin-bottom:8px;
+}
 /* Add more themes as needed - for now just using default */
 </style>
 <style>
@@ -347,7 +359,12 @@ header {
 
       <!-- DOCUMENTS -->
       <div class="panel">
-        <div class="panel-title">Documents</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Documents</div>
+          <button class="btn btn-orange" onclick="openDocUploadModal()" style="font-size:11px;padding:6px 12px;">
+            📤 Upload
+          </button>
+        </div>
         <div id="docList">
           <div class="empty">
             <div class="empty-icon">📄</div>
@@ -392,7 +409,12 @@ header {
 
       <!-- ESTIMATES -->
       <div class="panel">
-        <div class="panel-title">Estimates</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Estimates</div>
+          <button class="btn btn-orange" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;">
+            ➕ New Estimate
+          </button>
+        </div>
         <div id="estimateList">
           <div class="empty">
             <div class="empty-icon">📋</div>
@@ -403,9 +425,17 @@ header {
 
       <!-- NOTES -->
       <div class="panel">
-        <div class="panel-title">Notes</div>
-        <div id="customerNotes" style="font-size:13px;line-height:1.6;color:var(--m);">
-          No notes
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Notes</div>
+          <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:11px;padding:6px 12px;">
+            ✏️ Add Note
+          </button>
+        </div>
+        <div id="notesList" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="empty">
+            <div class="empty-icon">📝</div>
+            No notes yet
+          </div>
         </div>
       </div>
     </div>
@@ -444,6 +474,129 @@ header {
         📤 Upload <span id="uploadCount">0</span> Photos
       </button>
       <button class="btn" onclick="closeUploadModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  
+<!-- DOCUMENT UPLOAD MODAL -->
+<div id="docUploadModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:600px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📄 Upload Documents
+    </h3>
+    
+    <div class="upload-zone" id="docDropZone" style="margin-bottom:16px;">
+      <div class="upload-icon">📄</div>
+      <div class="upload-text">Click or drag documents here</div>
+      <div class="upload-hint">Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</div>
+      <input type="file" id="docFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display:none;">
+    </div>
+    
+    <div id="docUploadPreview" class="upload-preview"></div>
+    
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-orange" id="uploadDocBtn" onclick="uploadDocuments()" style="flex:1;display:none;">
+        📤 Upload <span id="uploadDocCount">0</span> Document(s)
+      </button>
+      <button class="btn" onclick="closeDocUploadModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTES MODAL -->
+<div id="notesModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:600px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📝 Add Note
+    </h3>
+    
+    <textarea id="noteText" placeholder="Enter your note..." style="
+      width:100%;
+      min-height:120px;
+      padding:12px;
+      background:var(--s2);
+      border:1px solid var(--br);
+      border-radius:6px;
+      color:var(--t);
+      font-family:'Barlow',sans-serif;
+      font-size:14px;
+      resize:vertical;
+      margin-bottom:16px;
+    "></textarea>
+    
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-orange" onclick="saveNote()" style="flex:1;">
+        💾 Save Note
+      </button>
+      <button class="btn" onclick="closeNotesModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ESTIMATE MODAL -->
+<div id="estimateModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:700px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📋 Create Estimate
+    </h3>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">ESTIMATE TYPE</label>
+        <select id="estimateType" style="
+          width:100%;
+          padding:8px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          color:var(--t);
+          font-family:'Barlow',sans-serif;
+        ">
+          <option value="Good">Good</option>
+          <option value="Better">Better</option>
+          <option value="Best">Best</option>
+        </select>
+      </div>
+      
+      <div>
+        <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">ESTIMATE AMOUNT</label>
+        <input type="number" id="estimateAmount" placeholder="0.00" style="
+          width:100%;
+          padding:8px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          color:var(--t);
+          font-family:'Barlow',sans-serif;
+        ">
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">DESCRIPTION / NOTES</label>
+      <textarea id="estimateNotes" placeholder="Optional estimate notes..." style="
+        width:100%;
+        min-height:80px;
+        padding:8px;
+        background:var(--s2);
+        border:1px solid var(--br);
+        border-radius:6px;
+        color:var(--t);
+        font-family:'Barlow',sans-serif;
+        font-size:13px;
+        resize:vertical;
+      "></textarea>
+    </div>
+    
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-orange" onclick="saveEstimate()" style="flex:1;">
+        💾 Save Estimate
+      </button>
+      <button class="btn" onclick="closeEstimateModal()" style="flex:1;">
         Cancel
       </button>
     </div>
@@ -651,6 +804,416 @@ async function fetchImageAsBase64(url) {
   });
 }
 
+
+
+// ============================================
+// DOCUMENT UPLOAD SYSTEM
+// ============================================
+
+window._docUploadQueue = [];
+
+window.openDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'flex';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+window.closeDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'none';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+// Document drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('docDropZone');
+  const fileInput = document.getElementById('docFileInput');
+  
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files);
+      addDocumentsToQueue(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      addDocumentsToQueue(files);
+    });
+  }
+});
+
+function addDocumentsToQueue(files) {
+  files.forEach(file => {
+    window._docUploadQueue.push({
+      file: file,
+      uploading: false,
+      progress: 0
+    });
+  });
+  updateDocUploadPreview();
+}
+
+function updateDocUploadPreview() {
+  const preview = document.getElementById('docUploadPreview');
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  const countSpan = document.getElementById('uploadDocCount');
+  
+  if (window._docUploadQueue.length === 0) {
+    preview.innerHTML = '';
+    uploadBtn.style.display = 'none';
+    return;
+  }
+  
+  uploadBtn.style.display = 'inline-flex';
+  countSpan.textContent = window._docUploadQueue.length;
+  
+  preview.innerHTML = window._docUploadQueue.map((item, idx) => {
+    const fileType = item.file.name.split('.').pop().toUpperCase();
+    return `
+      <div class="preview-item" style="aspect-ratio:auto;padding:12px;display:flex;align-items:center;gap:8px;">
+        <div style="font-size:24px;">📄</div>
+        <div style="flex:1;overflow:hidden;">
+          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${item.file.name}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${fileType} • ${(item.file.size / 1024).toFixed(1)}KB
+          </div>
+        </div>
+        ${item.uploading ? 
+          `<div style="font-size:10px;color:var(--blue);">${Math.round(item.progress)}%</div>` :
+          `<button onclick="removeDocFromQueue(${idx})" class="preview-remove">×</button>`
+        }
+      </div>
+    `;
+  }).join('');
+}
+
+window.removeDocFromQueue = function(index) {
+  window._docUploadQueue.splice(index, 1);
+  updateDocUploadPreview();
+};
+
+window.uploadDocuments = async function() {
+  if (window._docUploadQueue.length === 0) return;
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+  
+  try {
+    for (let i = 0; i < window._docUploadQueue.length; i++) {
+      const item = window._docUploadQueue[i];
+      item.uploading = true;
+      updateDocUploadPreview();
+      
+      await uploadSingleDocument(item, i);
+    }
+    
+    alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
+    closeDocUploadModal();
+    await loadDocuments(window._customerId);
+    
+  } catch (error) {
+    console.error('Document upload error:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '📤 Upload Documents';
+  }
+};
+
+async function uploadSingleDocument(item, index) {
+  const file = item.file;
+  const timestamp = Date.now();
+  const filename = `${window._customerId}_${timestamp}_${file.name}`;
+  const storageRef = window.ref(window.storage, `documents/${filename}`);
+  
+  const uploadTask = window.uploadBytesResumable(storageRef, file);
+  
+  return new Promise((resolve, reject) => {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        window._docUploadQueue[index].progress = progress;
+        updateDocUploadPreview();
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
+          
+          await window.addDoc(window.collection(window.db, 'documents'), {
+            leadId: window._customerId,
+            url: downloadURL,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: window.serverTimestamp(),
+            category: 'General'
+          });
+          
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+async function loadDocuments(leadId) {
+  try {
+    const docSnap = await getDocs(
+      query(collection(db, 'documents'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
+    );
+    
+    if (docSnap.empty) {
+      document.getElementById('docList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📄</div>
+          No documents yet
+        </div>`;
+      return;
+    }
+
+    window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const html = window._customerDocs.map(doc => {
+      const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
+      const fileType = doc.filename.split('.').pop().toUpperCase();
+      
+      return `
+        <div class="document-item" style="
+          display:flex;
+          align-items:center;
+          gap:12px;
+          padding:12px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          margin-bottom:8px;
+          cursor:pointer;
+          transition:all .2s;
+        " onclick="window.open('${doc.url}', '_blank')">
+          <div style="font-size:28px;">📄</div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${doc.filename}
+            </div>
+            <div style="font-size:11px;color:var(--m);">
+              ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
+            </div>
+          </div>
+          <div style="font-size:18px;opacity:.5;">→</div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('docList').innerHTML = html;
+    
+    // Add hover effect
+    document.querySelectorAll('.document-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--s3)';
+        item.style.borderColor = 'var(--orange)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'var(--s2)';
+        item.style.borderColor = 'var(--br)';
+      });
+    });
+  } catch (e) {
+    console.error('Error loading documents:', e);
+    document.getElementById('docList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📄</div>
+        No documents yet
+      </div>`;
+  }
+}
+
+// ============================================
+// NOTES SYSTEM
+// ============================================
+
+window.openNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'flex';
+  document.getElementById('noteText').value = '';
+  document.getElementById('noteText').focus();
+};
+
+window.closeNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'none';
+};
+
+window.saveNote = async function() {
+  const noteText = document.getElementById('noteText').value.trim();
+  
+  if (!noteText) {
+    alert('Please enter a note');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: window._customerId,
+      text: noteText,
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeNotesModal();
+    await loadNotes(window._customerId);
+    
+    // Reload timeline to show new note
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving note:', error);
+    alert('Failed to save note. Please try again.');
+  }
+};
+
+async function loadNotes(leadId) {
+  try {
+    const noteSnap = await getDocs(
+      query(collection(db, 'notes'), where('leadId', '==', leadId), orderBy('createdAt', 'desc'))
+    );
+    
+    if (noteSnap.empty) {
+      document.getElementById('notesList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📝</div>
+          No notes yet
+        </div>`;
+      return;
+    }
+
+    const html = noteSnap.docs.map(d => {
+      const note = d.data();
+      const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
+      const timeAgo = getTimeAgo(createdDate);
+      
+      return `
+        <div style="
+          padding:12px;
+          background:var(--s2);
+          border-left:3px solid var(--orange);
+          border-radius:4px;
+        ">
+          <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">
+            ${note.text}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${note.createdBy} • ${timeAgo}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('notesList').innerHTML = html;
+  } catch (e) {
+    console.error('Error loading notes:', e);
+  }
+}
+
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// ============================================
+// ESTIMATE SYSTEM
+// ============================================
+
+window.openEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'flex';
+  document.getElementById('estimateAmount').value = '';
+  document.getElementById('estimateNotes').value = '';
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'none';
+};
+
+window.saveEstimate = async function() {
+  const type = document.getElementById('estimateType').value;
+  const amount = parseFloat(document.getElementById('estimateAmount').value);
+  const notes = document.getElementById('estimateNotes').value.trim();
+  
+  if (!amount || amount <= 0) {
+    alert('Please enter a valid estimate amount');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'estimates'), {
+      leadId: window._customerId,
+      type: type,
+      amount: amount,
+      notes: notes,
+      status: 'Draft',
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    alert('Estimate created successfully!');
+    closeEstimateModal();
+    await loadEstimates(window._customerId);
+    
+    // Reload timeline
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving estimate:', error);
+    alert('Failed to save estimate. Please try again.');
+  }
+};
+
+
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -762,7 +1325,7 @@ async function loadCustomerData(id) {
     document.getElementById('infoCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || '—';
     document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
     document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
-    document.getElementById('customerNotes').textContent = lead.notes || 'No notes';
+    // Notes now loaded from separate collection via loadNotes()
 
     // Stage progression button
     const stageProgression = {
@@ -795,6 +1358,9 @@ async function loadCustomerData(id) {
     
     try { await loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
+    
+    try { await loadNotes(id); } 
+    catch (e) { console.error('Notes load failed:', e); }
     
   } catch (error) {
     console.error('Error loading customer data:', error);
@@ -1842,6 +2408,416 @@ async function fetchImageAsBase64(url) {
     img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
   });
 }
+
+
+
+// ============================================
+// DOCUMENT UPLOAD SYSTEM
+// ============================================
+
+window._docUploadQueue = [];
+
+window.openDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'flex';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+window.closeDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'none';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+// Document drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('docDropZone');
+  const fileInput = document.getElementById('docFileInput');
+  
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files);
+      addDocumentsToQueue(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      addDocumentsToQueue(files);
+    });
+  }
+});
+
+function addDocumentsToQueue(files) {
+  files.forEach(file => {
+    window._docUploadQueue.push({
+      file: file,
+      uploading: false,
+      progress: 0
+    });
+  });
+  updateDocUploadPreview();
+}
+
+function updateDocUploadPreview() {
+  const preview = document.getElementById('docUploadPreview');
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  const countSpan = document.getElementById('uploadDocCount');
+  
+  if (window._docUploadQueue.length === 0) {
+    preview.innerHTML = '';
+    uploadBtn.style.display = 'none';
+    return;
+  }
+  
+  uploadBtn.style.display = 'inline-flex';
+  countSpan.textContent = window._docUploadQueue.length;
+  
+  preview.innerHTML = window._docUploadQueue.map((item, idx) => {
+    const fileType = item.file.name.split('.').pop().toUpperCase();
+    return `
+      <div class="preview-item" style="aspect-ratio:auto;padding:12px;display:flex;align-items:center;gap:8px;">
+        <div style="font-size:24px;">📄</div>
+        <div style="flex:1;overflow:hidden;">
+          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${item.file.name}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${fileType} • ${(item.file.size / 1024).toFixed(1)}KB
+          </div>
+        </div>
+        ${item.uploading ? 
+          `<div style="font-size:10px;color:var(--blue);">${Math.round(item.progress)}%</div>` :
+          `<button onclick="removeDocFromQueue(${idx})" class="preview-remove">×</button>`
+        }
+      </div>
+    `;
+  }).join('');
+}
+
+window.removeDocFromQueue = function(index) {
+  window._docUploadQueue.splice(index, 1);
+  updateDocUploadPreview();
+};
+
+window.uploadDocuments = async function() {
+  if (window._docUploadQueue.length === 0) return;
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+  
+  try {
+    for (let i = 0; i < window._docUploadQueue.length; i++) {
+      const item = window._docUploadQueue[i];
+      item.uploading = true;
+      updateDocUploadPreview();
+      
+      await uploadSingleDocument(item, i);
+    }
+    
+    alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
+    closeDocUploadModal();
+    await loadDocuments(window._customerId);
+    
+  } catch (error) {
+    console.error('Document upload error:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '📤 Upload Documents';
+  }
+};
+
+async function uploadSingleDocument(item, index) {
+  const file = item.file;
+  const timestamp = Date.now();
+  const filename = `${window._customerId}_${timestamp}_${file.name}`;
+  const storageRef = window.ref(window.storage, `documents/${filename}`);
+  
+  const uploadTask = window.uploadBytesResumable(storageRef, file);
+  
+  return new Promise((resolve, reject) => {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        window._docUploadQueue[index].progress = progress;
+        updateDocUploadPreview();
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
+          
+          await window.addDoc(window.collection(window.db, 'documents'), {
+            leadId: window._customerId,
+            url: downloadURL,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: window.serverTimestamp(),
+            category: 'General'
+          });
+          
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+async function loadDocuments(leadId) {
+  try {
+    const docSnap = await getDocs(
+      query(collection(db, 'documents'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
+    );
+    
+    if (docSnap.empty) {
+      document.getElementById('docList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📄</div>
+          No documents yet
+        </div>`;
+      return;
+    }
+
+    window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const html = window._customerDocs.map(doc => {
+      const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
+      const fileType = doc.filename.split('.').pop().toUpperCase();
+      
+      return `
+        <div class="document-item" style="
+          display:flex;
+          align-items:center;
+          gap:12px;
+          padding:12px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          margin-bottom:8px;
+          cursor:pointer;
+          transition:all .2s;
+        " onclick="window.open('${doc.url}', '_blank')">
+          <div style="font-size:28px;">📄</div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${doc.filename}
+            </div>
+            <div style="font-size:11px;color:var(--m);">
+              ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
+            </div>
+          </div>
+          <div style="font-size:18px;opacity:.5;">→</div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('docList').innerHTML = html;
+    
+    // Add hover effect
+    document.querySelectorAll('.document-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--s3)';
+        item.style.borderColor = 'var(--orange)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'var(--s2)';
+        item.style.borderColor = 'var(--br)';
+      });
+    });
+  } catch (e) {
+    console.error('Error loading documents:', e);
+    document.getElementById('docList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📄</div>
+        No documents yet
+      </div>`;
+  }
+}
+
+// ============================================
+// NOTES SYSTEM
+// ============================================
+
+window.openNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'flex';
+  document.getElementById('noteText').value = '';
+  document.getElementById('noteText').focus();
+};
+
+window.closeNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'none';
+};
+
+window.saveNote = async function() {
+  const noteText = document.getElementById('noteText').value.trim();
+  
+  if (!noteText) {
+    alert('Please enter a note');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: window._customerId,
+      text: noteText,
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeNotesModal();
+    await loadNotes(window._customerId);
+    
+    // Reload timeline to show new note
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving note:', error);
+    alert('Failed to save note. Please try again.');
+  }
+};
+
+async function loadNotes(leadId) {
+  try {
+    const noteSnap = await getDocs(
+      query(collection(db, 'notes'), where('leadId', '==', leadId), orderBy('createdAt', 'desc'))
+    );
+    
+    if (noteSnap.empty) {
+      document.getElementById('notesList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📝</div>
+          No notes yet
+        </div>`;
+      return;
+    }
+
+    const html = noteSnap.docs.map(d => {
+      const note = d.data();
+      const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
+      const timeAgo = getTimeAgo(createdDate);
+      
+      return `
+        <div style="
+          padding:12px;
+          background:var(--s2);
+          border-left:3px solid var(--orange);
+          border-radius:4px;
+        ">
+          <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">
+            ${note.text}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${note.createdBy} • ${timeAgo}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('notesList').innerHTML = html;
+  } catch (e) {
+    console.error('Error loading notes:', e);
+  }
+}
+
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// ============================================
+// ESTIMATE SYSTEM
+// ============================================
+
+window.openEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'flex';
+  document.getElementById('estimateAmount').value = '';
+  document.getElementById('estimateNotes').value = '';
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'none';
+};
+
+window.saveEstimate = async function() {
+  const type = document.getElementById('estimateType').value;
+  const amount = parseFloat(document.getElementById('estimateAmount').value);
+  const notes = document.getElementById('estimateNotes').value.trim();
+  
+  if (!amount || amount <= 0) {
+    alert('Please enter a valid estimate amount');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'estimates'), {
+      leadId: window._customerId,
+      type: type,
+      amount: amount,
+      notes: notes,
+      status: 'Draft',
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    alert('Estimate created successfully!');
+    closeEstimateModal();
+    await loadEstimates(window._customerId);
+    
+    // Reload timeline
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving estimate:', error);
+    alert('Failed to save estimate. Please try again.');
+  }
+};
+
 
 </script>
 
