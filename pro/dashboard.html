@@ -124,7 +124,7 @@
     
     // ──────────────────────────────────────────────────────────
     // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
-    const BYPASS_SUBSCRIPTION_CHECK = true; // ← TEMP: re-enable after Firestore sub doc is confirmed
+    const BYPASS_SUBSCRIPTION_CHECK = false;
     // ──────────────────────────────────────────────────────────
     
     if (BYPASS_SUBSCRIPTION_CHECK) {
@@ -204,6 +204,24 @@
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
   window.firebase_onAuthStateChanged = onAuthStateChanged;
+
+  // ── ACCOUNT ACTIVATION HELPER (run once per user from console) ──
+  window.activateMyAccount = async () => {
+    const user = auth.currentUser;
+    if (!user) { console.error('Not logged in'); return; }
+    try {
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js").then(async ({setDoc, doc: _doc}) => {
+        await setDoc(_doc(db, 'subscriptions', user.uid), {
+          status: 'active',
+          plan: 'professional',
+          email: user.email,
+          activatedAt: new Date().toISOString()
+        });
+        console.log('✅ Account activated for', user.email, '| UID:', user.uid);
+        alert('✅ Activated! Refresh the page.');
+      });
+    } catch(e) { console.error('Activation failed:', e); }
+  };
 
   // ── GLOBAL KEYBOARD SHORTCUTS ──
   document.addEventListener('keydown', (e) => {
