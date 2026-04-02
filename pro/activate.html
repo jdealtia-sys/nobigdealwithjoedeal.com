@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NBD Pro — Account Activation</title>
+<style>
+  body { font-family: sans-serif; background: #0A0C0F; color: #E8EAF0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .box { background: #111418; border: 1px solid rgba(200,84,26,.3); border-radius: 14px; padding: 40px; max-width: 480px; width: 90%; text-align: center; }
+  h2 { color: #C8541A; margin: 0 0 8px; }
+  p { color: #6B7280; margin: 0 0 24px; font-size: 14px; }
+  .status { font-size: 15px; min-height: 28px; margin: 16px 0; }
+  .ok  { color: #2ECC8A; }
+  .err { color: #E05252; }
+  button { background: #C8541A; color: #fff; border: none; border-radius: 8px; padding: 12px 32px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .uid { font-size: 11px; color: #6B7280; margin-top: 12px; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🔑 NBD Pro Activation</h2>
+  <p>Activates your account subscription in Firestore.<br>You must be logged in.</p>
+  <div class="status" id="status">Loading Firebase...</div>
+  <button id="btn" disabled onclick="activate()">Activate My Account</button>
+  <div class="uid" id="uid"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app  = initializeApp({
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const statusEl = document.getElementById('status');
+const btn      = document.getElementById('btn');
+const uidEl    = document.getElementById('uid');
+
+let currentUser = null;
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUser = user;
+    statusEl.textContent = `✅ Logged in as ${user.email}`;
+    statusEl.className = 'status ok';
+    uidEl.textContent = `UID: ${user.uid}`;
+    btn.disabled = false;
+  } else {
+    statusEl.textContent = '❌ Not logged in. Please log in first.';
+    statusEl.className = 'status err';
+    btn.disabled = true;
+    setTimeout(() => { window.location.href = '/pro/login.html'; }, 2500);
+  }
+});
+
+window.activate = async () => {
+  if (!currentUser) return;
+  btn.disabled = true;
+  statusEl.textContent = 'Activating...';
+  statusEl.className = 'status';
+  try {
+    await setDoc(doc(db, 'subscriptions', currentUser.uid), {
+      status: 'active',
+      plan: 'professional',
+      email: currentUser.email,
+      activatedAt: new Date().toISOString()
+    });
+    statusEl.textContent = `🎉 Activated! ${currentUser.email} is now a Pro member.`;
+    statusEl.className = 'status ok';
+    btn.textContent = '✓ Done — Go to Dashboard';
+    btn.disabled = false;
+    btn.onclick = () => window.location.href = '/pro/dashboard.html';
+  } catch(e) {
+    statusEl.textContent = '❌ Error: ' + e.message;
+    statusEl.className = 'status err';
+    btn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
