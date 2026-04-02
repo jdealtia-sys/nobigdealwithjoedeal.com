@@ -203,6 +203,7 @@
   window._db      = db;
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
+  window.firebase_onAuthStateChanged = onAuthStateChanged;
 
   // ── GLOBAL KEYBOARD SHORTCUTS ──
   document.addEventListener('keydown', (e) => {
@@ -7187,13 +7188,22 @@ async function createNotification(userId, type, title, message, leadId = null) {
 }
 
 // Load notifications on auth
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    await loadNotifications();
-    // Refresh notifications every 2 minutes
+(function waitForAuth() {
+  if (window._auth && window.firebase_onAuthStateChanged) {
+    window.firebase_onAuthStateChanged(window._auth, async (user) => {
+      if (user) {
+        await loadNotifications();
+        setInterval(loadNotifications, 120000);
+      }
+    });
+  } else if (window._user) {
+    // Auth already resolved, just load
+    loadNotifications();
     setInterval(loadNotifications, 120000);
+  } else {
+    setTimeout(waitForAuth, 200);
   }
-});
+})();
 
 
 // ═══════════════════════════════════════════════════════════════
