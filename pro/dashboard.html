@@ -124,7 +124,7 @@
     
     // ──────────────────────────────────────────────────────────
     // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
-    const BYPASS_SUBSCRIPTION_CHECK = true; // TEMP: flip off after activateMyAccount() run
+    const BYPASS_SUBSCRIPTION_CHECK = false;
     // ──────────────────────────────────────────────────────────
     
     if (BYPASS_SUBSCRIPTION_CHECK) {
@@ -7004,8 +7004,9 @@ window._notifDropdownOpen = false;
 
 async function loadNotifications() {
   try {
-    const _auth = window._auth || auth;
-    const _db   = window._db   || db;
+    const _auth = window._auth;
+    const _db   = window._db;
+    if (!_auth || !_db) return;
     const user  = _auth.currentUser;
     if (!user) return;
     
@@ -7208,21 +7209,13 @@ async function createNotification(userId, type, title, message, leadId = null) {
   }
 }
 
-// Load notifications on auth
-(function waitForAuth() {
-  if (window._auth && window.firebase_onAuthStateChanged) {
-    window.firebase_onAuthStateChanged(window._auth, async (user) => {
-      if (user) {
-        await loadNotifications();
-        setInterval(loadNotifications, 120000);
-      }
-    });
-  } else if (window._user) {
-    // Auth already resolved, just load
+// Load notifications on auth - poll for window._user set by main auth callback
+(function waitForNotifAuth() {
+  if (window._user) {
     loadNotifications();
     setInterval(loadNotifications, 120000);
   } else {
-    setTimeout(waitForAuth, 200);
+    setTimeout(waitForNotifAuth, 300);
   }
 })();
 
