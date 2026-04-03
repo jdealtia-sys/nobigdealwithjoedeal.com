@@ -1235,6 +1235,15 @@ window.saveEstimate = async function() {
 };
 
 
+
+// CRITICAL: Expose functions to window scope for ES6 module access
+window.loadDocuments = loadDocuments;
+window.loadNotes = loadNotes;
+window.loadPhotos = loadPhotos;
+window.loadEstimates = loadEstimates;
+window.loadTimeline = loadTimeline;
+window.fetchImageAsBase64 = fetchImageAsBase64;
+
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1379,14 +1388,14 @@ async function loadCustomerData(id) {
 
     // Load related data with individual error handling
     try { 
-      await loadTimeline(id, lead); 
+      await window.loadTimeline(id, lead); 
     } catch (e) { 
       console.error('Timeline load failed:', e); 
       document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon">📅</div>No activity yet</div>';
     }
     
     try { 
-      await loadPhotos(id); 
+      await window.loadPhotos(id); 
     } catch (e) { 
       console.error('Photos load failed:', e); 
       document.getElementById('photoList').innerHTML = `
@@ -1398,7 +1407,7 @@ async function loadCustomerData(id) {
     }
     
     try { 
-      await loadDocuments(id); 
+      await window.loadDocuments(id); 
     } catch (e) { 
       console.error('Documents load failed:', e); 
       document.getElementById('documentList').innerHTML = `
@@ -1409,10 +1418,10 @@ async function loadCustomerData(id) {
         </div>`;
     }
     
-    try { await loadEstimates(id); } 
+    try { await window.loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
     
-    try { await loadNotes(id); } 
+    try { await window.loadNotes(id); } 
     catch (e) { console.error('Notes load failed:', e); }
     
   } catch (error) {
@@ -1563,7 +1572,7 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
+      query(collection(db, 'photos'), where('leadId', '==', leadId))
     );
     
     if (photoSnap.empty) {
