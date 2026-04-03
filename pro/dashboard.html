@@ -187,6 +187,7 @@
     
     document.documentElement.style.visibility="visible";
     window._user = user;
+    requestNotifPermission();
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('userName').textContent   = name;
     document.getElementById('userAvatar').textContent = name[0].toUpperCase();
@@ -397,6 +398,8 @@
     renderLeads(window._leads); restoreCrmSearch();
     updatePipeline(window._leads);
     calculateWeeklyStats();
+    // Fire follow-up notifications after leads are fresh
+    setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
@@ -7401,6 +7404,112 @@ async function createNotification(userId, type, title, message, leadId = null) {
     console.error('Error creating notification:', error);
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// FOLLOW-UP NOTIFICATION ENGINE
+// ══════════════════════════════════════════════════════════════════════
+async function checkAndCreateFollowUpNotifications(leads) {
+  if (!window._user || !leads || !leads.length) return;
+  const userId = window._user.uid;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Categorize leads
+  const overdue = [];
+  const dueToday = [];
+  const dueTomorrow = [];
+
+  leads.forEach(l => {
+    if (!l.followUp || ['Complete','Lost'].includes(l.stage||'')) return;
+    const d = new Date(l.followUp); d.setHours(0,0,0,0);
+    if (d < today) overdue.push(l);
+    else if (d.getTime() === today.getTime()) dueToday.push(l);
+    else if (d.getTime() === tomorrow.getTime()) dueTomorrow.push(l);
+  });
+
+  if (!overdue.length && !dueToday.length && !dueTomorrow.length) return;
+
+  // Deduplicate — only create one notification per lead per day
+  const todayKey = today.toISOString().split('T')[0];
+  const existingKeys = new Set(
+    (window._notifications || [])
+      .filter(n => n.type === 'follow_up' && (n.dateKey === todayKey))
+      .map(n => n.leadId)
+  );
+
+  const toCreate = [];
+
+  overdue.forEach(l => {
+    if (existingKeys.has(l.id)) return;
+    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    const daysLate = Math.round((today - new Date(l.followUp)) / 86400000);
+    toCreate.push({
+      userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
+      title: `⚠️ Overdue Follow-Up — ${name}`,
+      message: `${daysLate} day${daysLate!==1?'s':''} overdue${l.address ? ' · ' + l.address.split(',')[0] : ''}. ${l.stage ? 'Stage: ' + l.stage : ''}`,
+      priority: 'high', read: false
+    });
+  });
+
+  dueToday.forEach(l => {
+    if (existingKeys.has(l.id)) return;
+    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    toCreate.push({
+      userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
+      title: `📅 Follow-Up Today — ${name}`,
+      message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}${l.insCarrier ? ' · ' + l.insCarrier : ''}`,
+      priority: 'normal', read: false
+    });
+  });
+
+  dueTomorrow.forEach(l => {
+    if (existingKeys.has(l.id)) return;
+    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    toCreate.push({
+      userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
+      title: `🔔 Follow-Up Tomorrow — ${name}`,
+      message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}`,
+      priority: 'low', read: false
+    });
+  });
+
+  if (!toCreate.length) return;
+
+  // Write to Firestore
+  try {
+    await Promise.all(toCreate.map(n =>
+      addDoc(collection(db, 'notifications'), {
+        ...n,
+        createdAt: serverTimestamp()
+      })
+    ));
+    // Reload notifications so badge updates immediately
+    await loadNotifications();
+
+    // Browser notification if permitted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const overdueCount = overdue.filter(l => !existingKeys.has(l.id)).length;
+      const todayCount = dueToday.filter(l => !existingKeys.has(l.id)).length;
+      let body = '';
+      if (overdueCount) body += `${overdueCount} overdue follow-up${overdueCount!==1?'s':''}. `;
+      if (todayCount) body += `${todayCount} due today.`;
+      if (body) new Notification('NBD Pro — Follow-Ups', { body: body.trim(), icon: '/favicon.ico' });
+    }
+  } catch(e) {
+    console.error('Follow-up notification error:', e);
+  }
+}
+window.checkAndCreateFollowUpNotifications = checkAndCreateFollowUpNotifications;
+
+// Request browser notification permission on first load (once)
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+// ══ END FOLLOW-UP NOTIFICATION ENGINE ═════════════════════════════════
 
 // Load notifications on auth - poll for window._user set by main auth callback
 (function waitForNotifAuth() {
