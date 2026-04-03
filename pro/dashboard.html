@@ -6739,8 +6739,8 @@ async function saveLead(){
 
 function renderLeads(leads, filtered){
   const all   = (leads  || window._leads || []);
-  const list  = filtered !== undefined ? filtered : all;
-  _filteredLeads = filtered !== undefined ? filtered : null;
+  const list  = (filtered !== undefined && filtered !== null) ? filtered : all;
+  window._filteredLeads = (filtered !== undefined && filtered !== null) ? filtered : null;
 
   // ── stat helpers ──
   const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
