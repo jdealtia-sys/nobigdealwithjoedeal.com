@@ -2719,9 +2719,10 @@ window.nbdNavToggle = nbdNavToggle;
       <!-- STEP 1: Measurements -->
       <div id="estStep1">
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div><button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;gap:6px;" onclick="openQMImportModal()">📎 Import Quick Measure</button></div>
           <div class="panel-body">
             <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
+            <div id="qmImportNote" style="display:none;background:rgba(200,84,26,.08);border:1px solid rgba(200,84,26,.3);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#C8541A;">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
             <div class="est-meas-grid">
               <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
             <input type="text" id="estAddr" placeholder="1115 Klondyke Rd..." autocomplete="off">
@@ -5533,6 +5534,36 @@ function exportDrawReport() {
   </tbody></table>
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
   <script>window.print();<\/script>
+
+<!-- ══ QM IMPORT MODAL ══ -->
+<div class="modal-bg" id="qmImportModal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeQMImportModal()">✕</button>
+    <div style="margin-bottom:18px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">AI-Powered Import</div>
+      <div style="font-size:18px;font-weight:800;color:var(--t);">Quick Measure Import</div>
+      <div style="font-size:12px;color:var(--m);margin-top:4px;">Upload your GAF Quick Measure PDF. AI extracts all measurements automatically.</div>
+    </div>
+    <div id="qmDropZone" style="border:2px dashed var(--br);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px;" onclick="document.getElementById('qmFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='#C8541A'" ondragleave="this.style.borderColor=''" ondrop="handleQMDrop(event)">
+      <div style="font-size:32px;margin-bottom:8px;">📄</div>
+      <div style="font-weight:700;color:var(--t);font-size:13px;">Drop PDF here or click to browse</div>
+      <div style="font-size:11px;color:var(--m);margin-top:4px;">GAF Quick Measure PDF only</div>
+      <input type="file" id="qmFileInput" accept=".pdf" style="display:none;" onchange="handleQMFile(this.files[0])">
+    </div>
+    <div id="qmStatus" style="display:none;background:var(--s2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--m);margin-bottom:16px;min-height:44px;">
+      <span id="qmStatusText">Analyzing PDF with AI...</span>
+    </div>
+    <div id="qmPreview" style="display:none;margin-bottom:16px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Extracted Measurements</div>
+      <div id="qmPreviewGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;"></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" onclick="closeQMImportModal()" style="flex:1;">Cancel</button>
+      <button class="btn btn-orange" id="qmApplyBtn" onclick="applyQMData()" style="flex:2;display:none;">✓ Apply to Estimate</button>
+    </div>
+  </div>
+</div>
+
 </body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
@@ -6632,6 +6663,42 @@ function exportEstimate() {
     <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
     <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
   </div>
+  ${d._qm ? `
+  <div style="margin-top:36px;page-break-before:always;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #C8541A;margin-bottom:20px;">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">No Big <span style="color:#C8541A;">Deal</span> Home Solutions</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;">Insurance Restoration Specialists</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;">Measurement Report</div>
+        <div style="font-size:11px;color:#666;margin-top:2px;">Aerial Roof Analysis — Verified Measurements</div>
+        <div style="font-size:11px;color:#666;">Generated ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+      </div>
+    </div>
+    <div style="background:#fff8f5;border:1px solid #fde0d0;border-left:4px solid #C8541A;border-radius:4px;padding:10px 14px;font-size:11px;color:#555;margin-bottom:20px;line-height:1.6;">
+      The following measurements were obtained via certified aerial measurement technology and verified against satellite and photographic imagery. All dimensions are rounded to the nearest whole number.
+    </div>
+    <h2>Property</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Property Address</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.address}</div></div>
+      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Total Roof Area</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.roofArea.toLocaleString()} sq ft</div></div>
+      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Roof Facets</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.roofFacets}</div></div>
+      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Predominant Pitch</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.pitch}</div></div>
+    </div>
+    <h2>Linear Measurements</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+      ${[['Ridges',d._qm.ridges,'ft'],['Hips',d._qm.hips,'ft'],['Valleys',d._qm.valleys,'ft'],['Rakes',d._qm.rakes,'ft'],['Eaves',d._qm.eaves,'ft'],['Bends',d._qm.bends,'ft'],['Flash',d._qm.flash,'ft'],['Step Flashing',d._qm.step,'ft'],['Drip Edge',d._qm.dripEdge,'ft']].map(([k,v,u])=>`<div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:6px;padding:10px 12px;"><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">${k}</div><div style="font-size:20px;font-weight:700;color:#111;">${v} <span style="font-size:12px;color:#999;">${u}</span></div></div>`).join('')}
+    </div>
+    <h2>Material Quantities (at ${d._qm.suggestedWastePct}% Waste)</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
+      ${[['Squares',d._qm.squaresAtSuggestedWaste,'sq'],['Leak Barrier',d._qm.leakBarrier,'ft'],['Ridge Cap',d._qm.ridgeCap,'ft'],['Starter Strip',d._qm.starter,'ft'],['Penetrations',d._qm.penetrations,'ea']].map(([k,v,u])=>`<div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:6px;padding:10px 12px;"><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">${k}</div><div style="font-size:20px;font-weight:700;color:#C8541A;">${v} <span style="font-size:12px;color:#999;">${u}</span></div></div>`).join('')}
+    </div>
+    <div style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#aaa;">
+      <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com · Insurance Restoration Specialists · Greater Cincinnati</div>
+      <div>Measurements are for estimation purposes. Confirm quantities prior to ordering.</div>
+    </div>
+  </div>` : ''}
   <script>window.print();<\/script></body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
@@ -9096,6 +9163,187 @@ window.closeTaskModal = closeTaskModal;
 window.addTask = addTask;
 window.removeTask = removeTask;
 // Estimates
+
+// ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════════════
+const GEMINI_KEY = 'AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo';
+let _qmData = null;
+
+function openQMImportModal() {
+  _qmData = null;
+  document.getElementById('qmImportModal').classList.add('open');
+  document.getElementById('qmStatus').style.display = 'none';
+  document.getElementById('qmPreview').style.display = 'none';
+  document.getElementById('qmApplyBtn').style.display = 'none';
+  document.getElementById('qmFileInput').value = '';
+  document.getElementById('qmDropZone').style.borderColor = '';
+}
+
+function closeQMImportModal() {
+  document.getElementById('qmImportModal').classList.remove('open');
+}
+
+function handleQMDrop(e) {
+  e.preventDefault();
+  document.getElementById('qmDropZone').style.borderColor = '';
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') handleQMFile(file);
+  else showToast('Please drop a PDF file', 'error');
+}
+
+async function handleQMFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('qmStatus');
+  const statusText = document.getElementById('qmStatusText');
+  statusEl.style.display = 'block';
+  statusText.textContent = '⏳ Reading PDF...';
+  document.getElementById('qmPreview').style.display = 'none';
+  document.getElementById('qmApplyBtn').style.display = 'none';
+
+  try {
+    // Convert PDF to base64
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = () => rej(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+
+    statusText.textContent = '🤖 AI extracting measurements...';
+
+    const prompt = `You are parsing a GAF Quick Measure roofing report PDF. Extract ONLY these exact fields and return ONLY valid JSON with no markdown, no explanation, no backticks:
+{
+  "address": "full property address",
+  "roofArea": number (sq ft, total),
+  "roofFacets": number,
+  "pitch": "X/12 format predominant pitch e.g. 6/12",
+  "ridges": number (ft),
+  "hips": number (ft),
+  "valleys": number (ft),
+  "rakes": number (ft),
+  "eaves": number (ft),
+  "bends": number (ft),
+  "flash": number (ft),
+  "step": number (ft),
+  "dripEdge": number (ft),
+  "leakBarrier": number (ft),
+  "ridgeCap": number (ft),
+  "starter": number (ft),
+  "penetrations": number,
+  "suggestedWastePct": number (suggested waste % as integer e.g. 14),
+  "squaresAtSuggestedWaste": number
+}
+Return ONLY the JSON object. No other text.`;
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: 'application/pdf', data: base64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { temperature: 0, maxOutputTokens: 1000 }
+        })
+      }
+    );
+
+    const result = await resp.json();
+    const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const clean = raw.replace(/```json|```/g, '').trim();
+    _qmData = JSON.parse(clean);
+
+    statusText.textContent = '✅ Measurements extracted successfully';
+    renderQMPreview(_qmData);
+
+  } catch(err) {
+    console.error('QM Import error:', err);
+    statusText.textContent = '❌ Failed to parse PDF. Please try again or check the file.';
+    showToast('QM import failed', 'error');
+  }
+}
+
+function renderQMPreview(d) {
+  const grid = document.getElementById('qmPreviewGrid');
+  const rows = [
+    ['Address', d.address],
+    ['Roof Area', d.roofArea + ' sq ft'],
+    ['Facets', d.roofFacets],
+    ['Pitch', d.pitch],
+    ['Ridges', d.ridges + ' ft'],
+    ['Hips', d.hips + ' ft'],
+    ['Valleys', d.valleys + ' ft'],
+    ['Rakes', d.rakes + ' ft'],
+    ['Eaves', d.eaves + ' ft'],
+    ['Drip Edge', d.dripEdge + ' ft'],
+    ['Leak Barrier', d.leakBarrier + ' ft'],
+    ['Ridge Cap', d.ridgeCap + ' ft'],
+    ['Suggested Waste', d.suggestedWastePct + '%'],
+    ['Squares (w/waste)', d.squaresAtSuggestedWaste],
+  ];
+  grid.innerHTML = rows.map(([k,v]) => `
+    <div style="background:var(--s2);border-radius:5px;padding:6px 8px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);">${k}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t);">${v}</div>
+    </div>`).join('');
+  document.getElementById('qmPreview').style.display = 'block';
+  document.getElementById('qmApplyBtn').style.display = 'flex';
+}
+
+function applyQMData() {
+  if (!_qmData) return;
+  const d = _qmData;
+
+  // Populate Step 1 fields
+  const addr = document.getElementById('estAddr'); if (addr) addr.value = d.address || '';
+  const sqft = document.getElementById('estRawSqft'); if (sqft) { sqft.value = d.roofArea || ''; }
+  const ridge = document.getElementById('estRidge'); if (ridge) ridge.value = d.ridges || '';
+  const eave = document.getElementById('estEave'); if (eave) eave.value = d.eaves || '';
+  const hip = document.getElementById('estHip'); if (hip) hip.value = d.hips || '';
+
+  // Store full QM data on estData for export appendix
+  estData._qm = d;
+
+  // Show QM import note
+  const qmNote = document.getElementById('qmImportNote');
+  if (qmNote) qmNote.style.display = 'block';
+  const drawNote = document.getElementById('drawImportNote');
+  if (drawNote) drawNote.style.display = 'none';
+
+  // Auto-select pitch in Step 2
+  const pitchMap = {
+    '4/12': '1.054|4/12', '5/12': '1.083|5/12', '6/12': '1.118|6/12',
+    '7/12': '1.158|7/12', '8/12': '1.202|8/12', '9/12': '1.25|9/12',
+    '10/12': '1.302|10/12', '11/12': '1.357|11/12', '12/12': '1.414|12/12'
+  };
+  const pitchKey = (d.pitch || '').replace(/\s/g,'');
+  const pitchSel = document.getElementById('estPitch');
+  if (pitchSel && pitchMap[pitchKey]) pitchSel.value = pitchMap[pitchKey];
+
+  // Auto-select waste factor closest to suggested
+  const wastePct = d.suggestedWastePct || 14;
+  const wasteSel = document.getElementById('estWaste');
+  if (wasteSel) {
+    const wasteMap = [[10,'1.10'],[15,'1.15'],[17,'1.17'],[20,'1.20'],[25,'1.25']];
+    const closest = wasteMap.reduce((a,b) => Math.abs(b[0]-wastePct) < Math.abs(a[0]-wastePct) ? b : a);
+    wasteSel.value = closest[1];
+  }
+
+  updateEstCalc();
+  closeQMImportModal();
+  showToast('✅ Quick Measure data applied', 'success');
+}
+
+window.openQMImportModal = openQMImportModal;
+window.closeQMImportModal = closeQMImportModal;
+window.handleQMDrop = handleQMDrop;
+window.handleQMFile = handleQMFile;
+window.applyQMData = applyQMData;
+// ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════
+
 window.startNewEstimate = startNewEstimate;
 window.saveEstimate = saveEstimate;
 window.cancelEstimate = cancelEstimate;
