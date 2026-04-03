@@ -1236,7 +1236,8 @@ window.saveEstimate = async function() {
 
 
 
-// CRITICAL: Expose functions to window scope for ES6 module access
+// CRITICAL: Expose loader functions to window scope for ES6 module access
+// Must be AFTER function definitions (hoisting doesn't work for async functions in some contexts)
 window.loadDocuments = loadDocuments;
 window.loadNotes = loadNotes;
 window.loadPhotos = loadPhotos;
@@ -2601,6 +2602,11 @@ window.saveEstimate = async function() {
 };
 
 
+
+// Expose module-scope functions to window for cross-script access
+window.loadTimeline = loadTimeline;
+window.loadPhotos = loadPhotos;
+window.loadEstimates = loadEstimates;
 </script>
 
 
