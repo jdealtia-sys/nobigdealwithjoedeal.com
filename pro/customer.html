@@ -1758,25 +1758,35 @@ window.closeUploadModal = function() {
   updateUploadPreview();
 };
 
-// Drag and drop handlers
-const uploadZone = document.getElementById('uploadZone');
+// Drag and drop handlers - Initialize after DOM loads
+function initPhotoUploadHandlers() {
+  const uploadZone = document.getElementById('uploadZone');
+  if (!uploadZone) return;
 
-uploadZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadZone.classList.add('drag-over');
-});
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
 
-uploadZone.addEventListener('dragleave', () => {
-  uploadZone.classList.remove('drag-over');
-});
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+  });
 
-uploadZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadZone.classList.remove('drag-over');
-  
-  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-  addFilesToQueue(files);
-});
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    addFilesToQueue(files);
+  });
+}
+
+// Call initialization when modal is opened
+const originalOpenUploadModal = window.openUploadModal;
+window.openUploadModal = function() {
+  originalOpenUploadModal();
+  initPhotoUploadHandlers();
+};
 
 window.handleFileSelect = function(event) {
   const files = Array.from(event.target.files);
@@ -2243,172 +2253,6 @@ window.exportCustomerPDF = async function() {
 // PHOTO REPORT GENERATOR
 // ============================================
 
-window.generatePhotoReport = async function() {
-  if (!window._customerPhotos || window._customerPhotos.length === 0) {
-    alert('No photos to generate report from');
-    return;
-  }
-  
-  if (!window._customerId) {
-    alert('Customer ID not found');
-    return;
-  }
-  
-  try {
-    // Get customer data
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (!leadSnap.exists()) {
-      alert('Customer not found');
-      return;
-    }
-    const lead = leadSnap.data();
-    
-    // Show loading state
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '⏳ Generating...';
-    
-    // Initialize jsPDF
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // NBD Branding Header
-    doc.setFillColor(200, 84, 26); // NBD orange #C8541A
-    doc.rect(0, 0, 210, 35, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('NO BIG DEAL', 15, 15);
-    
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text('HOME SOLUTIONS', 15, 22);
-    doc.text('Insurance Restoration Specialists', 15, 28);
-    
-    // Report title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PROPERTY PHOTO REPORT', 105, 20, { align: 'center' });
-    
-    // Property details box
-    doc.setFillColor(248, 249, 250);
-    doc.rect(10, 40, 190, 25, 'F');
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    
-    const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';
-    const address = lead.address || 'Address not provided';
-    const reportDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', month: 'long', day: 'numeric' 
-    });
-    
-    doc.text(`Customer: ${customerName}`, 15, 48);
-    doc.text(`Property: ${address}`, 15, 54);
-    doc.text(`Report Date: ${reportDate}`, 15, 60);
-    doc.text(`Total Photos: ${window._customerPhotos.length}`, 150, 48);
-    
-    if (lead.damageType) {
-      doc.text(`Damage Type: ${lead.damageType}`, 150, 54);
-    }
-    
-    // Photos section
-    let yPos = 75;
-    let pageCount = 1;
-    let photoCount = 0;
-    
-    for (let photo of window._customerPhotos) {
-      photoCount++;
-      
-      // Check if we need a new page (leave room for photo + caption)
-      if (yPos > 240) {
-        doc.addPage();
-        yPos = 20;
-        pageCount++;
-      }
-      
-      // Photo title
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(200, 84, 26);
-      doc.text(`Photo ${photoCount}`, 15, yPos);
-      yPos += 6;
-      
-      // Photo metadata
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      
-      const uploadDate = photo.uploadedAt?.toDate ? 
-        photo.uploadedAt.toDate().toLocaleDateString() : 'Unknown date';
-      const category = photo.category || 'Property';
-      
-      doc.text(`${category} • ${uploadDate} • ${photo.filename}`, 15, yPos);
-      yPos += 8;
-      
-      // Fetch and embed the image
-      try {
-        const imgData = await fetchImageAsBase64(photo.url);
-        
-        // Add image (fit to width 180mm, max height 100mm)
-        const maxWidth = 180;
-        const maxHeight = 100;
-        
-        // Add the image
-        doc.addImage(imgData, 'JPEG', 15, yPos, maxWidth, maxHeight);
-        yPos += maxHeight + 10;
-        
-        // Optional: Add notes if they exist
-        if (photo.notes) {
-          doc.setFontSize(9);
-          doc.setTextColor(50, 50, 50);
-          doc.text(`Notes: ${photo.notes}`, 15, yPos);
-          yPos += 6;
-        }
-        
-        yPos += 5; // Spacing between photos
-        
-      } catch (imgError) {
-        console.error('Error loading image:', imgError);
-        doc.setTextColor(200, 0, 0);
-        doc.text('[Image could not be loaded]', 15, yPos);
-        yPos += 15;
-      }
-    }
-    
-    // Footer on last page
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text('No Big Deal Home Solutions | Greater Cincinnati Area', 105, 285, { align: 'center' });
-    doc.text('www.nobigdealwithjoedeal.com', 105, 290, { align: 'center' });
-    
-    // Generate filename
-    const safeCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `NBD_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
-    
-    // Save the PDF
-    doc.save(filename);
-    
-    // Reset button
-    btn.disabled = false;
-    btn.textContent = originalText;
-    
-    alert(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included\n${pageCount} pages`);
-    
-  } catch (error) {
-    console.error('Report generation error:', error);
-    alert('Failed to generate report. Please try again.');
-    
-    // Reset button
-    if (event.target) {
-      event.target.disabled = false;
-      event.target.textContent = '📋 Generate Report';
-    }
-  }
-};
 
 // Helper: Fetch image as base64 (handles CORS)
 async function fetchImageAsBase64(url) {
