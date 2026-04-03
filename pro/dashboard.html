@@ -3223,18 +3223,11 @@ window.nbdNavToggle = nbdNavToggle;
     <!-- Context bar (populated by JS) -->
     <div class="joe-context-bar" id="joeContextBar" style="display:none;"></div>
 
-    <!-- No API key state -->
+    <!-- No API key state — hidden, proxy handles auth -->
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
-        <div class="joe-no-key-icon">🔑</div>
-        <p>To activate Joe AI, you need an Anthropic API key.<br>
-        Get one free at <strong>console.anthropic.com</strong> → API Keys.<br>
-        Your key is stored locally and never leaves your browser.</p>
-        <div class="joe-key-input-row">
-          <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
-          <button class="btn btn-orange" onclick="saveJoeKey()">Activate</button>
-        </div>
-        <p style="margin-top:10px;font-size:10px;color:var(--m);">Already have a key? Paste it above.</p>
+        <div class="joe-no-key-icon">🤖</div>
+        <p>Joe AI is connecting...</p>
       </div>
     </div>
 
@@ -3257,7 +3250,7 @@ window.nbdNavToggle = nbdNavToggle;
         <button class="joe-send" id="joeSendBtn" onclick="sendJoeMessage()">SEND</button>
       </div>
       <div style="text-align:center;margin-top:6px;font-size:9px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;">
-        Joe AI uses your live pipeline data · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change API Key</span>
+        Joe AI · Live pipeline context · Powered by Claude
       </div>
     </div>
 
@@ -5970,7 +5963,7 @@ const R = {
 
 // Advanced Estimate Builder - Wrapper Function
 function startNewEstimate() {
-  startNewEstimateOriginal();
+  showEstimateTypeSelector();
 }
 
 function startNewEstimateOriginal() {
@@ -9969,12 +9962,7 @@ function initJoeChat() {
   const input  = document.getElementById('joeInputArea');
   if(!noKey || !msgs || !input) return;
 
-  if(!key) {
-    noKey.style.display='block'; msgs.style.display='none'; input.style.display='none';
-    document.getElementById('joeContextBar').style.display='none';
-    return;
-  }
-
+  // Proxy handles auth — always show chat regardless of local key
   noKey.style.display='none'; msgs.style.display='flex'; input.style.display='block';
 
   loadJoeChat();
