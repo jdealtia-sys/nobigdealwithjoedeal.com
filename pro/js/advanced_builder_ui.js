@@ -627,32 +627,73 @@ window.saveAdvancedEstimate = async function() {
   }
   
   try {
-    const user = firebase.auth().currentUser;
+    // Use modular SDK via window-exposed functions
+    const user = window._user;
     if (!user) {
       alert('You must be logged in to save estimates');
       return;
     }
+
+    // Resolve leadId — from linked lead (customer page flow) or customerId on estimate state
+    const leadId = window._estLinkedLeadId || est.customerId || null;
+
+    // Resolve address — from linked lead record
+    let addr = est.projectName || '';
+    if (leadId && window._leads) {
+      const lead = (window._leads || []).find(l => l.id === leadId);
+      if (lead && lead.address) addr = lead.address;
+    }
     
     const estimateData = {
       type: 'advanced',
+      title: est.projectName || 'Advanced Estimate',
+      addr: addr,
       projectName: est.projectName,
       structure: est.structure || 'Main House',
-      customerId: est.customerId,
+      leadId: leadId,
+      customerId: leadId,
       trades: est.trades,
       lineItems: est.lineItems,
+      rows: est.lineItems.map(i => ({
+        code: i.id || '',
+        desc: i.name,
+        qty: i.qty,
+        rate: '$' + (i.sellPrice || 0).toFixed(2),
+        total: i.total || 0
+      })),
       subtotal: est.subtotal,
       tax: est.tax,
       total: est.total,
+      grandTotal: est.total,
       pricingDate: est.pricingDate,
       status: 'draft',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      deleted: false,
+      userId: user.uid,
       createdBy: user.email
     };
     
-    await firebase.firestore().collection('estimates').add(estimateData);
+    // Use modular Firestore via window-exposed addDoc
+    if (window._saveEstimate) {
+      await window._saveEstimate(estimateData);
+    } else {
+      // Fallback — should not happen if dashboard loaded correctly
+      console.error('window._saveEstimate not available');
+      alert('Save failed — please refresh and try again.');
+      return;
+    }
+
+    window._estLinkedLeadId = null;
     
-    alert('✓ Estimate saved successfully!');
     closeAdvancedBuilder();
+
+    // Offer to navigate to customer record if linked
+    if (leadId) {
+      if (confirm('✓ Estimate saved & linked to customer! Go to customer record?')) {
+        window.location.href = `/pro/customer.html?id=${leadId}`;
+      }
+    } else {
+      alert('✓ Estimate saved successfully!');
+    }
     
     // Refresh estimates list if on estimates page
     if (typeof loadEstimates === 'function') {
