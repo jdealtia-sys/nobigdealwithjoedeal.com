@@ -2818,6 +2818,7 @@ window.showToast = function(message, type = 'info') {
     font-size:14px;
     font-weight:500;
     animation:slideIn 0.3s ease-out;
+    pointer-events:auto;
   `;
   toast.textContent = message;
   
@@ -2825,7 +2826,10 @@ window.showToast = function(message, type = 'info') {
   
   setTimeout(() => {
     toast.style.animation = 'slideOut 0.3s ease-in';
-    setTimeout(() => toast.remove(), 300);
+    toast.style.pointerEvents = 'none';
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 300);
   }, 3000);
 };
 
