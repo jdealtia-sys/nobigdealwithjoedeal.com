@@ -199,32 +199,10 @@
     }
   });
 
-  // Expose Firebase to window scope for cross-boundary access
   window._auth    = auth;
   window._db      = db;
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
-  
-  // Expose Firestore functions for global access (consistency with customer.html)
-  window.getDoc = getDoc;
-  window.getDocs = getDocs;
-  window.doc = doc;
-  window.query = query;
-  window.orderBy = orderBy;
-  window.where = where;
-  window.updateDoc = updateDoc;
-  window.deleteDoc = deleteDoc;
-  window.addDoc = addDoc;
-  window.collection = collection;
-  window.serverTimestamp = serverTimestamp;
-  window.arrayUnion = arrayUnion;
-  window.limit = limit;
-  
-  // Expose Storage functions
-  window.ref = ref;
-  window.uploadBytes = uploadBytes;
-  window.getDownloadURL = getDownloadURL;
-  window.listAll = listAll;
   window.firebase_onAuthStateChanged = onAuthStateChanged;
 
   // ── ACCOUNT ACTIVATION HELPER (run once per user from console) ──
@@ -573,6 +551,50 @@
       document.getElementById('userName').textContent = name;
       showToast('Settings saved!');
     } catch(e) { showToast('Save failed','error'); }
+  };
+
+  // Save estimate default rates to Firestore
+  window._saveEstimateDefaults = async function() {
+    const defaults = {
+      pitch: document.getElementById('defPitch').value || '8/12',
+      waste: document.getElementById('defWaste').value || '17%',
+      rateShingle: parseFloat(document.getElementById('rateShingle').value) || 185,
+      rateTear: parseFloat(document.getElementById('rateTear').value) || 55,
+      rateDrip: parseFloat(document.getElementById('rateDrip').value) || 2.10,
+      rateGutter: parseFloat(document.getElementById('rateGutter').value) || 8.50
+    };
+
+  // Load estimate defaults from Firestore
+  window._loadEstimateDefaults = async function() {
+    try {
+      const {getDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const snap = await getDoc(doc(window._db, 'userSettings', window._user.uid));
+      
+      if (snap.exists() && snap.data().estimateDefaults) {
+        const defaults = snap.data().estimateDefaults;
+        document.getElementById('defPitch').value = defaults.pitch || '8/12';
+        document.getElementById('defWaste').value = defaults.waste || '17%';
+        document.getElementById('rateShingle').value = defaults.rateShingle || 185;
+        document.getElementById('rateTear').value = defaults.rateTear || 55;
+        document.getElementById('rateDrip').value = defaults.rateDrip || 2.10;
+        document.getElementById('rateGutter').value = defaults.rateGutter || 8.50;
+      }
+    } catch (error) {
+      console.error('Error loading estimate defaults:', error);
+    }
+  };
+    
+    try {
+      const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      await setDoc(doc(window._db, 'userSettings', window._user.uid), 
+        { estimateDefaults: defaults }, 
+        { merge: true }
+      );
+      showToast('✓ Estimate defaults saved', 'success');
+    } catch (error) {
+      console.error('Error saving estimate defaults:', error);
+      showToast('Failed to save defaults', 'error');
+    }
   };
 </script>
 
@@ -3967,7 +3989,7 @@ window.nbdNavToggle = nbdNavToggle;
 
       <!-- PROFILE / SETTINGS (existing) -->
       <div class="settings-section">
-        <div class="settings-title">Profile</div>
+        <div class="settings-title">Profile <span id="tierBadge" style="display:inline-block;margin-left:12px;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span></div>
         <div class="sf-row">
           <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Jonathan"></div>
           <div class="sf"><label>Email</label><input type="text" id="settingsEmail" placeholder="you@email.com" disabled style="opacity:.5;"></div>
@@ -4021,7 +4043,7 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="sf"><label>Drip Edge ($/LF)</label><input type="number" id="rateDrip" value="2.10" step="0.01"></div>
           <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
         </div>
-        <button class="btn btn-ghost" onclick="showToast('Rates saved!')">Save Rates</button>
+        <button class="btn btn-orange" onclick="window._saveEstimateDefaults()" style="margin-top:12px;">💾 Save Estimate Defaults</button>
         </div>
       </div>
       
@@ -10153,7 +10175,63 @@ async function seedDemoEstimates(uid) {
 <script src="js/pricing_database_manager.js"></script>
 <script src="js/template_library.js"></script>
 <script src="js/ai_review_system.js"></script>
-<script src="js/email_system.js"></script>
+<script src="js/email_system.js">
+  // Display subscription tier in settings
+  window._displayTier = function() {
+    const badge = document.getElementById('tierBadge');
+    if (!badge) return;
+    
+    const plan = window._userPlan || 'foundation';
+    const tierNames = {
+      'foundation': '🏗️ Foundation',
+      'blueprint': '📐 Blueprint', 
+      'professional': '💼 Professional'
+    };
+    
+    badge.textContent = tierNames[plan] || plan.toUpperCase();
+    badge.style.display = 'inline-block';
+  };
+
+  // ═══ SUBSCRIPTION TIER UPDATE HELPER ═══
+  // Run from console: await window.updateMyTier('foundation')
+  // Valid tiers: 'foundation', 'blueprint', 'professional'
+  window.updateMyTier = async function(newTier) {
+    const validTiers = ['foundation', 'blueprint', 'professional'];
+    if (!validTiers.includes(newTier)) {
+      console.error('❌ Invalid tier. Use: foundation, blueprint, or professional');
+      return;
+    }
+    
+    const user = window._auth?.currentUser;
+    if (!user) {
+      console.error('❌ Not logged in');
+      return;
+    }
+    
+    try {
+      const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      await setDoc(doc(window._db, 'subscriptions', user.uid), {
+        status: 'active',
+        plan: newTier,
+        email: user.email,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      window._userPlan = newTier;
+      window._subscription = { plan: newTier, status: 'active' };
+      
+      console.log(`✅ Tier updated to: ${newTier}`);
+      console.log('🔄 Refresh page to see changes');
+      
+      // Update tier badge if on settings page
+      if (document.getElementById('tierBadge')) {
+        window._displayTier?.();
+      }
+    } catch (error) {
+      console.error('❌ Error updating tier:', error);
+    }
+  };
+</script>
 
 </body>
 </html>
