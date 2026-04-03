@@ -225,10 +225,11 @@
             const ownerEl = document.getElementById('estOwner');
             if (addrEl && lead.address) addrEl.value = lead.address;
             if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
+            // Store linked leadId so saveEstimate can attach it
+            window._estLinkedLeadId = leadParam;
             updateEstCalc();
-            // Show banner
             const note = document.getElementById('drawImportNote');
-            if (note) { note.textContent = '✓ Pre-filled from customer record'; note.style.display='block'; }
+            if (note) { note.textContent = '✓ Pre-filled from customer record — estimate will auto-link on save'; note.style.display='block'; }
           }
         }
         window.history.replaceState({}, '', '/pro/dashboard.html');
@@ -5969,7 +5970,7 @@ const R = {
 
 // Advanced Estimate Builder - Wrapper Function
 function startNewEstimate() {
-  showEstimateTypeSelector();
+  startNewEstimateOriginal();
 }
 
 function startNewEstimateOriginal() {
@@ -5977,6 +5978,7 @@ function startNewEstimateOriginal() {
   document.getElementById('est-builder').style.display='flex';
   document.getElementById('est-builder').style.flexDirection='column';
   estCurrentStep=0; selectedTier=null; estData={};
+  window._estLinkedLeadId = null;
   showEstStep(1);
   document.getElementById('drawImportNote').style.display='none';
   ['estAddr','estOwner','estParcel','estYear','estRawSqft','estRidge','estEave','estHip'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -6122,13 +6124,42 @@ function buildReview() {
 
 async function saveEstimate() {
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
+
+  // Resolve leadId — from URL param flow, QM import, or address match against loaded leads
+  let leadId = window._estLinkedLeadId || null;
+  if (!leadId && estData.addr) {
+    const addrNorm = (estData.addr||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const matched = (window._leads||[]).find(l => {
+      const lNorm = (l.address||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      return lNorm && addrNorm && lNorm.includes(addrNorm.substring(0,12));
+    });
+    if (matched) leadId = matched.id;
+  }
+
   await window._saveEstimate({
     addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
     roofType:estData.roofType, pitch:estData.pl, sq:estData.sq, tier:selectedTier,
     tierName:estData.tierName, grandTotal:estData.grandTotal,
-    raw:estData.raw, adj:Math.round(estData.adj)
+    raw:estData.raw, adj:Math.round(estData.adj),
+    ridge:estData.ridge||null, eave:estData.eave||null, hip:estData.hip||null,
+    pipes:estData.pipes||null, rows:estData.rows||[],
+    leadId: leadId,
+    qmData: estData._qm || null
   });
-  showToast('Estimate saved!');
+
+  // If we know the lead, offer to go back to customer page
+  if (leadId) {
+    showToast('✓ Estimate saved & linked to customer record', 'success');
+    // Small delay then offer navigation
+    setTimeout(() => {
+      if (confirm('Estimate saved! Go to customer record?')) {
+        window.location.href = `/pro/customer.html?id=${leadId}`;
+      }
+    }, 400);
+  } else {
+    showToast('Estimate saved!', 'success');
+  }
+  window._estLinkedLeadId = null;
   cancelEstimate();
 }
 
@@ -7951,14 +7982,9 @@ For the address "${fullAddr}", search the auditor, find the parcel, and extract 
 If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
 RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 600,
@@ -10048,14 +10074,9 @@ async function sendJoeMessage() {
   }));
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
