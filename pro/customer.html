@@ -1603,14 +1603,7 @@ async function loadPhotos(leadId) {
   }
 }
 
-async function loadDocuments(leadId) {
-  // Document loading will be implemented in next strike
-  document.getElementById('docList').innerHTML = `
-    <div class="empty">
-      <div class="empty-icon">📄</div>
-      No documents yet
-    </div>`;
-}
+
 
 async function loadEstimates(leadId) {
   try {
@@ -2482,75 +2475,6 @@ async function uploadSingleDocument(item, index) {
   });
 }
 
-async function loadDocuments(leadId) {
-  try {
-    const docSnap = await getDocs(
-      query(collection(db, 'documents'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
-    );
-    
-    if (docSnap.empty) {
-      document.getElementById('docList').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">📄</div>
-          No documents yet
-        </div>`;
-      return;
-    }
-
-    window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    const html = window._customerDocs.map(doc => {
-      const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
-      const fileType = doc.filename.split('.').pop().toUpperCase();
-      
-      return `
-        <div class="document-item" style="
-          display:flex;
-          align-items:center;
-          gap:12px;
-          padding:12px;
-          background:var(--s2);
-          border:1px solid var(--br);
-          border-radius:6px;
-          margin-bottom:8px;
-          cursor:pointer;
-          transition:all .2s;
-        " onclick="window.open('${doc.url}', '_blank')">
-          <div style="font-size:28px;">📄</div>
-          <div style="flex:1;overflow:hidden;">
-            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${doc.filename}
-            </div>
-            <div style="font-size:11px;color:var(--m);">
-              ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
-            </div>
-          </div>
-          <div style="font-size:18px;opacity:.5;">→</div>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('docList').innerHTML = html;
-    
-    // Add hover effect
-    document.querySelectorAll('.document-item').forEach(item => {
-      item.addEventListener('mouseenter', () => {
-        item.style.background = 'var(--s3)';
-        item.style.borderColor = 'var(--orange)';
-      });
-      item.addEventListener('mouseleave', () => {
-        item.style.background = 'var(--s2)';
-        item.style.borderColor = 'var(--br)';
-      });
-    });
-  } catch (e) {
-    console.error('Error loading documents:', e);
-    document.getElementById('docList').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">📄</div>
-        No documents yet
-      </div>`;
-  }
 }
 
 // ============================================

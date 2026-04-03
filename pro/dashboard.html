@@ -6964,11 +6964,11 @@ async function moveCard(id, newStage){
   
   try {
     // Save lead with stage history
-    const leadRef = doc(window.db, 'leads', id);
-    await updateDoc(leadRef, {
+    const leadRef = window.doc(window.db, 'leads', id);
+    await window.updateDoc(leadRef, {
       stage: newStage,
-      updatedAt: serverTimestamp(),
-      stageHistory: arrayUnion(historyEvent)
+      updatedAt: window.serverTimestamp(),
+      stageHistory: window.arrayUnion(historyEvent)
     });
     
     // Update local state
