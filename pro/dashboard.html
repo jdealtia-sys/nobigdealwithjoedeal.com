@@ -202,14 +202,37 @@
     const editId = urlParams.get('edit');
     const tasksId = urlParams.get('tasks');
     
+    const estParam = urlParams.get('est');
+    const leadParam = urlParams.get('lead');
+
     if (editId) {
       // Wait for leads to load, then open edit modal
       setTimeout(() => {
         goTo('crm');
         editLead(editId);
-        // Clean URL
         window.history.replaceState({}, '', '/pro/dashboard.html');
       }, 500);
+    } else if (estParam || leadParam) {
+      // Route to estimate builder — came from customer page
+      setTimeout(() => {
+        goTo('est');
+        startNewEstimateOriginal();
+        // Pre-fill address from lead if leadParam provided
+        if (leadParam && window._leads) {
+          const lead = window._leads.find(l => l.id === leadParam);
+          if (lead) {
+            const addrEl = document.getElementById('estAddr');
+            const ownerEl = document.getElementById('estOwner');
+            if (addrEl && lead.address) addrEl.value = lead.address;
+            if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
+            updateEstCalc();
+            // Show banner
+            const note = document.getElementById('drawImportNote');
+            if (note) { note.textContent = '✓ Pre-filled from customer record'; note.style.display='block'; }
+          }
+        }
+        window.history.replaceState({}, '', '/pro/dashboard.html');
+      }, 600);
     } else if (tasksId) {
       // Wait for leads to load, then open task modal
       setTimeout(() => {

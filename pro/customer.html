@@ -416,9 +416,10 @@ header {
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Estimates</div>
-          <button class="btn btn-orange" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;">
-            ➕ New Estimate
-          </button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;">📂 Log Estimate</button>
+            <button class="btn btn-orange" onclick="window.location.href='/pro/dashboard.html?lead='+window._customerId" style="font-size:11px;padding:6px 12px;">＋ Build Estimate</button>
+          </div>
         </div>
         <div id="estimateList">
           <div class="empty">
@@ -1633,17 +1634,31 @@ async function loadEstimates(leadId) {
       return;
     }
 
-    // Store estimates globally for modal access
-    window._customerEstimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Store estimates globally — filter soft-deleted records
+    window._customerEstimates = estSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !e.deleted);
     
+    if (!window._customerEstimates.length) {
+      document.getElementById('estimateList').innerHTML = `
+        <div class="empty"><div class="empty-icon">📋</div>No estimates yet</div>`;
+      return;
+    }
+
     const html = window._customerEstimates.map(est => {
+      const tier = est.tier || est.tierName || '';
+      const tierColor = tier==='best'?'#22C55E':tier==='better'?'#9B6DFF':'#C8541A';
+      const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${tier}</span>` : '';
       return `
-        <div class="estimate-item" onclick="openEstimateModal('${est.id}')" style="cursor:pointer;transition:all .2s;">
+        <div class="estimate-item" onclick="openEstimateModal('${est.id}')" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
           <div>
-            <div class="estimate-title">${est.title || 'Estimate'}</div>
-            <div style="font-size:11px;color:var(--m);">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
+            <div class="estimate-title" style="display:flex;align-items:center;">${est.title || 'Estimate'}${tierLabel}</div>
+            <div style="font-size:11px;color:var(--m);margin-top:2px;">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
           </div>
-          <div class="estimate-amount">${est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'}</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
+            <button onclick="event.stopPropagation();exportCustomerEstimate('${est.id}')" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -1665,6 +1680,69 @@ async function loadEstimates(leadId) {
     console.error('Error loading estimates:', e);
   }
 }
+
+// ── EXPORT ESTIMATE FROM CUSTOMER PAGE ────────────────────────────────────
+window.exportCustomerEstimate = function(estId) {
+  const est = (window._customerEstimates || []).find(e => e.id === estId);
+  if (!est) { alert('Estimate not found'); return; }
+  const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Estimate — ${est.addr||est.address||''}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #C8541A;margin-bottom:26px;}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+  .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
+  .est-date{font-size:12px;color:#666;}
+  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C8541A;margin-top:10px;}
+  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#C8541A;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid #C8541A;}
+  .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
+  .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
+  .mf .v{font-size:18px;font-weight:700;color:#111;}
+  table{width:100%;border-collapse:collapse;}thead tr{border-bottom:2px solid #111;}
+  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
+  td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+  .code{color:#C8541A;font-weight:700;font-family:'Barlow Condensed',sans-serif;}
+  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8541A;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
+  .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+  @page{margin:1.8cm 2cm;size:letter;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  </style></head><body>
+  <div class="hdr">
+    <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
+    <div class="est-hdr">
+      <div class="est-type">Roofing Estimate</div>
+      <div class="est-date">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+      <div class="est-date">${est.addr||est.address||''}</div>
+      <div class="est-total-lbl">Estimate Total</div>
+      <div class="est-total-val">${fmt(est.grandTotal||est.amount||0)}</div>
+    </div>
+  </div>
+  <h2>Measurements</h2>
+  <div class="meas-grid">
+    <div class="mf"><label>Squares</label><div class="v">${est.sq||'—'}</div></div>
+    <div class="mf"><label>Roof SqFt</label><div class="v">${est.raw||'—'}</div></div>
+    <div class="mf"><label>Pitch</label><div class="v">${est.pitch||est.pl||'—'}</div></div>
+    <div class="mf"><label>Ridge LF</label><div class="v">${est.ridge||'—'}</div></div>
+    <div class="mf"><label>Eave LF</label><div class="v">${est.eave||'—'}</div></div>
+    <div class="mf"><label>Hip LF</label><div class="v">${est.hip||'—'}</div></div>
+  </div>
+  <h2>Package — ${est.tierName||tierNames[est.tier]||est.tier||'Standard'}</h2>
+  <table><thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+  <tbody>
+    ${(est.rows||[]).map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td>${fmt(r.total)}</td></tr>`).join('')}
+    <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
+  </tbody></table>
+  <div class="footer">
+    <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
+    <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
+  </div>
+  <script>window.print();<\/script></body></html>`;
+  const w = window.open('','_blank'); w.document.write(html); w.document.close();
+};
+// ── END EXPORT ─────────────────────────────────────────────────────────────
 
 // Lightbox functionality
 window._customerPhotos = [];
@@ -2080,15 +2158,19 @@ window.openEstimateModal = function(estimateId) {
   
   // Wire up action buttons
   document.getElementById('editEstimateBtn').onclick = () => {
-    // TODO: Link to estimate editing page or inline edit
-    window.open(`/pro/estimates.html?edit=${estimateId}`, '_blank');
+    // Navigate to dashboard estimate builder with this lead pre-loaded
+    window.location.href = `/pro/dashboard.html?edit=${window._customerId}&est=${estimateId}`;
   };
   
   document.getElementById('deleteEstimateBtn').onclick = async () => {
-    if (!confirm('Delete this estimate? This cannot be undone.')) return;
+    if (!confirm('Archive this estimate? It will be hidden but never permanently deleted.')) return;
     
     try {
-      await deleteDoc(doc(db, 'estimates', estimateId));
+      // SOFT DELETE — never use deleteDoc on estimates (standing rule: never lose a job)
+      await updateDoc(doc(db, 'estimates', estimateId), {
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
       closeEstimateModal();
       await loadEstimates(window._customerId);
       
@@ -2098,8 +2180,8 @@ window.openEstimateModal = function(estimateId) {
         await loadTimeline(window._customerId, leadSnap.data());
       }
     } catch (error) {
-      console.error('Delete error:', error);
-      alert('Failed to delete estimate.');
+      console.error('Archive error:', error);
+      alert('Failed to archive estimate.');
     }
   };
   
