@@ -337,7 +337,12 @@ header {
     <div>
       <!-- TIMELINE -->
       <div class="panel">
-        <div class="panel-title">Timeline & Tasks</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+          <div class="panel-title" style="margin:0;">Timeline & Tasks</div>
+          <button class="btn btn-orange" onclick="openTaskModal()" style="font-size:11px;padding:6px 12px;">
+            ✅ Add Task
+          </button>
+        </div>
         <div id="timelineList">
           <div class="empty">
             <div class="empty-icon">📅</div>
@@ -1111,10 +1116,12 @@ async function loadNotes(leadId) {
     
     if (noteSnap.empty) {
       document.getElementById('notesList').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">📝</div>
-          No notes yet
-        </div>`;
+      <div class="empty">
+        <div class="empty-icon">📝</div>
+        <div style="margin-bottom:10px;">No notes yet</div>
+        <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:13px;padding:8px 16px;">✏️ Add First Note</button>
+      </div>
+    `;
       return;
     }
 
@@ -1526,7 +1533,7 @@ async function loadTimeline(leadId, lead) {
   }).join('');
 
   document.getElementById('timelineList').innerHTML = html || 
-    '<div class="empty"><div class="empty-icon">📅</div>No activity yet</div>';
+    '<div class="empty"><div class="empty-icon">📅</div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;">✅ Add First Task</button></div>';
 }
 
 async function loadPhotos(leadId) {
@@ -2684,11 +2691,6 @@ async function loadDocuments(leadId) {
 // NOTES SYSTEM
 // ============================================
 
-window.openNotesModal = function() {
-  document.getElementById('notesModal').style.display = 'flex';
-  document.getElementById('noteText').value = '';
-  document.getElementById('noteText').focus();
-};
 
 window.closeNotesModal = function() {
   document.getElementById('notesModal').style.display = 'none';
@@ -2730,48 +2732,6 @@ window.saveNote = async function() {
   }
 };
 
-async function loadNotes(leadId) {
-  try {
-    const noteSnap = await getDocs(
-      query(collection(db, 'notes'), where('leadId', '==', leadId), orderBy('createdAt', 'desc'))
-    );
-    
-    if (noteSnap.empty) {
-      document.getElementById('notesList').innerHTML = `
-        <div class="empty">
-          <div class="empty-icon">📝</div>
-          No notes yet
-        </div>`;
-      return;
-    }
-
-    const html = noteSnap.docs.map(d => {
-      const note = d.data();
-      const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
-      const timeAgo = getTimeAgo(createdDate);
-      
-      return `
-        <div style="
-          padding:12px;
-          background:var(--s2);
-          border-left:3px solid var(--orange);
-          border-radius:4px;
-        ">
-          <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">
-            ${note.text}
-          </div>
-          <div style="font-size:10px;color:var(--m);">
-            ${note.createdBy} • ${timeAgo}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('notesList').innerHTML = html;
-  } catch (e) {
-    console.error('Error loading notes:', e);
-  }
-}
 
 function getTimeAgo(date) {
   const seconds = Math.floor((new Date() - date) / 1000);
@@ -2843,5 +2803,190 @@ window.saveEstimate = async function() {
 
 </script>
 
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOMER PAGE ENHANCEMENTS - Task Management & Improved UX
+// ═══════════════════════════════════════════════════════════════════════
+
+// Task Modal HTML (to be injected)
+const taskModalHTML = `
+<div id="taskModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">Add Task</h3>
+      <button onclick="closeTaskModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Task Title *</label>
+        <input type="text" id="taskTitle" placeholder="e.g., Schedule roof inspection" 
+               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Due Date</label>
+        <input type="date" id="taskDueDate" 
+               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Priority</label>
+        <select id="taskPriority" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Notes (Optional)</label>
+        <textarea id="taskNotes" rows="3" placeholder="Additional details..." 
+                  style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeTaskModal()" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+        Cancel
+      </button>
+      <button onclick="saveTask()" class="btn btn-orange">
+        Add Task
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+// Inject task modal on page load
+window.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('taskModal')) {
+    document.body.insertAdjacentHTML('beforeend', taskModalHTML);
+  }
+});
+
+// Task Management Functions
+window.openTaskModal = function() {
+  document.getElementById('taskModal').style.display = 'flex';
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskDueDate').value = '';
+  document.getElementById('taskPriority').value = 'medium';
+  document.getElementById('taskNotes').value = '';
+  document.getElementById('taskTitle').focus();
+};
+
+window.closeTaskModal = function() {
+  document.getElementById('taskModal').style.display = 'none';
+};
+
+window.saveTask = async function() {
+  const title = document.getElementById('taskTitle').value.trim();
+  const dueDate = document.getElementById('taskDueDate').value;
+  const priority = document.getElementById('taskPriority').value;
+  const notes = document.getElementById('taskNotes').value.trim();
+  
+  if (!title) {
+    alert('Please enter a task title');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'tasks'), {
+      leadId: window._customerId,
+      title: title,
+      dueDate: dueDate || null,
+      priority: priority,
+      notes: notes || '',
+      done: false,
+      createdAt: window.serverTimestamp(),
+      createdBy: window.auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeTaskModal();
+    
+    // Reload timeline to show new task
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+    // Show success feedback
+    showToast('✓ Task added successfully', 'success');
+    
+  } catch (error) {
+    console.error('Error saving task:', error);
+    alert('Failed to save task. Please try again.');
+  }
+};
+
+// Toggle task completion
+window.toggleTask = async function(taskId, newDoneState) {
+  try {
+    await window.updateDoc(window.doc(window.db, 'tasks', taskId), {
+      done: newDoneState,
+      completedAt: newDoneState ? window.serverTimestamp() : null
+    });
+    
+    // Reload timeline
+    if (window._customerId) {
+      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+      if (leadSnap.exists()) {
+        await loadTimeline(window._customerId, leadSnap.data());
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error toggling task:', error);
+  }
+};
+
+// Toast notification system
+window.showToast = function(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;
+    top:80px;
+    right:20px;
+    background:${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#0ea5e9'};
+    color:white;
+    padding:15px 20px;
+    border-radius:8px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    z-index:10000;
+    font-size:14px;
+    font-weight:500;
+    animation:slideIn 0.3s ease-out;
+  `;
+  toast.textContent = message;
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-in';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+};
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+console.log('✓ Customer page enhancements loaded');
+
+</script>
 </body>
 </html>
