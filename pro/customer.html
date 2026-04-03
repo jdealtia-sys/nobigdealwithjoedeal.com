@@ -1299,6 +1299,9 @@ onAuthStateChanged(auth, async (user) => {
 
 async function loadCustomerData(id) {
   try {
+    // CRITICAL: Set global customerId FIRST so all sub-loaders have it
+    window._customerId = id;
+    
     // Track recently viewed
     trackRecentlyViewed(id);
     
@@ -1366,7 +1369,6 @@ async function loadCustomerData(id) {
     };
     
     window._currentStage = lead.stage || 'New';
-    window._customerId = id;
     
     const nextStage = stageProgression[lead.stage];
     if (nextStage) {
