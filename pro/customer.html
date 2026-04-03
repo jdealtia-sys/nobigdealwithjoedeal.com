@@ -1257,9 +1257,17 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // Make them globally accessible
+// Expose Firebase to window scope for cross-boundary access
 window.db = db;
 window.auth = auth;
 window.storage = storage;
+window.getDoc = getDoc;
+window.getDocs = getDocs;
+window.doc = doc;
+window.query = query;
+window.orderBy = orderBy;
+window.where = where;
+window.updateDoc = updateDoc;
 window.arrayUnion = arrayUnion;
 window.addDoc = addDoc;
 window.collection = collection;

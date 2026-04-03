@@ -199,10 +199,32 @@
     }
   });
 
+  // Expose Firebase to window scope for cross-boundary access
   window._auth    = auth;
   window._db      = db;
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
+  
+  // Expose Firestore functions for global access (consistency with customer.html)
+  window.getDoc = getDoc;
+  window.getDocs = getDocs;
+  window.doc = doc;
+  window.query = query;
+  window.orderBy = orderBy;
+  window.where = where;
+  window.updateDoc = updateDoc;
+  window.deleteDoc = deleteDoc;
+  window.addDoc = addDoc;
+  window.collection = collection;
+  window.serverTimestamp = serverTimestamp;
+  window.arrayUnion = arrayUnion;
+  window.limit = limit;
+  
+  // Expose Storage functions
+  window.ref = ref;
+  window.uploadBytes = uploadBytes;
+  window.getDownloadURL = getDownloadURL;
+  window.listAll = listAll;
   window.firebase_onAuthStateChanged = onAuthStateChanged;
 
   // ── ACCOUNT ACTIVATION HELPER (run once per user from console) ──
