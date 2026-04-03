@@ -5839,7 +5839,12 @@ const R = {
   ridge:3.20, hip:3.20, pipe:65, deck:95, gutter:8.50, deckPct:0.15
 };
 
+// Advanced Estimate Builder - Wrapper Function
 function startNewEstimate() {
+  showEstimateTypeSelector();
+}
+
+function startNewEstimateOriginal() {
   document.getElementById('est-list').style.display='none';
   document.getElementById('est-builder').style.display='flex';
   document.getElementById('est-builder').style.flexDirection='column';
@@ -10115,6 +10120,17 @@ async function seedDemoEstimates(uid) {
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<script src="js/advanced_builder_selector.js"></script>
+<script src="js/material_catalog.js"></script>
+<script src="js/advanced_builder_ui.js"></script>
+<script src="js/advanced_pdf_generator.js"></script>
+<script src="js/pricing_database_manager.js"></script>
+<script src="js/template_library.js"></script>
+<script src="js/ai_review_system.js"></script>
 
 </body>
 </html>
