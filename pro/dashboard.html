@@ -7880,7 +7880,6 @@ function getHamiltonSummaryUrl(parcelId) {
 const _piCache = {};
 
 async function fetchPropertyIntel(nominatimData, targetElId) {
-  const key = getJoeKey();
   const targetEl = document.getElementById(targetElId);
 
   // Determine county from Nominatim response
@@ -7900,15 +7899,6 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
   const cacheKey = fullAddr.toLowerCase().replace(/\s/g,'');
   if(_piCache[cacheKey]) {
     renderIntelCard(targetElId, _piCache[cacheKey], countyClean, fullAddr);
-    return;
-  }
-
-  if(!key) {
-    if(targetEl) {
-      const existing = targetEl.querySelector('.pi-card');
-      if(existing) existing.outerHTML = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div><div class="pi-no-key">Add your Anthropic API key in Settings → Ask Joe AI to enable property lookup.</div></div>`;
-      else targetEl.innerHTML = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div><div class="pi-no-key">Add your Anthropic API key in Settings → Ask Joe AI to enable property lookup.</div></div>` + (targetEl.innerHTML||'');
-    }
     return;
   }
 
@@ -9956,7 +9946,6 @@ function saveJoeChat() {
 
 // ── Init ────────────────────────────────────────────────────────────
 function initJoeChat() {
-  const key = getJoeKey();
   const noKey  = document.getElementById('joeNoKey');
   const msgs   = document.getElementById('joeMessages');
   const input  = document.getElementById('joeInputArea');
@@ -10051,7 +10040,6 @@ async function sendJoeMessage() {
   document.getElementById('joeSendBtn').disabled = true;
   showJoeTyping();
 
-  const key = getJoeKey();
   const ctx = buildJoeContext();
   const systemPrompt = buildJoeSystemPrompt(ctx);
 
@@ -10086,9 +10074,7 @@ async function sendJoeMessage() {
 
   } catch(err) {
     hideJoeTyping();
-    const errMsg = err.message?.includes('401') || err.message?.includes('invalid')
-      ? "That API key isn't working. Double-check it in Settings or hit 'Change API Key' below."
-      : `Couldn't reach Joe right now. ${err.message || 'Check your connection and try again.'}`;
+    const errMsg = `Couldn't reach Joe right now. ${err.message || 'Check your connection and try again.'}`;
     appendJoeMessage('joe', errMsg);
   }
 
