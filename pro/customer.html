@@ -1347,14 +1347,36 @@ async function loadCustomerData(id) {
     }
 
     // Load related data with individual error handling
-    try { await loadTimeline(id, lead); } 
-    catch (e) { console.error('Timeline load failed:', e); }
+    try { 
+      await loadTimeline(id, lead); 
+    } catch (e) { 
+      console.error('Timeline load failed:', e); 
+      document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon">📅</div>No activity yet</div>';
+    }
     
-    try { await loadPhotos(id); } 
-    catch (e) { console.error('Photos load failed:', e); }
+    try { 
+      await loadPhotos(id); 
+    } catch (e) { 
+      console.error('Photos load failed:', e); 
+      document.getElementById('photoList').innerHTML = `
+        <div class="upload-zone" onclick="openUploadModal()">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Click to upload photos</div>
+          <div class="upload-hint">Drag & drop or click to browse</div>
+        </div>`;
+    }
     
-    try { await loadDocuments(id); } 
-    catch (e) { console.error('Documents load failed:', e); }
+    try { 
+      await loadDocuments(id); 
+    } catch (e) { 
+      console.error('Documents load failed:', e); 
+      document.getElementById('documentList').innerHTML = `
+        <div class="upload-zone" onclick="openDocUploadModal()">
+          <div class="upload-icon">📄</div>
+          <div class="upload-text">Click to upload documents</div>
+          <div class="upload-hint">Drag & drop PDFs, contracts, or images</div>
+        </div>`;
+    }
     
     try { await loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
