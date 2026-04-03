@@ -185,6 +185,22 @@ function renderProjectSetup() {
           💡 <strong>Tip:</strong> Use descriptive project names to easily identify estimates later (e.g., "Smith Residence - Full Reroof" instead of just "Roof").
         </div>
       </div>
+
+      <div style="margin-top:20px;border:1px solid #fde0d0;border-radius:8px;padding:16px;background:#fff8f5;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:13px;color:#C8541A;">📎 GAF Quick Measure Import</div>
+          <button onclick="applyQMToAdvancedBuilder()" 
+                  style="background:#C8541A;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;"
+                  ${window._qmData ? '' : 'disabled style="background:#C8541A;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;opacity:.4;"'}>
+            ${window._qmData ? '✓ Apply QM Data' : 'Import QM first on Step 1 of Quick Builder'}
+          </button>
+        </div>
+        <div style="font-size:11px;color:#888;line-height:1.5;">
+          ${window._qmData 
+            ? `<span style="color:#C8541A;font-weight:700;">QM data ready:</span> ${window._qmData.roofArea} sq ft · ${window._qmData.pitch} pitch · ${window._qmData.squaresAtSuggestedWaste} squares — click Apply to seed measurements and auto-add line items.`
+            : 'Upload a GAF Quick Measure PDF using the "📎 Import Quick Measure" button in the Quick Estimate builder first, then come back here to apply.'}
+        </div>
+      </div>
     </div>
   `;
 }
@@ -617,6 +633,83 @@ function renderReview() {
 // ─────────────────────────────────────────────────────────────────────────
 // SAVE TO FIRESTORE
 // ─────────────────────────────────────────────────────────────────────────
+
+// ── Apply QM data to Advanced Builder ─────────────────────────────────────
+window.applyQMToAdvancedBuilder = function() {
+  const qm = window._qmData;
+  if (!qm) { alert('No Quick Measure data found. Import a PDF first.'); return; }
+
+  const est = window.advancedEstimate;
+
+  // Auto-fill project name from address if empty
+  if (!est.projectName && qm.address) {
+    est.projectName = qm.address;
+    const el = document.getElementById('advProjectName');
+    if (el) el.value = qm.address;
+  }
+
+  // Seed roofing line items from QM measurements using material catalog
+  const sq = qm.squaresAtSuggestedWaste || Math.ceil(qm.roofArea / 100);
+  const ridgeLF = qm.ridges || 0;
+  const valleyLF = qm.valleys || 0;
+  const eaveLF = qm.eaves || 0;
+  const rakeLF = qm.rakes || 0;
+  const dripLF = qm.dripEdge || 0;
+  const leakBarrierLF = qm.leakBarrier || 0;
+  const pipes = qm.penetrations || 0;
+
+  // Build line items from catalog
+  const catalog = window.materialCatalog || [];
+  const find = id => catalog.find(c => c.id === id);
+
+  const newItems = [];
+  const addItem = (catalogId, qty, overrideName) => {
+    const cat = find(catalogId);
+    if (!cat || qty <= 0) return;
+    const total = parseFloat((cat.sellPrice * qty).toFixed(2));
+    newItems.push({
+      id: cat.id,
+      name: overrideName || cat.name,
+      category: cat.category,
+      section: cat.section,
+      unit: cat.unit,
+      qty: parseFloat(qty.toFixed(2)),
+      sellPrice: cat.sellPrice,
+      costPrice: cat.costPrice || 0,
+      laborCost: cat.laborCost || 0,
+      total
+    });
+  };
+
+  addItem('labor_tearoff_1layer', sq);
+  addItem('roof_shingles_arch', sq);
+  addItem('roof_underlayment_synthetic', sq);
+  addItem('roof_ice_water', Math.ceil(leakBarrierLF / 100));
+  addItem('roof_drip_edge', dripLF);
+  addItem('roof_ridge_vent', ridgeLF);
+  addItem('roof_valley_flashing', valleyLF);
+  if (pipes > 0) addItem('roof_pipe_boot', pipes);
+
+  // Merge into estimate — avoid duplicates by id
+  const existingIds = new Set(est.lineItems.map(i => i.id));
+  newItems.forEach(item => {
+    if (!existingIds.has(item.id)) est.lineItems.push(item);
+  });
+
+  // Recalculate totals
+  est.subtotal = est.lineItems.reduce((s, i) => s + (i.total || 0), 0);
+  est.tax = parseFloat((est.subtotal * 0.07).toFixed(2));
+  est.total = parseFloat((est.subtotal + est.tax).toFixed(2));
+
+  // Store QM ref on estimate state
+  est.qmData = qm;
+
+  // Re-render current step
+  renderAdvancedStep(est.currentStep);
+
+  alert(\`✓ QM data applied!\n\n\${newItems.length} line items seeded from ${sq} squares.\nReview in the Line Items step.\`);
+};
+// ── End QM Apply ───────────────────────────────────────────────────────────
 
 window.saveAdvancedEstimate = async function() {
   const est = window.advancedEstimate;
