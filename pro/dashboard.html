@@ -115,6 +115,28 @@
   const db      = getFirestore(app);
   const storage = getStorage(app);
 
+  // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
+  window.db = db;
+  window.storage = storage;
+  window.auth = auth;
+  window.doc = doc;
+  window.getDoc = getDoc;
+  window.getDocs = getDocs;
+  window.addDoc = addDoc;
+  window.updateDoc = updateDoc;
+  window.deleteDoc = deleteDoc;
+  window.collection = collection;
+  window.query = query;
+  window.where = where;
+  window.orderBy = orderBy;
+  window.limit = limit;
+  window.serverTimestamp = serverTimestamp;
+  window.arrayUnion = arrayUnion;
+  window.ref = ref;
+  window.uploadBytes = uploadBytes;
+  window.getDownloadURL = getDownloadURL;
+  window.listAll = listAll;
+
   onAuthStateChanged(auth, async user => {
     if (!user) { window.location.replace("/pro/login.html"); return; }
     
@@ -6716,7 +6738,7 @@ async function saveLead(){
 // ══════════════════════════════════════════════
 
 function renderLeads(leads, filtered){
-  const all   = leads  || window._leads || [];
+  const all   = (leads  || window._leads || []);
   const list  = filtered !== undefined ? filtered : all;
   _filteredLeads = filtered !== undefined ? filtered : null;
 
@@ -6978,7 +7000,7 @@ async function moveCard(id, newStage){
   } catch(e){ 
     console.error('moveCard error',e); 
   }
-  renderLeads(window._leads, _filteredLeads);
+  renderLeads(window._leads, window._filteredLeads);
 }
 
 function updatePipeline(leads){ renderLeads(leads); }
