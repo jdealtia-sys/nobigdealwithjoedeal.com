@@ -760,14 +760,28 @@ window.generatePhotoReport = async function() {
     const safeCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `NBD_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
     
-    // Save the PDF
-    doc.save(filename);
+    // Get PDF as blob for potential email attachment
+    const pdfBlob = doc.output('blob');
     
     // Reset button
     btn.disabled = false;
     btn.textContent = originalText;
     
-    alert(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included\n${pageCount} pages`);
+    // Ask user: Download or Email?
+    const action = confirm(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included | ${pageCount} pages\n\nClick OK to EMAIL the report\nClick Cancel to DOWNLOAD only`);
+    
+    if (action) {
+      // Email the report
+      if (typeof emailPhotoReport === 'function') {
+        emailPhotoReport(pdfBlob, window._customerId);
+      } else {
+        alert('Email system not loaded. Downloading instead.');
+        doc.save(filename);
+      }
+    } else {
+      // Download the PDF
+      doc.save(filename);
+    }
     
   } catch (error) {
     console.error('Report generation error:', error);
@@ -2832,5 +2846,6 @@ document.head.appendChild(style);
 console.log('✓ Customer page enhancements loaded');
 
 </script>
+<script src="js/email_system.js"></script>
 </body>
 </html>

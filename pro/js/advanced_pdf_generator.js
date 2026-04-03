@@ -97,9 +97,26 @@ window.exportAdvancedEstimatePDF = function(type) {
   doc.setTextColor(100, 100, 100);
   doc.text('No Big Deal Home Solutions | Licensed & Insured', pageWidth / 2, pageHeight - 10, { align: 'center' });
   
-  // Save with descriptive filename
+  // Get PDF as blob
+  const pdfBlob = doc.output('blob');
+  
+  // Ask user: Download or Email?
   const filename = `NBD_${typeLabel}_${est.projectName.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(filename);
+  
+  const action = confirm(`PDF Generated: ${typeLabel}\n\nClick OK to EMAIL this estimate\nClick Cancel to DOWNLOAD only`);
+  
+  if (action) {
+    // Email the estimate
+    if (typeof emailEstimatePDF === 'function') {
+      emailEstimatePDF(est, pdfBlob);
+    } else {
+      alert('Email system not loaded. Downloading instead.');
+      doc.save(filename);
+    }
+  } else {
+    // Download the PDF
+    doc.save(filename);
+  }
 };
 
 // ─────────────────────────────────────────────────────────────────────────
