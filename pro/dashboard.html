@@ -1099,6 +1099,14 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
 @media(max-width:768px){
+  /* ── MOBILE SCROLL FIX ── */
+  html{height:100%;overflow:auto;}
+  body{height:auto;min-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .app-body{flex-direction:column;overflow:visible!important;}
+  .content{width:100%;overflow:visible!important;}
+  .view{overflow:visible!important;}
+  .view-scroll{overflow:visible!important;height:auto!important;}
+  /* ── END MOBILE SCROLL FIX ── */
   .sidebar{display:none!important;}
   header{padding:0 12px;height:48px;}
   .logo{font-size:14px;}
