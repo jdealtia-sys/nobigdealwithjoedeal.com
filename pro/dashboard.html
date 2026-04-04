@@ -1369,7 +1369,8 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   .k-card { cursor:pointer; min-height:80px; }
 
   /* Joe view — full height on mobile */
-  #view-joe { height:calc(100vh - 110px)!important; display:flex!important; flex-direction:column!important; }
+  #view-joe.active { height:calc(100vh - 110px); display:flex; flex-direction:column; }
+  #view-joe:not(.active) { display:none!important; }
   .joe-messages { flex:1!important; }
 
   /* Notification button — bigger tap target */
@@ -1542,7 +1543,9 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 
 /* ── ASK JOE AI CHAT ─────────────────────────── */
-#view-joe { flex-direction:column; }
+#view-joe { flex-direction:column; overflow:hidden; }
+#view-joe:not(.active) .joe-input-area { display:none!important; }
+#view-joe:not(.active) .joe-header { display:none!important; }
 .joe-header { flex-shrink:0; background:var(--s); border-bottom:1px solid var(--br); padding:14px 20px; display:flex; align-items:center; gap:12px; }
 .joe-avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--orange),#e8720c); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
 .joe-title { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--t); }
@@ -3336,7 +3339,7 @@ window.nbdNavToggle = nbdNavToggle;
         <button class="joe-send" id="joeSendBtn" onclick="sendJoeMessage()">SEND</button>
       </div>
       <div style="text-align:center;margin-top:6px;font-size:9px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;">
-        Joe AI · Live pipeline data · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change Key</span>
+        Joe AI · Live pipeline data · Claude Haiku · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change Key</span>
       </div>
     </div>
 
