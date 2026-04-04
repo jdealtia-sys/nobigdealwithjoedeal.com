@@ -406,8 +406,15 @@
   async function loadLeads() {
     try {
       const uid = window._user?.uid;
-      if (!uid) { window._leads = []; return; }
+      console.log('🔍 loadLeads: uid=', uid);
+      if (!uid) { 
+        console.warn('⚠️ loadLeads: No user ID — empty leads');
+        window._leads = []; 
+        return; 
+      }
+      console.log('🔍 loadLeads: Querying Firestore...');
       const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
+      console.log('🔍 loadLeads: Got', snap.docs.length, 'docs from Firestore');
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .filter(l => !l.deleted)
@@ -416,8 +423,10 @@
           const tb = b.createdAt?.toDate?.()?.getTime() || 0;
           return tb - ta;
         });
+      console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
+      console.log('📊 window._leads:', window._leads);
     } catch(e) {
-      console.error('loadLeads failed:', e.message);
+      console.error('❌ loadLeads failed:', e.message, e.code, e);
       window._leads = [];
     }
     // Load photo cache for thumbnails
