@@ -118,6 +118,35 @@ function renderLeads(leads, filtered){
   setEl('statClosed','$'+closedRev.toLocaleString());
   const lb=document.getElementById('leadBadge'); if(lb) lb.textContent=all.length;
 
+  // Show/hide Load Sample Data button (only when zero leads)
+  const sampleBtn = document.getElementById('loadSampleDataBtn');
+  if (sampleBtn) {
+    sampleBtn.style.display = (all.length === 0) ? 'inline-block' : 'none';
+  }
+
+  // Show diagnostic panel if zero leads and user is authenticated
+  const diagnostic = document.getElementById('crmDiagnostic');
+  const diagnosticDetails = document.getElementById('crmDiagnosticDetails');
+  if (all.length === 0 && window._user?.uid && diagnostic && diagnosticDetails) {
+    const details = [
+      `✓ User authenticated: ${window._user.email}`,
+      `✓ User ID: ${window._user.uid}`,
+      `✓ Database connected: ${window.db ? 'Yes' : 'No'}`,
+      `✓ Leads in memory: ${all.length}`,
+      ``,
+      `Possible causes:`,
+      `1. No leads created yet for this account`,
+      `2. Firestore rules blocking reads (check Firebase Console)`,
+      `3. Network connectivity issue`,
+      ``,
+      `✅ Click "Load Sample Data" to add 5 test leads`
+    ];
+    diagnosticDetails.textContent = details.join('\n');
+    diagnostic.style.display = 'block';
+  } else if (diagnostic) {
+    diagnostic.style.display = 'none';
+  }
+
   // Follow-up overdue
   const today=new Date(); today.setHours(0,0,0,0);
   const overdue = all.filter(l=>{

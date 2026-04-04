@@ -404,17 +404,39 @@
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
+    // Show loading state on kanban
+    const kanbanBoard = document.getElementById('kanbanBoard');
+    if (kanbanBoard && !window._leads?.length) {
+      const loadingHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--m);"><div style="font-size:32px;margin-bottom:12px;">⏳</div><div>Loading leads...</div></div>';
+      kanbanBoard.innerHTML = loadingHTML;
+    }
+    
     try {
       const uid = window._user?.uid;
       console.log('🔍 loadLeads: uid=', uid);
+      console.log('🔍 loadLeads: window._user=', window._user);
+      console.log('🔍 loadLeads: Firebase auth state=', window._auth?.currentUser?.uid);
+      
       if (!uid) { 
-        console.warn('⚠️ loadLeads: No user ID — empty leads');
-        window._leads = []; 
-        return; 
+        console.warn('⚠️ loadLeads: No user ID — waiting for auth...');
+        // Wait a bit for auth to settle
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const retryUid = window._user?.uid;
+        console.log('🔍 loadLeads: Retry after 1s — uid=', retryUid);
+        if (!retryUid) {
+          console.error('❌ loadLeads: Still no user after retry — auth failure');
+          window._leads = [];
+          // Restore kanban empty state
+          if (typeof renderLeads === 'function') renderLeads([]);
+          return;
+        }
       }
-      console.log('🔍 loadLeads: Querying Firestore...');
-      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
+      
+      const finalUid = window._user?.uid;
+      console.log('🔍 loadLeads: Querying Firestore with uid=', finalUid);
+      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',finalUid)));
       console.log('🔍 loadLeads: Got', snap.docs.length, 'docs from Firestore');
+      
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .filter(l => !l.deleted)
@@ -427,6 +449,7 @@
       console.log('📊 window._leads:', window._leads);
     } catch(e) {
       console.error('❌ loadLeads failed:', e.message, e.code, e);
+      console.error('Full error:', e);
       window._leads = [];
     }
     // Load photo cache for thumbnails
@@ -451,6 +474,100 @@
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
   loadLeads().then(()=>{ if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800); });
+
+  // ══════════════════════════════════════════════════════════════
+  // LOAD SAMPLE DATA (for testing when account has zero leads)
+  // ══════════════════════════════════════════════════════════════
+  async function loadSampleData() {
+    if (!window._user?.uid) {
+      showToast('Please sign in first', 'error');
+      return;
+    }
+    
+    const sampleLeads = [
+      {
+        firstName: 'Sarah', lastName: 'Martinez',
+        address: '1234 Oakwood Drive, Cincinnati, OH 45202',
+        phone: '513-555-0123', email: 'sarah.martinez@email.com',
+        damageType: 'Roof - Hail', stage: 'New',
+        jobValue: 8500, source: 'Referral',
+        claimNumber: 'HO-2024-8472',
+        carrier: 'State Farm',
+        notes: 'Called about hail damage from March storm. Needs inspection ASAP.'
+      },
+      {
+        firstName: 'Michael', lastName: 'Chen',
+        address: '5678 Maple Street, Mason, OH 45040',
+        phone: '513-555-0456', email: 'm.chen@email.com',
+        damageType: 'Roof - Wind', stage: 'Inspected',
+        jobValue: 12300, source: 'Door Knock',
+        claimNumber: 'WS-2024-3391',
+        carrier: 'Allstate',
+        notes: 'Inspection complete. Several missing shingles on north slope.'
+      },
+      {
+        firstName: 'Jennifer', lastName: 'Williams',
+        address: '910 Birch Lane, West Chester, OH 45069',
+        phone: '513-555-0789', email: 'jen.williams@email.com',
+        damageType: 'Siding - Hail', stage: 'Estimate Sent',
+        jobValue: 15700, source: 'Web Lead',
+        claimNumber: 'SI-2024-5612',
+        carrier: 'Liberty Mutual',
+        notes: 'Estimate sent 2 days ago. Waiting for adjuster approval.'
+      },
+      {
+        firstName: 'Robert', lastName: 'Thompson',
+        address: '2468 Cedar Court, Hamilton, OH 45011',
+        phone: '513-555-0321', email: 'rob.thompson@email.com',
+        damageType: 'Full Exterior', stage: 'Approved',
+        jobValue: 24500, source: 'Referral',
+        claimNumber: 'FE-2024-7823',
+        carrier: 'Nationwide',
+        notes: 'Full exterior replacement approved. Scheduling start date.'
+      },
+      {
+        firstName: 'Emily', lastName: 'Davis',
+        address: '1357 Pine Ridge Road, Lebanon, OH 45036',
+        phone: '513-555-0654', email: 'emily.davis@email.com',
+        damageType: 'Gutters', stage: 'In Progress',
+        jobValue: 3200, source: 'Door Knock',
+        claimNumber: 'GU-2024-9104',
+        carrier: 'Farmers',
+        notes: 'Gutter replacement in progress. 60% complete.'
+      }
+    ];
+
+    try {
+      showToast('Loading sample data...', 'info');
+      const batch = [];
+      
+      for (const lead of sampleLeads) {
+        const docRef = await addDoc(collection(db, 'leads'), {
+          ...lead,
+          userId: window._user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          deleted: false
+        });
+        batch.push(docRef.id);
+      }
+      
+      console.log('✅ Created', batch.length, 'sample leads');
+      showToast(`✅ Added ${batch.length} sample leads to your CRM`, 'success');
+      
+      // Reload leads and refresh kanban
+      await loadLeads();
+      
+      // Hide the sample data button
+      const btn = document.getElementById('loadSampleDataBtn');
+      if (btn) btn.style.display = 'none';
+      
+    } catch (error) {
+      console.error('❌ loadSampleData error:', error);
+      showToast('Failed to load sample data: ' + error.message, 'error');
+    }
+  }
+  window.loadSampleData = loadSampleData;
 
   function calculateWeeklyStats() {
     const weekAgo = new Date();
@@ -3021,6 +3138,11 @@ window.nbdNavToggle = nbdNavToggle;
           🗑 Deleted
           <span class="trash-count-badge" id="trashCountBadge"></span>
         </button>
+        <button class="btn btn-ghost" id="loadSampleDataBtn" onclick="loadSampleData()" 
+          style="font-size:11px;padding:6px 12px;display:none;background:var(--purple);color:white;" 
+          title="Add 5 sample leads to test the CRM">
+          🎲 Load Sample Data
+        </button>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">⬇ Export CSV</button>
           <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
@@ -3080,6 +3202,20 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- FOLLOW-UP ALERTS (collapsed by default) -->
     <div id="followUpAlerts" style="display:none;padding:0 16px 8px;"></div>
+
+    <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
+    <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
+      <div style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>
+      <div style="font-size:13px;color:var(--t);line-height:1.6;margin-bottom:16px;">
+        Your kanban isn't loading. Here's what we're seeing:
+      </div>
+      <div id="crmDiagnosticDetails" style="font-family:monospace;font-size:11px;background:var(--s1);padding:12px;border-radius:4px;color:var(--m);margin-bottom:16px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-orange" onclick="loadSampleData()">🎲 Load Sample Data</button>
+        <button class="btn btn-ghost" onclick="location.reload()">🔄 Reload Page</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('crmDiagnostic').style.display='none'">✕ Dismiss</button>
+      </div>
+    </div>
 
     <!-- KANBAN BOARD -->
     <div class="kanban-board" id="kanbanBoard">
