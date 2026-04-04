@@ -1509,6 +1509,11 @@ window.saveZone = saveZone;
 window.deleteZone = deleteZone;
 window.selectZoneColor = selectZoneColor;
 window.toggleOverlay = toggleOverlay;
+// Pin popup actions
+window.goToLeadFromPin = goToLeadFromPin;
+window.deleteLeadFromPin = deleteLeadFromPin;
+window.makeLeadFromPin = makeLeadFromPin;
+window.deletePinOnly = deletePinOnly;
 // Note: damagNearMe is an alias for spyglassGoToLocation
 window.damagNearMe = spyglassGoToLocation;
 

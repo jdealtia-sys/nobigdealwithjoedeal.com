@@ -7449,45 +7449,51 @@ window.selectTier = selectTier;
 // window.deleteZone = deleteZone;
 // window.selectZoneColor = selectZoneColor;
 window.loadSampleData = loadSampleData;
-window.handleCardClick = handleCardClick;
+// window.handleCardClick = handleCardClick; // Exposed by crm.js
 // Map Overlay System
 // window.toggleOverlay = toggleOverlay;
-// Delete confirm
-window.cancelDeleteConfirm = cancelDeleteConfirm;
-window.confirmDeleteLead = confirmDeleteLead;
-// Deleted drawer
-window.openDeletedDrawer = openDeletedDrawer;
-window.closeDeletedDrawer = closeDeletedDrawer;
-window.restoreDeletedLead = restoreDeletedLead;
-window.permanentDeleteLead = permanentDeleteLead;
-// Pin popup actions
-window.goToLeadFromPin = goToLeadFromPin;
-window.deleteLeadFromPin = deleteLeadFromPin;
-window.makeLeadFromPin = makeLeadFromPin;
-window.deletePinOnly = deletePinOnly;
-window.dropPinByAddress = dropPinByAddress;
-window.drop = drop;
-window.openPinConfirm = openPinConfirm;
-window.cancelPinConfirm = cancelPinConfirm;
-window.commitPin = commitPin;
-// Autocomplete
-window.selectAcItem = selectAcItem;
-window.hideAcDrop = hideAcDrop;
-// Make Lead from Map
-window.makeLeadFromSearch = makeLeadFromSearch;
-window.fetchPropertyIntel = fetchPropertyIntel;
-window.pullIntelForModal = pullIntelForModal;
-// Storm
-window.loadStorm = loadStorm;
-// Drawing tool
-window.searchDraw = searchDraw;
-window.selLT = selLT;
-window.toggleDraw = toggleDraw;
-window.clearDraw = clearDraw;
-window.undoLine = undoLine;
-window.deleteLine = deleteLine;
-window.exportDrawReport = exportDrawReport;
-window.importToEstimate = importToEstimate;
+// ══════════════════════════════════════════════════════════════════
+// FORWARD REFERENCES REMOVED - Functions exposed by their own modules
+// All assignments below moved to crm.js, maps.js, etc.
+// ══════════════════════════════════════════════════════════════════
+// Delete confirm - in crm.js
+// window.cancelDeleteConfirm = cancelDeleteConfirm;
+// window.confirmDeleteLead = confirmDeleteLead;
+// Deleted drawer - in crm.js
+// window.openDeletedDrawer = openDeletedDrawer;
+// window.closeDeletedDrawer = closeDeletedDrawer;
+// window.restoreDeletedLead = restoreDeletedLead;
+// window.permanentDeleteLead = permanentDeleteLead;
+// Pin popup actions - in maps.js
+// window.goToLeadFromPin = goToLeadFromPin;
+// window.deleteLeadFromPin = deleteLeadFromPin;
+// window.makeLeadFromPin = makeLeadFromPin;
+// window.deletePinOnly = deletePinOnly;
+// window.dropPinByAddress = dropPinByAddress;
+// window.drop = drop;
+// window.openPinConfirm = openPinConfirm;
+// window.cancelPinConfirm = cancelPinConfirm;
+// window.commitPin = commitPin;
+// Autocomplete - in dashboard.html below
+// window.selectAcItem = selectAcItem;
+// window.hideAcDrop = hideAcDrop;
+// Make Lead from Map - in maps.js
+// window.makeLeadFromSearch = makeLeadFromSearch;
+// window.fetchPropertyIntel = fetchPropertyIntel;
+// window.pullIntelForModal = pullIntelForModal;
+// Storm - in maps.js
+// window.loadStorm = loadStorm;
+// Drawing tool - in maps.js
+// window.searchDraw = searchDraw;
+// window.selLT = selLT;
+// window.toggleDraw = toggleDraw;
+// window.clearDraw = clearDraw;
+// window.undoLine = undoLine;
+// window.deleteLine = deleteLine;
+// window.exportDrawReport = exportDrawReport;
+// window.importToEstimate = importToEstimate;
+// ══════════════════════════════════════════════════════════════════
+
 window.setDrawMode = setDrawMode;
 window.perimChooseType = perimChooseType;
 window.selectLine = selectLine;
