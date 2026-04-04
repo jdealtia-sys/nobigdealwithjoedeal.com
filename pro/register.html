@@ -88,10 +88,19 @@
         company:   company || '',
         email,
         role:      'member',
-        plan:      'blueprint',
+        plan:      'professional',
         accessCode: code.toUpperCase().trim(),
         createdAt: serverTimestamp(),
         onboarded: false
+      });
+
+      // Write subscription record — required for dashboard access gate
+      await setDoc(doc(db, 'subscriptions', cred.user.uid), {
+        plan:      'professional',
+        status:    'active',
+        createdAt: serverTimestamp(),
+        source:    'registration',
+        accessCode: code.toUpperCase().trim()
       });
 
       okEl.textContent = 'Account created! Taking you to your dashboard...';
@@ -142,10 +151,19 @@
           company:    '',
           email:      user.email,
           role:       'member',
-          plan:       'blueprint',
+          plan:       'professional',
           accessCode: code.toUpperCase().trim(),
           createdAt:  serverTimestamp(),
           onboarded:  false
+        });
+
+        // Write subscription record — required for dashboard access gate
+        await setDoc(doc(db, 'subscriptions', user.uid), {
+          plan:      'professional',
+          status:    'active',
+          createdAt: serverTimestamp(),
+          source:    'registration',
+          accessCode: code.toUpperCase().trim()
         });
       }
 
