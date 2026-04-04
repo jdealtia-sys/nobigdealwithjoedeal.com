@@ -1081,29 +1081,30 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .sidebar{width:200px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow-y:auto;}
 .sidebar::-webkit-scrollbar{width:3px;}.sidebar::-webkit-scrollbar-thumb{background:var(--br);}
 .nlabel{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--m);padding:14px 16px 5px;margin-top:4px;}
-.ni{display:flex;align-items:center;gap:9px;padding:9px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:2px solid transparent;transition:all .15s;user-select:none;}
-.ni:hover{color:var(--t);background:var(--s2);}
-.ni.active{color:var(--orange);background:rgba(200,84,26,.08);border-left-color:var(--orange);font-weight:500;}
-.ni-icon{font-size:14px;width:18px;text-align:center;}
-.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;}
+.ni{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:3px solid transparent;transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;position:relative;min-height:40px;}
+.ni:hover{color:var(--t);background:var(--s2);transform:translateX(2px);}
+.ni.active{color:var(--orange);background:rgba(200,84,26,.1);border-left-color:var(--orange);font-weight:600;}
+.ni.active .ni-icon{transform:scale(1.1);}
+.ni-icon{font-size:15px;width:20px;text-align:center;transition:transform .2s;}
+.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:2px 7px;min-width:18px;text-align:center;}
 .health-indicator{
-  display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;
-  transition:all .3s ease;opacity:0;
+  display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:7px;
+  transition:all .3s ease;opacity:0;box-shadow:0 0 0 0 currentColor;
 }
 .health-indicator.loading{background:#fbbf24;opacity:1;animation:pulse 1.5s infinite;}
-.health-indicator.healthy{background:#10b981;opacity:1;}
-.health-indicator.error{background:#ef4444;opacity:1;animation:pulse 1.5s infinite;}
+.health-indicator.healthy{background:#10b981;opacity:1;box-shadow:0 0 8px rgba(16,185,129,.4);}
+.health-indicator.error{background:#ef4444;opacity:1;animation:pulse 1.5s infinite;box-shadow:0 0 8px rgba(239,68,68,.4);}
 @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
 
 /* COLLAPSIBLE NAV SECTIONS */
-.nav-section{margin-top:8px;}
-.nav-section-header{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);cursor:pointer;user-select:none;transition:background .15s;}
+.nav-section{margin-top:12px;}
+.nav-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);cursor:pointer;user-select:none;transition:all .18s;border-radius:6px;margin:0 8px;}
 .nav-section-header:hover{background:var(--s2);}
-.nav-section-toggle{font-size:10px;transition:transform .2s;}
-.nav-section-toggle.open{transform:rotate(90deg);}
-.nav-section-content{max-height:0;overflow:hidden;transition:max-height .3s ease;}
-.nav-section-content.open{max-height:500px;}
-.nav-divider{height:1px;background:var(--br);margin:12px 0;}
+.nav-section-toggle{font-size:11px;transition:transform .25s cubic-bezier(0.4, 0, 0.2, 1);opacity:.7;}
+.nav-section-toggle.open{transform:rotate(90deg);opacity:1;}
+.nav-section-content{max-height:0;overflow:hidden;transition:max-height .3s cubic-bezier(0.4, 0, 0.2, 1);}
+.nav-section-content.open{max-height:600px;}
+.nav-divider{height:1px;background:var(--br);margin:16px 0;opacity:.5;}
 
 /* CONTENT */
 .content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
@@ -3367,8 +3368,6 @@ window.nbdNavToggle = nbdNavToggle;
           <option>Siding - Wind</option><option>Gutters</option>
           <option>Full Exterior</option><option>Fire</option><option>Water</option>
         </select>
-        <button class="btn btn-ghost" onclick="exportLeadsCSV()"
-          style="font-size:11px;padding:6px 12px;">📤 CSV</button>
         <button class="btn btn-ghost btn-trash-toggle" onclick="openDeletedDrawer()" title="Deleted Leads" style="position:relative;">
           🗑 Deleted
           <span class="trash-count-badge" id="trashCountBadge"></span>
@@ -3378,8 +3377,8 @@ window.nbdNavToggle = nbdNavToggle;
           title="Add 5 sample leads to test the CRM">
           🎲 Load Sample Data
         </button>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">⬇ Export CSV</button>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
           <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
         </div>
       </div>
@@ -4365,10 +4364,17 @@ const mapInited = {};
 function goTo(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.crm-sec-btn').forEach(btn => btn.classList.remove('active'));
   const view = document.getElementById('view-'+name);
   const nav  = document.getElementById('nav-'+name);
   if(view) view.classList.add('active');
   if(nav)  nav.classList.add('active');
+  // Highlight active secondary toolbar tab
+  const secBtns = document.querySelectorAll('.crm-sec-btn');
+  secBtns.forEach(btn => {
+    const onclick = btn.getAttribute('onclick');
+    if(onclick && onclick.includes(`'${name}'`)) btn.classList.add('active');
+  });
   if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ initMainMap();  mapInited.map=true;   }); }
   if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ initDrawMap();  mapInited.draw=true;  }); }
   if(name==='storm' && !mapInited.storm) { waitForLeaflet(()=>{ initStormMap(); mapInited.storm=true; }); }
@@ -5062,13 +5068,32 @@ function exportEstimate() {
 /* Header bar */
 .crm-header{
   display:flex;justify-content:space-between;align-items:center;
-  padding:16px 20px 10px;flex-shrink:0;
+  padding:18px 24px 12px;flex-shrink:0;
+  border-bottom:1px solid var(--br);
+  background:var(--bg);
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.page-title{
+  font-size:24px;
+  font-weight:700;
+  color:var(--t);
+  font-family:'Barlow Condensed',sans-serif;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.page-sub{
+  font-size:12px;
+  color:var(--m);
+  margin-top:2px;
+  font-weight:500;
 }
 
 /* Secondary toolbar */
 .crm-secondary-header{
-  display:flex;gap:8px;padding:10px 20px 14px;flex-shrink:0;
-  border-bottom:1px solid var(--br);align-items:center;
+  display:flex;gap:4px;padding:0 20px;flex-shrink:0;
+  border-bottom:2px solid var(--br);align-items:flex-end;
   transition:all .25s ease;flex-wrap:nowrap;overflow-x:auto;
   background:var(--bg);
 }
@@ -5077,16 +5102,34 @@ function exportEstimate() {
   border-bottom:none;
 }
 .crm-sec-btn{
-  display:flex;align-items:center;gap:7px;
-  background:var(--s2);border:1px solid var(--br);border-radius:7px;
-  padding:8px 14px;font-size:12px;color:var(--t);cursor:pointer;
-  font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;
-  transition:all .15s ease;white-space:nowrap;flex-shrink:0;
-  font-weight:500;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:transparent;border:none;border-bottom:3px solid transparent;
+  padding:12px 16px 10px;font-size:11px;color:var(--m);cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.05em;
+  transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);white-space:nowrap;flex-shrink:0;
+  font-weight:600;position:relative;
 }
-.crm-sec-btn:hover{background:var(--s3);border-color:var(--orange);transform:translateY(-1px);}
-.crm-sec-icon{font-size:14px;line-height:1;opacity:.9;}
-.crm-sec-label{font-weight:600;}
+.crm-sec-btn:hover{
+  color:var(--t);
+  background:rgba(200,84,26,.05);
+  border-bottom-color:rgba(200,84,26,.3);
+}
+.crm-sec-btn.active{
+  color:var(--orange);
+  border-bottom-color:var(--orange);
+  background:rgba(200,84,26,.08);
+}
+.crm-sec-btn.active .crm-sec-icon{
+  transform:scale(1.15);
+}
+.crm-sec-icon{
+  font-size:17px;
+  line-height:1;
+  opacity:.85;
+  transition:transform .2s;
+}
+.crm-sec-btn.active .crm-sec-icon{opacity:1;}
+.crm-sec-label{font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.08em;}
 
 /* Restore button (shows when secondary header is hidden) */
 .crm-sec-restore{
