@@ -6718,14 +6718,14 @@ function exportEstimate() {
     </tbody>
   </table>
   <div style="margin-top:24px;padding:16px 20px;background:#fff8f5;border:1px solid #fde0d0;border-left:4px solid #C8541A;border-radius:4px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#C8541A;margin-bottom:6px;">NBD Guarantee — ${selectedTier==='best'?'Lifetime Labor Guarantee':selectedTier==='better'?'10-Year Labor Guarantee':'5-Year Labor Guarantee'}</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#C8541A;margin-bottom:6px;">NBD Guarantee — ${selectedTier==='best'?'Elite Lifetime Labor Guarantee':selectedTier==='better'?'Preferred Lifetime Labor Guarantee':'Standard Lifetime Labor Guarantee'}</div>
     <div style="font-size:11px;color:#444;line-height:1.6;">
       ${selectedTier==='best'
-        ? 'This installation is covered by the NBD Elite Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge, for the life of the home. This guarantee is fully transferable to subsequent owners. A signed warranty certificate will be issued upon job completion.'
+        ? 'This installation is covered by the NBD Elite Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge, for the life of the home. This guarantee is fully transferable to all subsequent owners and follows the property. A signed warranty certificate will be issued upon job completion. Annual courtesy inspections included.'
         : selectedTier==='better'
-        ? 'This installation is covered by the NBD Preferred 10-Year Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for 10 years from the date of installation. This guarantee is transferable to one subsequent owner.'
-        : 'This installation is covered by the NBD Standard 5-Year Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for 5 years from the date of installation.'}
-      GAF Timberline shingles carry a separate manufacturer lifetime limited shingle warranty.
+        ? 'This installation is covered by the NBD Preferred Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for the life of the installation. This guarantee is transferable to one subsequent owner. Priority 48-hour callback included.'
+        : 'This installation is covered by the NBD Standard Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for the life of the installation.'}
+      All installations include the GAF Timberline manufacturer lifetime limited shingle warranty. Labor guarantee is backed by Joe Deal personally and recorded on file.
     </div>
   </div>
   <div class="footer">
@@ -8605,7 +8605,7 @@ const DOC_TEMPLATES = {
 <p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (GAF Timberline series), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
 <p><strong>Materials:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Color: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contract Price:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Start Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>NBD Guarantee:</strong> Labor guarantee per package selected — Standard (5-year), Preferred (10-year), or Elite (Lifetime). GAF shingle manufacturer warranty included on all installs. Lifetime guarantee is fully transferable. Signed warranty certificate issued upon completion.</p>
+<p><strong>NBD Guarantee:</strong> Lifetime Labor Guarantee on every install — Standard (NBD backed, no expiration), Preferred (Lifetime + transferable to one owner + 48hr callback), Elite (Lifetime + fully transferable + annual inspection + signed certificate). GAF Timberline shingle manufacturer lifetime warranty included on all installs.</p>
 <p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
 <p>By signing below, homeowner authorizes No Big Deal Home Solutions to perform the above work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
@@ -8631,7 +8631,7 @@ const DOC_TEMPLATES = {
 </div>
 <h2>Guarantee Terms</h2>
 <div class="doc-check-grid">
-  <div class="doc-check-item"><span class="doc-checkbox"></span>Standard — 5-Year Labor Guarantee</div>
+  <div class="doc-check-item"><span class="doc-checkbox"></span>Standard — Lifetime Labor Guarantee</div>
   <div class="doc-check-item"><span class="doc-checkbox"></span>Preferred — 10-Year Labor Guarantee (transferable to 1 owner)</div>
   <div class="doc-check-item"><span class="doc-checkbox"></span>Elite — Lifetime Labor Guarantee (fully transferable)</div>
 </div>
@@ -8722,7 +8722,7 @@ const DOC_TEMPLATES = {
 <p><strong>Work Completed:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Completion Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Invoice #:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Total Contract Amount:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Warranty:</strong> 5-year labor warranty effective <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
+<p><strong>Warranty:</strong> NBD Lifetime Labor Guarantee — effective date of installation. <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p>All work has been completed per the agreed scope of work and to the homeowner's satisfaction.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contractor:</strong> Joe Deal — No Big Deal Home Solutions — (859) 420-7382</p>`
