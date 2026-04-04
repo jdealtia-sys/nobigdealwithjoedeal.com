@@ -5518,23 +5518,35 @@ function showKanbanSkeleton() {
     
     // Create 3 skeleton cards per column
     const skeletonHTML = `
-      <div class="skeleton-card">
-        <div class="skeleton skeleton-header"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
+      <div class="k-card-skeleton">
+        <div class="skeleton k-card-skeleton-header"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="k-card-skeleton-footer">
+          <div class="skeleton k-card-skeleton-tag"></div>
+          <div class="skeleton k-card-skeleton-tag"></div>
+        </div>
       </div>
-      <div class="skeleton-card">
-        <div class="skeleton skeleton-header"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
+      <div class="k-card-skeleton">
+        <div class="skeleton k-card-skeleton-header"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="k-card-skeleton-footer">
+          <div class="skeleton k-card-skeleton-tag"></div>
+          <div class="skeleton k-card-skeleton-tag"></div>
+        </div>
       </div>
-      <div class="skeleton-card">
-        <div class="skeleton skeleton-header"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
+      <div class="k-card-skeleton">
+        <div class="skeleton k-card-skeleton-header"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="skeleton k-card-skeleton-line"></div>
+        <div class="k-card-skeleton-footer">
+          <div class="skeleton k-card-skeleton-tag"></div>
+          <div class="skeleton k-card-skeleton-tag"></div>
+        </div>
       </div>
     `;
     
@@ -5548,9 +5560,9 @@ function showPhotosSkeleton() {
   if (!photosContainer) return;
   
   const skeletonHTML = `
-    <div class="skeleton-grid">
+    <div class="photo-skeleton-grid">
       ${Array(12).fill(0).map(() => `
-        <div class="skeleton skeleton-photo"></div>
+        <div class="skeleton photo-skeleton-item"></div>
       `).join('')}
     </div>
   `;
