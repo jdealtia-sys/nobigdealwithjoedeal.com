@@ -707,7 +707,7 @@ window.applyQMToAdvancedBuilder = function() {
   // Re-render current step
   renderAdvancedStep(est.currentStep);
 
-  alert(\`✓ QM data applied!\n\n\${newItems.length} line items seeded from ${sq} squares.\nReview in the Line Items step.\`);
+  alert(`✓ QM data applied!\n\n${newItems.length} line items seeded from ${sq} squares.\nReview in the Line Items step.`);
 };
 // ── End QM Apply ───────────────────────────────────────────────────────────
 

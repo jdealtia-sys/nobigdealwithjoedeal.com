@@ -7286,13 +7286,11 @@ function exportLeadsCSV() {
     l.firstName||'', l.lastName||'', l.address||'', l.phone||'', l.email||'',
     l.stage||'', l.source||'', l.damageType||'', l.claimStatus||'',
     l.insCarrier||'', l.jobValue||'', l.followUp||'',
-    (l.notes||'').replace(/,/g,';').replace(/
-/g,' '),
+    (l.notes||'').replace(/,/g,';').replace(/\n/g,' '),
     l.createdAt?.toDate ? l.createdAt.toDate().toLocaleDateString() : ''
   ].map(v => `"${String(v).replace(/"/g,'""')}"`));
 
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('
-');
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
