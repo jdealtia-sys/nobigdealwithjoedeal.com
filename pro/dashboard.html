@@ -8370,11 +8370,15 @@ For the address "${fullAddr}", search the auditor, find the parcel, and extract 
 If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
 RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
-    const resp = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 600,
         tools: [{
           type: 'web_search_20250305',
@@ -10836,11 +10840,15 @@ async function sendJoeMessage() {
   }));
 
   try {
-    const resp = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         system: systemPrompt,
         messages: apiMessages

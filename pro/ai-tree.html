@@ -2109,12 +2109,13 @@ For "available" tools (not in user's stack): include them so the user can see wh
 Be specific, honest, and ruthless about overlaps. Flag any two tools that do the same job.`;
 
   try{
-    const resp=await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev',{
+    const _tr=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1000}})
     });
-    const data=await resp.json();
+    const _td=await _tr.json();
+    const data={content:[{text:_td?.candidates?.[0]?.content?.parts?.[0]?.text||''}]};
     const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
     cmpData=JSON.parse(raw);
     cmpLastRun=Date.now();
@@ -2357,12 +2358,13 @@ Respond ONLY with valid JSON array, no markdown, no backticks:
 ]`;
 
   try{
-    const resp=await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev',{
+    const _tr=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1000}})
     });
-    const data=await resp.json();
+    const _td=await _tr.json();
+    const data={content:[{text:_td?.candidates?.[0]?.content?.parts?.[0]?.text||''}]};
     const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
     const parsed=JSON.parse(raw);
 

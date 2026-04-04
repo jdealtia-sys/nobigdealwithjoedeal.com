@@ -1549,13 +1549,16 @@ async function parseAndImport(text) {
 // ── AI CALL ───────────────────────────────────────────
 async function callAI(prompt) {
   try {
-    const res = await fetch(PROXY, {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, maxTokens: 800 }),
+      body: JSON.stringify({
+        contents: [{parts: [{text: prompt}]}],
+        generationConfig: {temperature: 0.3, maxOutputTokens: 800}
+      }),
     });
     const data = await res.json();
-    return data.text || data.response || data.content?.[0]?.text || 'AI unavailable';
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'AI unavailable';
   } catch(e) {
     return 'AI call failed: ' + e.message;
   }

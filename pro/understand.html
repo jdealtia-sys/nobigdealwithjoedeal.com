@@ -1158,9 +1158,9 @@ User profile:
 Return ONLY valid JSON (no markdown, no backticks):
 {"toolEvaluated":"${toolName}","grade":"A"|"B"|"C"|"D"|"F","confidence":0-100,"verdict":"RECOMMENDED"|"NOT RECOMMENDED"|"CONDITIONALLY RECOMMENDED","verdictColor":"#22C55E"|"#F97316"|"#EF4444","headline":"One bold sentence verdict","aiQuote":"One direct AI insight — the thing most people miss about this tool for this use case","detail":"2-3 paragraphs of specific analysis — real features, real limitations","isRightFit":true|false,"notFitReason":"If false — why this tool isn't right","recommendations":[{"rank":1,"name":"Tool Name","grade":"A","confidence":0-100,"tagline":"One line why this is #1","why":"2-3 sentences specific to the user's goals"},{"rank":2,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"},{"rank":3,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"}],"comparison":[{"aspect":"Best For","chosen":"...","recommended":"..."},{"aspect":"Cost","chosen":"...","recommended":"..."},{"aspect":"Effort","chosen":"...","recommended":"..."},{"aspect":"Key Weakness","chosen":"...","recommended":"..."}]}`;
   try{
-    const resp=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:1000}})});
     const data=await resp.json();
-    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    const raw=(data?.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json|```/g,'').trim();
     const result=JSON.parse(raw);
     result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString()};
     renderResult(result);
@@ -1295,9 +1295,9 @@ Teach me everything about "${n}" (Category: ${c||'AI Tool'}).
 Return ONLY valid JSON (no markdown, no backticks):
 {"tagline":"One punchy sentence","pricing":[{"tier":"Free","price":"$0/mo","desc":"What you get"},{"tier":"Pro","price":"$X/mo","desc":"What you get"}],"curve":{"level":1,"label":"Beginner","desc":"One plain sentence about daily use"},"persona":"2 sentences — exactly who this is built for","excels":["bullet 1","bullet 2","bullet 3","bullet 4"],"struggles":["bullet 1","bullet 2","bullet 3"],"bestUse":"2-3 sentences on when it shines with a concrete example","worstUse":"2-3 sentences on when NOT to use it","scenarios":[{"label":"Scenario title","text":"2 sentences real-world story"},{"label":"Scenario 2","text":"2 sentences"},{"label":"Scenario 3","text":"2 sentences"}],"alternatives":["Alt 1","Alt 2","Alt 3","Alt 4"],"altContext":"One sentence on when to pick an alternative"}`;
   try{
-    const resp=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:1000}})});
     const data=await resp.json();
-    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    const raw=(data?.candidates?.[0]?.content?.parts?.[0]?.text||'').replace(/```json|```/g,'').trim();
     const lesson=JSON.parse(raw);
     lessonCache[n]={data:lesson,ts:Date.now()};store();
     if(cacheTxt)cacheTxt.textContent='Fresh — just generated';
