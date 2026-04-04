@@ -661,6 +661,88 @@
   }
   window.copyDebugInfo = copyDebugInfo;
   
+  // Test Firestore Rules
+  async function testFirestoreRules() {
+    if (!window._user?.uid) {
+      showToast('❌ Not authenticated — sign in first', 'error');
+      return;
+    }
+    
+    showToast('Testing Firestore rules...', 'info');
+    const results = [];
+    const uid = window._user.uid;
+    
+    try {
+      // Test 1: Read own leads
+      results.push('Testing: Read leads collection...');
+      const leadsSnap = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
+      results.push(`✅ Read leads: Success (${leadsSnap.docs.length} docs)`);
+      
+      // Test 2: Write to leads
+      results.push('Testing: Write to leads collection...');
+      const testDoc = await addDoc(collection(db, 'leads'), {
+        userId: uid,
+        firstName: 'Test',
+        lastName: 'Rule Check',
+        address: 'Rule Validator',
+        stage: 'New',
+        createdAt: serverTimestamp(),
+        deleted: false,
+        _test: true
+      });
+      results.push(`✅ Write leads: Success (id: ${testDoc.id})`);
+      
+      // Test 3: Delete test doc
+      results.push('Testing: Delete from leads collection...');
+      await deleteDoc(doc(db, 'leads', testDoc.id));
+      results.push(`✅ Delete leads: Success`);
+      
+      // Test 4: Read estimates
+      results.push('Testing: Read estimates collection...');
+      const estSnap = await getDocs(query(collection(db,'estimates'), where('userId','==',uid)));
+      results.push(`✅ Read estimates: Success (${estSnap.docs.length} docs)`);
+      
+      // Test 5: Read photos
+      results.push('Testing: Read photos collection...');
+      const photoSnap = await getDocs(query(collection(db,'photos'), where('userId','==',uid)));
+      results.push(`✅ Read photos: Success (${photoSnap.docs.length} docs)`);
+      
+      results.push('');
+      results.push('🎉 All tests passed! Firestore rules are correctly configured.');
+      
+    } catch(e) {
+      results.push('');
+      results.push(`❌ Test failed: ${e.message}`);
+      results.push(`Error code: ${e.code || 'unknown'}`);
+      
+      if (e.code === 'permission-denied') {
+        results.push('');
+        results.push('⚠️ PERMISSION DENIED — Your Firestore rules are blocking access.');
+        results.push('Fix: Deploy rules from FIRESTORE_RULES.txt in repo');
+        results.push('Firebase Console → Firestore → Rules tab');
+      }
+    }
+    
+    // Show results in diagnostic panel
+    const detailsEl = document.getElementById('crmDiagnosticDetails');
+    if (detailsEl) {
+      detailsEl.textContent = results.join('\n');
+    }
+    
+    // Also log to console
+    console.log('═══ FIRESTORE RULES TEST ═══');
+    results.forEach(r => console.log(r));
+    console.log('═══ END TEST ═══');
+    
+    const lastLine = results[results.length - 1];
+    if (lastLine.includes('passed')) {
+      showToast('✅ Firestore rules test passed!', 'success');
+    } else {
+      showToast('❌ Firestore rules test failed — check diagnostic panel', 'error');
+    }
+  }
+  window.testFirestoreRules = testFirestoreRules;
+  
   // Capture console logs for debug panel
   if (!window._debugLogs) {
     window._debugLogs = [];
@@ -3361,6 +3443,7 @@ window.nbdNavToggle = nbdNavToggle;
       <div style="display:flex;gap:8px;">
         <button class="btn btn-orange" onclick="loadSampleData()">🎲 Load Sample Data</button>
         <button class="btn btn-ghost" onclick="retryLoadLeads()">🔄 Retry Load</button>
+        <button class="btn btn-ghost" onclick="testFirestoreRules()">🔐 Test Rules</button>
         <button class="btn btn-ghost" onclick="copyDebugInfo()">📋 Copy Debug Info</button>
         <button class="btn btn-ghost" onclick="document.getElementById('crmDiagnostic').style.display='none'">✕ Dismiss</button>
       </div>
