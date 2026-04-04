@@ -1074,6 +1074,38 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .so{font-size:11px;color:var(--m);background:none;border:none;cursor:pointer;transition:color .2s;}
 .so:hover{color:var(--orange);}
 
+/* BREADCRUMB NAVIGATION */
+.breadcrumb-container{
+  background:var(--bg);
+  border-bottom:1px solid var(--br);
+  padding:8px 24px;
+  display:flex;
+  align-items:center;
+  min-height:36px;
+}
+.breadcrumb-link{
+  font-size:12px;
+  font-weight:500;
+  color:var(--m);
+  text-decoration:none;
+  cursor:pointer;
+  transition:color .15s;
+}
+.breadcrumb-link:hover{
+  color:var(--orange);
+}
+.breadcrumb-sep{
+  font-size:11px;
+  color:var(--br);
+  margin:0 8px;
+  user-select:none;
+}
+.breadcrumb-current{
+  font-size:12px;
+  font-weight:600;
+  color:var(--t);
+}
+
 /* MAIN LAYOUT */
 .app-body{flex:1;display:flex;overflow:hidden;}
 
@@ -2816,6 +2848,11 @@ window.nbdNavToggle = nbdNavToggle;
 <!-- CONTENT AREA -->
 <div class="content">
 
+  <!-- BREADCRUMB NAVIGATION -->
+  <div class="breadcrumb-container">
+    <nav id="breadcrumb-nav"></nav>
+  </div>
+
   <!-- ══ DASHBOARD ══ -->
   <div class="view active" id="view-dash">
     <div class="view-scroll">
@@ -4358,10 +4395,68 @@ function waitForLeaflet(cb) {
 }
 
 // ══════════════════════════════════════════════
-// NAVIGATION
+// NAVIGATION & URL ROUTING
 // ══════════════════════════════════════════════
 const mapInited = {};
-function goTo(name) {
+
+// Route configuration: maps view names to display labels and parent routes
+const routeConfig = {
+  'dash': { label: 'Dashboard', parent: null },
+  'crm': { label: 'Pipeline', parent: null },
+  'est': { label: 'Estimates', parent: null },
+  'map': { label: 'Maps & Pins', parent: null },
+  'photos': { label: 'Photos', parent: null },
+  'docs': { label: 'Templates', parent: null },
+  'draw': { label: 'Drawing', parent: null },
+  'storm': { label: 'Storm Map', parent: null },
+  'joe': { label: 'Ask Joe', parent: null },
+  'board': { label: 'Leaderboard', parent: null },
+  'settings': { label: 'Settings', parent: null }
+};
+
+// Update breadcrumb navigation
+function updateBreadcrumb(routeName, params = {}) {
+  const breadcrumbEl = document.getElementById('breadcrumb-nav');
+  if (!breadcrumbEl) return;
+  
+  const route = routeConfig[routeName];
+  if (!route) {
+    breadcrumbEl.innerHTML = '';
+    return;
+  }
+  
+  const crumbs = [];
+  
+  // Build breadcrumb trail
+  if (route.parent) {
+    const parentRoute = routeConfig[route.parent];
+    if (parentRoute) {
+      crumbs.push(`<a href="#/${route.parent}" class="breadcrumb-link">${parentRoute.label}</a>`);
+    }
+  }
+  
+  // Add current page
+  crumbs.push(`<span class="breadcrumb-current">${route.label}</span>`);
+  
+  // Add detail params (like lead name, estimate number)
+  if (params.detail) {
+    crumbs.push(`<span class="breadcrumb-current">${params.detail}</span>`);
+  }
+  
+  breadcrumbEl.innerHTML = crumbs.join('<span class="breadcrumb-sep">›</span>');
+}
+
+// Navigate to a view and update URL hash
+function goTo(name, params = {}) {
+  // Update URL hash (without triggering hashchange event)
+  if (!params.skipHash) {
+    const hash = params.id ? `#/${name}/${params.id}` : `#/${name}`;
+    if (window.location.hash !== hash) {
+      window.location.hash = hash;
+    }
+  }
+  
+  // Update UI
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.crm-sec-btn').forEach(btn => btn.classList.remove('active'));
@@ -4369,12 +4464,18 @@ function goTo(name) {
   const nav  = document.getElementById('nav-'+name);
   if(view) view.classList.add('active');
   if(nav)  nav.classList.add('active');
+  
   // Highlight active secondary toolbar tab
   const secBtns = document.querySelectorAll('.crm-sec-btn');
   secBtns.forEach(btn => {
     const onclick = btn.getAttribute('onclick');
     if(onclick && onclick.includes(`'${name}'`)) btn.classList.add('active');
   });
+  
+  // Update breadcrumb
+  updateBreadcrumb(name, params);
+  
+  // View-specific initialization
   if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ initMainMap();  mapInited.map=true;   }); }
   if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ initDrawMap();  mapInited.draw=true;  }); }
   if(name==='storm' && !mapInited.storm) { waitForLeaflet(()=>{ initStormMap(); mapInited.storm=true; }); }
@@ -4382,6 +4483,39 @@ function goTo(name) {
   if(name==='photos') renderPhotoLeads();
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
 }
+
+// Handle browser back/forward navigation
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.slice(1); // Remove #
+  if (!hash || hash === '/') {
+    goTo('dash', { skipHash: true });
+    return;
+  }
+  
+  const parts = hash.split('/').filter(p => p);
+  const routeName = parts[0];
+  const routeId = parts[1];
+  
+  if (routeConfig[routeName]) {
+    goTo(routeName, { id: routeId, skipHash: true });
+  }
+});
+
+// Initialize route on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const hash = window.location.hash.slice(1);
+  if (hash && hash !== '/') {
+    const parts = hash.split('/').filter(p => p);
+    const routeName = parts[0];
+    const routeId = parts[1];
+    if (routeConfig[routeName]) {
+      goTo(routeName, { id: routeId, skipHash: true });
+      return;
+    }
+  }
+  // Default to dashboard
+  goTo('dash', { skipHash: true });
+});
 
 // COLLAPSIBLE NAV SECTIONS
 function toggleNavSection(section) {
