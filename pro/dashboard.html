@@ -411,11 +411,15 @@
       healthBadge.title = 'Loading CRM data...';
     }
     
-    // Show loading state on kanban
+    // Show loading state on kanban columns (not entire board)
     const kanbanBoard = document.getElementById('kanbanBoard');
     if (kanbanBoard && !window._leads?.length) {
-      const loadingHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--m);"><div style="font-size:32px;margin-bottom:12px;">⏳</div><div>Loading leads...</div></div>';
-      kanbanBoard.innerHTML = loadingHTML;
+      // Show loading in each column body instead of replacing entire board
+      const stages = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+      stages.forEach(stage => {
+        const body = document.getElementById('kbody-'+stage);
+        if (body) body.innerHTML = '<div class="k-empty">⏳ Loading...</div>';
+      });
     }
     
     try {
