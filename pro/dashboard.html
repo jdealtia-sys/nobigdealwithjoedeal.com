@@ -205,7 +205,7 @@
     } catch(e) {}
     // If subscription check failed open, show a subtle non-blocking warning
     if (window._subscription?._failOpen) {
-      setTimeout(() => showToast('Subscription check had a hiccup — you're in. Refreshing will resolve it.', 'warning'), 2000);
+      setTimeout(() => showToast('Subscription check had a hiccup - you are in. Refreshing will resolve it.', 'warning'), 2000);
     }
     // Show onboarding for new users — delay enough for all data to settle
     setTimeout(() => {
