@@ -206,6 +206,10 @@
     if (window._subscription?._failOpen) {
       setTimeout(() => showToast('Subscription check had a hiccup — you're in. Refreshing will resolve it.', 'warning'), 2000);
     }
+    // Show onboarding for new users — delay enough for all data to settle
+    setTimeout(() => {
+      if (typeof checkAndShowOnboarding === 'function') checkAndShowOnboarding();
+    }, 1500);
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('userName').textContent   = name;
     document.getElementById('userAvatar').textContent = name[0].toUpperCase();
@@ -5748,6 +5752,131 @@ function exportDrawReport() {
   </div>
 </div>
 
+
+<!-- ══ ONBOARDING MODAL ══ -->
+<div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--s);border:1px solid var(--br);border-radius:14px;width:100%;max-width:480px;padding:32px;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--orange),transparent);"></div>
+
+    <!-- Step indicators -->
+    <div style="display:flex;gap:6px;margin-bottom:24px;" id="onbSteps">
+      <div id="onbDot1" style="flex:1;height:3px;border-radius:2px;background:var(--orange);transition:all .3s;"></div>
+      <div id="onbDot2" style="flex:1;height:3px;border-radius:2px;background:var(--br);transition:all .3s;"></div>
+      <div id="onbDot3" style="flex:1;height:3px;border-radius:2px;background:var(--br);transition:all .3s;"></div>
+    </div>
+
+    <!-- Step 1: Welcome + Company -->
+    <div id="onbStep1">
+      <div style="font-size:32px;margin-bottom:12px;">👋</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Welcome to NBD Pro</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;margin-bottom:8px;" id="onbGreeting">Let's get you set up.</div>
+      <div style="font-size:13px;color:var(--m);margin-bottom:24px;line-height:1.6;">30 seconds. That's all this takes. We'll personalize the platform to your business.</div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Company Name</label>
+        <input type="text" id="onbCompany" placeholder="No Big Deal Home Solutions"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Name</label>
+        <input type="text" id="onbName" placeholder="Joe Deal"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Phone</label>
+        <input type="tel" id="onbPhone" placeholder="(859) 420-7382"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">I'm primarily a...</label>
+        <select id="onbRole"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
+          <option value="owner">Owner / Operator</option>
+          <option value="salesperson">Sales Rep / Canvasser</option>
+          <option value="estimator">Estimator</option>
+          <option value="pm">Project Manager</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <button onclick="onbNext(1)"
+        style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">
+        Continue →
+      </button>
+    </div>
+
+    <!-- Step 2: First Lead prompt -->
+    <div id="onbStep2" style="display:none;">
+      <div style="font-size:32px;margin-bottom:12px;">🎯</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Your Pipeline</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Add Your First Lead</div>
+      <div style="font-size:13px;color:var(--m);margin-bottom:20px;line-height:1.6;">Got a property in mind? Add it now and it'll show up on your pipeline and map. You can always skip this.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <div>
+          <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Property Address</label>
+          <div class="ac-wrap">
+            <input type="text" id="onbAddr" placeholder="123 Main St, Goshen OH..."
+              style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;"
+              autocomplete="off">
+            <div class="ac-drop" id="ac-onbAddr" style="display:none;"></div>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Damage Type</label>
+          <select id="onbDamage"
+            style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
+            <option value="Roof - Hail">Roof — Hail</option>
+            <option value="Roof - Wind">Roof — Wind</option>
+            <option value="Siding - Hail">Siding — Hail</option>
+            <option value="Full Exterior">Full Exterior</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="onbSkipLead()"
+          style="flex:1;background:transparent;color:var(--m);border:1px solid var(--br);border-radius:8px;padding:13px;font-family:inherit;font-size:13px;cursor:pointer;">
+          Skip for now
+        </button>
+        <button onclick="onbSaveLead()"
+          style="flex:2;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:13px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">
+          Add Lead →
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: You're in -->
+    <div id="onbStep3" style="display:none;text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">🚀</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">You're in.</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;margin-bottom:16px;">NBD Pro is live.</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;text-align:left;">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
+          <span style="font-size:18px;">📊</span>
+          <div><div style="font-weight:700;font-size:13px;color:var(--t);">CRM is ready</div><div style="font-size:11px;color:var(--m);">Add leads, track stages, log follow-ups</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
+          <span style="font-size:18px;">📋</span>
+          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Estimate builder is loaded</div><div style="font-size:11px;color:var(--m);">Quick or Advanced — import GAF Quick Measure PDFs</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
+          <span style="font-size:18px;">🤖</span>
+          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Joe AI is watching your pipeline</div><div style="font-size:11px;color:var(--m);">Ask anything — claims, canvassing, closes</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
+          <span style="font-size:18px;">🛡️</span>
+          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Lifetime guarantee system active</div><div style="font-size:11px;color:var(--m);">Every estimate generates the right certificate automatically</div></div>
+        </div>
+      </div>
+
+      <button onclick="onbFinish()"
+        style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;">
+        Open My Dashboard →
+      </button>
+      <div style="font-size:11px;color:var(--m);">Tip: Tap <strong style="color:var(--t);">Ask Joe</strong> on the bottom nav any time — he knows your pipeline.</div>
+    </div>
+
+  </div>
+</div>
 </body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
@@ -9919,6 +10048,127 @@ window.handleQMDrop = handleQMDrop;
 window.handleQMFile = handleQMFile;
 window.applyQMData = applyQMData;
 // ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════
+
+// ══ ONBOARDING FLOW ════════════════════════════════════════════════════
+let _onbStep = 1;
+
+async function checkAndShowOnboarding() {
+  if (!window._user) return;
+  try {
+    const { getDoc, doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const userSnap = await getDoc(doc(window._db, 'users', window._user.uid));
+    const userData = userSnap.exists() ? userSnap.data() : {};
+
+    // Show onboarding if user has never completed it
+    if (!userData.onboarded) {
+      // Pre-fill name from auth
+      const name = window._user.displayName || '';
+      if (name) document.getElementById('onbName').value = name;
+      if (userData.company) document.getElementById('onbCompany').value = userData.company;
+      if (userData.phone) document.getElementById('onbPhone').value = userData.phone;
+      if (userData.phone) { const ph = document.getElementById('onbPhone'); if(ph) ph.value = userData.phone; }
+      if (userData.role) { const rl = document.getElementById('onbRole'); if(rl) rl.value = userData.role; }
+
+      // Personalize greeting
+      const firstName = (name || '').split(' ')[0] || 'there';
+      document.getElementById('onbGreeting').textContent = `Hey ${firstName}, let's get you set up.`;
+
+      const modal = document.getElementById('onboardingModal');
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('onbCompany').focus(), 200);
+
+      // Wire autocomplete for Step 2 address
+      setTimeout(() => initAddressAutocomplete('onbAddr'), 300);
+    }
+  } catch(e) {
+    console.error('Onboarding check error:', e);
+  }
+}
+
+async function onbNext(step) {
+  if (step === 1) {
+    const company = document.getElementById('onbCompany').value.trim();
+    const name = document.getElementById('onbName').value.trim();
+
+    // Save company + display name
+    if (company || name) {
+      try {
+        const { setDoc, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const phone = document.getElementById('onbPhone')?.value?.trim() || '';
+        const role  = document.getElementById('onbRole')?.value || 'owner';
+        const updates = {};
+        if (company) updates.company = company;
+        if (phone) updates.phone = phone;
+        if (role) updates.role = role;
+        if (name) {
+          const parts = name.split(' ');
+          updates.firstName = parts[0] || '';
+          updates.lastName = parts.slice(1).join(' ') || '';
+        }
+        await setDoc(doc(window._db, 'users', window._user.uid), updates, { merge: true });
+
+        // Also update settings UI
+        if (phone) { const sp = document.getElementById('settingsPhone'); if(sp) sp.value = phone; }
+        if (company) { const sc = document.getElementById('settingsCompany'); if(sc) sc.value = company; }
+
+        // Update header display name
+        if (name) {
+          document.getElementById('userName').textContent = name;
+          if (document.getElementById('userAvatar')) document.getElementById('userAvatar').textContent = name[0].toUpperCase();
+          if (window._userSettings) window._userSettings.displayName = name;
+        }
+      } catch(e) { console.error('Onboarding step 1 save error:', e); }
+    }
+
+    // Advance to step 2
+    document.getElementById('onbStep1').style.display = 'none';
+    document.getElementById('onbStep2').style.display = 'block';
+    document.getElementById('onbDot2').style.background = 'var(--orange)';
+    document.getElementById('onbAddr').focus();
+  }
+}
+
+async function onbSaveLead() {
+  const addr = document.getElementById('onbAddr').value.trim();
+  const damage = document.getElementById('onbDamage').value;
+  if (addr) {
+    try {
+      await window._saveLead({
+        address: addr, damageType: damage, source: 'Direct',
+        stage: 'New', firstName: '', lastName: '', phone: '',
+        email: '', notes: '', followUp: '', insCarrier: '',
+        jobValue: '', claimStatus: 'No Claim'
+      });
+      showToast('✓ Lead added to your pipeline', 'success');
+      loadLeads();
+    } catch(e) { console.error('Onboarding lead save error:', e); }
+  }
+  onbShowFinal();
+}
+
+function onbSkipLead() { onbShowFinal(); }
+
+function onbShowFinal() {
+  document.getElementById('onbStep2').style.display = 'none';
+  document.getElementById('onbStep3').style.display = 'block';
+  document.getElementById('onbDot3').style.background = 'var(--orange)';
+}
+
+async function onbFinish() {
+  // Mark onboarded in Firestore
+  try {
+    const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    await setDoc(doc(window._db, 'users', window._user.uid), { onboarded: true }, { merge: true });
+  } catch(e) { console.error('Onboarding finish error:', e); }
+  document.getElementById('onboardingModal').style.display = 'none';
+}
+
+window.onbNext = onbNext;
+window.onbSaveLead = onbSaveLead;
+window.onbSkipLead = onbSkipLead;
+window.onbFinish = onbFinish;
+window.checkAndShowOnboarding = checkAndShowOnboarding;
+// ══ END ONBOARDING ═════════════════════════════════════════════════════
 
 window.startNewEstimate = startNewEstimate;
 window.saveEstimate = saveEstimate;
