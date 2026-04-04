@@ -5067,23 +5067,25 @@ function exportEstimate() {
 
 /* Secondary toolbar */
 .crm-secondary-header{
-  display:flex;gap:6px;padding:6px 20px 12px;flex-shrink:0;
+  display:flex;gap:8px;padding:10px 20px 14px;flex-shrink:0;
   border-bottom:1px solid var(--br);align-items:center;
   transition:all .25s ease;flex-wrap:nowrap;overflow-x:auto;
+  background:var(--bg);
 }
 .crm-secondary-header.hidden{
   max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden;
   border-bottom:none;
 }
 .crm-sec-btn{
-  display:flex;align-items:center;gap:6px;
-  background:var(--s2);border:1px solid var(--br);border-radius:6px;
-  padding:6px 12px;font-size:11px;color:var(--t);cursor:pointer;
-  font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;
+  display:flex;align-items:center;gap:7px;
+  background:var(--s2);border:1px solid var(--br);border-radius:7px;
+  padding:8px 14px;font-size:12px;color:var(--t);cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;
   transition:all .15s ease;white-space:nowrap;flex-shrink:0;
+  font-weight:500;
 }
-.crm-sec-btn:hover{background:var(--s3);border-color:var(--orange);}
-.crm-sec-icon{font-size:13px;line-height:1;}
+.crm-sec-btn:hover{background:var(--s3);border-color:var(--orange);transform:translateY(-1px);}
+.crm-sec-icon{font-size:14px;line-height:1;opacity:.9;}
 .crm-sec-label{font-weight:600;}
 
 /* Restore button (shows when secondary header is hidden) */
