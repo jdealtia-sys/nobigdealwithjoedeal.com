@@ -156,8 +156,11 @@
           createdAt:  serverTimestamp(),
           onboarded:  false
         });
+      }
 
-        // Write subscription record — required for dashboard access gate
+      // Always write/refresh subscription — works for new AND returning Google users
+      const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
+      if(!subSnap.exists() || subSnap.data().status !== 'active') {
         await setDoc(doc(db, 'subscriptions', user.uid), {
           plan:      'professional',
           status:    'active',
