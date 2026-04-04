@@ -7494,64 +7494,71 @@ window.loadSampleData = loadSampleData;
 // window.importToEstimate = importToEstimate;
 // ══════════════════════════════════════════════════════════════════
 
-window.setDrawMode = setDrawMode;
-window.perimChooseType = perimChooseType;
-window.selectLine = selectLine;
-window.deselectLine = deselectLine;
-window.retypeLine = retypeLine;
-window.erToggleSegment = erToggleSegment;
-// Photos
-window.openPhotoFor = openPhotoFor;
-window.closePhotoModal = closePhotoModal;
-// Documents
-window.openUploadDoc = openUploadDoc;
-window.closeUploadDoc = closeUploadDoc;
-window.saveDocUpload = saveDocUpload;
-window.openDocTemplate = openDocTemplate;
-window.printDoc = printDoc;
-window.closeDocViewer = closeDocViewer;
-// Ask Joe AI
-window.sendJoeMessage = sendJoeMessage;
-window.joeQuick = joeQuick;
-window.saveJoeKey = saveJoeKey;
-window.clearJoeKey = clearJoeKey;
-// Misc
-window.openTips = openTips;
-window.closeTips = closeTips;
-window.applyTheme = applyTheme;
-window.goToWithTheme = goToWithTheme;
-window.showToast = showToast;
-// Daily settings
-window.dsAddFloor = dsAddFloor;
-window.dsRemoveFloor = dsRemoveFloor;
-window.dsSaveConfig = dsSaveConfig;
-window.dsResetDefaults = dsResetDefaults;
-// NBD Unified Appearance Picker
-window.nbdPickerOpen = nbdPickerOpen;
-window.nbdPickerClose = nbdPickerClose;
-window.nbdPickerTab = nbdPickerTab;
-window.nbdHowtoOpen = nbdHowtoOpen;
-window.nbdHowtoClose = nbdHowtoClose;
-window.nbdApplyTheme = nbdApplyTheme;
-window.nbdApplyFont = nbdApplyFont;
-window.nbdRandom = nbdRandom;
-window.nbdSaveCustom = nbdSaveCustom;
-window.nbdSetCat = nbdSetCat;
-// Navigation
-window.toggleNavSection = toggleNavSection;
-window.toggleSettingsSection = toggleSettingsSection;
-// CRM Search & Filters
-window.clearCrmSearch = clearCrmSearch;
-// Property Intel
-window.executePullPropertyIntel = executePullPropertyIntel;
-window.confirmPropertyIntelPull = confirmPropertyIntelPull;
-window.closePropertyIntelModal = closePropertyIntelModal;
-window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
-// Notifications
-window.markAllNotificationsRead = markAllNotificationsRead;
-window.markNotificationRead = markNotificationRead;
-window.dsPickTheme = dsPickTheme;
-window.renderLeaderboard = renderLeaderboard;
+// ══════════════════════════════════════════════════════════════════
+// ALL FORWARD REFERENCES BELOW COMMENTED OUT - FUNCTIONS NOT DEFINED YET
+// These assignments will be moved to their respective JS files or
+// added AFTER function definitions later in this file
+// ══════════════════════════════════════════════════════════════════
+// Drawing tool functions - in maps.js
+// window.setDrawMode = setDrawMode;
+// window.perimChooseType = perimChooseType;
+// window.selectLine = selectLine;
+// window.deselectLine = deselectLine;
+// window.retypeLine = retypeLine;
+// window.erToggleSegment = erToggleSegment;
+// Photos - defined later in this file
+// window.openPhotoFor = openPhotoFor;
+// window.closePhotoModal = closePhotoModal;
+// Documents - defined later in this file
+// window.openUploadDoc = openUploadDoc;
+// window.closeUploadDoc = closeUploadDoc;
+// window.saveDocUpload = saveDocUpload;
+// window.openDocTemplate = openDocTemplate;
+// window.printDoc = printDoc;
+// window.closeDocViewer = closeDocViewer;
+// Ask Joe AI - in ai.js
+// window.sendJoeMessage = sendJoeMessage;
+// window.joeQuick = joeQuick;
+// window.saveJoeKey = saveJoeKey;
+// window.clearJoeKey = clearJoeKey;
+// Misc - defined later in this file
+// window.openTips = openTips;
+// window.closeTips = closeTips;
+// window.applyTheme = applyTheme;
+// window.goToWithTheme = goToWithTheme;
+// window.showToast = showToast;
+// Daily settings - defined later in this file
+// window.dsAddFloor = dsAddFloor;
+// window.dsRemoveFloor = dsRemoveFloor;
+// window.dsSaveConfig = dsSaveConfig;
+// window.dsResetDefaults = dsResetDefaults;
+// NBD Unified Appearance Picker - in maps.js or dashboard
+// window.nbdPickerOpen = nbdPickerOpen;
+// window.nbdPickerClose = nbdPickerClose;
+// window.nbdPickerTab = nbdPickerTab;
+// window.nbdHowtoOpen = nbdHowtoOpen;
+// window.nbdHowtoClose = nbdHowtoClose;
+// window.nbdApplyTheme = nbdApplyTheme;
+// window.nbdApplyFont = nbdApplyFont;
+// window.nbdRandom = nbdRandom;
+// window.nbdSaveCustom = nbdSaveCustom;
+// window.nbdSetCat = nbdSetCat;
+// Navigation - defined later in this file
+// window.toggleNavSection = toggleNavSection;
+// window.toggleSettingsSection = toggleSettingsSection;
+// CRM Search - already in crm.js
+// window.clearCrmSearch = clearCrmSearch;
+// Property Intel - defined later in this file
+// window.executePullPropertyIntel = executePullPropertyIntel;
+// window.confirmPropertyIntelPull = confirmPropertyIntelPull;
+// window.closePropertyIntelModal = closePropertyIntelModal;
+// window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
+// Notifications - defined later in this file
+// window.markAllNotificationsRead = markAllNotificationsRead;
+// window.markNotificationRead = markNotificationRead;
+// window.dsPickTheme = dsPickTheme;
+// window.renderLeaderboard = renderLeaderboard;
+// ══════════════════════════════════════════════════════════════════
 
 function toggleMapSidebar(id) {
   const sidebar = document.getElementById(id);
