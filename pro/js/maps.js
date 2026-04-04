@@ -368,6 +368,7 @@ async function searchMap() {
   // Fire intel lookup
   fetchPropertyIntel(data, 'propCardInner');
 }
+window.searchMap = searchMap;
 
 function makeLeadFromSearch() {
   const d = window._lastMapSearch;

@@ -1091,7 +1091,8 @@ window.clearCrmSearch = clearCrmSearch;
 window.restoreCrmSearch = restoreCrmSearch;
 window.openDeletedDrawer = openDeletedDrawer;
 window.closeDeletedDrawer = closeDeletedDrawer;
-window.restoreLead = restoreLead;
-window.permanentlyDelete = permanentlyDelete;
+// restoreLead and permanentlyDelete are defined in dashboard.html as _restoreLead and _permanentDeleteLead
+window.restoreLead = (id) => window._restoreLead(id);
+window.permanentlyDelete = (id) => window._permanentDeleteLead(id);
 
 
