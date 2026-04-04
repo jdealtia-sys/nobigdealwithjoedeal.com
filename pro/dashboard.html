@@ -2745,7 +2745,7 @@ window.nbdNavToggle = nbdNavToggle;
         🔔
         <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:16px;text-align:center;">0</span>
       </button>
-      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;display:flex;flex-direction:column;">
+      <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
           <span>Notifications</span>
           <button style="background:none;border:none;color:var(--orange);font-size:10px;cursor:pointer;font-weight:600;" onclick="markAllNotificationsRead()">Mark all read</button>
@@ -8300,6 +8300,29 @@ if (typeof searchMap === 'function' && !window.searchMap) {
       if (document.getElementById('tierBadge')) window._displayTier?.();
     } catch (e) { console.error('Error updating tier:', e); }
   };
+
+  // ══════════════════════════════════════════════════════════════
+  // NOTIFICATION DROPDOWN TOGGLE
+  // ══════════════════════════════════════════════════════════════
+  function toggleNotificationDropdown() {
+    const dropdown = document.getElementById('notifDropdown');
+    if (!dropdown) return;
+    if (dropdown.style.display === 'flex') {
+      dropdown.style.display = 'none';
+    } else {
+      dropdown.style.display = 'flex';
+    }
+  }
+  window.toggleNotificationDropdown = toggleNotificationDropdown;
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('notifDropdown');
+    const btn = document.getElementById('notifBtn');
+    if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
 </script>
 
 </body>
