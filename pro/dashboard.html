@@ -404,6 +404,13 @@
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
+    // Update health indicator to loading
+    const healthBadge = document.getElementById('crmHealthBadge');
+    if (healthBadge) {
+      healthBadge.className = 'health-indicator loading';
+      healthBadge.title = 'Loading CRM data...';
+    }
+    
     // Show loading state on kanban
     const kanbanBoard = document.getElementById('kanbanBoard');
     if (kanbanBoard && !window._leads?.length) {
@@ -426,6 +433,11 @@
         if (!retryUid) {
           console.error('❌ loadLeads: Still no user after retry — auth failure');
           window._leads = [];
+          // Update health indicator to error
+          if (healthBadge) {
+            healthBadge.className = 'health-indicator error';
+            healthBadge.title = 'CRM Error: Authentication failed';
+          }
           // Restore kanban empty state
           if (typeof renderLeads === 'function') renderLeads([]);
           return;
@@ -447,10 +459,26 @@
         });
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
       console.log('📊 window._leads:', window._leads);
+      
+      // Update health indicator to healthy
+      if (healthBadge) {
+        healthBadge.className = 'health-indicator healthy';
+        healthBadge.title = `CRM Connected • ${window._leads.length} leads loaded`;
+      }
+      
     } catch(e) {
       console.error('❌ loadLeads failed:', e.message, e.code, e);
       console.error('Full error:', e);
       window._leads = [];
+      
+      // Update health indicator to error
+      if (healthBadge) {
+        healthBadge.className = 'health-indicator error';
+        const errorMsg = e.code === 'permission-denied' 
+          ? 'CRM Error: Firestore rules blocking access' 
+          : `CRM Error: ${e.message}`;
+        healthBadge.title = errorMsg;
+      }
     }
     // Load photo cache for thumbnails
     try {
@@ -568,6 +596,105 @@
     }
   }
   window.loadSampleData = loadSampleData;
+
+  // ══════════════════════════════════════════════════════════════
+  // DEBUG CONSOLE HELPERS
+  // ══════════════════════════════════════════════════════════════
+  function toggleDebugConsole() {
+    const console = document.getElementById('debugConsole');
+    const toggle = document.getElementById('debugConsoleToggle');
+    if (!console || !toggle) return;
+    
+    const isHidden = console.style.display === 'none';
+    console.style.display = isHidden ? 'block' : 'none';
+    toggle.textContent = isHidden ? '▼' : '▶';
+    
+    if (isHidden) {
+      // Populate with recent console logs
+      const content = document.getElementById('debugConsoleContent');
+      if (content && window._debugLogs) {
+        content.textContent = window._debugLogs.join('\n');
+      }
+    }
+  }
+  window.toggleDebugConsole = toggleDebugConsole;
+  
+  function retryLoadLeads() {
+    const healthBadge = document.getElementById('crmHealthBadge');
+    if (healthBadge) {
+      healthBadge.className = 'health-indicator loading';
+      healthBadge.title = 'Retrying...';
+    }
+    showToast('Retrying CRM data load...', 'info');
+    loadLeads();
+  }
+  window.retryLoadLeads = retryLoadLeads;
+  
+  function copyDebugInfo() {
+    const debugText = [
+      '═══ NBD PRO CRM DEBUG INFO ═══',
+      '',
+      'User:',
+      `  Email: ${window._user?.email || 'Not authenticated'}`,
+      `  UID: ${window._user?.uid || 'None'}`,
+      '',
+      'Database:',
+      `  Connected: ${window.db ? 'Yes' : 'No'}`,
+      `  Auth State: ${window._auth?.currentUser?.uid || 'No current user'}`,
+      '',
+      'CRM State:',
+      `  Leads in Memory: ${window._leads?.length || 0}`,
+      `  Filtered Leads: ${window._filteredLeads?.length || 'N/A'}`,
+      '',
+      'Console Logs:',
+      ...(window._debugLogs || ['No debug logs captured']),
+      '',
+      '═══ END DEBUG INFO ═══'
+    ].join('\n');
+    
+    navigator.clipboard.writeText(debugText).then(() => {
+      showToast('✅ Debug info copied to clipboard', 'success');
+    }).catch(() => {
+      showToast('❌ Failed to copy — check console', 'error');
+      console.log(debugText);
+    });
+  }
+  window.copyDebugInfo = copyDebugInfo;
+  
+  // Capture console logs for debug panel
+  if (!window._debugLogs) {
+    window._debugLogs = [];
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    
+    console.log = function(...args) {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('🔍') || msg.includes('✅') || msg.includes('❌')) {
+        window._debugLogs.push(`[LOG] ${msg}`);
+        if (window._debugLogs.length > 50) window._debugLogs.shift(); // Keep last 50
+      }
+      originalLog.apply(console, args);
+    };
+    
+    console.warn = function(...args) {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('⚠️')) {
+        window._debugLogs.push(`[WARN] ${msg}`);
+        if (window._debugLogs.length > 50) window._debugLogs.shift();
+      }
+      originalWarn.apply(console, args);
+    };
+    
+    console.error = function(...args) {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('❌')) {
+        window._debugLogs.push(`[ERROR] ${msg}`);
+        if (window._debugLogs.length > 50) window._debugLogs.shift();
+      }
+      originalError.apply(console, args);
+    };
+  }
 
   function calculateWeeklyStats() {
     const weekAgo = new Date();
@@ -859,6 +986,14 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .ni.active{color:var(--orange);background:rgba(200,84,26,.08);border-left-color:var(--orange);font-weight:500;}
 .ni-icon{font-size:14px;width:18px;text-align:center;}
 .nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;}
+.health-indicator{
+  display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;
+  transition:all .3s ease;opacity:0;
+}
+.health-indicator.loading{background:#fbbf24;opacity:1;animation:pulse 1.5s infinite;}
+.health-indicator.healthy{background:#10b981;opacity:1;}
+.health-indicator.error{background:#ef4444;opacity:1;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
 
 /* COLLAPSIBLE NAV SECTIONS */
 .nav-section{margin-top:8px;}
@@ -2537,7 +2672,7 @@ window.nbdNavToggle = nbdNavToggle;
   
   <!-- TIER 1: PRIMARY WORKFLOW -->
   <div class="ni active" onclick="goTo('dash')" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
-  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span></div>
+  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
   <div class="ni" onclick="goTo('est')"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
 
   <div class="nav-divider"></div>
@@ -3210,9 +3345,23 @@ window.nbdNavToggle = nbdNavToggle;
         Your kanban isn't loading. Here's what we're seeing:
       </div>
       <div id="crmDiagnosticDetails" style="font-family:monospace;font-size:11px;background:var(--s1);padding:12px;border-radius:4px;color:var(--m);margin-bottom:16px;"></div>
+      
+      <!-- Debug Console (collapsible) -->
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-ghost" onclick="toggleDebugConsole()" style="font-size:11px;padding:4px 8px;">
+          <span id="debugConsoleToggle">▶</span> Show Debug Console
+        </button>
+      </div>
+      <div id="debugConsole" style="display:none;background:var(--s1);border:1px solid var(--br);border-radius:4px;padding:12px;margin-bottom:16px;max-height:300px;overflow-y:auto;">
+        <div style="font-size:10px;color:var(--m);font-family:monospace;line-height:1.5;" id="debugConsoleContent">
+          Console logs will appear here...
+        </div>
+      </div>
+      
       <div style="display:flex;gap:8px;">
         <button class="btn btn-orange" onclick="loadSampleData()">🎲 Load Sample Data</button>
-        <button class="btn btn-ghost" onclick="location.reload()">🔄 Reload Page</button>
+        <button class="btn btn-ghost" onclick="retryLoadLeads()">🔄 Retry Load</button>
+        <button class="btn btn-ghost" onclick="copyDebugInfo()">📋 Copy Debug Info</button>
         <button class="btn btn-ghost" onclick="document.getElementById('crmDiagnostic').style.display='none'">✕ Dismiss</button>
       </div>
     </div>
