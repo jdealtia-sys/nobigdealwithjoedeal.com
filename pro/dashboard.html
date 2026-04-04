@@ -406,7 +406,25 @@
     try {
       const snap = await getDocs(query(collection(db,'leads'), orderBy('createdAt','desc')));
       window._leads = snap.docs.map(d => ({id:d.id,...d.data()})).filter(l=>!l.deleted);
-    } catch(e) { window._leads = []; }
+    } catch(e) {
+      console.error('loadLeads orderBy failed, trying fallback:', e.message);
+      // Fallback: fetch without orderBy (works even without Firestore index)
+      try {
+        const snap2 = await getDocs(collection(db,'leads'));
+        window._leads = snap2.docs
+          .map(d => ({id:d.id,...d.data()}))
+          .filter(l=>!l.deleted)
+          .sort((a,b)=>{
+            const ta = a.createdAt?.toDate?.()?.getTime() || a.createdAt || 0;
+            const tb = b.createdAt?.toDate?.()?.getTime() || b.createdAt || 0;
+            return tb - ta;
+          });
+        console.log('✓ Leads loaded via fallback:', window._leads.length);
+      } catch(e2) {
+        console.error('loadLeads fallback also failed:', e2.message);
+        window._leads = [];
+      }
+    }
     // Load photo cache for thumbnails
     try {
       const psnap = await getDocs(collection(db,'photos'));
