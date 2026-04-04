@@ -407,26 +407,18 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { window._leads = []; return; }
-      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid), orderBy('createdAt','desc')));
-      window._leads = snap.docs.map(d => ({id:d.id,...d.data()})).filter(l=>!l.deleted);
+      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
+      window._leads = snap.docs
+        .map(d => ({id:d.id,...d.data()}))
+        .filter(l => !l.deleted)
+        .sort((a,b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+          return tb - ta;
+        });
     } catch(e) {
-      console.error('loadLeads orderBy failed, trying fallback:', e.message);
-      // Fallback: fetch without orderBy (works even without Firestore index)
-      try {
-        const snap2 = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
-        window._leads = snap2.docs
-          .map(d => ({id:d.id,...d.data()}))
-          .filter(l=>!l.deleted)
-          .sort((a,b)=>{
-            const ta = a.createdAt?.toDate?.()?.getTime() || a.createdAt || 0;
-            const tb = b.createdAt?.toDate?.()?.getTime() || b.createdAt || 0;
-            return tb - ta;
-          });
-        console.log('✓ Leads loaded via fallback:', window._leads.length);
-      } catch(e2) {
-        console.error('loadLeads fallback also failed:', e2.message);
-        window._leads = [];
-      }
+      console.error('loadLeads failed:', e.message);
+      window._leads = [];
     }
     // Load photo cache for thumbnails
     try {
@@ -596,8 +588,14 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { window._estimates = []; return; }
-      const snap = await getDocs(query(collection(db,'estimates'), where('userId','==',uid), orderBy('createdAt','desc')));
-      window._estimates = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const snap = await getDocs(query(collection(db,'estimates'), where('userId','==',uid)));
+      window._estimates = snap.docs
+        .map(d => ({id:d.id,...d.data()}))
+        .sort((a,b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+          return tb - ta;
+        });
     } catch(e) { window._estimates = []; }
     renderEstimatesList(window._estimates);
   }
@@ -5898,7 +5896,9 @@ async function saveDocUpload(){
 }
 async function loadDocs(){
   try {
-    const snap = await getDocs(query(collection(window._db,'documents'), orderBy('createdAt','desc')));
+    const _duid = window._user?.uid;
+    if (!_duid) { if(wrap) wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No documents yet.</div>'; return; }
+    const snap = await getDocs(query(collection(window._db,'documents'), window.where('userId','==',_duid)));
     const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
     const wrap = document.getElementById('uploadedDocsWrap');
     if(!wrap) return;
