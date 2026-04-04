@@ -1054,6 +1054,13 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 /* SETTINGS */
 .settings-section{margin-bottom:24px;}
+
+/* ── SETTINGS TABS ─────────────────────────────────────────────────── */
+.stab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--m);cursor:pointer;transition:all .15s;white-space:nowrap;margin-bottom:-2px;}
+.stab-btn:hover{color:var(--t);}
+.stab-btn.stab-active{color:var(--orange);border-bottom-color:var(--orange);}
+.stab-panel{animation:fadeIn .15s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .settings-section.collapsible { border: 1px solid var(--br); border-radius: 8px; padding: 0; background: var(--s); }
 .settings-section.collapsible .settings-title { 
   cursor: pointer; 
@@ -3360,918 +3367,230 @@ window.nbdNavToggle = nbdNavToggle;
 
   <!-- ══ SETTINGS ══ -->
   <div class="view" id="view-settings">
-    <div class="view-scroll" style="max-width:600px;">
-      <div class="page-hdr"><div><div class="page-title">Settings</div><div class="page-sub">Account & preferences</div></div></div>
-      
-      <!-- THEME PICKER (Collapsible) -->
-      <div class="settings-section collapsible" id="settings-themes">
-        <div class="settings-title" style="font-size:16px;margin-bottom:0;" onclick="toggleSettingsSection('themes')">Color Theme</div>
-        <div class="settings-section-content">
-        <div style="font-size:12px;color:var(--m);margin-bottom:20px;margin-top:12px;">60 themes — your choice persists across sessions. Changes apply instantly.</div>
-        <div class="theme-grid">
-        <div class="theme-card" data-key="nbd-original" onclick="applyTheme('nbd-original')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#C8541A"></span>
-            <span class="tc-dot" style="background:#0A0C0F"></span>
-            <span class="tc-dot" style="background:#E8EAF0"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#C8541A;width:70%;"></div>
-            <div class="tc-bar" style="background:#E8EAF0;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">NBD Original</div>
-          <div class="tc-active-badge" id="tc-badge-nbd-original">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="midnight" onclick="applyTheme('midnight')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#6366F1"></span>
-            <span class="tc-dot" style="background:#0F0F1A"></span>
-            <span class="tc-dot" style="background:#E2E8F0"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#6366F1;width:70%;"></div>
-            <div class="tc-bar" style="background:#E2E8F0;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Midnight</div>
-          <div class="tc-active-badge" id="tc-badge-midnight">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="cobalt" onclick="applyTheme('cobalt')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#2563EB"></span>
-            <span class="tc-dot" style="background:#0A1628"></span>
-            <span class="tc-dot" style="background:#EFF6FF"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#2563EB;width:70%;"></div>
-            <div class="tc-bar" style="background:#EFF6FF;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Cobalt</div>
-          <div class="tc-active-badge" id="tc-badge-cobalt">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="forest" onclick="applyTheme('forest')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#16A34A"></span>
-            <span class="tc-dot" style="background:#0A1A0F"></span>
-            <span class="tc-dot" style="background:#ECFDF5"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#16A34A;width:70%;"></div>
-            <div class="tc-bar" style="background:#ECFDF5;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Forest</div>
-          <div class="tc-active-badge" id="tc-badge-forest">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="crimson" onclick="applyTheme('crimson')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#DC2626"></span>
-            <span class="tc-dot" style="background:#0F0A0A"></span>
-            <span class="tc-dot" style="background:#FFF1F2"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#DC2626;width:70%;"></div>
-            <div class="tc-bar" style="background:#FFF1F2;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Crimson</div>
-          <div class="tc-active-badge" id="tc-badge-crimson">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="gold" onclick="applyTheme('gold')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#D97706"></span>
-            <span class="tc-dot" style="background:#0F0C04"></span>
-            <span class="tc-dot" style="background:#FFFBEB"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#D97706;width:70%;"></div>
-            <div class="tc-bar" style="background:#FFFBEB;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Gold</div>
-          <div class="tc-active-badge" id="tc-badge-gold">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="plasma" onclick="applyTheme('plasma')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#A855F7"></span>
-            <span class="tc-dot" style="background:#0D0A1A"></span>
-            <span class="tc-dot" style="background:#F5F3FF"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#A855F7;width:70%;"></div>
-            <div class="tc-bar" style="background:#F5F3FF;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Plasma</div>
-          <div class="tc-active-badge" id="tc-badge-plasma">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="arctic" onclick="applyTheme('arctic')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#0EA5E9"></span>
-            <span class="tc-dot" style="background:#04111C"></span>
-            <span class="tc-dot" style="background:#F0F9FF"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#0EA5E9;width:70%;"></div>
-            <div class="tc-bar" style="background:#F0F9FF;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Arctic</div>
-          <div class="tc-active-badge" id="tc-badge-arctic">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="rose" onclick="applyTheme('rose')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#E11D48"></span>
-            <span class="tc-dot" style="background:#120810"></span>
-            <span class="tc-dot" style="background:#FFF1F2"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#E11D48;width:70%;"></div>
-            <div class="tc-bar" style="background:#FFF1F2;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Rose</div>
-          <div class="tc-active-badge" id="tc-badge-rose">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="obsidian" onclick="applyTheme('obsidian')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#71717A"></span>
-            <span class="tc-dot" style="background:#07070A"></span>
-            <span class="tc-dot" style="background:#FAFAFA"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#71717A;width:70%;"></div>
-            <div class="tc-bar" style="background:#FAFAFA;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Obsidian</div>
-          <div class="tc-active-badge" id="tc-badge-obsidian">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="neon" onclick="applyTheme('neon')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00FF88"></span>
-            <span class="tc-dot" style="background:#040A06"></span>
-            <span class="tc-dot" style="background:#F0FFF4"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00FF88;width:70%;"></div>
-            <div class="tc-bar" style="background:#F0FFF4;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Neon</div>
-          <div class="tc-active-badge" id="tc-badge-neon">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="steel" onclick="applyTheme('steel')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#64748B"></span>
-            <span class="tc-dot" style="background:#0C1018"></span>
-            <span class="tc-dot" style="background:#F8FAFC"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#64748B;width:70%;"></div>
-            <div class="tc-bar" style="background:#F8FAFC;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Steel</div>
-          <div class="tc-active-badge" id="tc-badge-steel">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="paper" onclick="applyTheme('paper')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#92400E"></span>
-            <span class="tc-dot" style="background:#FAFAF7"></span>
-            <span class="tc-dot" style="background:#1C1917"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#92400E;width:70%;"></div>
-            <div class="tc-bar" style="background:#1C1917;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Paper</div>
-          <div class="tc-active-badge" id="tc-badge-paper">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="slate" onclick="applyTheme('slate')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#F97316"></span>
-            <span class="tc-dot" style="background:#0F1117"></span>
-            <span class="tc-dot" style="background:#F1F5F9"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#F97316;width:70%;"></div>
-            <div class="tc-bar" style="background:#F1F5F9;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Slate</div>
-          <div class="tc-active-badge" id="tc-badge-slate">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="coffee" onclick="applyTheme('coffee')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#92400E"></span>
-            <span class="tc-dot" style="background:#0F0905"></span>
-            <span class="tc-dot" style="background:#FEF3C7"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#92400E;width:70%;"></div>
-            <div class="tc-bar" style="background:#FEF3C7;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Coffee</div>
-          <div class="tc-active-badge" id="tc-badge-coffee">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="deep-space" onclick="applyTheme('deep-space')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#818CF8"></span>
-            <span class="tc-dot" style="background:#06060F"></span>
-            <span class="tc-dot" style="background:#EEF2FF"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#818CF8;width:70%;"></div>
-            <div class="tc-bar" style="background:#EEF2FF;width:45%;opacity:.5;"></div>
-          </div>
-          <div class="tc-name">Deep Space</div>
-          <div class="tc-active-badge" id="tc-badge-deep-space">✓ Active</div>
-        </div>
+    <div class="view-scroll" style="max-width:640px;padding-bottom:40px;">
 
-        <!-- v5 Extended Themes -->
-        <div style="font-size:11px;color:var(--m);margin:16px 0 10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">+ 44 New Themes</div>
-        <div class="theme-grid">
-        <div class="theme-card" data-key="matrix" onclick="applyTheme('matrix')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00ff41"></span>
-            <span class="tc-dot" style="background:#000300"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00ff41;width:70%;"></div>
-          </div>
-          <div class="tc-name">Matrix</div>
-          <div class="tc-active-badge" id="tc-badge-matrix">✓ Active</div>
+      <!-- ── SETTINGS HEADER ── -->
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Account, appearance &amp; preferences</div>
         </div>
-        <div class="theme-card" data-key="galaxy" onclick="applyTheme('galaxy')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#9c27b0"></span>
-            <span class="tc-dot" style="background:#06000e"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#9c27b0;width:70%;"></div>
-          </div>
-          <div class="tc-name">Galaxy</div>
-          <div class="tc-active-badge" id="tc-badge-galaxy">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ghost" onclick="applyTheme('ghost')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#aab8e0"></span>
-            <span class="tc-dot" style="background:#050810"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#aab8e0;width:70%;"></div>
-          </div>
-          <div class="tc-name">Ghost</div>
-          <div class="tc-active-badge" id="tc-badge-ghost">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="glow" onclick="applyTheme('glow')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff6d00"></span>
-            <span class="tc-dot" style="background:#050200"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff6d00;width:70%;"></div>
-          </div>
-          <div class="tc-name">Glow</div>
-          <div class="tc-active-badge" id="tc-badge-glow">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="batman" onclick="applyTheme('batman')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#f5c518"></span>
-            <span class="tc-dot" style="background:#080808"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#f5c518;width:70%;"></div>
-          </div>
-          <div class="tc-name">Batman</div>
-          <div class="tc-active-badge" id="tc-badge-batman">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="darth-vader" onclick="applyTheme('darth-vader')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#cc0000"></span>
-            <span class="tc-dot" style="background:#000000"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#cc0000;width:70%;"></div>
-          </div>
-          <div class="tc-name">Darth Vader</div>
-          <div class="tc-active-badge" id="tc-badge-darth-vader">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="lightsaber" onclick="applyTheme('lightsaber')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00e5ff"></span>
-            <span class="tc-dot" style="background:#000508"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00e5ff;width:70%;"></div>
-          </div>
-          <div class="tc-name">Lightsaber</div>
-          <div class="tc-active-badge" id="tc-badge-lightsaber">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="pokemon" onclick="applyTheme('pokemon')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ffcc02"></span>
-            <span class="tc-dot" style="background:#1a1a2e"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ffcc02;width:70%;"></div>
-          </div>
-          <div class="tc-name">Pokémon</div>
-          <div class="tc-active-badge" id="tc-badge-pokemon">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="mario" onclick="applyTheme('mario')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e52222"></span>
-            <span class="tc-dot" style="background:#1a0800"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e52222;width:70%;"></div>
-          </div>
-          <div class="tc-name">Mario</div>
-          <div class="tc-active-badge" id="tc-badge-mario">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="zelda" onclick="applyTheme('zelda')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c8a800"></span>
-            <span class="tc-dot" style="background:#060e00"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c8a800;width:70%;"></div>
-          </div>
-          <div class="tc-name">Zelda</div>
-          <div class="tc-active-badge" id="tc-badge-zelda">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="arcade" onclick="applyTheme('arcade')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff0055"></span>
-            <span class="tc-dot" style="background:#000018"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff0055;width:70%;"></div>
-          </div>
-          <div class="tc-name">Arcade</div>
-          <div class="tc-active-badge" id="tc-badge-arcade">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="retro" onclick="applyTheme('retro')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff8c00"></span>
-            <span class="tc-dot" style="background:#120a00"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff8c00;width:70%;"></div>
-          </div>
-          <div class="tc-name">Retro</div>
-          <div class="tc-active-badge" id="tc-badge-retro">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="synthwave" onclick="applyTheme('synthwave')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#f706cf"></span>
-            <span class="tc-dot" style="background:#0d0018"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#f706cf;width:70%;"></div>
-          </div>
-          <div class="tc-name">Synthwave</div>
-          <div class="tc-active-badge" id="tc-badge-synthwave">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="vaporwave" onclick="applyTheme('vaporwave')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff71ce"></span>
-            <span class="tc-dot" style="background:#0a0014"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff71ce;width:70%;"></div>
-          </div>
-          <div class="tc-name">Vaporwave</div>
-          <div class="tc-active-badge" id="tc-badge-vaporwave">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="lofi" onclick="applyTheme('lofi')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c8a878"></span>
-            <span class="tc-dot" style="background:#f2ede4"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c8a878;width:70%;"></div>
-          </div>
-          <div class="tc-name">Lo-Fi</div>
-          <div class="tc-active-badge" id="tc-badge-lofi">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="typewriter" onclick="applyTheme('typewriter')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#1a1208"></span>
-            <span class="tc-dot" style="background:#f0e8d4"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#1a1208;width:70%;"></div>
-          </div>
-          <div class="tc-name">Typewriter</div>
-          <div class="tc-active-badge" id="tc-badge-typewriter">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ink" onclick="applyTheme('ink')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#0f0a04"></span>
-            <span class="tc-dot" style="background:#f5f0e8"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#0f0a04;width:70%;"></div>
-          </div>
-          <div class="tc-name">Ink</div>
-          <div class="tc-active-badge" id="tc-badge-ink">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="blueprint-art" onclick="applyTheme('blueprint-art')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ffffff"></span>
-            <span class="tc-dot" style="background:#001428"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ffffff;width:70%;"></div>
-          </div>
-          <div class="tc-name">Blueprint</div>
-          <div class="tc-active-badge" id="tc-badge-blueprint-art">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="army" onclick="applyTheme('army')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#6a8c2a"></span>
-            <span class="tc-dot" style="background:#060a02"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#6a8c2a;width:70%;"></div>
-          </div>
-          <div class="tc-name">Army</div>
-          <div class="tc-active-badge" id="tc-badge-army">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="cia" onclick="applyTheme('cia')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c8a000"></span>
-            <span class="tc-dot" style="background:#020202"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c8a000;width:70%;"></div>
-          </div>
-          <div class="tc-name">CIA</div>
-          <div class="tc-active-badge" id="tc-badge-cia">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ninja" onclick="applyTheme('ninja')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#cc0000"></span>
-            <span class="tc-dot" style="background:#040400"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#cc0000;width:70%;"></div>
-          </div>
-          <div class="tc-name">Ninja</div>
-          <div class="tc-active-badge" id="tc-badge-ninja">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="halloween" onclick="applyTheme('halloween')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff6d00"></span>
-            <span class="tc-dot" style="background:#080200"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff6d00;width:70%;"></div>
-          </div>
-          <div class="tc-name">Halloween</div>
-          <div class="tc-active-badge" id="tc-badge-halloween">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="christmas" onclick="applyTheme('christmas')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e53935"></span>
-            <span class="tc-dot" style="background:#000e04"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e53935;width:70%;"></div>
-          </div>
-          <div class="tc-name">Christmas</div>
-          <div class="tc-active-badge" id="tc-badge-christmas">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="easter" onclick="applyTheme('easter')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#9c27b0"></span>
-            <span class="tc-dot" style="background:#f0e8f8"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#9c27b0;width:70%;"></div>
-          </div>
-          <div class="tc-name">Easter</div>
-          <div class="tc-active-badge" id="tc-badge-easter">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="underwater" onclick="applyTheme('underwater')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00e5cc"></span>
-            <span class="tc-dot" style="background:#000c14"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00e5cc;width:70%;"></div>
-          </div>
-          <div class="tc-name">Underwater</div>
-          <div class="tc-active-badge" id="tc-badge-underwater">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="volcanic" onclick="applyTheme('volcanic')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff3d00"></span>
-            <span class="tc-dot" style="background:#120000"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff3d00;width:70%;"></div>
-          </div>
-          <div class="tc-name">Volcanic</div>
-          <div class="tc-active-badge" id="tc-badge-volcanic">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="japan" onclick="applyTheme('japan')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c41c24"></span>
-            <span class="tc-dot" style="background:#0a0608"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c41c24;width:70%;"></div>
-          </div>
-          <div class="tc-name">Japan</div>
-          <div class="tc-active-badge" id="tc-badge-japan">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="wildwest" onclick="applyTheme('wildwest')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c87840"></span>
-            <span class="tc-dot" style="background:#120a00"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c87840;width:70%;"></div>
-          </div>
-          <div class="tc-name">Wild West</div>
-          <div class="tc-active-badge" id="tc-badge-wildwest">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="samurai" onclick="applyTheme('samurai')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#cc2200"></span>
-            <span class="tc-dot" style="background:#080208"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#cc2200;width:70%;"></div>
-          </div>
-          <div class="tc-name">Samurai</div>
-          <div class="tc-active-badge" id="tc-badge-samurai">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="android" onclick="applyTheme('android')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#4caf50"></span>
-            <span class="tc-dot" style="background:#0a0f0a"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#4caf50;width:70%;"></div>
-          </div>
-          <div class="tc-name">Android</div>
-          <div class="tc-active-badge" id="tc-badge-android">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ios" onclick="applyTheme('ios')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#0a84ff"></span>
-            <span class="tc-dot" style="background:#000000"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#0a84ff;width:70%;"></div>
-          </div>
-          <div class="tc-name">iOS</div>
-          <div class="tc-active-badge" id="tc-badge-ios">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ios26" onclick="applyTheme('ios26')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#30d158"></span>
-            <span class="tc-dot" style="background:#050508"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#30d158;width:70%;"></div>
-          </div>
-          <div class="tc-name">iOS 26</div>
-          <div class="tc-active-badge" id="tc-badge-ios26">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="windows" onclick="applyTheme('windows')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#0078d4"></span>
-            <span class="tc-dot" style="background:#001828"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#0078d4;width:70%;"></div>
-          </div>
-          <div class="tc-name">Windows</div>
-          <div class="tc-active-badge" id="tc-badge-windows">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="terminal" onclick="applyTheme('terminal')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00ff00"></span>
-            <span class="tc-dot" style="background:#000000"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00ff00;width:70%;"></div>
-          </div>
-          <div class="tc-name">Terminal</div>
-          <div class="tc-active-badge" id="tc-badge-terminal">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="liquid" onclick="applyTheme('liquid')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#78c8e8"></span>
-            <span class="tc-dot" style="background:#080c12"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#78c8e8;width:70%;"></div>
-          </div>
-          <div class="tc-name">Liquid</div>
-          <div class="tc-active-badge" id="tc-badge-liquid">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="metal" onclick="applyTheme('metal')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#c8ccd8"></span>
-            <span class="tc-dot" style="background:#0e0e10"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#c8ccd8;width:70%;"></div>
-          </div>
-          <div class="tc-name">Metal</div>
-          <div class="tc-active-badge" id="tc-badge-metal">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="translucent" onclick="applyTheme('translucent')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e8eeff"></span>
-            <span class="tc-dot" style="background:#030408"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e8eeff;width:70%;"></div>
-          </div>
-          <div class="tc-name">Translucent</div>
-          <div class="tc-active-badge" id="tc-badge-translucent">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="frosted" onclick="applyTheme('frosted')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#5064c8"></span>
-            <span class="tc-dot" style="background:#e8eaf2"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#5064c8;width:70%;"></div>
-          </div>
-          <div class="tc-name">Frosted</div>
-          <div class="tc-active-badge" id="tc-badge-frosted">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="candlelit" onclick="applyTheme('candlelit')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e8820a"></span>
-            <span class="tc-dot" style="background:#0c0600"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e8820a;width:70%;"></div>
-          </div>
-          <div class="tc-name">Candlelit</div>
-          <div class="tc-active-badge" id="tc-badge-candlelit">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="ember" onclick="applyTheme('ember')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff4500"></span>
-            <span class="tc-dot" style="background:#0a0300"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff4500;width:70%;"></div>
-          </div>
-          <div class="tc-name">Ember</div>
-          <div class="tc-active-badge" id="tc-badge-ember">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="midnight-oil" onclick="applyTheme('midnight-oil')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#d4900a"></span>
-            <span class="tc-dot" style="background:#060402"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#d4900a;width:70%;"></div>
-          </div>
-          <div class="tc-name">Midnight Oil</div>
-          <div class="tc-active-badge" id="tc-badge-midnight-oil">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="deep-focus" onclick="applyTheme('deep-focus')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#0d9488"></span>
-            <span class="tc-dot" style="background:#020404"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#0d9488;width:70%;"></div>
-          </div>
-          <div class="tc-name">Deep Focus</div>
-          <div class="tc-active-badge" id="tc-badge-deep-focus">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="neon-rain" onclick="applyTheme('neon-rain')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#ff2d9b"></span>
-            <span class="tc-dot" style="background:#06000e"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#ff2d9b;width:70%;"></div>
-          </div>
-          <div class="tc-name">Neon Rain</div>
-          <div class="tc-active-badge" id="tc-badge-neon-rain">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="noir" onclick="applyTheme('noir')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#d8cfa8"></span>
-            <span class="tc-dot" style="background:#080604"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#d8cfa8;width:70%;"></div>
-          </div>
-          <div class="tc-name">Noir</div>
-          <div class="tc-active-badge" id="tc-badge-noir">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="blood-moon" onclick="applyTheme('blood-moon')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e8001a"></span>
-            <span class="tc-dot" style="background:#080002"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e8001a;width:70%;"></div>
-          </div>
-          <div class="tc-name">Blood Moon</div>
-          <div class="tc-active-badge" id="tc-badge-blood-moon">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="aurora" onclick="applyTheme('aurora')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#00ffc0"></span>
-            <span class="tc-dot" style="background:#020810"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#00ffc0;width:70%;"></div>
-          </div>
-          <div class="tc-name">Aurora</div>
-          <div class="tc-active-badge" id="tc-badge-aurora">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="obsidian-v5" onclick="applyTheme('obsidian-v5')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#8b5cf6"></span>
-            <span class="tc-dot" style="background:#06040a"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#8b5cf6;width:70%;"></div>
-          </div>
-          <div class="tc-name">Obsidian+</div>
-          <div class="tc-active-badge" id="tc-badge-obsidian-v5">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="copper" onclick="applyTheme('copper')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#b87333"></span>
-            <span class="tc-dot" style="background:#0c0800"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#b87333;width:70%;"></div>
-          </div>
-          <div class="tc-name">Copper</div>
-          <div class="tc-active-badge" id="tc-badge-copper">✓ Active</div>
-        </div>
-        <div class="theme-card" data-key="sakura" onclick="applyTheme('sakura')">
-          <div class="tc-dots">
-            <span class="tc-dot" style="background:#e8346c"></span>
-            <span class="tc-dot" style="background:#fff0f4"></span>
-          </div>
-          <div class="tc-bars">
-            <div class="tc-bar" style="background:#e8346c;width:70%;"></div>
-          </div>
-          <div class="tc-name">Sakura</div>
-          <div class="tc-active-badge" id="tc-badge-sakura">✓ Active</div>
-        </div>
-        </div>
-        </div>
+        <span id="tierBadge" style="display:none;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span>
       </div>
 
-      <!-- PROFILE / SETTINGS (existing) -->
-      <div class="settings-section">
-        <div class="settings-title">Profile <span id="tierBadge" style="display:inline-block;margin-left:12px;padding:4px 12px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);"></span></div>
-        <div class="sf-row">
-          <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Jonathan"></div>
-          <div class="sf"><label>Email</label><input type="text" id="settingsEmail" placeholder="you@email.com" disabled style="opacity:.5;"></div>
-        </div>
-        <div class="sf-row">
-          <div class="sf"><label>Company</label><input type="text" id="settingsCompany" placeholder="No Big Deal Home Solutions"></div>
-          <div class="sf"><label>Phone</label><input type="text" id="settingsPhone" placeholder="(513) 555-0100"></div>
-        </div>
-        <button class="btn btn-orange" onclick="window._saveSettings()">Save Profile</button>
-      </div>
-      </div>
+      <!-- ── TAB BAR ── -->
+      <div id="stab-bar" style="display:flex;gap:0;border-bottom:2px solid var(--br);margin-bottom:24px;overflow-x:auto;">
+        <button class="stab-btn stab-active" onclick="switchSettingsTab('profile')" id="stab-profile">👤 Profile</button>
+        <button class="stab-btn" onclick="switchSettingsTab('appearance')" id="stab-appearance">🎨 Appearance</button>
+        <button class="stab-btn" onclick="switchSettingsTab('estimates')" id="stab-estimates">📋 Estimates</button>
+        <button class="stab-btn" onclick="switchSettingsTab('daily')" id="stab-daily">⚡ Daily OS</button>
       </div>
 
-      <!-- CRM SETTINGS (Collapsible) -->
-      <div class="settings-section collapsible" id="settings-crm">
-        <div class="settings-title" onclick="toggleSettingsSection('crm')">CRM & Pipeline</div>
-        <div class="settings-section-content">
-        <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Customize your CRM experience</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:14px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:3px;">Secondary Toolbar</div>
-            <div style="font-size:11px;color:var(--m);">Quick navigation to Estimates, Photos, Docs, Map, Drawing Tool</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label class="toggle-switch">
-              <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-      </div>
+      <!-- ══ TAB: PROFILE ══ -->
+      <div class="stab-panel" id="stab-panel-profile">
 
-      <!-- ESTIMATE DEFAULTS (Collapsible) -->
-      <div class="settings-section collapsible collapsed" id="settings-estimates">
-        <div class="settings-title" onclick="toggleSettingsSection('estimates')">Estimate Defaults</div>
-        <div class="settings-section-content">
-        <div class="sf-row">
-          <div class="sf"><label>Default Pitch</label>
-            <input type="text" id="defPitch" placeholder="8/12">
-          </div>
-          <div class="sf"><label>Default Waste %</label>
-            <input type="text" id="defWaste" placeholder="17%">
-          </div>
-        </div>
-        <div class="sf-row">
-          <div class="sf"><label>Shingle Rate ($/SQ)</label><input type="number" id="rateShingle" value="185"></div>
-          <div class="sf"><label>Tear Off Rate ($/SQ)</label><input type="number" id="rateTear" value="55"></div>
-        </div>
-        <div class="sf-row">
-          <div class="sf"><label>Drip Edge ($/LF)</label><input type="number" id="rateDrip" value="2.10" step="0.01"></div>
-          <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
-        </div>
-        <button class="btn btn-orange" onclick="window._saveEstimateDefaults()" style="margin-top:12px;">💾 Save Estimate Defaults</button>
-        </div>
-      </div>
-      
-      <!-- DAILY PROGRAM SETTINGS (Collapsible) -->
-      <div class="settings-section collapsible collapsed" id="settings-daily">
-        <div class="settings-title" onclick="toggleSettingsSection('daily')">Daily Program</div>
-        <div class="settings-section-content">
-        <div style="font-size:12px;color:var(--m);margin-bottom:18px;">Configure your Daily OS — floors, north star goal, and theme. Changes sync instantly to the Daily Program page.</div>
-
-        <!-- North Star -->
-        <div style="margin-bottom:18px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">⭐ North Star Goal</div>
-          <div class="sf-row">
-            <div class="sf">
-              <label>Focus Category</label>
-              <select id="ds-cat" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
-                <option value="Roofing Sales">Roofing Sales</option>
-                <option value="Storm Restoration">Storm Restoration</option>
-                <option value="General Contractor">General Contractor</option>
-                <option value="Sales Leadership">Sales Leadership</option>
-                <option value="Other">Other</option>
-              </select>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Account</div><div class="panel-title">Your Profile</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Jonathan"></div>
+              <div class="sf"><label>Email</label><input type="text" id="settingsEmail" placeholder="you@email.com" disabled style="opacity:.5;"></div>
             </div>
-            <div class="sf">
-              <label>Deadline</label>
-              <input type="date" id="ds-deadline" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+            <div class="sf-row">
+              <div class="sf"><label>Company</label><input type="text" id="settingsCompany" placeholder="No Big Deal Home Solutions"></div>
+              <div class="sf"><label>Phone</label><input type="text" id="settingsPhone" placeholder="(859) 420-7382"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Role</label>
+                <select id="settingsRole" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
+                  <option>Owner / Operator</option>
+                  <option>Sales Rep</option>
+                  <option>Project Manager</option>
+                  <option>Estimator</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="sf"><label>License #</label><input type="text" id="settingsLicense" placeholder="OH-12345"></div>
+            </div>
+            <button class="btn btn-orange" onclick="window._saveSettings()" style="margin-top:4px;">💾 Save Profile</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">Pipeline Preferences</div></div></div>
+          <div class="panel-body">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Secondary Toolbar</div>
+                <div style="font-size:11px;color:var(--m);">Quick nav to Estimates, Photos, Docs, Map</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
+                <span class="toggle-slider"></span>
+              </label>
             </div>
           </div>
-          <div class="sf" style="margin-top:10px;">
-            <label>Target / Goal Statement</label>
-            <input type="text" id="ds-target" placeholder="e.g. Close $500K in storm claims by end of Q2" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--orange);">console.anthropic.com</a> → API Keys.</p>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off"
+                style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
+              <button class="btn btn-orange" onclick="saveJoeKey()">Save Key</button>
+              <button class="btn btn-ghost" onclick="clearJoeKey()" style="font-size:11px;">Clear</button>
+            </div>
+            <div id="joeKeyStatus" style="font-size:11px;color:var(--m);"></div>
           </div>
         </div>
 
-        <!-- Daily Floors -->
-        <div style="margin-bottom:18px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">⬡ Daily Floors</div>
-            <span style="font-size:10px;color:var(--m);">Up to 7 non-negotiables</span>
-          </div>
-          <div style="font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);display:grid;grid-template-columns:1fr 70px 70px 28px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--br);margin-bottom:6px;">
-            <span>Floor Label</span><span style="text-align:center;">Target</span><span style="text-align:center;">Unit</span><span></span>
-          </div>
-          <div id="ds-floor-editor"></div>
-          <button onclick="dsAddFloor()" style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)';" onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)';">+ ADD FLOOR</button>
-        </div>
-
-        <!-- Goose Egg -->
-        <div style="margin-bottom:18px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">🥚 Golden Goose Reward</div>
-          <div class="sf">
-            <label>Your reward for hitting all floors</label>
-            <input type="text" id="ds-goose" placeholder="e.g. 30 min of guilt-free screen time" style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-            <label class="ob-toggle" style="position:relative;width:38px;height:20px;flex-shrink:0;">
-              <input type="checkbox" id="ds-showgoose" checked>
-              <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;"></span>
-            </label>
-            <span style="font-size:12px;color:var(--m);">Show goose reward on daily tracker</span>
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Account</div><div class="panel-title">Danger Zone</div></div></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
+              <button class="btn btn-ghost" onclick="loadSampleData()" style="justify-content:flex-start;gap:8px;">
+                🧪 Load Sample Data
+                <span style="font-size:10px;color:var(--m);margin-left:auto;">Adds 13 demo leads</span>
+              </button>
+              <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
+            </div>
           </div>
         </div>
 
-        <!-- Daily Program Theme -->
-        <div style="margin-bottom:18px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:10px;">🎨 Daily Program Theme</div>
-          <div style="font-size:12px;color:var(--m);margin-bottom:12px;">Separate from your dashboard theme — the Daily Program has its own look.</div>
-          <div id="ds-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;"></div>
+      </div><!-- /stab-panel-profile -->
+
+      <!-- ══ TAB: APPEARANCE ══ -->
+      <div class="stab-panel" id="stab-panel-appearance" style="display:none;">
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Theme</div><div class="panel-title">Color Theme</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">60 themes — changes apply instantly and persist across sessions.</p>
+            <div class="theme-grid" id="settings-theme-grid-tab">
+            <!-- themes injected by renderThemeGrid() -->
+            </div>
+          </div>
         </div>
 
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-orange" onclick="dsSaveConfig()">Save Daily Program Settings</button>
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Fonts</div><div class="panel-title">Typography</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Choose a font pairing for your dashboard.</p>
+            <div id="settings-font-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
+          </div>
+        </div>
+
+      </div><!-- /stab-panel-appearance -->
+
+      <!-- ══ TAB: ESTIMATES ══ -->
+      <div class="stab-panel" id="stab-panel-estimates" style="display:none;">
+
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Estimate Defaults</div><div class="panel-title">Pricing & Measurements</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">These defaults pre-fill every new estimate. Update them to match your current pricing.</p>
+            <div class="sf-row">
+              <div class="sf"><label>Default Pitch</label><input type="text" id="defPitch" placeholder="8/12"></div>
+              <div class="sf"><label>Default Waste %</label><input type="text" id="defWaste" placeholder="17%"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Shingle Rate ($/SQ)</label><input type="number" id="rateShingle" value="185"></div>
+              <div class="sf"><label>Tear Off Rate ($/SQ)</label><input type="number" id="rateTear" value="55"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Drip Edge ($/LF)</label><input type="number" id="rateDrip" value="2.10" step="0.01"></div>
+              <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
+            </div>
+            <button class="btn btn-orange" onclick="window._saveEstimateDefaults()" style="margin-top:8px;">💾 Save Estimate Defaults</button>
+          </div>
+        </div>
+
+      </div><!-- /stab-panel-estimates -->
+
+      <!-- ══ TAB: DAILY OS ══ -->
+      <div class="stab-panel" id="stab-panel-daily" style="display:none;">
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">North Star Goal</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf">
+                <label>Focus Category</label>
+                <select id="ds-cat" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;width:100%;outline:none;">
+                  <option value="Roofing Sales">Roofing Sales</option>
+                  <option value="Storm Restoration">Storm Restoration</option>
+                  <option value="General Contractor">General Contractor</option>
+                  <option value="Sales Leadership">Sales Leadership</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="sf">
+                <label>Deadline</label>
+                <input type="date" id="ds-deadline" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;outline:none;">
+              </div>
+            </div>
+            <div class="sf" style="margin-top:10px;">
+              <label>Target / Goal Statement</label>
+              <input type="text" id="ds-target" placeholder="e.g. Close $500K in storm claims by end of Q2"
+                style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;outline:none;">
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Daily Floors</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Up to 7 non-negotiables — the minimum you show up for every day.</p>
+            <div style="font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);display:grid;grid-template-columns:1fr 70px 70px 28px;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--br);margin-bottom:6px;">
+              <span>Floor Label</span><span style="text-align:center;">Target</span><span style="text-align:center;">Unit</span><span></span>
+            </div>
+            <div id="ds-floor-editor"></div>
+            <button onclick="dsAddFloor()"
+              style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;"
+              onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)';"
+              onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)';">+ ADD FLOOR</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Golden Goose Reward</div></div></div>
+          <div class="panel-body">
+            <div class="sf">
+              <label>Your reward for hitting all floors</label>
+              <input type="text" id="ds-goose" placeholder="e.g. 30 min of guilt-free screen time"
+                style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:8px 10px;color:var(--t);font-size:13px;outline:none;">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+              <label class="ob-toggle" style="position:relative;width:38px;height:20px;flex-shrink:0;">
+                <input type="checkbox" id="ds-showgoose" checked>
+                <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;"></span>
+              </label>
+              <span style="font-size:12px;color:var(--m);">Show goose reward on daily tracker</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Program Theme</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Separate from your dashboard theme — the Daily Program has its own look.</p>
+            <div id="ds-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-orange" onclick="dsSaveConfig()">💾 Save Daily Program Settings</button>
           <button class="btn btn-ghost" onclick="dsResetDefaults()" style="font-size:11px;">↺ Reset to Defaults</button>
-          <a href="/pro/daily-success" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;margin-left:4px;">Open Daily Program ↗</a>
+          <a href="/pro/daily-success" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
-        </div>
-      </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Danger Zone</div>
-        <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
-          <button class="btn btn-ghost" onclick="loadSampleData()" style="justify-content:flex-start;gap:8px;">
-            🧪 Load Sample Data
-            <span style="font-size:10px;color:var(--m);margin-left:auto;">Adds 13 demo leads to your account</span>
-          </button>
-          <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
-        </div>
-      </div>
-    </div>
-  </div>
+      </div><!-- /stab-panel-daily -->
+
+    </div><!-- /view-scroll -->
+  </div><!-- /view-settings -->
 
 </div><!-- /content -->
 </div><!-- /app-body -->
@@ -4650,6 +3969,7 @@ function goTo(name) {
   if(name==='storm' && !mapInited.storm) { waitForLeaflet(()=>{ initStormMap(); mapInited.storm=true; }); }
   if(name==='board') renderLeaderboard();
   if(name==='photos') renderPhotoLeads();
+  if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
 }
 
 // COLLAPSIBLE NAV SECTIONS
@@ -4671,6 +3991,40 @@ function toggleNavSection(section) {
 }
 
 // SETTINGS PAGE COLLAPSIBLE SECTIONS
+function switchSettingsTab(tab) {
+  // Hide all panels
+  document.querySelectorAll('.stab-panel').forEach(p => p.style.display = 'none');
+  // Deactivate all tab buttons
+  document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('stab-active'));
+  // Show selected panel
+  const panel = document.getElementById('stab-panel-' + tab);
+  if (panel) panel.style.display = 'block';
+  // Activate selected tab button
+  const btn = document.getElementById('stab-' + tab);
+  if (btn) btn.classList.add('stab-active');
+
+  // Lazy-load appearance tab content
+  if (tab === 'appearance') {
+    const grid = document.getElementById('settings-theme-grid-tab');
+    if (grid && !grid.dataset.loaded) {
+      // Clone from existing theme-grid
+      const src = document.querySelector('.theme-grid:not(#settings-theme-grid-tab)');
+      if (src) { grid.innerHTML = src.innerHTML; grid.dataset.loaded = '1'; }
+    }
+    const fontGrid = document.getElementById('settings-font-grid');
+    if (fontGrid && !fontGrid.dataset.loaded) {
+      if (typeof renderFontGrid === 'function') renderFontGrid('settings-font-grid');
+      fontGrid.dataset.loaded = '1';
+    }
+  }
+  // Re-init daily floors when switching to daily tab
+  if (tab === 'daily') {
+    if (typeof dsInitEditor === 'function') dsInitEditor();
+    if (typeof dsLoadThemeGrid === 'function') dsLoadThemeGrid();
+  }
+}
+window.switchSettingsTab = switchSettingsTab;
+
 function toggleSettingsSection(section) {
   const container = document.getElementById('settings-'+section);
   if (!container) return;
@@ -10617,10 +9971,16 @@ let _joeTyping   = false;
 function getJoeKey()  { try { return localStorage.getItem(JOE_KEY_STORE)||''; } catch { return ''; } }
 function saveJoeKey() {
   const v = document.getElementById('joeKeyInput')?.value?.trim();
-  if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)'); return; }
+  if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
   try { localStorage.setItem(JOE_KEY_STORE, v); } catch(e){}
+  // Update status display in settings
+  const status = document.getElementById('joeKeyStatus');
+  if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
+  // Clear the input for security
+  const inp = document.getElementById('joeKeyInput');
+  if (inp) inp.value = '';
   initJoeChat();
-  showToast('Joe AI activated ✓');
+  showToast('✓ Joe AI activated', 'success');
 }
 function clearJoeKey() {
   try { localStorage.removeItem(JOE_KEY_STORE); localStorage.removeItem(JOE_CHAT_STORE); } catch(e){}
@@ -11323,6 +10683,13 @@ async function seedDemoEstimates(uid) {
     };
     badge.textContent = tierNames[plan] || plan.toUpperCase();
     badge.style.display = 'inline-block';
+    // Show Joe key status
+    const status = document.getElementById('joeKeyStatus');
+    if (status) {
+      const hasKey = !!getJoeKey();
+      status.textContent = hasKey ? '✓ API key saved — Joe is active' : 'No key saved yet';
+      status.style.color = hasKey ? 'var(--green)' : 'var(--m)';
+    }
   };
 
   window.updateMyTier = async function(newTier) {
