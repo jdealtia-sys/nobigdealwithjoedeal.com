@@ -25,8 +25,8 @@ We're committed to providing the highest quality work at fair prices. If you hav
 Best regards,
 Joe Deal
 No Big Deal Home Solutions
-(513) 555-0100
-joe@nobigdeal.com`
+(859) 420-7382
+jd@nobigdealwithjoedeal.com`
     },
     
     photoReportReady: {
@@ -45,8 +45,8 @@ Please review and let me know if you need any additional documentation.
 Best regards,
 Joe Deal
 No Big Deal Home Solutions
-(513) 555-0100
-joe@nobigdeal.com`
+(859) 420-7382
+jd@nobigdealwithjoedeal.com`
     },
     
     followUp: {
@@ -62,8 +62,8 @@ Our schedule is filling up, so please let me know if you'd like to move forward.
 Best regards,
 Joe Deal
 No Big Deal Home Solutions
-(513) 555-0100
-joe@nobigdeal.com`
+(859) 420-7382
+jd@nobigdealwithjoedeal.com`
     },
     
     inspectionScheduled: {
@@ -82,8 +82,8 @@ See you then!
 
 Joe Deal
 No Big Deal Home Solutions
-(513) 555-0100
-joe@nobigdeal.com`
+(859) 420-7382
+jd@nobigdealwithjoedeal.com`
     }
   },
   

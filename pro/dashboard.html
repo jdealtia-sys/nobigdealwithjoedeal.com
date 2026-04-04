@@ -11277,61 +11277,38 @@ async function seedDemoEstimates(uid) {
 <script src="js/pricing_database_manager.js"></script>
 <script src="js/template_library.js"></script>
 <script src="js/ai_review_system.js"></script>
-<script src="js/email_system.js">
+<script src="js/email_system.js"></script>
+<script>
   // Display subscription tier in settings
   window._displayTier = function() {
     const badge = document.getElementById('tierBadge');
     if (!badge) return;
-    
     const plan = window._userPlan || 'foundation';
     const tierNames = {
       'foundation': '🏗️ Foundation',
-      'blueprint': '📐 Blueprint', 
+      'blueprint': '📐 Blueprint',
       'professional': '💼 Professional'
     };
-    
     badge.textContent = tierNames[plan] || plan.toUpperCase();
     badge.style.display = 'inline-block';
   };
 
-  // ═══ SUBSCRIPTION TIER UPDATE HELPER ═══
-  // Run from console: await window.updateMyTier('foundation')
-  // Valid tiers: 'foundation', 'blueprint', 'professional'
   window.updateMyTier = async function(newTier) {
     const validTiers = ['foundation', 'blueprint', 'professional'];
-    if (!validTiers.includes(newTier)) {
-      console.error('❌ Invalid tier. Use: foundation, blueprint, or professional');
-      return;
-    }
-    
+    if (!validTiers.includes(newTier)) { console.error('Invalid tier'); return; }
     const user = window._auth?.currentUser;
-    if (!user) {
-      console.error('❌ Not logged in');
-      return;
-    }
-    
+    if (!user) { console.error('Not logged in'); return; }
     try {
       const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
       await setDoc(doc(window._db, 'subscriptions', user.uid), {
-        status: 'active',
-        plan: newTier,
-        email: user.email,
+        status: 'active', plan: newTier, email: user.email,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      
       window._userPlan = newTier;
       window._subscription = { plan: newTier, status: 'active' };
-      
-      console.log(`✅ Tier updated to: ${newTier}`);
-      console.log('🔄 Refresh page to see changes');
-      
-      // Update tier badge if on settings page
-      if (document.getElementById('tierBadge')) {
-        window._displayTier?.();
-      }
-    } catch (error) {
-      console.error('❌ Error updating tier:', error);
-    }
+      console.log('✅ Tier updated to:', newTier);
+      if (document.getElementById('tierBadge')) window._displayTier?.();
+    } catch (e) { console.error('Error updating tier:', e); }
   };
 </script>
 

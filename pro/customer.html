@@ -2392,36 +2392,6 @@ window.exportCustomerPDF = async function() {
 // ============================================
 
 
-// Helper: Fetch image as base64 (handles CORS)
-async function fetchImageAsBase64(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      
-      const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-      resolve(dataURL);
-    };
-    
-    img.onerror = function() {
-      reject(new Error('Failed to load image'));
-    };
-    
-    // Firebase Storage URLs need proper CORS handling
-    // Add timestamp to bypass cache if needed
-    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-  });
-}
-
-
-
 // ============================================
 // DOCUMENT UPLOAD SYSTEM
 // ============================================

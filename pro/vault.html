@@ -2676,56 +2676,24 @@ EXTRACTION RULES:
 - CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
 
   try {
-    const response = await fetch(GEMINI_WORKER_URL, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gemini-1.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1 // Low temperature for structured extraction
+        contents: [{parts: [{text: prompt}]}],
+        generationConfig: {temperature: 0.1, maxOutputTokens: 2048}
       })
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Worker error (${response.status}):`, errorText);
-      throw new Error(`Worker returned ${response.status}: ${errorText}`);
+      throw new Error(`Gemini error ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Raw worker response:', data);
+    const jsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    // Worker returns nested structure - try multiple paths
-    let jsonText = '';
-    
-    // Try common response paths
-    if (typeof data === 'string') {
-      jsonText = data;
-    } else if (data.response) {
-      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
-    } else if (data.text) {
-      jsonText = typeof data.text === 'string' ? data.text : JSON.stringify(data.text);
-    } else if (data.content) {
-      jsonText = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
-    } else if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-      // Gemini API format
-      jsonText = data.candidates[0].content.parts[0].text;
-    } else {
-      console.error('Unrecognized worker response format:', data);
-      throw new Error('Cannot find text content in worker response');
-    }
-    
-    if (!jsonText) {
-      console.error('No text content extracted from:', data);
-      throw new Error('Worker returned no content');
-    }
-    
-    console.log('Extracted text:', jsonText);
+    if (!jsonText) throw new Error('Gemini returned no content');
     
     // Strip markdown code fences if present
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -3001,24 +2969,18 @@ Return this exact JSON structure:
     
     // Call Gemini API
     const currentUser = window._currentUser || window._auth?.currentUser;
-    const response = await fetch(GEMINI_WORKER_URL, {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gemini-1.5-flash',
-        messages: [{
-          role: 'user',
-          content: prompt
-        }],
-        temperature: 0.1,
-        uid: currentUser?.uid || 'anonymous',
-        feature: 'vault-analyzer'
+        contents: [{parts: [{text: prompt}]}],
+        generationConfig: {temperature: 0.1, maxOutputTokens: 2048}
       })
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`API error ${response.status}: ${errorText}`);
+      throw new Error(`Gemini error ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();

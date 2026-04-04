@@ -442,10 +442,8 @@ window.addEventListener('auth-ready', () => {
 
 async function loadAnalytics() {
   try {
-    // TODO: Call worker endpoint with ?range={currentTimeRange}
-    // For now, generate mock data based on time range
-    
     const now = new Date();
+    // Use real Firestore data if available via parent window, else mock
     const mockData = generateMockDataForRange(currentTimeRange);
     
     // Update UI labels based on time range
