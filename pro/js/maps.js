@@ -1491,6 +1491,27 @@ window.dsApplyTheme            = nbdApplyTheme;
 window.buildTopbarThemeGrid    = nbdRenderThemes;
 window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full picker replaces it
 
+/* ── EXPOSE MAP FUNCTIONS TO WINDOW ─────────────────────────────── */
+window.searchMap = searchMap;
+window.selectPin = selectPin;
+window.deletePin = deletePin;
+window.clearAllPins = clearAllPins;
+window.damageNearMePhotos = damageNearMePhotos;
+window.toggleMapSidebar = toggleMapSidebar;
+window.spyglassSearch = spyglassSearch;
+window.spyglassGoToLocation = spyglassGoToLocation;
+window.fabToggle = fabToggle;
+window.quickStormCheck = quickStormCheck;
+window.updatePinStats = updatePinStats;
+window.startZoneDraw = startZoneDraw;
+window.cancelZoneDraw = cancelZoneDraw;
+window.saveZone = saveZone;
+window.deleteZone = deleteZone;
+window.selectZoneColor = selectZoneColor;
+window.toggleOverlay = toggleOverlay;
+// Note: damagNearMe is an alias for spyglassGoToLocation
+window.damagNearMe = spyglassGoToLocation;
+
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
   const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('nbd_gt') || localStorage.getItem('ds-theme') || 'default';
