@@ -1275,6 +1275,165 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   font-size:14px;
 }
 
+/* KEYBOARD SHORTCUTS PANEL */
+.shortcuts-panel{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:10001;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px;
+  animation:cmdFadeIn .15s ease-out;
+}
+.shortcuts-modal{
+  position:relative;
+  background:var(--s);
+  border:1px solid var(--br);
+  border-radius:12px;
+  width:100%;
+  max-width:900px;
+  max-height:85vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+  animation:cmdSlideIn .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.shortcuts-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:20px 24px;
+  border-bottom:1px solid var(--br);
+}
+.shortcuts-title{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:24px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--t);
+}
+.shortcuts-subtitle{
+  font-size:12px;
+  color:var(--m);
+  margin-top:2px;
+}
+.shortcuts-close{
+  background:transparent;
+  border:none;
+  color:var(--m);
+  font-size:20px;
+  cursor:pointer;
+  padding:4px 8px;
+  transition:color .15s;
+}
+.shortcuts-close:hover{
+  color:var(--orange);
+}
+.shortcuts-body{
+  flex:1;
+  overflow-y:auto;
+  padding:24px;
+}
+.shortcuts-body::-webkit-scrollbar{width:4px;}
+.shortcuts-body::-webkit-scrollbar-thumb{background:var(--br);}
+.shortcuts-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:24px;
+}
+.shortcuts-section{
+  background:var(--s2);
+  border:1px solid var(--br);
+  border-radius:8px;
+  padding:16px;
+}
+.shortcuts-section-title{
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--orange);
+  margin-bottom:12px;
+  padding-bottom:8px;
+  border-bottom:1px solid var(--br);
+}
+.shortcuts-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+}
+.shortcuts-item:last-child{
+  border-bottom:none;
+}
+.shortcuts-keys{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--m);
+  white-space:nowrap;
+}
+.shortcuts-keys kbd{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  color:var(--t);
+  background:var(--s3);
+  border:1px solid var(--br);
+  border-radius:4px;
+  padding:4px 8px;
+  min-width:28px;
+  text-align:center;
+  box-shadow:0 1px 2px rgba(0,0,0,0.2);
+}
+.shortcuts-desc{
+  font-size:13px;
+  color:var(--m);
+  flex:1;
+  text-align:right;
+}
+.shortcuts-footer{
+  border-top:1px solid var(--br);
+  padding:14px 24px;
+  text-align:center;
+}
+.shortcuts-footer kbd{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  color:var(--t);
+  background:var(--s2);
+  border:1px solid var(--br);
+  border-radius:4px;
+  padding:3px 8px;
+}
+
+/* KEYBOARD HINT BADGES */
+.kbd-hint{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px;
+  font-weight:600;
+  color:var(--m);
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:3px;
+  padding:2px 6px;
+  margin-left:6px;
+  opacity:0;
+  transition:opacity .2s;
+}
+.btn:hover .kbd-hint{
+  opacity:1;
+}
+
 
 /* MAIN LAYOUT */
 .app-body{flex:1;display:flex;overflow:hidden;}
@@ -3080,6 +3239,108 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
 </div>
 
+<!-- KEYBOARD SHORTCUTS REFERENCE PANEL (?) -->
+<div id="shortcutsPanel" class="shortcuts-panel" style="display:none;">
+  <div class="cmd-overlay" onclick="closeShortcutsPanel()"></div>
+  <div class="shortcuts-modal">
+    <div class="shortcuts-header">
+      <div>
+        <div class="shortcuts-title">Keyboard Shortcuts</div>
+        <div class="shortcuts-subtitle">Power user productivity toolkit</div>
+      </div>
+      <button class="shortcuts-close" onclick="closeShortcutsPanel()">✕</button>
+    </div>
+    <div class="shortcuts-body">
+      <div class="shortcuts-grid">
+        
+        <!-- NAVIGATION -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Navigation</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Cmd</kbd> + <kbd>K</kbd></div>
+            <div class="shortcuts-desc">Open command palette</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>?</kbd></div>
+            <div class="shortcuts-desc">Show keyboard shortcuts</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Esc</kbd></div>
+            <div class="shortcuts-desc">Close modal / Cancel</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>/</kbd></div>
+            <div class="shortcuts-desc">Focus search bar</div>
+          </div>
+        </div>
+
+        <!-- QUICK ACTIONS -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Quick Actions</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>C</kbd></div>
+            <div class="shortcuts-desc">Create new lead</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>E</kbd></div>
+            <div class="shortcuts-desc">Create new estimate</div>
+          </div>
+        </div>
+
+        <!-- KANBAN NAVIGATION -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Kanban Columns</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>1</kbd></div>
+            <div class="shortcuts-desc">Scroll to New</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>2</kbd></div>
+            <div class="shortcuts-desc">Scroll to Contacted</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>3</kbd></div>
+            <div class="shortcuts-desc">Scroll to Estimate Sent</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>4</kbd></div>
+            <div class="shortcuts-desc">Scroll to Negotiating</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>5</kbd></div>
+            <div class="shortcuts-desc">Scroll to Approved</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>6</kbd></div>
+            <div class="shortcuts-desc">Scroll to Won</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>7</kbd></div>
+            <div class="shortcuts-desc">Scroll to Lost</div>
+          </div>
+        </div>
+
+        <!-- TOOLS -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Tools</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>↑</kbd> <kbd>↓</kbd></div>
+            <div class="shortcuts-desc">Navigate results</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>↵</kbd></div>
+            <div class="shortcuts-desc">Select / Execute</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="shortcuts-footer">
+      <span style="color:var(--m);font-size:11px;">Press <kbd>?</kbd> anytime to toggle this panel</span>
+    </div>
+  </div>
+</div>
+
 <div class="app-body">
 
 <!-- SIDEBAR NAV -->
@@ -3698,7 +3959,7 @@ window.nbdNavToggle = nbdNavToggle;
         </button>
         <div style="display:flex;gap:8px;margin-left:auto;">
           <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
-          <button class="btn btn-orange" onclick="openLeadModal()">＋ Add Lead</button>
+          <button class="btn btn-orange" onclick="openLeadModal()" title="Keyboard shortcut: C">＋ Add Lead <span class="kbd-hint">C</span></button>
         </div>
       </div>
     </div>
@@ -5020,6 +5281,137 @@ window.addEventListener('DOMContentLoaded', () => {
 // Expose functions to window
 window.openCmdPalette = openCmdPalette;
 window.closeCmdPalette = closeCmdPalette;
+
+
+// ══════════════════════════════════════════════
+// KEYBOARD SHORTCUTS SYSTEM
+// ══════════════════════════════════════════════
+
+// Open/close shortcuts reference panel
+function openShortcutsPanel() {
+  const panel = document.getElementById('shortcutsPanel');
+  panel.style.display = 'flex';
+}
+
+function closeShortcutsPanel() {
+  const panel = document.getElementById('shortcutsPanel');
+  panel.style.display = 'none';
+}
+
+function toggleShortcutsPanel() {
+  const panel = document.getElementById('shortcutsPanel');
+  if (panel.style.display === 'flex') {
+    closeShortcutsPanel();
+  } else {
+    openShortcutsPanel();
+  }
+}
+
+// Scroll to kanban column
+function scrollToColumn(columnIndex) {
+  const columns = ['new', 'contacted', 'est-sent', 'negotiating', 'approved', 'won', 'lost'];
+  if (columnIndex < 1 || columnIndex > columns.length) return;
+  
+  const columnId = 'col-' + columns[columnIndex - 1];
+  const column = document.getElementById(columnId);
+  
+  if (column) {
+    column.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    // Flash highlight
+    column.style.transition = 'background 0.3s';
+    const originalBg = column.style.background;
+    column.style.background = 'rgba(200,84,26,0.1)';
+    setTimeout(() => {
+      column.style.background = originalBg;
+    }, 600);
+  }
+}
+
+// Check if we should ignore keyboard shortcuts (typing in input)
+function shouldIgnoreShortcut() {
+  const activeEl = document.activeElement;
+  if (!activeEl) return false;
+  
+  const tagName = activeEl.tagName.toLowerCase();
+  return (
+    tagName === 'input' || 
+    tagName === 'textarea' || 
+    activeEl.contentEditable === 'true' ||
+    activeEl.isContentEditable
+  );
+}
+
+// Global keyboard shortcuts handler
+document.addEventListener('keydown', (e) => {
+  const cmdPalette = document.getElementById('cmdPalette');
+  const shortcutsPanel = document.getElementById('shortcutsPanel');
+  const isCmdPaletteOpen = cmdPalette && cmdPalette.style.display === 'flex';
+  const isShortcutsPanelOpen = shortcutsPanel && shortcutsPanel.style.display === 'flex';
+  
+  // ? key - Toggle shortcuts panel (works anytime, even in modals)
+  if (e.key === '?' && !shouldIgnoreShortcut()) {
+    e.preventDefault();
+    toggleShortcutsPanel();
+    return;
+  }
+  
+  // Esc key - Close any open modals
+  if (e.key === 'Escape') {
+    if (isShortcutsPanelOpen) {
+      closeShortcutsPanel();
+      return;
+    }
+    // Command palette Esc is handled in its own listener
+  }
+  
+  // Don't process other shortcuts if typing in input or if modal is open
+  if (shouldIgnoreShortcut() || isCmdPaletteOpen || isShortcutsPanelOpen) {
+    return;
+  }
+  
+  // C - New Lead
+  if (e.key === 'c' || e.key === 'C') {
+    e.preventDefault();
+    if (typeof openLeadModal === 'function') {
+      openLeadModal();
+    }
+    return;
+  }
+  
+  // E - New Estimate
+  if (e.key === 'e' || e.key === 'E') {
+    e.preventDefault();
+    goTo('est');
+    if (typeof startNewEstimate === 'function') {
+      setTimeout(() => startNewEstimate(), 100);
+    }
+    return;
+  }
+  
+  // / - Focus search bar (if exists)
+  if (e.key === '/') {
+    e.preventDefault();
+    const searchBar = document.querySelector('input[type="search"], input[placeholder*="Search"]');
+    if (searchBar) {
+      searchBar.focus();
+      searchBar.select();
+    }
+    return;
+  }
+  
+  // 1-7 - Jump to kanban columns
+  if (e.key >= '1' && e.key <= '7') {
+    e.preventDefault();
+    const columnNum = parseInt(e.key);
+    scrollToColumn(columnNum);
+    return;
+  }
+});
+
+// Expose functions
+window.openShortcutsPanel = openShortcutsPanel;
+window.closeShortcutsPanel = closeShortcutsPanel;
+window.toggleShortcutsPanel = toggleShortcutsPanel;
 
 
 // COLLAPSIBLE NAV SECTIONS
