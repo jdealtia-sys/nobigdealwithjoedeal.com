@@ -1658,6 +1658,7 @@ async function loadEstimates(leadId) {
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
             <button onclick="event.stopPropagation();exportCustomerEstimate('${est.id}')" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
+            <button onclick="event.stopPropagation();generateCertFromEstimate('${est.id}')" style="background:transparent;border:1px solid rgba(200,84,26,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:#C8541A;cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
           </div>
         </div>
       `;
@@ -1680,6 +1681,33 @@ async function loadEstimates(leadId) {
     console.error('Error loading estimates:', e);
   }
 }
+
+// ── GENERATE WARRANTY CERT FROM CUSTOMER ESTIMATE ─────────────────────────
+window.generateCertFromEstimate = function(estId) {
+  const est = (window._customerEstimates || []).find(e => e.id === estId);
+  const lead = window._lead || {};
+  if (!est) { alert('Estimate not found'); return; }
+
+  // Map tier to cert tier
+  const tierMap = { best: 'elite', better: 'preferred', good: 'standard' };
+  const certTier = tierMap[est.tier] || 'standard';
+
+  // Open warranty cert wizard pre-filled
+  const w = window.open('/pro/dashboard.html#docs', '_blank');
+  // Pass data via sessionStorage for pickup
+  try {
+    sessionStorage.setItem('_pendingCert', JSON.stringify({
+      owner: `${lead.firstName||''} ${lead.lastName||''}`.trim() || est.owner || '',
+      addr: lead.address || est.addr || '',
+      tier: certTier,
+      work: est.tier === 'best' ? 'Full roof replacement — GAF Timberline UHDZ'
+          : est.tier === 'better' ? 'Roof replacement — GAF Timberline HDZ'
+          : 'Roof replacement — GAF Timberline'
+    }));
+  } catch(e) {}
+  showToast('Opening certificate wizard in dashboard...', 'success');
+};
+// ── END CERT FUNCTION ─────────────────────────────────────────────────────
 
 // ── EXPORT ESTIMATE FROM CUSTOMER PAGE ────────────────────────────────────
 window.exportCustomerEstimate = function(estId) {

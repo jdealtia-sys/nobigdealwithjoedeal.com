@@ -190,6 +190,18 @@
     document.documentElement.style.visibility="visible";
     window._user = user;
     requestNotifPermission();
+    // Pick up pending warranty cert from customer page
+    try {
+      const pending = sessionStorage.getItem('_pendingCert');
+      if (pending) {
+        sessionStorage.removeItem('_pendingCert');
+        const data = JSON.parse(pending);
+        setTimeout(() => {
+          goTo('docs');
+          openWarrantyCertWizard(data);
+        }, 800);
+      }
+    } catch(e) {}
     // If subscription check failed open, show a subtle non-blocking warning
     if (window._subscription?._failOpen) {
       setTimeout(() => showToast('Subscription check had a hiccup — you're in. Refreshing will resolve it.', 'warning'), 2000);
