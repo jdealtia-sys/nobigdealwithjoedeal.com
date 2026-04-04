@@ -3,9 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redirecting...</title>
+<title>NBD Admin</title>
 <script>
-window.location.href = 'login.html';
+// Check session before redirecting
+const SESSION_KEY = 'nbd_admin_session';
+try {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (raw) {
+    const data = JSON.parse(raw);
+    if (data.expires > Date.now()) {
+      // Valid session — go to vault (main admin tool)
+      window.location.href = 'vault.html';
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+      window.location.href = 'login.html';
+    }
+  } else {
+    window.location.href = 'login.html';
+  }
+} catch(e) {
+  window.location.href = 'login.html';
+}
 </script>
 </head>
 <body></body>

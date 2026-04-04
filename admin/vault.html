@@ -24,6 +24,9 @@ const checkSession = () => {
       window.location.replace('login.html');
       return false;
     }
+    // Refresh session expiry on valid visit (rolling 7-day window)
+    data.expires = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
     return true;
   } catch (e) {
     localStorage.removeItem(SESSION_KEY);

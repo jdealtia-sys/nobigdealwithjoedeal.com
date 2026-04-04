@@ -370,7 +370,7 @@ body {
 <script>
 const PASSCODE = 'eternal';
 const SESSION_KEY = 'nbd_admin_session';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // Check existing session on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -434,8 +434,8 @@ function handleLogin(event) {
       
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
       
-      // Show admin links
-      showAdminLinks();
+      // Redirect straight to vault (main admin tool)
+      window.location.href = 'vault.html';
       
       // Clear input
       input.value = '';
