@@ -493,9 +493,23 @@
         window._photoCache[p.leadId].push(p);
       });
     } catch(e) { window._photoCache = {}; }
-    renderLeads(window._leads); restoreCrmSearch();
-    updatePipeline(window._leads);
-    calculateWeeklyStats();
+    if (typeof renderLeads === 'function') {
+      renderLeads(window._leads); 
+      restoreCrmSearch();
+      updatePipeline(window._leads);
+      calculateWeeklyStats();
+    } else {
+      console.warn('⚠️ renderLeads not loaded yet - crm.js may not be loaded');
+      // Retry after crm.js loads
+      setTimeout(() => {
+        if (typeof renderLeads === 'function') {
+          renderLeads(window._leads);
+          restoreCrmSearch();
+          updatePipeline(window._leads);
+          calculateWeeklyStats();
+        }
+      }, 500);
+    }
     // Fire follow-up notifications after leads are fresh
     setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
   }
