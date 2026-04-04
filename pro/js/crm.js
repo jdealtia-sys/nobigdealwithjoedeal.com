@@ -1077,4 +1077,21 @@ async function refreshTrashBadge() {
   } catch(e) {}
 }
 
+// Expose CRM functions to window for onclick handlers
+window.openLeadModal = openLeadModal;
+window.closeLeadModal = closeLeadModal;
+window.saveLead = saveLead;
+window.deleteLead = deleteLead;
+window.editLead = editLead;
+window.moveCard = moveCard;
+window.exportLeadsCSV = exportLeadsCSV;
+window.scrollToFollowUps = scrollToFollowUps;
+window.kanbanFilter = kanbanFilter;
+window.clearCrmSearch = clearCrmSearch;
+window.restoreCrmSearch = restoreCrmSearch;
+window.openDeletedDrawer = openDeletedDrawer;
+window.closeDeletedDrawer = closeDeletedDrawer;
+window.restoreLead = restoreLead;
+window.permanentlyDelete = permanentlyDelete;
+
 
