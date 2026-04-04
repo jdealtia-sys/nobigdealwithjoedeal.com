@@ -411,15 +411,10 @@
       healthBadge.title = 'Loading CRM data...';
     }
     
-    // Show loading state on kanban columns (not entire board)
+    // Show skeleton loading state (replaces old spinner)
     const kanbanBoard = document.getElementById('kanbanBoard');
     if (kanbanBoard && !window._leads?.length) {
-      // Show loading in each column body instead of replacing entire board
-      const stages = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-      stages.forEach(stage => {
-        const body = document.getElementById('kbody-'+stage);
-        if (body) body.innerHTML = '<div class="k-empty">⏳ Loading...</div>';
-      });
+      showKanbanSkeleton();
     }
     
     try {
@@ -1432,6 +1427,101 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 }
 .btn:hover .kbd-hint{
   opacity:1;
+}
+
+
+/* SKELETON LOADING SCREENS */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.skeleton {
+  animation: shimmer 1.5s infinite linear;
+  background: linear-gradient(
+    90deg,
+    var(--s2) 0%,
+    rgba(255,255,255,0.03) 50%,
+    var(--s2) 100%
+  );
+  background-size: 468px 100%;
+  border-radius: 6px;
+}
+
+/* Kanban Card Skeleton */
+.k-card-skeleton {
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 7px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: default;
+}
+
+.k-card-skeleton-header {
+  width: 70%;
+  height: 16px;
+  margin-bottom: 10px;
+}
+
+.k-card-skeleton-line {
+  width: 100%;
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.k-card-skeleton-line:last-child {
+  width: 50%;
+}
+
+.k-card-skeleton-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.k-card-skeleton-tag {
+  width: 60px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+/* Photo Grid Skeleton */
+.photo-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.photo-skeleton-item {
+  aspect-ratio: 1;
+  border-radius: 8px;
+}
+
+/* Estimate Table Skeleton */
+.estimate-skeleton-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.estimate-skeleton-row {
+  border-bottom: 1px solid var(--br);
+}
+
+.estimate-skeleton-cell {
+  padding: 12px;
+  height: 48px;
+}
+
+.estimate-skeleton-bar {
+  height: 12px;
+  border-radius: 4px;
 }
 
 
@@ -5412,6 +5502,74 @@ document.addEventListener('keydown', (e) => {
 window.openShortcutsPanel = openShortcutsPanel;
 window.closeShortcutsPanel = closeShortcutsPanel;
 window.toggleShortcutsPanel = toggleShortcutsPanel;
+
+
+// ══════════════════════════════════════════════
+// SKELETON SCREENS (Loading States)
+// ══════════════════════════════════════════════
+
+// Show skeleton loading state in kanban
+function showKanbanSkeleton() {
+  const stages = ['New', 'Inspected', 'Estimate Sent', 'Approved', 'In Progress', 'Complete', 'Lost'];
+  
+  stages.forEach(stage => {
+    const body = document.getElementById('kbody-' + stage);
+    if (!body) return;
+    
+    // Create 3 skeleton cards per column
+    const skeletonHTML = `
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-header"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-header"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-header"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line"></div>
+      </div>
+    `;
+    
+    body.innerHTML = skeletonHTML;
+  });
+}
+
+// Show skeleton loading state for photos grid
+function showPhotosSkeleton() {
+  const photosContainer = document.getElementById('photoLeadsContainer');
+  if (!photosContainer) return;
+  
+  const skeletonHTML = `
+    <div class="skeleton-grid">
+      ${Array(12).fill(0).map(() => `
+        <div class="skeleton skeleton-photo"></div>
+      `).join('')}
+    </div>
+  `;
+  
+  photosContainer.innerHTML = skeletonHTML;
+}
+
+// Hide all skeletons (will be replaced by actual content)
+function hideSkeleton() {
+  document.querySelectorAll('.skeleton-card, .skeleton-grid').forEach(el => {
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 300);
+  });
+}
+
+// Expose functions
+window.showKanbanSkeleton = showKanbanSkeleton;
+window.showPhotosSkeleton = showPhotosSkeleton;
+window.hideSkeleton = hideSkeleton;
 
 
 // COLLAPSIBLE NAV SECTIONS
