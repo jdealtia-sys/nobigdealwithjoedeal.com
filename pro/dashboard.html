@@ -1106,6 +1106,176 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   color:var(--t);
 }
 
+/* COMMAND PALETTE */
+.cmd-palette{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:10000;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding-top:15vh;
+  animation:cmdFadeIn .15s ease-out;
+}
+@keyframes cmdFadeIn{
+  from{opacity:0;}
+  to{opacity:1;}
+}
+.cmd-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  backdrop-filter:blur(8px);
+}
+.cmd-modal{
+  position:relative;
+  background:var(--s);
+  border:1px solid var(--br);
+  border-radius:12px;
+  width:90%;
+  max-width:640px;
+  max-height:70vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+  animation:cmdSlideIn .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cmdSlideIn{
+  from{transform:translateY(-20px);opacity:0;}
+  to{transform:translateY(0);opacity:1;}
+}
+.cmd-search-box{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-bottom:1px solid var(--br);
+}
+.cmd-icon{
+  font-size:18px;
+  opacity:0.5;
+}
+#cmdInput{
+  flex:1;
+  background:transparent;
+  border:none;
+  outline:none;
+  font-size:16px;
+  color:var(--t);
+  font-family:'Barlow',sans-serif;
+}
+#cmdInput::placeholder{
+  color:var(--m);
+}
+.cmd-kbd{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  color:var(--m);
+  background:var(--s2);
+  border:1px solid var(--br);
+  border-radius:4px;
+  padding:3px 8px;
+  letter-spacing:0.03em;
+}
+.cmd-results{
+  flex:1;
+  overflow-y:auto;
+  max-height:50vh;
+}
+.cmd-results::-webkit-scrollbar{width:4px;}
+.cmd-results::-webkit-scrollbar-thumb{background:var(--br);}
+.cmd-group{
+  padding:12px 0;
+}
+.cmd-group-label{
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--orange);
+  padding:8px 18px 6px;
+}
+.cmd-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 18px;
+  cursor:pointer;
+  transition:all 0.12s;
+  border-left:3px solid transparent;
+}
+.cmd-item:hover,
+.cmd-item.selected{
+  background:var(--s2);
+  border-left-color:var(--orange);
+}
+.cmd-item-icon{
+  font-size:18px;
+  width:24px;
+  text-align:center;
+  flex-shrink:0;
+}
+.cmd-item-content{
+  flex:1;
+  min-width:0;
+}
+.cmd-item-title{
+  font-size:14px;
+  font-weight:500;
+  color:var(--t);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.cmd-item-meta{
+  font-size:11px;
+  color:var(--m);
+  margin-top:2px;
+}
+.cmd-item-badge{
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  background:rgba(74,158,255,0.12);
+  color:var(--blue);
+  padding:3px 8px;
+  border-radius:4px;
+  flex-shrink:0;
+}
+.cmd-footer{
+  border-top:1px solid var(--br);
+  padding:10px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.cmd-footer-hint{
+  font-size:11px;
+  color:var(--m);
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.cmd-empty{
+  padding:40px 20px;
+  text-align:center;
+  color:var(--m);
+}
+.cmd-empty-icon{
+  font-size:48px;
+  opacity:0.3;
+  margin-bottom:12px;
+}
+.cmd-empty-text{
+  font-size:14px;
+}
+
+
 /* MAIN LAYOUT */
 .app-body{flex:1;display:flex;overflow:hidden;}
 
@@ -2890,6 +3060,26 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
 </header>
 
+<!-- COMMAND PALETTE (Cmd/Ctrl+K) -->
+<div id="cmdPalette" class="cmd-palette" style="display:none;">
+  <div class="cmd-overlay" onclick="closeCmdPalette()"></div>
+  <div class="cmd-modal">
+    <div class="cmd-search-box">
+      <span class="cmd-icon">🔍</span>
+      <input type="text" id="cmdInput" placeholder="Search or jump to..." autocomplete="off" />
+      <div class="cmd-kbd">Esc</div>
+    </div>
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-footer">
+      <div class="cmd-footer-hint">
+        <span class="cmd-kbd">↑↓</span> Navigate
+        <span class="cmd-kbd">↵</span> Select
+        <span class="cmd-kbd">Esc</span> Close
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="app-body">
 
 <!-- SIDEBAR NAV -->
@@ -4612,249 +4802,224 @@ window.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════════════
 // COMMAND PALETTE (Cmd+K)
 // ══════════════════════════════════════════════
-const cmdPalette = {
-  overlay: null,
-  searchInput: null,
-  resultsContainer: null,
-  selectedIndex: 0,
-  currentResults: [],
-  
-  init() {
-    this.overlay = document.getElementById('cmdPaletteOverlay');
-    this.searchInput = document.getElementById('cmdSearch');
-    this.resultsContainer = document.getElementById('cmdResults');
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      // Cmd+K or Ctrl+K to open
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        this.open();
-      }
-      
-      // Escape to close
-      if (e.key === 'Escape' && this.isOpen()) {
-        this.close();
-      }
-      
-      // Arrow navigation when open
-      if (this.isOpen()) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          this.selectNext();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          this.selectPrev();
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          this.executeSelected();
-        }
-      }
-    });
-    
-    // Search input listener
-    this.searchInput.addEventListener('input', (e) => {
-      this.search(e.target.value);
-    });
-    
-    // Click overlay to close
-    this.overlay.addEventListener('click', (e) => {
-      if (e.target === this.overlay) this.close();
-    });
-  },
-  
-  isOpen() {
-    return this.overlay.classList.contains('active');
-  },
-  
-  open() {
-    this.overlay.classList.add('active');
-    this.searchInput.value = '';
-    this.searchInput.focus();
-    this.selectedIndex = 0;
-    this.renderDefaultActions();
-    this.loadRecents();
-  },
-  
-  close() {
-    this.overlay.classList.remove('active');
-    this.currentResults = [];
-  },
-  
-  search(query) {
-    if (!query.trim()) {
-      this.renderDefaultActions();
-      this.loadRecents();
-      return;
-    }
-    
-    const results = this.fuzzySearch(query.toLowerCase());
-    this.currentResults = results;
-    this.selectedIndex = 0;
-    this.renderResults(results);
-  },
-  
-  fuzzySearch(query) {
-    const results = [];
-    
-    // Search actions
-    const actions = this.getActions();
-    actions.forEach(action => {
-      if (action.title.toLowerCase().includes(query) || 
-          action.subtitle.toLowerCase().includes(query)) {
-        results.push({ ...action, score: this.scoreMatch(query, action.title.toLowerCase()) });
-      }
-    });
-    
-    // Search leads (if available)
-    if (window.allLeads && window.allLeads.length > 0) {
-      window.allLeads.forEach(lead => {
-        const searchText = `${lead.name} ${lead.address || ''} ${lead.phone || ''}`.toLowerCase();
-        if (searchText.includes(query)) {
-          results.push({
-            type: 'lead',
-            icon: '👤',
-            title: lead.name,
-            subtitle: lead.address || lead.phone || 'No details',
-            action: () => { this.close(); openCardDetailModal(lead); },
-            score: this.scoreMatch(query, lead.name.toLowerCase())
-          });
-        }
-      });
-    }
-    
-    // Sort by score (higher = better match)
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, 10); // Top 10 results
-  },
-  
-  scoreMatch(query, text) {
-    if (text === query) return 100;
-    if (text.startsWith(query)) return 80;
-    return 50;
-  },
-  
-  getActions() {
-    return [
-      { type: 'action', icon: '➕', title: 'New Lead', subtitle: 'Create a new customer lead', action: () => { this.close(); openLeadModal(); } },
-      { type: 'action', icon: '📋', title: 'New Estimate', subtitle: 'Build a new estimate', action: () => { this.close(); goTo('est'); startNewEstimate(); } },
-      { type: 'action', icon: '🗺️', title: 'Go to Map', subtitle: 'View leads on map', action: () => { this.close(); goTo('map'); } },
-      { type: 'action', icon: '📸', title: 'Go to Photos', subtitle: 'Manage project photos', action: () => { this.close(); goTo('photos'); } },
-      { type: 'action', icon: '📊', title: 'Go to Dashboard', subtitle: 'View overview stats', action: () => { this.close(); goTo('dash'); } },
-      { type: 'action', icon: '⚙️', title: 'Settings', subtitle: 'Manage account settings', action: () => { this.close(); goTo('settings'); } },
-      { type: 'action', icon: '💾', title: 'Export CSV', subtitle: 'Download leads as CSV', action: () => { this.close(); window.exportLeadsCSV?.(); } },
-      { type: 'action', icon: '🎨', title: 'Change Theme', subtitle: 'Customize appearance', action: () => { this.close(); nbdPickerOpen(); } },
-    ];
-  },
-  
-  loadRecents() {
-    // Get recent items from localStorage
-    const recents = JSON.parse(localStorage.getItem('cmd-recents') || '[]');
-    if (recents.length === 0) return;
-    
-    // Add recents section to current results
-    this.currentResults = [
-      ...recents.slice(0, 5).map(r => ({ ...r, badge: 'recent' })),
-      ...this.currentResults
-    ];
-    this.renderResults(this.currentResults);
-  },
-  
-  saveRecent(item) {
-    const recents = JSON.parse(localStorage.getItem('cmd-recents') || '[]');
-    const filtered = recents.filter(r => r.title !== item.title);
-    filtered.unshift({ type: item.type, icon: item.icon, title: item.title, subtitle: item.subtitle });
-    localStorage.setItem('cmd-recents', JSON.stringify(filtered.slice(0, 10)));
-  },
-  
-  renderDefaultActions() {
-    const actions = this.getActions();
-    this.currentResults = actions;
-    this.renderResults(actions);
-  },
-  
-  renderResults(results) {
-    if (results.length === 0) {
-      this.resultsContainer.innerHTML = '<div class="cmd-empty">No results found. Try a different search.</div>';
-      return;
-    }
-    
-    // Group by type
-    const grouped = {};
-    results.forEach(r => {
-      const group = r.type || 'other';
-      if (!grouped[group]) grouped[group] = [];
-      grouped[group].push(r);
-    });
-    
-    let html = '';
-    const groupLabels = {
-      'recent': 'Recent',
-      'lead': 'Leads',
-      'action': 'Actions'
-    };
-    
-    Object.keys(grouped).forEach(group => {
-      if (groupLabels[group]) {
-        html += `<div class="cmd-section">`;
-        html += `<div class="cmd-section-label">${groupLabels[group]}</div>`;
-        grouped[group].forEach((item, idx) => {
-          const globalIdx = results.indexOf(item);
-          const selected = globalIdx === this.selectedIndex ? 'selected' : '';
-          html += `
-            <div class="cmd-item ${selected}" data-index="${globalIdx}">
-              <div class="cmd-icon">${item.icon}</div>
-              <div class="cmd-content">
-                <div class="cmd-title">${item.title}</div>
-                <div class="cmd-subtitle">${item.subtitle}</div>
-              </div>
-              ${item.badge ? `<div class="cmd-badge ${item.badge}">${item.badge}</div>` : ''}
-            </div>
-          `;
-        });
-        html += `</div>`;
-      }
-    });
-    
-    this.resultsContainer.innerHTML = html;
-    
-    // Add click handlers
-    this.resultsContainer.querySelectorAll('.cmd-item').forEach((el, idx) => {
-      el.addEventListener('click', () => {
-        const itemIdx = parseInt(el.dataset.index);
-        this.selectedIndex = itemIdx;
-        this.executeSelected();
-      });
-    });
-  },
-  
-  selectNext() {
-    if (this.currentResults.length === 0) return;
-    this.selectedIndex = (this.selectedIndex + 1) % this.currentResults.length;
-    this.renderResults(this.currentResults);
-  },
-  
-  selectPrev() {
-    if (this.currentResults.length === 0) return;
-    this.selectedIndex = (this.selectedIndex - 1 + this.currentResults.length) % this.currentResults.length;
-    this.renderResults(this.currentResults);
-  },
-  
-  executeSelected() {
-    const item = this.currentResults[this.selectedIndex];
-    if (!item || !item.action) return;
-    
-    this.saveRecent(item);
-    item.action();
-  }
-};
 
-// Initialize on DOM load
-window.addEventListener('DOMContentLoaded', () => {
-  cmdPalette.init();
+let cmdSelectedIndex = 0;
+let cmdCurrentResults = [];
+
+// Open command palette
+function openCmdPalette() {
+  const palette = document.getElementById('cmdPalette');
+  const input = document.getElementById('cmdInput');
+  palette.style.display = 'flex';
+  input.value = '';
+  input.focus();
+  cmdSelectedIndex = 0;
+  renderCmdResults(getCmdActions());
+  loadCmdRecents();
+}
+
+// Close command palette
+function closeCmdPalette() {
+  const palette = document.getElementById('cmdPalette');
+  palette.style.display = 'none';
+  cmdCurrentResults = [];
+}
+
+// Get quick actions
+function getCmdActions() {
+  return [
+    { type: 'action', icon: '➕', title: 'New Lead', meta: 'Create a new customer lead', action: () => { closeCmdPalette(); openLeadModal(); } },
+    { type: 'action', icon: '📋', title: 'New Estimate', meta: 'Build a new estimate', action: () => { closeCmdPalette(); goTo('est'); if(typeof startNewEstimate==='function')startNewEstimate(); } },
+    { type: 'action', icon: '🗺️', title: 'Go to Map', meta: 'View leads on map', action: () => { closeCmdPalette(); goTo('map'); } },
+    { type: 'action', icon: '📸', title: 'Go to Photos', meta: 'Manage project photos', action: () => { closeCmdPalette(); goTo('photos'); } },
+    { type: 'action', icon: '📊', title: 'Go to Dashboard', meta: 'View overview stats', action: () => { closeCmdPalette(); goTo('dash'); } },
+    { type: 'action', icon: '⚙️', title: 'Settings', meta: 'Manage account settings', action: () => { closeCmdPalette(); goTo('settings'); } },
+    { type: 'action', icon: '💾', title: 'Export CSV', meta: 'Download leads as CSV', action: () => { closeCmdPalette(); if(typeof exportLeadsCSV==='function')exportLeadsCSV(); } },
+    { type: 'action', icon: '🎨', title: 'Change Theme', meta: 'Customize appearance', action: () => { closeCmdPalette(); nbdPickerOpen(); } },
+  ];
+}
+
+// Fuzzy search
+function cmdFuzzySearch(query) {
+  const results = [];
+  const q = query.toLowerCase();
+  
+  // Search actions
+  getCmdActions().forEach(action => {
+    if (action.title.toLowerCase().includes(q) || action.meta.toLowerCase().includes(q)) {
+      results.push({ ...action, score: cmdScoreMatch(q, action.title.toLowerCase()) });
+    }
+  });
+  
+  // Search leads
+  if (window.allLeads && window.allLeads.length > 0) {
+    window.allLeads.forEach(lead => {
+      const searchText = `${lead.name} ${lead.address || ''} ${lead.phone || ''}`.toLowerCase();
+      if (searchText.includes(q)) {
+        results.push({
+          type: 'lead',
+          icon: '👤',
+          title: lead.name,
+          meta: lead.address || lead.phone || 'No details',
+          action: () => { closeCmdPalette(); openCardDetailModal(lead); },
+          score: cmdScoreMatch(q, lead.name.toLowerCase())
+        });
+      }
+    });
+  }
+  
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, 10);
+}
+
+// Score match quality
+function cmdScoreMatch(query, text) {
+  if (text === query) return 100;
+  if (text.startsWith(query)) return 80;
+  return 50;
+}
+
+// Load recent items
+function loadCmdRecents() {
+  const recents = JSON.parse(localStorage.getItem('cmd-recents') || '[]');
+  if (recents.length === 0) return;
+  
+  cmdCurrentResults = [
+    ...recents.slice(0, 5).map(r => ({ ...r, badge: 'Recent' })),
+    ...cmdCurrentResults
+  ];
+  renderCmdResults(cmdCurrentResults);
+}
+
+// Save recent item
+function saveCmdRecent(item) {
+  const recents = JSON.parse(localStorage.getItem('cmd-recents') || '[]');
+  const filtered = recents.filter(r => r.title !== item.title);
+  filtered.unshift({ type: item.type, icon: item.icon, title: item.title, meta: item.meta });
+  localStorage.setItem('cmd-recents', JSON.stringify(filtered.slice(0, 10)));
+}
+
+// Render results
+function renderCmdResults(results) {
+  const container = document.getElementById('cmdResults');
+  if (results.length === 0) {
+    container.innerHTML = '<div class="cmd-empty"><div class="cmd-empty-icon">🔍</div><div class="cmd-empty-text">No results found</div></div>';
+    return;
+  }
+  
+  const grouped = {};
+  results.forEach(r => {
+    const group = r.type || 'other';
+    if (!grouped[group]) grouped[group] = [];
+    grouped[group].push(r);
+  });
+  
+  let html = '';
+  const groupLabels = { 'action': 'Actions', 'lead': 'Leads', 'estimate': 'Estimates' };
+  
+  Object.keys(grouped).forEach(group => {
+    if (grouped[group].length === 0) return;
+    if (groupLabels[group]) {
+      html += `<div class="cmd-group"><div class="cmd-group-label">${groupLabels[group]}</div>`;
+    }
+    grouped[group].forEach((item, idx) => {
+      const globalIdx = results.indexOf(item);
+      const selected = globalIdx === cmdSelectedIndex ? 'selected' : '';
+      html += `
+        <div class="cmd-item ${selected}" onclick="cmdExecuteItem(${globalIdx})" onmouseenter="cmdSelectedIndex=${globalIdx};renderCmdResults(cmdCurrentResults);">
+          <div class="cmd-item-icon">${item.icon}</div>
+          <div class="cmd-item-content">
+            <div class="cmd-item-title">${item.title}</div>
+            <div class="cmd-item-meta">${item.meta || ''}</div>
+          </div>
+          ${item.badge ? `<div class="cmd-item-badge">${item.badge}</div>` : ''}
+        </div>
+      `;
+    });
+    if (groupLabels[group]) html += `</div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Execute selected item
+function cmdExecuteItem(index) {
+  const item = cmdCurrentResults[index];
+  if (!item || !item.action) return;
+  saveCmdRecent(item);
+  item.action();
+}
+
+// Handle search input
+function handleCmdSearch(query) {
+  if (!query.trim()) {
+    cmdCurrentResults = getCmdActions();
+    cmdSelectedIndex = 0;
+    renderCmdResults(cmdCurrentResults);
+    loadCmdRecents();
+    return;
+  }
+  
+  cmdCurrentResults = cmdFuzzySearch(query);
+  cmdSelectedIndex = 0;
+  renderCmdResults(cmdCurrentResults);
+}
+
+// Keyboard navigation
+function cmdSelectNext() {
+  if (cmdCurrentResults.length === 0) return;
+  cmdSelectedIndex = (cmdSelectedIndex + 1) % cmdCurrentResults.length;
+  renderCmdResults(cmdCurrentResults);
+}
+
+function cmdSelectPrev() {
+  if (cmdCurrentResults.length === 0) return;
+  cmdSelectedIndex = (cmdSelectedIndex - 1 + cmdCurrentResults.length) % cmdCurrentResults.length;
+  renderCmdResults(cmdCurrentResults);
+}
+
+// Global keyboard listener
+document.addEventListener('keydown', (e) => {
+  const palette = document.getElementById('cmdPalette');
+  const isOpen = palette && palette.style.display === 'flex';
+  
+  // Cmd+K or Ctrl+K to open
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    if (!isOpen) openCmdPalette();
+  }
+  
+  // Escape to close
+  if (e.key === 'Escape' && isOpen) {
+    closeCmdPalette();
+  }
+  
+  // Arrow navigation when open
+  if (isOpen) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      cmdSelectNext();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      cmdSelectPrev();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      cmdExecuteItem(cmdSelectedIndex);
+    }
+  }
 });
 
-window.cmdPalette = cmdPalette;
+// Add input listener
+window.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('cmdInput');
+  if (input) {
+    input.addEventListener('input', (e) => handleCmdSearch(e.target.value));
+  }
+});
+
+// Expose functions to window
+window.openCmdPalette = openCmdPalette;
+window.closeCmdPalette = closeCmdPalette;
 
 
 // COLLAPSIBLE NAV SECTIONS
