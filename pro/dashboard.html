@@ -8215,6 +8215,12 @@ async function seedDemoEstimates(uid) {
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <script src="js/crm.js"></script>
 <script src="js/maps.js"></script>
+<script>
+// HOTFIX: Ensure searchMap is exposed to window (cache issue workaround)
+if (typeof searchMap === 'function' && !window.searchMap) {
+  window.searchMap = searchMap;
+}
+</script>
 <script src="js/ai.js"></script>
 <script src="js/advanced_builder_selector.js"></script>
 <script src="js/material_catalog.js"></script>
