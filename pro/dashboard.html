@@ -1304,6 +1304,36 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 }
 
+  /* Quick Add FAB — show on mobile */
+  #quickAddFab { display:flex!important; align-items:center; justify-content:center; }
+  #quickAddFab:active { transform:scale(.92); }
+
+  /* Lead modal — full screen on mobile, bigger tap targets */
+  #leadModal .modal { max-width:100%!important; width:100%!important; margin:0!important; border-radius:16px 16px 0 0!important; position:fixed!important; bottom:0!important; left:0!important; right:0!important; max-height:92vh!important; }
+  #leadModal.modal-bg.open { align-items:flex-end!important; }
+  .mfield input, .mfield select, .mfield textarea { font-size:16px!important; padding:12px 14px!important; min-height:48px!important; }
+  .mfield label { font-size:11px!important; margin-bottom:6px!important; }
+  .mrow { flex-direction:column!important; gap:0!important; }
+  .msave { font-size:15px!important; padding:16px!important; min-height:52px!important; margin-top:8px!important; }
+  .modal-close { width:44px!important; height:44px!important; font-size:20px!important; top:8px!important; right:8px!important; display:flex!important; align-items:center!important; justify-content:center!important; }
+
+  /* Quick add modal — same treatment */
+  #quickAddModal .modal { max-width:100%!important; width:100%!important; margin:0!important; border-radius:16px 16px 0 0!important; position:fixed!important; bottom:0!important; left:0!important; right:0!important; }
+  #quickAddModal.modal-bg.open { align-items:flex-end!important; }
+
+  /* Estimate builder — single column on mobile */
+  .est-meas-grid { grid-template-columns:1fr!important; }
+
+  /* Kanban cards — bigger tap targets */
+  .k-card { cursor:pointer; min-height:80px; }
+
+  /* Joe view — full height on mobile */
+  #view-joe { height:calc(100vh - 110px)!important; display:flex!important; flex-direction:column!important; }
+  .joe-messages { flex:1!important; }
+
+  /* Notification button — bigger tap target */
+  #notifBtn { width:44px!important; height:44px!important; }
+
 /* ── Extra small phones (under 400px) ── */
 @media(max-width:400px){
   .map-area{height:70vw!important;min-height:220px!important;}
@@ -4191,6 +4221,66 @@ window.nbdNavToggle = nbdNavToggle;
 </div><!-- /app-body -->
 
 <!-- LEAD MODAL -->
+<!-- ── QUICK ADD LEAD MODAL (mobile-first 3-tap flow) ── -->
+<div class="modal-bg" id="quickAddModal">
+  <div class="modal" style="max-width:420px;">
+    <button class="modal-close" onclick="closeQuickAddLead()">✕</button>
+    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Quick Add</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">New Lead</div>
+    <div style="font-size:11px;color:var(--m);margin-bottom:16px;">3 fields. In the field. Done.</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Address *</label>
+        <div class="ac-wrap">
+          <input type="text" id="qaAddr" placeholder="123 Main St, Goshen OH..."
+            style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;"
+            autocomplete="off" autocorrect="off" autocapitalize="words">
+          <div class="ac-drop" id="ac-qaAddr" style="display:none;"></div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Phone</label>
+        <input type="tel" id="qaPhone" placeholder="(513) 555-0100"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Damage Type</label>
+        <select id="qaDamage"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;appearance:none;">
+          <option value="Roof - Hail">Roof — Hail</option>
+          <option value="Roof - Wind">Roof — Wind</option>
+          <option value="Roof - Hail & Wind">Roof — Hail &amp; Wind</option>
+          <option value="Siding - Hail">Siding — Hail</option>
+          <option value="Full Exterior">Full Exterior</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Source</label>
+        <select id="qaSource"
+          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;appearance:none;">
+          <option value="Door Knock">Door Knock</option>
+          <option value="Storm Canvass">Storm Canvass</option>
+          <option value="Referral">Referral</option>
+          <option value="Online">Online</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <button onclick="saveQuickLead()"
+      style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
+      ＋ Add Lead
+    </button>
+    <button onclick="closeQuickAddLead();openLeadModal()"
+      style="width:100%;background:transparent;color:var(--m);border:1px solid var(--br);border-radius:8px;padding:12px;font-family:inherit;font-size:13px;cursor:pointer;">
+      Full Form →
+    </button>
+    <div id="qaErr" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center;display:none;"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="leadModal">
   <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeLeadModal()">✕</button>
@@ -8578,6 +8668,7 @@ function initAllAutocomplete() {
   initAddressAutocomplete('pinAddrInput');
   initAddressAutocomplete('drawSearch');
   initAddressAutocomplete('estAddr');
+  initAddressAutocomplete('qaAddr');
   initAddressAutocomplete('lAddr');
 }
 
@@ -9532,6 +9623,67 @@ function applyQMData() {
   showToast('✅ Quick Measure data applied', 'success');
 }
 
+// ══ QUICK ADD LEAD (mobile field tool) ════════════════════════════════
+function openQuickAddLead() {
+  document.getElementById('quickAddModal').classList.add('open');
+  document.getElementById('qaAddr').value = '';
+  document.getElementById('qaPhone').value = '';
+  document.getElementById('qaErr').style.display = 'none';
+  setTimeout(() => document.getElementById('qaAddr').focus(), 120);
+}
+function closeQuickAddLead() {
+  document.getElementById('quickAddModal').classList.remove('open');
+}
+async function saveQuickLead() {
+  const addr = document.getElementById('qaAddr').value.trim();
+  const phone = document.getElementById('qaPhone').value.trim();
+  const damage = document.getElementById('qaDamage').value;
+  const source = document.getElementById('qaSource').value;
+  const errEl = document.getElementById('qaErr');
+
+  if (!addr) {
+    errEl.textContent = 'Address is required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const btn = document.querySelector('#quickAddModal button[onclick="saveQuickLead()"]');
+  const orig = btn.textContent;
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    await window._saveLead({
+      address: addr,
+      phone: phone || '',
+      damageType: damage,
+      source: source,
+      stage: 'New',
+      firstName: '',
+      lastName: '',
+      email: '',
+      notes: '',
+      followUp: '',
+      insCarrier: '',
+      jobValue: '',
+      claimStatus: 'No Claim'
+    });
+    showToast('✓ Lead added — tap CRM to view', 'success');
+    closeQuickAddLead();
+    loadLeads();
+  } catch(e) {
+    errEl.textContent = 'Save failed. Check connection.';
+    errEl.style.display = 'block';
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+window.openQuickAddLead = openQuickAddLead;
+window.closeQuickAddLead = closeQuickAddLead;
+window.saveQuickLead = saveQuickLead;
+// ══ END QUICK ADD ══════════════════════════════════════════════════════
+
 window.openQMImportModal = openQMImportModal;
 window.closeQMImportModal = closeQMImportModal;
 window.handleQMDrop = handleQMDrop;
@@ -10414,6 +10566,9 @@ async function seedDemoEstimates(uid) {
   </div>
 </div>
 
+<!-- ── QUICK ADD LEAD FAB ── -->
+<button id="quickAddFab" onclick="openQuickAddLead()" aria-label="Quick Add Lead" style="display:none;position:fixed;bottom:74px;right:16px;z-index:1998;width:52px;height:52px;border-radius:50%;background:var(--orange);border:none;cursor:pointer;box-shadow:0 4px 16px rgba(200,84,26,.5);font-size:22px;line-height:1;color:#fff;transition:transform .15s;-webkit-tap-highlight-color:transparent;">＋</button>
+
 <!-- ── MOBILE BOTTOM NAV ── -->
 <nav id="mobile-nav">
   <div class="mn-item active" id="mni-dash" onclick="mobileNav('dash')">
@@ -10429,9 +10584,9 @@ async function seedDemoEstimates(uid) {
     <span class="mn-lbl">CRM</span>
     <span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>
   </div>
-  <div class="mn-item" id="mni-est" onclick="mobileNav('est')">
-    <span class="mn-icon">📋</span>
-    <span class="mn-lbl">Estimate</span>
+  <div class="mn-item" id="mni-joe" onclick="mobileNav('joe')">
+    <span class="mn-icon">🤖</span>
+    <span class="mn-lbl">Ask Joe</span>
   </div>
   <div class="mn-item" id="mni-more" onclick="toggleMobileMore()">
     <span class="mn-icon">⋯</span>
@@ -10444,6 +10599,9 @@ async function seedDemoEstimates(uid) {
 
 <!-- More menu panel -->
 <div id="mobile-more-menu">
+  <div class="mm-item" onclick="mobileNav('est');closeMobileMore()">
+    <span class="mm-item-icon">📋</span>Estimate Builder
+  </div>
   <div class="mm-item" onclick="mobileNav('photos');closeMobileMore()">
     <span class="mm-item-icon">📸</span>Damage Photos
   </div>
@@ -10462,9 +10620,7 @@ async function seedDemoEstimates(uid) {
   <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
-  <div class="mm-item" onclick="mobileNav('joe');closeMobileMore()">
-    <span class="mm-item-icon">🤖</span>Ask Joe AI
-  </div>
+
   <div class="mm-item" onclick="mobileNav('settings');closeMobileMore()">
     <span class="mm-item-icon">⚙️</span>Settings
   </div>
