@@ -2208,8 +2208,22 @@ const NBD_FONTS = [
 ];
 
 /* ── STATE ────────────────────────────────────────────────────────── */
-const NBD_PLAN_ORDER  = ['blueprint','foundation','infused','team','command'];
-const NBD_USER_PLAN   = 'command'; // TODO: wire to real Firestore .plan after Stripe lands
+const NBD_PLAN_ORDER  = ['blueprint','foundation','infused','team','command','professional'];
+const NBD_USER_PLAN = (() => {
+  // Map from Firestore subscription plan to daily-success plan tier
+  const planMap = {
+    'professional': 'professional',
+    'blueprint': 'blueprint',
+    'foundation': 'foundation',
+    'pro': 'professional',
+    'command': 'command'
+  };
+  try {
+    // Try to read from parent window (dashboard context) or localStorage
+    const stored = localStorage.getItem('nbd_user_plan') || 'professional';
+    return planMap[stored] || 'professional';
+  } catch(e) { return 'professional'; }
+})();
 let _nbd_activeTheme  = localStorage.getItem('nbd-theme') || 'default';
 let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';

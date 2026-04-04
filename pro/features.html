@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>NBD Pro</title>
+<script>
+// features.html redirects to dashboard — authenticated users land here from logo
+try {
+  const s = localStorage.getItem('nbd_admin_session');
+  window.location.replace(s ? '/pro/dashboard.html' : '/pro/landing.html');
+} catch(e) { window.location.replace('/pro/landing.html'); }
+</script>
+</head><body></body></html>

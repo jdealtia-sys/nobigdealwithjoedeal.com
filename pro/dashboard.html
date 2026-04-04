@@ -171,6 +171,7 @@
         }
         window._subscription = subscription;
         window._userPlan = subscription.plan;
+        try { localStorage.setItem('nbd_user_plan', subscription.plan); } catch(e) {}
         console.log(`✓ Active subscription: ${subscription.plan}`);
       } catch (error) {
         console.error('Subscription check error:', error);

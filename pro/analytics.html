@@ -427,8 +427,17 @@ function switchTimeRange(range) {
 window.addEventListener('auth-ready', () => {
   const user = window._currentUser;
   
-  // ADMIN GATE DISABLED FOR DEBUGGING
-  // TODO: Re-enable after confirming analytics tabs work
+  // Auth check: require admin session
+  try {
+    const sess = localStorage.getItem('nbd_admin_session');
+    if (!sess || JSON.parse(sess).expires <= Date.now()) {
+      window.location.replace('/admin/login.html');
+      return;
+    }
+  } catch(e) {
+    window.location.replace('/admin/login.html');
+    return;
+  }
   
   // Auth passed - show main content and load analytics
   document.getElementById('authLoading').style.display = 'none';
