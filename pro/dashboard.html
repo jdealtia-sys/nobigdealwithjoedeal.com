@@ -3303,11 +3303,17 @@ window.nbdNavToggle = nbdNavToggle;
     <!-- Context bar (populated by JS) -->
     <div class="joe-context-bar" id="joeContextBar" style="display:none;"></div>
 
-    <!-- No API key state — hidden, proxy handles auth -->
+    <!-- No API key state -->
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
         <div class="joe-no-key-icon">🤖</div>
-        <p>Joe AI is connecting...</p>
+        <p style="margin-bottom:14px;">To activate Joe AI, add your Anthropic API key.<br>
+        Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
+        <div class="joe-key-input-row">
+          <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+          <button class="btn btn-orange" onclick="saveJoeKey()">Activate</button>
+        </div>
+        <p style="margin-top:10px;font-size:10px;color:var(--m);">Your key is stored locally and never leaves your browser.</p>
       </div>
     </div>
 
@@ -3330,7 +3336,7 @@ window.nbdNavToggle = nbdNavToggle;
         <button class="joe-send" id="joeSendBtn" onclick="sendJoeMessage()">SEND</button>
       </div>
       <div style="text-align:center;margin-top:6px;font-size:9px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;">
-        Joe AI · Live pipeline context · Powered by Claude
+        Joe AI · Live pipeline data · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change Key</span>
       </div>
     </div>
 
@@ -10743,7 +10749,13 @@ function initJoeChat() {
   const input  = document.getElementById('joeInputArea');
   if(!noKey || !msgs || !input) return;
 
-  // Proxy handles auth — always show chat regardless of local key
+  // Check for stored key — show gate if missing
+  const _k = getJoeKey();
+  if (!_k) {
+    noKey.style.display='block'; msgs.style.display='none'; input.style.display='none';
+    document.getElementById('joeContextBar').style.display='none';
+    return;
+  }
   noKey.style.display='none'; msgs.style.display='flex'; input.style.display='block';
 
   loadJoeChat();
@@ -10853,13 +10865,29 @@ async function sendJoeMessage() {
       geminiContents.splice(1, 0, {role:'model', parts:[{text:'Understood. Ready to help.'}]});
     }
 
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
+    // Use stored Anthropic key (set in Settings → Ask Joe AI)
+    const _joeApiKey = getJoeKey();
+    if (!_joeApiKey) {
+      hideJoeTyping();
+      appendJoeMessage('joe', '⚙️ To activate Joe AI, add your Anthropic API key in **Settings → Ask Joe AI**. Get a free key at console.anthropic.com — it takes 2 minutes.');
+      _joeTyping = false;
+      document.getElementById('joeSendBtn').disabled = false;
+      return;
+    }
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+        'x-api-key': _joeApiKey
+      },
       body: JSON.stringify({
-        contents: geminiContents,
-        systemInstruction: {parts: [{text: systemPrompt}]},
-        generationConfig: {temperature: 0.7, maxOutputTokens: 1024}
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: apiMessages
       })
     });
 
@@ -10869,7 +10897,7 @@ async function sendJoeMessage() {
     }
 
     const data = await resp.json();
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, something went wrong. Try again.';
+    const reply = data?.content?.[0]?.text || 'Sorry, something went wrong. Try again.';
 
     hideJoeTyping();
     appendJoeMessage('joe', reply);
