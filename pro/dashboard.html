@@ -1525,6 +1525,102 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 }
 
 
+/* TOAST NOTIFICATIONS */
+.toast-container{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  z-index:10002;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  pointer-events:none;
+}
+.toast{
+  background:var(--s);
+  border:1px solid var(--br);
+  border-left:4px solid var(--orange);
+  border-radius:8px;
+  padding:14px 18px;
+  min-width:300px;
+  max-width:420px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  pointer-events:auto;
+  animation:toastSlideIn .25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast.toast-success{border-left-color:var(--green);}
+.toast.toast-error{border-left-color:var(--red);}
+.toast.toast-info{border-left-color:var(--blue);}
+@keyframes toastSlideIn{
+  from{transform:translateX(400px);opacity:0;}
+  to{transform:translateX(0);opacity:1;}
+}
+.toast-icon{
+  font-size:20px;
+  flex-shrink:0;
+}
+.toast-content{
+  flex:1;
+}
+.toast-title{
+  font-size:13px;
+  font-weight:600;
+  color:var(--t);
+  margin-bottom:2px;
+}
+.toast-message{
+  font-size:12px;
+  color:var(--m);
+  line-height:1.4;
+}
+.toast-actions{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+}
+.toast-btn{
+  font-size:11px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:4px;
+  border:none;
+  cursor:pointer;
+  transition:all .15s;
+}
+.toast-btn-primary{
+  background:var(--orange);
+  color:#fff;
+}
+.toast-btn-primary:hover{
+  background:var(--ob);
+}
+.toast-btn-ghost{
+  background:transparent;
+  color:var(--m);
+}
+.toast-btn-ghost:hover{
+  color:var(--t);
+  background:var(--s2);
+}
+.toast-close{
+  background:transparent;
+  border:none;
+  color:var(--m);
+  font-size:16px;
+  cursor:pointer;
+  padding:0;
+  width:20px;
+  height:20px;
+  flex-shrink:0;
+  transition:color .15s;
+}
+.toast-close:hover{
+  color:var(--orange);
+}
+
 /* MAIN LAYOUT */
 .app-body{flex:1;display:flex;overflow:hidden;}
 
@@ -3328,6 +3424,9 @@ window.nbdNavToggle = nbdNavToggle;
     </div>
   </div>
 </div>
+
+<!-- TOAST NOTIFICATIONS (for optimistic update rollbacks) -->
+<div id="toastContainer" class="toast-container"></div>
 
 <!-- KEYBOARD SHORTCUTS REFERENCE PANEL (?) -->
 <div id="shortcutsPanel" class="shortcuts-panel" style="display:none;">
@@ -5584,6 +5683,106 @@ window.showPhotosSkeleton = showPhotosSkeleton;
 window.hideSkeleton = hideSkeleton;
 
 
+// ══════════════════════════════════════════════
+// TOAST NOTIFICATION SYSTEM (for optimistic updates)
+// ══════════════════════════════════════════════
+
+let toastIdCounter = 0;
+const activeToasts = new Map();
+
+// Show toast notification with optional undo action
+function showToast(options) {
+  // Support simple string or options object
+  if (typeof options === 'string') {
+    options = { message: options };
+  }
+  
+  const {
+    message,
+    type = 'info',
+    duration = 5000,
+    undoAction = null,
+    undoText = 'Undo'
+  } = options;
+  
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  
+  const toastId = `toast-${toastIdCounter++}`;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.id = toastId;
+  
+  const icon = {
+    'success': '✓',
+    'error': '⚠️',
+    'info': 'ℹ️',
+    'warning': '⚠️'
+  }[type] || 'ℹ️';
+  
+  let actionsHTML = '';
+  if (undoAction) {
+    actionsHTML = `
+      <div class="toast-actions">
+        <button class="toast-btn toast-btn-primary" onclick="window._toastUndo('${toastId}')">
+          ${undoText}
+        </button>
+      </div>
+    `;
+  }
+  
+  toast.innerHTML = `
+    <div class="toast-icon">${icon}</div>
+    <div class="toast-content">
+      <div class="toast-message">${message}</div>
+      ${actionsHTML}
+    </div>
+    <button class="toast-close" onclick="window._closeToast('${toastId}')">✕</button>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Store undo action
+  if (undoAction) {
+    activeToasts.set(toastId, undoAction);
+  }
+  
+  // Auto-remove after duration
+  if (duration > 0) {
+    setTimeout(() => closeToast(toastId), duration);
+  }
+  
+  return toastId;
+}
+
+// Close specific toast
+function closeToast(toastId) {
+  const toast = document.getElementById(toastId);
+  if (toast) {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(400px)';
+    setTimeout(() => {
+      toast.remove();
+      activeToasts.delete(toastId);
+    }, 300);
+  }
+}
+
+// Execute undo action
+function toastUndo(toastId) {
+  const undoAction = activeToasts.get(toastId);
+  if (undoAction && typeof undoAction === 'function') {
+    undoAction();
+  }
+  closeToast(toastId);
+}
+
+// Expose functions
+window.showToast = showToast;
+window._closeToast = closeToast;
+window._toastUndo = toastUndo;
+
+
 // COLLAPSIBLE NAV SECTIONS
 function toggleNavSection(section) {
   const content = document.getElementById('section-'+section);
@@ -6428,7 +6627,7 @@ function exportEstimate() {
   border-radius:8px;
   padding:10px 12px;
   cursor:grab;
-  transition:box-shadow .15s,transform .1s;
+  transition:box-shadow .15s,transform .1s,opacity .15s;
   position:relative;
   color:var(--ink);
 }
@@ -6438,6 +6637,31 @@ function exportEstimate() {
   border:2px dashed var(--orange);
   background:rgba(232,114,12,.06);
   height:60px;border-radius:8px;
+}
+
+/* Optimistic update states */
+.k-card-syncing{
+  opacity:0.7;
+}
+.k-card-sync-success{
+  border-color:var(--green);
+}
+.k-card-sync-error{
+  border-color:var(--red);
+  background:rgba(224,82,82,0.05);
+}
+.k-card-sync-icon{
+  position:absolute;
+  top:6px;
+  right:6px;
+  font-size:14px;
+  opacity:0.8;
+  z-index:10;
+  animation:fadeIn .2s;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:scale(0.8);}
+  to{opacity:0.8;transform:scale(1);}
 }
 
 /* Card content */

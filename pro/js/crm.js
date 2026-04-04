@@ -287,6 +287,12 @@ function buildCard(l){
   const estCount = estimates.length;
   const photoCount = photos.length;
 
+  // Sync status indicators
+  const syncClass = l._syncing ? 'k-card-syncing' : (l._syncSuccess ? 'k-card-sync-success' : (l._syncError ? 'k-card-sync-error' : ''));
+  const syncIndicator = l._syncing ? '<div class="k-card-sync-icon">⏳</div>' : 
+                        l._syncSuccess ? '<div class="k-card-sync-icon">✓</div>' : 
+                        l._syncError ? '<div class="k-card-sync-icon">⚠️</div>' : '';
+
   return `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
     <div class="k-card-checkbox" onclick="event.stopPropagation();toggleCardSelection('${l.id}')">
       <span class="k-card-checkbox-icon">✓</span>
@@ -357,7 +363,17 @@ async function moveCard(id, newStage){
   if(!lead) return;
   
   const oldStage = lead.stage || 'New';
+  
+  // ══════════════════════════════════════════════
+  // OPTIMISTIC UPDATE — Update UI immediately
+  // ══════════════════════════════════════════════
   lead.stage = newStage;
+  
+  // Mark as syncing (add visual indicator)
+  lead._syncing = true;
+  
+  // Render immediately with new stage
+  renderLeads(window._leads, window._filteredLeads);
   
   // Record stage change in history
   const historyEvent = {
@@ -368,7 +384,7 @@ async function moveCard(id, newStage){
   };
   
   try {
-    // Save lead with stage history
+    // Save to Firebase in background
     const leadRef = window.doc(window.db, 'leads', id);
     await window.updateDoc(leadRef, {
       stage: newStage,
@@ -376,14 +392,54 @@ async function moveCard(id, newStage){
       stageHistory: window.arrayUnion(historyEvent)
     });
     
-    // Update local state
+    // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
     lead.stageHistory.push(historyEvent);
     
+    // Mark as synced
+    lead._syncing = false;
+    lead._syncSuccess = true;
+    
+    // Show success briefly
+    setTimeout(() => {
+      delete lead._syncSuccess;
+      renderLeads(window._leads, window._filteredLeads);
+    }, 1000);
+    
+    renderLeads(window._leads, window._filteredLeads);
+    
   } catch(e){ 
-    console.error('moveCard error',e); 
+    console.error('moveCard error',e);
+    
+    // ══════════════════════════════════════════════
+    // ROLLBACK — Revert UI if Firebase fails
+    // ══════════════════════════════════════════════
+    lead.stage = oldStage;
+    lead._syncing = false;
+    lead._syncError = true;
+    
+    renderLeads(window._leads, window._filteredLeads);
+    
+    // Show error toast with undo action
+    if (typeof window.showToast === 'function') {
+      window.showToast({
+        message: `Failed to move "${lead.firstName || lead.name || 'lead'}" to ${newStage}. Changes reverted.`,
+        type: 'error',
+        duration: 5000,
+        undoAction: () => {
+          // Retry the move
+          moveCard(id, newStage);
+        },
+        undoText: 'Retry'
+      });
+    }
+    
+    // Clear error flag
+    setTimeout(() => {
+      delete lead._syncError;
+      renderLeads(window._leads, window._filteredLeads);
+    }, 3000);
   }
-  renderLeads(window._leads, window._filteredLeads);
 }
 
 function updatePipeline(leads){ renderLeads(leads); }
