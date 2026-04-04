@@ -8388,37 +8388,20 @@ For the address "${fullAddr}", search the auditor, find the parcel, and extract 
 If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
 RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        tools: [{
-          type: 'web_search_20250305',
-          name: 'web_search'
-        }],
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+        contents: [{parts: [{text: prompt}]}],
+        generationConfig: {temperature: 0, maxOutputTokens: 600}
       })
     });
 
     if(!resp.ok) throw new Error('API ' + resp.status);
     const data = await resp.json();
 
-    // Extract text from response (may be after tool use blocks)
-    let rawText = '';
-    if(data.content) {
-      for(const block of data.content) {
-        if(block.type === 'text') rawText += block.text;
-      }
-    }
+    // Extract text from Gemini response
+    let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     // Parse JSON from response
     let intel = null;
@@ -10858,18 +10841,24 @@ async function sendJoeMessage() {
   }));
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Build Gemini contents array from message history
+    const geminiContents = apiMessages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{text: m.content}]
+    }));
+    // Prepend system prompt as first user turn if history is short
+    if (geminiContents.length === 1) {
+      geminiContents.unshift({role:'user', parts:[{text: systemPrompt}]});
+      geminiContents.splice(1, 0, {role:'model', parts:[{text:'Understood. Ready to help.'}]});
+    }
+
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: apiMessages
+        contents: geminiContents,
+        systemInstruction: {parts: [{text: systemPrompt}]},
+        generationConfig: {temperature: 0.7, maxOutputTokens: 1024}
       })
     });
 
@@ -10879,7 +10868,7 @@ async function sendJoeMessage() {
     }
 
     const data = await resp.json();
-    const reply = data.content?.[0]?.text || "Sorry, something went wrong. Try again.";
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, something went wrong. Try again.';
 
     hideJoeTyping();
     appendJoeMessage('joe', reply);
