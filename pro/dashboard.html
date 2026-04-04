@@ -6717,9 +6717,20 @@ function exportEstimate() {
       <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${d.tierName}</td><td>${fmt(d.grandTotal)}</td></tr>
     </tbody>
   </table>
+  <div style="margin-top:24px;padding:16px 20px;background:#fff8f5;border:1px solid #fde0d0;border-left:4px solid #C8541A;border-radius:4px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#C8541A;margin-bottom:6px;">NBD Guarantee — ${selectedTier==='best'?'Lifetime Labor Guarantee':selectedTier==='better'?'10-Year Labor Guarantee':'5-Year Labor Guarantee'}</div>
+    <div style="font-size:11px;color:#444;line-height:1.6;">
+      ${selectedTier==='best'
+        ? 'This installation is covered by the NBD Elite Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge, for the life of the home. This guarantee is fully transferable to subsequent owners. A signed warranty certificate will be issued upon job completion.'
+        : selectedTier==='better'
+        ? 'This installation is covered by the NBD Preferred 10-Year Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for 10 years from the date of installation. This guarantee is transferable to one subsequent owner.'
+        : 'This installation is covered by the NBD Standard 5-Year Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for 5 years from the date of installation.'}
+      GAF Timberline shingles carry a separate manufacturer lifetime limited shingle warranty.
+    </div>
+  </div>
   <div class="footer">
-    <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
-    <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
+    <div>No Big Deal Home Solutions · (859) 420-7382 · nobigdealwithjoedeal.com</div>
+    <div>Estimate valid 30 days. Subject to on-site verification.</div>
   </div>
   ${d._qm ? `
   <div style="margin-top:36px;page-break-before:always;">
@@ -8591,14 +8602,49 @@ const DOC_TEMPLATES = {
 <p><strong>Contractor:</strong> No Big Deal Home Solutions · Joe Deal · (859) 420-7382 · jd@nobigdealwithjoedeal.com</p>
 <p><strong>Homeowner:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Property Address:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (Owens Corning / Atlas), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
+<p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (GAF Timberline series), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
 <p><strong>Materials:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Color: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contract Price:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Start Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Warranty:</strong> 5-year labor warranty. Manufacturer shingle warranty per product selected.</p>
+<p><strong>NBD Guarantee:</strong> Labor guarantee per package selected — Standard (5-year), Preferred (10-year), or Elite (Lifetime). GAF shingle manufacturer warranty included on all installs. Lifetime guarantee is fully transferable. Signed warranty certificate issued upon completion.</p>
 <p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
 <p>By signing below, homeowner authorizes No Big Deal Home Solutions to perform the above work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contractor Signature:</strong> Joe Deal <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+  },
+  warranty: {
+    title: 'NBD Warranty Certificate',
+    content: `<div style="text-align:center;padding:20px 0 10px;">
+<div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;">No Big <span style="color:#C8541A;">Deal</span> Home Solutions</div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:3px 12px;border-radius:2px;display:inline-block;margin:6px 0;">Insurance Restoration Specialists · Greater Cincinnati</div>
+</div>
+<div style="text-align:center;padding:24px 0 16px;border-top:3px solid #C8541A;border-bottom:1px solid #eee;margin-bottom:24px;">
+<div style="font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#999;margin-bottom:6px;">Certificate of Guarantee</div>
+<div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;">NBD Labor Guarantee</div>
+</div>
+<p>This certificate confirms that the installation performed by <strong>No Big Deal Home Solutions</strong> at the property listed below is covered by the NBD Labor Guarantee as described herein.</p>
+<h2>Property &amp; Installation</h2>
+<div class="doc-row-2">
+  <div class="doc-field-row"><span class="doc-field-label">Property Address</span><span class="doc-field-line"></span></div>
+  <div class="doc-field-row"><span class="doc-field-label">Homeowner</span><span class="doc-field-line"></span></div>
+  <div class="doc-field-row"><span class="doc-field-label">Installation Date</span><span class="doc-field-line short"></span></div>
+  <div class="doc-field-row"><span class="doc-field-label">Guarantee Tier</span><span class="doc-field-line short"></span></div>
+</div>
+<h2>Guarantee Terms</h2>
+<div class="doc-check-grid">
+  <div class="doc-check-item"><span class="doc-checkbox"></span>Standard — 5-Year Labor Guarantee</div>
+  <div class="doc-check-item"><span class="doc-checkbox"></span>Preferred — 10-Year Labor Guarantee (transferable to 1 owner)</div>
+  <div class="doc-check-item"><span class="doc-checkbox"></span>Elite — Lifetime Labor Guarantee (fully transferable)</div>
+</div>
+<p style="font-size:12px;color:#555;margin-top:12px;line-height:1.7;">No Big Deal Home Solutions guarantees all labor performed under this installation against defects in workmanship for the term selected above, beginning on the installation date. This guarantee covers labor costs to repair or correct any installation defect at no charge to the homeowner. It does not cover damage caused by acts of nature, improper maintenance, or alterations made by others. Manufacturer shingle warranty is separate and provided by GAF directly.</p>
+<h2>Transferability</h2>
+<p style="font-size:12px;color:#555;line-height:1.7;">Preferred and Elite guarantees are transferable as noted above. To transfer, notify No Big Deal Home Solutions in writing within 30 days of property sale. A transfer fee of $0 applies. New owner receives the remaining guarantee term in writing.</p>
+<div class="doc-sig-block">
+  <div class="doc-sig-row">
+    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">Homeowner Signature &amp; Date</div></div>
+    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">Joe Deal — No Big Deal Home Solutions</div></div>
+  </div>
+  <div style="text-align:center;font-size:10px;color:#aaa;margin-top:16px;">Certificate #: NBD-<span class="doc-field-line short" style="display:inline-block;width:80px;"></span> · Keep this document with your home records</div>
+</div>`
   },
   supplement: {
     title: 'Supplement Request',
