@@ -1,0 +1,240 @@
+═══════════════════════════════════════════════════════════════════
+NBD PRO CRM — DIAGNOSTIC SYSTEM QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════
+
+📍 LOCATION: Pipeline nav item (sidebar)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴🟡🟢 HEALTH INDICATOR BADGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHAT IT SHOWS:
+  🟡 Yellow Pulsing  →  Loading CRM data...
+  🟢 Green Solid     →  CRM Connected • X leads loaded
+  🔴 Red Pulsing     →  CRM Error: [specific error message]
+
+HOVER TOOLTIP:
+  - Loading state: "Loading CRM data..."
+  - Success state: "CRM Connected • 12 leads loaded"
+  - Auth error: "CRM Error: Authentication failed"
+  - Rules error: "CRM Error: Firestore rules blocking access"
+  - Other error: "CRM Error: [error message]"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ DIAGNOSTIC PANEL (Orange Box)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHEN IT APPEARS:
+  - Zero leads detected + user authenticated
+  - Automatically after loadLeads() completes
+
+WHAT IT SHOWS:
+  ✓ User authenticated: user@email.com
+  ✓ User ID: abc123xyz...
+  ✓ Database connected: Yes
+  ✓ Leads in memory: 0
+  
+  Possible causes:
+  1. No leads created yet for this account
+  2. Firestore rules blocking reads (check Firebase Console)
+  3. Network connectivity issue
+  
+  ✅ Click "Load Sample Data" to add 5 test leads
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎲 LOAD SAMPLE DATA BUTTON (Purple)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHERE: CRM header toolbar + Diagnostic panel
+
+WHAT IT DOES:
+  - Creates 5 realistic test leads
+  - Different stages: New → In Progress
+  - Cincinnati-area addresses
+  - Multiple carriers: State Farm, Allstate, Liberty Mutual, etc.
+  - Damage types: Hail, Wind, Siding, Full Exterior, Gutters
+  - Job values: $3,200 - $24,500
+
+AUTO-HIDE:
+  - Visible when: zero leads exist
+  - Hidden when: 1+ leads exist
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐛 DEBUG CONSOLE (Collapsible)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHERE: Inside Diagnostic Panel (click ▶ Show Debug Console)
+
+FEATURES:
+  - Captures last 50 CRM-related console logs
+  - Auto-filters for: loadLeads, CRM, 🔍, ✅, ❌, ⚠️
+  - Color-coded prefixes: [LOG] [WARN] [ERROR]
+  - Updates in real-time as logs fire
+
+EXAMPLE CAPTURED LOGS:
+  [LOG] 🔍 loadLeads: uid= abc123...
+  [LOG] 🔍 loadLeads: Querying Firestore...
+  [LOG] 🔍 loadLeads: Got 0 docs from Firestore
+  [LOG] ✅ loadLeads: Processed 0 leads after filtering deleted
+  [ERROR] ❌ loadLeads failed: Missing or insufficient permissions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 DIAGNOSTIC PANEL BUTTONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎲 LOAD SAMPLE DATA
+   - Creates 5 test leads instantly
+   - Auto-refreshes kanban after creation
+   - Hides itself when leads appear
+
+🔄 RETRY LOAD
+   - Re-runs loadLeads() without page reload
+   - Updates health badge to loading state
+   - Useful after fixing Firestore rules
+
+🔐 TEST RULES
+   - Runs 5 Firestore security tests:
+     1. Read leads collection
+     2. Write to leads collection
+     3. Delete from leads collection
+     4. Read estimates collection
+     5. Read photos collection
+   - Shows results in diagnostic panel
+   - Guides to fix if permission-denied
+
+📋 COPY DEBUG INFO
+   - Copies full diagnostic report to clipboard
+   - Includes:
+     * User email + uid
+     * Database connection status
+     * Lead counts
+     * All captured console logs
+   - Paste into support ticket or GitHub issue
+
+✕ DISMISS
+   - Hides diagnostic panel
+   - Reappears if zero leads persist
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔬 TEST RULES OUTPUT EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SUCCESS (All tests pass):
+  Testing: Read leads collection...
+  ✅ Read leads: Success (0 docs)
+  Testing: Write to leads collection...
+  ✅ Write leads: Success (id: abc123...)
+  Testing: Delete from leads collection...
+  ✅ Delete leads: Success
+  Testing: Read estimates collection...
+  ✅ Read estimates: Success (0 docs)
+  Testing: Read photos collection...
+  ✅ Read photos: Success (0 docs)
+  
+  🎉 All tests passed! Firestore rules are correctly configured.
+
+FAILURE (Rules blocking):
+  Testing: Read leads collection...
+  ❌ Test failed: Missing or insufficient permissions.
+  Error code: permission-denied
+  
+  ⚠️ PERMISSION DENIED — Your Firestore rules are blocking access.
+  Fix: Deploy rules from FIRESTORE_RULES.txt in repo
+  Firebase Console → Firestore → Rules tab
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 TROUBLESHOOTING WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Open CRM view
+  → Health badge shows: 🟡 Loading...
+  → Wait 2-3 seconds
+
+STEP 2: Check health badge
+  🟢 Green → Success! Kanban should load.
+  🔴 Red → Error. Diagnostic panel appears.
+
+STEP 3: If diagnostic panel appears
+  → Read "Possible causes" section
+  → Click "🔐 Test Rules" button
+  → Check test results
+
+STEP 4: Based on test results
+  ✅ All tests pass → Click "Load Sample Data"
+  ❌ permission-denied → Deploy Firestore rules (FIRESTORE_RULES.txt)
+  ❌ Other error → Click "📋 Copy Debug Info" → Open support ticket
+
+STEP 5: After fixing
+  → Click "🔄 Retry Load"
+  → Health badge should turn 🟢 green
+  → Kanban loads
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 COMMON ISSUES & FIXES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ISSUE: Health badge stays 🟡 yellow forever
+FIX: Check browser console for JS errors. Likely auth state not settling.
+     Set BYPASS_SUBSCRIPTION_CHECK = true on line 149 of dashboard.html
+
+ISSUE: Health badge shows 🔴 "Firestore rules blocking access"
+FIX: Deploy rules from FIRESTORE_RULES.txt
+     Firebase Console → Firestore → Rules tab → Publish
+
+ISSUE: Test Rules passes but kanban still empty
+FIX: No leads exist for your account. Click "Load Sample Data"
+
+ISSUE: Debug console shows "Got 0 docs from Firestore" but no error
+FIX: You have zero leads. This is normal for new accounts.
+     Click "Load Sample Data" to populate.
+
+ISSUE: Diagnostic panel won't dismiss
+FIX: Create at least 1 lead (manually or via Load Sample Data)
+     Panel auto-hides when leads > 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 BROWSER CONSOLE LOGS (What to Look For)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GOOD (Everything working):
+  🔍 loadLeads: uid= abc123xyz...
+  🔍 loadLeads: window._user= {email: "...", uid: "..."}
+  🔍 loadLeads: Firebase auth state= abc123xyz...
+  🔍 loadLeads: Querying Firestore with uid= abc123xyz...
+  🔍 loadLeads: Got 5 docs from Firestore
+  ✅ loadLeads: Processed 5 leads after filtering deleted
+  📊 window._leads: [{...}, {...}, ...]
+
+BAD (Auth failure):
+  🔍 loadLeads: uid= undefined
+  ⚠️ loadLeads: No user ID — waiting for auth...
+  🔍 loadLeads: Retry after 1s — uid= undefined
+  ❌ loadLeads: Still no user after retry — auth failure
+
+BAD (Rules blocking):
+  🔍 loadLeads: uid= abc123xyz...
+  🔍 loadLeads: Querying Firestore with uid= abc123xyz...
+  ❌ loadLeads failed: Missing or insufficient permissions
+  [ERROR] ❌ loadLeads failed: Missing or insufficient permissions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ SUCCESS CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After deployment, verify:
+
+□ Health badge visible in Pipeline nav item
+□ Health badge turns 🟢 green when CRM loads
+□ Hover shows "CRM Connected • X leads loaded"
+□ Zero leads → Diagnostic panel appears automatically
+□ Load Sample Data button visible when zero leads
+□ Click Load Sample Data → 5 leads appear on kanban
+□ Click Test Rules → All tests pass
+□ Click Copy Debug Info → Info copied to clipboard
+□ Debug console captures live console logs
+□ Retry Load button re-runs loadLeads() without reload
+□ Dismiss button hides diagnostic panel
+
+═══════════════════════════════════════════════════════════════════
+END QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════
