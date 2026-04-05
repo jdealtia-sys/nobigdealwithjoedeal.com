@@ -1549,16 +1549,15 @@ async function parseAndImport(text) {
 // ── AI CALL ───────────────────────────────────────────
 async function callAI(prompt) {
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true', 'x-api-key': localStorage.getItem('nbd_joe_key') || '' },
       body: JSON.stringify({
-        contents: [{parts: [{text: prompt}]}],
-        generationConfig: {temperature: 0.3, maxOutputTokens: 800}
+        model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{role: 'user', content: prompt}]
       }),
     });
     const data = await res.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'AI unavailable';
+    return data?.content?.[0]?.text || 'AI unavailable';
   } catch(e) {
     return 'AI call failed: ' + e.message;
   }

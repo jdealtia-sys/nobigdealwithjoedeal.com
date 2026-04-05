@@ -7098,20 +7098,31 @@ For the address "${fullAddr}", search the auditor, find the parcel, and extract 
 If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
 RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
-    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo', {
+    const _piKey = getJoeKey ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
+    if (!_piKey || !_piKey.startsWith('sk-ant')) {
+      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Property Intel');
+    }
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+        'x-api-key': _piKey
+      },
       body: JSON.stringify({
-        contents: [{parts: [{text: prompt}]}],
-        generationConfig: {temperature: 0, maxOutputTokens: 600}
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        messages: [{role: 'user', content: prompt}]
       })
     });
 
     if(!resp.ok) throw new Error('API ' + resp.status);
     const data = await resp.json();
 
-    // Extract text from Gemini response
-    let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Extract text from Anthropic response
+    let rawText = data?.content?.[0]?.text || '';
 
     // Parse JSON from response
     let intel = null;
@@ -8354,7 +8365,7 @@ window.removeTask = removeTask;
 // Estimates
 
 // ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════════════
-const GEMINI_KEY = 'AIzaSyCkvqRR7pDp7oHkIl4HXq9BwdTB8qvCUSo';
+// GAF Quick Measure uses Anthropic API (key from Settings → Ask Joe AI)
 let _qmData = null;
 
 function openQMImportModal() {
@@ -8423,25 +8434,34 @@ async function handleQMFile(file) {
 }
 Return ONLY the JSON object. No other text.`;
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: 'application/pdf', data: base64 } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: { temperature: 0, maxOutputTokens: 1000 }
-        })
-      }
-    );
+    const _qmKey = typeof getJoeKey === 'function' ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
+    if (!_qmKey || !_qmKey.startsWith('sk-ant')) {
+      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Quick Measure import');
+    }
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+        'x-api-key': _qmKey
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
 
     const result = await resp.json();
-    const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw = result?.content?.[0]?.text || '';
     const clean = raw.replace(/```json|```/g, '').trim();
     _qmData = JSON.parse(clean);
 
