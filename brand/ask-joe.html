@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Got questions about roofing, siding, or gutters? Ask Joe anything—get honest, straight answers from 7+ years of experience.">
+  <title>Ask Joe — No Big Deal with Joe Deal</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/brand/assets/images/favicon.png">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/shared/styles/base.css">
+  <link rel="stylesheet" href="/brand/assets/css/ask-joe.css">
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Shared Modules -->
+  <script src="/shared/js/firebase.js"></script>
+  <script src="/shared/js/utils.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <div id="header-container"></div>
+  
+  <!-- Hero Section -->
+  <section class="ask-joe-hero">
+    <div class="nbd-container-narrow">
+      <h1 class="section-title">Ask Joe Anything</h1>
+      <p class="section-subtitle">
+        Got questions about roofing, siding, gutters, or insurance claims? I've spent 7+ years in this industry—I'll give you straight answers, no sales pitch.
+      </p>
+      <p class="section-subtitle">
+        <strong>First 5 questions are free. No email required.</strong>
+      </p>
+    </div>
+  </section>
+  
+  <!-- Chat Interface -->
+  <section class="chat-section">
+    <div class="chat-container">
+      
+      <!-- Chat Messages -->
+      <div class="chat-messages" id="chatMessages">
+        <!-- Welcome message -->
+        <div class="message bot-message">
+          <div class="message-avatar">👨‍🔧</div>
+          <div class="message-content">
+            <div class="message-bubble">
+              <p><strong>Hey, I'm Joe.</strong></p>
+              <p>Ask me anything about roofing, siding, gutters, pricing, insurance claims—whatever's on your mind. I'll give you honest answers based on 7+ years in the field.</p>
+              <p style="font-size: 0.875rem; color: rgba(255,255,255,0.8); margin-top: 0.5rem;">Try asking: "How much does a new roof cost?" or "What's the best shingle for Ohio weather?"</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Chat Input -->
+      <div class="chat-input-container">
+        <form id="chatForm" onsubmit="sendMessage(event)">
+          <input 
+            type="text" 
+            id="messageInput" 
+            class="chat-input" 
+            placeholder="Type your question..."
+            autocomplete="off"
+            required
+          >
+          <button type="submit" class="chat-send-btn" id="sendBtn">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+            </svg>
+          </button>
+        </form>
+        <p class="question-counter" id="questionCounter">Questions left: 5</p>
+      </div>
+      
+    </div>
+  </section>
+  
+  <!-- FAQ Section -->
+  <section class="faq-section">
+    <div class="nbd-container">
+      <h2 class="section-title">Common Questions</h2>
+      <p class="section-subtitle">Click any question to ask Joe</p>
+      <div class="faq-grid">
+        <button class="faq-card" onclick="askPredefined('How much does a new roof cost in Cincinnati?')">
+          <h3>💰 How much does a new roof cost?</h3>
+          <p>Get honest pricing for Greater Cincinnati area</p>
+        </button>
+        <button class="faq-card" onclick="askPredefined('What are the best shingles for Ohio weather?')">
+          <h3>🏠 Best shingles for Ohio weather?</h3>
+          <p>Learn which materials hold up in our climate</p>
+        </button>
+        <button class="faq-card" onclick="askPredefined('How do I file an insurance claim for storm damage?')">
+          <h3>📋 How do insurance claims work?</h3>
+          <p>Navigate the claims process with confidence</p>
+        </button>
+        <button class="faq-card" onclick="askPredefined('How long does a roof replacement take?')">
+          <h3>⏱️ How long does a replacement take?</h3>
+          <p>Timeline from start to finish</p>
+        </button>
+        <button class="faq-card" onclick="askPredefined('Should I repair or replace my roof?')">
+          <h3>🔧 Repair or replace?</h3>
+          <p>Get honest advice on your situation</p>
+        </button>
+        <button class="faq-card" onclick="askPredefined('What's the difference between architectural and 3-tab shingles?')">
+          <h3>📊 Architectural vs 3-tab shingles?</h3>
+          <p>Understand your options</p>
+        </button>
+      </div>
+    </div>
+  </section>
+  
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="nbd-container-narrow text-center">
+      <h2 class="section-title">Like What You're Hearing?</h2>
+      <p class="section-subtitle">
+        I'm here when you're ready to talk about your project. No pressure—just straight answers and quality work.
+      </p>
+      <div class="hero-cta">
+        <a href="tel:+15138675309" class="nbd-btn nbd-btn-primary nbd-btn-lg">
+          Call Joe: (513) 867-5309
+        </a>
+        <a href="/brand/ai-visualizer.html" class="nbd-btn nbd-btn-secondary nbd-btn-lg">
+          Try the AI Visualizer
+        </a>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Footer -->
+  <div id="footer-container"></div>
+  
+  <!-- Modal (from shared components) -->
+  <div id="modal-container"></div>
+  
+  <!-- Page Scripts -->
+  <script src="/brand/assets/js/ask-joe.js"></script>
+</body>
+</html>

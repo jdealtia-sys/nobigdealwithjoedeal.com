@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Visualizer Coming Soon — No Big Deal with Joe Deal</title>
+  <link rel="stylesheet" href="/shared/styles/base.css">
+  <style>
+    .coming-soon {
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: linear-gradient(135deg, var(--nbd-navy) 0%, #2a4a7a 100%);
+      color: white;
+    }
+    .coming-soon-content {
+      max-width: 600px;
+      padding: var(--space-2xl);
+    }
+    .coming-soon h1 {
+      font-size: 3rem;
+      margin-bottom: var(--space-lg);
+      color: white;
+    }
+    .coming-soon p {
+      font-size: 1.25rem;
+      margin-bottom: var(--space-xl);
+      color: rgba(255,255,255,0.9);
+    }
+  </style>
+</head>
+<body>
+  <div id="header-container"></div>
+  
+  <section class="coming-soon">
+    <div class="coming-soon-content">
+      <h1>🚧 AI Visualizer Coming Soon</h1>
+      <p>We're putting the finishing touches on our AI-powered home visualizer. It'll be ready in a few days!</p>
+      <p>In the meantime, call Joe directly for a free estimate:</p>
+      <a href="tel:+15138675309" class="nbd-btn nbd-btn-secondary nbd-btn-lg">
+        Call Joe: (513) 867-5309
+      </a>
+    </div>
+  </section>
+  
+  <div id="footer-container"></div>
+  
+  <script>
+    fetch('/shared/components/header.html').then(r => r.text()).then(h => document.getElementById('header-container').innerHTML = h);
+    fetch('/shared/components/footer.html').then(r => r.text()).then(h => document.getElementById('footer-container').innerHTML = h);
+  </script>
+</body>
+</html>
