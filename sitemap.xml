@@ -2,7 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://www.nobigdealwithjoedeal.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://www.nobigdealwithjoedeal.com/about</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/visualizer</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 
   <!-- Services -->
   <url><loc>https://www.nobigdealwithjoedeal.com/services/roof-replacement</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
@@ -16,6 +15,33 @@
   <url><loc>https://www.nobigdealwithjoedeal.com/services/roof-cleaning-soft-wash</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.nobigdealwithjoedeal.com/services/fire-water-smoke-damage</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.nobigdealwithjoedeal.com/services/financing</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
+  <!-- Location Pages -->
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/cincinnati-oh</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/mason-oh</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/loveland-oh</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/batavia-oh</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/west-chester-oh</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/milford-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/lebanon-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/blue-ash-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/indian-hill-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/anderson-township-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/amelia-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/goshen-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/maineville-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/fayetteville-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/blanchester-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/mt-orab-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/wilmington-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/clarksville-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/monroe-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/fairfield-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/springboro-oh</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/florence-ky</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/erlanger-ky</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/covington-ky</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.nobigdealwithjoedeal.com/areas/fort-mitchell-ky</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
   <!-- Blog -->
   <url><loc>https://www.nobigdealwithjoedeal.com/blog/</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
