@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="See your home's potential with our AI-powered visualizer. Pick colors, materials, and styles—get instant photorealistic mockups and cost estimates.">
+  <title>AI Home Visualizer — No Big Deal with Joe Deal</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/brand/assets/images/favicon.png">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/shared/styles/base.css">
+  <link rel="stylesheet" href="/brand/assets/css/visualizer.css">
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Shared Modules -->
+  <script src="/shared/js/firebase.js"></script>
+  <script src="/shared/js/utils.js"></script>
+  
+  <!-- Google Places API for address autocomplete -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_PLACES_API_KEY&libraries=places"></script>
+</head>
+<body>
+  <!-- Header -->
+  <div id="header-container"></div>
+  
+  <!-- Hero Section -->
+  <section class="visualizer-hero">
+    <div class="nbd-container-narrow">
+      <h1 class="section-title">See Your Home's Potential</h1>
+      <p class="section-subtitle">
+        Pick your roof style, material, and color. Our AI creates a photorealistic mockup of your home—plus an instant cost estimate. <strong>Free. No email required.</strong>
+      </p>
+    </div>
+  </section>
+  
+  <!-- Visualizer Tool -->
+  <section class="visualizer-tool">
+    <div class="nbd-container">
+      <div class="visualizer-container">
+        
+        <!-- Input Panel -->
+        <div class="input-panel">
+          <h2>Design Your Home</h2>
+          
+          <!-- Step 1: Address -->
+          <div class="input-section">
+            <h3>1. Your Address</h3>
+            <div class="nbd-form-group">
+              <label class="nbd-label">Street Address</label>
+              <input 
+                type="text" 
+                id="address" 
+                class="nbd-input" 
+                placeholder="123 Main St, Cincinnati, OH"
+                required
+              >
+              <p class="input-hint">We'll use satellite imagery to create your mockup</p>
+            </div>
+          </div>
+          
+          <!-- Step 2: Service Type -->
+          <div class="input-section">
+            <h3>2. What Are You Updating?</h3>
+            <div class="service-types">
+              <button class="service-type-btn active" data-service="roof" onclick="selectService('roof')">
+                <div class="service-icon">🏠</div>
+                <span>Roof</span>
+              </button>
+              <button class="service-type-btn" data-service="siding" onclick="selectService('siding')">
+                <div class="service-icon">🏡</div>
+                <span>Siding</span>
+              </button>
+              <button class="service-type-btn" data-service="gutters" onclick="selectService('gutters')">
+                <div class="service-icon">🌧️</div>
+                <span>Gutters</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Step 3: Material & Style -->
+          <div class="input-section" id="roofOptions">
+            <h3>3. Pick Your Style</h3>
+            <div class="nbd-form-group">
+              <label class="nbd-label">Roof Type</label>
+              <select id="roofType" class="nbd-select">
+                <option value="gable">Gable (Standard)</option>
+                <option value="hip">Hip</option>
+                <option value="flat">Flat</option>
+                <option value="gambrel">Gambrel (Barn-style)</option>
+              </select>
+            </div>
+            <div class="nbd-form-group">
+              <label class="nbd-label">Material</label>
+              <select id="roofMaterial" class="nbd-select">
+                <option value="architectural_shingles">Architectural Shingles</option>
+                <option value="3tab_shingles">3-Tab Shingles</option>
+                <option value="metal">Metal Roofing</option>
+                <option value="tile">Tile</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="input-section hidden" id="sidingOptions">
+            <h3>3. Pick Your Style</h3>
+            <div class="nbd-form-group">
+              <label class="nbd-label">Material</label>
+              <select id="sidingMaterial" class="nbd-select">
+                <option value="vinyl">Vinyl Siding</option>
+                <option value="fiber_cement">Fiber Cement</option>
+                <option value="wood">Wood Siding</option>
+                <option value="metal">Metal Siding</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="input-section hidden" id="guttersOptions">
+            <h3>3. Pick Your Style</h3>
+            <div class="nbd-form-group">
+              <label class="nbd-label">Material</label>
+              <select id="guttersMaterial" class="nbd-select">
+                <option value="aluminum">Aluminum (Seamless)</option>
+                <option value="vinyl">Vinyl</option>
+                <option value="copper">Copper</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Step 4: Color -->
+          <div class="input-section">
+            <h3>4. Choose Your Color</h3>
+            <div class="color-palette">
+              <button class="color-swatch active" data-color="charcoal" style="background-color: #3a3a3a;" onclick="selectColor('charcoal')"></button>
+              <button class="color-swatch" data-color="brown" style="background-color: #654321;" onclick="selectColor('brown')"></button>
+              <button class="color-swatch" data-color="gray" style="background-color: #808080;" onclick="selectColor('gray')"></button>
+              <button class="color-swatch" data-color="white" style="background-color: #f5f5f5;" onclick="selectColor('white')"></button>
+              <button class="color-swatch" data-color="tan" style="background-color: #d2b48c;" onclick="selectColor('tan')"></button>
+              <button class="color-swatch" data-color="green" style="background-color: #2d5016;" onclick="selectColor('green')"></button>
+              <button class="color-swatch" data-color="blue" style="background-color: #1e3a6e;" onclick="selectColor('blue')"></button>
+              <button class="color-swatch" data-color="red" style="background-color: #8b0000;" onclick="selectColor('red')"></button>
+            </div>
+            <p class="color-name" id="colorName">Charcoal Gray</p>
+          </div>
+          
+          <!-- Generate Button -->
+          <button class="nbd-btn nbd-btn-secondary nbd-btn-lg w-full" onclick="generateVisualization()" id="generateBtn">
+            Generate My Visualization
+          </button>
+        </div>
+        
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+          <div id="previewArea" class="preview-area">
+            <div class="preview-placeholder">
+              <div class="placeholder-icon">🏠</div>
+              <h3>Your Design Will Appear Here</h3>
+              <p>Fill out the form on the left, then click "Generate" to see your home's transformation.</p>
+            </div>
+          </div>
+          
+          <!-- Results (hidden until generation) -->
+          <div id="resultsArea" class="results-area hidden">
+            <div class="estimate-card">
+              <h3>Your Estimate</h3>
+              <div class="estimate-range" id="estimateRange">
+                $12,500 - $15,000
+              </div>
+              <p class="estimate-note">
+                This is a ballpark estimate based on typical costs in Greater Cincinnati. Actual price depends on your specific home.
+              </p>
+            </div>
+            
+            <!-- Lead Capture -->
+            <div class="lead-capture-card">
+              <h3>Want This For Your Home?</h3>
+              <p>Let's talk. I'll give you an exact quote—no pressure, just straight answers.</p>
+              <form id="leadForm" onsubmit="submitLead(event)">
+                <div class="nbd-form-group">
+                  <input type="text" id="leadName" class="nbd-input" placeholder="Your Name" required>
+                </div>
+                <div class="nbd-form-group">
+                  <input type="email" id="leadEmail" class="nbd-input" placeholder="Email Address" required>
+                </div>
+                <div class="nbd-form-group">
+                  <input type="tel" id="leadPhone" class="nbd-input" placeholder="Phone Number (optional)">
+                </div>
+                <button type="submit" class="nbd-btn nbd-btn-primary w-full">
+                  Get My Free Quote
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+  
+  <!-- How It Works -->
+  <section class="how-it-works">
+    <div class="nbd-container">
+      <h2 class="section-title">How It Works</h2>
+      <div class="nbd-grid nbd-grid-3">
+        <div class="nbd-card text-center">
+          <div class="step-number">1</div>
+          <h3>Enter Your Address</h3>
+          <p>We pull satellite imagery of your home to create an accurate mockup.</p>
+        </div>
+        <div class="nbd-card text-center">
+          <div class="step-number">2</div>
+          <h3>Pick Your Style</h3>
+          <p>Choose materials, colors, and styles. Our AI generates a photorealistic design.</p>
+        </div>
+        <div class="nbd-card text-center">
+          <div class="step-number">3</div>
+          <h3>Get Your Estimate</h3>
+          <p>Instant ballpark pricing. If you like it, contact Joe for an exact quote.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Footer -->
+  <div id="footer-container"></div>
+  
+  <!-- Modal (from shared components) -->
+  <div id="modal-container"></div>
+  
+  <!-- Page Scripts -->
+  <script src="/brand/assets/js/visualizer.js"></script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+/**
+ * NBD Brand — Ask Joe AI Styles
+ */
+
+/* ===== HERO ===== */
+.ask-joe-hero {
+  background: linear-gradient(135deg, var(--nbd-navy) 0%, #2a4a7a 100%);
+  color: var(--text-inverse);
+  padding: var(--space-2xl) 0 var(--space-xl);
+  text-align: center;
+}
+
+.ask-joe-hero .section-title {
+  color: var(--text-inverse);
+}
+
+.ask-joe-hero .section-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== CHAT SECTION ===== */
+.chat-section {
+  padding: var(--space-2xl) 0;
+  background-color: var(--bg-secondary);
+}
+
+.chat-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.message {
+  display: flex;
+  gap: var(--space-md);
+  max-width: 85%;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.message-content {
+  flex: 1;
+}
+
+.message-bubble {
+  background-color: var(--bg-tertiary);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.message-bubble p {
+  margin: 0 0 var(--space-sm);
+}
+
+.message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.bot-message {
+  align-self: flex-start;
+}
+
+.bot-message .message-avatar {
+  background-color: var(--primary);
+}
+
+.bot-message .message-bubble {
+  background-color: var(--primary);
+  color: var(--text-inverse);
+}
+
+.user-message {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.user-message .message-avatar {
+  background-color: var(--secondary);
+}
+
+.user-message .message-bubble {
+  background-color: var(--secondary);
+  color: var(--text-inverse);
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-sm);
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.6);
+  animation: typing-bounce 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-8px); }
+}
+
+/* ===== CHAT INPUT ===== */
+.chat-input-container {
+  padding: var(--space-lg);
+  border-top: 1px solid var(--border-light);
+  background-color: var(--bg-secondary);
+}
+
+#chatForm {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.chat-input {
+  flex: 1;
+  padding: var(--space-md);
+  font-size: 0.875rem;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(30, 58, 110, 0.1);
+}
+
+.chat-send-btn {
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--primary);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background-color: var(--nbd-navy);
+  transform: translateY(-2px);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.question-counter {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0;
+}
+
+/* ===== FAQ SECTION ===== */
+.faq-section {
+  background-color: var(--bg-primary);
+  padding: var(--space-2xl) 0;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-lg);
+}
+
+.faq-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.faq-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
+}
+
+.faq-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  color: var(--primary);
+}
+
+.faq-card p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ===== CTA SECTION ===== */
+.cta-section {
+  background: linear-gradient(135deg, var(--secondary) 0%, #d66a0b 100%);
+  color: var(--text-inverse);
+  padding: var(--space-2xl) 0;
+}
+
+.cta-section .section-title,
+.cta-section .section-subtitle {
+  color: var(--text-inverse);
+}
+
+.cta-section .nbd-btn-primary {
+  background-color: var(--nbd-navy);
+}
+
+.cta-section .nbd-btn-secondary {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.cta-section .nbd-btn-secondary:hover {
+  background-color: var(--text-inverse);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .chat-container {
+    height: 500px;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+}
