@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.nobigdealwithjoedeal.com/sitemap.xml
+
+# Block admin/dev tools
+Disallow: /admin/
+Disallow: /pro/
