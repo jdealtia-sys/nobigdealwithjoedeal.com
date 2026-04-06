@@ -136,13 +136,15 @@
   window.uploadBytes = uploadBytes;
   window.getDownloadURL = getDownloadURL;
   window.listAll = listAll;
+  window._signOut = signOut;
+  window._onAuthStateChanged = onAuthStateChanged;
 
   onAuthStateChanged(auth, async user => {
     if (!user) { window.location.replace("/pro/login.html"); return; }
     
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
     // Check if user has active subscription (unless demo account)
-    const isDemoAccount = user.email === 'demo@nbdpro.com';
+    const isDemoAccount = user.email === 'demo@nobigdeal.pro';
     
     // ──────────────────────────────────────────────────────────
     // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
@@ -3314,10 +3316,10 @@ const NBD_NAV_CONFIG = {
     if (el.dataset.page === activePage) el.classList.add('active');
   });
 
-  // Auth state
+  // Auth state — use modular SDK via window globals
   try {
-    if (typeof firebase !== 'undefined') {
-      firebase.auth().onAuthStateChanged(user => {
+    if (window.auth && window._onAuthStateChanged) {
+      window._onAuthStateChanged(window.auth, user => {
         const btn = document.getElementById('nnav-auth-btn');
         const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
         const userLabel = document.getElementById('nnav-user-label');
@@ -3326,8 +3328,8 @@ const NBD_NAV_CONFIG = {
           const name = user.displayName || user.email?.split('@')[0] || 'Member';
           if (userLabel) userLabel.textContent = name;
           if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
+          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); window._signOut(window.auth); }; }
+          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); window._signOut(window.auth); }; }
         } else {
           if (userLabel) userLabel.textContent = '';
           if (drawerUser) drawerUser.textContent = '';

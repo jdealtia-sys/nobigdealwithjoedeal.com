@@ -279,17 +279,6 @@ function buildCard(l){
     const age = new Date().getFullYear() - parseInt(l.yearBuilt);
     const cls = age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient';
     return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr</span>`;
-  
-  // Apply search highlighting
-  if(window._searchQuery && window._searchQuery.length >= 2){
-    const query = window._searchQuery;
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp('(' + escaped + ')', 'gi');
-    html = html.replace(regex, '<mark style="background:var(--orange);color:#000;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
-  }
-  
-  return html;
-
   })();
 
   const phone = l.phone||'';
@@ -309,7 +298,7 @@ function buildCard(l){
                         l._syncSuccess ? '<div class="k-card-sync-icon">✓</div>' : 
                         l._syncError ? '<div class="k-card-sync-icon">⚠️</div>' : '';
 
-  return `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
+  let html = `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
     <div class="k-card-checkbox" onclick="event.stopPropagation();toggleCardSelection('${l.id}')">
       <span class="k-card-checkbox-icon">✓</span>
     </div>
@@ -350,6 +339,15 @@ function buildCard(l){
       </div>
     </div>
   </div>`;
+
+  // Apply search highlighting to the card HTML
+  if(window._searchQuery && window._searchQuery.length >= 2){
+    const sq = window._searchQuery;
+    const escaped = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp('(' + escaped + ')', 'gi');
+    return html.replace(regex, '<mark style="background:var(--orange);color:#000;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
+  }
+  return html;
 }
 
 function handleCardClick(id, event) {

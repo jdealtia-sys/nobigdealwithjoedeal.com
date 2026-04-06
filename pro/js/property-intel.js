@@ -3,6 +3,8 @@
 // Property Intel: auditor lookup, intel cards, modal display
 // ══════════════════════════════════════════════════════════════
 
+const _piCache = {};
+
 async function fetchPropertyIntel(nominatimData, targetElId) {
   const targetEl = document.getElementById(targetElId);
 

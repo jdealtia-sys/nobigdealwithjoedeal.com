@@ -26,6 +26,8 @@
     window._currentUser = user;
     if (user) {
       window.dispatchEvent(new Event('auth-ready'));
+    } else {
+      window.location.replace('/pro/login.html');
     }
   });
 </script>
@@ -426,19 +428,13 @@ function switchTimeRange(range) {
 
 window.addEventListener('auth-ready', () => {
   const user = window._currentUser;
-  
-  // Auth check: require admin session
-  try {
-    const sess = localStorage.getItem('nbd_admin_session');
-    if (!sess || JSON.parse(sess).expires <= Date.now()) {
-      window.location.replace('/admin/login.html');
-      return;
-    }
-  } catch(e) {
-    window.location.replace('/admin/login.html');
+
+  // Auth check: require Firebase authenticated user
+  if (!user) {
+    window.location.replace('/pro/login.html');
     return;
   }
-  
+
   // Auth passed - show main content and load analytics
   document.getElementById('authLoading').style.display = 'none';
   document.getElementById('mainContent').style.display = 'block';

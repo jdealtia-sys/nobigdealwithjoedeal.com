@@ -300,22 +300,17 @@ export async function getLead(db, uid, leadId) {
  *   const activeJobs  = await getAllRecords(db, uid, { type: 'job' });
  */
 export async function getAllRecords(db, uid, options = {}) {
-  let q = query(leadsRef(db, uid), orderBy('createdAt', 'desc'));
+  const constraints = [orderBy('createdAt', 'desc')];
 
   if (options.type && options.type !== 'all') {
-    q = query(leadsRef(db, uid),
-      where('recordType', '==', options.type),
-      orderBy('createdAt', 'desc')
-    );
+    constraints.unshift(where('recordType', '==', options.type));
   }
 
   if (options.stage) {
-    q = query(leadsRef(db, uid),
-      where('stage', '==', options.stage),
-      orderBy('createdAt', 'desc')
-    );
+    constraints.unshift(where('stage', '==', options.stage));
   }
 
+  const q = query(leadsRef(db, uid), ...constraints);
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }

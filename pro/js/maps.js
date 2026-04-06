@@ -370,6 +370,7 @@ async function searchMap() {
 }
 window.searchMap = searchMap;
 
+window.makeLeadFromSearch = makeLeadFromSearch;
 function makeLeadFromSearch() {
   const d = window._lastMapSearch;
   if(!d) return;
