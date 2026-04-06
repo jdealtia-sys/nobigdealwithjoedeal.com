@@ -4237,17 +4237,215 @@ body.theme-frosted {
 .d2d-team-toggle.active { background:color-mix(in srgb, var(--blue) 20%, var(--s2)); border-color:var(--blue); color:var(--blue); }
 .d2d-location-pulse { width:16px; height:16px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 0 0 0 rgba(74,158,255,.4); animation:d2dPulse 2s infinite; }
 @keyframes d2dPulse { 0%{box-shadow:0 0 0 0 rgba(74,158,255,.4)} 70%{box-shadow:0 0 0 16px rgba(74,158,255,0)} 100%{box-shadow:0 0 0 0 rgba(74,158,255,0)} }
+/* ── D2D Tablet (≤768px) ────────────────────────── */
 @media(max-width:768px) {
-  #d2dMap { height:45vh; min-height:250px; }
-  .d2d-modal { border-radius:16px 16px 0 0; padding:16px; }
+  #d2dMap { height:38vh; min-height:200px; }
+  .d2d-modal { border-radius:16px 16px 0 0; padding:16px; max-height:92vh; }
   .d2d-dispo-grid { grid-template-columns:repeat(3, 1fr); gap:6px; }
-  .d2d-dispo-btn { padding:8px 4px; }
-  .d2d-dispo-icon { font-size:16px; }
-  .d2d-dispo-label { font-size:9px; }
+  .d2d-dispo-btn { padding:12px 6px; min-height:44px; }
+  .d2d-dispo-icon { font-size:18px; }
+  .d2d-dispo-label { font-size:10px; }
   .d2d-metrics-grid { grid-template-columns:repeat(2, 1fr); }
   .d2d-action-bar { flex-wrap:wrap; }
-  .d2d-funnel-label { font-size:8px; }
+  .d2d-funnel-label { font-size:10px; }
   .d2d-revenue-amount { font-size:24px; }
+  .d2d-input { padding:12px 14px; font-size:16px; }
+  .d2d-save-btn { padding:16px; font-size:16px; min-height:52px; }
+  .d2d-pill { padding:8px 14px; font-size:12px; min-height:36px; }
+  .d2d-select { padding:10px 14px; font-size:14px; min-height:44px; }
+  .d2d-knock-card { padding:14px; gap:12px; }
+  .d2d-knock-addr { font-size:14px; }
+  .d2d-knock-meta { font-size:12px; }
+  .d2d-action-btn { padding:12px 16px; font-size:13px; min-height:44px; }
+  .d2d-details-summary, .d2d-details > summary { padding:14px 16px; font-size:14px; min-height:48px; }
+  .d2d-modal-close { font-size:32px; padding:4px 8px; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
+  .d2d-modal-title { font-size:18px; }
+  .d2d-modal-body { max-height:calc(100vh - 100px); padding:16px; }
+  .d2d-route-stop { padding:12px 14px; min-height:48px; }
+  .d2d-route-addr { font-size:14px; }
+  .d2d-door-chip { width:28px; height:28px; font-size:9px; }
+  .d2d-streak-days { font-size:32px; }
+  .d2d-challenge-card { padding:14px; }
+  .d2d-challenge-label { font-size:14px; }
+  .d2d-progress-track { height:8px; }
+  .d2d-detail-grid { gap:12px; }
+  .d2d-detail-value { font-size:15px; }
+  .d2d-detail-actions .d2d-action-btn { min-height:48px; font-size:14px; }
+  .d2d-history-item { padding:12px; }
+  .d2d-photo-thumb { width:90px; height:90px; }
+  .d2d-hood-row { padding:12px; }
+  .d2d-ins-row { padding:12px; font-size:13px; }
+  .d2d-hourly-chart { height:80px; }
+  .d2d-textarea { font-size:16px; min-height:100px; }
+  .d2d-input { font-size:16px; padding:12px 14px; }
+  .d2d-field-label { font-size:13px; }
+}
+/* ── D2D Mobile (≤480px) ────────────────────────── */
+@media(max-width:480px) {
+  #d2dMap { height:32vh; min-height:180px; }
+  .d2d-modal { max-width:100%; max-height:95vh; border-radius:14px 14px 0 0; padding:14px; padding-bottom:env(safe-area-inset-bottom, 14px); }
+  .d2d-dispo-grid { grid-template-columns:repeat(2, 1fr); gap:8px; }
+  .d2d-dispo-btn { padding:14px 8px; min-height:52px; }
+  .d2d-dispo-icon { font-size:22px; }
+  .d2d-dispo-label { font-size:11px; }
+  .d2d-metrics-grid { grid-template-columns:repeat(2, 1fr); gap:6px; }
+  .d2d-metric-card { padding:10px 8px; }
+  .d2d-metric-val { font-size:20px; }
+  .d2d-metric-lbl { font-size:10px; }
+  .d2d-revenue-amount { font-size:22px; }
+  .d2d-revenue-label { font-size:11px; }
+  .d2d-input { padding:14px 16px; font-size:16px; border-radius:10px; }
+  .d2d-save-btn { padding:18px; font-size:17px; min-height:56px; border-radius:12px; }
+  .d2d-pill { padding:10px 16px; font-size:13px; min-height:40px; }
+  .d2d-select { padding:12px 16px; font-size:16px; min-height:48px; border-radius:10px; width:100%; }
+  .d2d-knock-card { padding:14px 12px; border-radius:10px; }
+  .d2d-knock-addr { font-size:15px; }
+  .d2d-knock-meta { font-size:12px; margin-top:3px; }
+  .d2d-knock-time { font-size:12px; }
+  .d2d-action-btn { padding:14px 18px; font-size:14px; min-height:48px; border-radius:8px; flex:1; justify-content:center; }
+  .d2d-big-btn { padding:14px 20px; font-size:15px; min-height:48px; }
+  .d2d-big-btn-sec { padding:14px 16px; font-size:13px; min-height:48px; }
+  .d2d-details-summary, .d2d-details > summary { padding:16px; font-size:15px; min-height:52px; }
+  .d2d-followup-item { padding:12px 10px; min-height:48px; }
+  .d2d-center-btn { width:48px; height:48px; font-size:20px; }
+  .d2d-funnel-count { font-size:14px; }
+  .d2d-funnel-label { font-size:9px; }
+  .d2d-modal-close { font-size:36px; min-width:48px; min-height:48px; }
+  .d2d-modal-body { max-height:calc(100vh - 80px); padding:14px; padding-bottom:env(safe-area-inset-bottom, 14px); }
+  .d2d-detail-grid { grid-template-columns:1fr; gap:10px; }
+  .d2d-detail-value { font-size:16px; }
+  .d2d-detail-actions { flex-direction:column; }
+  .d2d-detail-actions .d2d-action-btn { min-width:100%; min-height:52px; font-size:15px; }
+  .d2d-route-stop { padding:14px; min-height:52px; }
+  .d2d-route-num { width:32px; height:32px; font-size:14px; }
+  .d2d-route-addr { font-size:15px; }
+  .d2d-door-chip { width:32px; height:32px; font-size:10px; border-radius:6px; }
+  .d2d-streak-days { font-size:28px; }
+  .d2d-streak-badge { font-size:56px; }
+  .d2d-challenge-card { padding:14px; }
+  .d2d-challenge-label { font-size:15px; }
+  .d2d-progress-track { height:8px; }
+  .d2d-projection-grid { grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .d2d-golden-hours { font-size:14px; padding:14px; }
+  .d2d-hourly-chart { height:90px; gap:3px; }
+  .d2d-hour-lbl { font-size:10px; }
+  .d2d-ins-row { padding:12px 14px; }
+  .d2d-ins-name { font-size:13px; }
+  .d2d-hood-score { width:44px; height:44px; font-size:14px; }
+  .d2d-photo-thumb { width:100px; height:100px; border-radius:10px; }
+  .d2d-history-item { padding:14px; border-radius:10px; }
+  .d2d-history-dispo { font-size:14px; }
+  .d2d-textarea { font-size:16px; min-height:100px; padding:14px 16px; border-radius:10px; }
+  .d2d-input { font-size:16px; padding:14px 16px; border-radius:10px; }
+  .d2d-field-label { font-size:14px; margin-bottom:6px; }
+  .d2d-media-btns { gap:10px; }
+  .d2d-media-btns .d2d-action-btn { min-height:48px; font-size:14px; }
+  .d2d-field-row { flex-direction:column; gap:0; }
+}
+/* ── D2D Small phone (≤360px) ──────────────────── */
+@media(max-width:360px) {
+  .d2d-dispo-grid { grid-template-columns:repeat(2, 1fr); gap:6px; }
+  .d2d-metric-val { font-size:18px; }
+  .d2d-revenue-amount { font-size:20px; }
+  .d2d-big-btn { padding:12px 14px; font-size:14px; }
+  .d2d-streak-days { font-size:24px; }
+  .d2d-projection-grid { grid-template-columns:1fr; gap:6px; }
+  .d2d-door-chip { width:28px; height:28px; }
+}
+/* ── D2D Landscape ─────────────────────────────── */
+@media(max-height:500px) and (orientation:landscape) {
+  #d2dMap { height:25vh; min-height:120px; }
+  .d2d-modal { max-height:98vh; }
+  .d2d-dispo-grid { grid-template-columns:repeat(4, 1fr); gap:4px; }
+  .d2d-dispo-btn { padding:8px 4px; min-height:40px; }
+  .d2d-dispo-icon { font-size:16px; }
+  .d2d-dispo-label { font-size:9px; }
+}
+/* ── D2D shared helpers ───────────────────────── */
+.d2d-section-title { font-weight:700; font-size:13px; color:var(--t); margin-bottom:8px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+.d2d-field-label { font-size:12px; color:var(--m); margin-bottom:4px; display:block; font-weight:600; }
+.d2d-modal-body { padding:14px; overflow-y:auto; max-height:calc(100vh - 120px); -webkit-overflow-scrolling:touch; }
+.d2d-textarea { width:100%; min-height:80px; padding:12px 14px; font-size:14px; border:1px solid var(--br); border-radius:8px; background:var(--s); color:var(--t); font-family:'Barlow',sans-serif; resize:vertical; }
+.d2d-ins-section { display:none; margin-top:12px; padding:12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; }
+.d2d-media-btns { display:flex; gap:8px; margin-top:10px; }
+.d2d-input { width:100%; padding:12px 14px; font-size:14px; border:1px solid var(--br); border-radius:8px; background:var(--s); color:var(--t); }
+/* ── D2D Routes ──────────────────────────────── */
+.d2d-routes-section { margin-bottom:14px; }
+.d2d-route-actions { display:flex; gap:8px; margin-bottom:12px; }
+.d2d-route-list { display:flex; flex-direction:column; gap:4px; }
+.d2d-route-stop { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; transition:all .15s; }
+.d2d-route-stop:hover { border-color:var(--orange); }
+.d2d-route-num { width:28px; height:28px; background:var(--blue); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; font-family:'Barlow Condensed',sans-serif; flex-shrink:0; }
+.d2d-route-addr { flex:1; color:var(--t); font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.d2d-route-icon { font-size:16px; flex-shrink:0; }
+.d2d-streets-section { margin-top:14px; }
+.d2d-street-card { padding:12px; background:var(--s2); border:1px solid var(--br); border-radius:10px; margin-bottom:8px; }
+.d2d-street-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.d2d-street-name { font-weight:700; font-size:13px; color:var(--t); text-transform:capitalize; }
+.d2d-street-stat { font-size:11px; color:var(--m); font-weight:600; }
+.d2d-street-doors { display:flex; gap:4px; flex-wrap:wrap; }
+.d2d-door-chip { width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:white; font-weight:700; cursor:pointer; transition:transform .1s; }
+.d2d-door-chip:active { transform:scale(1.15); }
+/* ── D2D Gamify ──────────────────────────────── */
+.d2d-streak-hero { text-align:center; padding:16px; margin-bottom:14px; }
+.d2d-streak-badge { font-size:52px; line-height:1; }
+.d2d-streak-days { font-size:36px; font-weight:900; color:var(--t); font-family:'Barlow Condensed',sans-serif; margin-top:4px; }
+.d2d-streak-sub { color:var(--m); font-size:13px; margin-top:2px; }
+.d2d-streak-next { color:var(--m); font-size:11px; margin-top:6px; }
+.d2d-challenges { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.d2d-challenge-card { padding:12px; background:var(--s2); border:1px solid var(--br); border-radius:10px; }
+.d2d-challenge-done { border-color:var(--green); }
+.d2d-challenge-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.d2d-challenge-label { font-weight:700; font-size:13px; color:var(--t); }
+.d2d-challenge-progress { font-size:12px; font-weight:700; }
+.d2d-progress-track { height:6px; background:var(--br); border-radius:3px; overflow:hidden; }
+.d2d-progress-fill { height:100%; border-radius:3px; transition:width .3s ease; }
+.d2d-projection-card { padding:14px; background:linear-gradient(135deg,var(--s2),var(--s)); border:1px solid var(--br); border-radius:10px; margin-top:14px; }
+.d2d-projection-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+/* ── D2D Analytics ───────────────────────────── */
+.d2d-golden-hours { background:var(--s2); padding:12px; border-radius:8px; margin-bottom:14px; text-align:center; color:var(--t); font-size:13px; border:1px solid var(--br); }
+.d2d-hourly-chart { display:flex; gap:2px; height:70px; align-items:flex-end; margin-bottom:4px; }
+.d2d-hour-col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; }
+.d2d-hour-bar { background:var(--blue, #4A9EFF); border-radius:3px 3px 0 0; position:relative; transition:height .3s; }
+.d2d-hour-conv { position:absolute; bottom:0; left:0; right:0; background:var(--green, #2ECC8A); border-radius:0 0 3px 3px; }
+.d2d-hour-labels { display:flex; gap:2px; margin-bottom:14px; }
+.d2d-hour-lbl { flex:1; text-align:center; font-size:9px; color:var(--m); font-weight:600; }
+.d2d-ins-list { display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
+.d2d-ins-row { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; font-size:12px; }
+.d2d-ins-name { font-weight:700; color:var(--t); }
+.d2d-ins-stats { color:var(--m); font-size:11px; }
+.d2d-hood-list { display:flex; flex-direction:column; gap:4px; }
+.d2d-hood-row { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; }
+.d2d-hood-score { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:800; font-size:13px; font-family:'Barlow Condensed',sans-serif; flex-shrink:0; }
+.d2d-hood-info { flex:1; min-width:0; }
+.d2d-hood-primary { font-size:12px; color:var(--t); font-weight:600; }
+.d2d-hood-secondary { font-size:11px; color:var(--m); }
+/* ── D2D Detail modal ────────────────────────── */
+.d2d-detail-badge { display:inline-block; padding:6px 14px; color:white; border-radius:6px; font-size:12px; font-weight:700; margin-bottom:12px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+.d2d-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.d2d-detail-field { min-width:0; }
+.d2d-detail-label { font-size:11px; color:var(--m); display:block; margin-bottom:3px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+.d2d-detail-value { font-size:14px; font-weight:600; color:var(--t); overflow:hidden; text-overflow:ellipsis; }
+.d2d-detail-link { color:var(--blue); text-decoration:none; font-weight:600; }
+.d2d-detail-link:hover { text-decoration:underline; }
+.d2d-detail-section { margin-top:14px; }
+.d2d-detail-notes { font-size:13px; color:var(--t); white-space:pre-wrap; line-height:1.5; }
+.d2d-photo-grid { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+.d2d-photo-thumb { width:80px; height:80px; object-fit:cover; border-radius:8px; cursor:pointer; border:1px solid var(--br); transition:transform .15s; }
+.d2d-photo-thumb:hover { transform:scale(1.05); }
+.d2d-audio-player { width:100%; height:36px; margin-top:4px; }
+.d2d-history-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.d2d-history-item { padding:10px; background:var(--s2); border:1px solid var(--br); border-radius:8px; }
+.d2d-history-dispo { font-weight:700; font-size:13px; color:var(--t); }
+.d2d-history-time { color:var(--m); font-size:11px; margin-top:2px; }
+.d2d-history-notes { color:var(--m); font-size:12px; margin-top:4px; }
+.d2d-detail-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+.d2d-detail-actions .d2d-action-btn { flex:1; min-width:calc(50% - 4px); justify-content:center; }
+/* ── D2D FAB (floating knock button on mobile) ── */
+.d2d-fab { display:none; position:fixed; bottom:80px; right:16px; z-index:999; width:60px; height:60px; border-radius:50%; background:var(--orange,#C8541A); color:white; border:none; box-shadow:0 4px 16px rgba(200,84,26,.5); font-size:24px; cursor:pointer; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; -webkit-tap-highlight-color:transparent; }
+.d2d-fab:active { transform:scale(.92); box-shadow:0 2px 8px rgba(200,84,26,.4); }
+@media(max-width:768px) {
+  .d2d-fab { display:flex; }
 }
 
 /* ════ SALES TRAINING ════════════════════════════════ */
@@ -10029,7 +10227,7 @@ if (typeof searchMap === 'function' && !window.searchMap) {
 <script src="js/email_system.js?v=2"></script>
 <script src="js/product-data.js?v=1"></script>
 <script src="js/product-library.js?v=2"></script>
-<script src="js/d2d-tracker.js?v=2"></script>
+<script src="js/d2d-tracker.js?v=3"></script>
 <script src="js/sales-training.js?v=1"></script>
 <script src="js/storm-center.js?v=1"></script>
 <script src="js/close-board.js?v=1"></script>
