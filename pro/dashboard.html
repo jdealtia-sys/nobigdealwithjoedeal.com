@@ -3932,7 +3932,8 @@ body.theme-frosted {
   background: rgba(0,212,255,.08);
   border-color: rgba(0,212,255,.2);
 }
-#nbd-pro-nav .nnav-icon { font-size: 12px; line-height: 1; }
+#nbd-pro-nav .nnav-icon { font-size: 12px; line-height: 1; display:inline-flex; align-items:center; justify-content:center; }
+#nbd-pro-nav .nnav-icon svg { width:14px; height:14px; }
 
 /* Right side */
 #nbd-pro-nav .nnav-right {
@@ -4071,13 +4072,13 @@ body.theme-frosted {
   </a>
 
   <div class="nnav-links" id="nnav-links">
-    <a href="/pro/" class="nnav-link" data-page="home"><span class="nnav-icon">🏠</span><span class="nnav-lbl">Home</span></a>
-    <a href="/pro/dashboard.html" class="nnav-link" data-page="dashboard"><span class="nnav-icon">📊</span><span class="nnav-lbl">Dashboard</span></a>
-    <a href="/pro/daily-success/" class="nnav-link" data-page="daily-success"><span class="nnav-icon">✅</span><span class="nnav-lbl">Daily</span></a>
-    <a href="/pro/ai-tree.html" class="nnav-link" data-page="ai-tree"><span class="nnav-icon">🌳</span><span class="nnav-lbl">AI Tree</span></a>
-    <a href="/pro/codex.html" class="nnav-link" data-page="codex"><span class="nnav-icon">📖</span><span class="nnav-lbl">Codex</span></a>
-    <a href="/pro/project-codex.html" class="nnav-link" data-page="project-codex"><span class="nnav-icon">📋</span><span class="nnav-lbl">My Codex</span></a>
-    <a href="/pro/understand.html" class="nnav-link" data-page="understand"><span class="nnav-icon">🧠</span><span class="nnav-lbl">Understand</span></a>
+    <a href="/pro/" class="nnav-link" data-page="home"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span><span class="nnav-lbl">Home</span></a>
+    <a href="/pro/dashboard.html" class="nnav-link" data-page="dashboard"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="3" height="7" rx=".5"/><rect x="8.5" y="6" width="3" height="11" rx=".5"/><rect x="14" y="3" width="3" height="14" rx=".5"/></svg></span><span class="nnav-lbl">Dashboard</span></a>
+    <a href="/pro/daily-success/" class="nnav-link" data-page="daily-success"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></span><span class="nnav-lbl">Daily</span></a>
+    <a href="/pro/ai-tree.html" class="nnav-link" data-page="ai-tree"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v16"/><path d="M10 5l-5 4"/><path d="M10 5l5 4"/><path d="M10 9l-4 3.5"/><path d="M10 9l4 3.5"/><path d="M10 13l-3 3"/><path d="M10 13l3 3"/></svg></span><span class="nnav-lbl">AI Tree</span></a>
+    <a href="/pro/codex.html" class="nnav-link" data-page="codex"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></span><span class="nnav-lbl">Codex</span></a>
+    <a href="/pro/project-codex.html" class="nnav-link" data-page="project-codex"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span><span class="nnav-lbl">My Codex</span></a>
+    <a href="/pro/understand.html" class="nnav-link" data-page="understand"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5A3 3 0 004 7.5c0 1.2.7 2.2 1.7 2.7A3 3 0 007 15h3"/><path d="M13 4.5A3 3 0 0116 7.5c0 1.2-.7 2.2-1.7 2.7A3 3 0 0013 15h-3"/><circle cx="10" cy="3" r="1.5"/><path d="M10 18V9"/></svg></span><span class="nnav-lbl">Understand</span></a>
     <a href="/pro/demo.html" class="nnav-link demo-link" data-page="demo"><span class="nnav-icon">▶</span><span class="nnav-lbl">Demo</span></a>
   </div>
 
@@ -4093,14 +4094,14 @@ body.theme-frosted {
 <!-- MOBILE DRAWER -->
 <div id="nbd-nav-drawer">
   <div class="nnav-drawer-links">
-    <a href="/pro/" class="nnav-drawer-link" data-page="home"><span class="nnav-icon">🏠</span> Home</a>
-    <a href="/pro/dashboard.html" class="nnav-drawer-link" data-page="dashboard"><span class="nnav-icon">📊</span> Dashboard</a>
-    <a href="/pro/daily-success/" class="nnav-drawer-link" data-page="daily-success"><span class="nnav-icon">✅</span> Daily Success</a>
-    <a href="/pro/ai-tree.html" class="nnav-drawer-link" data-page="ai-tree"><span class="nnav-icon">🌳</span> AI Tree</a>
-    <a href="/pro/codex.html" class="nnav-drawer-link" data-page="codex"><span class="nnav-icon">📖</span> Codex</a>
-    <a href="/pro/project-codex.html" class="nnav-drawer-link" data-page="project-codex"><span class="nnav-icon">📋</span> My Codex</a>
-    <a href="/pro/understand.html" class="nnav-drawer-link" data-page="understand"><span class="nnav-icon">🧠</span> Understand</a>
-    <a href="/pro/demo.html" class="nnav-drawer-link demo-link" data-page="demo"><span class="nnav-icon">▶</span> Live Demo</a>
+    <a href="/pro/" class="nnav-drawer-link" data-page="home"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span> Home</a>
+    <a href="/pro/dashboard.html" class="nnav-drawer-link" data-page="dashboard"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="3" height="7" rx=".5"/><rect x="8.5" y="6" width="3" height="11" rx=".5"/><rect x="14" y="3" width="3" height="14" rx=".5"/></svg></span> Dashboard</a>
+    <a href="/pro/daily-success/" class="nnav-drawer-link" data-page="daily-success"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></span> Daily Success</a>
+    <a href="/pro/ai-tree.html" class="nnav-drawer-link" data-page="ai-tree"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v16"/><path d="M10 5l-5 4"/><path d="M10 5l5 4"/><path d="M10 9l-4 3.5"/><path d="M10 9l4 3.5"/><path d="M10 13l-3 3"/><path d="M10 13l3 3"/></svg></span> AI Tree</a>
+    <a href="/pro/codex.html" class="nnav-drawer-link" data-page="codex"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></span> Codex</a>
+    <a href="/pro/project-codex.html" class="nnav-drawer-link" data-page="project-codex"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span> My Codex</a>
+    <a href="/pro/understand.html" class="nnav-drawer-link" data-page="understand"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5A3 3 0 004 7.5c0 1.2.7 2.2 1.7 2.7A3 3 0 007 15h3"/><path d="M13 4.5A3 3 0 0116 7.5c0 1.2-.7 2.2-1.7 2.7A3 3 0 0013 15h-3"/><circle cx="10" cy="3" r="1.5"/><path d="M10 18V9"/></svg></span> Understand</a>
+    <a href="/pro/demo.html" class="nnav-drawer-link demo-link" data-page="demo"><span class="nnav-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 4l10 6-10 6V4z"/></svg></span> Live Demo</a>
   </div>
   <div class="nnav-drawer-footer">
     <span id="nnav-drawer-user" style="font-size:10px;color:#8b9bb4;text-align:center;letter-spacing:.5px;"></span>
@@ -4952,10 +4953,10 @@ window.nbdNavToggle = nbdNavToggle;
         <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <div style="position:relative;width:240px;">
-          <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
+        <div style="position:relative;width:240px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);z-index:1;pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
+          <input type="text" id="crmSearch" placeholder="Search leads..."
             style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                   padding:7px 32px 7px 12px;font-size:12px;color:var(--t);width:100%;"
+                   padding:7px 32px 7px 30px;font-size:12px;color:var(--t);width:100%;"
             oninput="kanbanFilterDebounced()">
           <button id="crmSearchClear" 
             style="position:absolute;right:4px;top:50%;transform:translateY(-50%);
@@ -5007,28 +5008,28 @@ window.nbdNavToggle = nbdNavToggle;
     <!-- SECONDARY TOOLBAR (auto-hides on scroll) -->
     <div class="crm-secondary-header" id="crmSecondaryHeader">
       <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates">
-        <span class="crm-sec-icon">📋</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span>
         <span class="crm-sec-label">Estimates</span>
       </button>
       <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library">
-        <span class="crm-sec-icon">📸</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></span>
         <span class="crm-sec-label">Photos</span>
       </button>
       <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates">
-        <span class="crm-sec-icon">📄</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></span>
         <span class="crm-sec-label">Documents</span>
       </button>
       <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map">
-        <span class="crm-sec-icon">🗺</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg></span>
         <span class="crm-sec-label">Map</span>
       </button>
       <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool">
-        <span class="crm-sec-icon">✏️</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
         <span class="crm-sec-label">Drawing Tool</span>
       </button>
       <div style="flex:1;"></div>
       <button class="crm-sec-btn" onclick="goTo('home')" title="Back to dashboard">
-        <span class="crm-sec-icon">🏠</span>
+        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
         <span class="crm-sec-label">Dashboard</span>
       </button>
     </div>
@@ -9062,6 +9063,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/property-intel.js"></script>
 <script src="js/warranty-cert.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/crm.js"></script>
 <script src="js/maps.js"></script>
 <script src="js/ui.js"></script>

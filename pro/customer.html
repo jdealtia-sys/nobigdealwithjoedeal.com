@@ -308,20 +308,20 @@ header {
         <span class="stage-badge" id="customerStage">New</span>
       </div>
       <div class="meta-item">
-        📍 <span id="customerAddress">—</span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
       </div>
       <div class="meta-item">
-        📞 <span id="customerPhone">—</span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> <span id="customerPhone">—</span>
       </div>
       <div class="meta-item">
-        ✉️ <span id="customerEmail">—</span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> <span id="customerEmail">—</span>
       </div>
-      <div class="meta-item" id="lastUpdated">⏱ Loading...</div>
+      <div class="meta-item" id="lastUpdated"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2.5"/></svg> Loading...</div>
     </div>
     
     <div class="quick-actions">
-      <a class="btn" id="callLink" href="tel:">📞 Call</a>
-      <a class="btn" id="emailLink" href="mailto:">✉️ Email</a>
+      <a class="btn" id="callLink" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
+      <a class="btn" id="emailLink" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
       <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
         📄 Export PDF
       </button>
@@ -345,7 +345,7 @@ header {
         </div>
         <div id="timelineList">
           <div class="empty">
-            <div class="empty-icon">📅</div>
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>
             Loading...
           </div>
         </div>
@@ -356,7 +356,7 @@ header {
         <div class="panel-title">Photos</div>
         <div id="photoList">
           <div class="empty">
-            <div class="empty-icon">📸</div>
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
             Loading...
           </div>
         </div>
@@ -372,7 +372,7 @@ header {
         </div>
         <div id="docList">
           <div class="empty">
-            <div class="empty-icon">📄</div>
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
             No documents yet
           </div>
         </div>
@@ -417,13 +417,13 @@ header {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Estimates</div>
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;">📂 Log Estimate</button>
-            <button class="btn btn-orange" onclick="window.location.href='/pro/dashboard.html?lead='+window._customerId" style="font-size:11px;padding:6px 12px;">＋ Build Estimate</button>
+            <button class="btn btn-ghost" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
+            <button class="btn btn-orange" onclick="window.location.href='/pro/dashboard.html?lead='+window._customerId" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
           </div>
         </div>
         <div id="estimateList">
           <div class="empty">
-            <div class="empty-icon">📋</div>
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
             No estimates yet
           </div>
         </div>
@@ -439,7 +439,7 @@ header {
         </div>
         <div id="notesList" style="display:flex;flex-direction:column;gap:8px;">
           <div class="empty">
-            <div class="empty-icon">📝</div>
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
             No notes yet
           </div>
         </div>
@@ -468,7 +468,7 @@ header {
     <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-      <div class="upload-icon">📤</div>
+      <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
       <div class="upload-text">Click to browse or drag photos here</div>
       <div class="upload-hint">Supports: JPG, PNG, HEIC • Max 10MB per file</div>
     </div>
@@ -492,7 +492,7 @@ header {
     </h3>
     
     <div class="upload-zone" id="docDropZone" style="margin-bottom:16px;">
-      <div class="upload-icon">📄</div>
+      <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
       <div class="upload-text">Click or drag documents here</div>
       <div class="upload-hint">Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</div>
       <input type="file" id="docFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display:none;">
@@ -610,6 +610,7 @@ header {
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/icons.js"></script>
 <script>
 
 // ============================================
@@ -640,7 +641,7 @@ window.generatePhotoReport = async function() {
     const btn = event.target;
     const originalText = btn.textContent;
     btn.disabled = true;
-    btn.textContent = '⏳ Generating...';
+    btn.textContent = 'Generating...';
     
     // Initialize jsPDF
     const { jsPDF } = window.jspdf;
@@ -792,7 +793,7 @@ window.generatePhotoReport = async function() {
     // Reset button
     if (event.target) {
       event.target.disabled = false;
-      event.target.textContent = '📋 Generate Report';
+      event.target.textContent = 'Generate Report';
     }
   }
 };
@@ -905,7 +906,7 @@ function updateDocUploadPreview() {
     const fileType = item.file.name.split('.').pop().toUpperCase();
     return `
       <div class="preview-item" style="aspect-ratio:auto;padding:12px;display:flex;align-items:center;gap:8px;">
-        <div style="font-size:24px;">📄</div>
+        <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
         <div style="flex:1;overflow:hidden;">
           <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${item.file.name}
@@ -957,7 +958,7 @@ window.uploadDocuments = async function() {
     alert('Upload failed. Please try again.');
   } finally {
     uploadBtn.disabled = false;
-    uploadBtn.textContent = '📤 Upload Documents';
+    uploadBtn.textContent = 'Upload Documents';
   }
 };
 
@@ -1012,7 +1013,7 @@ async function loadDocuments(leadId) {
     if (docSnap.empty) {
       document.getElementById('docList').innerHTML = `
         <div class="empty">
-          <div class="empty-icon">📄</div>
+          <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           No documents yet
         </div>`;
       return;
@@ -1037,7 +1038,7 @@ async function loadDocuments(leadId) {
           cursor:pointer;
           transition:all .2s;
         " onclick="window.open('${doc.url}', '_blank')">
-          <div style="font-size:28px;">📄</div>
+          <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           <div style="flex:1;overflow:hidden;">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
               ${doc.filename}
@@ -1046,7 +1047,7 @@ async function loadDocuments(leadId) {
               ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
             </div>
           </div>
-          <div style="font-size:18px;opacity:.5;">→</div>
+          <div style="opacity:.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M4 10h12M12 6l4 4-4 4"/></svg></div>
         </div>
       `;
     }).join('');
@@ -1068,7 +1069,7 @@ async function loadDocuments(leadId) {
     console.error('Error loading documents:', e);
     document.getElementById('docList').innerHTML = `
       <div class="empty">
-        <div class="empty-icon">📄</div>
+        <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
         No documents yet
       </div>`;
   }
@@ -1133,9 +1134,9 @@ async function loadNotes(leadId) {
     if (noteSnap.empty) {
       document.getElementById('notesList').innerHTML = `
       <div class="empty">
-        <div class="empty-icon">📝</div>
+        <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
         <div style="margin-bottom:10px;">No notes yet</div>
-        <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:13px;padding:8px 16px;">✏️ Add First Note</button>
+        <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg> Add First Note</button>
       </div>
     `;
       return;
@@ -1350,7 +1351,7 @@ async function loadCustomerData(id) {
       if (days > 0) timeAgo = `Updated ${days}d ago`;
       else if (hours > 0) timeAgo = `Updated ${hours}h ago`;
       else timeAgo = 'Updated recently';
-      document.getElementById('lastUpdated').textContent = '⏱ ' + timeAgo;
+      document.getElementById('lastUpdated').textContent = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2.5"/></svg> ' + timeAgo;
     }
     
     // Contact links
@@ -1386,7 +1387,7 @@ async function loadCustomerData(id) {
     if (nextStage) {
       const btn = document.getElementById('stageProgressBtn');
       btn.style.display = 'inline-flex';
-      btn.textContent = `→ Move to ${nextStage}`;
+      btn.textContent = `Move to ${nextStage}`;
     }
 
     // Load related data with individual error handling
@@ -1394,7 +1395,7 @@ async function loadCustomerData(id) {
       await window.loadTimeline(id, lead); 
     } catch (e) { 
       console.error('Timeline load failed:', e); 
-      document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon">📅</div>No activity yet</div>';
+      document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
     }
     
     try { 
@@ -1403,7 +1404,7 @@ async function loadCustomerData(id) {
       console.error('Photos load failed:', e); 
       document.getElementById('photoList').innerHTML = `
         <div class="upload-zone" onclick="openUploadModal()">
-          <div class="upload-icon">📸</div>
+          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
           <div class="upload-text">Click to upload photos</div>
           <div class="upload-hint">Drag & drop or click to browse</div>
         </div>`;
@@ -1415,7 +1416,7 @@ async function loadCustomerData(id) {
       console.error('Documents load failed:', e); 
       document.getElementById('documentList').innerHTML = `
         <div class="upload-zone" onclick="openDocUploadModal()">
-          <div class="upload-icon">📄</div>
+          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           <div class="upload-text">Click to upload documents</div>
           <div class="upload-hint">Drag & drop PDFs, contracts, or images</div>
         </div>`;
@@ -1454,7 +1455,7 @@ async function loadTimeline(leadId, lead) {
     lead.stageHistory.forEach(h => {
       timeline.push({
         time: h.timestamp ? new Date(h.timestamp) : new Date(),
-        icon: '🔄',
+        icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
         title: `Stage: ${h.from} → ${h.to}`,
         desc: h.user || 'System'
       });
@@ -1466,7 +1467,7 @@ async function loadTimeline(leadId, lead) {
   if (lead.createdAt) {
     timeline.push({
       time: lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
-      icon: '🎯',
+      icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="4"/><circle cx="10" cy="10" r="1"/></svg>',
       title: 'Lead created',
       desc: `Source: ${lead.source || 'Unknown'}`
     });
@@ -1481,7 +1482,7 @@ async function loadTimeline(leadId, lead) {
       const task = d.data();
       timeline.push({
         time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt || Date.now()),
-        icon: task.done ? '✅' : '⏰',
+        icon: task.done ? '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg>' : '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
         title: task.title || 'Task',
         desc: task.dueDate || '',
         isTask: true,
@@ -1503,7 +1504,7 @@ async function loadTimeline(leadId, lead) {
       if (est.createdAt) {
         timeline.push({
           time: est.createdAt?.toDate ? est.createdAt.toDate() : new Date(est.createdAt),
-          icon: '📋',
+          icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg>',
           title: 'Estimate created',
           desc: est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'
         });
@@ -1523,7 +1524,7 @@ async function loadTimeline(leadId, lead) {
       if (photo.uploadedAt) {
         timeline.push({
           time: photo.uploadedAt?.toDate ? photo.uploadedAt.toDate() : new Date(photo.uploadedAt),
-          icon: '📸',
+          icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg>',
           title: 'Photo uploaded',
           desc: photo.category || 'Property photo'
         });
@@ -1569,7 +1570,7 @@ async function loadTimeline(leadId, lead) {
   }).join('');
 
   document.getElementById('timelineList').innerHTML = html || 
-    '<div class="empty"><div class="empty-icon">📅</div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;">✅ Add First Task</button></div>';
+    '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
 }
 
 async function loadPhotos(leadId) {
@@ -1581,7 +1582,7 @@ async function loadPhotos(leadId) {
     if (photoSnap.empty) {
       document.getElementById('photoList').innerHTML = `
         <div class="upload-zone" onclick="openUploadModal()">
-          <div class="upload-icon">📸</div>
+          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
           <div class="upload-text">No photos yet</div>
           <div class="upload-hint">Click to upload your first photo</div>
         </div>`;
@@ -1611,7 +1612,7 @@ async function loadPhotos(leadId) {
     console.error('Error loading photos:', e);
     document.getElementById('photoList').innerHTML = `
       <div class="upload-zone" onclick="openUploadModal()">
-        <div class="upload-icon">📸</div>
+        <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
         <div class="upload-text">Click to upload photos</div>
       </div>`;
   }
@@ -1628,7 +1629,7 @@ async function loadEstimates(leadId) {
     if (estSnap.empty) {
       document.getElementById('estimateList').innerHTML = `
         <div class="empty">
-          <div class="empty-icon">📋</div>
+          <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
           No estimates yet
         </div>`;
       return;
@@ -1641,7 +1642,7 @@ async function loadEstimates(leadId) {
     
     if (!window._customerEstimates.length) {
       document.getElementById('estimateList').innerHTML = `
-        <div class="empty"><div class="empty-icon">📋</div>No estimates yet</div>`;
+        <div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>No estimates yet</div>`;
       return;
     }
 

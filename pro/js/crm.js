@@ -57,7 +57,7 @@ function closeLeadModal(){
   const mir = document.getElementById('modalIntelResult');
   if(mir) { mir.classList.remove('visible'); mir.innerHTML=''; }
   const pib = document.getElementById('pullIntelBtn');
-  if(pib) { pib.classList.remove('loading'); pib.innerHTML='🏠 Pull Property Intel'; }
+  if(pib) { pib.classList.remove('loading'); pib.innerHTML='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M2 10l8-7 8 7"/><path d="M4 9v7a1 1 0 001 1h10a1 1 0 001-1V9"/></svg> Pull Property Intel'; }
 }
 document.getElementById('leadModal').addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
 document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementById('taskModal');if(tm)tm.addEventListener('click',e=>{if(e.target===tm)closeTaskModal();});});
@@ -165,7 +165,7 @@ function renderLeads(leads, filtered){
       `2. Firestore rules blocking reads (check Firebase Console)`,
       `3. Network connectivity issue`,
       ``,
-      `✅ Click "Load Sample Data" to add 5 test leads`
+      `Click Load Sample Data to add 5 test leads`
     ];
     diagnosticDetails.textContent = details.join('\n');
     diagnostic.style.display = 'block';
@@ -188,7 +188,7 @@ function renderLeads(leads, filtered){
       alertBox.style.display='block';
       alertBox.innerHTML=overdue.slice(0,5).map(l=>`
         <div class="follow-up-alert">
-          <span>📅</span>
+          <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
           <span class="fa-name">${l.firstName||''} ${l.lastName||''}</span>
           <span style="color:var(--m);font-size:11px;">${(l.address||'').split(',')[0]}</span>
           <span class="fa-date">Due: ${l.followUp}</span>
@@ -209,7 +209,7 @@ function renderLeads(leads, filtered){
     if(!body) return;
     const cards = byStage[stage]||[];
     if(count) count.textContent = cards.length;
-    if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon">📋</div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
+    if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
     body.innerHTML = cards.map(l=>buildCard(l)).join('');
     // attach drag events to cards
     body.querySelectorAll('.k-card').forEach(card=>{
@@ -259,14 +259,14 @@ function buildCard(l){
   const overdueT = tasks.filter(t=>!t.done && t.dueDate && new Date(t.dueDate+'T23:59:59') < new Date()).length;
   let taskBadgeClass = 'kc-task-badge';
   let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+ Tasks';
-  if(totalT && overdueT){ taskBadgeClass += ' has-overdue'; taskBadgeLabel = `⚠ ${overdueT} overdue`; }
+  if(totalT && overdueT){ taskBadgeClass += ' has-overdue'; taskBadgeLabel = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> ${overdueT} overdue`; }
   else if(totalT && doneT===totalT) { 
     taskBadgeClass += ' all-done'; 
-    taskBadgeLabel = `✓ 100%`;
+    taskBadgeLabel = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg> 100%`;
   }
   else if(totalT && completionRate >= 50) {
     taskBadgeClass += ' has-tasks';
-    taskBadgeLabel = `☑ ${doneT}/${totalT} (${completionRate}%)`;
+    taskBadgeLabel = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg> ${doneT}/${totalT} (${completionRate}%)`;
   }
   else if(totalT) taskBadgeClass += ' has-tasks';
 
@@ -305,7 +305,7 @@ function buildCard(l){
     if(!l.yearBuilt) return '';
     const age = new Date().getFullYear() - parseInt(l.yearBuilt);
     const cls = age<10?'kct-roof-new':age<20?'kct-roof-mid':age<30?'kct-roof-old':'kct-roof-ancient';
-    return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr</span>`;
+    return `<span class="kc-tag kct-roof ${cls}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M2 10l8-7 8 7"/><path d="M4 9v7a1 1 0 001 1h10a1 1 0 001-1V9"/></svg> ${age}yr</span>`;
   })();
 
   const phone = escHtml(l.phone||'');
@@ -321,28 +321,28 @@ function buildCard(l){
 
   // Sync status indicators
   const syncClass = l._syncing ? 'k-card-syncing' : (l._syncSuccess ? 'k-card-sync-success' : (l._syncError ? 'k-card-sync-error' : ''));
-  const syncIndicator = l._syncing ? '<div class="k-card-sync-icon">⏳</div>' : 
-                        l._syncSuccess ? '<div class="k-card-sync-icon">✓</div>' : 
-                        l._syncError ? '<div class="k-card-sync-icon">⚠️</div>' : '';
+  const syncIndicator = l._syncing ? '<div class="k-card-sync-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg></div>' : 
+                        l._syncSuccess ? '<div class="k-card-sync-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></div>' : 
+                        l._syncError ? '<div class="k-card-sync-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg></div>' : '';
 
   let html = `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
     <div class="k-card-checkbox" onclick="event.stopPropagation();toggleCardSelection('${l.id}')">
-      <span class="k-card-checkbox-icon">✓</span>
+      <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       ${val ? `<div class="kc-val-badge">${val}</div>` : '<div></div>'}
       <div style="display:flex;gap:4px;">
-        ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);">📋 ${estCount}</span>` : ''}
-        ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);">📸 ${photoCount}</span>` : ''}
+        ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
+        ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
       </div>
     </div>
     <div class="kc-name">${name}</div>
     ${addr ? `<div class="kc-addr" title="${l.address||''}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">
-      <a class="kc-phone-link" href="tel:${phone.replace(/\D/g,'')}" onclick="event.stopPropagation()">📞 ${phone}</a>
+      <a class="kc-phone-link" href="tel:${phone.replace(/\D/g,'')}" onclick="event.stopPropagation()"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> ${phone}</a>
       ${daysLabel ? `<span class="kc-days ${daysClass}" style="margin-left:auto;">${daysLabel}</span>` : ''}
     </div>` : (daysLabel ? `<div style="text-align:right;margin-bottom:4px;"><span class="kc-days ${daysClass}">${daysLabel}</span></div>` : '')}
-    ${email ? `<div class="kc-email-line" title="${email}">✉ ${email}</div>` : ''}
+    ${email ? `<div class="kc-email-line" title="${email}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> ${email}</div>` : ''}
     ${carrier || claimStatus !== 'No Claim' ? `<div class="kc-ins-row">
       ${carrier ? `<span class="kc-carrier">${carrier}</span>` : ''}
       ${claimStatus && claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${claimStatus}</span>` : ''}
@@ -351,7 +351,7 @@ function buildCard(l){
     ${photoHTML}
     <div class="kc-tags">
       ${l.damageType ? `<span class="kc-tag kct-dmg">${l.damageType}</span>` : ''}
-      ${overdue      ? `<span class="kc-tag kct-due">⚠ Due</span>` : ''}
+      ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${roofBadge}
     </div>
     <div class="kc-footer">
@@ -361,8 +361,8 @@ function buildCard(l){
           ${prevS ? `<button class="kc-arrow" title="← ${prevS}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
           ${nextS ? `<button class="kc-arrow" title="→ ${nextS}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
-        <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')">✏️</button>
-        <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')">🗑</button>
+        <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
+        <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
       </div>
     </div>
   </div>`;
@@ -615,7 +615,7 @@ function renderNotifications() {
   if (window._notifications.length === 0) {
     list.innerHTML = `
       <div style="padding:40px 20px;text-align:center;color:var(--m);">
-        <div style="font-size:32px;margin-bottom:8px;opacity:0.5;">🔔</div>
+        <div style="margin-bottom:8px;opacity:0.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg></div>
         <div style="font-size:13px;">No notifications yet</div>
       </div>
     `;
@@ -628,13 +628,13 @@ function renderNotifications() {
     const timeAgo = getTimeAgo(timestamp);
     
     const iconMap = {
-      'task_due': '⏰',
-      'task_overdue': '⚠️',
-      'estimate_approved': '✅',
-      'stage_change': '🔄',
-      'follow_up': '📅',
-      'new_lead': '👤',
-      'default': '🔔'
+      'task_due': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
+      'task_overdue': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg>',
+      'estimate_approved': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg>',
+      'stage_change': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
+      'follow_up': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg>',
+      'new_lead': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0112 0"/></svg>',
+      'default': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg>'
     };
     
     const icon = iconMap[n.type] || iconMap.default;
@@ -801,7 +801,7 @@ async function checkAndCreateFollowUpNotifications(leads) {
     const daysLate = Math.round((today - new Date(l.followUp)) / 86400000);
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
-      title: `⚠️ Overdue Follow-Up — ${name}`,
+      title: `Overdue Follow-Up — ${name}`,
       message: `${daysLate} day${daysLate!==1?'s':''} overdue${l.address ? ' · ' + l.address.split(',')[0] : ''}. ${l.stage ? 'Stage: ' + l.stage : ''}`,
       priority: 'high', read: false
     });
@@ -812,7 +812,7 @@ async function checkAndCreateFollowUpNotifications(leads) {
     const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
-      title: `📅 Follow-Up Today — ${name}`,
+      title: `Follow-Up Today — ${name}`,
       message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}${l.insCarrier ? ' · ' + l.insCarrier : ''}`,
       priority: 'normal', read: false
     });
@@ -823,7 +823,7 @@ async function checkAndCreateFollowUpNotifications(leads) {
     const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
-      title: `🔔 Follow-Up Tomorrow — ${name}`,
+      title: `Follow-Up Tomorrow — ${name}`,
       message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}`,
       priority: 'low', read: false
     });
@@ -890,12 +890,12 @@ function toggleBulkMode() {
   const kanbanBoard = document.querySelector('.kanban-board');
   
   if (window._bulkMode) {
-    btn.textContent = '✕ Cancel';
+    btn.textContent = 'Cancel';
     btn.classList.add('btn-orange');
     btn.classList.remove('btn-ghost');
     kanbanBoard.classList.add('bulk-mode-active');
   } else {
-    btn.textContent = '☑ Select';
+    btn.textContent = 'Select';
     btn.classList.remove('btn-orange');
     btn.classList.add('btn-ghost');
     kanbanBoard.classList.remove('bulk-mode-active');
@@ -1123,7 +1123,7 @@ async function renderDeletedDrawer() {
   body.innerHTML = '<div class="deleted-empty">Loading...</div>';
   const deleted = await window._loadDeletedLeads();
   if(!deleted.length) {
-    body.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-title">All Clear</div><div class="empty-sub">No deleted leads in the trash.</div></div>';
+    body.innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></div><div class="empty-title">All Clear</div><div class="empty-sub">No deleted leads in the trash.</div></div>';
     return;
   }
   body.innerHTML = deleted.map(l => {
@@ -1136,8 +1136,8 @@ async function renderDeletedDrawer() {
       <div class="deleted-card-addr">${addr}</div>
       <div class="deleted-card-meta">Stage: ${l.stage||'New'}${val} · Deleted ${deletedDate}</div>
       <div class="deleted-card-btns">
-        <button class="dc-restore" onclick="restoreDeletedLead('${l.id}')">↩ Restore</button>
-        <button class="dc-perm" onclick="permanentDeleteLead('${l.id}','${name.replace(/'/g,'&#39;')}')">✕ Remove Forever</button>
+        <button class="dc-restore" onclick="restoreDeletedLead('${l.id}')">Restore</button>
+        <button class="dc-perm" onclick="permanentDeleteLead('${l.id}','${name.replace(/'/g,'&#39;')}')">Remove</button>
       </div>
     </div>`;
   }).join('');
@@ -1148,7 +1148,7 @@ async function restoreDeletedLead(id) {
   if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
   await window._restoreLead(id);
   await window._loadLeads();
-  showToast('Lead restored ✓');
+  showToast('Lead restored');
   refreshTrashBadge();
   await renderDeletedDrawer();
 }
