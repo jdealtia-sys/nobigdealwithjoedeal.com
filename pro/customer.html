@@ -77,12 +77,33 @@ header {
   border-radius:12px; font-size:11px; font-weight:600;
   font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
 }
-.stage-badge.stage-new { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
-.stage-badge.stage-inspection { background:#1a2e4a; color:#4A9EFF; border-color:#2d5a8e; }
-.stage-badge.stage-estimate { background:#2a2414; color:#D4A017; border-color:#6b5010; }
-.stage-badge.stage-approved { background:#221a3a; color:#9B6DFF; border-color:#5a3da0; }
-.stage-badge.stage-progress { background:#142a22; color:#22C55E; border-color:#166534; }
-.stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-new, .stage-badge.stage-new-lead { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
+.stage-badge.stage-contacted { background:#1a2440; color:#60a5fa; border-color:#2563eb; }
+.stage-badge.stage-inspected, .stage-badge.stage-inspection { background:#1a2e4a; color:#4A9EFF; border-color:#2d5a8e; }
+.stage-badge.stage-claim-filed { background:#221a3a; color:#a78bfa; border-color:#7c3aed; }
+.stage-badge.stage-adjuster-meeting-scheduled { background:#2a1a3a; color:#c084fc; border-color:#a855f7; }
+.stage-badge.stage-adjuster-inspection-done { background:#251a38; color:#a78bfa; border-color:#8b5cf6; }
+.stage-badge.stage-scope-received { background:#2a2010; color:#fbbf24; border-color:#d97706; }
+.stage-badge.stage-estimate-submitted, .stage-badge.stage-estimate, .stage-badge.stage-estimate-sent { background:#2a2414; color:#D4A017; border-color:#6b5010; }
+.stage-badge.stage-supplement-requested { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
+.stage-badge.stage-supplement-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-estimate-sent-cash { background:#2a2414; color:#D4A017; border-color:#6b5010; }
+.stage-badge.stage-negotiating { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
+.stage-badge.stage-prequal-sent { background:#0a2a2a; color:#22d3ee; border-color:#0891b2; }
+.stage-badge.stage-loan-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-contract-signed, .stage-badge.stage-approved { background:#0f2a1a; color:#22C55E; border-color:#16a34a; }
+.stage-badge.stage-job-created { background:#0a1e3a; color:#38bdf8; border-color:#0369a1; }
+.stage-badge.stage-permit-pulled { background:#1a1a3a; color:#818cf8; border-color:#4338ca; }
+.stage-badge.stage-materials-ordered { background:#2a1e10; color:#fbbf24; border-color:#b45309; }
+.stage-badge.stage-materials-delivered { background:#2a2010; color:#facc15; border-color:#a16207; }
+.stage-badge.stage-crew-scheduled { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
+.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:#22C55E; border-color:#166534; }
+.stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:#22c55e; }
+.stage-badge.stage-final-photos { background:#0a2a20; color:#6ee7b7; border-color:#10b981; }
+.stage-badge.stage-deductible-collected { background:#0a2a28; color:#5eead4; border-color:#14b8a6; }
+.stage-badge.stage-final-payment { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
+.stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-lost { background:#2a1414; color:#E05252; border-color:#7f1d1d; }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
 }
@@ -408,6 +429,64 @@ header {
           <div class="info-item">
             <div class="info-label">Follow Up</div>
             <div class="info-value" id="infoFollowUp">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Job Type</div>
+            <div class="info-value" id="infoJobType">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSURANCE DETAILS (shown when job type is insurance) -->
+      <div class="panel" id="insurancePanel" style="display:none;">
+        <div class="panel-title">Insurance Claim Details</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Claim Number</div>
+            <div class="info-value" id="infoClaimNumber">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Claim Filed By</div>
+            <div class="info-value" id="infoClaimFiledBy">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Estimate Amount</div>
+            <div class="info-value" id="infoEstimateAmount">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Supplement Status</div>
+            <div class="info-value" id="infoSupplementStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Deductible / Owed by HO</div>
+            <div class="info-value" id="infoDeductible">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Scope of Work</div>
+            <div class="info-value" id="infoScopeOfWork">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FINANCE DETAILS (shown when job type is finance) -->
+      <div class="panel" id="financePanel" style="display:none;">
+        <div class="panel-title">Financing Details</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Finance Company</div>
+            <div class="info-value" id="infoFinanceCompany">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Loan Amount</div>
+            <div class="info-value" id="infoLoanAmount">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Loan Status</div>
+            <div class="info-value" id="infoLoanStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Pre-Qual Link</div>
+            <div class="info-value" id="infoPreQualLink">—</div>
           </div>
         </div>
       </div>
@@ -1332,9 +1411,24 @@ async function loadCustomerData(id) {
     document.getElementById('customerName').textContent = name;
     
     const stageBadge = document.getElementById('customerStage');
-    const stage = lead.stage || 'New';
-    stageBadge.textContent = stage;
-    stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/\s+/g, '-');
+    const stage = lead.stage || 'new';
+    // Display-friendly label for new stage keys
+    const STAGE_LABELS = {
+      'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
+      'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
+      'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
+      'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
+      'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
+      'estimate_sent_cash': 'Est. Sent (Cash)', 'negotiating': 'Negotiating',
+      'prequal_sent': 'Pre-Qual Sent', 'loan_approved': 'Loan Approved',
+      'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
+      'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
+      'install_in_progress': 'Installing', 'install_complete': 'Install Done',
+      'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
+      'final_payment': 'Final Payment', 'closed': 'Closed', 'lost': 'Lost'
+    };
+    stageBadge.textContent = STAGE_LABELS[stage] || stage;
+    stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
     
     document.getElementById('customerAddress').textContent = lead.address || '—';
     document.getElementById('customerPhone').textContent = lead.phone || '—';
@@ -1370,24 +1464,73 @@ async function loadCustomerData(id) {
     document.getElementById('infoCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || '—';
     document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
     document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
+
+    // Job type
+    const jobType = lead.jobType || '';
+    const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance' };
+    document.getElementById('infoJobType').textContent = jobTypeLabels[jobType] || jobType || '—';
+
+    // Insurance panel
+    const isInsurance = jobType === 'insurance' || lead.insCarrier || lead.insuranceCarrier || lead.claimNumber;
+    if (isInsurance) {
+      document.getElementById('insurancePanel').style.display = 'block';
+      document.getElementById('infoClaimNumber').textContent = lead.claimNumber || '—';
+      document.getElementById('infoClaimFiledBy').textContent = lead.claimFiledBy || '—';
+      document.getElementById('infoEstimateAmount').textContent = lead.estimateAmount ? '$' + parseFloat(lead.estimateAmount).toLocaleString() : '—';
+      document.getElementById('infoSupplementStatus').textContent = lead.supplementStatus || '—';
+      document.getElementById('infoDeductible').textContent = lead.deductibleOrOwedByHO ? '$' + parseFloat(lead.deductibleOrOwedByHO).toLocaleString() : '—';
+      document.getElementById('infoScopeOfWork').textContent = lead.scopeOfWork || '—';
+    }
+
+    // Finance panel
+    const isFinance = jobType === 'finance' || lead.loanAmount || lead.softPullStatus;
+    if (isFinance) {
+      document.getElementById('financePanel').style.display = 'block';
+      document.getElementById('infoFinanceCompany').textContent = lead.financeCompany || '—';
+      document.getElementById('infoLoanAmount').textContent = lead.loanAmount ? '$' + parseFloat(lead.loanAmount).toLocaleString() : '—';
+      document.getElementById('infoLoanStatus').textContent = lead.loanStatus || lead.softPullStatus || '—';
+      const preQualLink = lead.preQualLink;
+      if (preQualLink) {
+        document.getElementById('infoPreQualLink').innerHTML = `<a href="${preQualLink}" target="_blank" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
+      }
+    }
+
     // Notes now loaded from separate collection via loadNotes()
 
-    // Stage progression button
-    const stageProgression = {
-      'New': 'Inspection',
-      'Inspection': 'Estimate',
-      'Estimate': 'Approved',
-      'Approved': 'In Progress',
-      'In Progress': 'Complete'
+    // Stage progression button — uses full insurance pipeline
+    const insurancePipeline = [
+      'new', 'contacted', 'inspected', 'claim_filed',
+      'adjuster_meeting_scheduled', 'adjuster_inspection_done',
+      'scope_received', 'estimate_submitted',
+      'supplement_requested', 'supplement_approved',
+      'contract_signed',
+      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
+      'crew_scheduled', 'install_in_progress', 'install_complete',
+      'final_photos', 'deductible_collected', 'final_payment', 'closed'
+    ];
+    const NEXT_LABELS = {
+      'new': 'Contacted', 'contacted': 'Inspected', 'inspected': 'Claim Filed',
+      'claim_filed': 'Adjuster Meeting', 'adjuster_meeting_scheduled': 'Adjuster Done',
+      'adjuster_inspection_done': 'Scope Received', 'scope_received': 'Estimate Sent',
+      'estimate_submitted': 'Supplement', 'supplement_requested': 'Supp. Approved',
+      'supplement_approved': 'Contract Signed', 'contract_signed': 'Job Created',
+      'job_created': 'Permit', 'permit_pulled': 'Materials Ordered',
+      'materials_ordered': 'Materials Here', 'materials_delivered': 'Crew Scheduled',
+      'crew_scheduled': 'Installing', 'install_in_progress': 'Install Done',
+      'install_complete': 'Final Photos', 'final_photos': 'Deductible',
+      'deductible_collected': 'Final Payment', 'final_payment': 'Closed',
+      // Legacy compat
+      'New': 'Contacted', 'Inspected': 'Claim Filed', 'Estimate Sent': 'Contract Signed',
+      'Approved': 'Job Created', 'In Progress': 'Install Done'
     };
-    
-    window._currentStage = lead.stage || 'New';
-    
-    const nextStage = stageProgression[lead.stage];
-    if (nextStage) {
+
+    window._currentStage = lead.stage || 'new';
+
+    const nextLabel = NEXT_LABELS[lead.stage];
+    if (nextLabel) {
       const btn = document.getElementById('stageProgressBtn');
       btn.style.display = 'inline-flex';
-      btn.textContent = `Move to ${nextStage}`;
+      btn.innerHTML = `→ Move to ${nextLabel}`;
     }
 
     // Load related data with individual error handling
@@ -1808,36 +1951,72 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') prevPhoto();
 });
 
-// Stage progression
+// Stage progression — uses full insurance pipeline by default
 window.progressStage = async function() {
-  const stageMap = {
-    'New': 'Inspection',
-    'Inspection': 'Estimate',
-    'Estimate': 'Approved',
-    'Approved': 'In Progress',
-    'In Progress': 'Complete'
+  // Full insurance pipeline progression (most common path)
+  const insurancePipeline = [
+    'new', 'contacted', 'inspected', 'claim_filed',
+    'adjuster_meeting_scheduled', 'adjuster_inspection_done',
+    'scope_received', 'estimate_submitted',
+    'supplement_requested', 'supplement_approved',
+    'contract_signed',
+    'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
+    'crew_scheduled', 'install_in_progress', 'install_complete',
+    'final_photos', 'deductible_collected', 'final_payment', 'closed'
+  ];
+
+  // Legacy stage mapping for backward compat
+  const legacyMap = {
+    'New': 'contacted', 'Inspection': 'inspected', 'Inspected': 'claim_filed',
+    'Estimate': 'contract_signed', 'Estimate Sent': 'contract_signed',
+    'Approved': 'job_created', 'In Progress': 'install_complete', 'Complete': 'closed'
   };
-  
-  const nextStage = stageMap[window._currentStage];
+
+  const current = window._currentStage || 'new';
+  let nextStage;
+
+  // Try new pipeline first
+  const idx = insurancePipeline.indexOf(current);
+  if (idx >= 0 && idx < insurancePipeline.length - 1) {
+    nextStage = insurancePipeline[idx + 1];
+  } else if (legacyMap[current]) {
+    nextStage = legacyMap[current];
+  }
+
   if (!nextStage) return;
-  
-  if (!confirm(`Move customer to "${nextStage}" stage?`)) return;
-  
+
+  // Get display label for confirmation
+  const STAGE_LABELS = {
+    'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
+    'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
+    'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
+    'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
+    'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
+    'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
+    'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
+    'install_in_progress': 'Installing', 'install_complete': 'Install Done',
+    'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
+    'final_payment': 'Final Payment', 'closed': 'Closed'
+  };
+
+  const label = STAGE_LABELS[nextStage] || nextStage;
+  if (!confirm(`Move customer to "${label}" stage?`)) return;
+
   try {
-    const oldStage = window._currentStage;
+    const oldStage = current;
     const historyEvent = {
       from: oldStage,
       to: nextStage,
       timestamp: new Date().toISOString(),
       user: window.auth?.currentUser?.email || 'unknown'
     };
-    
+
     await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
       stage: nextStage,
       updatedAt: window.serverTimestamp(),
       stageHistory: window.arrayUnion(historyEvent)
     });
-    
+
     // Reload page to reflect changes
     window.location.reload();
   } catch (e) {
