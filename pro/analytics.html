@@ -40,10 +40,8 @@
   --lift: #161E2B;
   --border: #1C2535;
   --border2: #243044;
-  --gold: #C9A84C;
-  --gold-dim: rgba(201,168,76,0.10);
-  --orange: #F97316;
-  --orange-dim: rgba(249,115,22,0.10);
+  --orange: #C8541A;
+  --orange-dim: rgba(200,84,26,0.10);
   --red: #E05252;
   --red-dim: rgba(224,82,82,0.10);
   --green: #3DD68C;
@@ -66,7 +64,7 @@
 }
 
 body {
-  font-family: 'Syne', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--void);
   color: var(--text);
   min-height: 100vh;
@@ -83,11 +81,11 @@ body {
 }
 
 .page-eyebrow {
-  font-family: 'Syne Mono', monospace;
+  font-family: 'DM Mono', monospace;
   font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--orange);
   margin-bottom: 8px;
 }
 
@@ -146,7 +144,7 @@ body {
 .stat-meta {
   font-size: 11px;
   color: var(--text3);
-  font-family: 'Syne Mono', monospace;
+  font-family: 'DM Mono', monospace;
 }
 
 .card {
@@ -176,12 +174,12 @@ body {
 }
 
 .refresh-btn {
-  background: var(--gold);
+  background: var(--orange);
   color: #000;
   border: none;
   padding: 8px 16px;
   border-radius: var(--r);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -246,7 +244,7 @@ body {
 .user-meta {
   font-size: 12px;
   color: var(--text3);
-  font-family: 'Syne Mono', monospace;
+  font-family: 'DM Mono', monospace;
 }
 
 .user-stats {
@@ -283,7 +281,7 @@ body {
 .timestamp {
   font-size: 11px;
   color: var(--text3);
-  font-family: 'Syne Mono', monospace;
+  font-family: 'DM Mono', monospace;
   margin-top: 8px;
 }
 
@@ -293,7 +291,7 @@ body {
   color: var(--text3);
   padding: 10px 20px;
   border-radius: var(--r);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -309,13 +307,13 @@ body {
 }
 
 .time-tab.active {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--orange);
+  border-color: var(--orange);
   color: #000;
 }
 </style>
 
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -325,7 +323,7 @@ body {
   z-index: 9999;
 ">
   <div style="text-align: center;">
-    <div style="font-size: 24px; color: var(--gold); margin-bottom: 12px;">🔐</div>
+    <div style="font-size: 24px; color: var(--orange); margin-bottom: 12px;">🔐</div>
     <div style="color: var(--text); font-size: 14px;">Authenticating...</div>
   </div>
 </div>
@@ -634,7 +632,7 @@ function renderChart(chartData, range) {
     const height = (d.requests / max) * 100;
     html += `
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <div style="font-size:${range === 'monthly' ? '9px' : '11px'}; color:var(--text3); font-family:'Syne Mono',monospace;">${d.requests}</div>
+        <div style="font-size:${range === 'monthly' ? '9px' : '11px'}; color:var(--text3); font-family:'DM Mono',monospace;">${d.requests}</div>
         <div style="
           width:100%;
           background:var(--blue);

@@ -1568,8 +1568,26 @@ function set(id,v){const e=g(id);if(e)e.textContent=v}
 function fmt(n){return n%1===0?n.toString():n.toFixed(2)}
 
 // ── STORAGE ──
+function genId(){return 't_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)}
+const DEFAULT_TOOLS=[
+  {id:genId(),name:'Claude',category:'LLM',status:'current',desc:'AI assistant for deep analysis, writing, coding. Powers Ask Joe AI.',url:'anthropic.com',tier:'Pro plan',cost:20,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'ChatGPT',category:'LLM',status:'current',desc:'General-purpose AI for quick answers, content drafts, brainstorming.',url:'chat.openai.com',tier:'Plus',cost:20,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'CompanyCam',category:'Field Tools',status:'current',desc:'Photo documentation for job sites. Auto-organizes by project.',url:'companycam.com',tier:'Pro',cost:19,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Canva',category:'Design',status:'current',desc:'Marketing materials, social posts, yard signs, before/after graphics.',url:'canva.com',tier:'Pro',cost:13,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Google Business Profile',category:'SEO',status:'current',desc:'Local search visibility, reviews, posts, maps ranking.',url:'business.google.com',tier:'Free',cost:0,billing:'free',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Jobber',category:'Automation',status:'future',desc:'CRM, scheduling, invoicing for field service businesses.',url:'getjobber.com',tier:'Connect',cost:35,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'EagleView',category:'Measurement',status:'current',desc:'Aerial roof measurement reports from satellite/drone imagery.',url:'eagleview.com',tier:'Pay per report',cost:35,billing:'per_use',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'GAF QuickMeasure',category:'Measurement',status:'current',desc:'Free roof measurement reports for GAF certified contractors.',url:'gaf.com',tier:'Free (certified)',cost:0,billing:'free',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Midjourney',category:'Image',status:'future',desc:'AI image generation for marketing, visualization concepts.',url:'midjourney.com',tier:'Basic',cost:10,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Loom',category:'Video',status:'current',desc:'Quick video messages for customer updates and team training.',url:'loom.com',tier:'Business',cost:13,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Zapier',category:'Automation',status:'future',desc:'Connect apps and automate workflows between tools.',url:'zapier.com',tier:'Starter',cost:20,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Grammarly',category:'Writing',status:'current',desc:'Grammar, tone, and clarity checking for all communications.',url:'grammarly.com',tier:'Premium',cost:12,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Google Analytics',category:'Analytics',status:'current',desc:'Website traffic, visitor behavior, conversion tracking.',url:'analytics.google.com',tier:'Free',cost:0,billing:'free',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Mailchimp',category:'Email',status:'future',desc:'Email marketing campaigns, drip sequences, list management.',url:'mailchimp.com',tier:'Essentials',cost:13,billing:'monthly',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()},
+  {id:genId(),name:'Hover',category:'Field Tools',status:'future',desc:'3D property scanning from smartphone photos.',url:'hover.to',tier:'Pay per scan',cost:25,billing:'per_use',pinned:false,accounts:[],notes:[],addedAt:new Date(2025,0,15).toISOString()}
+];
 async function save(){try{await window.storage.set('nbd-tools-v2',JSON.stringify(tools))}catch(e){}}
-async function load(){try{const r=await window.storage.get('nbd-tools-v2');if(r)tools=JSON.parse(r.value)}catch(e){}}
+async function load(){try{const r=await window.storage.get('nbd-tools-v2');if(r)tools=JSON.parse(r.value);else tools=JSON.parse(JSON.stringify(DEFAULT_TOOLS))}catch(e){}}
 
 // ── THEME ──
 function getSys(){return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}

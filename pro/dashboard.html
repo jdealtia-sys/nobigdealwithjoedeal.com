@@ -82,6 +82,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -2070,6 +2073,14 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 /* MEAS LABEL */
 .meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
+
+/* MARKER CLUSTER — NBD Pro brand */
+.marker-cluster-small{background:rgba(200,84,26,0.35)!important}
+.marker-cluster-small div{background:rgba(200,84,26,0.7)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-medium{background:rgba(200,84,26,0.45)!important}
+.marker-cluster-medium div{background:rgba(200,84,26,0.8)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-large{background:rgba(200,84,26,0.55)!important}
+.marker-cluster-large div{background:rgba(200,84,26,0.9)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 
 /* MAP BADGE */
 .leaflet-popup-content-wrapper.nbd-pin-popup,.nbd-pin-popup .leaflet-popup-content-wrapper{background:var(--s)!important;border:1px solid var(--br)!important;border-radius:8px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important;padding:0!important;}

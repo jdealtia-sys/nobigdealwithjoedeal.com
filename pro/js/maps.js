@@ -7,7 +7,7 @@
 // ══════════════════════════════════════════════
 // MAIN MAP
 // ══════════════════════════════════════════════
-let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={};
+let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={}, pinClusterGroup=null;
 const PIN_LABELS = {'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested','signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock','left-material':'Left Material','follow-up':'Follow Up'};
 const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#C8541A'};
 
@@ -32,6 +32,11 @@ let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 function initMainMap() {
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:20}).addTo(mainMap);
+  // Initialize marker cluster group for performance with many pins
+  if(typeof L.markerClusterGroup === 'function') {
+    pinClusterGroup = L.markerClusterGroup({ maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true, disableClusteringAtZoom:18 });
+    mainMap.addLayer(pinClusterGroup);
+  }
   // Click = show confirm dialog instead of instant drop
   mainMap.on('click', e => openPinConfirm(e.latlng.lat, e.latlng.lng));
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
@@ -190,16 +195,17 @@ async function dropPin(lat,lng,status,color,existingId,notes) {
 
 function addPinMarker(p) {
   if(!mainMap) return;
-  
+
   // Determine pin color: use stage color for customer pins, status color otherwise
   let pinColor = p.color || PIN_COLORS[p.status] || '#9CA3AF';
   if (p.type === 'customer' && p.stage && STAGE_COLORS[p.stage]) {
     pinColor = STAGE_COLORS[p.stage];
   }
-  
+
   const m = L.marker([p.lat,p.lng],{icon:makePinIcon(pinColor, p.status || p.stage)});
   m.on('click', () => openPinLeadPopup(p, m));
-  m.addTo(mainMap);
+  // Add to cluster group if available, otherwise directly to map
+  if(pinClusterGroup) { pinClusterGroup.addLayer(m); } else { m.addTo(mainMap); }
   pinMarkers[p.id] = m;
 }
 
@@ -346,8 +352,8 @@ function selectPin(status,color,el) {
   curPinStatus=status; curPinColor=color;
   document.getElementById('mapBadge').textContent='📍 '+(PIN_LABELS[status]||status).toUpperCase();
 }
-function deletePin(id) { if(pinMarkers[id]){mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); refreshHeatLayer(); }
-function clearAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); pinMarkers={}; }
+function deletePin(id) { if(pinMarkers[id]){if(pinClusterGroup)pinClusterGroup.removeLayer(pinMarkers[id]);else mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); refreshHeatLayer(); }
+function clearAllPins() { if(pinClusterGroup){pinClusterGroup.clearLayers();}else{Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m));} pinMarkers={}; }
 
 async function searchMap() {
   const q=document.getElementById('mapSearch').value.trim(); if(!q)return;

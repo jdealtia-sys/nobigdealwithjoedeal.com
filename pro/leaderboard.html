@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="NBD Pro">
   <script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js')</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -29,7 +29,7 @@
     }
 
     body {
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Barlow', sans-serif;
       background: var(--navy);
       color: #fff;
       min-height: 100vh;
@@ -48,6 +48,7 @@
       z-index: 100;
     }
     .nav-brand {
+      font-family: 'Barlow Condensed', sans-serif;
       font-size: .85rem;
       font-weight: 800;
       letter-spacing: .08em;
@@ -74,6 +75,7 @@
     }
     .hero-icon { font-size: 2.5rem; margin-bottom: 12px; }
     .hero h1 {
+      font-family: 'Barlow Condensed', sans-serif;
       font-size: clamp(1.6rem, 4vw, 2.4rem);
       font-weight: 900;
       letter-spacing: -.02em;
@@ -98,7 +100,7 @@
       background: var(--navy-light);
       border: 1px solid var(--border);
       color: var(--text-muted);
-      font-family: inherit;
+      font-family: 'Barlow Condensed', sans-serif;
       font-size: .78rem;
       font-weight: 700;
       letter-spacing: .06em;
@@ -173,6 +175,7 @@
 
     .lb-info { flex: 1; min-width: 0; }
     .lb-name {
+      font-family: 'Barlow', sans-serif;
       font-size: .9rem;
       font-weight: 700;
       white-space: nowrap;
@@ -190,6 +193,7 @@
       flex-shrink: 0;
     }
     .lb-stat-val {
+      font-family: 'Barlow Condensed', sans-serif;
       font-size: 1.1rem;
       font-weight: 900;
       color: var(--orange);
@@ -227,7 +231,7 @@
       margin: 0 auto;
     }
     .auth-wall .icon { font-size: 2.5rem; margin-bottom: 16px; }
-    .auth-wall h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
+    .auth-wall h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
     .auth-wall p { font-size: .88rem; color: var(--text-dim); margin-bottom: 24px; }
     .btn-primary {
       display: inline-block;
