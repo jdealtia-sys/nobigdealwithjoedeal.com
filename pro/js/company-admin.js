@@ -1,0 +1,1240 @@
+/**
+ * NBD Pro Company Admin Module
+ * Manages company/brand settings, team management, and role-based access control
+ *
+ * Exposes:
+ * - window.nbdRoles: Role definitions
+ * - window.hasPermission(permission): Permission check
+ * - window.hasRole(roleName): Role level check
+ * - window.requirePermission(permission, callback): Gate function
+ * - window.getCurrentUserRole(): Get current user's role
+ * - window.canPerformAction(action, resource): High-level action check
+ * - window.companyProfile: Current company data
+ * - window.teamMembers: Current team list
+ * - window.renderCompanySettings(): Render company tab
+ * - window.renderTeamManagement(): Render team tab
+ * - window.renderAccessControl(): Render access tab
+ */
+
+// ============================================================================
+// ROLE SYSTEM - Hierarchical RBAC
+// ============================================================================
+
+const ROLES = {
+  owner: {
+    level: 100,
+    label: 'Owner',
+    description: 'Full system access. Can manage all users, billing, and company settings.',
+    color: '#C8541A',
+    icon: '👑',
+    permissions: ['*']
+  },
+  admin: {
+    level: 80,
+    label: 'Admin',
+    description: 'Full operational access. Can manage team members, products, and templates.',
+    color: '#7c3aed',
+    icon: '🛡️',
+    permissions: [
+      'leads.read', 'leads.write', 'leads.delete',
+      'estimates.read', 'estimates.write', 'estimates.delete',
+      'products.read', 'products.write', 'products.delete',
+      'templates.read', 'templates.write', 'templates.delete',
+      'team.read', 'team.write',
+      'reports.read',
+      'settings.read', 'settings.write',
+      'company.read', 'company.write'
+    ]
+  },
+  manager: {
+    level: 60,
+    label: 'Manager',
+    description: 'Can manage leads, estimates, and view reports. Cannot manage team or company settings.',
+    color: '#0ea5e9',
+    icon: '📋',
+    permissions: [
+      'leads.read', 'leads.write', 'leads.delete',
+      'estimates.read', 'estimates.write', 'estimates.delete',
+      'products.read', 'products.write',
+      'templates.read', 'templates.write',
+      'reports.read',
+      'settings.read'
+    ]
+  },
+  sales_rep: {
+    level: 40,
+    label: 'Sales Rep',
+    description: 'Can manage their own leads and create estimates. Read-only access to products and templates.',
+    color: '#10b981',
+    icon: '💼',
+    permissions: [
+      'leads.read', 'leads.write',
+      'estimates.read', 'estimates.write',
+      'products.read',
+      'templates.read',
+      'settings.read'
+    ]
+  },
+  viewer: {
+    level: 20,
+    label: 'Viewer',
+    description: 'Read-only access to leads, estimates, and reports.',
+    color: '#6b7280',
+    icon: '👁️',
+    permissions: [
+      'leads.read',
+      'estimates.read',
+      'products.read',
+      'templates.read',
+      'reports.read'
+    ]
+  }
+};
+
+// ============================================================================
+// DEMO DATA
+// ============================================================================
+
+const DEMO_TEAM = [
+  {
+    uid: 'demo_owner',
+    displayName: 'Joe Deal',
+    email: 'joe@nobigdeal.pro',
+    role: 'owner',
+    title: 'Owner / Operator',
+    isActive: true,
+    joinedAt: '2023-01-01',
+    lastActiveAt: new Date().toISOString(),
+    stats: { totalLeads: 450, closedDeals: 127, revenue: 485000 }
+  },
+  {
+    uid: 'demo_admin',
+    displayName: 'Sarah Johnson',
+    email: 'sarah@nobigdeal.pro',
+    role: 'admin',
+    title: 'Operations Manager',
+    isActive: true,
+    joinedAt: '2023-02-15',
+    lastActiveAt: new Date().toISOString(),
+    stats: { totalLeads: 320, closedDeals: 98, revenue: 380000 }
+  },
+  {
+    uid: 'demo_manager',
+    displayName: 'Mike Thompson',
+    email: 'mike@nobigdeal.pro',
+    role: 'manager',
+    title: 'Sales Manager',
+    isActive: true,
+    joinedAt: '2023-03-10',
+    lastActiveAt: new Date().toISOString(),
+    stats: { totalLeads: 280, closedDeals: 82, revenue: 315000 }
+  },
+  {
+    uid: 'demo_rep1',
+    displayName: 'Jake Williams',
+    email: 'jake@nobigdeal.pro',
+    role: 'sales_rep',
+    title: 'Sales Representative',
+    isActive: true,
+    joinedAt: '2023-04-01',
+    lastActiveAt: new Date().toISOString(),
+    stats: { totalLeads: 156, closedDeals: 42, revenue: 165000 }
+  },
+  {
+    uid: 'demo_rep2',
+    displayName: 'Emily Davis',
+    email: 'emily@nobigdeal.pro',
+    role: 'sales_rep',
+    title: 'Sales Representative',
+    isActive: true,
+    joinedAt: '2023-05-12',
+    lastActiveAt: new Date().toISOString(),
+    stats: { totalLeads: 143, closedDeals: 38, revenue: 148000 }
+  },
+  {
+    uid: 'demo_viewer',
+    displayName: 'Chris Martin',
+    email: 'chris@nobigdeal.pro',
+    role: 'viewer',
+    title: 'Office Assistant',
+    isActive: false,
+    joinedAt: '2023-06-20',
+    lastActiveAt: '2024-12-15T10:30:00Z',
+    stats: { totalLeads: 0, closedDeals: 0, revenue: 0 }
+  }
+];
+
+const DEFAULT_COMPANY_PROFILE = {
+  companyId: 'nbd_pro_001',
+  name: 'No Big Deal Home Solutions',
+  legalName: 'No Big Deal Home Solutions LLC',
+  phone: '(859) 420-7382',
+  email: 'info@nobigdeal.pro',
+  website: 'https://nobigdealwithjoedeal.com',
+  address: {
+    street: '',
+    city: '',
+    state: 'KY',
+    zip: ''
+  },
+  branding: {
+    primaryColor: '#C8541A',
+    secondaryColor: '#1a1a2e',
+    logoUrl: '',
+    tagline: 'No Big Deal — We\'ve Got You Covered',
+    description: ''
+  },
+  license: {
+    number: '',
+    state: 'KY',
+    expiresAt: ''
+  },
+  insurance: {
+    provider: '',
+    policyNumber: '',
+    expiresAt: ''
+  },
+  warranties: {
+    workmanship: '10 years',
+    manufacturer: 'Lifetime (GAF)',
+    description: 'All work backed by our 10-year workmanship warranty plus GAF manufacturer lifetime warranty.'
+  },
+  socialMedia: {
+    facebook: '',
+    instagram: '',
+    google: '',
+    nextdoor: '',
+    yelp: ''
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  ownerId: 'demo_owner'
+};
+
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+let companyProfile = { ...DEFAULT_COMPANY_PROFILE };
+let teamMembers = [...DEMO_TEAM];
+let currentUserRole = 'owner'; // Demo mode
+let currentUserId = 'demo_owner'; // Demo mode
+
+// ============================================================================
+// PERMISSION & ROLE FUNCTIONS
+// ============================================================================
+
+/**
+ * Check if current user has a specific permission
+ * @param {string} permission - Permission string (e.g., 'leads.read')
+ * @returns {boolean}
+ */
+function hasPermission(permission) {
+  if (!currentUserRole) return false;
+
+  const role = ROLES[currentUserRole];
+  if (!role) return false;
+
+  // Owner has all permissions
+  if (role.permissions.includes('*')) return true;
+
+  return role.permissions.includes(permission);
+}
+
+/**
+ * Check if current user has at least this role level
+ * @param {string} roleName - Role name to check
+ * @returns {boolean}
+ */
+function hasRole(roleName) {
+  if (!ROLES[roleName] || !ROLES[currentUserRole]) return false;
+  return ROLES[currentUserRole].level >= ROLES[roleName].level;
+}
+
+/**
+ * Get current user's role object
+ * @returns {object}
+ */
+function getCurrentUserRole() {
+  return ROLES[currentUserRole] || null;
+}
+
+/**
+ * Gate a function behind a permission check
+ * @param {string} permission - Required permission
+ * @param {function} callback - Function to execute if allowed
+ * @param {function} fallback - Function to execute if denied (optional)
+ */
+function requirePermission(permission, callback, fallback = null) {
+  if (hasPermission(permission)) {
+    return callback();
+  } else {
+    if (fallback) fallback();
+    window._showToast?.(`You don't have permission: ${permission}`);
+    return null;
+  }
+}
+
+/**
+ * High-level action check
+ * @param {string} action - Action (read/write/delete)
+ * @param {string} resource - Resource (leads/estimates/team/etc)
+ * @returns {boolean}
+ */
+function canPerformAction(action, resource) {
+  const permissionString = `${resource}.${action}`;
+  return hasPermission(permissionString);
+}
+
+/**
+ * Get all permissions for current user
+ * @returns {array}
+ */
+function getCurrentUserPermissions() {
+  const role = ROLES[currentUserRole];
+  if (!role) return [];
+  if (role.permissions.includes('*')) {
+    // Return all permissions
+    const allPerms = new Set();
+    Object.values(ROLES).forEach(r => {
+      r.permissions.forEach(p => {
+        if (p !== '*') allPerms.add(p);
+      });
+    });
+    return Array.from(allPerms);
+  }
+  return role.permissions || [];
+}
+
+/**
+ * Load user data and initialize state
+ */
+function loadUserData() {
+  const stored = localStorage.getItem('nbd_user_settings');
+  if (stored) {
+    const userData = JSON.parse(stored);
+    currentUserRole = userData.role || 'viewer';
+    currentUserId = userData.uid || 'demo_user';
+  }
+
+  const storedProfile = localStorage.getItem('nbd_company_profile');
+  if (storedProfile) {
+    companyProfile = JSON.parse(storedProfile);
+  } else {
+    companyProfile = { ...DEFAULT_COMPANY_PROFILE };
+    saveCompanyProfile();
+  }
+
+  const storedTeam = localStorage.getItem('nbd_team_members');
+  if (storedTeam) {
+    teamMembers = JSON.parse(storedTeam);
+  } else {
+    teamMembers = [...DEMO_TEAM];
+    saveTeamMembers();
+  }
+}
+
+// ============================================================================
+// COMPANY PROFILE MANAGEMENT
+// ============================================================================
+
+/**
+ * Save company profile to localStorage (will sync to Firestore later)
+ */
+function saveCompanyProfile() {
+  companyProfile.updatedAt = new Date().toISOString();
+  localStorage.setItem('nbd_company_profile', JSON.stringify(companyProfile));
+
+  // TODO: Sync to Firestore
+  // if (window._db) {
+  //   window._db.collection('companies').doc(companyProfile.companyId).set(companyProfile);
+  // }
+
+  window._showToast?.('Company settings saved successfully');
+}
+
+/**
+ * Update company profile field(s)
+ * @param {object} updates - Fields to update
+ */
+function updateCompanyProfile(updates) {
+  if (!hasPermission('company.write')) {
+    window._showToast?.('You don\'t have permission to update company settings');
+    return false;
+  }
+
+  companyProfile = { ...companyProfile, ...updates };
+  saveCompanyProfile();
+  return true;
+}
+
+/**
+ * Get company profile
+ * @returns {object}
+ */
+function getCompanyProfile() {
+  if (!hasPermission('company.read')) {
+    window._showToast?.('You don\'t have permission to view company settings');
+    return null;
+  }
+  return companyProfile;
+}
+
+// ============================================================================
+// TEAM MANAGEMENT
+// ============================================================================
+
+/**
+ * Load team members
+ * @returns {array}
+ */
+function loadTeamMembers() {
+  if (!hasPermission('team.read')) {
+    window._showToast?.('You don\'t have permission to view team');
+    return [];
+  }
+  return teamMembers;
+}
+
+/**
+ * Save team to localStorage
+ */
+function saveTeamMembers() {
+  localStorage.setItem('nbd_team_members', JSON.stringify(teamMembers));
+
+  // TODO: Sync to Firestore
+  // if (window._db) {
+  //   teamMembers.forEach(member => {
+  //     window._db.collection('team').doc(member.uid).set(member);
+  //   });
+  // }
+}
+
+/**
+ * Invite a new team member
+ * @param {string} email - Team member email
+ * @param {string} role - Role to assign
+ * @returns {boolean}
+ */
+function inviteTeamMember(email, role) {
+  if (!hasPermission('team.write')) {
+    window._showToast?.('You don\'t have permission to invite team members');
+    return false;
+  }
+
+  // Check if email already exists
+  const exists = teamMembers.some(m => m.email === email);
+  if (exists) {
+    window._showToast?.('This email is already on the team');
+    return false;
+  }
+
+  // Create invite record
+  const invite = {
+    uid: `invite_${Date.now()}`,
+    email,
+    role,
+    displayName: email.split('@')[0],
+    title: ROLES[role]?.label || role,
+    isActive: false,
+    invitedAt: new Date().toISOString(),
+    joinedAt: null,
+    stats: { totalLeads: 0, closedDeals: 0, revenue: 0 }
+  };
+
+  teamMembers.push(invite);
+  saveTeamMembers();
+
+  window._showToast?.(`Invitation sent to ${email}. They'll need to create an NBD Pro account.`);
+
+  // TODO: Send invite email
+  // if (window._sendEmail) {
+  //   window._sendEmail({
+  //     to: email,
+  //     subject: `Join No Big Deal Pro - ${ROLES[role].label} Invite`,
+  //     html: `You've been invited to join NBD Pro as a ${ROLES[role].label}...`
+  //   });
+  // }
+
+  return true;
+}
+
+/**
+ * Update a team member's role
+ * @param {string} uid - Team member UID
+ * @param {string} newRole - New role
+ * @returns {boolean}
+ */
+function updateMemberRole(uid, newRole) {
+  if (!hasPermission('team.write')) {
+    window._showToast?.('You don\'t have permission to manage team');
+    return false;
+  }
+
+  // Prevent downgrading owner
+  const member = teamMembers.find(m => m.uid === uid);
+  if (member?.role === 'owner') {
+    window._showToast?.('Cannot change owner role');
+    return false;
+  }
+
+  const idx = teamMembers.findIndex(m => m.uid === uid);
+  if (idx === -1) {
+    window._showToast?.('Team member not found');
+    return false;
+  }
+
+  teamMembers[idx].role = newRole;
+  teamMembers[idx].title = ROLES[newRole]?.label || newRole;
+  saveTeamMembers();
+
+  window._showToast?.(`${teamMembers[idx].displayName}'s role updated to ${ROLES[newRole].label}`);
+  return true;
+}
+
+/**
+ * Deactivate a team member
+ * @param {string} uid - Team member UID
+ * @returns {boolean}
+ */
+function deactivateMember(uid) {
+  if (!hasPermission('team.write')) {
+    window._showToast?.('You don\'t have permission to manage team');
+    return false;
+  }
+
+  const member = teamMembers.find(m => m.uid === uid);
+  if (member?.role === 'owner') {
+    window._showToast?.('Cannot deactivate owner');
+    return false;
+  }
+
+  const idx = teamMembers.findIndex(m => m.uid === uid);
+  if (idx === -1) {
+    window._showToast?.('Team member not found');
+    return false;
+  }
+
+  teamMembers[idx].isActive = false;
+  saveTeamMembers();
+
+  window._showToast?.(`${teamMembers[idx].displayName} has been deactivated`);
+  return true;
+}
+
+/**
+ * Reactivate a team member
+ * @param {string} uid - Team member UID
+ * @returns {boolean}
+ */
+function reactivateMember(uid) {
+  if (!hasPermission('team.write')) {
+    window._showToast?.('You don\'t have permission to manage team');
+    return false;
+  }
+
+  const idx = teamMembers.findIndex(m => m.uid === uid);
+  if (idx === -1) {
+    window._showToast?.('Team member not found');
+    return false;
+  }
+
+  teamMembers[idx].isActive = true;
+  saveTeamMembers();
+
+  window._showToast?.(`${teamMembers[idx].displayName} has been reactivated`);
+  return true;
+}
+
+/**
+ * Get aggregated team statistics
+ * @returns {object}
+ */
+function getTeamStats() {
+  const stats = {
+    totalMembers: teamMembers.filter(m => m.isActive).length,
+    totalLeads: 0,
+    totalDeals: 0,
+    totalRevenue: 0,
+    byRole: {}
+  };
+
+  teamMembers.forEach(member => {
+    if (member.isActive) {
+      stats.totalLeads += member.stats?.totalLeads || 0;
+      stats.totalDeals += member.stats?.closedDeals || 0;
+      stats.totalRevenue += member.stats?.revenue || 0;
+
+      const role = member.role;
+      if (!stats.byRole[role]) {
+        stats.byRole[role] = { count: 0, leads: 0, revenue: 0 };
+      }
+      stats.byRole[role].count++;
+      stats.byRole[role].leads += member.stats?.totalLeads || 0;
+      stats.byRole[role].revenue += member.stats?.revenue || 0;
+    }
+  });
+
+  return stats;
+}
+
+// ============================================================================
+// UI RENDERING - COMPANY SETTINGS
+// ============================================================================
+
+/**
+ * Render Company Settings tab
+ * @returns {string} HTML
+ */
+function renderCompanySettings() {
+  const profile = getCompanyProfile();
+  if (!profile) return '<p style="padding: 20px; color: var(--orange);">Access denied</p>';
+
+  const canEdit = hasPermission('company.write');
+
+  return `
+    <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+      <div style="display: grid; gap: 30px;">
+
+        <!-- Company Profile Section -->
+        <section style="border: 1px solid #ddd; border-radius: var(--br); padding: 25px; background: #f9f9f9;">
+          <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a; display: flex; align-items: center; gap: 10px;">
+            🏢 Company Profile
+          </h2>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Company Name</label>
+              <input type="text" id="companyName" value="${profile.name}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Legal Name</label>
+              <input type="text" id="legalName" value="${profile.legalName}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Phone</label>
+              <input type="tel" id="phone" value="${profile.phone}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Email</label>
+              <input type="email" id="email" value="${profile.email}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Website</label>
+              <input type="url" id="website" value="${profile.website}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #1a1a1a;">Address</h3>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+              <input type="text" id="street" placeholder="Street" value="${profile.address.street}" ${!canEdit ? 'disabled' : ''} style="padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+              <input type="text" id="city" placeholder="City" value="${profile.address.city}" ${!canEdit ? 'disabled' : ''} style="padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+              <input type="text" id="state" placeholder="State" value="${profile.address.state}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+              <input type="text" id="zip" placeholder="ZIP" value="${profile.address.zip}" ${!canEdit ? 'disabled' : ''} style="padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Branding Section -->
+        <section style="border: 1px solid #ddd; border-radius: var(--br); padding: 25px; background: #f9f9f9;">
+          <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a; display: flex; align-items: center; gap: 10px;">
+            🎨 Branding
+          </h2>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Primary Color</label>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" id="primaryColor" value="${profile.branding.primaryColor}" ${!canEdit ? 'disabled' : ''} style="width: 50px; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" />
+                <input type="text" id="primaryColorText" value="${profile.branding.primaryColor}" ${!canEdit ? 'disabled' : ''} style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;" />
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Secondary Color</label>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" id="secondaryColor" value="${profile.branding.secondaryColor}" ${!canEdit ? 'disabled' : ''} style="width: 50px; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" />
+                <input type="text" id="secondaryColorText" value="${profile.branding.secondaryColor}" ${!canEdit ? 'disabled' : ''} style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;" />
+              </div>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Logo</label>
+              <div style="padding: 20px; border: 2px dashed #ddd; border-radius: 8px; text-align: center; cursor: ${canEdit ? 'pointer' : 'default'}; background: #fff;">
+                ${profile.branding.logoUrl ? `<img src="${profile.branding.logoUrl}" style="max-height: 80px; margin-bottom: 10px;" />` : '<p style="margin: 0; color: #999;">📤 Upload Logo (coming soon)</p>'}
+              </div>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Tagline</label>
+              <input type="text" id="tagline" value="${profile.branding.tagline}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Company Description</label>
+              <textarea id="description" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: inherit; min-height: 80px; resize: vertical;">${profile.branding.description}</textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- Licenses & Insurance -->
+        <section style="border: 1px solid #ddd; border-radius: var(--br); padding: 25px; background: #f9f9f9;">
+          <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a; display: flex; align-items: center; gap: 10px;">
+            📋 Licenses & Insurance
+          </h2>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">License Number</label>
+              <input type="text" id="licenseNumber" value="${profile.license.number}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">License Expires</label>
+              <input type="date" id="licenseExpires" value="${profile.license.expiresAt.split('T')[0] || ''}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Insurance Provider</label>
+              <input type="text" id="insuranceProvider" value="${profile.insurance.provider}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Policy Number</label>
+              <input type="text" id="policyNumber" value="${profile.insurance.policyNumber}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Insurance Expires</label>
+              <input type="date" id="insuranceExpires" value="${profile.insurance.expiresAt.split('T')[0] || ''}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Warranties -->
+        <section style="border: 1px solid #ddd; border-radius: var(--br); padding: 25px; background: #f9f9f9;">
+          <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a; display: flex; align-items: center; gap: 10px;">
+            🛡️ Warranties
+          </h2>
+
+          <div style="display: grid; gap: 15px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Workmanship Warranty</label>
+              <input type="text" id="workmanshipWarranty" value="${profile.warranties.workmanship}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Manufacturer Warranty</label>
+              <input type="text" id="manufacturerWarranty" value="${profile.warranties.manufacturer}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Warranty Description</label>
+              <textarea id="warrantyDescription" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: inherit; min-height: 80px; resize: vertical;">${profile.warranties.description}</textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- Social Media -->
+        <section style="border: 1px solid #ddd; border-radius: var(--br); padding: 25px; background: #f9f9f9;">
+          <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a; display: flex; align-items: center; gap: 10px;">
+            📱 Social Media
+          </h2>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Facebook</label>
+              <input type="url" id="facebook" value="${profile.socialMedia.facebook}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Instagram</label>
+              <input type="url" id="instagram" value="${profile.socialMedia.instagram}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Google</label>
+              <input type="url" id="google" value="${profile.socialMedia.google}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Nextdoor</label>
+              <input type="url" id="nextdoor" value="${profile.socialMedia.nextdoor}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Yelp</label>
+              <input type="url" id="yelp" value="${profile.socialMedia.yelp}" ${!canEdit ? 'disabled' : ''} style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Save Button -->
+        ${canEdit ? `
+          <div style="display: flex; gap: 10px; justify-content: flex-end; padding: 10px 0;">
+            <button onclick="window.saveCompanySettingsForm()" style="padding: 10px 20px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px;">
+              💾 Save Changes
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Save company settings form data
+ */
+function saveCompanySettingsForm() {
+  const updates = {
+    name: document.getElementById('companyName')?.value,
+    legalName: document.getElementById('legalName')?.value,
+    phone: document.getElementById('phone')?.value,
+    email: document.getElementById('email')?.value,
+    website: document.getElementById('website')?.value,
+    address: {
+      street: document.getElementById('street')?.value,
+      city: document.getElementById('city')?.value,
+      state: document.getElementById('state')?.value,
+      zip: document.getElementById('zip')?.value
+    },
+    branding: {
+      primaryColor: document.getElementById('primaryColor')?.value,
+      secondaryColor: document.getElementById('secondaryColor')?.value,
+      tagline: document.getElementById('tagline')?.value,
+      description: document.getElementById('description')?.value,
+      logoUrl: companyProfile.branding.logoUrl
+    },
+    license: {
+      number: document.getElementById('licenseNumber')?.value,
+      state: document.getElementById('state')?.value,
+      expiresAt: document.getElementById('licenseExpires')?.value
+    },
+    insurance: {
+      provider: document.getElementById('insuranceProvider')?.value,
+      policyNumber: document.getElementById('policyNumber')?.value,
+      expiresAt: document.getElementById('insuranceExpires')?.value
+    },
+    warranties: {
+      workmanship: document.getElementById('workmanshipWarranty')?.value,
+      manufacturer: document.getElementById('manufacturerWarranty')?.value,
+      description: document.getElementById('warrantyDescription')?.value
+    },
+    socialMedia: {
+      facebook: document.getElementById('facebook')?.value,
+      instagram: document.getElementById('instagram')?.value,
+      google: document.getElementById('google')?.value,
+      nextdoor: document.getElementById('nextdoor')?.value,
+      yelp: document.getElementById('yelp')?.value
+    }
+  };
+
+  updateCompanyProfile(updates);
+}
+
+// ============================================================================
+// UI RENDERING - TEAM MANAGEMENT
+// ============================================================================
+
+/**
+ * Render Team Management tab
+ * @returns {string} HTML
+ */
+function renderTeamManagement() {
+  const team = loadTeamMembers();
+  if (!team || team.length === 0) {
+    return '<p style="padding: 20px; text-align: center; color: #999;">No team members found</p>';
+  }
+
+  const canManageTeam = hasPermission('team.write');
+  const stats = getTeamStats();
+
+  return `
+    <div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <div>
+          <h2 style="margin: 0 0 5px 0; font-size: 20px; color: #1a1a1a;">Team Management</h2>
+          <p style="margin: 0; color: #999; font-size: 14px;">${stats.totalMembers} active members</p>
+        </div>
+        ${canManageTeam ? `
+          <button onclick="window.showInviteModal()" style="padding: 10px 16px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px;">
+            + Invite Member
+          </button>
+        ` : ''}
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+        ${team.map(member => `
+          <div style="border: 1px solid #ddd; border-radius: var(--br); padding: 20px; background: white; ${!member.isActive ? 'opacity: 0.6;' : ''}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px;">
+                  ${member.displayName.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div>
+                  <div style="font-weight: 600; color: #1a1a1a; font-size: 14px;">${member.displayName}</div>
+                  <div style="font-size: 12px; color: #999;">${member.email}</div>
+                </div>
+              </div>
+              ${member.role === 'owner' ? '<div style="font-size: 20px;">👑</div>' : ''}
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+              <div style="padding: 4px 10px; background: ${ROLES[member.role]?.color}22; color: ${ROLES[member.role]?.color}; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                ${ROLES[member.role]?.label || member.role}
+              </div>
+              <div style="padding: 4px 10px; background: ${member.isActive ? '#10b98122' : '#ef444422'}; color: ${member.isActive ? '#10b981' : '#ef4444'}; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                ${member.isActive ? '✓ Active' : '✗ Inactive'}
+              </div>
+            </div>
+
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 13px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="color: #666;">Leads:</span>
+                <strong>${member.stats?.totalLeads || 0}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="color: #666;">Closed Deals:</span>
+                <strong>${member.stats?.closedDeals || 0}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #666;">Revenue:</span>
+                <strong>$${(member.stats?.revenue || 0).toLocaleString()}</strong>
+              </div>
+            </div>
+
+            ${canManageTeam && member.role !== 'owner' ? `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <select id="role_${member.uid}" onchange="window.updateMemberRoleUI('${member.uid}')" style="padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                  ${Object.entries(ROLES).map(([key, role]) => `
+                    <option value="${key}" ${member.role === key ? 'selected' : ''}>${role.label}</option>
+                  `).join('')}
+                </select>
+                <button onclick="window.toggleMemberStatus('${member.uid}')" style="padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer; background: white;">
+                  ${member.isActive ? '🚫 Deactivate' : '✓ Reactivate'}
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Update member role from UI
+ */
+function updateMemberRoleUI(uid) {
+  const newRole = document.getElementById(`role_${uid}`)?.value;
+  if (newRole) {
+    updateMemberRole(uid, newRole);
+    // Refresh UI
+    const container = document.getElementById('team-management-container');
+    if (container) {
+      container.innerHTML = renderTeamManagement();
+    }
+  }
+}
+
+/**
+ * Toggle member active status
+ */
+function toggleMemberStatus(uid) {
+  const member = teamMembers.find(m => m.uid === uid);
+  if (member?.isActive) {
+    deactivateMember(uid);
+  } else {
+    reactivateMember(uid);
+  }
+  // Refresh UI
+  const container = document.getElementById('team-management-container');
+  if (container) {
+    container.innerHTML = renderTeamManagement();
+  }
+}
+
+/**
+ * Show invite modal
+ */
+function showInviteModal() {
+  if (!hasPermission('team.write')) {
+    window._showToast?.('You don\'t have permission to invite team members');
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  modal.innerHTML = `
+    <div style="background: white; border-radius: var(--br); padding: 30px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+      <h2 style="margin: 0 0 20px 0; font-size: 18px; color: #1a1a1a;">Invite Team Member</h2>
+
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Email Address</label>
+        <input type="email" id="inviteEmail" placeholder="name@example.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;" />
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600;">Role</label>
+        <select id="inviteRole" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+          ${Object.entries(ROLES).filter(([k]) => k !== 'owner').map(([key, role]) => `
+            <option value="${key}" title="${role.description}">${role.label}</option>
+          `).join('')}
+        </select>
+        <p style="margin: 8px 0 0 0; font-size: 12px; color: #999;">
+          <span id="roleDesc">${ROLES.admin.description}</span>
+        </p>
+      </div>
+
+      <div style="background: #f0f0f0; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #666;">
+        💡 They'll need to create an NBD Pro account with this email address
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="padding: 10px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+          Cancel
+        </button>
+        <button onclick="window.sendInviteForm()" style="padding: 10px 16px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+          Send Invite
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Role description update
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'inviteRole') {
+      const role = ROLES[e.target.value];
+      const desc = document.getElementById('roleDesc');
+      if (desc) desc.textContent = role.description;
+    }
+  });
+
+  document.body.appendChild(modal);
+  document.getElementById('inviteEmail')?.focus();
+}
+
+/**
+ * Send invite from form
+ */
+function sendInviteForm() {
+  const email = document.getElementById('inviteEmail')?.value;
+  const role = document.getElementById('inviteRole')?.value;
+
+  if (!email || !email.includes('@')) {
+    window._showToast?.('Please enter a valid email address');
+    return;
+  }
+
+  if (inviteTeamMember(email, role)) {
+    // Close modal and refresh
+    document.querySelector('[style*="position: fixed"]')?.remove();
+    const container = document.getElementById('team-management-container');
+    if (container) {
+      container.innerHTML = renderTeamManagement();
+    }
+  }
+}
+
+// ============================================================================
+// UI RENDERING - ACCESS CONTROL
+// ============================================================================
+
+/**
+ * Render Access Control tab
+ * @returns {string} HTML
+ */
+function renderAccessControl() {
+  const currentRole = getCurrentUserRole();
+  const currentPerms = getCurrentUserPermissions();
+
+  // Permission categories
+  const permCategories = {
+    'Leads': ['leads.read', 'leads.write', 'leads.delete'],
+    'Estimates': ['estimates.read', 'estimates.write', 'estimates.delete'],
+    'Products': ['products.read', 'products.write', 'products.delete'],
+    'Templates': ['templates.read', 'templates.write', 'templates.delete'],
+    'Team': ['team.read', 'team.write'],
+    'Reports': ['reports.read'],
+    'Settings': ['settings.read', 'settings.write'],
+    'Company': ['company.read', 'company.write']
+  };
+
+  return `
+    <div style="max-width: 1000px; margin: 0 auto; padding: 20px;">
+      <h2 style="margin: 0 0 10px 0; font-size: 20px; color: #1a1a1a;">Access Control</h2>
+      <p style="margin: 0 0 25px 0; color: #666; font-size: 14px;">View role definitions and permission matrix</p>
+
+      <!-- Current User Role Card -->
+      <div style="border: 2px solid var(--orange); border-radius: var(--br); padding: 20px; margin-bottom: 30px; background: #fff9f5;">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+          <div style="font-size: 40px;">${currentRole?.icon}</div>
+          <div>
+            <h3 style="margin: 0; font-size: 20px; color: #1a1a1a;">Your Role: ${currentRole?.label}</h3>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${currentRole?.description}</p>
+          </div>
+        </div>
+
+        <div style="background: white; padding: 15px; border-radius: 6px;">
+          <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: 600; color: #666;">YOUR PERMISSIONS (${currentPerms.length}):</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+            ${currentPerms.map(perm => `
+              <div style="padding: 6px 10px; background: ${ROLES[currentUserRole]?.color}22; color: ${ROLES[currentUserRole]?.color}; border-radius: 4px; font-size: 12px; font-family: monospace;">
+                ✓ ${perm}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Permission Matrix -->
+      <div style="background: white; border: 1px solid #ddd; border-radius: var(--br); overflow: hidden;">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd;">
+          <h3 style="margin: 0; font-size: 16px; color: #1a1a1a;">Permission Matrix</h3>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #1a1a1a;">Permission</th>
+                ${Object.keys(ROLES).map(role => `
+                  <th style="padding: 12px 10px; text-align: center; color: ${ROLES[role].color}; font-weight: 600;">
+                    ${ROLES[role].icon}<br/>${ROLES[role].label}
+                  </th>
+                `).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.entries(permCategories).map(([category, perms]) => `
+                <tr style="border-bottom: 1px solid #eee;">
+                  <td style="padding: 12px 15px; font-weight: 600; color: #1a1a1a; background: #f9f9f9;">${category}</td>
+                  ${Object.keys(ROLES).map(role => {
+                    const hasAnyPerm = ROLES[role].permissions.includes('*') ||
+                                      perms.some(p => ROLES[role].permissions.includes(p));
+                    return `
+                      <td style="padding: 12px 10px; text-align: center; color: ${hasAnyPerm ? '#10b981' : '#ef4444'}; font-size: 16px;">
+                        ${hasAnyPerm ? '✓' : '✗'}
+                      </td>
+                    `;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Role Descriptions -->
+      <div style="margin-top: 30px;">
+        <h3 style="margin: 0 0 20px 0; font-size: 16px; color: #1a1a1a;">Role Descriptions</h3>
+        <div style="display: grid; gap: 15px;">
+          ${Object.entries(ROLES).map(([key, role]) => `
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 15px; background: white;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <div style="font-size: 24px;">${role.icon}</div>
+                <div>
+                  <div style="font-weight: 600; color: #1a1a1a; font-size: 14px;">${role.label}</div>
+                  <div style="font-size: 12px; color: #666;">${role.description}</div>
+                </div>
+              </div>
+              <div style="padding-left: 34px; display: flex; flex-wrap: wrap; gap: 6px;">
+                ${(role.permissions.includes('*') ? ['All'] : role.permissions.slice(0, 5)).map(p => `
+                  <span style="padding: 3px 8px; background: ${role.color}22; color: ${role.color}; border-radius: 3px; font-size: 11px; font-family: monospace;">
+                    ${p}
+                  </span>
+                `).join('')}
+                ${role.permissions.length > 5 && !role.permissions.includes('*') ? `<span style="color: #999; font-size: 11px;">+${role.permissions.length - 5} more</span>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// INITIALIZATION & EXPORTS
+// ============================================================================
+
+/**
+ * Initialize company admin module
+ */
+function initCompanyAdmin() {
+  loadUserData();
+
+  // Expose public API
+  window.nbdRoles = ROLES;
+  window.hasPermission = hasPermission;
+  window.hasRole = hasRole;
+  window.getCurrentUserRole = getCurrentUserRole;
+  window.requirePermission = requirePermission;
+  window.canPerformAction = canPerformAction;
+  window.getCurrentUserPermissions = getCurrentUserPermissions;
+
+  // Company functions
+  window.getCompanyProfile = getCompanyProfile;
+  window.updateCompanyProfile = updateCompanyProfile;
+  window.saveCompanyProfile = saveCompanyProfile;
+  window.renderCompanySettings = renderCompanySettings;
+  window.saveCompanySettingsForm = saveCompanySettingsForm;
+
+  // Team functions
+  window.loadTeamMembers = loadTeamMembers;
+  window.inviteTeamMember = inviteTeamMember;
+  window.updateMemberRole = updateMemberRole;
+  window.deactivateMember = deactivateMember;
+  window.reactivateMember = reactivateMember;
+  window.getTeamStats = getTeamStats;
+  window.renderTeamManagement = renderTeamManagement;
+  window.updateMemberRoleUI = updateMemberRoleUI;
+  window.toggleMemberStatus = toggleMemberStatus;
+  window.showInviteModal = showInviteModal;
+  window.sendInviteForm = sendInviteForm;
+
+  // Access functions
+  window.renderAccessControl = renderAccessControl;
+
+  // Expose state
+  Object.defineProperty(window, 'companyProfile', {
+    get: () => companyProfile,
+    enumerable: true
+  });
+
+  Object.defineProperty(window, 'teamMembers', {
+    get: () => teamMembers,
+    enumerable: true
+  });
+
+  console.log('NBD Pro Company Admin Module initialized', {
+    roles: ROLES,
+    currentRole: currentUserRole,
+    teamSize: teamMembers.length,
+    company: companyProfile.name
+  });
+}
+
+// Auto-initialize on script load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCompanyAdmin);
+} else {
+  initCompanyAdmin();
+}

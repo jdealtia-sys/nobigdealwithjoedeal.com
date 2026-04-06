@@ -4563,6 +4563,7 @@ window.nbdNavToggle = nbdNavToggle;
       <div class="ni" onclick="goTo('map')" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
       <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
       <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
+      <div class="ni" onclick="goTo('products')" id="nav-products"><span class="ni-icon">📦</span>Products</div>
       <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
     </div>
   </div>
@@ -5395,6 +5396,76 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
       </div>
 
+      <!-- DOCUMENT GENERATOR -->
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr"><div><div class="panel-label">Generate</div><div class="panel-title">Branded Documents</div></div></div>
+        <div class="panel-body">
+          <p style="font-size:12px;color:var(--m);margin:0 0 12px;">Magazine-quality, print-ready documents with NBD branding. Click any document to generate.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="docGenCards">
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('proposal')" style="border-left:3px solid #C8541A;">
+              <div class="doc-icon">📊</div><div class="doc-name">Proposal / Estimate</div>
+              <div class="doc-desc">Branded proposal with pricing, warranty & photos</div>
+              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('contract')">
+              <div class="doc-icon">📝</div><div class="doc-name">Roofing Contract</div>
+              <div class="doc-desc">Full legal contract with terms & signatures</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('inspectionHomeowner')">
+              <div class="doc-icon">🔍</div><div class="doc-name">Inspection (Homeowner)</div>
+              <div class="doc-desc">Sales-focused report with condition grades</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('inspectionInsurance')">
+              <div class="doc-icon">📋</div><div class="doc-name">Inspection (Insurance)</div>
+              <div class="doc-desc">Damage assessment for insurance claims</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('warranty_certificate')" style="border-left:3px solid #DAA520;">
+              <div class="doc-icon">🛡️</div><div class="doc-name">Warranty Certificate</div>
+              <div class="doc-desc">Premium certificate with tiered warranty</div>
+              <div class="doc-action" style="color:#DAA520;">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('invoice')">
+              <div class="doc-icon">💰</div><div class="doc-name">Invoice</div>
+              <div class="doc-desc">Professional invoice with balance due</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('scope_of_work')">
+              <div class="doc-icon">📐</div><div class="doc-name">Scope of Work</div>
+              <div class="doc-desc">Detailed work specification by trade</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('supplement_request')">
+              <div class="doc-icon">📎</div><div class="doc-name">Supplement Request</div>
+              <div class="doc-desc">Insurance supplement with line items</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('work_authorization')">
+              <div class="doc-icon">✍️</div><div class="doc-name">Work Authorization</div>
+              <div class="doc-desc">Authorization to begin work</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('certificate_of_completion')">
+              <div class="doc-icon">✅</div><div class="doc-name">Completion Certificate</div>
+              <div class="doc-desc">Job completion with checklist</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('change_order')">
+              <div class="doc-icon">🔄</div><div class="doc-name">Change Order</div>
+              <div class="doc-desc">Contract modification document</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('before_after_report')">
+              <div class="doc-icon">📸</div><div class="doc-name">Before & After Report</div>
+              <div class="doc-desc">Visual project documentation</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.generate('company_intro')" style="border-left:3px solid #C8541A;">
+              <div class="doc-icon">🏢</div><div class="doc-name">Company One-Pager</div>
+              <div class="doc-desc">Sales leave-behind marketing piece</div>
+              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('financing_options')">
+              <div class="doc-icon">💳</div><div class="doc-name">Financing Options</div>
+              <div class="doc-desc">Improvifi financing sheet with plans</div>
+              <div class="doc-action">Generate →</div></div>
+            <div class="doc-card" onclick="NBDDocGen.generate('referral_card')" style="border-left:3px solid #C8541A;">
+              <div class="doc-icon">🤝</div><div class="doc-name">Referral Card</div>
+              <div class="doc-desc">Postcard-style referral marketing</div>
+              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
+          </div>
+        </div>
+      </div>
+
       <!-- UPLOADED DOCS -->
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Your Files</div><div class="panel-title">Uploaded Documents</div></div></div>
@@ -5515,6 +5586,9 @@ window.nbdNavToggle = nbdNavToggle;
         <button class="stab-btn" onclick="switchSettingsTab('appearance')" id="stab-appearance">🎨 Appearance</button>
         <button class="stab-btn" onclick="switchSettingsTab('estimates')" id="stab-estimates">📋 Estimates</button>
         <button class="stab-btn" onclick="switchSettingsTab('daily')" id="stab-daily">⚡ Daily OS</button>
+        <button class="stab-btn" onclick="switchSettingsTab('company')" id="stab-company">🏢 Company</button>
+        <button class="stab-btn" onclick="switchSettingsTab('team')" id="stab-team">👥 Team</button>
+        <button class="stab-btn" onclick="switchSettingsTab('access')" id="stab-access">🔐 Access</button>
       </div>
 
       <!-- ══ TAB: PROFILE ══ -->
@@ -5720,8 +5794,38 @@ window.nbdNavToggle = nbdNavToggle;
 
       </div><!-- /stab-panel-daily -->
 
+      <!-- ══ TAB: COMPANY ══ -->
+      <div class="stab-panel" id="stab-panel-company" style="display:none;">
+        <div id="companySettingsContainer">
+          <div class="empty"><div class="empty-icon">🏢</div>Loading company settings...</div>
+        </div>
+      </div><!-- /stab-panel-company -->
+
+      <!-- ══ TAB: TEAM ══ -->
+      <div class="stab-panel" id="stab-panel-team" style="display:none;">
+        <div id="teamManagementContainer">
+          <div class="empty"><div class="empty-icon">👥</div>Loading team management...</div>
+        </div>
+      </div><!-- /stab-panel-team -->
+
+      <!-- ══ TAB: ACCESS ══ -->
+      <div class="stab-panel" id="stab-panel-access" style="display:none;">
+        <div id="accessControlContainer">
+          <div class="empty"><div class="empty-icon">🔐</div>Loading access controls...</div>
+        </div>
+      </div><!-- /stab-panel-access -->
+
     </div><!-- /view-scroll -->
   </div><!-- /view-settings -->
+
+  <!-- ══ PRODUCTS ══ -->
+  <div class="view" id="view-products">
+    <div class="view-scroll">
+      <div id="productLibraryContainer">
+        <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
+      </div>
+    </div>
+  </div>
 
 </div><!-- /content -->
 </div><!-- /app-body -->
@@ -6216,6 +6320,7 @@ const routeConfig = {
   'storm': { label: 'Storm Map', parent: null },
   'joe': { label: 'Ask Joe', parent: null },
   'board': { label: 'Leaderboard', parent: null },
+  'products': { label: 'Products', parent: null },
   'settings': { label: 'Settings', parent: null }
 };
 
@@ -6287,6 +6392,21 @@ function goTo(name, params = {}) {
   if(name==='board') renderLeaderboard();
   if(name==='photos') renderPhotoLeads();
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
+  if(name==='products') {
+    const pc = document.getElementById('productLibraryContainer');
+    if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
+    else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+  }
+  if(name==='docs') {
+    // Upgrade docs view with template suite if available
+    if (typeof window.NBDTemplateSuite !== 'undefined' && window.NBDTemplateSuite.render) {
+      const docsView = document.querySelector('#view-docs .view-scroll');
+      if (docsView && !docsView.dataset.suiteLoaded) {
+        docsView.innerHTML = window.NBDTemplateSuite.render();
+        docsView.dataset.suiteLoaded = '1';
+      }
+    }
+  }
 }
 
 // Handle browser back/forward navigation
@@ -9149,6 +9269,11 @@ if (typeof searchMap === 'function' && !window.searchMap) {
 <script src="js/template_library.js?v=2"></script>
 <script src="js/ai_review_system.js?v=2"></script>
 <script src="js/email_system.js?v=2"></script>
+<script src="js/product-library.js?v=1"></script>
+<script src="js/template-suite.js?v=1"></script>
+<script src="js/company-admin.js?v=1"></script>
+<script src="js/document-generator.js?v=1"></script>
+<script src="js/document-generator-templates.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

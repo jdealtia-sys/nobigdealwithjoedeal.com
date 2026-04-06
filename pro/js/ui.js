@@ -593,6 +593,27 @@ function switchSettingsTab(tab) {
     if (typeof dsInitEditor === 'function') dsInitEditor();
     if (typeof dsLoadThemeGrid === 'function') dsLoadThemeGrid();
   }
+  // Lazy-render Company tab
+  if (tab === 'company') {
+    const c = document.getElementById('companySettingsContainer');
+    if (c && typeof window.renderCompanySettings === 'function') {
+      c.innerHTML = window.renderCompanySettings();
+    }
+  }
+  // Lazy-render Team tab
+  if (tab === 'team') {
+    const t = document.getElementById('teamManagementContainer');
+    if (t && typeof window.renderTeamManagement === 'function') {
+      t.innerHTML = window.renderTeamManagement();
+    }
+  }
+  // Lazy-render Access tab
+  if (tab === 'access') {
+    const a = document.getElementById('accessControlContainer');
+    if (a && typeof window.renderAccessControl === 'function') {
+      a.innerHTML = window.renderAccessControl();
+    }
+  }
 }
 window.switchSettingsTab = switchSettingsTab;
 
