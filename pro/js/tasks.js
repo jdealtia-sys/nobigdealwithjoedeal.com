@@ -116,7 +116,7 @@ function renderTodayTasks() {
       items.push({task:t,lead,leadName:((lead.firstName||'')+' '+(lead.lastName||'')).trim()||lead.address||'Lead',isOverdue:due<sod,due});
     });
   });
-  if(!items.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div>No tasks due today.</div>';return;}
+  if(!items.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All Caught Up</div><div class="empty-sub">No tasks due today. Nice work.</div></div>';return;}
   items.sort((a,b)=>(b.isOverdue-a.isOverdue)||(a.due-b.due));
   el.innerHTML=items.slice(0,8).map(({task,lead,leadName,isOverdue})=>`<div class="today-task-item"><input type="checkbox" class="today-task-cb" ${task.done?'checked':''} onchange="toggleTodayTask('${lead.id}','${task.id}',this.checked)"><span class="today-task-text ${task.done?'done':''}">${task.text}</span>${isOverdue?'<span class="today-task-overdue">OVERDUE</span>':''}<span class="today-task-lead" onclick="openTaskModal('${lead.id}',null)">${leadName.split(' ')[0]}</span></div>`).join('')+(items.length>8?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--m);">+${items.length-8} more — <span style="color:var(--orange);cursor:pointer;" onclick="goTo('crm')">view in CRM</span></div>`:'');
 }

@@ -209,7 +209,7 @@ function renderLeads(leads, filtered){
     if(!body) return;
     const cards = byStage[stage]||[];
     if(count) count.textContent = cards.length;
-    if(!cards.length){ body.innerHTML='<div class="k-empty">No leads</div>'; return; }
+    if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon">📋</div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
     body.innerHTML = cards.map(l=>buildCard(l)).join('');
     // attach drag events to cards
     body.querySelectorAll('.k-card').forEach(card=>{
@@ -1123,7 +1123,7 @@ async function renderDeletedDrawer() {
   body.innerHTML = '<div class="deleted-empty">Loading...</div>';
   const deleted = await window._loadDeletedLeads();
   if(!deleted.length) {
-    body.innerHTML = '<div class="deleted-empty">🎉 No deleted leads — all clear.</div>';
+    body.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><div class="empty-title">All Clear</div><div class="empty-sub">No deleted leads in the trash.</div></div>';
     return;
   }
   body.innerHTML = deleted.map(l => {
