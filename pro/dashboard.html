@@ -4610,9 +4610,9 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--orange);">console.anthropic.com</a> → API Keys.</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off"
+              <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
                 style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-              <button class="btn btn-orange" onclick="saveJoeKey()">Save Key</button>
+              <button class="btn btn-orange" onclick="saveJoeKeyFromSettings()">Save Key</button>
               <button class="btn btn-ghost" onclick="clearJoeKey()" style="font-size:11px;">Clear</button>
             </div>
             <div id="joeKeyStatus" style="font-size:11px;color:var(--m);"></div>
@@ -9815,25 +9815,6 @@ if (typeof searchMap === 'function' && !window.searchMap) {
   });
 </script>
 
-<!-- COMMAND PALETTE (Cmd+K) -->
-<div class="cmd-palette-overlay" id="cmdPaletteOverlay">
-  <div class="cmd-palette" id="cmdPalette">
-    <div class="cmd-search-box">
-      <span class="cmd-search-icon">🔍</span>
-      <input 
-        type="text" 
-        class="cmd-search-input" 
-        id="cmdSearch" 
-        placeholder="Search leads, estimates, or type a command..."
-        autocomplete="off"
-      />
-      <kbd class="cmd-kbd">ESC</kbd>
-    </div>
-    <div class="cmd-results" id="cmdResults">
-      <div class="cmd-empty">Type to search or browse actions below...</div>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>

@@ -337,4 +337,26 @@ function joeQuick(msg) {
     }
   };
 })();
+
+// Settings page key save (reads from #joeKeyInputSettings instead of #joeKeyInput)
+function saveJoeKeyFromSettings() {
+  const v = document.getElementById('joeKeyInputSettings')?.value?.trim();
+  if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
+  try { localStorage.setItem(JOE_KEY_STORE, v); } catch(e){}
+  const status = document.getElementById('joeKeyStatus');
+  if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
+  const inp = document.getElementById('joeKeyInputSettings');
+  if (inp) inp.value = '';
+  initJoeChat();
+  showToast('✓ Joe AI activated', 'success');
+}
+
+// Expose all AI functions to window scope (required for onclick handlers)
+window.saveJoeKey = saveJoeKey;
+window.saveJoeKeyFromSettings = saveJoeKeyFromSettings;
+window.clearJoeKey = clearJoeKey;
+window.getJoeKey = getJoeKey;
+window.initJoeChat = initJoeChat;
+window.sendJoeMessage = sendJoeMessage;
+window.joeQuick = joeQuick;
 // ══ END ASK JOE AI ════════════════════════════════════════════════════
