@@ -94,14 +94,93 @@
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
   // NOTE: Module scope is isolated - must expose to window for global access
-  const STAGES = ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+  import {
+    S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
+    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_JOBS,
+    normalizeStage, stageLabel, stageColor, resolveColumn,
+    stageOptionsForType, inferJobType, JOB_TYPES, tagClass as _tagClass
+  } from './js/crm-stages.js';
+
+  // Legacy compat — default to insurance pipeline view
+  const _currentViewKey = localStorage.getItem('nbd_kanban_view') || 'insurance';
+  const _currentViewStages = KANBAN_VIEWS[_currentViewKey]?.stages || VIEW_INSURANCE;
+
+  // Legacy STAGES array — now derived from current view's stage labels
+  const STAGES = _currentViewStages.map(k => STAGE_META[k]?.label || k);
   let _dragId = null;
   let _filteredLeads = null;
-  
-  // Expose to window for global access (module scope is isolated)
+
+  // Expose stage system to window for non-module scripts (crm.js, etc.)
   window.STAGES = STAGES;
+  window._stageKeys = _currentViewStages;        // Internal stage keys for current view
+  window._currentViewKey = _currentViewKey;
+  window.S = S;
+  window.STAGE_META = STAGE_META;
+  window.KANBAN_VIEWS = KANBAN_VIEWS;
+  window.normalizeStage = normalizeStage;
+  window.stageLabel = stageLabel;
+  window.stageColor = stageColor;
+  window.resolveColumn = resolveColumn;
+  window.stageOptionsForType = stageOptionsForType;
+  window.inferJobType = inferJobType;
+  window.JOB_TYPES = JOB_TYPES;
   window._dragId = _dragId;
   window._filteredLeads = _filteredLeads;
+
+  // ── Dynamic kanban column builder ──
+  window.buildKanbanColumns = function(viewKey) {
+    const view = KANBAN_VIEWS[viewKey || _currentViewKey];
+    if (!view) return;
+    const stages = view.stages;
+    const board = document.getElementById('kanbanBoard');
+    if (!board) return;
+    board.innerHTML = stages.map(stageKey => {
+      const meta = STAGE_META[stageKey] || {};
+      const label = meta.label || stageKey;
+      const hdrClass = meta.headerClass || 'kh-new';
+      return `
+      <div class="kanban-col" id="kcol-${stageKey}">
+        <div class="kcol-header ${hdrClass}">
+          <div class="kcol-label">${label}</div>
+          <div class="kcol-count" id="kcount-${stageKey}">0</div>
+        </div>
+        <div class="kcol-body" id="kbody-${stageKey}"
+          ondragover="event.preventDefault()" ondrop="drop(event,'${stageKey}')">
+          <div class="k-empty">No leads</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Update STAGES + _stageKeys for crm.js compat
+    window.STAGES = stages.map(k => STAGE_META[k]?.label || k);
+    window._stageKeys = stages;
+    window._currentViewKey = viewKey || _currentViewKey;
+    localStorage.setItem('nbd_kanban_view', window._currentViewKey);
+  };
+
+  // ── Global drop handler for kanban columns ──
+  window.drop = function(event, stageKey) {
+    event.preventDefault();
+    const el = event.currentTarget || event.target.closest('.kcol-body');
+    if (el) el.classList.remove('drag-over');
+    const dragId = window._dragId || event.dataTransfer?.getData('text/plain');
+    if (!dragId) return;
+    if (typeof moveCard === 'function') moveCard(dragId, stageKey);
+    window._dragId = null;
+  };
+
+  // ── View switcher ──
+  window.switchKanbanView = function(viewKey) {
+    window.buildKanbanColumns(viewKey);
+    // Update active button state
+    document.querySelectorAll('.kview-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === viewKey);
+    });
+    // Re-render leads into new columns
+    if (typeof renderLeads === 'function') {
+      renderLeads(window._leads, window._filteredLeads);
+    }
+  };
 
   const firebaseConfig = {
     apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -224,6 +303,15 @@
     document.getElementById('settingsEmail').value    = user.email || '';
     // Seed demo data first if this is the demo account, then load normally
     await maybeSeedDemoData(user).catch(()=>{});
+    // Build dynamic kanban columns before loading leads
+    const savedView = localStorage.getItem('nbd_kanban_view') || 'insurance';
+    if (typeof window.buildKanbanColumns === 'function') {
+      window.buildKanbanColumns(savedView);
+      // Sync view switcher button active state
+      document.querySelectorAll('.kview-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === savedView);
+      });
+    }
     loadLeads(); loadEstimates(); loadPins();
     
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
@@ -461,6 +549,11 @@
           const tb = b.createdAt?.toDate?.()?.getTime() || 0;
           return tb - ta;
         });
+      // Normalize stages: convert legacy display names → internal keys
+      window._leads.forEach(l => {
+        if (l.stage) l._stageKey = normalizeStage(l.stage);
+        else l._stageKey = S.NEW;
+      });
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
       console.log('📊 window._leads:', window._leads);
       
@@ -3443,12 +3536,39 @@ body {
   .kcol-header{display:flex!important;justify-content:space-between;align-items:center;padding:10px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;}
   .kcol-count{background:rgba(255,255,255,.12);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;}
   .kh-new{background:#1e2a3a;color:#9CA3AF;border-bottom:2px solid #374151;}
+  .kh-contacted{background:#1a2440;color:#60a5fa;border-bottom:2px solid #2563eb;}
   .kh-insp{background:#1a2e4a;color:#4A9EFF;border-bottom:2px solid #2d5a8e;}
+  .kh-claim{background:#221a3a;color:#a78bfa;border-bottom:2px solid #7c3aed;}
+  .kh-adj{background:#2a1a3a;color:#c084fc;border-bottom:2px solid #a855f7;}
+  .kh-adjdone{background:#251a38;color:#a78bfa;border-bottom:2px solid #8b5cf6;}
+  .kh-scope{background:#2a2010;color:#fbbf24;border-bottom:2px solid #d97706;}
   .kh-est{background:#2a2414;color:#D4A017;border-bottom:2px solid #6b5010;}
+  .kh-supp{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
+  .kh-suppok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
+  .kh-neg{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
+  .kh-prequal{background:#0a2a2a;color:#22d3ee;border-bottom:2px solid #0891b2;}
+  .kh-loanok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
+  .kh-contract{background:#0f2a1a;color:#22C55E;border-bottom:2px solid #16a34a;}
   .kh-appr{background:#221a3a;color:#9B6DFF;border-bottom:2px solid #5a3da0;}
   .kh-prog{background:#142a22;color:#22C55E;border-bottom:2px solid #166534;}
   .kh-done{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #16a34a;}
   .kh-lost{background:#2a1414;color:#E05252;border-bottom:2px solid #7f1d1d;}
+  /* Job board header colors */
+  .kh-jobcr{background:#0a1e3a;color:#38bdf8;border-bottom:2px solid #0369a1;}
+  .kh-permit{background:#1a1a3a;color:#818cf8;border-bottom:2px solid #4338ca;}
+  .kh-matord{background:#2a1e10;color:#fbbf24;border-bottom:2px solid #b45309;}
+  .kh-matdel{background:#2a2010;color:#facc15;border-bottom:2px solid #a16207;}
+  .kh-crew{background:#0a2a28;color:#2dd4bf;border-bottom:2px solid #0d9488;}
+  .kh-install{background:#0a2a1a;color:#34d399;border-bottom:2px solid #059669;}
+  .kh-instdone{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #22c55e;}
+  .kh-photos{background:#0a2a20;color:#6ee7b7;border-bottom:2px solid #10b981;}
+  .kh-deduct{background:#0a2a28;color:#5eead4;border-bottom:2px solid #14b8a6;}
+  .kh-finpay{background:#0a2a28;color:#2dd4bf;border-bottom:2px solid #0d9488;}
+  .kh-closed{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #22C55E;}
+  /* View switcher buttons */
+  .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+  .kview-btn:hover{border-color:var(--orange);color:var(--t);}
+  .kview-btn.active{background:var(--orange);color:#fff;border-color:var(--orange);}
   .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:8px;display:flex!important;flex-direction:column!important;gap:6px;min-height:200px;max-height:calc(100vh - 260px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
@@ -3515,6 +3635,35 @@ body {
   position: relative;
 }
 
+  /* Card border colors — dynamic stage keys */
+  #kbody-new .k-card{border-left-color:#374151;}
+  #kbody-contacted .k-card{border-left-color:#2563eb;}
+  #kbody-inspected .k-card{border-left-color:#2d5a8e;}
+  #kbody-claim_filed .k-card{border-left-color:#7c3aed;}
+  #kbody-adjuster_meeting_scheduled .k-card{border-left-color:#a855f7;}
+  #kbody-adjuster_inspection_done .k-card{border-left-color:#8b5cf6;}
+  #kbody-scope_received .k-card{border-left-color:#d97706;}
+  #kbody-estimate_submitted .k-card{border-left-color:#D4A017;}
+  #kbody-supplement_requested .k-card{border-left-color:#ea580c;}
+  #kbody-supplement_approved .k-card{border-left-color:#16a34a;}
+  #kbody-estimate_sent_cash .k-card{border-left-color:#D4A017;}
+  #kbody-negotiating .k-card{border-left-color:#ea580c;}
+  #kbody-prequal_sent .k-card{border-left-color:#0891b2;}
+  #kbody-loan_approved .k-card{border-left-color:#16a34a;}
+  #kbody-contract_signed .k-card{border-left-color:#16a34a;}
+  #kbody-job_created .k-card{border-left-color:#0369a1;}
+  #kbody-permit_pulled .k-card{border-left-color:#4338ca;}
+  #kbody-materials_ordered .k-card{border-left-color:#b45309;}
+  #kbody-materials_delivered .k-card{border-left-color:#a16207;}
+  #kbody-crew_scheduled .k-card{border-left-color:#0d9488;}
+  #kbody-install_in_progress .k-card{border-left-color:#059669;}
+  #kbody-install_complete .k-card{border-left-color:#22c55e;}
+  #kbody-final_photos .k-card{border-left-color:#10b981;}
+  #kbody-deductible_collected .k-card{border-left-color:#14b8a6;}
+  #kbody-final_payment .k-card{border-left-color:#0d9488;}
+  #kbody-closed .k-card{border-left-color:#22C55E;}
+  #kbody-lost .k-card{border-left-color:#6b7280;opacity:.75;}
+  /* Legacy compat — keep old IDs working during transition */
   #kbody-New .k-card{border-left-color:#374151;}
   #kbody-Inspected .k-card{border-left-color:#2d5a8e;}
   #kbody-Estimate\ Sent .k-card{border-left-color:#D4A017;}
@@ -4996,8 +5145,16 @@ window.nbdNavToggle = nbdNavToggle;
         <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
         <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Move to stage...</option>
-          <option>New</option><option>Inspection</option><option>Estimate</option>
-          <option>Approved</option><option>In Progress</option><option>Complete</option><option>Lost</option>
+          <!-- Populated dynamically, fallback options below -->
+          <option value="new">New Lead</option>
+          <option value="contacted">Contacted</option>
+          <option value="inspected">Inspected</option>
+          <option value="claim_filed">Claim Filed</option>
+          <option value="estimate_submitted">Estimate Sent</option>
+          <option value="contract_signed">Contract Signed</option>
+          <option value="install_in_progress">Installing</option>
+          <option value="closed">Closed</option>
+          <option value="lost">Lost</option>
         </select>
         <button class="btn btn-ghost" onclick="bulkMoveStage()" style="font-size:11px;padding:5px 10px;">▶ Move</button>
         <button class="btn btn-ghost" onclick="bulkDelete()" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
@@ -5087,93 +5244,19 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
     </div>
 
-    <!-- KANBAN BOARD -->
+    <!-- VIEW SWITCHER -->
+    <div id="kanbanViewSwitcher" style="display:flex;align-items:center;gap:6px;padding:0 16px 8px;flex-shrink:0;">
+      <span style="font-size:10px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;">View:</span>
+      <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Insurance</button>
+      <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash</button>
+      <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Finance</button>
+      <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Job Board</button>
+      <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">Simple</button>
+    </div>
+
+    <!-- KANBAN BOARD — columns generated dynamically by buildKanbanColumns() -->
     <div class="kanban-board" id="kanbanBoard">
-
-      <!-- STAGE: NEW -->
-      <div class="kanban-col" id="kcol-New">
-        <div class="kcol-header kh-new">
-          <div class="kcol-label">New Lead</div>
-          <div class="kcol-count" id="kcount-New">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-New"
-          ondragover="event.preventDefault()" ondrop="drop(event,'New')">
-          <div class="k-empty">No leads yet</div>
-        </div>
-      </div>
-
-      <!-- STAGE: INSPECTED -->
-      <div class="kanban-col" id="kcol-Inspected">
-        <div class="kcol-header kh-insp">
-          <div class="kcol-label">Inspected</div>
-          <div class="kcol-count" id="kcount-Inspected">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Inspected"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Inspected')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
-      <!-- STAGE: ESTIMATE SENT -->
-      <div class="kanban-col" id="kcol-Estimate Sent">
-        <div class="kcol-header kh-est">
-          <div class="kcol-label">Est. Sent</div>
-          <div class="kcol-count" id="kcount-Estimate Sent">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Estimate Sent"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Estimate Sent')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
-      <!-- STAGE: APPROVED -->
-      <div class="kanban-col" id="kcol-Approved">
-        <div class="kcol-header kh-appr">
-          <div class="kcol-label">Approved</div>
-          <div class="kcol-count" id="kcount-Approved">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Approved"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Approved')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
-      <!-- STAGE: IN PROGRESS -->
-      <div class="kanban-col" id="kcol-In Progress">
-        <div class="kcol-header kh-prog">
-          <div class="kcol-label">In Progress</div>
-          <div class="kcol-count" id="kcount-In Progress">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-In Progress"
-          ondragover="event.preventDefault()" ondrop="drop(event,'In Progress')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
-      <!-- STAGE: COMPLETE -->
-      <div class="kanban-col" id="kcol-Complete">
-        <div class="kcol-header kh-done">
-          <div class="kcol-label">Complete</div>
-          <div class="kcol-count" id="kcount-Complete">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Complete"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Complete')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
-      <!-- STAGE: LOST -->
-      <div class="kanban-col" id="kcol-Lost">
-        <div class="kcol-header kh-lost">
-          <div class="kcol-label">Lost</div>
-          <div class="kcol-count" id="kcount-Lost">0</div>
-        </div>
-        <div class="kcol-body" id="kbody-Lost"
-          ondragover="event.preventDefault()" ondrop="drop(event,'Lost')">
-          <div class="k-empty">No leads</div>
-        </div>
-      </div>
-
+      <!-- Populated on load by window.buildKanbanColumns() -->
     </div><!-- /kanban-board -->
   </div><!-- /view-crm -->
 
@@ -5704,15 +5787,65 @@ window.nbdNavToggle = nbdNavToggle;
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
         <select id="lStage">
-          <option value="New">New Lead</option>
-          <option value="Inspected">Inspected</option>
-          <option value="Estimate Sent">Estimate Sent</option>
-          <option value="Approved">Approved</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Complete">Complete</option>
-          <option value="Lost">Lost</option>
+          <!-- Lead stages — shared -->
+          <optgroup label="Lead Pipeline">
+            <option value="new">New Lead</option>
+            <option value="contacted">Contacted</option>
+            <option value="inspected">Inspected</option>
+          </optgroup>
+          <!-- Insurance track -->
+          <optgroup label="Insurance Track">
+            <option value="claim_filed">Claim Filed</option>
+            <option value="adjuster_meeting_scheduled">Adjuster Meeting</option>
+            <option value="adjuster_inspection_done">Adjuster Done</option>
+            <option value="scope_received">Scope Received</option>
+            <option value="estimate_submitted">Estimate Sent</option>
+            <option value="supplement_requested">Supplement</option>
+            <option value="supplement_approved">Supp. Approved</option>
+          </optgroup>
+          <!-- Cash track -->
+          <optgroup label="Cash Track">
+            <option value="estimate_sent_cash">Est. Sent (Cash)</option>
+            <option value="negotiating">Negotiating</option>
+          </optgroup>
+          <!-- Finance track -->
+          <optgroup label="Finance Track">
+            <option value="prequal_sent">Pre-Qual Sent</option>
+            <option value="loan_approved">Loan Approved</option>
+          </optgroup>
+          <!-- Convergence -->
+          <optgroup label="Contract">
+            <option value="contract_signed">Contract Signed</option>
+          </optgroup>
+          <!-- Job stages -->
+          <optgroup label="Job Pipeline">
+            <option value="job_created">Job Created</option>
+            <option value="permit_pulled">Permit</option>
+            <option value="materials_ordered">Materials Ordered</option>
+            <option value="materials_delivered">Materials Here</option>
+            <option value="crew_scheduled">Crew Scheduled</option>
+            <option value="install_in_progress">Installing</option>
+            <option value="install_complete">Install Done</option>
+            <option value="final_photos">Final Photos</option>
+            <option value="deductible_collected">Deductible</option>
+            <option value="final_payment">Final Payment</option>
+            <option value="closed">Closed</option>
+          </optgroup>
+          <optgroup label="Exit">
+            <option value="lost">Lost</option>
+          </optgroup>
         </select>
       </div>
+      <div class="mfield"><label>Job Type</label>
+        <select id="lJobType">
+          <option value="">Not Set</option>
+          <option value="insurance">Insurance</option>
+          <option value="cash">Cash</option>
+          <option value="finance">Finance</option>
+        </select>
+      </div>
+    </div>
+    <div class="mrow">
       <div class="mfield"><label>Source</label>
         <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
       </div>

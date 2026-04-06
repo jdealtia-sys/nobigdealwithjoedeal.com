@@ -53,6 +53,7 @@ function closeLeadModal(){
   document.getElementById('lEmail').value=''; document.getElementById('lNotes').value='';
   document.getElementById('lJobValue').value=''; document.getElementById('lFollowUp').value='';
   document.getElementById('lInsCarrier').value='';
+  const jt=document.getElementById('lJobType'); if(jt) jt.value='';
   window._modalIntel = null;
   const mir = document.getElementById('modalIntelResult');
   if(mir) { mir.classList.remove('visible'); mir.innerHTML=''; }
@@ -84,6 +85,7 @@ async function saveLead(){
       phone: document.getElementById('lPhone').value.trim(),
       email: document.getElementById('lEmail').value.trim(),
       stage: document.getElementById('lStage').value,
+      jobType: document.getElementById('lJobType')?.value || '',
       source: document.getElementById('lSource').value,
       damageType: document.getElementById('lDamageType')?.value||'',
       claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
@@ -125,13 +127,17 @@ function renderLeads(leads, filtered){
   // ── stat helpers ──
   const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
-  // Revenue calcs
+  // Revenue calcs — use stage keys when available
   let pipeVal=0, closedRev=0, approvedCount=0;
+  const _lostKeys = ['lost', 'Lost'];
+  const _closedKeys = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed','Approved','In Progress','Complete'];
+  const _approvedKeys = ['contract_signed','Approved'];
   all.forEach(l=>{
     const v=parseFloat(l.jobValue||0);
-    if(!['Lost'].includes(l.stage||'New')) pipeVal+=v;
-    if(['Approved','In Progress','Complete'].includes(l.stage||'')) closedRev+=v;
-    if((l.stage||'')==='Approved') approvedCount++;
+    const sk = l._stageKey || l.stage || 'new';
+    if(!_lostKeys.includes(sk)) pipeVal+=v;
+    if(_closedKeys.includes(sk)) closedRev+=v;
+    if(_approvedKeys.includes(sk)) approvedCount++;
   });
   setEl('crmTotalLeads', all.length);
   setEl('crmPipeVal',    '$'+pipeVal.toLocaleString());
@@ -175,8 +181,10 @@ function renderLeads(leads, filtered){
 
   // Follow-up overdue
   const today=new Date(); today.setHours(0,0,0,0);
+  const _terminalStages = ['closed','lost','Complete','Lost'];
   const overdue = all.filter(l=>{
-    if(!l.followUp||['Complete','Lost'].includes(l.stage||'')) return false;
+    const sk = l._stageKey || l.stage || '';
+    if(!l.followUp||_terminalStages.includes(sk)||_terminalStages.includes(l.stage||'')) return false;
     const d=new Date(l.followUp); d.setHours(0,0,0,0); return d<=today;
   });
   setEl('crmFollowUps', overdue.length);
@@ -198,41 +206,74 @@ function renderLeads(leads, filtered){
   }
 
   // ── Build kanban columns ──
+  // Use stage keys if available (new system), fall back to legacy display names
+  const stageKeys = window._stageKeys || null;
   const byStage = {};
-  const STAGES = window.STAGES || ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
-  STAGES.forEach(s=>byStage[s]=[]);
-  list.forEach(l=>{ const s=l.stage||'New'; if(byStage[s]) byStage[s].push(l); else byStage['New'].push(l); });
 
-  STAGES.forEach(stage=>{
-    const body  = document.getElementById('kbody-'+stage);
-    const count = document.getElementById('kcount-'+stage);
-    if(!body) return;
-    const cards = byStage[stage]||[];
-    if(count) count.textContent = cards.length;
-    if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
-    body.innerHTML = cards.map(l=>buildCard(l)).join('');
-    // attach drag events to cards
-    body.querySelectorAll('.k-card').forEach(card=>{
-      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
-      card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
+  if (stageKeys) {
+    // NEW SYSTEM: Use internal stage keys + resolveColumn for mapping
+    stageKeys.forEach(k => byStage[k] = []);
+    const _resolve = window.resolveColumn;
+    const _normalize = window.normalizeStage;
+    list.forEach(l => {
+      const sk = l._stageKey || (_normalize ? _normalize(l.stage) : (l.stage || 'new'));
+      const col = _resolve ? _resolve(sk, stageKeys) : sk;
+      if (byStage[col]) byStage[col].push(l);
+      else if (byStage[stageKeys[0]]) byStage[stageKeys[0]].push(l);
     });
-    // attach drop handlers to kanban column body
-    body.addEventListener('dragover', e=>{
-      e.preventDefault();
-      e.dataTransfer.dropEffect='move';
-      body.classList.add('drag-over');
+
+    stageKeys.forEach(stageKey => {
+      const body  = document.getElementById('kbody-'+stageKey);
+      const count = document.getElementById('kcount-'+stageKey);
+      if(!body) return;
+      const cards = byStage[stageKey]||[];
+      if(count) count.textContent = cards.length;
+      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
+      body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      // attach drag events to cards
+      body.querySelectorAll('.k-card').forEach(card=>{
+        card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
+        card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
+      });
+      body.addEventListener('dragover', e=>{
+        e.preventDefault();
+        e.dataTransfer.dropEffect='move';
+        body.classList.add('drag-over');
+      });
+      body.addEventListener('dragleave', e=>{
+        if(e.target===body) body.classList.remove('drag-over');
+      });
+      body.addEventListener('drop', e=>{
+        e.preventDefault();
+        body.classList.remove('drag-over');
+        if(!_dragId) return;
+        moveCard(_dragId, stageKey);
+        _dragId=null;
+      });
     });
-    body.addEventListener('dragleave', e=>{
-      if(e.target===body) body.classList.remove('drag-over');
+  } else {
+    // LEGACY FALLBACK: Use display name stages
+    const STAGES = window.STAGES || ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
+    STAGES.forEach(s=>byStage[s]=[]);
+    list.forEach(l=>{ const s=l.stage||'New'; if(byStage[s]) byStage[s].push(l); else byStage['New'].push(l); });
+
+    STAGES.forEach(stage=>{
+      const body  = document.getElementById('kbody-'+stage);
+      const count = document.getElementById('kcount-'+stage);
+      if(!body) return;
+      const cards = byStage[stage]||[];
+      if(count) count.textContent = cards.length;
+      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
+      body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      body.querySelectorAll('.k-card').forEach(card=>{
+        card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
+        card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
+      });
+      body.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
+      body.addEventListener('dragleave', e=>{ if(e.target===body) body.classList.remove('drag-over'); });
+      body.addEventListener('drop', e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stage); _dragId=null; });
     });
-    body.addEventListener('drop', e=>{
-      e.preventDefault();
-      body.classList.remove('drag-over');
-      if(!_dragId) return;
-      moveCard(_dragId, stage);
-      _dragId=null;
-    });
-  });
+  }
 }
 
 function buildCard(l){
@@ -241,10 +282,16 @@ function buildCard(l){
   const addr  = escHtml((l.address||'').split(',').slice(0,2).join(','));
   const val   = l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '';
   const today = new Date(); today.setHours(0,0,0,0);
-  const overdue = l.followUp && new Date(l.followUp)<=today && !['Complete','Lost'].includes(l.stage||'');
-  const stageIdx = STAGES.indexOf(l.stage||'New');
-  const prevS = stageIdx>0 ? STAGES[stageIdx-1] : null;
-  const nextS = stageIdx<STAGES.length-1 ? STAGES[stageIdx+1] : null;
+  const _sk = l._stageKey || (window.normalizeStage ? window.normalizeStage(l.stage) : l.stage || 'new');
+  const isTerminal = ['closed','lost','Complete','Lost'].includes(_sk) || ['closed','lost','Complete','Lost'].includes(l.stage||'');
+  const overdue = l.followUp && new Date(l.followUp)<=today && !isTerminal;
+  // Prev/next arrows use stage keys
+  const _keys = window._stageKeys || [];
+  const stageIdx = _keys.indexOf(_sk);
+  const prevS = stageIdx>0 ? _keys[stageIdx-1] : null;
+  const nextS = stageIdx>=0 && stageIdx<_keys.length-1 ? _keys[stageIdx+1] : null;
+  const prevLabel = prevS && window.STAGE_META?.[prevS]?.label || prevS || '';
+  const nextLabel = nextS && window.STAGE_META?.[nextS]?.label || nextS || '';
 
   // Task badge
   const tasks = window._taskCache?.[l.id] || [];
@@ -358,8 +405,8 @@ function buildCard(l){
       <button class="${taskBadgeClass}" onclick="openTaskModal('${l.id}',event)">${taskBadgeLabel}</button>
       <div class="kc-actions">
         <div class="kc-move">
-          ${prevS ? `<button class="kc-arrow" title="← ${prevS}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
-          ${nextS ? `<button class="kc-arrow" title="→ ${nextS}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
+          ${prevS ? `<button class="kc-arrow" title="← ${prevLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
+          ${nextS ? `<button class="kc-arrow" title="→ ${nextLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
         <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
         <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
@@ -399,11 +446,13 @@ async function moveCard(id, newStage){
   lead._pending = true;
 
   const oldStage = lead.stage || 'New';
-  
+  const oldStageKey = lead._stageKey || oldStage;
+
   // ══════════════════════════════════════════════
   // OPTIMISTIC UPDATE — Update UI immediately
   // ══════════════════════════════════════════════
   lead.stage = newStage;
+  lead._stageKey = window.normalizeStage ? window.normalizeStage(newStage) : newStage;
   
   // Mark as syncing (add visual indicator)
   lead._syncing = true;
@@ -452,6 +501,7 @@ async function moveCard(id, newStage){
     // ROLLBACK — Revert UI if Firebase fails
     // ══════════════════════════════════════════════
     lead.stage = oldStage;
+    lead._stageKey = oldStageKey;
     lead._syncing = false;
     lead._syncError = true;
     delete lead._pending;
@@ -483,6 +533,12 @@ async function moveCard(id, newStage){
 function updatePipeline(leads){ renderLeads(leads); }
 
 function tagClass(s){
+  // Use new stage system if available
+  if (window.normalizeStage) {
+    const key = window.normalizeStage(s);
+    return `tag-${key.replace(/_/g, '-')}`;
+  }
+  // Legacy fallback
   return({'New':'tag-new','Inspected':'tag-insp','Estimate Sent':'tag-es',
     'Approved':'tag-appr','In Progress':'tag-prog','Complete':'tag-won','Lost':'tag-lost',
     'New Lead':'tag-new','Contacted':'tag-insp','Negotiating':'tag-appr',
@@ -1064,7 +1120,8 @@ function editLead(id){
   setV('lAddr',l.address||'');
   setV('lPhone',l.phone||'');
   setV('lEmail',l.email||'');
-  setV('lStage',l.stage||'New');
+  setV('lStage', l._stageKey || l.stage || 'new');
+  setV('lJobType', l.jobType || '');
   setV('lSource',l.source||'Door Knock');
   setV('lDamageType',l.damageType||'');
   setV('lClaimStatus',l.claimStatus||'No Claim');
