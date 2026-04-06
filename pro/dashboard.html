@@ -158,6 +158,29 @@
     localStorage.setItem('nbd_kanban_view', window._currentViewKey);
   };
 
+  // ── Job type field toggle ──
+  window.toggleInsuranceFields = function() {
+    const jt = document.getElementById('lJobType')?.value || '';
+    const ins = document.getElementById('insuranceFieldsBlock');
+    const fin = document.getElementById('financeFieldsBlock');
+    const job = document.getElementById('jobFieldsBlock');
+    if (ins) ins.style.display = (jt === 'insurance' || jt === '') ? (document.getElementById('lInsCarrier')?.value ? 'block' : (jt === 'insurance' ? 'block' : 'none')) : 'none';
+    if (ins && jt === 'insurance') ins.style.display = 'block';
+    if (fin) fin.style.display = jt === 'finance' ? 'block' : 'none';
+    // Show job fields if stage is post-contract
+    const stageVal = document.getElementById('lStage')?.value || '';
+    const jobStages = ['job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed'];
+    if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
+  };
+
+  // Attach listener after DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const jtSel = document.getElementById('lJobType');
+    if (jtSel) jtSel.addEventListener('change', window.toggleInsuranceFields);
+    const stSel = document.getElementById('lStage');
+    if (stSel) stSel.addEventListener('change', window.toggleInsuranceFields);
+  });
+
   // ── Global drop handler for kanban columns ──
   window.drop = function(event, stageKey) {
     event.preventDefault();
@@ -5883,6 +5906,71 @@ window.nbdNavToggle = nbdNavToggle;
       <div class="mfield"><label>Follow-Up Date</label><input type="date" id="lFollowUp"></div>
     </div>
     <div class="mfield"><label>Insurance Carrier</label><input type="text" id="lInsCarrier" placeholder="State Farm, Nationwide..."></div>
+
+    <!-- INSURANCE DETAIL FIELDS (toggle visibility based on job type) -->
+    <div id="insuranceFieldsBlock" style="display:none;border:1px solid var(--br);border-radius:8px;padding:12px;margin:8px 0;background:rgba(124,58,237,.04);">
+      <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;font-weight:600;">Insurance Claim Details</div>
+      <div class="mrow">
+        <div class="mfield"><label>Claim Number</label><input type="text" id="lClaimNumber" placeholder="CLM-123456"></div>
+        <div class="mfield"><label>Claim Filed By</label>
+          <select id="lClaimFiledBy">
+            <option value="">Not Filed</option>
+            <option value="homeowner">Homeowner</option>
+            <option value="contractor">Contractor (NBD)</option>
+            <option value="agent">Insurance Agent</option>
+          </select>
+        </div>
+      </div>
+      <div class="mrow">
+        <div class="mfield"><label>Estimate Amount ($)</label><input type="number" id="lEstimateAmount" placeholder="18500" min="0"></div>
+        <div class="mfield"><label>Deductible ($)</label><input type="number" id="lDeductible" placeholder="1500" min="0"></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield"><label>Supplement Status</label>
+          <select id="lSupplementStatus">
+            <option value="">N/A</option>
+            <option value="needed">Needed</option>
+            <option value="requested">Requested</option>
+            <option value="under_review">Under Review</option>
+            <option value="re_inspection">Re-Inspection</option>
+            <option value="approved">Approved</option>
+            <option value="denied">Denied</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Scope of Work</label><input type="text" id="lScopeOfWork" placeholder="Full roof replacement, gutters..."></div>
+      </div>
+    </div>
+
+    <!-- FINANCE DETAIL FIELDS -->
+    <div id="financeFieldsBlock" style="display:none;border:1px solid var(--br);border-radius:8px;padding:12px;margin:8px 0;background:rgba(8,145,178,.04);">
+      <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:8px;font-weight:600;">Financing Details</div>
+      <div class="mrow">
+        <div class="mfield"><label>Finance Company</label><input type="text" id="lFinanceCompany" placeholder="Improvifi, Hearth..."></div>
+        <div class="mfield"><label>Loan Amount ($)</label><input type="number" id="lLoanAmount" placeholder="15000" min="0"></div>
+      </div>
+      <div class="mrow">
+        <div class="mfield"><label>Loan Status</label>
+          <select id="lLoanStatus">
+            <option value="">Not Started</option>
+            <option value="prequal_sent">Pre-Qual Sent</option>
+            <option value="approved">Approved</option>
+            <option value="denied">Denied</option>
+            <option value="funded">Funded</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Pre-Qual Link</label><input type="url" id="lPreQualLink" placeholder="https://..."></div>
+      </div>
+    </div>
+
+    <!-- JOB DETAIL FIELDS (post-contract) -->
+    <div id="jobFieldsBlock" style="display:none;border:1px solid var(--br);border-radius:8px;padding:12px;margin:8px 0;background:rgba(22,163,74,.04);">
+      <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px;font-weight:600;">Job Details</div>
+      <div class="mrow">
+        <div class="mfield"><label>Scheduled Date</label><input type="date" id="lScheduledDate"></div>
+        <div class="mfield"><label>Crew</label><input type="text" id="lCrew" placeholder="Crew name or lead installer"></div>
+      </div>
+    </div>
+
     <!-- PROPERTY INTEL PULL -->
     <button class="pull-intel-btn" id="pullIntelBtn" onclick="pullIntelForModal()">🏠 Pull Property Intel</button>
     <div class="modal-intel-result" id="modalIntelResult"></div>

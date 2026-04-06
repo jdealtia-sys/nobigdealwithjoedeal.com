@@ -54,6 +54,11 @@ function closeLeadModal(){
   document.getElementById('lJobValue').value=''; document.getElementById('lFollowUp').value='';
   document.getElementById('lInsCarrier').value='';
   const jt=document.getElementById('lJobType'); if(jt) jt.value='';
+  // Clear insurance/finance/job fields
+  ['lClaimNumber','lEstimateAmount','lDeductible','lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  ['lClaimFiledBy','lSupplementStatus','lLoanStatus'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  // Hide conditional field blocks
+  ['insuranceFieldsBlock','financeFieldsBlock','jobFieldsBlock'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display='none'; });
   window._modalIntel = null;
   const mir = document.getElementById('modalIntelResult');
   if(mir) { mir.classList.remove('visible'); mir.innerHTML=''; }
@@ -92,6 +97,21 @@ async function saveLead(){
       jobValue: parseFloat(document.getElementById('lJobValue')?.value)||0,
       followUp: document.getElementById('lFollowUp')?.value||'',
       insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
+      // Insurance fields
+      claimNumber: document.getElementById('lClaimNumber')?.value?.trim()||'',
+      claimFiledBy: document.getElementById('lClaimFiledBy')?.value||'',
+      estimateAmount: parseFloat(document.getElementById('lEstimateAmount')?.value)||0,
+      deductibleOrOwedByHO: parseFloat(document.getElementById('lDeductible')?.value)||0,
+      supplementStatus: document.getElementById('lSupplementStatus')?.value||'',
+      scopeOfWork: document.getElementById('lScopeOfWork')?.value?.trim()||'',
+      // Finance fields
+      financeCompany: document.getElementById('lFinanceCompany')?.value?.trim()||'',
+      loanAmount: parseFloat(document.getElementById('lLoanAmount')?.value)||0,
+      loanStatus: document.getElementById('lLoanStatus')?.value||'',
+      preQualLink: document.getElementById('lPreQualLink')?.value?.trim()||'',
+      // Job fields
+      scheduledDate: document.getElementById('lScheduledDate')?.value||'',
+      crew: document.getElementById('lCrew')?.value?.trim()||'',
       notes: document.getElementById('lNotes').value.trim(),
       yearBuilt:     intelData.yearBuilt   || null,
       marketValue:   intelData.marketValue || null,
@@ -408,6 +428,7 @@ function buildCard(l){
           ${prevS ? `<button class="kc-arrow" title="← ${prevLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
           ${nextS ? `<button class="kc-arrow" title="→ ${nextLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
+        ${email ? `<button class="kc-btn" title="Email" onclick="event.stopPropagation();if(typeof emailByStage==='function')emailByStage('${l.id}');else if(typeof window.emailByStage==='function')window.emailByStage('${l.id}');"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg></button>` : ''}
         <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
         <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
       </div>
@@ -1127,11 +1148,28 @@ function editLead(id){
   setV('lClaimStatus',l.claimStatus||'No Claim');
   setV('lJobValue',l.jobValue||'');
   setV('lFollowUp',l.followUp||'');
-  setV('lInsCarrier',l.insCarrier||'');
+  setV('lInsCarrier',l.insCarrier||l.insuranceCarrier||'');
+  // Insurance fields
+  setV('lClaimNumber', l.claimNumber||'');
+  setV('lClaimFiledBy', l.claimFiledBy||'');
+  setV('lEstimateAmount', l.estimateAmount||'');
+  setV('lDeductible', l.deductibleOrOwedByHO||'');
+  setV('lSupplementStatus', l.supplementStatus||'');
+  setV('lScopeOfWork', l.scopeOfWork||'');
+  // Finance fields
+  setV('lFinanceCompany', l.financeCompany||'');
+  setV('lLoanAmount', l.loanAmount||'');
+  setV('lLoanStatus', l.loanStatus||'');
+  setV('lPreQualLink', l.preQualLink||'');
+  // Job fields
+  setV('lScheduledDate', l.scheduledDate||'');
+  setV('lCrew', l.crew||'');
   setV('lNotes',l.notes||'');
   const editId=document.getElementById('lEditId'); if(editId) editId.value=id;
   const title=document.getElementById('leadModalTitle'); if(title) title.textContent='Edit Lead';
   openLeadModal();
+  // Toggle field visibility based on job type
+  if(typeof window.toggleInsuranceFields === 'function') setTimeout(window.toggleInsuranceFields, 50);
 }
 
 // Delete lead — soft delete with confirm modal
