@@ -25,18 +25,18 @@
   const auth   = getAuth(app);
   const db     = getFirestore(app);
 
-  // Access codes — validated server-side via Firestore in production
-  // For now, hardcoded list + Firestore lookup
-  const VALID_CODES = ['NBD-PRO', 'NBD2024', 'JOEDEAL', 'NBDPRO25', 'RESTORE'];
-
+  // Access codes — validated server-side via Firestore ONLY
+  // Manage codes in Firestore: access_codes collection, documents with {code: 'CODE', active: true}
+  // NEVER hardcode access codes in client-side JavaScript
   async function validateCode(code) {
     const upper = code.toUpperCase().trim();
-    if(VALID_CODES.includes(upper)) return true;
-    // Also check Firestore access_codes collection
     try {
       const snap = await getDocs(query(collection(db,'access_codes'), where('code','==',upper), where('active','==',true)));
       return !snap.empty;
-    } catch(e) { return false; }
+    } catch(e) {
+      console.error('Code validation error:', e);
+      return false;
+    }
   }
 
   async function register(e) {
