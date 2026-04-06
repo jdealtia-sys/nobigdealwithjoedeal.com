@@ -6393,7 +6393,7 @@ function getHamiltonSummaryUrl(parcelId) {
 }
 
 // Cache to avoid repeat lookups on same address
-const _piCache = {};
+var _piCache = _piCache || {};
 
 async function fetchPropertyIntel(nominatimData, targetElId) {
   const targetEl = document.getElementById(targetElId);
@@ -7750,7 +7750,7 @@ if (typeof removeTask === 'function') window.removeTask = removeTask;
 
 // ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════════════
 // GAF Quick Measure uses Anthropic API (key from Settings → Ask Joe AI)
-let _qmData = null;
+var _qmData = _qmData || null;
 
 function openQMImportModal() {
   _qmData = null;
@@ -8218,7 +8218,8 @@ async function checkAndShowOnboarding() {
 
       // Personalize greeting
       const firstName = (name || '').split(' ')[0] || 'there';
-      document.getElementById('onbGreeting').textContent = `Hey ${firstName}, let's get you set up.`;
+      const greetEl = document.getElementById('onbGreeting');
+      if (greetEl) greetEl.textContent = `Hey ${firstName}, let's get you set up.`;
 
       const modal = document.getElementById('onboardingModal');
       modal.style.display = 'flex';
@@ -8514,7 +8515,7 @@ if (_leadBadgeEl) {
 // TASK SYSTEM
 // ══════════════════════════════════════════════
 window._taskCache = {};
-let _taskModalLeadId = null;
+var _taskModalLeadId = _taskModalLeadId || null;
 
 // ══ TASK SYSTEM (extracted to js/tasks.js) ══════════════════
 
@@ -8901,31 +8902,31 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<script src="js/property-intel.js"></script>
-<script src="js/warranty-cert.js"></script>
-<script src="js/tools.js"></script>
-<script src="js/icons.js"></script>
-<script src="js/crm.js"></script>
-<script src="js/maps.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/estimates.js"></script>
+<script src="js/property-intel.js?v=2"></script>
+<script src="js/warranty-cert.js?v=2"></script>
+<script src="js/tools.js?v=2"></script>
+<script src="js/icons.js?v=2"></script>
+<script src="js/crm.js?v=2"></script>
+<script src="js/maps.js?v=2"></script>
+<script src="js/ui.js?v=2"></script>
+<script src="js/estimates.js?v=2"></script>
 <script>
 // HOTFIX: Ensure searchMap is exposed to window (cache issue workaround)
 if (typeof searchMap === 'function' && !window.searchMap) {
   window.searchMap = searchMap;
 }
 </script>
-<script src="js/ai.js"></script>
-<script src="js/tasks.js"></script>
-<script src="js/demo.js"></script>
-<script src="js/advanced_builder_selector.js"></script>
-<script src="js/material_catalog.js"></script>
-<script src="js/advanced_builder_ui.js"></script>
-<script src="js/advanced_pdf_generator.js"></script>
-<script src="js/pricing_database_manager.js"></script>
-<script src="js/template_library.js"></script>
-<script src="js/ai_review_system.js"></script>
-<script src="js/email_system.js"></script>
+<script src="js/ai.js?v=2"></script>
+<script src="js/tasks.js?v=2"></script>
+<script src="js/demo.js?v=2"></script>
+<script src="js/advanced_builder_selector.js?v=2"></script>
+<script src="js/material_catalog.js?v=2"></script>
+<script src="js/advanced_builder_ui.js?v=2"></script>
+<script src="js/advanced_pdf_generator.js?v=2"></script>
+<script src="js/pricing_database_manager.js?v=2"></script>
+<script src="js/template_library.js?v=2"></script>
+<script src="js/ai_review_system.js?v=2"></script>
+<script src="js/email_system.js?v=2"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {
