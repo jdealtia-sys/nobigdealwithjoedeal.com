@@ -249,7 +249,8 @@ window.saveQuickLead = saveQuickLead;
 // ══ END QUICK ADD ══════════════════════════════════════════════════════
 
 // ══ WARRANTY CERTIFICATE GENERATOR ═══════════════════════════════════════
-const WC_TIER_DESCS = {
+// Use var to avoid "already declared" error if dashboard.html inline script loaded first
+var WC_TIER_DESCS = WC_TIER_DESCS || {
   standard: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Does not transfer on sale of property.',
   preferred: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Transferable to one subsequent owner within 30 days of sale.',
   elite: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Fully transferable — follows the property through all subsequent owners. Annual courtesy inspection included.'

@@ -2229,7 +2229,8 @@ let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';
 let _nbd_customs      = JSON.parse(localStorage.getItem('nbd-customs') || '[]');
 
-const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN) >= NBD_PLAN_ORDER.indexOf(p);
+// All themes/fonts unlocked — single-tier mode (no plan gating)
+const _nbdUnlocked  = p => true;
 const _nbdGetTheme  = id => [...NBD_THEMES, ..._nbd_customs].find(t => t.id === id);
 
 /* ── APPLY THEME ──────────────────────────────────────────────────── */
@@ -2519,7 +2520,7 @@ if(localStorage.getItem('nbd-welcome-seen')){
       <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Tap the <strong>🎨 palette icon</strong> in the topbar to open Appearance.</div></div>
       <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Browse by category or <strong>search by name</strong> (e.g. "batman", "matrix", "lofi").</div></div>
       <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text">Tap any bubble to <strong>apply instantly</strong>. Saved automatically across both CRM and Daily Success.</div></div>
-      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">🔒 Locked themes require a higher plan tier.</div></div>
+      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">All themes and fonts are unlocked — pick any style you like.</div></div>
     </div>
     <div class="nhm-section">
       <div class="nhm-section-title">Font Pairings</div>

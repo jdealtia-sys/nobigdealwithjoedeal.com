@@ -6161,179 +6161,16 @@ const R = {
   ridge:3.20, hip:3.20, pipe:65, deck:95, gutter:8.50, deckPct:0.15
 };
 
-// Advanced Estimate Builder - Wrapper Function
 // ══ ESTIMATES MODULE (extracted to js/estimates.js) ════════
 // See pro/js/estimates.js for implementation
+// Rates, builder, tiers, export/print all live in js/estimates.js
 
-.k-card-syncing{
-  opacity:0.7;
-}
-.k-card-sync-success{
-  border-color:var(--green);
-}
-.k-card-sync-error{
-  border-color:var(--red);
-  background:rgba(224,82,82,0.05);
-}
-.k-card-sync-icon{
-  position:absolute;
-  top:6px;
-  right:6px;
-  font-size:14px;
-  opacity:0.8;
-  z-index:10;
-  animation:fadeIn .2s;
-}
-@keyframes fadeIn{
-  from{opacity:0;transform:scale(0.8);}
-  to{opacity:0.8;transform:scale(1);}
-}
+/* REMOVED: orphaned CSS/HTML template literal content that was
+   left behind during extraction — caused SyntaxError killing
+   all JS after this point. The exportEstimate() function with
+   its print template now lives in js/estimates.js. */
 
-/* Card content */
-.kc-name{font-weight:700;font-size:13px;margin-bottom:2px;color:var(--ink);line-height:1.2;}
-.kc-addr{font-size:10px;color:#6b7280;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.kc-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
-.kc-tag{
-  font-size:9px;font-weight:700;letter-spacing:.06em;
-  padding:2px 7px;border-radius:10px;
-  text-transform:uppercase;
-}
-.kct-dmg {background:rgba(74,158,255,.15);color:#4A9EFF;}
-.kct-claim{background:rgba(34,197,94,.15);color:#16a34a;}
-.kct-val {background:rgba(232,114,12,.12);color:var(--orange);font-weight:800;}
-.kct-due {background:rgba(224,82,82,.15);color:#E05252;}
-.kct-src {background:rgba(255,255,255,.1);color:#9b9b9b;}
-.kc-footer{
-  display:flex;justify-content:space-between;align-items:center;
-  padding-top:6px;border-top:1px solid var(--rule);margin-top:2px;
-}
-.kc-phone{font-size:10px;color:#6b7280;}
-.kc-actions{display:flex;gap:4px;}
-.kc-btn{
-  background:transparent;border:1px solid var(--rule);
-  border-radius:4px;padding:3px 7px;font-size:10px;
-  cursor:pointer;color:#6b7280;transition:all .15s;
-  font-family:inherit;
-}
-.kc-btn:hover{background:var(--rule);color:var(--ink);}
-.kc-btn.edit:hover{border-color:var(--orange);color:var(--orange);}
-.kc-btn.del:hover{border-color:#E05252;color:#E05252;}
-
-/* Quick-stage arrows on card (prev/next) */
-.kc-move{
-  display:flex;gap:3px;
-}
-.kc-arrow{
-  background:transparent;border:none;
-  font-size:13px;cursor:pointer;color:#9b9b9b;
-  padding:0 2px;line-height:1;
-  transition:color .15s;
-}
-.kc-arrow:hover{color:var(--orange);}
-
-/* View: CRM kanban layout */
-#view-crm{
-  display:none !important;flex-direction:column !important;
-  height:100%;overflow:hidden !important;
-  padding:0 !important;
-}
-#view-crm.active{display:flex !important;}
-#view-crm .kanban-board{display:flex !important;}
-
-</style></head><body>
-  <div class="hdr">
-    <div>
-      <div class="brand">No Big Deal <span>Home Solutions</span></div>
-      <div class="est-type" style="margin-top:8px;">Roofing Estimate</div>
-      <div class="est-date">${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
-      <div class="est-by">No Big Deal with Joe Deal</div>
-    </div>
-    <div class="est-hdr">
-      <div class="est-total-lbl">Estimate Total</div>
-      <div class="est-total-val">${fmt(d.grandTotal)}</div>
-    </div>
-  </div>
-  <h2>P R O P E R T Y</h2>
-  <div class="prop-grid">
-    <div class="prop-field"><label>Address</label><div class="v">${d.addr}</div></div>
-    <div class="prop-field"><label>Owner</label><div class="v">${d.owner}</div></div>
-    <div class="prop-field"><label>Parcel ID</label><div class="v">${d.parcel}</div></div>
-    <div class="prop-field"><label>Year Built</label><div class="v">${d.yr}</div></div>
-  </div>
-  <h2>M E A S U R E M E N T S</h2>
-  <div class="meas-grid">
-    <div class="mf"><label>Roof Type</label><div class="v">${d.roofType}</div></div>
-    <div class="mf"><label>Pitch</label><div class="v">${d.pl}</div></div>
-    <div class="mf"><label>Raw SqFt</label><div class="v">${Math.round(d.raw).toLocaleString()} SF</div></div>
-    <div class="mf"><label>Waste Factor</label><div class="v">${d.wf.toFixed(3)}×</div></div>
-    <div class="mf"><label>Pitch Factor</label><div class="v">${d.pf.toFixed(4)}×</div></div>
-    <div class="mf"><label>Adjusted SqFt</label><div class="v">${Math.round(d.adj).toLocaleString()} SF</div></div>
-    <div class="mf"><label>Squares</label><div class="v">${d.sq.toFixed(2)} SQ</div></div>
-    <div class="mf"><label>Ridge LF</label><div class="v">${d.ridge} LF</div></div>
-    <div class="mf"><label>Eave LF</label><div class="v">${d.eave} LF</div></div>
-  </div>
-  <h2>L I N E &nbsp; I T E M S</h2>
-  <table>
-    <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
-    <tbody>
-      ${d.rows.map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td class="total-cell">${fmt(r.total)}</td></tr>`).join('')}
-      <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${d.tierName}</td><td>${fmt(d.grandTotal)}</td></tr>
-    </tbody>
-  </table>
-  <div style="margin-top:24px;padding:16px 20px;background:#fff8f5;border:1px solid #fde0d0;border-left:4px solid #C8541A;border-radius:4px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#C8541A;margin-bottom:6px;">NBD Guarantee — ${selectedTier==='best'?'Elite Lifetime Labor Guarantee':selectedTier==='better'?'Preferred Lifetime Labor Guarantee':'Standard Lifetime Labor Guarantee'}</div>
-    <div style="font-size:11px;color:#444;line-height:1.6;">
-      ${selectedTier==='best'
-        ? 'This installation is covered by the NBD Elite Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge, for the life of the home. This guarantee is fully transferable to all subsequent owners and follows the property. A signed warranty certificate will be issued upon job completion. Annual courtesy inspections included.'
-        : selectedTier==='better'
-        ? 'This installation is covered by the NBD Preferred Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for the life of the installation. This guarantee is transferable to one subsequent owner. Priority 48-hour callback included.'
-        : 'This installation is covered by the NBD Standard Lifetime Labor Guarantee. No Big Deal Home Solutions will return and correct any labor-related defect at no charge for the life of the installation.'}
-      All installations include the GAF Timberline manufacturer lifetime limited shingle warranty. Labor guarantee is backed by Joe Deal personally and recorded on file.
-    </div>
-  </div>
-  <div class="footer">
-    <div>No Big Deal Home Solutions · (859) 420-7382 · nobigdealwithjoedeal.com</div>
-    <div>Estimate valid 30 days. Subject to on-site verification.</div>
-  </div>
-  ${d._qm ? `
-  <div style="margin-top:36px;page-break-before:always;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #C8541A;margin-bottom:20px;">
-      <div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">No Big <span style="color:#C8541A;">Deal</span> Home Solutions</div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;">Insurance Restoration Specialists</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;">Measurement Report</div>
-        <div style="font-size:11px;color:#666;margin-top:2px;">Aerial Roof Analysis — Verified Measurements</div>
-        <div style="font-size:11px;color:#666;">Generated ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
-      </div>
-    </div>
-    <div style="background:#fff8f5;border:1px solid #fde0d0;border-left:4px solid #C8541A;border-radius:4px;padding:10px 14px;font-size:11px;color:#555;margin-bottom:20px;line-height:1.6;">
-      The following measurements were obtained via certified aerial measurement technology and verified against satellite and photographic imagery. All dimensions are rounded to the nearest whole number.
-    </div>
-    <h2>Property</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Property Address</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.address}</div></div>
-      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Total Roof Area</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.roofArea.toLocaleString()} sq ft</div></div>
-      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Roof Facets</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.roofFacets}</div></div>
-      <div><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">Predominant Pitch</div><div style="font-size:15px;font-weight:700;color:#111;">${d._qm.pitch}</div></div>
-    </div>
-    <h2>Linear Measurements</h2>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
-      ${[['Ridges',d._qm.ridges,'ft'],['Hips',d._qm.hips,'ft'],['Valleys',d._qm.valleys,'ft'],['Rakes',d._qm.rakes,'ft'],['Eaves',d._qm.eaves,'ft'],['Bends',d._qm.bends,'ft'],['Flash',d._qm.flash,'ft'],['Step Flashing',d._qm.step,'ft'],['Drip Edge',d._qm.dripEdge,'ft']].map(([k,v,u])=>`<div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:6px;padding:10px 12px;"><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">${k}</div><div style="font-size:20px;font-weight:700;color:#111;">${v} <span style="font-size:12px;color:#999;">${u}</span></div></div>`).join('')}
-    </div>
-    <h2>Material Quantities (at ${d._qm.suggestedWastePct}% Waste)</h2>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;">
-      ${[['Squares',d._qm.squaresAtSuggestedWaste,'sq'],['Leak Barrier',d._qm.leakBarrier,'ft'],['Ridge Cap',d._qm.ridgeCap,'ft'],['Starter Strip',d._qm.starter,'ft'],['Penetrations',d._qm.penetrations,'ea']].map(([k,v,u])=>`<div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:6px;padding:10px 12px;"><div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;">${k}</div><div style="font-size:20px;font-weight:700;color:#C8541A;">${v} <span style="font-size:12px;color:#999;">${u}</span></div></div>`).join('')}
-    </div>
-    <div style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#aaa;">
-      <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com · Insurance Restoration Specialists · Greater Cincinnati</div>
-      <div>Measurements are for estimation purposes. Confirm quantities prior to ordering.</div>
-    </div>
-  </div>` : ''}
-  <script>window.print();<\/script></body></html>`;
-  const w=window.open('','_blank'); w.document.write(html); w.document.close();
-}
+// ══ renderEstimatesList kept here (used by loadEstimates above) ══
 
 function renderEstimatesList(ests) {
   document.getElementById('statEsts').textContent=ests?.length||0;
@@ -8154,11 +7991,14 @@ window.saveQuickLead = saveQuickLead;
 // ══ END QUICK ADD ══════════════════════════════════════════════════════
 
 // ══ WARRANTY CERTIFICATE GENERATOR ═══════════════════════════════════════
-const WC_TIER_DESCS = {
-  standard: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Does not transfer on sale of property.',
-  preferred: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Transferable to one subsequent owner within 30 days of sale.',
-  elite: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Fully transferable — follows the property through all subsequent owners. Annual courtesy inspection included.'
-};
+// WC_TIER_DESCS is declared in js/tools.js — reuse it here (no duplicate const)
+if (typeof WC_TIER_DESCS === 'undefined') {
+  var WC_TIER_DESCS = {
+    standard: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Does not transfer on sale of property.',
+    preferred: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Transferable to one subsequent owner within 30 days of sale.',
+    elite: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Fully transferable — follows the property through all subsequent owners. Annual courtesy inspection included.'
+  };
+}
 
 function openWarrantyCertWizard(lead) {
   const modal = document.getElementById('warrantyCertModal');
@@ -8979,7 +8819,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       <div class="nhm-step"><div class="nhm-num">1</div><div class="nhm-step-text">Tap the <strong>🎨 palette icon</strong> in the topbar to open Appearance.</div></div>
       <div class="nhm-step"><div class="nhm-num">2</div><div class="nhm-step-text">Browse by category or <strong>search by name</strong> (e.g. "batman", "matrix", "lofi").</div></div>
       <div class="nhm-step"><div class="nhm-num">3</div><div class="nhm-step-text">Tap any bubble to <strong>apply instantly</strong>. Saved automatically across both CRM and Daily Success.</div></div>
-      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">🔒 Locked themes require a higher plan tier.</div></div>
+      <div class="nhm-step"><div class="nhm-num">4</div><div class="nhm-step-text">All themes and fonts are unlocked — pick any style you like.</div></div>
     </div>
     <div class="nhm-section">
       <div class="nhm-section-title">Font Pairings</div>

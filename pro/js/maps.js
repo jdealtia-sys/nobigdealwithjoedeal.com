@@ -1297,7 +1297,8 @@ let _nbd_activeFont   = localStorage.getItem('nbd-font')  || 'nbd-default';
 let _nbd_activeCat    = 'all';
 let _nbd_customs      = JSON.parse(localStorage.getItem('nbd-customs') || '[]');
 
-const _nbdUnlocked  = p => NBD_PLAN_ORDER.indexOf(NBD_USER_PLAN) >= NBD_PLAN_ORDER.indexOf(p);
+// All themes/fonts unlocked — single-tier mode (no plan gating)
+const _nbdUnlocked  = p => true;
 const _nbdGetTheme  = id => [...NBD_THEMES, ..._nbd_customs].find(t => t.id === id);
 
 /* ── APPLY THEME ──────────────────────────────────────────────────── */
@@ -1503,7 +1504,8 @@ window.searchMap = searchMap;
 window.selectPin = selectPin;
 window.deletePin = deletePin;
 window.clearAllPins = clearAllPins;
-window.damageNearMePhotos = damageNearMePhotos;
+// damageNearMePhotos is defined in dashboard.html, not maps.js
+if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
 window.toggleMapSidebar = toggleMapSidebar;
 window.spyglassSearch = spyglassSearch;
 window.spyglassGoToLocation = spyglassGoToLocation;
