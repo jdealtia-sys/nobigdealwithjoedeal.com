@@ -31,14 +31,14 @@ function log(test, pass, detail) {
   results.appendChild(div);
 }
 
-// TEST 1: Firebase Config
+// TEST 1: Firebase Config - Using correct NBD Pro project
 const firebaseConfig = {
-  apiKey: "AIzaSyBLe2hz9W5eN7zLE0tr8xS-cnyQd9sxEGE",
-  authDomain: "no-big-deal-home-solutions.firebaseapp.com",
-  projectId: "no-big-deal-home-solutions",
-  storageBucket: "no-big-deal-home-solutions.firebasestorage.app",
-  messagingSenderId: "690022849848",
-  appId: "1:690022849848:web:eff6eea5b0f1d854e07c3c"
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
 };
 
 try {
@@ -72,10 +72,10 @@ try {
       } catch (e) {
         log('Firestore - Leads', false, `Error: ${e.message}\n${e.stack}`);
       }
-      
+
     } else {
-      log('Auth State', false, 'Not logged in - redirecting to login...');
-      setTimeout(() => window.location.href = '/pro/', 2000);
+      log('Auth State', false, 'Not logged in - diagnostic requires authentication.');
+      setTimeout(() => window.location.href = '/pro/login.html', 2000);
     }
   });
   

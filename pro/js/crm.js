@@ -185,10 +185,26 @@ function renderLeads(leads, filtered){
     if(count) count.textContent = cards.length;
     if(!cards.length){ body.innerHTML='<div class="k-empty">No leads</div>'; return; }
     body.innerHTML = cards.map(l=>buildCard(l)).join('');
-    // attach drag events
+    // attach drag events to cards
     body.querySelectorAll('.k-card').forEach(card=>{
-      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
       card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
+    });
+    // attach drop handlers to kanban column body
+    body.addEventListener('dragover', e=>{
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', e=>{
+      if(e.target===body) body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', e=>{
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if(!_dragId) return;
+      moveCard(_dragId, stage);
+      _dragId=null;
     });
   });
 }
@@ -343,19 +359,11 @@ function handleCardClick(id, event) {
   openCardDetailModal(id);
 }
 
-// Drag & drop
-function drop(event, targetStage){
-  event.preventDefault();
-  if(!_dragId) return;
-  // remove drag-over highlight
+// Drag & drop — handlers now attached per-column in renderLeads()
+// Global cleanup of drag state
+document.addEventListener('dragend', e=>{
   document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
-  moveCard(_dragId, targetStage);
   _dragId = null;
-}
-document.addEventListener('dragover', e=>{
-  const col = e.target.closest('.kcol-body');
-  document.querySelectorAll('.kcol-body').forEach(b=>b.classList.remove('drag-over'));
-  if(col) col.classList.add('drag-over');
 });
 
 async function moveCard(id, newStage){

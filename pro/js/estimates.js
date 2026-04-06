@@ -4,6 +4,24 @@
 // Extracted from dashboard.html for maintainability
 // ============================================================
 
+// Initialize default pricing table if not already set (Cincinnati/Ohio market)
+if (typeof window.R === 'undefined' || !window.R) {
+  window.R = {
+    shingle: 4.25,      // per sqft
+    felt: 0.45,         // per sqft
+    tear: 1.75,         // per sqft (tear-off)
+    starter: 2.10,      // per linear foot
+    drip: 1.85,         // per linear foot (drip edge)
+    ridge: 5.50,        // per linear foot (ridge cap)
+    iws: 2.25,          // per sqft (ice & water shield)
+    hip: 5.75,          // per linear foot (hip cap)
+    pipe: 45.00,        // per each (pipe boot)
+    deck: 2.50,         // per sqft (OSB decking)
+    gutter: 8.50,       // per linear foot (gutters)
+    deckPct: 0.15       // 15% of roof for partial deck replacement in "better" tier
+  };
+}
+
 function startNewEstimate() {
   showEstimateTypeSelector();
 }
@@ -42,7 +60,8 @@ function estNext(from) {
   } else if(from===2){
     updateEstCalc(); calcTierPrices(); showEstStep(3);
   } else if(from===3){
-    if(!selectedTier){showToast('Select a package','error');return;}
+    if(!selectedTier){showToast('Select a tier/package','error');return;}
+    if(!estData.prices||!estData.prices.good){showToast('Calculate pricing first','error');return;}
     buildReview(); showEstStep(4);
   }
 }

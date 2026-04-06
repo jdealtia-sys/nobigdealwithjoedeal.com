@@ -4,6 +4,51 @@
 // Extracted from dashboard.html
 // ============================================================
 
+// ══ Notification Helper ══════════════════════════════════
+async function createNotification(userId, type, title, message, leadId) {
+  // Fallback to toast if browser Notification API not available
+  if (!('Notification' in window)) {
+    return showToast(message, 'info');
+  }
+
+  // Request permission on first use if not already granted
+  if (Notification.permission === 'default') {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+    } catch (e) {
+      return showToast(message, 'info');
+    }
+  }
+
+  // Only show notification if permission was granted
+  if (Notification.permission !== 'granted') {
+    return showToast(message, 'info');
+  }
+
+  // Show browser notification
+  try {
+    const notif = new Notification(title, {
+      body: message,
+      icon: '/icon-logo.png',
+      badge: '/icon-badge.png',
+      tag: `task-${leadId}`,
+      requireInteraction: false
+    });
+
+    // Click notification to open lead
+    if (leadId) {
+      notif.addEventListener('click', () => {
+        window.focus();
+        window.location.href = `/pro/dashboard.html?tab=crm&lead=${leadId}`;
+      });
+    }
+  } catch (e) {
+    // Fallback to toast
+    showToast(message, 'info');
+  }
+}
+
 async function _loadTasks(leadId) {
   try {
     const snap = await getDocs(query(collection(db,'leads',leadId,'tasks'), orderBy('createdAt','asc')));
@@ -112,3 +157,4 @@ window.closeTaskModal = closeTaskModal;
 window.addTask = addTask;
 window.checkTask = checkTask;
 window.removeTask = removeTask;
+window.createNotification = createNotification;
