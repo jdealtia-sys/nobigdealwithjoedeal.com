@@ -348,27 +348,42 @@
     if (estParam && editId) {
       // ── REOPEN SAVED ESTIMATE from customer page ──
       // URL: ?edit=LEAD_ID&est=ESTIMATE_ID  (edit here = lead context, est = estimate to reopen)
-      setTimeout(() => {
+      (async () => {
+        // Wait for estimates to actually finish loading
+        try { await loadEstimates(); } catch(e) { console.warn('loadEstimates retry:', e); }
         goTo('est');
-        // Wait for estimates to load, then reopen in builder
-        const tryReopen = (attempts) => {
-          const estimates = window._estimates || [];
-          if (estimates.length > 0 || attempts >= 10) {
-            if (typeof viewEstimate === 'function') {
-              viewEstimate(estParam);
-              // Also link to lead so save goes back to customer
-              window._estLinkedLeadId = editId;
-              // Update title to show we're editing
-              const titleEl = document.getElementById('estBuilderTitle');
-              if (titleEl) titleEl.textContent = 'Edit Estimate';
-            }
+        // If the estimate isn't in the loaded list, try fetching it directly
+        const tryReopen = async (attempts) => {
+          let estimates = window._estimates || [];
+          let found = estimates.find(e => e.id === estParam);
+          if (!found && attempts < 15) {
+            await new Promise(r => setTimeout(r, 400));
+            estimates = window._estimates || [];
+            found = estimates.find(e => e.id === estParam);
+            if (!found) return tryReopen(attempts + 1);
+          }
+          if (!found) {
+            // Last resort: fetch the single estimate directly from Firestore
+            try {
+              const snap = await getDoc(doc(db, 'estimates', estParam));
+              if (snap.exists()) {
+                found = { id: snap.id, ...snap.data() };
+                window._estimates = [...(window._estimates || []), found];
+              }
+            } catch(e) { console.error('Direct estimate fetch failed:', e); }
+          }
+          if (typeof viewEstimate === 'function') {
+            viewEstimate(estParam);
+            window._estLinkedLeadId = editId;
+            const titleEl = document.getElementById('estBuilderTitle');
+            if (titleEl) titleEl.textContent = 'Edit Estimate';
           } else {
-            setTimeout(() => tryReopen(attempts + 1), 300);
+            showToast('Estimate builder not ready — try again', 'error');
           }
         };
-        tryReopen(0);
+        await tryReopen(0);
         window.history.replaceState({}, '', '/pro/dashboard.html');
-      }, 600);
+      })();
     } else if (editId && !estParam) {
       // ── EDIT LEAD in CRM ──
       setTimeout(() => {
@@ -378,19 +393,22 @@
       }, 500);
     } else if (estParam || leadParam) {
       // ── NEW ESTIMATE (optionally pre-filled from lead) ──
-      setTimeout(() => {
+      (async () => {
+        try { await loadEstimates(); } catch(e) {}
         goTo('est');
         if (estParam && !editId) {
           // Reopen estimate by ID (direct link, no lead context)
-          const tryReopen = (attempts) => {
-            const estimates = window._estimates || [];
-            if (estimates.length > 0 || attempts >= 10) {
-              if (typeof viewEstimate === 'function') viewEstimate(estParam);
-            } else {
-              setTimeout(() => tryReopen(attempts + 1), 300);
-            }
-          };
-          tryReopen(0);
+          let found = (window._estimates || []).find(e => e.id === estParam);
+          if (!found) {
+            try {
+              const snap = await getDoc(doc(db, 'estimates', estParam));
+              if (snap.exists()) {
+                found = { id: snap.id, ...snap.data() };
+                window._estimates = [...(window._estimates || []), found];
+              }
+            } catch(e) { console.error('Direct estimate fetch failed:', e); }
+          }
+          if (typeof viewEstimate === 'function') viewEstimate(estParam);
         } else {
           startNewEstimateOriginal();
           // Pre-fill address from lead if leadParam provided
@@ -410,7 +428,7 @@
           }
         }
         window.history.replaceState({}, '', '/pro/dashboard.html');
-      }, 600);
+      })();
     } else if (tasksId) {
       // Wait for leads to load, then open task modal
       setTimeout(() => {
@@ -7404,13 +7422,15 @@ function renderEstimatesList(ests) {
 
 function viewEstimate(id) {
   const est = (window._estimates || []).find(e => e.id === id);
-  if (!est) { showToast('Estimate not found', 'error'); return; }
+  if (!est) { showToast('Estimate not found — it may still be loading', 'error'); console.error('viewEstimate: not found in _estimates, id=', id, 'available:', (window._estimates||[]).map(e=>e.id)); return; }
 
   // Show builder, hide list
-  document.getElementById('est-list').style.display = 'none';
-  document.getElementById('est-builder').style.display = 'flex';
-  document.getElementById('est-builder').style.flexDirection = 'column';
-  document.getElementById('drawImportNote').style.display = 'none';
+  const listEl = document.getElementById('est-list');
+  const builderEl = document.getElementById('est-builder');
+  if (listEl) listEl.style.display = 'none';
+  if (builderEl) { builderEl.style.display = 'flex'; builderEl.style.flexDirection = 'column'; }
+  const noteEl = document.getElementById('drawImportNote');
+  if (noteEl) noteEl.style.display = 'none';
 
   // Update title to reflect editing
   const titleEl = document.getElementById('estBuilderTitle');
@@ -7435,10 +7455,23 @@ function viewEstimate(id) {
   const pitchSel = document.getElementById('estPitch');
   if (pitchSel && est.pitch) {
     const pitchLabel = est.pitch; // e.g. "8/12"
+    let matched = false;
     for (let i = 0; i < pitchSel.options.length; i++) {
-      if (pitchSel.options[i].value.includes(pitchLabel)) {
+      // Exact match on the label portion after the pipe
+      const parts = pitchSel.options[i].value.split('|');
+      if (parts[1] === pitchLabel || pitchSel.options[i].value === pitchLabel) {
         pitchSel.selectedIndex = i;
+        matched = true;
         break;
+      }
+    }
+    // Fallback: try includes match (handles edge cases)
+    if (!matched) {
+      for (let i = 0; i < pitchSel.options.length; i++) {
+        if (pitchSel.options[i].value.includes('|' + pitchLabel)) {
+          pitchSel.selectedIndex = i;
+          break;
+        }
       }
     }
   }
@@ -7448,7 +7481,7 @@ function viewEstimate(id) {
     const wasteSel = document.getElementById('estWaste');
     if (wasteSel) {
       for (let i = 0; i < wasteSel.options.length; i++) {
-        if (parseFloat(wasteSel.options[i].value) === parseFloat(est.wf)) {
+        if (Math.abs(parseFloat(wasteSel.options[i].value) - parseFloat(est.wf)) < 0.001) {
           wasteSel.selectedIndex = i;
           break;
         }
@@ -7462,16 +7495,19 @@ function viewEstimate(id) {
   // Store the Firestore doc ID so we can update instead of creating new
   window._editingEstimateId = est.id;
 
-  // Reset estData and run calculations
+  // Set tier BEFORE calculating so syncRatesFromProductLibrary uses the right tier
+  selectedTier = est.tier || 'good';
+
+  // Reset estData and run calculations (order matters: updateEstCalc reads DOM, calcTierPrices needs estData)
   estData = {};
   updateEstCalc();
   calcTierPrices();
 
-  // Select saved tier
-  selectedTier = est.tier || 'good';
+  // Select saved tier in the UI
   document.querySelectorAll('.tier-card').forEach(c => {
     c.classList.remove('selected');
-    if (c.getAttribute('onclick') && c.getAttribute('onclick').includes("'" + selectedTier + "'")) {
+    const onclick = c.getAttribute('onclick') || '';
+    if (onclick.includes("'" + selectedTier + "'")) {
       c.classList.add('selected');
     }
   });
@@ -7480,10 +7516,12 @@ function viewEstimate(id) {
   const step3Btn = document.getElementById('estStep3Next');
   if (step3Btn) { step3Btn.disabled = false; step3Btn.style.opacity = '1'; }
 
-  // Build review and jump to Step 4
-  buildReview();
-  showEstStep(4);
-  showToast('Estimate loaded — review and save or edit any step', 'info');
+  // Build review and jump to Step 4 (use requestAnimationFrame to ensure DOM is painted)
+  requestAnimationFrame(() => {
+    buildReview();
+    showEstStep(4);
+    showToast('Estimate loaded — review and save or edit any step', 'info');
+  });
 }
 window.viewEstimate = viewEstimate;
 
