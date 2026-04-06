@@ -2266,7 +2266,8 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   /* CRM header: stack properly on small screens */
   .crm-header > div:last-child > input[type=text]{ min-width:0!important; width:auto!important; flex:1!important; }
 
-}
+  /* Add Lead button — 44px+ tap target on mobile */
+  .crm-header .btn-orange{ min-height:44px!important; font-size:13px!important; padding:10px 14px!important; }
 
   /* Quick Add FAB — show on mobile */
   #quickAddFab { display:flex!important; align-items:center; justify-content:center; }
@@ -2298,6 +2299,8 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
   /* Notification button — bigger tap target */
   #notifBtn { width:44px!important; height:44px!important; }
+
+}
 
 /* ── Extra small phones (under 400px) ── */
 @media(max-width:400px){
@@ -2598,7 +2601,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
   #view-crm{display:none!important;flex-direction:column!important;height:100%;overflow:hidden!important;padding:0!important;}
   #view-crm.active{display:flex!important;}
-  #kanbanBoard{display:flex!important;flex-direction:row!important;gap:10px;padding:0 16px 16px;overflow-x:auto!important;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--br) transparent;}
+  #kanbanBoard{display:flex!important;flex-direction:row!important;gap:10px;padding:0 16px 16px;overflow-x:auto!important;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;}
   #kanbanBoard::-webkit-scrollbar{height:6px;}
   #kanbanBoard::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
   .kanban-col{display:flex!important;flex-direction:column!important;min-width:220px!important;max-width:220px!important;flex-shrink:0!important;background:var(--s2);border:1px solid var(--br);border-radius:10px;overflow:hidden;}
