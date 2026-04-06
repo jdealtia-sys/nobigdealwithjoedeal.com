@@ -345,31 +345,68 @@
     const estParam = urlParams.get('est');
     const leadParam = urlParams.get('lead');
 
-    if (editId) {
-      // Wait for leads to load, then open edit modal
+    if (estParam && editId) {
+      // ── REOPEN SAVED ESTIMATE from customer page ──
+      // URL: ?edit=LEAD_ID&est=ESTIMATE_ID  (edit here = lead context, est = estimate to reopen)
+      setTimeout(() => {
+        goTo('est');
+        // Wait for estimates to load, then reopen in builder
+        const tryReopen = (attempts) => {
+          const estimates = window._estimates || [];
+          if (estimates.length > 0 || attempts >= 10) {
+            if (typeof viewEstimate === 'function') {
+              viewEstimate(estParam);
+              // Also link to lead so save goes back to customer
+              window._estLinkedLeadId = editId;
+              // Update title to show we're editing
+              const titleEl = document.getElementById('estBuilderTitle');
+              if (titleEl) titleEl.textContent = 'Edit Estimate';
+            }
+          } else {
+            setTimeout(() => tryReopen(attempts + 1), 300);
+          }
+        };
+        tryReopen(0);
+        window.history.replaceState({}, '', '/pro/dashboard.html');
+      }, 600);
+    } else if (editId && !estParam) {
+      // ── EDIT LEAD in CRM ──
       setTimeout(() => {
         goTo('crm');
         editLead(editId);
         window.history.replaceState({}, '', '/pro/dashboard.html');
       }, 500);
     } else if (estParam || leadParam) {
-      // Route to estimate builder — came from customer page
+      // ── NEW ESTIMATE (optionally pre-filled from lead) ──
       setTimeout(() => {
         goTo('est');
-        startNewEstimateOriginal();
-        // Pre-fill address from lead if leadParam provided
-        if (leadParam && window._leads) {
-          const lead = window._leads.find(l => l.id === leadParam);
-          if (lead) {
-            const addrEl = document.getElementById('estAddr');
-            const ownerEl = document.getElementById('estOwner');
-            if (addrEl && lead.address) addrEl.value = lead.address;
-            if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
-            // Store linked leadId so saveEstimate can attach it
-            window._estLinkedLeadId = leadParam;
-            updateEstCalc();
-            const note = document.getElementById('drawImportNote');
-            if (note) { note.textContent = '✓ Pre-filled from customer record — estimate will auto-link on save'; note.style.display='block'; }
+        if (estParam && !editId) {
+          // Reopen estimate by ID (direct link, no lead context)
+          const tryReopen = (attempts) => {
+            const estimates = window._estimates || [];
+            if (estimates.length > 0 || attempts >= 10) {
+              if (typeof viewEstimate === 'function') viewEstimate(estParam);
+            } else {
+              setTimeout(() => tryReopen(attempts + 1), 300);
+            }
+          };
+          tryReopen(0);
+        } else {
+          startNewEstimateOriginal();
+          // Pre-fill address from lead if leadParam provided
+          if (leadParam && window._leads) {
+            const lead = window._leads.find(l => l.id === leadParam);
+            if (lead) {
+              const addrEl = document.getElementById('estAddr');
+              const ownerEl = document.getElementById('estOwner');
+              if (addrEl && lead.address) addrEl.value = lead.address;
+              if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
+              // Store linked leadId so saveEstimate can attach it
+              window._estLinkedLeadId = leadParam;
+              updateEstCalc();
+              const note = document.getElementById('drawImportNote');
+              if (note) { note.textContent = '✓ Pre-filled from customer record — estimate will auto-link on save'; note.style.display='block'; }
+            }
           }
         }
         window.history.replaceState({}, '', '/pro/dashboard.html');
@@ -1072,10 +1109,20 @@
 
   window._saveEstimate = async (data) => {
     try {
-      const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
-      await loadEstimates();
-      return ref2.id;
-    } catch(e) { return null; }
+      const editId = window._editingEstimateId;
+      if (editId) {
+        // Update existing estimate
+        await updateDoc(doc(db,'estimates',editId), {...data, updatedAt:serverTimestamp()});
+        window._editingEstimateId = null;
+        await loadEstimates();
+        return editId;
+      } else {
+        // Create new estimate
+        const ref2 = await addDoc(collection(db,'estimates'), {...data, createdAt:serverTimestamp(), userId:window._user?.uid});
+        await loadEstimates();
+        return ref2.id;
+      }
+    } catch(e) { console.error('Save estimate error:', e); return null; }
   };
 
   // ── PINS ───────────────────────────────────────
@@ -1531,6 +1578,34 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
   border-radius:4px;
   padding:3px 8px;
 }
+/* How-To Guide Items */
+.howto-item{
+  padding:10px 0;
+  border-bottom:1px solid var(--br);
+}
+.howto-item:last-child{border-bottom:none;}
+.howto-q{
+  font-weight:600;
+  font-size:13px;
+  color:var(--orange);
+  margin-bottom:5px;
+}
+.howto-a{
+  font-size:12px;
+  color:var(--t);
+  line-height:1.5;
+}
+.howto-a kbd{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;
+  font-weight:600;
+  color:var(--t);
+  background:var(--s2);
+  border:1px solid var(--br);
+  border-radius:3px;
+  padding:2px 6px;
+}
+.sc-tab:hover{color:var(--t) !important;}
 
 /* KEYBOARD HINT BADGES */
 .kbd-hint{
@@ -2995,20 +3070,99 @@ body {
 }
 
 /* ── CRM SECONDARY HEADER TABS ── */
+.crm-secondary-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: var(--s2, #1a1d23);
+  border-bottom: 1px solid var(--br, #2a2d35);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: transform .25s ease, opacity .25s ease;
+}
+.crm-secondary-header.hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
 .crm-sec-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--m, #8b8e96);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  letter-spacing: .04em;
+  transition: all .2s;
   position: relative;
   overflow: hidden;
+}
+.crm-sec-btn:hover {
+  color: var(--t, #e5e7eb);
+  background: rgba(200,84,26,.08);
+}
+.crm-sec-btn.active {
+  color: var(--orange, #C8541A);
+  background: rgba(200,84,26,.12);
 }
 .crm-sec-btn::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 100%, var(--og) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 100%, var(--og, rgba(200,84,26,.3)) 0%, transparent 70%);
   opacity: 0;
   transition: opacity .3s;
 }
 .crm-sec-btn:hover::before { opacity: 1; }
 .crm-sec-btn.active::before { opacity: 1; }
+.crm-sec-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+.crm-sec-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.crm-sec-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+.crm-sec-restore {
+  display: none;
+  text-align: center;
+  padding: 4px 0;
+  background: var(--s2, #1a1d23);
+  border-bottom: 1px solid var(--br, #2a2d35);
+  color: var(--m, #8b8e96);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: .05em;
+  transition: background .2s;
+}
+.crm-sec-restore:hover {
+  background: rgba(200,84,26,.08);
+  color: var(--orange, #C8541A);
+}
 
 /* ── TOGGLE SWITCH UPGRADE ── */
 .toggle-switch input:checked + .toggle-slider {
@@ -3993,6 +4147,263 @@ body.theme-frosted {
 .nbd-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px); background: #1e2530; border: 1px solid #2a3040; border-radius: 8px; padding: 9px 18px; font-family: 'DM Mono', monospace; font-size: 11px; color: #e8eaf0; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 9999; }
 .nbd-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ══ DOOR-TO-DOOR TRACKER ══════════════════════════════════════════════ */
+#view-d2d { display:none; flex-direction:column; height:100%; }
+#view-d2d.active { display:flex; }
+#d2dMap { background:var(--bg); border-bottom:2px solid var(--br); }
+.d2d-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:flex-end; justify-content:center; opacity:0; transition:opacity .2s ease; pointer-events:none; }
+.d2d-modal-overlay.open { opacity:1; pointer-events:auto; }
+.d2d-modal { background:var(--s); border-radius:20px 20px 0 0; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:20px; transform:translateY(100%); transition:transform .25s cubic-bezier(.32,.72,0,1); }
+.d2d-modal-overlay.open .d2d-modal { transform:translateY(0); }
+.d2d-modal-hdr { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+.d2d-modal-title { font-size:17px; font-weight:800; color:var(--t); font-family:'Barlow Condensed',sans-serif; letter-spacing:.02em; }
+.d2d-modal-close { background:none; border:none; color:var(--m); font-size:26px; cursor:pointer; padding:0 4px; line-height:1; }
+.d2d-dispo-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:12px 0; }
+.d2d-dispo-btn { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border-radius:10px; border:2px solid var(--br); background:var(--s2); cursor:pointer; transition:all .15s; }
+.d2d-dispo-btn:hover { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 10%, var(--s2)); }
+.d2d-dispo-btn.selected { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 20%, var(--s2)); box-shadow:0 0 12px color-mix(in srgb, var(--dc) 30%, transparent); }
+.d2d-dispo-icon { font-size:20px; }
+.d2d-dispo-label { font-size:10px; font-weight:700; color:var(--t); text-align:center; line-height:1.2; font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+.d2d-input { width:100%; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; color:var(--t); font-size:13px; font-family:'Barlow',sans-serif; outline:none; box-sizing:border-box; }
+.d2d-input:focus { border-color:var(--orange); }
+.d2d-textarea { resize:vertical; min-height:48px; }
+.d2d-field { margin-bottom:10px; }
+.d2d-field-row { display:flex; gap:8px; }
+.d2d-save-btn { width:100%; padding:14px; border:none; border-radius:10px; background:var(--br); color:#fff; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; letter-spacing:.04em; cursor:pointer; transition:all .15s; margin-top:10px; text-transform:uppercase; }
+.d2d-save-btn:not(:disabled):hover { filter:brightness(1.1); }
+.d2d-save-btn:disabled { opacity:.5; cursor:not-allowed; }
+.d2d-details { margin:8px 0; border:1px solid var(--br); border-radius:8px; overflow:hidden; }
+.d2d-details-summary, .d2d-details > summary { padding:10px 14px; cursor:pointer; font-size:12px; font-weight:600; color:var(--m); background:var(--s2); list-style:none; }
+.d2d-details-summary::-webkit-details-marker, .d2d-details > summary::-webkit-details-marker { display:none; }
+.d2d-extras-body { padding:12px; }
+.d2d-revenue-banner { background:linear-gradient(135deg, #C8541A 0%, #E8721F 100%); border-radius:12px; padding:16px 20px; margin-bottom:14px; text-align:center; }
+.d2d-revenue-amount { font-size:28px; font-weight:900; color:#fff; font-family:'Barlow Condensed',sans-serif; }
+.d2d-revenue-label { font-size:12px; color:rgba(255,255,255,.85); font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.08em; }
+.d2d-funnel { display:flex; align-items:center; gap:0; margin:14px 0; overflow:hidden; border-radius:8px; }
+.d2d-funnel-step { padding:8px 4px; text-align:center; transition:all .2s; min-width:0; }
+.d2d-funnel-count { font-size:16px; font-weight:900; color:#fff; font-family:'Barlow Condensed',sans-serif; }
+.d2d-funnel-label { font-size:9px; color:rgba(255,255,255,.8); font-weight:600; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.d2d-action-bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; padding-top:14px; }
+.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+.d2d-big-btn:hover { filter:brightness(1.1); }
+.d2d-big-btn-sec { background:var(--s2); color:var(--t); border:1px solid var(--br); }
+.d2d-big-btn-sec:hover { background:var(--br); }
+.d2d-streak { text-align:center; margin-left:auto; padding:6px 12px; background:var(--s2); border-radius:10px; border:1px solid var(--br); }
+.d2d-streak-num { font-size:22px; font-weight:900; color:var(--orange); font-family:'Barlow Condensed',sans-serif; line-height:1; }
+.d2d-streak-lbl { font-size:9px; color:var(--m); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+.d2d-followups-banner { background:color-mix(in srgb, var(--gold) 12%, var(--s2)); border:1px solid color-mix(in srgb, var(--gold) 30%, var(--br)); border-radius:10px; padding:12px; margin-bottom:14px; }
+.d2d-followups-title { font-size:13px; font-weight:700; color:var(--gold); margin-bottom:8px; }
+.d2d-followups-list { display:flex; flex-direction:column; gap:4px; }
+.d2d-followup-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; cursor:pointer; transition:background .15s; }
+.d2d-followup-item:hover { background:rgba(255,255,255,.05); }
+.d2d-metrics-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px; }
+.d2d-metric-card { background:var(--s2); border:1px solid var(--br); border-radius:10px; padding:12px 10px; text-align:center; }
+.d2d-metric-val { font-size:22px; font-weight:900; color:var(--t); font-family:'Barlow Condensed',sans-serif; line-height:1.1; }
+.d2d-metric-lbl { font-size:10px; color:var(--m); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-top:3px; }
+.d2d-leaderboard { background:var(--s2); border:1px solid var(--br); border-radius:10px; padding:12px; margin-bottom:14px; }
+.d2d-lb-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--m); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+.d2d-lb-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--br); }
+.d2d-lb-row:last-child { border-bottom:none; }
+.d2d-lb-rank { font-size:14px; font-weight:900; color:var(--orange); width:24px; text-align:center; font-family:'Barlow Condensed',sans-serif; }
+.d2d-lb-avatar { width:28px; height:28px; border-radius:50%; background:var(--br); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--t); }
+.d2d-lb-name { flex:1; font-size:12px; font-weight:600; color:var(--t); }
+.d2d-lb-stat { font-size:13px; font-weight:800; color:var(--green); font-family:'Barlow Condensed',sans-serif; }
+.d2d-dispo-bar-wrap { margin-bottom:14px; }
+.d2d-dispo-bar-header { display:flex; justify-content:space-between; margin-bottom:6px; }
+.d2d-dispo-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--br); }
+.d2d-dispo-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.d2d-legend-item { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--m); font-weight:600; }
+.d2d-feed-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+.d2d-date-pills { display:flex; gap:4px; }
+.d2d-pill { padding:5px 12px; border-radius:20px; border:1px solid var(--br); background:var(--s2); color:var(--m); font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+.d2d-pill.active { background:var(--orange); color:#fff; border-color:var(--orange); }
+.d2d-select { padding:5px 10px; background:var(--s2); border:1px solid var(--br); border-radius:8px; color:var(--t); font-size:11px; cursor:pointer; }
+.d2d-knock-feed { display:flex; flex-direction:column; gap:4px; }
+.d2d-knock-card { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; transition:all .15s; }
+.d2d-knock-card:hover { border-color:var(--orange); }
+.d2d-knock-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.d2d-knock-body { flex:1; min-width:0; }
+.d2d-knock-addr { font-size:13px; font-weight:700; color:var(--t); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.d2d-knock-meta { font-size:11px; color:var(--m); margin-top:1px; }
+.d2d-knock-time { font-size:11px; color:var(--m); white-space:nowrap; flex-shrink:0; }
+.d2d-knock-attempt { font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; background:var(--br); color:var(--t); font-family:'Barlow Condensed',sans-serif; white-space:nowrap; flex-shrink:0; }
+.d2d-knock-attempt.warning { background:color-mix(in srgb, var(--red) 20%, var(--s2)); color:var(--red); }
+.d2d-action-btn { display:inline-flex; align-items:center; gap:4px; padding:8px 14px; border:none; border-radius:6px; color:#fff; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; font-family:'Barlow Condensed',sans-serif; }
+.d2d-action-btn:hover { filter:brightness(1.15); }
+.d2d-empty { text-align:center; padding:40px 20px; }
+.d2d-center-btn { position:absolute; bottom:16px; right:16px; z-index:1000; width:40px; height:40px; border-radius:50%; background:var(--s); border:2px solid var(--br); color:var(--t); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); transition:all .15s; }
+.d2d-center-btn:hover { background:var(--orange); color:#fff; border-color:var(--orange); }
+.d2d-team-toggle { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; font-size:11px; color:var(--m); font-weight:600; transition:all .15s; }
+.d2d-team-toggle.active { background:color-mix(in srgb, var(--blue) 20%, var(--s2)); border-color:var(--blue); color:var(--blue); }
+.d2d-location-pulse { width:16px; height:16px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 0 0 0 rgba(74,158,255,.4); animation:d2dPulse 2s infinite; }
+@keyframes d2dPulse { 0%{box-shadow:0 0 0 0 rgba(74,158,255,.4)} 70%{box-shadow:0 0 0 16px rgba(74,158,255,0)} 100%{box-shadow:0 0 0 0 rgba(74,158,255,0)} }
+@media(max-width:768px) {
+  #d2dMap { height:45vh; min-height:250px; }
+  .d2d-modal { border-radius:16px 16px 0 0; padding:16px; }
+  .d2d-dispo-grid { grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .d2d-dispo-btn { padding:8px 4px; }
+  .d2d-dispo-icon { font-size:16px; }
+  .d2d-dispo-label { font-size:9px; }
+  .d2d-metrics-grid { grid-template-columns:repeat(2, 1fr); }
+  .d2d-action-bar { flex-wrap:wrap; }
+  .d2d-funnel-label { font-size:8px; }
+  .d2d-revenue-amount { font-size:24px; }
+}
+
+/* ════ SALES TRAINING ════════════════════════════════ */
+.training-menu { padding: 20px; }
+.tm-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.tm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--t); }
+.tm-sub { font-size: 13px; color: var(--m); margin-top: 4px; }
+.tm-section-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--m); margin: 24px 0 12px; padding: 0 4px; }
+.training-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.training-card { background: var(--s2); border: 1px solid var(--br); border-radius: 10px; padding: 18px; cursor: pointer; transition: all .2s; }
+.training-card:hover { border-color: var(--orange); box-shadow: 0 4px 16px rgba(200,84,26,.12); transform: translateY(-2px); }
+.tc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.tc-icon { font-size: 28px; }
+.tc-diff { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.tc-title { font-size: 16px; font-weight: 700; color: var(--t); margin-bottom: 4px; }
+.tc-sub { font-size: 12px; color: var(--m); margin-bottom: 10px; line-height: 1.4; }
+.tc-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--m); }
+.tc-best { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+.tc-attempts { font-size: 11px; color: var(--m); }
+.tc-new { font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
+
+/* Rapid Fire Banner */
+.rapid-banner { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid #4A9EFF30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
+.rapid-banner:hover { border-color: #4A9EFF; box-shadow: 0 4px 20px rgba(74,158,255,.2); }
+.rb-left { display: flex; align-items: center; gap: 14px; }
+.rb-icon { font-size: 32px; }
+.rb-title { font-size: 16px; font-weight: 700; color: #fff; }
+.rb-sub { font-size: 12px; color: #8b9bb4; margin-top: 2px; }
+.rb-right { text-align: right; }
+.rb-best { font-size: 12px; color: #4A9EFF; font-weight: 600; }
+.rb-new { color: #2ECC8A; font-size: 14px; font-weight: 800; letter-spacing: .1em; }
+.rb-arrow { font-size: 22px; color: #4A9EFF; margin-top: 4px; }
+
+/* Stats Row */
+.tm-stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.tm-stat { background: var(--s2); border: 1px solid var(--br); border-radius: 8px; padding: 14px; text-align: center; }
+.tm-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 800; color: var(--orange); }
+.tm-stat-lbl { font-size: 10px; color: var(--m); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+
+/* Scenario View */
+.scenario-view { padding: 20px; max-width: 720px; margin: 0 auto; }
+.sv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.sv-title { font-size: 14px; font-weight: 700; color: var(--t); }
+.sv-progress { font-size: 11px; color: var(--m); font-weight: 600; }
+.sv-prompt { background: var(--s2); border: 1px solid var(--br); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+.sv-prompt-text { font-size: 14px; line-height: 1.7; color: var(--t); white-space: pre-line; }
+.sv-options-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--m); margin-bottom: 12px; }
+.sv-options { display: flex; flex-direction: column; gap: 10px; }
+.sv-option { display: flex; gap: 14px; align-items: flex-start; background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 16px; cursor: pointer; transition: all .2s; }
+.sv-option:hover { border-color: var(--orange); background: var(--orange)08; }
+.sv-opt-letter { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.sv-opt-text { font-size: 13px; line-height: 1.6; color: var(--t); }
+
+/* Feedback */
+.fb-card { border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.fb-optimal { background: #10b98118; border: 1px solid #10b98140; }
+.fb-decent { background: #F59E0B18; border: 1px solid #F59E0B40; }
+.fb-poor { background: #EF444418; border: 1px solid #EF444440; }
+.fb-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.fb-emoji { font-size: 24px; }
+.fb-score-label { font-size: 14px; font-weight: 700; color: var(--t); flex: 1; }
+.fb-pts { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; color: var(--orange); }
+.fb-text { font-size: 13px; line-height: 1.7; color: var(--t); }
+.fb-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.fb-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+.fb-better { background: var(--s2); border: 1px solid var(--br); border-radius: 8px; padding: 14px; }
+.fb-better-label { font-size: 11px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
+.fb-better-text { font-size: 12px; color: var(--m); line-height: 1.6; font-style: italic; }
+
+/* Results View */
+.results-view { padding: 20px; max-width: 720px; margin: 0 auto; }
+.rv-header { text-align: center; margin-bottom: 20px; }
+.rv-outcome { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 10px 20px; border-radius: 8px; display: inline-block; }
+.rv-win { background: #10b98118; color: #10b981; border: 1px solid #10b98140; }
+.rv-partial { background: #F59E0B18; color: #F59E0B; border: 1px solid #F59E0B40; }
+.rv-loss { background: #EF444418; color: #EF4444; border: 1px solid #EF444440; }
+.rv-scenario { font-size: 14px; color: var(--m); margin-top: 8px; }
+.rv-terminal { background: var(--s2); border: 1px solid var(--br); border-radius: 10px; padding: 18px; margin-bottom: 20px; font-size: 13px; line-height: 1.7; color: var(--t); white-space: pre-line; }
+.rv-score-card { text-align: center; background: var(--s2); border: 1px solid var(--br); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+.rv-stars { margin-bottom: 8px; }
+.rv-score { font-family: 'Barlow Condensed', sans-serif; font-size: 48px; font-weight: 800; color: var(--orange); }
+.rv-score-detail { font-size: 12px; color: var(--m); }
+.rv-skills-label, .rv-path-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--m); margin: 20px 0 10px; }
+.rv-skills { display: flex; flex-direction: column; gap: 8px; }
+.rv-skill-row { display: flex; align-items: center; gap: 10px; }
+.rv-skill-label { font-size: 12px; color: var(--t); width: 140px; flex-shrink: 0; }
+.rv-skill-bar { flex: 1; height: 8px; background: var(--br); border-radius: 4px; overflow: hidden; }
+.rv-skill-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+.rv-skill-val { font-size: 12px; font-weight: 700; color: var(--m); width: 32px; text-align: right; }
+.rv-path { display: flex; flex-direction: column; gap: 8px; }
+.rv-step { display: flex; gap: 10px; padding: 10px; border-radius: 8px; }
+.rv-step-opt { background: #10b98110; border: 1px solid #10b98130; }
+.rv-step-sub { background: var(--s2); border: 1px solid var(--br); }
+.rv-step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--br); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--m); flex-shrink: 0; }
+.rv-step-body { flex: 1; }
+.rv-step-choice { font-size: 12px; color: var(--t); line-height: 1.5; }
+.rv-step-score { font-size: 11px; font-weight: 700; color: var(--orange); margin-top: 4px; }
+.rv-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+/* Rapid Fire View */
+.rapid-view { padding: 20px; max-width: 720px; margin: 0 auto; }
+.rapid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.rapid-stats-bar { display: flex; gap: 14px; }
+.rs-item { font-size: 12px; font-weight: 600; color: var(--m); }
+.rapid-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
+.rapid-context { font-size: 11px; color: #8b9bb4; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.rapid-objection { font-size: 22px; font-weight: 700; color: #fff; line-height: 1.4; }
+.rapid-options { display: flex; flex-direction: column; gap: 8px; }
+.rapid-opt { background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all .15s; }
+.rapid-opt:hover { border-color: var(--blue); }
+.rapid-opt-correct { border-color: #10b981 !important; background: #10b98112 !important; }
+.rapid-opt-wrong { border-color: #EF4444 !important; background: #EF444412 !important; }
+.rapid-opt-text { font-size: 13px; line-height: 1.5; color: var(--t); }
+.rapid-opt-score { font-size: 12px; font-weight: 700; color: var(--orange); margin-top: 6px; }
+.rapid-opt-explain { font-size: 11px; color: var(--m); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--br); line-height: 1.5; }
+
+/* Profile View */
+.profile-view { padding: 20px; max-width: 720px; margin: 0 auto; }
+.pv-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.pv-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800; color: var(--t); }
+.pv-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.pv-stat { background: var(--s2); border: 1px solid var(--br); border-radius: 8px; padding: 14px; text-align: center; }
+.pv-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--orange); }
+.pv-stat-lbl { font-size: 10px; color: var(--m); text-transform: uppercase; letter-spacing: .06em; }
+.pv-section-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--m); margin: 20px 0 10px; }
+.pv-skills { display: flex; flex-direction: column; gap: 10px; }
+.pv-skill-row { display: flex; align-items: center; gap: 10px; }
+.pv-skill-info { display: flex; align-items: center; gap: 6px; width: 180px; flex-shrink: 0; }
+.pv-skill-icon { font-size: 16px; }
+.pv-skill-name { font-size: 12px; font-weight: 600; color: var(--t); }
+.pv-skill-count { font-size: 10px; color: var(--m); }
+.pv-skill-bar { flex: 1; height: 10px; background: var(--br); border-radius: 5px; overflow: hidden; }
+.pv-skill-fill { height: 100%; border-radius: 5px; transition: width .4s; }
+.pv-skill-val { font-size: 13px; font-weight: 700; color: var(--m); width: 32px; text-align: right; }
+.pv-history { display: flex; flex-direction: column; gap: 6px; }
+.pv-session { display: flex; align-items: center; gap: 12px; background: var(--s2); border: 1px solid var(--br); border-radius: 8px; padding: 12px; }
+.pv-session-icon { font-size: 20px; }
+.pv-session-info { flex: 1; }
+.pv-session-title { font-size: 13px; font-weight: 600; color: var(--t); }
+.pv-session-meta { font-size: 11px; color: var(--m); }
+.pv-session-score { text-align: right; }
+.pv-session-pct { font-size: 13px; font-weight: 700; color: var(--orange); }
+.pv-empty { text-align: center; padding: 40px; color: var(--m); font-size: 13px; }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .training-grid { grid-template-columns: 1fr; }
+  .rapid-banner { flex-direction: column; gap: 12px; text-align: center; }
+  .rb-left { flex-direction: column; }
+  .pv-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .pv-skill-info { width: 120px; }
+  .rv-skill-label { width: 100px; font-size: 11px; }
+  .tm-stats-row { grid-template-columns: repeat(2, 1fr); }
+  .sv-option { padding: 12px; }
+}
+
 </style>
 
 <style id="crm-var-bridge">
@@ -4445,14 +4856,20 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="shortcuts-modal">
     <div class="shortcuts-header">
       <div>
-        <div class="shortcuts-title">Keyboard Shortcuts</div>
-        <div class="shortcuts-subtitle">Power user productivity toolkit</div>
+        <div class="shortcuts-title">Keyboard Shortcuts & Quick Guide</div>
+        <div class="shortcuts-subtitle">Master the NBD CRM in seconds</div>
       </div>
       <button class="shortcuts-close" onclick="closeShortcutsPanel()">✕</button>
     </div>
+    <!-- Tab Bar -->
+    <div class="sc-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--br);padding:0 20px;">
+      <button class="sc-tab active" onclick="switchScTab('shortcuts',this)" style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--t);cursor:pointer;border-bottom:2px solid var(--orange);margin-bottom:-2px;">Shortcuts</button>
+      <button class="sc-tab" onclick="switchScTab('howto',this)" style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--m);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;">How-To Guide</button>
+    </div>
     <div class="shortcuts-body">
-      <div class="shortcuts-grid">
-        
+      <!-- ═══ SHORTCUTS TAB ═══ -->
+      <div id="scTabShortcuts" class="shortcuts-grid">
+
         <!-- NAVIGATION -->
         <div class="shortcuts-section">
           <div class="shortcuts-section-title">Navigation</div>
@@ -4462,11 +4879,11 @@ window.nbdNavToggle = nbdNavToggle;
           </div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>?</kbd></div>
-            <div class="shortcuts-desc">Show keyboard shortcuts</div>
+            <div class="shortcuts-desc">Show this shortcuts guide</div>
           </div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>Esc</kbd></div>
-            <div class="shortcuts-desc">Close modal / Cancel</div>
+            <div class="shortcuts-desc">Close any modal / overlay</div>
           </div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>/</kbd></div>
@@ -4478,12 +4895,12 @@ window.nbdNavToggle = nbdNavToggle;
         <div class="shortcuts-section">
           <div class="shortcuts-section-title">Quick Actions</div>
           <div class="shortcuts-item">
-            <div class="shortcuts-keys"><kbd>C</kbd></div>
+            <div class="shortcuts-keys"><kbd>C</kbd> or <kbd>N</kbd></div>
             <div class="shortcuts-desc">Create new lead</div>
           </div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>E</kbd></div>
-            <div class="shortcuts-desc">Create new estimate</div>
+            <div class="shortcuts-desc">Start new estimate</div>
           </div>
         </div>
 
@@ -4520,19 +4937,187 @@ window.nbdNavToggle = nbdNavToggle;
           </div>
         </div>
 
-        <!-- TOOLS -->
+        <!-- TOOLS & INPUTS -->
         <div class="shortcuts-section">
-          <div class="shortcuts-section-title">Tools</div>
+          <div class="shortcuts-section-title">Tools & Inputs</div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>↑</kbd> <kbd>↓</kbd></div>
-            <div class="shortcuts-desc">Navigate results</div>
+            <div class="shortcuts-desc">Navigate dropdowns / results</div>
           </div>
           <div class="shortcuts-item">
             <div class="shortcuts-keys"><kbd>↵</kbd></div>
-            <div class="shortcuts-desc">Select / Execute</div>
+            <div class="shortcuts-desc">Select item / Execute</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Enter</kbd></div>
+            <div class="shortcuts-desc">Send Joe AI message</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Shift</kbd> + <kbd>↵</kbd></div>
+            <div class="shortcuts-desc">New line in Joe AI</div>
           </div>
         </div>
 
+        <!-- PHOTO VIEWER -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Photo Lightbox</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>←</kbd></div>
+            <div class="shortcuts-desc">Previous photo</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>→</kbd></div>
+            <div class="shortcuts-desc">Next photo</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Esc</kbd></div>
+            <div class="shortcuts-desc">Close lightbox</div>
+          </div>
+        </div>
+
+        <!-- DAILY SUCCESS -->
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Daily Success Journal</div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Cmd</kbd> + <kbd>S</kbd></div>
+            <div class="shortcuts-desc">Save current page</div>
+          </div>
+          <div class="shortcuts-item">
+            <div class="shortcuts-keys"><kbd>Cmd</kbd> + <kbd>F</kbd></div>
+            <div class="shortcuts-desc">Toggle search</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ HOW-TO TAB ═══ -->
+      <div id="scTabHowto" style="display:none;">
+        <div class="shortcuts-grid">
+
+          <!-- CRM BASICS -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">CRM Basics</div>
+            <div class="howto-item">
+              <div class="howto-q">Add a new lead?</div>
+              <div class="howto-a">Press <kbd>C</kbd> or click the + button. Fill name, phone, and address. Assign a pipeline stage.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Move leads between stages?</div>
+              <div class="howto-a">Click a lead card, then use the stage dropdown or drag between kanban columns on desktop.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Search for a lead?</div>
+              <div class="howto-a">Press <kbd>/</kbd> to focus the search bar. Type a name, phone, or address.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Use the command palette?</div>
+              <div class="howto-a">Press <kbd>Cmd+K</kbd> (or <kbd>Ctrl+K</kbd>). Type any action like "new lead", "estimates", "training", or a page name.</div>
+            </div>
+          </div>
+
+          <!-- ESTIMATES -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Estimates</div>
+            <div class="howto-item">
+              <div class="howto-q">Create an estimate?</div>
+              <div class="howto-a">Press <kbd>E</kbd> or navigate to Estimates. Use the 3-step builder: Measurements, Products, Review.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Edit a saved estimate?</div>
+              <div class="howto-a">Open the lead's customer page and click "Edit" on an existing estimate, or find it in the estimates list.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Send an estimate to a customer?</div>
+              <div class="howto-a">In the estimate review step, click "Send to Customer" to email a branded PDF link.</div>
+            </div>
+          </div>
+
+          <!-- D2D TRACKER -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Door-to-Door Tracker</div>
+            <div class="howto-item">
+              <div class="howto-q">Log a door knock?</div>
+              <div class="howto-a">Go to Door-to-Door, tap "New Knock". Enter address, pick a disposition (Interested, Not Home, etc.), add contact info if needed.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Convert a knock to a lead?</div>
+              <div class="howto-a">Tap any knock card, then click "Convert to Lead". The contact info auto-populates into your CRM.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Use the heat map?</div>
+              <div class="howto-a">Toggle the Heat button in the action bar. Hot zones show where you've had the most knocks.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Send a follow-up text?</div>
+              <div class="howto-a">Open a knock with a phone number, tap "Send SMS". A pre-written template opens in your messages app.</div>
+            </div>
+          </div>
+
+          <!-- MAPS & DRAW -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Maps & Drawing Tool</div>
+            <div class="howto-item">
+              <div class="howto-q">Find my current location?</div>
+              <div class="howto-a">Click the "My Location" button in the map sidebar to center the map on your GPS position.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Measure a roof with the draw tool?</div>
+              <div class="howto-a">Go to Draw Tool, search an address, then click to place measurement points on the satellite view. The area auto-calculates.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Use the Spyglass?</div>
+              <div class="howto-a">Navigate to Maps > Spyglass to search neighborhoods and see an aerial view with property details.</div>
+            </div>
+          </div>
+
+          <!-- SALES TRAINING -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Sales Training</div>
+            <div class="howto-item">
+              <div class="howto-q">Use Pitch Perfector?</div>
+              <div class="howto-a">Go to Sales Training, pick a scenario. You'll face branching decisions with real sales situations. Each choice is scored on 6 skills.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Use Objection Obliterator?</div>
+              <div class="howto-a">Rapid-fire mode. You get 15 real objections with 4 response options each. Beat the clock and sharpen your rebuttals.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">View my training profile?</div>
+              <div class="howto-a">After completing scenarios, click "View Profile" to see your skill radar across empathy, technical, closing, and more.</div>
+            </div>
+          </div>
+
+          <!-- JOE AI -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Joe AI Assistant</div>
+            <div class="howto-item">
+              <div class="howto-q">Ask Joe a question?</div>
+              <div class="howto-a">Open the Joe AI panel, type your question, press <kbd>Enter</kbd> to send. Use <kbd>Shift+Enter</kbd> for multi-line.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Start a fresh chat?</div>
+              <div class="howto-a">Click "New Chat" in the Joe AI header. Previous conversations auto-clear between browser sessions.</div>
+            </div>
+          </div>
+
+          <!-- PRODUCTS & TEMPLATES -->
+          <div class="shortcuts-section">
+            <div class="shortcuts-section-title">Products & Templates</div>
+            <div class="howto-item">
+              <div class="howto-q">Add products to my library?</div>
+              <div class="howto-a">Go to Products, click "+ Add Product". Set name, category, Good/Better/Best pricing tiers, and unit.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Filter products by tier?</div>
+              <div class="howto-a">Use the Good / Better / Best buttons at the top of the products page to highlight pricing for that tier.</div>
+            </div>
+            <div class="howto-item">
+              <div class="howto-q">Collapse product categories?</div>
+              <div class="howto-a">Click any category header to collapse or expand that section. Great for focusing on what you need.</div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
     <div class="shortcuts-footer">
@@ -4540,6 +5125,20 @@ window.nbdNavToggle = nbdNavToggle;
     </div>
   </div>
 </div>
+<script>
+function switchScTab(tab, btn) {
+  document.getElementById('scTabShortcuts').style.display = tab === 'shortcuts' ? '' : 'none';
+  document.getElementById('scTabHowto').style.display = tab === 'howto' ? '' : 'none';
+  document.querySelectorAll('.sc-tab').forEach(b => {
+    b.classList.remove('active');
+    b.style.color = 'var(--m)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  btn.classList.add('active');
+  btn.style.color = 'var(--t)';
+  btn.style.borderBottomColor = 'var(--orange)';
+}
+</script>
 
 <div class="app-body">
 
@@ -4560,11 +5159,13 @@ window.nbdNavToggle = nbdNavToggle;
       <span class="nav-section-toggle open" id="toggle-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-tools">
+      <div class="ni" onclick="goTo('d2d')" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
       <div class="ni" onclick="goTo('map')" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
       <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
       <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
       <div class="ni" onclick="goTo('products')" id="nav-products"><span class="ni-icon">📦</span>Products</div>
       <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
+      <div class="ni" onclick="goTo('training')" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
     </div>
   </div>
 
@@ -4578,6 +5179,8 @@ window.nbdNavToggle = nbdNavToggle;
       <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
       <div class="ni" onclick="window.open('/pro/daily-success/','_blank')" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
+      <div class="ni" onclick="goTo('closeboard')" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
+      <div class="ni" onclick="goTo('repos')" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
     </div>
   </div>
 
@@ -4856,6 +5459,7 @@ window.nbdNavToggle = nbdNavToggle;
           </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchDraw()">Go</button>
         </div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="goToMyLocation()" id="myLocBtn">📍 My Location</button>
         <!-- DRAW MODE SELECTOR -->
         <div class="slabel2">Draw Mode</div>
         <div class="draw-mode-row">
@@ -5187,31 +5791,31 @@ window.nbdNavToggle = nbdNavToggle;
     </div>
 
     <!-- SECONDARY TOOLBAR (auto-hides on scroll) -->
-    <div class="crm-secondary-header" id="crmSecondaryHeader">
-      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span>
-        <span class="crm-sec-label">Estimates</span>
+    <div class="crm-secondary-header" id="crmSecondaryHeader" style="display:flex;align-items:center;gap:2px;padding:6px 12px;background:var(--s2,#1a1d23);border-bottom:1px solid var(--br,#2a2d35);position:sticky;top:0;z-index:50;">
+      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Estimates</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></span>
-        <span class="crm-sec-label">Photos</span>
+      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Photos</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></span>
-        <span class="crm-sec-label">Documents</span>
+      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Documents</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg></span>
-        <span class="crm-sec-label">Map</span>
+      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Map</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
-        <span class="crm-sec-label">Drawing Tool</span>
+      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Drawing Tool</span>
       </button>
       <div style="flex:1;"></div>
-      <button class="crm-sec-btn" onclick="goTo('home')" title="Back to dashboard">
-        <span class="crm-sec-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
-        <span class="crm-sec-label">Dashboard</span>
+      <button class="crm-sec-btn" onclick="goTo('dash')" title="Back to dashboard" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Dashboard</span>
       </button>
     </div>
 
@@ -5312,23 +5916,17 @@ window.nbdNavToggle = nbdNavToggle;
 
   <!-- ══ STORM MAP ══ -->
   <div class="view" id="view-storm">
-    <div class="map-view active" style="flex:1;">
-      <div class="map-sidebar" id="map-sidebar-storm">
-        <!-- BREADCRUMB -->
-        <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
-          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
-        </div>
+    <div class="view-scroll"></div>
+  </div>
 
-        <div class="slabel2">Live NOAA Alerts</div>
-        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadStorm()">↻ Refresh Alerts</button>
-        <div id="alertsList"><div style="font-size:11px;color:var(--m);">Click Refresh to load live Ohio alerts.</div></div>
-      </div>
-      <div class="map-area">
-        <div id="stormMap"></div>
-        <div class="map-badge">⛈️ STORM INTEL</div>
-        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-storm')">☰ Storm Tools</button>
-      </div>
-    </div>
+  <!-- ══ CLOSE BOARD ══ -->
+  <div class="view" id="view-closeboard">
+    <div class="view-scroll"></div>
+  </div>
+
+  <!-- ══ REP OS ══ -->
+  <div class="view" id="view-repos">
+    <div class="view-scroll"></div>
   </div>
 
   <!-- ══ TEMPLATES ══ -->
@@ -5510,6 +6108,7 @@ window.nbdNavToggle = nbdNavToggle;
         <div class="joe-status-dot"></div>
         ONLINE
       </div>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="clearJoeChat()">🗑️ New Chat</button>
     </div>
 
     <!-- Context bar (populated by JS) -->
@@ -5589,6 +6188,7 @@ window.nbdNavToggle = nbdNavToggle;
         <button class="stab-btn" onclick="switchSettingsTab('company')" id="stab-company">🏢 Company</button>
         <button class="stab-btn" onclick="switchSettingsTab('team')" id="stab-team">👥 Team</button>
         <button class="stab-btn" onclick="switchSettingsTab('access')" id="stab-access">🔐 Access</button>
+        <button class="stab-btn" onclick="switchSettingsTab('help')" id="stab-help">❓ Help</button>
       </div>
 
       <!-- ══ TAB: PROFILE ══ -->
@@ -5815,6 +6415,45 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
       </div><!-- /stab-panel-access -->
 
+      <!-- ══ TAB: HELP ══ -->
+      <div class="stab-panel" id="stab-panel-help" style="display:none;">
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Quick Reference</div><div class="panel-title">Shortcuts & How-To Guide</div></div></div>
+          <div class="panel-body">
+            <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and how-to guide anytime.</p>
+            <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;margin-bottom:16px;">Open Shortcuts & Guide Panel</button>
+            <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open this instantly.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Cheat Sheet</div><div class="panel-title">Essential Shortcuts</div></div></div>
+          <div class="panel-body">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--br);">
+                  <th style="text-align:left;padding:8px 4px;color:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Key</th>
+                  <th style="text-align:left;padding:8px 4px;color:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Action</th>
+                  <th style="text-align:left;padding:8px 4px;color:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Where</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Cmd+K</kbd></td><td style="padding:8px 4px;color:var(--t);">Command palette</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">?</kbd></td><td style="padding:8px 4px;color:var(--t);">Shortcuts & guide</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">C</kbd> / <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">N</kbd></td><td style="padding:8px 4px;color:var(--t);">New lead</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">E</kbd></td><td style="padding:8px 4px;color:var(--t);">New estimate</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">/</kbd></td><td style="padding:8px 4px;color:var(--t);">Focus search</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">1</kbd>-<kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">7</kbd></td><td style="padding:8px 4px;color:var(--t);">Jump to kanban column</td><td style="padding:8px 4px;color:var(--m);">CRM view</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Esc</kbd></td><td style="padding:8px 4px;color:var(--t);">Close modal</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">↑</kbd> <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">↓</kbd></td><td style="padding:8px 4px;color:var(--t);">Navigate results</td><td style="padding:8px 4px;color:var(--m);">Dropdowns</td></tr>
+                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">←</kbd> <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">→</kbd></td><td style="padding:8px 4px;color:var(--t);">Navigate photos</td><td style="padding:8px 4px;color:var(--m);">Lightbox</td></tr>
+                <tr><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Enter</kbd></td><td style="padding:8px 4px;color:var(--t);">Send / Submit / Select</td><td style="padding:8px 4px;color:var(--m);">Forms & AI</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /stab-panel-help -->
+
     </div><!-- /view-scroll -->
   </div><!-- /view-settings -->
 
@@ -5824,6 +6463,21 @@ window.nbdNavToggle = nbdNavToggle;
       <div id="productLibraryContainer">
         <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ DOOR-TO-DOOR TRACKER ══ -->
+  <div class="view" id="view-d2d">
+    <div id="d2dMap" style="width:100%;height:55vh;min-height:300px;position:relative;z-index:1;"></div>
+    <div class="view-scroll" id="d2dContent" style="flex:1;overflow-y:auto;padding:0 16px 80px;">
+      <div class="empty"><div class="empty-icon">🚪</div>Loading Door-to-Door Tracker...</div>
+    </div>
+  </div>
+
+  <!-- ══ SALES TRAINING ══ -->
+  <div class="view" id="view-training">
+    <div class="view-scroll" id="trainingContent">
+      <!-- Rendered by sales-training.js -->
     </div>
   </div>
 
@@ -6313,14 +6967,18 @@ const routeConfig = {
   'dash': { label: 'Dashboard', parent: null },
   'crm': { label: 'Pipeline', parent: null },
   'est': { label: 'Estimates', parent: null },
+  'd2d': { label: 'Door-to-Door', parent: null },
   'map': { label: 'Maps & Pins', parent: null },
   'photos': { label: 'Photos', parent: null },
   'docs': { label: 'Templates', parent: null },
   'draw': { label: 'Drawing', parent: null },
-  'storm': { label: 'Storm Map', parent: null },
+  'storm': { label: 'Storm Center', parent: null },
+  'closeboard': { label: 'Close Board', parent: null },
+  'repos': { label: 'Rep OS', parent: null },
   'joe': { label: 'Ask Joe', parent: null },
   'board': { label: 'Leaderboard', parent: null },
   'products': { label: 'Products', parent: null },
+  'training': { label: 'Sales Training', parent: null },
   'settings': { label: 'Settings', parent: null }
 };
 
@@ -6388,10 +7046,14 @@ function goTo(name, params = {}) {
   // View-specific initialization
   if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ initMainMap();  mapInited.map=true;   }); }
   if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ initDrawMap();  mapInited.draw=true;  }); }
-  if(name==='storm' && !mapInited.storm) { waitForLeaflet(()=>{ initStormMap(); mapInited.storm=true; }); }
+  if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
+  if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
+  if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
   if(name==='board') renderLeaderboard();
   if(name==='photos') renderPhotoLeads();
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
+  if(name==='d2d') { if(window.D2D) window.D2D.init(); }
+  if(name==='training') { if(window.SalesTraining) window.SalesTraining.init(); }
   if(name==='products') {
     const pc = document.getElementById('productLibraryContainer');
     if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
@@ -6542,7 +7204,90 @@ function renderEstimatesList(ests) {
   if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
 }
 
-function viewEstimate(id) { showToast('Re-open estimate — coming soon'); }
+function viewEstimate(id) {
+  const est = (window._estimates || []).find(e => e.id === id);
+  if (!est) { showToast('Estimate not found', 'error'); return; }
+
+  // Show builder, hide list
+  document.getElementById('est-list').style.display = 'none';
+  document.getElementById('est-builder').style.display = 'flex';
+  document.getElementById('est-builder').style.flexDirection = 'column';
+  document.getElementById('drawImportNote').style.display = 'none';
+
+  // Update title to reflect editing
+  const titleEl = document.getElementById('estBuilderTitle');
+  if (titleEl) titleEl.textContent = 'Edit Estimate';
+
+  // Populate Step 1 — Measurements (handle null/0 gracefully)
+  const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = (val != null && val !== '') ? val : ''; };
+  setVal('estAddr', est.addr);
+  setVal('estOwner', est.owner);
+  setVal('estParcel', est.parcel);
+  setVal('estYear', est.yr);
+  setVal('estRawSqft', est.raw);
+  setVal('estRidge', est.ridge != null ? est.ridge : '');
+  setVal('estEave', est.eave != null ? est.eave : '');
+  setVal('estHip', est.hip != null ? est.hip : '');
+  setVal('estPipes', est.pipes || 4);
+
+  // Populate Step 2 — Roof Type, Pitch, Waste
+  setVal('estRoofType', est.roofType);
+
+  // Match pitch to dropdown option value (format: "factor|label" like "1.202|8/12")
+  const pitchSel = document.getElementById('estPitch');
+  if (pitchSel && est.pitch) {
+    const pitchLabel = est.pitch; // e.g. "8/12"
+    for (let i = 0; i < pitchSel.options.length; i++) {
+      if (pitchSel.options[i].value.includes(pitchLabel)) {
+        pitchSel.selectedIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Restore waste factor if saved
+  if (est.wf) {
+    const wasteSel = document.getElementById('estWaste');
+    if (wasteSel) {
+      for (let i = 0; i < wasteSel.options.length; i++) {
+        if (parseFloat(wasteSel.options[i].value) === parseFloat(est.wf)) {
+          wasteSel.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  // Restore linked lead
+  window._estLinkedLeadId = est.leadId || null;
+
+  // Store the Firestore doc ID so we can update instead of creating new
+  window._editingEstimateId = est.id;
+
+  // Reset estData and run calculations
+  estData = {};
+  updateEstCalc();
+  calcTierPrices();
+
+  // Select saved tier
+  selectedTier = est.tier || 'good';
+  document.querySelectorAll('.tier-card').forEach(c => {
+    c.classList.remove('selected');
+    if (c.getAttribute('onclick') && c.getAttribute('onclick').includes("'" + selectedTier + "'")) {
+      c.classList.add('selected');
+    }
+  });
+
+  // Enable the step 3 next button (since tier is pre-selected)
+  const step3Btn = document.getElementById('estStep3Next');
+  if (step3Btn) { step3Btn.disabled = false; step3Btn.style.opacity = '1'; }
+
+  // Build review and jump to Step 4
+  buildReview();
+  showEstStep(4);
+  showToast('Estimate loaded — review and save or edit any step', 'info');
+}
+window.viewEstimate = viewEstimate;
 
 // ══════════════════════════════════════════════
 // CRM — extracted to /pro/js/crm.js
@@ -9066,6 +9811,9 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 
 <!-- More menu panel -->
 <div id="mobile-more-menu">
+  <div class="mm-item" onclick="mobileNav('d2d');closeMobileMore()">
+    <span class="mm-item-icon">🚪</span>Door-to-Door
+  </div>
   <div class="mm-item" onclick="mobileNav('est');closeMobileMore()">
     <span class="mm-item-icon">📋</span>Estimate Builder
   </div>
@@ -9076,10 +9824,19 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
     <span class="mm-item-icon">📁</span>Documents
   </div>
   <div class="mm-item" onclick="mobileNav('storm');closeMobileMore()">
-    <span class="mm-item-icon">⛈️</span>Storm Map
+    <span class="mm-item-icon">⛈️</span>Storm Center
+  </div>
+  <div class="mm-item" onclick="mobileNav('closeboard');closeMobileMore()">
+    <span class="mm-item-icon">📋</span>Close Board
+  </div>
+  <div class="mm-item" onclick="mobileNav('repos');closeMobileMore()">
+    <span class="mm-item-icon">🧠</span>Rep OS
   </div>
   <div class="mm-item" onclick="mobileNav('draw');closeMobileMore()">
     <span class="mm-item-icon">✏️</span>Drawing Tool
+  </div>
+  <div class="mm-item" onclick="mobileNav('training');closeMobileMore()">
+    <span class="mm-item-icon">🎯</span>Sales Training
   </div>
   <div class="mm-item" onclick="mobileNav('board');closeMobileMore()">
     <span class="mm-item-icon">🏆</span>Leaderboard
@@ -9264,12 +10021,19 @@ if (typeof searchMap === 'function' && !window.searchMap) {
 <script src="js/advanced_builder_selector.js?v=2"></script>
 <script src="js/material_catalog.js?v=2"></script>
 <script src="js/advanced_builder_ui.js?v=2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="js/advanced_pdf_generator.js?v=2"></script>
 <script src="js/pricing_database_manager.js?v=2"></script>
 <script src="js/template_library.js?v=2"></script>
 <script src="js/ai_review_system.js?v=2"></script>
 <script src="js/email_system.js?v=2"></script>
-<script src="js/product-library.js?v=1"></script>
+<script src="js/product-data.js?v=1"></script>
+<script src="js/product-library.js?v=2"></script>
+<script src="js/d2d-tracker.js?v=2"></script>
+<script src="js/sales-training.js?v=1"></script>
+<script src="js/storm-center.js?v=1"></script>
+<script src="js/close-board.js?v=1"></script>
+<script src="js/rep-os.js?v=1"></script>
 <script src="js/template-suite.js?v=1"></script>
 <script src="js/company-admin.js?v=1"></script>
 <script src="js/document-generator.js?v=1"></script>

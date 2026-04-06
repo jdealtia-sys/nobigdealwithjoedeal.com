@@ -4,22 +4,53 @@
 // Extracted from dashboard.html for maintainability
 // ============================================================
 
-// Initialize default pricing table if not already set (Cincinnati/Ohio market)
+// Default pricing table (Cincinnati/Ohio market fallback)
+const DEFAULT_RATES = {
+  shingle: 4.25, felt: 0.45, tear: 1.75, starter: 2.10, drip: 1.85,
+  ridge: 5.50, iws: 2.25, hip: 5.75, pipe: 45.00, deck: 2.50,
+  gutter: 8.50, deckPct: 0.15
+};
+
+// Product Library → Estimate Rate Mapping
+// Maps estimate line-item codes to product library IDs
+const PRODUCT_MAP = {
+  shingle: { id: 'shingle_001', unitConvert: 1/100 }, // product is per SQ (100sqft), rate is per sqft
+  felt:    { id: 'under_001',   unitConvert: 1/100 }, // product per SQ, rate per sqft
+  tear:    null,                                        // labor only — no product mapping
+  starter: { id: 'flash_008',  unitConvert: 1/100 }, // product per BDNL (~100LF), rate per LF
+  drip:    { id: 'flash_003',  unitConvert: 1 },     // product per LF, rate per LF
+  ridge:   { id: 'flash_007',  unitConvert: 1/25 },  // product per BDNL (~25LF), rate per LF
+  iws:     { id: 'under_006',  unitConvert: 1/200 }, // product per RL (200SF), rate per sqft
+  hip:     { id: 'flash_007',  unitConvert: 1/25 },  // same as ridge
+  pipe:    { id: 'flash_002',  unitConvert: 1 },     // product per EA, rate per EA
+  deck:    null,                                        // decking — use default rate
+  gutter:  null                                         // gutters — use default rate
+};
+
+// Build window.R by pulling live pricing from product library, falling back to defaults
+function syncRatesFromProductLibrary(tier) {
+  tier = tier || 'better';
+  const rates = Object.assign({}, DEFAULT_RATES);
+
+  if (window._productLib && typeof window._productLib.getProducts === 'function') {
+    const products = window._productLib.getProducts();
+    for (const [key, mapping] of Object.entries(PRODUCT_MAP)) {
+      if (!mapping) continue;
+      const product = products.find(p => p.id === mapping.id);
+      if (product && product.pricing && product.pricing[tier]) {
+        // Convert product sell price to per-unit rate used by estimates
+        rates[key] = product.pricing[tier].sell * mapping.unitConvert;
+      }
+    }
+  }
+
+  window.R = rates;
+  return rates;
+}
+
+// Initialize rates — try product library first, then defaults
 if (typeof window.R === 'undefined' || !window.R) {
-  window.R = {
-    shingle: 4.25,      // per sqft
-    felt: 0.45,         // per sqft
-    tear: 1.75,         // per sqft (tear-off)
-    starter: 2.10,      // per linear foot
-    drip: 1.85,         // per linear foot (drip edge)
-    ridge: 5.50,        // per linear foot (ridge cap)
-    iws: 2.25,          // per sqft (ice & water shield)
-    hip: 5.75,          // per linear foot (hip cap)
-    pipe: 45.00,        // per each (pipe boot)
-    deck: 2.50,         // per sqft (OSB decking)
-    gutter: 8.50,       // per linear foot (gutters)
-    deckPct: 0.15       // 15% of roof for partial deck replacement in "better" tier
-  };
+  syncRatesFromProductLibrary('better');
 }
 
 function startNewEstimate() {
@@ -32,6 +63,9 @@ function startNewEstimateOriginal() {
   document.getElementById('est-builder').style.flexDirection='column';
   estCurrentStep=0; selectedTier=null; estData={};
   window._estLinkedLeadId = null;
+  window._editingEstimateId = null;
+  const titleEl = document.getElementById('estBuilderTitle');
+  if (titleEl) titleEl.textContent = 'New Estimate';
   showEstStep(1);
   document.getElementById('drawImportNote').style.display='none';
   ['estAddr','estOwner','estParcel','estYear','estRawSqft','estRidge','estEave','estHip'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -42,6 +76,7 @@ function startNewEstimateOriginal() {
 function cancelEstimate() {
   document.getElementById('est-list').style.display='block';
   document.getElementById('est-builder').style.display='none';
+  window._editingEstimateId = null;
 }
 
 function showEstStep(n) {
@@ -86,6 +121,8 @@ function updateEstCalc() {
 }
 
 function calcTierPrices() {
+  // Re-sync rates from product library each time tiers are recalculated
+  syncRatesFromProductLibrary(selectedTier || 'better');
   updateEstCalc();
   const sq=estData.sq||0;
   const ridge=Math.max(0, parseFloat(document.getElementById('estRidge').value)||0);
@@ -115,20 +152,29 @@ function selectTier(tier,el) {
   btn.disabled=false; btn.style.opacity='1';
 }
 
+function getProductName(mapKey, fallback) {
+  if (!window._productLib || !PRODUCT_MAP[mapKey]) return fallback;
+  const products = window._productLib.getProducts();
+  const p = products.find(pr => pr.id === PRODUCT_MAP[mapKey].id);
+  return p ? p.name : fallback;
+}
+
 function getLineItems() {
+  // Ensure rates are synced for the selected tier
+  syncRatesFromProductLibrary(selectedTier || 'better');
   const d=estData, sq=d.sq, tier=selectedTier;
   const fmt=(n)=>'$'+(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const rows=[];
-  rows.push({code:'RFG SHNG',desc:'Roofing shingles – architectural 30yr',qty:sq.toFixed(2)+'SQ',rate:'$'+R.shingle,total:sq*R.shingle});
-  rows.push({code:'RFG FELT',desc:'Underlayment / roofing felt',qty:sq.toFixed(2)+'SQ',rate:'$'+R.felt,total:sq*R.felt});
+  rows.push({code:'RFG SHNG',desc:getProductName('shingle','Roofing shingles – architectural 30yr'),qty:sq.toFixed(2)+'SQ',rate:'$'+R.shingle,total:sq*R.shingle});
+  rows.push({code:'RFG FELT',desc:getProductName('felt','Underlayment / roofing felt'),qty:sq.toFixed(2)+'SQ',rate:'$'+R.felt,total:sq*R.felt});
   rows.push({code:'RFG TEAR',desc:'Remove existing roof covering',qty:sq.toFixed(2)+'SQ',rate:'$'+R.tear,total:sq*R.tear});
-  rows.push({code:'RFG STRT',desc:'Starter strip shingles',qty:d.eave+'LF',rate:'$'+R.starter,total:d.eave*R.starter});
-  rows.push({code:'RFG DRPE',desc:'Drip edge – aluminum',qty:d.eave+'LF',rate:'$'+R.drip,total:d.eave*R.drip});
-  rows.push({code:'RFG RIDG',desc:'Ridge cap shingles',qty:d.ridge+'LF',rate:'$'+R.ridge,total:d.ridge*R.ridge});
+  rows.push({code:'RFG STRT',desc:getProductName('starter','Starter strip shingles'),qty:d.eave+'LF',rate:'$'+R.starter,total:d.eave*R.starter});
+  rows.push({code:'RFG DRPE',desc:getProductName('drip','Drip edge – aluminum'),qty:d.eave+'LF',rate:'$'+R.drip,total:d.eave*R.drip});
+  rows.push({code:'RFG RIDG',desc:getProductName('ridge','Ridge cap shingles'),qty:d.ridge+'LF',rate:'$'+R.ridge,total:d.ridge*R.ridge});
   if(tier==='better'||tier==='best'){
-    rows.push({code:'RFG I&WS',desc:'Ice & water shield',qty:'5SQ',rate:'$'+R.iws,total:5*R.iws});
-    rows.push({code:'RFG HIPC',desc:'Hip cap shingles',qty:d.hip+'LF',rate:'$'+R.hip,total:d.hip*R.hip});
-    for(let i=1;i<=d.pipes;i++) rows.push({code:'RFG PIPE',desc:`Pipe boot / plumbing flashing #${i}`,qty:'1EA',rate:'$'+R.pipe,total:R.pipe});
+    rows.push({code:'RFG I&WS',desc:getProductName('iws','Ice & water shield'),qty:'5SQ',rate:'$'+R.iws,total:5*R.iws});
+    rows.push({code:'RFG HIPC',desc:getProductName('hip','Hip cap shingles'),qty:d.hip+'LF',rate:'$'+R.hip,total:d.hip*R.hip});
+    for(let i=1;i<=d.pipes;i++) rows.push({code:'RFG PIPE',desc:getProductName('pipe',`Pipe boot / plumbing flashing #${i}`),qty:'1EA',rate:'$'+R.pipe,total:R.pipe});
     rows.push({code:'RFG DECK',desc:`OSB decking – partial replacement (${Math.round(R.deckPct*100)}%)`,qty:d.deckSq.toFixed(2)+'SQ',rate:'$'+R.deck,total:d.deckSq*R.deck});
   }
   if(tier==='best'){
@@ -198,6 +244,7 @@ async function saveEstimate() {
   }
 
   _savingEstimate = true;
+  const isUpdate = !!window._editingEstimateId;
   const saveBtn = document.querySelector('#estStep4 .btn-primary, #estStep4 button[onclick*="saveEstimate"]');
   const origText = saveBtn ? saveBtn.textContent : '';
   if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
@@ -205,25 +252,25 @@ async function saveEstimate() {
   try {
     await window._saveEstimate({
       addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
-      roofType:estData.roofType, pitch:estData.pl, sq:estData.sq, tier:selectedTier,
+      roofType:estData.roofType, pitch:estData.pl, wf:estData.wf, sq:estData.sq, tier:selectedTier,
       tierName:estData.tierName, grandTotal:estData.grandTotal,
       raw:estData.raw, adj:Math.round(estData.adj),
-      ridge:estData.ridge||null, eave:estData.eave||null, hip:estData.hip||null,
-      pipes:estData.pipes||null, rows:estData.rows||[],
+      ridge:estData.ridge ?? null, eave:estData.eave ?? null, hip:estData.hip ?? null,
+      pipes:estData.pipes ?? null, rows:estData.rows||[],
       leadId: leadId,
       qmData: estData._qm || null
     });
 
     // If we know the lead, offer to go back to customer page
     if (leadId) {
-      showToast('✓ Estimate saved & linked to customer record', 'success');
+      showToast(isUpdate ? '✓ Estimate updated & linked to customer' : '✓ Estimate saved & linked to customer record', 'success');
       setTimeout(() => {
-        if (confirm('Estimate saved! Go to customer record?')) {
+        if (confirm((isUpdate ? 'Estimate updated!' : 'Estimate saved!') + ' Go to customer record?')) {
           window.location.href = `/pro/customer.html?id=${leadId}`;
         }
       }, 400);
     } else {
-      showToast('Estimate saved!', 'success');
+      showToast(isUpdate ? 'Estimate updated!' : 'Estimate saved!', 'success');
     }
     window._estLinkedLeadId = null;
     cancelEstimate();
@@ -323,4 +370,6 @@ window.selectTier = selectTier;
 window.saveEstimate = saveEstimate;
 window.buildReview = buildReview;
 window.getLineItems = getLineItems;
+window.syncRatesFromProductLibrary = syncRatesFromProductLibrary;
+window.getProductName = getProductName;
 window.showEstimateTypeSelector = showEstimateTypeSelector;

@@ -1114,22 +1114,7 @@ function scrollToFollowUps(){
 
 function isOverdue(d){ if(!d) return false; const dt=new Date(d); dt.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); return dt<t; }
 
-// Export CSV
-function exportLeadsCSV(){
-  const leads=window._leads||[];
-  if(!leads.length){ showToast('No leads to export','error'); return; }
-  const headers=['First','Last','Address','Phone','Email','Stage','Damage','Claim','Value','Follow-Up','Carrier','Source','Notes'];
-  const rows=leads.map(l=>[
-    l.firstName||'',l.lastName||'',l.address||'',l.phone||'',l.email||'',
-    l.stage||'',l.damageType||'',l.claimStatus||'',l.jobValue||'',
-    l.followUp||'',l.insCarrier||'',l.source||'',(l.notes||'').replace(/,/g,';')
-  ]);
-  const csv=[headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='nbd-leads-'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click(); showToast('CSV exported!','ok');
-}
+// (exportLeadsCSV removed — canonical definition is in tools.js)
 
 // Edit lead
 function editLead(id){
@@ -1276,7 +1261,7 @@ window.saveLead = saveLead;
 window.deleteLead = deleteLead;
 window.editLead = editLead;
 window.moveCard = moveCard;
-window.exportLeadsCSV = exportLeadsCSV;
+// exportLeadsCSV is defined in tools.js
 window.scrollToFollowUps = scrollToFollowUps;
 window.kanbanFilter = kanbanFilter;
 window.kanbanFilterDebounced = kanbanFilterDebounced;
