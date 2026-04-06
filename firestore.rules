@@ -1,0 +1,144 @@
+rules_version = '2';
+
+// NBD Pro Firestore Security Rules
+// Deploy: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isCurrentUser() {
+      return isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── LEADS ─────────────────────────────────────────
+    // Users can only read/write their own leads (userId field)
+    match /leads/{leadId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // Nested leads path (crm-leads.js architecture)
+    match /leads/{uid}/leads/{leadId} {
+      allow read, write: if isOwner(uid);
+
+      // Activity sub-collection
+      match /activity/{activityId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Tasks sub-collection
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── ESTIMATES ─────────────────────────────────────
+    match /estimates/{estimateId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── PHOTOS ────────────────────────────────────────
+    match /photos/{photoId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── MAP PINS ──────────────────────────────────────
+    match /pins/{pinId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── TASKS ─────────────────────────────────────────
+    match /tasks/{taskId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── NOTIFICATIONS ─────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── EMAILS (sent log) ─────────────────────────────
+    match /emails/{emailId} {
+      allow read: if isAuth() && resource.data.sentBy == request.auth.token.email;
+      allow create: if isAuth();
+    }
+
+    // ── DOCUMENTS ─────────────────────────────────────
+    match /documents/{docId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── NOTES ─────────────────────────────────────────
+    match /notes/{noteId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── USER SETTINGS ─────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /{subcol}/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── LEADERBOARD (read-only for all auth users, write for self) ──
+    match /leaderboard/{uid} {
+      allow read: if isAuth();
+      allow write: if isOwner(uid);
+    }
+
+    // ── API USAGE LOGGING ─────────────────────────────
+    match /api_usage/{docId} {
+      allow create: if isAuth();
+      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── RATE LIMITS (Cloud Function managed) ──────────
+    match /rate_limits/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── DAILY SUCCESS ─────────────────────────────────
+    match /daily_entries/{uid}/entries/{entryId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── DEFAULT: Deny everything else ─────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
