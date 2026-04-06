@@ -2767,7 +2767,7 @@ input:focus, select:focus, textarea:focus {
 /* ── STAGE BOX HOVER ── */
 .stage-box {
   transition: all .25s;
-  cursor: default;
+  cursor: pointer;
 }
 .stage-box:hover {
   transform: translateY(-2px);
@@ -5431,19 +5431,19 @@ function switchScTab(tab, btn) {
         </div>
         <div class="panel-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">New Leads</div>
               <div style="font-size:24px;font-weight:700;color:var(--blue);" id="weekNewLeads">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('est')" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Estimates Created</div>
               <div style="font-size:24px;font-weight:700;color:var(--gold);" id="weekEstimates">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Revenue Added</div>
               <div style="font-size:24px;font-weight:700;color:var(--green);" id="weekRevenue">$0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Tasks Completed</div>
               <div style="font-size:24px;font-weight:700;color:var(--purple);" id="weekTasks">0</div>
             </div>
@@ -5452,22 +5452,22 @@ function switchScTab(tab, btn) {
       </div>
       
       <div class="sgrid">
-        <div class="stat-card"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
-        <div class="stat-card"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
-        <div class="stat-card"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
+        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
+        <div class="stat-card" onclick="goTo('est')" style="cursor:pointer;"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
+        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
+        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
       </div>
       <div class="two-col">
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div></div>
+          <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
           <div class="panel-body">
             <div class="pgrid">
-              <div class="stage-box sb-new"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
-              <div class="stage-box sb-ct"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
-              <div class="stage-box sb-es"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
-              <div class="stage-box sb-ng"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
-              <div class="stage-box sb-won"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
-              <div class="stage-box sb-lost"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
+              <div class="stage-box sb-new" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('new')},200)" style="cursor:pointer;"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
+              <div class="stage-box sb-ct" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('contacted')},200)" style="cursor:pointer;"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
+              <div class="stage-box sb-es" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('estimate_sent')},200)" style="cursor:pointer;"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
+              <div class="stage-box sb-ng" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('negotiating')},200)" style="cursor:pointer;"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
+              <div class="stage-box sb-won" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('closed')},200)" style="cursor:pointer;"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
+              <div class="stage-box sb-lost" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('lost')},200)" style="cursor:pointer;"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
             </div>
           </div>
         </div>
@@ -7406,10 +7406,10 @@ function renderEstimatesList(ests) {
       <div class="est-total">$${(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
     </div>`).join('');
 
-  // Recent on dashboard
+  // Recent on dashboard — each card opens that specific estimate
   const rc=document.getElementById('recentEsts');
   rc.innerHTML=ests.slice(0,4).map(e=>`
-    <div class="est-card" style="margin-bottom:8px;" onclick="goTo('est')">
+    <div class="est-card" style="margin-bottom:8px;cursor:pointer;" onclick="goTo('est');setTimeout(()=>viewEstimate('${e.id}'),200)">
       <div style="font-size:18px;">📋</div>
       <div><div class="est-addr" style="font-size:12px;">${e.addr||'No address'}</div>
       <div class="est-meta">${e.tierName||''}</div></div>

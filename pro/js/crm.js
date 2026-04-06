@@ -170,6 +170,30 @@ function renderLeads(leads, filtered){
   setEl('statClosed','$'+closedRev.toLocaleString());
   const lb=document.getElementById('leadBadge'); if(lb) lb.textContent=all.length;
 
+  // Dashboard pipeline stage counts
+  const _normalize = window.normalizeStage || (s => s);
+  const _stageCounts = { new:0, contacted:0, estimate_sent:0, negotiating:0, closed:0, lost:0 };
+  const _stageMap = {
+    'new':['new','New','New Lead'],
+    'contacted':['contacted','Contacted','contact_made','inspection_scheduled','inspection_completed'],
+    'estimate_sent':['estimate_sent','estimate_created','Estimate Sent','Estimate Created','estimate_approved','contract_signed'],
+    'negotiating':['negotiating','Negotiating','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress'],
+    'closed':['closed','install_complete','final_photos','deductible_collected','final_payment','Approved','In Progress','Complete'],
+    'lost':['lost','Lost','Closed Lost']
+  };
+  all.forEach(l => {
+    const sk = l._stageKey || _normalize(l.stage || 'new');
+    for (const [bucket, keys] of Object.entries(_stageMap)) {
+      if (keys.includes(sk) || keys.includes(l.stage || '')) { _stageCounts[bucket]++; break; }
+    }
+  });
+  setEl('dp-new', _stageCounts.new);
+  setEl('dp-ct', _stageCounts.contacted);
+  setEl('dp-es', _stageCounts.estimate_sent);
+  setEl('dp-ng', _stageCounts.negotiating);
+  setEl('dp-won', _stageCounts.closed);
+  setEl('dp-lost', _stageCounts.lost);
+
   // Show/hide Load Sample Data button (only when zero leads)
   const sampleBtn = document.getElementById('loadSampleDataBtn');
   if (sampleBtn) {
@@ -1266,6 +1290,18 @@ window.scrollToFollowUps = scrollToFollowUps;
 window.kanbanFilter = kanbanFilter;
 window.kanbanFilterDebounced = kanbanFilterDebounced;
 window.clearCrmSearch = clearCrmSearch;
+window.filterByStage = function(stageKey) {
+  const _normalize = window.normalizeStage || (s => s);
+  const filtered = (window._leads || []).filter(l => {
+    const sk = l._stageKey || _normalize(l.stage || 'new');
+    return sk === stageKey;
+  });
+  renderLeads(window._leads, filtered);
+  const searchInput = document.getElementById('crmSearch');
+  if (searchInput) { searchInput.value = ''; }
+  const countSpan = document.getElementById('crmSearchCount');
+  if (countSpan) countSpan.textContent = filtered.length + ' in stage';
+};
 window.restoreCrmSearch = restoreCrmSearch;
 window.openDeletedDrawer = openDeletedDrawer;
 window.closeDeletedDrawer = closeDeletedDrawer;
