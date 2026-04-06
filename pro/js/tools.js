@@ -7,7 +7,8 @@
 
 // ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════════════
 // GAF Quick Measure uses Anthropic API (key from Settings → Ask Joe AI)
-let _qmData = null;
+// Use var to avoid redeclaration collision with dashboard.html inline script
+var _qmData = _qmData || null;
 
 function openQMImportModal() {
   _qmData = null;

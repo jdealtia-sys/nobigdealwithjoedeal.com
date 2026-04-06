@@ -7740,11 +7740,12 @@ window.mobileNav = mobileNav;
 window.toggleMobileMore = toggleMobileMore;
 window.closeMobileMore = closeMobileMore;
 // CRM / Leads - functions exposed by crm.js
-// Tasks
-window.openTaskModal = openTaskModal;
-window.closeTaskModal = closeTaskModal;
-window.addTask = addTask;
-window.removeTask = removeTask;
+// Tasks — these are now defined and exposed in js/tasks.js
+// Guard against ReferenceError if tasks.js hasn't loaded yet
+if (typeof openTaskModal === 'function') window.openTaskModal = openTaskModal;
+if (typeof closeTaskModal === 'function') window.closeTaskModal = closeTaskModal;
+if (typeof addTask === 'function') window.addTask = addTask;
+if (typeof removeTask === 'function') window.removeTask = removeTask;
 // Estimates
 
 // ══ GAF QUICK MEASURE IMPORT ══════════════════════════════════════════════

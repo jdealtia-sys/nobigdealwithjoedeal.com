@@ -5,7 +5,8 @@
 // ============================================================
 
 // ══ Module State ══════════════════════════════════════════
-let _taskModalLeadId = null;
+// Use var to avoid redeclaration collision with dashboard.html inline script
+var _taskModalLeadId = _taskModalLeadId || null;
 const _overdueNotifiedLocal = new Set(); // local dedup guard for overdue notifications
 
 // ══ Notification Helper ══════════════════════════════════
@@ -54,6 +55,7 @@ async function createNotification(userId, type, title, message, leadId) {
 }
 
 async function _loadTasks(leadId) {
+  if (!window._taskCache) window._taskCache = {};
   try {
     const snap = await getDocs(query(collection(db,'leads',leadId,'tasks'), orderBy('createdAt','asc')));
     const tasks = snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -91,8 +93,9 @@ function renderTodayTasks() {
   const eod = new Date(); eod.setHours(23,59,59,999);
   const sod = new Date(); sod.setHours(0,0,0,0);
   const items = [];
+  if (!window._taskCache) window._taskCache = {};
   (window._leads||[]).forEach(lead=>{
-    (window._taskCache[lead.id]||[]).forEach(t=>{
+    ((window._taskCache||{})[lead.id]||[]).forEach(t=>{
       if(t.done) return;
       const due = t.dueDate ? new Date(t.dueDate+'T23:59:59') : null;
       if(!due||due>eod) return;

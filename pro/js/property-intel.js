@@ -3,7 +3,8 @@
 // Property Intel: auditor lookup, intel cards, modal display
 // ══════════════════════════════════════════════════════════════
 
-const _piCache = {};
+// Use var to avoid redeclaration collision with dashboard.html inline script
+var _piCache = _piCache || {};
 
 async function fetchPropertyIntel(nominatimData, targetElId) {
   const targetEl = document.getElementById(targetElId);
