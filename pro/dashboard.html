@@ -4134,7 +4134,7 @@ window.nbdNavToggle = nbdNavToggle;
           <input type="text" id="crmSearch" placeholder="🔍 Search leads..."
             style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
                    padding:7px 32px 7px 12px;font-size:12px;color:var(--t);width:100%;"
-            oninput="kanbanFilter()">
+            oninput="kanbanFilterDebounced()">
           <button id="crmSearchClear" 
             style="position:absolute;right:4px;top:50%;transform:translateY(-50%);
                    background:none;border:none;color:var(--m);cursor:pointer;
@@ -5583,14 +5583,35 @@ function renderPhotoGrid(photos){
   grid.innerHTML=photos.map(p=>`<div class="photo-thumb"><img src="${p.url}" alt="${p.name}" onclick="window.open('${p.url}','_blank')"></div>`).join('');
 }
 
+const PHOTO_MAX_SIZE = 15 * 1024 * 1024; // 15 MB
+const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif'];
+
 async function uploadPhotos(input){
   const files=Array.from(input.files);
   if(!files.length||!currentPhotoLeadId) return;
-  showToast('Uploading '+files.length+' photo(s)...');
-  for(const f of files) await window._uploadPhoto(currentPhotoLeadId,f);
+
+  // Validate each file before uploading
+  const valid = [];
+  for(const f of files){
+    if(!PHOTO_ALLOWED_TYPES.includes(f.type) && !f.name.match(/\.(jpe?g|png|webp|gif|heic|heif)$/i)){
+      showToast(`"${f.name}" is not a supported image type`,'error'); continue;
+    }
+    if(f.size > PHOTO_MAX_SIZE){
+      showToast(`"${f.name}" exceeds 15 MB limit (${(f.size/1024/1024).toFixed(1)} MB)`,'error'); continue;
+    }
+    valid.push(f);
+  }
+  if(!valid.length){ input.value=''; return; }
+
+  showToast('Uploading '+valid.length+' photo(s)...');
+  let uploaded = 0;
+  for(const f of valid){
+    const url = await window._uploadPhoto(currentPhotoLeadId,f);
+    if(url) uploaded++;
+  }
   const photos=await window._getPhotos(currentPhotoLeadId);
   renderPhotoGrid(photos);
-  showToast('Photos uploaded!');
+  showToast(uploaded === valid.length ? 'Photos uploaded!' : `${uploaded}/${valid.length} uploaded — some failed`);
   input.value='';
 }
 

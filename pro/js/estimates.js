@@ -55,9 +55,14 @@ function showEstStep(n) {
 
 function estNext(from) {
   if(from===1){
-    if(!document.getElementById('estRawSqft').value){showToast('Enter raw square footage','error');return;}
+    const rawVal = parseFloat(document.getElementById('estRawSqft').value);
+    if(!rawVal || rawVal <= 0 || isNaN(rawVal)){showToast('Enter a valid square footage (greater than 0)','error');return;}
+    if(rawVal > 100000){showToast('Square footage seems too high — please double-check','error');return;}
     updateEstCalc(); showEstStep(2);
   } else if(from===2){
+    const ridge=parseFloat(document.getElementById('estRidge').value)||0;
+    const eave=parseFloat(document.getElementById('estEave').value)||0;
+    if(ridge < 0 || eave < 0){showToast('Measurements cannot be negative','error');return;}
     updateEstCalc(); calcTierPrices(); showEstStep(3);
   } else if(from===3){
     if(!selectedTier){showToast('Select a tier/package','error');return;}
@@ -68,10 +73,10 @@ function estNext(from) {
 function estBack(from){ showEstStep(from-1); }
 
 function updateEstCalc() {
-  const raw=parseFloat(document.getElementById('estRawSqft')?.value)||0;
+  const raw=Math.max(0, parseFloat(document.getElementById('estRawSqft')?.value)||0);
   const pitchVal=document.getElementById('estPitch')?.value||'1.202|8/12';
   const [pf,pl]=pitchVal.split('|');
-  const wf=parseFloat(document.getElementById('estWaste')?.value||1.17);
+  const wf=Math.max(1, parseFloat(document.getElementById('estWaste')?.value||1.17));
   const adj=raw*parseFloat(pf)*wf;
   const sq=adj/100;
   const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -83,10 +88,10 @@ function updateEstCalc() {
 function calcTierPrices() {
   updateEstCalc();
   const sq=estData.sq||0;
-  const ridge=parseFloat(document.getElementById('estRidge').value)||0;
-  const eave=parseFloat(document.getElementById('estEave').value)||0;
-  const hip=parseFloat(document.getElementById('estHip').value)||0;
-  const pipes=parseInt(document.getElementById('estPipes').value)||0;
+  const ridge=Math.max(0, parseFloat(document.getElementById('estRidge').value)||0);
+  const eave=Math.max(0, parseFloat(document.getElementById('estEave').value)||0);
+  const hip=Math.max(0, parseFloat(document.getElementById('estHip').value)||0);
+  const pipes=Math.max(0, parseInt(document.getElementById('estPipes').value)||0);
   const deckSq=sq*R.deckPct;
 
   const good = sq*R.shingle + sq*R.felt + sq*R.tear + eave*R.starter + eave*R.drip + ridge*R.ridge;
@@ -176,7 +181,9 @@ function buildReview() {
     </table>`;
 }
 
+let _savingEstimate = false;
 async function saveEstimate() {
+  if(_savingEstimate) return;
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
 
   // Resolve leadId — from URL param flow, QM import, or address match against loaded leads
@@ -190,37 +197,53 @@ async function saveEstimate() {
     if (matched) leadId = matched.id;
   }
 
-  await window._saveEstimate({
-    addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
-    roofType:estData.roofType, pitch:estData.pl, sq:estData.sq, tier:selectedTier,
-    tierName:estData.tierName, grandTotal:estData.grandTotal,
-    raw:estData.raw, adj:Math.round(estData.adj),
-    ridge:estData.ridge||null, eave:estData.eave||null, hip:estData.hip||null,
-    pipes:estData.pipes||null, rows:estData.rows||[],
-    leadId: leadId,
-    qmData: estData._qm || null
-  });
+  _savingEstimate = true;
+  const saveBtn = document.querySelector('#estStep4 .btn-primary, #estStep4 button[onclick*="saveEstimate"]');
+  const origText = saveBtn ? saveBtn.textContent : '';
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
-  // If we know the lead, offer to go back to customer page
-  if (leadId) {
-    showToast('✓ Estimate saved & linked to customer record', 'success');
-    // Small delay then offer navigation
-    setTimeout(() => {
-      if (confirm('Estimate saved! Go to customer record?')) {
-        window.location.href = `/pro/customer.html?id=${leadId}`;
-      }
-    }, 400);
-  } else {
-    showToast('Estimate saved!', 'success');
+  try {
+    await window._saveEstimate({
+      addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
+      roofType:estData.roofType, pitch:estData.pl, sq:estData.sq, tier:selectedTier,
+      tierName:estData.tierName, grandTotal:estData.grandTotal,
+      raw:estData.raw, adj:Math.round(estData.adj),
+      ridge:estData.ridge||null, eave:estData.eave||null, hip:estData.hip||null,
+      pipes:estData.pipes||null, rows:estData.rows||[],
+      leadId: leadId,
+      qmData: estData._qm || null
+    });
+
+    // If we know the lead, offer to go back to customer page
+    if (leadId) {
+      showToast('✓ Estimate saved & linked to customer record', 'success');
+      setTimeout(() => {
+        if (confirm('Estimate saved! Go to customer record?')) {
+          window.location.href = `/pro/customer.html?id=${leadId}`;
+        }
+      }, 400);
+    } else {
+      showToast('Estimate saved!', 'success');
+    }
+    window._estLinkedLeadId = null;
+    cancelEstimate();
+  } catch(e) {
+    console.error('saveEstimate error:', e);
+    showToast('Failed to save estimate — check connection and try again', 'error');
+  } finally {
+    _savingEstimate = false;
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = origText; }
   }
-  window._estLinkedLeadId = null;
-  cancelEstimate();
 }
+
 
 function exportEstimate() {
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
   const d=estData;
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const rows=d.rows||getLineItems();
+  const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
+  const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Roofing Estimate — ${d.addr}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
@@ -246,484 +269,45 @@ function exportEstimate() {
   .total-cell{font-weight:700;color:#111;}
   .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8541A;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
   .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
-  @media print {
-    /* Hide everything except the doc viewer content */
-    body > * { display: none !important; }
-    #docViewerModal { display: block !important; position: static !important;
-      background: white !important; padding: 0 !important; margin: 0 !important; }
-    #docViewerModal .modal-bg,
-    #docViewerModal .modal { display: block !important; position: static !important;
-      background: white !important; border: none !important; box-shadow: none !important;
-      max-height: none !important; max-width: 100% !important; padding: 0 !important; overflow: visible !important; }
-    .modal-close, .print-btn-row { display: none !important; }
-    .doc-viewer-content { background: white !important; border: none !important;
-      color: #111 !important; padding: 0 !important; margin: 0 !important; }
-    @page { margin: 1.8cm 2cm; size: letter; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  }
-/* ── CRM ENHANCEMENTS ── */
-.follow-up-alert{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:12px;}
-.follow-up-alert .fa-name{font-weight:700;color:var(--t);}
-.follow-up-alert .fa-date{color:var(--orange);font-size:11px;}
-.follow-up-alert .fa-btn{margin-left:auto;background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
-
-.leads-table{width:100%;border-collapse:collapse;font-size:12px;}
-.leads-table th{text-align:left;padding:8px 10px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);border-bottom:1px solid var(--br);font-weight:600;}
-.leads-table td{padding:10px 10px;border-bottom:1px solid var(--br);vertical-align:middle;}
-.leads-table tr:hover td{background:var(--s2);}
-.leads-table tr:last-child td{border-bottom:none;}
-.lead-name{font-weight:600;color:var(--t);}
-.lead-addr{font-size:10px;color:var(--m);margin-top:2px;}
-.lead-val{font-weight:700;color:var(--green);}
-.lead-actions{display:flex;gap:6px;}
-.lead-actions button{background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;color:var(--m);font-family:inherit;transition:all .15s;}
-.lead-actions button:hover{background:var(--s2);color:var(--t);}
-.lead-actions .btn-edit:hover{border-color:var(--orange);color:var(--orange);}
-.lead-actions .btn-del:hover{border-color:var(--red);color:var(--red);}
-
-.tag-new{background:rgba(156,163,175,.15);color:#9CA3AF;}
-.tag-insp{background:rgba(74,158,255,.15);color:#4A9EFF;}
-.tag-es{background:rgba(212,160,23,.15);color:#D4A017;}
-.tag-appr{background:rgba(155,109,255,.15);color:#9B6DFF;}
-.tag-prog{background:rgba(34,197,94,.15);color:#22C55E;}
-.tag-won{background:rgba(34,197,94,.15);color:#22C55E;}
-.tag-lost{background:rgba(224,82,82,.15);color:#E05252;}
-
-/* ── DOCUMENT LIBRARY ── */
-.doc-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:16px;cursor:pointer;transition:all .15s;}
-.doc-card:hover{border-color:var(--orange);background:var(--s3);}
-.doc-icon{font-size:28px;margin-bottom:8px;}
-.doc-name{font-weight:700;font-size:13px;color:var(--t);margin-bottom:4px;}
-.doc-desc{font-size:11px;color:var(--m);line-height:1.5;margin-bottom:8px;}
-.doc-action{font-size:10px;color:var(--orange);font-weight:700;letter-spacing:.05em;}
-
-/* ── DOCUMENT VIEWER MODAL ── */
-#docViewerModal .modal{max-width:760px;max-height:92vh;overflow-y:auto;}
-/* Doc viewer content — screen styles */
-.doc-viewer-content {
-  background: #fff;
-  color: #111;
-  border-radius: 8px;
-  padding: 40px 44px;
-  margin-top: 16px;
-  font-family: 'Barlow', 'Georgia', serif;
-  font-size: 13px;
-  line-height: 1.75;
-  border: 1px solid var(--br);
-}
-/* Doc header strip */
-.doc-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding-bottom: 14px;
-  margin-bottom: 20px;
-  border-bottom: 3px solid #C8541A;
-}
-.doc-brand-name {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 22px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: .02em;
-  color: #0A0C0F;
-  line-height: 1;
-}
-.doc-brand-name span { color: #C8541A; }
-.doc-brand-tag {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: #C8541A;
-  border: 1px solid #C8541A;
-  padding: 2px 8px;
-  border-radius: 2px;
-  display: inline-block;
-  margin-top: 5px;
-}
-.doc-contact-block {
-  text-align: right;
-  font-size: 11px;
-  color: #555;
-  line-height: 1.6;
-}
-.doc-contact-block strong { color: #111; font-size: 12px; }
-/* Doc title */
-.doc-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 26px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: #0A0C0F;
-  margin-bottom: 4px;
-}
-.doc-subtitle {
-  font-size: 11px;
-  color: #888;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #e5e5e5;
-}
-/* Section headings */
-.doc-section-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: #C8541A;
-  margin: 18px 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #fde0d0;
-}
-/* Field rows */
-.doc-field-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.doc-field-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: #555;
-  flex-shrink: 0;
-  min-width: 120px;
-}
-.doc-field-line {
-  flex: 1;
-  border: none;
-  border-bottom: 1.5px solid #bbb;
-  height: 22px;
-  background: transparent;
-  min-width: 80px;
-}
-.doc-field-line.short { max-width: 140px; }
-.doc-field-line.med   { max-width: 220px; }
-/* Two-col field layout */
-.doc-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 20px;
-  margin-bottom: 10px;
-}
-/* Checklist items */
-.doc-check-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px 20px;
-  margin-bottom: 8px;
-}
-.doc-check-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #333;
-}
-.doc-checkbox {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid #999;
-  border-radius: 2px;
-  flex-shrink: 0;
-  display: inline-block;
-}
-/* Supplement table */
-.doc-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 14px;
-  font-size: 12px;
-}
-.doc-table th {
-  background: #0A0C0F;
-  color: #fff;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 10px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  padding: 7px 10px;
-  text-align: left;
-}
-.doc-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
-  vertical-align: middle;
-}
-.doc-table tr:nth-child(even) td { background: #fafafa; }
-.doc-table .doc-field-line { border-bottom: 1px solid #ccc; min-width: 60px; }
-.doc-table-total td {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #C8541A;
-  border-top: 2px solid #111;
-  padding: 10px;
-}
-/* Info box */
-.doc-info-box {
-  background: #fff8f5;
-  border: 1px solid #fde0d0;
-  border-left: 3px solid #C8541A;
-  border-radius: 4px;
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #333;
-  margin-bottom: 14px;
-  line-height: 1.6;
-}
-/* Signature block */
-.doc-sig-block {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e5e5;
-}
-.doc-sig-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 14px;
-}
-.doc-sig-field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.doc-sig-field .doc-field-line { border-bottom: 1.5px solid #333; height: 28px; }
-.doc-sig-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: #888;
-}
-/* Footer strip */
-.doc-footer-strip {
-  margin-top: 20px;
-  padding-top: 12px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: #aaa;
-}
-/* Completion certificate special */
-.doc-cert-badge {
-  text-align: center;
-  padding: 16px;
-  background: #f9f9f9;
-  border: 2px solid #C8541A;
-  border-radius: 8px;
-  margin: 16px 0;
-}
-.doc-cert-badge .cert-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #C8541A;
-  letter-spacing: .08em;
-}
-.doc-cert-badge .cert-sub {
-  font-size: 12px;
-  color: #555;
-  margin-top: 4px;
-}
-/* Print-only — buttons hidden */
-.print-btn-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  @media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}
+  </style></head><body>
+  <div class="hdr">
+    <div><div class="brand">No Big <span>Deal</span></div><div class="sub">Home Solutions</div><div class="badge">Insurance Restoration</div></div>
+    <div class="est-hdr"><div class="est-type">${tierNames[selectedTier]||'Estimate'}</div><div class="est-date">${dateStr}</div>
+      <div class="est-total-lbl">Estimate Total</div><div class="est-total-val">${fmt(d.grandTotal)}</div></div>
+  </div>
+  <h2>Property Information</h2>
+  <div class="prop-grid">
+    <div class="prop-field"><label>Address</label><div class="v">${d.addr||'—'}</div></div>
+    <div class="prop-field"><label>Owner</label><div class="v">${d.owner||'—'}</div></div>
+    <div class="prop-field"><label>Parcel</label><div class="v">${d.parcel||'—'}</div></div>
+    <div class="prop-field"><label>Year Built</label><div class="v">${d.yr||'—'}</div></div>
+  </div>
+  <h2>Measurements</h2>
+  <div class="meas-grid">
+    <div class="mf"><label>Pitch</label><div class="v">${d.pl||'—'}</div></div>
+    <div class="mf"><label>Squares</label><div class="v">${d.sq?d.sq.toFixed(2):'—'} SQ</div></div>
+    <div class="mf"><label>Roof Type</label><div class="v">${d.roofType||'—'}</div></div>
+  </div>
+  <h2>Line Items</h2>
+  <table>
+    <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+    <tbody>
+      ${rows.map(r=>'<tr><td class="code">'+r.code+'</td><td>'+r.desc+'</td><td>'+r.qty+'</td><td>'+r.rate+'</td><td class="total-cell">'+fmt(r.total)+'</td></tr>').join('')}
+      <tr class="grand-row"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(d.grandTotal)}</strong></td></tr>
+    </tbody>
+  </table>
+  <div class="footer"><span>No Big Deal Home Solutions — Greater Cincinnati</span><span>Generated by NBD Pro</span></div>
+  </body></html>`;
+  const w = window.open('','_blank');
+  if(w){ w.document.write(html); w.document.close(); }
+  else { showToast('Pop-up blocked — allow pop-ups for this site','error'); }
 }
 
-
-/* ════════════════════════════════
-   KANBAN CRM
-   ════════════════════════════════ */
-
-/* Header bar */
-.crm-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:18px 24px 12px;flex-shrink:0;
-  border-bottom:1px solid var(--br);
-  background:var(--bg);
-  position:sticky;
-  top:0;
-  z-index:100;
+function showEstimateTypeSelector() {
+  // Default to original estimate builder
+  startNewEstimateOriginal();
 }
-.page-title{
-  font-size:24px;
-  font-weight:700;
-  color:var(--t);
-  font-family:'Barlow Condensed',sans-serif;
-  letter-spacing:.02em;
-  text-transform:uppercase;
-}
-.page-sub{
-  font-size:12px;
-  color:var(--m);
-  margin-top:2px;
-  font-weight:500;
-}
-
-/* Secondary toolbar */
-.crm-secondary-header{
-  display:flex;gap:4px;padding:0 20px;flex-shrink:0;
-  border-bottom:2px solid var(--br);align-items:flex-end;
-  transition:all .25s ease;flex-wrap:nowrap;overflow-x:auto;
-  background:var(--bg);
-}
-.crm-secondary-header.hidden{
-  max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden;
-  border-bottom:none;
-}
-.crm-sec-btn{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:transparent;border:none;border-bottom:3px solid transparent;
-  padding:12px 16px 10px;font-size:11px;color:var(--m);cursor:pointer;
-  font-family:'Barlow Condensed',sans-serif;letter-spacing:.05em;
-  transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);white-space:nowrap;flex-shrink:0;
-  font-weight:600;position:relative;
-}
-.crm-sec-btn:hover{
-  color:var(--t);
-  background:rgba(200,84,26,.05);
-  border-bottom-color:rgba(200,84,26,.3);
-}
-.crm-sec-btn.active{
-  color:var(--orange);
-  border-bottom-color:var(--orange);
-  background:rgba(200,84,26,.08);
-}
-.crm-sec-btn.active .crm-sec-icon{
-  transform:scale(1.15);
-}
-.crm-sec-icon{
-  font-size:17px;
-  line-height:1;
-  opacity:.85;
-  transition:transform .2s;
-}
-.crm-sec-btn.active .crm-sec-icon{opacity:1;}
-.crm-sec-label{font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.08em;}
-
-/* Restore button (shows when secondary header is hidden) */
-.crm-sec-restore{
-  display:none;padding:4px 16px;text-align:center;
-  font-size:10px;color:var(--orange);cursor:pointer;
-  font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;
-  border-bottom:1px solid var(--br);flex-shrink:0;
-  transition:all .15s ease;
-}
-.crm-sec-restore:hover{background:var(--s2);color:var(--orange);}
-.crm-sec-restore span{font-size:12px;margin-right:4px;}
-
-
-/* Revenue strip */
-.crm-rev-strip{
-  display:flex;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;
-}
-.rev-pill{
-  display:flex;flex-direction:column;align-items:center;
-  padding:6px 16px;border-right:1px solid var(--br);
-}
-.rev-pill:first-child{padding-left:0;}
-.rev-pill:last-child{border-right:none;}
-.rev-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);line-height:1;}
-.rev-lbl{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
-
-/* Board container — horizontal scroll, full remaining height */
-.kanban-board{
-  display:flex !important;gap:10px;
-  padding:0 16px 16px;
-  overflow-x:auto !important;overflow-y:hidden !important;
-  flex:1;min-height:0;
-  scrollbar-width:thin;
-  scrollbar-color:var(--br) transparent;
-}
-.kanban-board::-webkit-scrollbar{height:6px;}
-.kanban-board::-webkit-scrollbar-track{background:transparent;}
-.kanban-board::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
-
-/* Column */
-.kanban-col{
-  display:flex;flex-direction:column;
-  min-width:220px;max-width:220px;
-  background:var(--s2);
-  border:1px solid var(--br);
-  border-radius:10px;
-  overflow:hidden;
-  flex-shrink:0;
-}
-
-/* Column header */
-.kcol-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:10px 12px;
-  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-  flex-shrink:0;
-}
-.kcol-label{color:inherit;}
-.kcol-count{
-  background:rgba(255,255,255,.12);
-  border-radius:20px;padding:2px 8px;
-  font-size:11px;font-weight:700;
-}
-.kh-new  {background:#1e2a3a;color:#9CA3AF;border-bottom:2px solid #374151;}
-.kh-insp {background:#1a2e4a;color:#4A9EFF;border-bottom:2px solid #2d5a8e;}
-.kh-est  {background:#2a2414;color:#D4A017;border-bottom:2px solid #6b5010;}
-.kh-appr {background:#221a3a;color:#9B6DFF;border-bottom:2px solid #5a3da0;}
-.kh-prog {background:#142a22;color:#22C55E;border-bottom:2px solid #166534;}
-.kh-done {background:#0f2a1a;color:#4ade80;border-bottom:2px solid #16a34a;}
-.kh-lost {background:#2a1414;color:#E05252;border-bottom:2px solid #7f1d1d;}
-
-/* Column body — scrollable */
-.kcol-body{
-  flex:1;overflow-y:auto;overflow-x:hidden;
-  padding:8px;display:flex;flex-direction:column;gap:6px;
-  min-height:120px;max-height:calc(100vh - 280px);
-  scrollbar-width:thin;
-  scrollbar-color:var(--br) transparent;
-}
-.kcol-body::-webkit-scrollbar{width:4px;}
-.kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
-.kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
-
-/* Empty state */
-.k-empty{
-  text-align:center;padding:20px 8px;
-  font-size:11px;color:var(--m);
-  border:1px dashed var(--br);border-radius:6px;
-}
-
-/* Lead Card */
-.k-card{
-  background:var(--paper);
-  border:1px solid var(--rule);
-  border-radius:8px;
-  padding:10px 12px;
-  cursor:grab;
-  transition:box-shadow .15s,transform .1s,opacity .15s;
-  position:relative;
-  color:var(--ink);
-}
-.k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-2px);}
-.k-card.dragging{opacity:.45;cursor:grabbing;}
-.k-card.drag-placeholder{
-  border:2px dashed var(--orange);
-  background:rgba(232,114,12,.06);
-  height:60px;border-radius:8px;
-}
-
-/* Optimistic update states */
 
 // ══ Window Scope Exposures ══════════════════════════════════
 window.startNewEstimate = startNewEstimate;
@@ -735,3 +319,8 @@ window.estBack = estBack;
 window.updateEstCalc = updateEstCalc;
 window.calcTierPrices = calcTierPrices;
 window.exportEstimate = exportEstimate;
+window.selectTier = selectTier;
+window.saveEstimate = saveEstimate;
+window.buildReview = buildReview;
+window.getLineItems = getLineItems;
+window.showEstimateTypeSelector = showEstimateTypeSelector;

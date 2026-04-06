@@ -6,6 +6,21 @@
 // ============================================================
 
 // ══════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════
+function escHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// Debounce helper — returns a wrapper that delays invocation by `ms`
+let _debounceTimers = {};
+function debounce(fn, ms, key){
+  key = key || fn.name || 'default';
+  return function(...args){
+    clearTimeout(_debounceTimers[key]);
+    _debounceTimers[key] = setTimeout(()=> fn.apply(this, args), ms);
+  };
+}
+
+// ══════════════════════════════════════════════
 // CRM
 // ══════════════════════════════════════════════
 // Firebase shim — aliases window globals for use in this file
@@ -49,41 +64,52 @@ document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementBy
 
 async function saveLead(){
   const mErr=document.getElementById('mErr'),mOk=document.getElementById('mOk');
+  const saveBtn=document.querySelector('#leadModal .msave');
   mErr.style.display='none';mOk.style.display='none';
   const fname=document.getElementById('lFname').value.trim();
   const addr=document.getElementById('lAddr').value.trim();
   if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
-  document.querySelector('#leadModal .msave').disabled=true;
+  // Prevent double-submit
+  if(saveBtn.disabled) return;
+  saveBtn.disabled=true;
+  const origText=saveBtn.textContent;
+  saveBtn.textContent='Saving...';
   const intelData = window._modalIntel || {};
-  await window._saveLead({
-    id: (document.getElementById('lEditId')?.value||undefined)||undefined,
-    firstName: fname,
-    lastName: document.getElementById('lLname').value.trim(),
-    address: addr,
-    phone: document.getElementById('lPhone').value.trim(),
-    email: document.getElementById('lEmail').value.trim(),
-    stage: document.getElementById('lStage').value,
-    source: document.getElementById('lSource').value,
-    damageType: document.getElementById('lDamageType')?.value||'',
-    claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
-    jobValue: document.getElementById('lJobValue')?.value||0,
-    followUp: document.getElementById('lFollowUp')?.value||'',
-    insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
-    notes: document.getElementById('lNotes').value.trim(),
-    // Property intel fields
-    yearBuilt:     intelData.yearBuilt   || null,
-    marketValue:   intelData.marketValue || null,
-    lastSaleDate:  intelData.lastSaleDate || null,
-    lastSaleAmt:   intelData.lastSaleAmount || null,
-    propertyType:  intelData.propertyType || null,
-    parcelId:      intelData.parcelId || null,
-    isLLC:         intelData.isLLC || false,
-    homestead:     intelData.homestead || false
-  });
-  window._modalIntel = null;
-  document.querySelector('#leadModal .msave').disabled=false;
-  mOk.textContent='Lead saved!';mOk.style.display='block';
-  setTimeout(closeLeadModal,800);
+  try {
+    await window._saveLead({
+      id: (document.getElementById('lEditId')?.value||undefined)||undefined,
+      firstName: fname,
+      lastName: document.getElementById('lLname').value.trim(),
+      address: addr,
+      phone: document.getElementById('lPhone').value.trim(),
+      email: document.getElementById('lEmail').value.trim(),
+      stage: document.getElementById('lStage').value,
+      source: document.getElementById('lSource').value,
+      damageType: document.getElementById('lDamageType')?.value||'',
+      claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
+      jobValue: parseFloat(document.getElementById('lJobValue')?.value)||0,
+      followUp: document.getElementById('lFollowUp')?.value||'',
+      insCarrier: document.getElementById('lInsCarrier')?.value?.trim()||'',
+      notes: document.getElementById('lNotes').value.trim(),
+      yearBuilt:     intelData.yearBuilt   || null,
+      marketValue:   intelData.marketValue || null,
+      lastSaleDate:  intelData.lastSaleDate || null,
+      lastSaleAmt:   intelData.lastSaleAmount || null,
+      propertyType:  intelData.propertyType || null,
+      parcelId:      intelData.parcelId || null,
+      isLLC:         intelData.isLLC || false,
+      homestead:     intelData.homestead || false
+    });
+    window._modalIntel = null;
+    mOk.textContent='Lead saved!';mOk.style.display='block';
+    setTimeout(closeLeadModal,800);
+  } catch(e) {
+    console.error('saveLead error:', e);
+    mErr.textContent='Save failed — check your connection and try again.';mErr.style.display='block';
+  } finally {
+    saveBtn.disabled=false;
+    saveBtn.textContent=origText;
+  }
 }
 
 
@@ -210,8 +236,9 @@ function renderLeads(leads, filtered){
 }
 
 function buildCard(l){
-  const name  = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
-  const addr  = (l.address||'').split(',').slice(0,2).join(',');
+  const nameRaw = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
+  const name  = escHtml(nameRaw);
+  const addr  = escHtml((l.address||'').split(',').slice(0,2).join(','));
   const val   = l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '';
   const today = new Date(); today.setHours(0,0,0,0);
   const overdue = l.followUp && new Date(l.followUp)<=today && !['Complete','Lost'].includes(l.stage||'');
@@ -281,11 +308,11 @@ function buildCard(l){
     return `<span class="kc-tag kct-roof ${cls}">🏠 ${age}yr</span>`;
   })();
 
-  const phone = l.phone||'';
-  const email = l.email||'';
-  const carrier = l.insCarrier||l.insuranceCarrier||'';
-  const claimNum = l.claimNumber||l.claimNum||'';
-  const claimStatus = l.claimStatus||'';
+  const phone = escHtml(l.phone||'');
+  const email = escHtml(l.email||'');
+  const carrier = escHtml(l.insCarrier||l.insuranceCarrier||'');
+  const claimNum = escHtml(l.claimNumber||l.claimNum||'');
+  const claimStatus = escHtml(l.claimStatus||'');
   
   // Count badges for estimates and photos
   const estimates = (window._estimates || []).filter(e => e.leadId === l.id);
@@ -367,7 +394,10 @@ document.addEventListener('dragend', e=>{
 async function moveCard(id, newStage){
   const lead = (window._leads||[]).find(l=>l.id===id);
   if(!lead) return;
-  
+  // Prevent concurrent moves on the same card
+  if(lead._pending){ if(typeof showToast==='function') showToast('Move in progress...','info'); return; }
+  lead._pending = true;
+
   const oldStage = lead.stage || 'New';
   
   // ══════════════════════════════════════════════
@@ -405,6 +435,7 @@ async function moveCard(id, newStage){
     // Mark as synced
     lead._syncing = false;
     lead._syncSuccess = true;
+    delete lead._pending;
     
     // Show success briefly
     setTimeout(() => {
@@ -423,6 +454,7 @@ async function moveCard(id, newStage){
     lead.stage = oldStage;
     lead._syncing = false;
     lead._syncError = true;
+    delete lead._pending;
     
     renderLeads(window._leads, window._filteredLeads);
     
@@ -498,6 +530,9 @@ function kanbanFilter(){
   renderLeads(window._leads, filtered);
 }
 
+
+// Debounced version for keystroke events (250ms delay)
+const kanbanFilterDebounced = debounce(kanbanFilter, 250, 'kanbanFilter');
 
 function clearCrmSearch(){
   const searchInput = document.getElementById('crmSearch');
@@ -1149,6 +1184,7 @@ window.moveCard = moveCard;
 window.exportLeadsCSV = exportLeadsCSV;
 window.scrollToFollowUps = scrollToFollowUps;
 window.kanbanFilter = kanbanFilter;
+window.kanbanFilterDebounced = kanbanFilterDebounced;
 window.clearCrmSearch = clearCrmSearch;
 window.restoreCrmSearch = restoreCrmSearch;
 window.openDeletedDrawer = openDeletedDrawer;

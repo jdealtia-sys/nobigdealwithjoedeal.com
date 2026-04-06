@@ -4,6 +4,10 @@
 // Extracted from dashboard.html
 // ============================================================
 
+// ══ Module State ══════════════════════════════════════════
+let _taskModalLeadId = null;
+const _overdueNotifiedLocal = new Set(); // local dedup guard for overdue notifications
+
 // ══ Notification Helper ══════════════════════════════════
 async function createNotification(userId, type, title, message, leadId) {
   // Fallback to toast if browser Notification API not available
@@ -75,7 +79,8 @@ async function _deleteTask(leadId, taskId) {
   try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); } catch(e){}
 }
 async function loadAllTasks() {
-  await Promise.all((window._leads||[]).map(l=>_loadTasks(l.id)));
+  // Use allSettled so a single lead's failure doesn't block the rest
+  await Promise.allSettled((window._leads||[]).map(l=>_loadTasks(l.id)));
   renderTodayTasks();
   renderLeads(window._leads, window._filteredLeads);
 }
@@ -92,8 +97,10 @@ function renderTodayTasks() {
       const due = t.dueDate ? new Date(t.dueDate+'T23:59:59') : null;
       if(!due||due>eod) return;
       
-      // Create notification for newly overdue tasks (if not already notified)
-      if(due<sod && !t.overdueNotified && auth.currentUser) {
+      // Create notification for newly overdue tasks (deduplicated per session + Firestore flag)
+      const notifKey = lead.id + '_' + t.id;
+      if(due<sod && !t.overdueNotified && !_overdueNotifiedLocal.has(notifKey) && auth.currentUser) {
+        _overdueNotifiedLocal.add(notifKey); // prevent re-fire within this session
         createNotification(
           auth.currentUser.uid,
           'task_overdue',
@@ -101,7 +108,7 @@ function renderTodayTasks() {
           `"${t.text}" for ${((lead.firstName||'')+' '+(lead.lastName||'')).trim()||lead.address}`,
           lead.id
         ).then(() => {
-          // Mark as notified to prevent duplicate notifications
+          // Mark as notified in Firestore to prevent cross-session duplicates
           updateDoc(doc(db,'leads',lead.id,'tasks',t.id), {overdueNotified: true}).catch(e=>{});
         });
       }
