@@ -4163,9 +4163,22 @@ window.nbdNavToggle = nbdNavToggle;
           🎲 Load Sample Data
         </button>
         <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="btn btn-ghost" id="bulkModeBtn" onclick="toggleBulkMode()" style="font-size:11px;padding:6px 12px;" title="Select multiple leads">☑ Bulk</button>
           <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
           <button class="btn btn-orange" onclick="openLeadModal()" title="Keyboard shortcut: C">＋ Add Lead <span class="kbd-hint">C</span></button>
         </div>
+      </div>
+      <!-- Bulk action toolbar (hidden until bulk mode active) -->
+      <div id="bulkActionBar" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;margin-top:8px;align-items:center;gap:10px;font-size:12px;">
+        <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
+        <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
+          <option value="">Move to stage...</option>
+          <option>New</option><option>Inspection</option><option>Estimate</option>
+          <option>Approved</option><option>In Progress</option><option>Complete</option><option>Lost</option>
+        </select>
+        <button class="btn btn-ghost" onclick="bulkMoveStage()" style="font-size:11px;padding:5px 10px;">▶ Move</button>
+        <button class="btn btn-ghost" onclick="bulkDelete()" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
+        <button class="btn btn-ghost" onclick="clearBulkSelection()" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
       </div>
     </div>
 

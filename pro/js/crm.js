@@ -890,7 +890,7 @@ function updateBulkToolbar() {
   const toolbar = document.getElementById('bulkActionBar');
   const countSpan = document.getElementById('bulkSelectedCount');
   
-  if (countSpan) countSpan.textContent = count;
+  if (countSpan) countSpan.textContent = count + ' selected';
   
   if (count > 0) {
     toolbar.classList.add('active');
@@ -1156,6 +1156,13 @@ window.closeDeletedDrawer = closeDeletedDrawer;
 window.handleCardClick = handleCardClick;
 window.cancelDeleteConfirm = cancelDeleteConfirm;
 window.confirmDeleteLead = confirmDeleteLead;
+// Bulk operations
+window.toggleBulkMode = toggleBulkMode;
+window.toggleCardSelection = toggleCardSelection;
+window.clearBulkSelection = clearBulkSelection;
+window.bulkMoveStage = bulkMoveStage;
+window.bulkDelete = bulkDelete;
+window.refreshTrashBadge = refreshTrashBadge;
 // restoreLead and permanentlyDelete are defined in dashboard.html as _restoreLead and _permanentDeleteLead
 window.restoreLead = (id) => window._restoreLead(id);
 window.permanentlyDelete = (id) => window._permanentDeleteLead(id);
