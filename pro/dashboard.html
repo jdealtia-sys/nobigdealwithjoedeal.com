@@ -2201,6 +2201,58 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .stab-btn.stab-active{color:var(--orange);border-bottom-color:var(--orange);}
 .stab-panel{animation:fadeIn .15s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+/* ═══ TEMPLATE LIBRARY ═══ */
+.tl-filters{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 16px;margin-top:-4px;}
+.tl-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
+.tl-filter-btn:hover{background:var(--s2);color:var(--t);border-color:rgba(200,84,26,.3);}
+.tl-filter-btn:active{transform:scale(.96);}
+.tl-filter-active{background:var(--orange)!important;color:#fff!important;border-color:var(--orange)!important;}
+.tl-filter-count{font-size:11px;opacity:.7;font-weight:400;}
+.tl-category{margin:0 16px 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;transition:box-shadow .2s;}
+.tl-category:hover{box-shadow:0 2px 12px rgba(0,0,0,.08);}
+.tl-cat-header{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;transition:background .15s;-webkit-tap-highlight-color:transparent;}
+.tl-cat-header:hover{background:var(--s2);}
+.tl-cat-header:active{background:rgba(200,84,26,.06);}
+.tl-cat-chevron{font-size:14px;color:var(--m);font-weight:700;width:16px;text-align:center;transition:transform .2s;}
+.tl-category.tl-collapsed .tl-cat-chevron{transform:rotate(-90deg);}
+.tl-cat-icon{font-size:20px;}
+.tl-cat-title{margin:0;font-size:15px;font-weight:700;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;flex:1;}
+.tl-cat-badge{font-size:10px;font-weight:600;padding:3px 10px;border-radius:10px;letter-spacing:.04em;}
+.tl-cat-count{font-size:12px;color:var(--m);font-weight:500;white-space:nowrap;}
+.tl-cat-body{border-top:1px solid var(--br);transition:max-height .3s ease;}
+.tl-category.tl-collapsed .tl-cat-body{display:none;}
+.tl-doc-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s,padding-left .15s;-webkit-tap-highlight-color:transparent;}
+.tl-doc-row:last-child{border-bottom:none;}
+.tl-doc-row:hover{background:var(--s2);padding-left:20px;}
+.tl-doc-row:active{background:rgba(200,84,26,.06);}
+.tl-doc-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;transition:transform .15s;}
+.tl-doc-row:hover .tl-doc-icon{transform:scale(1.08);}
+.tl-doc-info{flex:1;min-width:0;}
+.tl-doc-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--t);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tl-doc-desc{font-size:12px;color:var(--m);margin-top:2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.tl-doc-arrow{font-size:16px;color:var(--m);font-weight:700;opacity:0;transition:opacity .15s,transform .15s;}
+.tl-doc-row:hover .tl-doc-arrow{opacity:1;transform:translateX(3px);}
+@media(max-width:768px){
+  .tl-filters{padding:0 12px 12px;gap:6px;}
+  .tl-filter-btn{padding:7px 12px;font-size:12px;}
+  .tl-category{margin:0 12px 12px;}
+  .tl-cat-header{padding:12px 14px;gap:8px;}
+  .tl-cat-badge{display:none;}
+  .tl-doc-row{padding:12px 14px;gap:10px;}
+  .tl-doc-icon{width:36px;height:36px;font-size:17px;}
+  .tl-doc-name{font-size:14px;}
+  .tl-doc-desc{font-size:11px;-webkit-line-clamp:1;}
+  .tl-doc-arrow{opacity:1;font-size:14px;}
+}
+@media(max-width:480px){
+  .tl-filters{gap:4px;}
+  .tl-filter-btn{padding:6px 10px;font-size:11px;}
+  .tl-filter-count{display:none;}
+  .tl-cat-title{font-size:13px;}
+  .tl-cat-count{font-size:11px;}
+  .tl-doc-row{min-height:44px;}
+}
+
 .settings-section.collapsible { border: 1px solid var(--br); border-radius: 8px; padding: 0; background: var(--s); }
 .settings-section.collapsible .settings-title { 
   cursor: pointer; 
@@ -6154,134 +6206,285 @@ function switchScTab(tab, btn) {
             <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
-          <div class="page-sub">Contracts, scopes, and forms</div>
+          <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
         </div>
-        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload Template</button>
+        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload</button>
       </div>
 
-      <!-- TEMPLATES PANEL -->
-      <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-hdr"><div><div class="panel-label">Built-In Templates</div><div class="panel-title">Ready to Use</div></div></div>
-        <div class="panel-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;" id="builtinDocs">
-            <div class="doc-card" onclick="openDocTemplate('contract')">
-              <div class="doc-icon">📄</div>
-              <div class="doc-name">Roofing Contract</div>
-              <div class="doc-desc">Standard roofing contract with warranty terms</div>
-              <div class="doc-action">Open Template →</div>
+      <!-- CATEGORY FILTER BUTTONS -->
+      <div class="tl-filters" id="tlFilters">
+        <button class="tl-filter-btn tl-filter-active" onclick="tlFilterCat('all',this)">All <span class="tl-filter-count">24</span></button>
+        <button class="tl-filter-btn" onclick="tlFilterCat('generators',this)">⚡ Generators <span class="tl-filter-count">4</span></button>
+        <button class="tl-filter-btn" onclick="tlFilterCat('insurance',this)">🛡️ Insurance <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" onclick="tlFilterCat('contracts',this)">📝 Contracts <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" onclick="tlFilterCat('leave_behind',this)">📂 Leave-Behinds <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" onclick="tlFilterCat('marketing',this)">📣 Marketing <span class="tl-filter-count">5</span></button>
+      </div>
+
+      <!-- COLLAPSIBLE CATEGORIES -->
+      <div id="tlCategories">
+
+        <!-- ── GENERATORS ── -->
+        <div class="tl-category" data-cat="generators">
+          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+            <span class="tl-cat-chevron">▾</span>
+            <span class="tl-cat-icon">⚡</span>
+            <h3 class="tl-cat-title" style="color:#C8541A;">Generators</h3>
+            <span class="tl-cat-badge" style="background:rgba(200,84,26,.12);color:#C8541A;">Auto-fill from CRM</span>
+            <span class="tl-cat-count">4 docs</span>
+          </div>
+          <div class="tl-cat-body">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('proposal')">
+              <div class="tl-doc-icon" style="background:rgba(200,84,26,.1);color:#C8541A;">📊</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Proposal / Estimate</div>
+                <div class="tl-doc-desc">Branded proposal with tiered pricing, warranty details, and project photos</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="doc-card" onclick="openDocTemplate('supplement')">
-              <div class="doc-icon">📋</div>
-              <div class="doc-name">Supplement Request</div>
-              <div class="doc-desc">Insurance supplement line items template</div>
-              <div class="doc-action">Open Template →</div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('invoice')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💰</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Invoice</div>
+                <div class="tl-doc-desc">Professional invoice with line items, payment methods, and balance due</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="doc-card" onclick="openDocTemplate('scope')">
-              <div class="doc-icon">🔍</div>
-              <div class="doc-name">Scope of Work</div>
-              <div class="doc-desc">Detailed scope of work for insurance claims</div>
-              <div class="doc-action">Open Template →</div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('warranty_certificate')">
+              <div class="tl-doc-icon" style="background:rgba(218,165,32,.1);color:#DAA520;">🛡️</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Warranty Certificate</div>
+                <div class="tl-doc-desc">Premium tiered warranty certificate with seal — Good, Better, or Best</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="doc-card" onclick="openDocTemplate('authorization')">
-              <div class="doc-icon">✍️</div>
-              <div class="doc-name">Work Authorization</div>
-              <div class="doc-desc">Homeowner authorization to begin work</div>
-              <div class="doc-action">Open Template →</div>
-            </div>
-            <div class="doc-card" onclick="openDocTemplate('inspection')">
-              <div class="doc-icon">🔎</div>
-              <div class="doc-name">Inspection Checklist</div>
-              <div class="doc-desc">Roof & exterior inspection checklist</div>
-              <div class="doc-action">Open Template →</div>
-            </div>
-            <div class="doc-card" onclick="openDocTemplate('completion')">
-              <div class="doc-icon">✅</div>
-              <div class="doc-name">Certificate of Completion</div>
-              <div class="doc-desc">Job completion certificate for insurance</div>
-              <div class="doc-action">Open Template →</div>
-            </div>
-            <div class="doc-card" onclick="openWarrantyCertWizard()" style="border-color:var(--orange);">
-              <div class="doc-icon">🛡️</div>
-              <div class="doc-name">NBD Warranty Certificate</div>
-              <div class="doc-desc">Auto-populated lifetime guarantee certificate — pull from any lead</div>
-              <div class="doc-action" style="color:var(--orange);">Generate Certificate →</div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('certificate_of_completion')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">✅</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Certificate of Completion</div>
+                <div class="tl-doc-desc">Job completion verification with inspection checklist and warranty activation</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- DOCUMENT GENERATOR -->
-      <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-hdr"><div><div class="panel-label">Generate</div><div class="panel-title">Branded Documents</div></div></div>
-        <div class="panel-body">
-          <p style="font-size:12px;color:var(--m);margin:0 0 12px;">Magazine-quality, print-ready documents with NBD branding. Click any document to generate.</p>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="docGenCards">
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('proposal')" style="border-left:3px solid #C8541A;">
-              <div class="doc-icon">📊</div><div class="doc-name">Proposal / Estimate</div>
-              <div class="doc-desc">Branded proposal with pricing, warranty & photos</div>
-              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('contract')">
-              <div class="doc-icon">📝</div><div class="doc-name">Roofing Contract</div>
-              <div class="doc-desc">Full legal contract with terms & signatures</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('inspectionHomeowner')">
-              <div class="doc-icon">🔍</div><div class="doc-name">Inspection (Homeowner)</div>
-              <div class="doc-desc">Sales-focused report with condition grades</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('inspectionInsurance')">
-              <div class="doc-icon">📋</div><div class="doc-name">Inspection (Insurance)</div>
-              <div class="doc-desc">Damage assessment for insurance claims</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('warranty_certificate')" style="border-left:3px solid #DAA520;">
-              <div class="doc-icon">🛡️</div><div class="doc-name">Warranty Certificate</div>
-              <div class="doc-desc">Premium certificate with tiered warranty</div>
-              <div class="doc-action" style="color:#DAA520;">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('invoice')">
-              <div class="doc-icon">💰</div><div class="doc-name">Invoice</div>
-              <div class="doc-desc">Professional invoice with balance due</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('scope_of_work')">
-              <div class="doc-icon">📐</div><div class="doc-name">Scope of Work</div>
-              <div class="doc-desc">Detailed work specification by trade</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('supplement_request')">
-              <div class="doc-icon">📎</div><div class="doc-name">Supplement Request</div>
-              <div class="doc-desc">Insurance supplement with line items</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('work_authorization')">
-              <div class="doc-icon">✍️</div><div class="doc-name">Work Authorization</div>
-              <div class="doc-desc">Authorization to begin work</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('certificate_of_completion')">
-              <div class="doc-icon">✅</div><div class="doc-name">Completion Certificate</div>
-              <div class="doc-desc">Job completion with checklist</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('change_order')">
-              <div class="doc-icon">🔄</div><div class="doc-name">Change Order</div>
-              <div class="doc-desc">Contract modification document</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('before_after_report')">
-              <div class="doc-icon">📸</div><div class="doc-name">Before & After Report</div>
-              <div class="doc-desc">Visual project documentation</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.generate('company_intro')" style="border-left:3px solid #C8541A;">
-              <div class="doc-icon">🏢</div><div class="doc-name">Company One-Pager</div>
-              <div class="doc-desc">Sales leave-behind marketing piece</div>
-              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.fillAndGenerate('financing_options')">
-              <div class="doc-icon">💳</div><div class="doc-name">Financing Options</div>
-              <div class="doc-desc">Improvifi financing sheet with plans</div>
-              <div class="doc-action">Generate →</div></div>
-            <div class="doc-card" onclick="NBDDocGen.generate('referral_card')" style="border-left:3px solid #C8541A;">
-              <div class="doc-icon">🤝</div><div class="doc-name">Referral Card</div>
-              <div class="doc-desc">Postcard-style referral marketing</div>
-              <div class="doc-action" style="color:#C8541A;">Generate →</div></div>
+        <!-- ── INSURANCE DOCUMENTS ── -->
+        <div class="tl-category" data-cat="insurance">
+          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+            <span class="tl-cat-chevron">▾</span>
+            <span class="tl-cat-icon">🛡️</span>
+            <h3 class="tl-cat-title" style="color:#4A9EFF;">Insurance Documents</h3>
+            <span class="tl-cat-badge" style="background:rgba(74,158,255,.12);color:#4A9EFF;">Claims & Supplements</span>
+            <span class="tl-cat-count">5 docs</span>
+          </div>
+          <div class="tl-cat-body">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('supplement_request')">
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📎</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Supplement Request</div>
+                <div class="tl-doc-desc">Itemized supplement with codes, quantities, and justification for adjusters</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('scope_of_work')">
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📐</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Scope of Work</div>
+                <div class="tl-doc-desc">7-section scope with removal, decking, underlayment, flashing, shingles, ventilation, and cleanup</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('inspectionInsurance')">
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📋</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Inspection Report (Insurance)</div>
+                <div class="tl-doc-desc">Detailed damage assessment formatted for insurance claims with photo zones</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('assignment_of_benefits')">
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📄</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Assignment of Benefits (AOB)</div>
+                <div class="tl-doc-desc">Legal assignment authorizing NBD to negotiate and receive insurance proceeds</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('change_order')">
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">🔄</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Change Order</div>
+                <div class="tl-doc-desc">Contract modification with added/removed items and revised project totals</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
           </div>
         </div>
-      </div>
+
+        <!-- ── CONTRACTS & AGREEMENTS ── -->
+        <div class="tl-category" data-cat="contracts">
+          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+            <span class="tl-cat-chevron">▾</span>
+            <span class="tl-cat-icon">📝</span>
+            <h3 class="tl-cat-title" style="color:#2ECC8A;">Contracts & Agreements</h3>
+            <span class="tl-cat-badge" style="background:rgba(46,204,138,.12);color:#2ECC8A;">Signatures Required</span>
+            <span class="tl-cat-count">5 docs</span>
+          </div>
+          <div class="tl-cat-body">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('contract')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">📝</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Roofing Contract</div>
+                <div class="tl-doc-desc">Full legal contract with terms, conditions, warranty, and signature blocks</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('work_authorization')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">✍️</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Work Authorization</div>
+                <div class="tl-doc-desc">Homeowner authorization to begin work with access instructions and cancellation notice</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('payment_agreement')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💳</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Payment Agreement</div>
+                <div class="tl-doc-desc">Payment schedule with deposit, progress, and final milestones plus accepted methods</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('material_delivery')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">🚚</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Material Delivery Notice</div>
+                <div class="tl-doc-desc">Professional delivery notice with material list, date, and homeowner instructions</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('thank_you')">
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💌</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Thank You Letter</div>
+                <div class="tl-doc-desc">Personal post-project letter with warranty reminder, maintenance tips, and referral ask</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LEAVE-BEHIND PACKETS ── -->
+        <div class="tl-category" data-cat="leave_behind">
+          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+            <span class="tl-cat-chevron">▾</span>
+            <span class="tl-cat-icon">📂</span>
+            <h3 class="tl-cat-title" style="color:#9C27B0;">Leave-Behind Packets</h3>
+            <span class="tl-cat-badge" style="background:rgba(156,39,176,.12);color:#9C27B0;">Sales & Homeowner</span>
+            <span class="tl-cat-count">5 docs</span>
+          </div>
+          <div class="tl-cat-body">
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('company_intro')">
+              <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">🏢</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Company One-Pager</div>
+                <div class="tl-doc-desc">Full-color marketing piece with services, testimonials, and financing CTA</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('financing_options')">
+              <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">💳</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Financing Options Sheet</div>
+                <div class="tl-doc-desc">Improvifi financing plans with monthly payment breakdowns and application steps</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('inspectionHomeowner')">
+              <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">🔍</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Inspection Report (Homeowner)</div>
+                <div class="tl-doc-desc">Sales-focused inspection report with condition grades and photo documentation</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('storm_checklist')">
+              <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">⛈️</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Storm Damage Checklist</div>
+                <div class="tl-doc-desc">Printable 5-section checklist covering roof, gutters, siding, windows, and interior</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('claim_guide')">
+              <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">📖</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Insurance Claim Process Guide</div>
+                <div class="tl-doc-desc">7-step process walkthrough with FAQs — builds trust and sets expectations</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── MARKETING & MAILERS ── -->
+        <div class="tl-category" data-cat="marketing">
+          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+            <span class="tl-cat-chevron">▾</span>
+            <span class="tl-cat-icon">📣</span>
+            <h3 class="tl-cat-title" style="color:#FF6B35;">Marketing & Mailers</h3>
+            <span class="tl-cat-badge" style="background:rgba(255,107,53,.12);color:#FF6B35;">Print & Distribute</span>
+            <span class="tl-cat-count">5 docs</span>
+          </div>
+          <div class="tl-cat-body">
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('referral_card')">
+              <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🤝</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Referral Card</div>
+                <div class="tl-doc-desc">Postcard-style referral with reward program details and 3-step process</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('before_after_report')">
+              <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">📸</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Before & After Report</div>
+                <div class="tl-doc-desc">Visual project documentation with before/after photo grids and highlights</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('door_hanger')">
+              <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🚪</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Door Hanger</div>
+                <div class="tl-doc-desc">Print-ready door hanger — "We're in your neighborhood" free inspection offer</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('neighborhood_mailer')">
+              <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">📬</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Neighborhood Mailer</div>
+                <div class="tl-doc-desc">Targeted mailer for neighborhoods with a recent NBD project and referral CTA</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+            <div class="tl-doc-row" onclick="NBDDocGen.generate('testimonial_sheet')">
+              <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">⭐</div>
+              <div class="tl-doc-info">
+                <div class="tl-doc-name">Customer Testimonial Sheet</div>
+                <div class="tl-doc-desc">Social proof sheet with 4 real reviews, star ratings, and satisfaction stats</div>
+              </div>
+              <div class="tl-doc-arrow">→</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tlCategories -->
 
       <!-- UPLOADED DOCS -->
-      <div class="panel">
+      <div class="panel" style="margin-top:20px;">
         <div class="panel-hdr"><div><div class="panel-label">Your Files</div><div class="panel-title">Uploaded Documents</div></div></div>
         <div class="panel-body" id="uploadedDocsWrap">
           <div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>
@@ -8446,6 +8649,31 @@ const DOC_TEMPLATES = {
   }
 };
 
+// ═══ TEMPLATE LIBRARY — toggle / filter ═══
+function tlToggleCat(headerEl){
+  const cat = headerEl.closest('.tl-category');
+  if(cat) cat.classList.toggle('tl-collapsed');
+}
+function tlFilterCat(catKey, btnEl){
+  // Update active button
+  document.querySelectorAll('.tl-filter-btn').forEach(b=>b.classList.remove('tl-filter-active'));
+  if(btnEl) btnEl.classList.add('tl-filter-active');
+  // Show/hide categories
+  document.querySelectorAll('.tl-category').forEach(c=>{
+    if(catKey==='all'){
+      c.style.display='';
+      c.classList.remove('tl-collapsed');
+    } else {
+      if(c.dataset.cat===catKey){
+        c.style.display='';
+        c.classList.remove('tl-collapsed');
+      } else {
+        c.style.display='none';
+      }
+    }
+  });
+}
+
 function openDocTemplate(key){
   const t = DOC_TEMPLATES[key];
   if(!t) return;
@@ -10273,7 +10501,7 @@ if (typeof searchMap === 'function' && !window.searchMap) {
 <script src="js/template-suite.js?v=1"></script>
 <script src="js/company-admin.js?v=1"></script>
 <script src="js/document-generator.js?v=1"></script>
-<script src="js/document-generator-templates.js?v=1"></script>
+<script src="js/document-generator-templates.js?v=2"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

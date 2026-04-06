@@ -994,6 +994,674 @@
   };
 
   // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 12: ASSIGNMENT OF BENEFITS (AOB)
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderAssignmentOfBenefits = function(data) {
+    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      claimNumber:'[Claim #]', policyNumber:'[Policy #]', insuranceCompany:'[Insurance Company]',
+      dateOfLoss:'[Date of Loss]', scopeSummary:'Roof replacement and related repairs due to storm damage.' }, data);
+
+    return page('Assignment of Benefits', `
+      ${letterhead()}
+      <h1 style="text-align:center;font-size:24px;color:${S};margin:24px 0 8px;">ASSIGNMENT OF BENEFITS</h1>
+      <p style="text-align:center;color:#666;font-size:13px;margin-bottom:28px;">Insurance Claim Assignment Authorization</p>
+
+      <div class="section">
+        <div class="section-title">Policyholder Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
+          <div><strong>Policyholder:</strong> ${esc(d.homeownerName)}</div>
+          <div><strong>Claim #:</strong> ${esc(d.claimNumber)}</div>
+          <div><strong>Property Address:</strong> ${esc(d.address)}</div>
+          <div><strong>Policy #:</strong> ${esc(d.policyNumber)}</div>
+          <div><strong>Insurance Company:</strong> ${esc(d.insuranceCompany)}</div>
+          <div><strong>Date of Loss:</strong> ${esc(d.dateOfLoss)}</div>
+        </div>
+      </div>
+
+      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;border-left:4px solid ${P};">
+        <p style="font-size:14px;line-height:1.8;margin:0;">
+          I, <strong>${esc(d.homeownerName)}</strong>, as the named insured and owner of the property located at
+          <strong>${esc(d.address)}</strong>, do hereby assign and transfer to <strong>${C.name}</strong>
+          all insurance rights, benefits, and proceeds under my insurance policy with <strong>${esc(d.insuranceCompany)}</strong>,
+          Policy Number <strong>${esc(d.policyNumber)}</strong>, for Claim Number <strong>${esc(d.claimNumber)}</strong>,
+          to the extent of the contract price for all work performed at the above property.
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Scope of Assignment</div>
+        <p style="font-size:14px;line-height:1.8;">This assignment authorizes ${C.name} to:</p>
+        <ul style="font-size:14px;line-height:2;padding-left:24px;">
+          <li>Communicate directly with ${esc(d.insuranceCompany)} regarding the above-referenced claim</li>
+          <li>Negotiate the scope of covered repairs and associated pricing</li>
+          <li>Submit supplemental claims for additional damage discovered during the repair process</li>
+          <li>Receive insurance proceeds and endorsements related to the work performed</li>
+          <li>Pursue any and all remedies available under the insurance policy for work completed</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Work to Be Performed</div>
+        <p style="font-size:14px;">${esc(d.scopeSummary)}</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Terms and Conditions</div>
+        <ol style="font-size:13px;line-height:2;padding-left:24px;color:#444;">
+          <li>This assignment does not relieve the policyholder of any obligations under the insurance policy, including the timely payment of any deductible or non-covered amounts.</li>
+          <li>The policyholder retains the right to cancel this assignment upon written notice, provided that payment for all completed work has been satisfied in full.</li>
+          <li>${C.name} agrees to perform all work in a professional manner consistent with industry standards and applicable building codes.</li>
+          <li>Any insurance proceeds received in excess of the contract price shall be returned to the policyholder.</li>
+          <li>This assignment is binding upon the heirs, successors, and assigns of the policyholder.</li>
+        </ol>
+      </div>
+
+      <div class="section" style="background:#fff8f5;padding:20px;border-radius:8px;border:1px solid #f0d0c0;">
+        <p style="font-size:13px;color:#555;margin:0;">
+          <strong>Right to Rescind:</strong> You may cancel this assignment within three (3) business days of signing
+          by providing written notice to ${C.name}. After the rescission period, cancellation is subject to
+          payment for all work completed to date.
+        </p>
+      </div>
+
+      ${sigBlock(['Property Owner / Policyholder','Witness','Authorized NBD Representative'])}
+      ${footer('Assignment of Benefits — Claim #' + d.claimNumber)}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 13: MATERIAL DELIVERY NOTICE
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderMaterialDelivery = function(data) {
+    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      deliveryDate:'[Delivery Date]', deliveryTime:'Between 7:00 AM and 12:00 PM',
+      startDate:'[Project Start Date]',
+      materials:[
+        {item:'GAF Timberline HDZ Architectural Shingles',qty:'30 bundles',notes:'Color: Charcoal'},
+        {item:'GAF FeltBuster Synthetic Underlayment',qty:'6 rolls',notes:''},
+        {item:'GAF Cobra Ridge Vent',qty:'4 pieces',notes:''},
+        {item:'Drip Edge Flashing (Aluminum)',qty:'120 LF',notes:'Color-matched'},
+        {item:'Ice & Water Shield',qty:'2 rolls',notes:'Eaves and valleys'},
+        {item:'Pipe Boot Flashings',qty:'4 units',notes:''},
+        {item:'Starter Strip Shingles',qty:'6 bundles',notes:''},
+        {item:'Roofing Nails (1.25")',qty:'4 boxes',notes:''}
+      ] }, data);
+
+    return page('Material Delivery Notice', `
+      ${letterhead()}
+      <h1 style="text-align:center;font-size:24px;color:${S};margin:24px 0 8px;">MATERIAL DELIVERY NOTICE</h1>
+      <p style="text-align:center;color:#666;font-size:13px;margin-bottom:28px;">Advance Notice of Project Material Delivery</p>
+
+      <div class="section" style="background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%);color:#fff;padding:28px;border-radius:12px;">
+        <p style="font-size:16px;line-height:1.8;margin:0;">
+          Dear <strong>${esc(d.homeownerName)}</strong>,<br><br>
+          We are writing to let you know that materials for your upcoming project will be delivered to your property.
+          Below are the details for your reference.
+        </p>
+      </div>
+
+      <div class="section" style="margin-top:24px;">
+        <div class="section-title">Delivery Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;">
+          <div style="background:#f8f8f8;padding:16px;border-radius:8px;">
+            <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Delivery Date</div>
+            <div style="font-size:18px;font-weight:700;color:${S};">${esc(d.deliveryDate)}</div>
+          </div>
+          <div style="background:#f8f8f8;padding:16px;border-radius:8px;">
+            <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Delivery Window</div>
+            <div style="font-size:18px;font-weight:700;color:${S};">${esc(d.deliveryTime)}</div>
+          </div>
+          <div style="background:#f8f8f8;padding:16px;border-radius:8px;">
+            <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Property</div>
+            <div style="font-size:14px;font-weight:600;color:${S};">${esc(d.address)}</div>
+          </div>
+          <div style="background:#f8f8f8;padding:16px;border-radius:8px;">
+            <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Project Start</div>
+            <div style="font-size:14px;font-weight:600;color:${S};">${esc(d.startDate)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Materials Being Delivered</div>
+        <table class="items">
+          <thead><tr><th>Material</th><th>Quantity</th><th>Notes</th></tr></thead>
+          <tbody>${d.materials.map(m =>
+            `<tr><td>${esc(m.item)}</td><td>${esc(m.qty)}</td><td>${esc(m.notes)}</td></tr>`
+          ).join('')}</tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-title">What to Expect</div>
+        <ul style="font-size:14px;line-height:2;padding-left:24px;">
+          <li>Materials will be placed in your driveway or alongside the home — our crew will position them for easy access.</li>
+          <li>A delivery truck will need clear access to your driveway. Please move vehicles if possible.</li>
+          <li>You do not need to be home for delivery, but please ensure gates are accessible.</li>
+          <li>Materials may remain on the property for 1–3 days before the crew arrives — this is normal.</li>
+          <li>Do not move, open, or disturb delivered materials — our crew will handle everything on project day.</li>
+        </ul>
+      </div>
+
+      <div class="section" style="background:#f0fdf4;padding:20px;border-radius:8px;border:1px solid #bbf7d0;">
+        <p style="font-size:14px;margin:0;color:#166534;">
+          <strong>Questions?</strong> Call us at <strong>${C.phone}</strong> or email <strong>${C.email}</strong>.
+          We are always happy to help.
+        </p>
+      </div>
+
+      ${footer('Material Delivery Notice')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 14: STORM DAMAGE CHECKLIST
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderStormChecklist = function(data) {
+    const d = Object.assign({}, data);
+
+    const sections = [
+      { title:'Roof', icon:'🏠', items:[
+        'Missing, cracked, or curling shingles',
+        'Exposed or damaged underlayment',
+        'Dents or dimples on ridge cap or vents',
+        'Granule loss in gutters or around downspouts',
+        'Damaged or displaced flashing',
+        'Sagging areas or visible structural damage',
+        'Exposed nail heads or lifted shingle tabs'
+      ]},
+      { title:'Gutters & Downspouts', icon:'🌧️', items:[
+        'Dents, dings, or crush marks on gutters',
+        'Gutters pulled away from fascia board',
+        'Clogged or overflowing gutter runs',
+        'Downspout damage or disconnection',
+        'Pooling water or improper drainage'
+      ]},
+      { title:'Siding & Exterior', icon:'🧱', items:[
+        'Cracked, chipped, or broken siding panels',
+        'Holes or punctures from hail or debris',
+        'Faded or discolored siding from storm impact',
+        'Loose or missing trim or soffit',
+        'Paint damage or peeling from moisture'
+      ]},
+      { title:'Windows & Doors', icon:'🪟', items:[
+        'Cracked or shattered glass',
+        'Damaged screens or frames',
+        'Broken seals causing fogging between panes',
+        'Water intrusion around window or door frames',
+        'Damaged weatherstripping or caulk'
+      ]},
+      { title:'Interior Warning Signs', icon:'🏚️', items:[
+        'Water stains on ceilings or walls',
+        'Peeling paint or bubbling drywall',
+        'Musty odor indicating moisture or mold',
+        'Light visible through the roof in the attic',
+        'Damp insulation in the attic'
+      ]}
+    ];
+
+    return page('Storm Damage Checklist', `
+      <style>
+        .storm-hero { background:linear-gradient(135deg,#1e3a5f 0%,${S} 100%); color:#fff;
+          padding:40px; border-radius:12px; text-align:center; margin-bottom:28px; }
+        .check-section { margin-bottom:24px; border:1px solid #eee; border-radius:8px; overflow:hidden; }
+        .check-header { display:flex; align-items:center; gap:12px; padding:16px 20px;
+          background:#f8f8f8; border-bottom:1px solid #eee; }
+        .check-list { padding:12px 20px; }
+        .check-row { display:flex; align-items:center; gap:12px; padding:10px 0;
+          border-bottom:1px solid #f5f5f5; font-size:14px; }
+        .check-row:last-child { border-bottom:none; }
+        .check-box { width:20px; height:20px; border:2px solid #ccc; border-radius:4px; flex-shrink:0; }
+      </style>
+      ${letterhead()}
+      <div class="storm-hero">
+        <h1 style="margin:0;color:#fff;font-size:28px;">STORM DAMAGE CHECKLIST</h1>
+        <p style="color:${P};margin:12px 0 0;font-size:16px;">Free Inspection Reference Guide</p>
+        <p style="margin:16px 0 0;font-size:13px;opacity:0.85;max-width:500px;margin-left:auto;margin-right:auto;">
+          After a storm, use this checklist to identify potential damage to your property.
+          Mark anything you notice and contact us for a professional inspection — always free, always no obligation.</p>
+      </div>
+
+      ${sections.map(s => `<div class="check-section">
+        <div class="check-header">
+          <span style="font-size:24px;">${s.icon}</span>
+          <h3 style="margin:0;font-size:16px;color:${S};font-family:'Helvetica Neue',Arial,sans-serif;">${s.title}</h3>
+        </div>
+        <div class="check-list">
+          ${s.items.map(i => `<div class="check-row">
+            <div class="check-box"></div>
+            <span>${esc(i)}</span>
+          </div>`).join('')}
+        </div>
+      </div>`).join('')}
+
+      <div class="section" style="background:${P};color:#fff;padding:28px;border-radius:12px;text-align:center;">
+        <div style="font-size:20px;font-weight:700;">Found Damage? We Can Help.</div>
+        <div style="font-size:14px;margin-top:8px;opacity:0.9;">
+          Schedule your free, no-obligation inspection today.</div>
+        <div style="font-size:22px;font-weight:700;margin-top:12px;">${C.phone}</div>
+        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${C.email} | ${C.website}</div>
+      </div>
+
+      <p style="font-size:10px;color:#999;text-align:center;margin-top:20px;">
+        This checklist is for reference only and does not constitute a professional inspection.
+        ${C.name} recommends a licensed contractor inspect any suspected damage. We provide free inspections with no obligation.</p>
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 15: INSURANCE CLAIM PROCESS GUIDE
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderClaimGuide = function(data) {
+    const d = Object.assign({}, data);
+
+    const steps = [
+      { num:1, title:'Document the Damage', desc:'Take photos and video of all visible damage from multiple angles. Include wide shots and close-ups. Note the date and time of the storm.', icon:'📸' },
+      { num:2, title:'File Your Claim', desc:'Contact your insurance company to file a claim. Provide the date of loss, description of damage, and your policy number. Write down your claim number.', icon:'📞' },
+      { num:3, title:'Schedule Your Free Inspection', desc:'Call us to schedule a no-cost professional inspection. We will document all damage using industry standards and create a comprehensive report.', icon:'🔍' },
+      { num:4, title:'Meet the Adjuster', desc:'Your insurance company will send an adjuster to assess the damage. We will be there with you to ensure nothing is missed and all damage is properly documented.', icon:'🤝' },
+      { num:5, title:'Review the Estimate', desc:'Once the insurance company issues their estimate, we will review it to ensure fair and accurate pricing. If anything is missing, we file a supplement on your behalf.', icon:'📋' },
+      { num:6, title:'Approve & Schedule', desc:'After the claim is approved, we handle all scheduling, permits, and coordination. You simply approve the scope of work and we take care of everything else.', icon:'✅' },
+      { num:7, title:'Project Completion', desc:'Our crew completes the work to the highest standard. We conduct a final walkthrough with you to ensure complete satisfaction before closing out the project.', icon:'🏠' }
+    ];
+
+    return page('Insurance Claim Process Guide', `
+      <style>
+        .guide-hero { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
+          padding:40px; border-radius:12px; text-align:center; margin-bottom:32px; }
+        .step-row { display:flex; align-items:flex-start; gap:20px; padding:20px 0;
+          border-bottom:1px solid #f0f0f0; }
+        .step-row:last-child { border-bottom:none; }
+        .step-bubble { width:48px; height:48px; border-radius:50%; background:${P}; color:#fff;
+          display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700;
+          flex-shrink:0; box-shadow:0 2px 8px rgba(200,84,26,0.3); }
+        .step-content h3 { margin:0 0 6px; font-size:16px; color:${S}; font-family:'Helvetica Neue',Arial,sans-serif; }
+        .step-content p { margin:0; font-size:14px; color:#555; line-height:1.6; }
+        .faq-item { margin-bottom:16px; }
+        .faq-q { font-weight:700; font-size:14px; color:${S}; margin-bottom:4px; }
+        .faq-a { font-size:13px; color:#555; line-height:1.6; }
+      </style>
+      ${letterhead()}
+      <div class="guide-hero">
+        <h1 style="margin:0;color:#fff;font-size:28px;">YOUR INSURANCE CLAIM</h1>
+        <h2 style="margin:8px 0 0;font-size:18px;color:${P};font-weight:400;">Step-by-Step Process Guide</h2>
+        <p style="margin:16px 0 0;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
+          Filing an insurance claim can feel overwhelming. This guide walks you through every step
+          so you know exactly what to expect. We handle the hard parts — so it really is no big deal.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The 7-Step Process</div>
+        ${steps.map(s => `<div class="step-row">
+          <div class="step-bubble">${s.num}</div>
+          <div class="step-content">
+            <h3>${s.icon} ${s.title}</h3>
+            <p>${s.desc}</p>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <div class="section">
+        <div class="section-title">Common Questions</div>
+        <div class="faq-item">
+          <div class="faq-q">Will filing a claim raise my insurance rates?</div>
+          <div class="faq-a">Storm damage claims are typically classified as "Acts of God" and generally do not result in rate increases. Your insurance exists for exactly this purpose.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">What is my deductible?</div>
+          <div class="faq-a">Your deductible is the amount you pay out of pocket before insurance covers the rest. It is listed on your policy declarations page. We can help you locate it.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">How long does the process take?</div>
+          <div class="faq-a">Most claims are approved within 2–4 weeks. Once approved, we typically begin work within 1–2 weeks depending on crew and material availability.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q">What if the insurance estimate is too low?</div>
+          <div class="faq-a">We will review every line item. If the estimate does not cover the full scope of necessary repairs, we file a supplement with supporting documentation to get the claim adjusted.</div>
+        </div>
+      </div>
+
+      <div class="section" style="background:${P};color:#fff;padding:28px;border-radius:12px;text-align:center;">
+        <div style="font-size:20px;font-weight:700;">Ready to Get Started?</div>
+        <div style="font-size:14px;margin-top:8px;opacity:0.9;">Call us today for your free inspection. We will walk you through every step.</div>
+        <div style="font-size:22px;font-weight:700;margin-top:12px;">${C.phone}</div>
+        <div style="font-size:13px;margin-top:4px;opacity:0.8;">${C.email} | ${C.website}</div>
+      </div>
+
+      ${footer('Insurance Claim Process Guide')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 16: DOOR HANGER
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderDoorHanger = function(data) {
+    const d = Object.assign({}, data);
+
+    return page('Door Hanger', `
+      <style>
+        .hanger { max-width:4in; margin:0 auto; border:2px solid ${P}; border-radius:16px;
+          overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+        .hanger-top { background:linear-gradient(180deg,${S} 0%,#2a2a4e 100%); color:#fff;
+          padding:32px 24px 24px; text-align:center; position:relative; }
+        .hanger-hole { width:36px; height:36px; border-radius:50%; border:3px solid ${P};
+          background:#fff; margin:0 auto 16px; }
+        .hanger-body { padding:24px; background:#fff; }
+        .hanger-cta { background:${P}; color:#fff; padding:16px; text-align:center;
+          font-size:14px; font-weight:700; }
+        .hanger-service { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px; color:#333; }
+        .hanger-dot { width:8px; height:8px; border-radius:50%; background:${P}; flex-shrink:0; }
+      </style>
+
+      <div class="hanger">
+        <div class="hanger-top">
+          <div class="hanger-hole"></div>
+          <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${P};margin-bottom:8px;">
+            WE'RE IN YOUR NEIGHBORHOOD</div>
+          <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">FREE ROOF<br>INSPECTION</h2>
+          <p style="margin:12px 0 0;font-size:13px;opacity:0.85;">No cost. No obligation. No big deal.</p>
+        </div>
+        <div class="hanger-body">
+          <p style="font-size:13px;color:#555;margin:0 0 16px;line-height:1.6;">
+            Hi Neighbor! Our crew is working on a project nearby. While we are in the area, we would be happy
+            to provide a complimentary roof and exterior inspection at no cost to you.</p>
+
+          <div style="font-size:11px;font-weight:700;color:${S};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">
+            Our Services</div>
+          <div class="hanger-service"><div class="hanger-dot"></div>Roofing — replacements, repairs, storm damage</div>
+          <div class="hanger-service"><div class="hanger-dot"></div>Siding — vinyl, fiber cement, LP SmartSide</div>
+          <div class="hanger-service"><div class="hanger-dot"></div>Gutters — seamless systems and guards</div>
+          <div class="hanger-service"><div class="hanger-dot"></div>Windows & Doors — energy-efficient upgrades</div>
+          <div class="hanger-service"><div class="hanger-dot"></div>Insurance Claims — handled start to finish</div>
+
+          <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;">
+            <div style="font-size:12px;color:#666;">Licensed | Insured | Warranty-Backed</div>
+          </div>
+        </div>
+        <div class="hanger-cta">
+          CALL OR TEXT: ${C.phone}<br>
+          <span style="font-size:12px;font-weight:400;opacity:0.9;">${C.website}</span>
+        </div>
+      </div>
+
+      <p style="text-align:center;font-size:10px;color:#999;margin-top:24px;">
+        Print on cardstock. Cut along the border. Hang on front door handle.</p>
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 17: NEIGHBORHOOD MAILER
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderNeighborhoodMailer = function(data) {
+    const d = Object.assign({ neighborhoodName:'[Your Neighborhood]', projectAddress:'[Nearby Project Address]' }, data);
+
+    return page('Neighborhood Mailer', `
+      <style>
+        .mailer { max-width:6in; margin:0 auto; border:2px solid #eee; border-radius:12px;
+          overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.08); }
+        .mailer-top { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
+          padding:36px 32px; text-align:center; }
+        .mailer-body { padding:32px; background:#fff; }
+        .mailer-stat { text-align:center; padding:16px; }
+        .mailer-stat-num { font-size:28px; font-weight:700; color:${P}; font-family:'Helvetica Neue',Arial,sans-serif; }
+        .mailer-stat-label { font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
+        .mailer-footer { background:#f8f8f8; padding:20px 32px; text-align:center; }
+      </style>
+
+      <div class="mailer">
+        <div class="mailer-top">
+          <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${P};margin-bottom:12px;">
+            ATTENTION: ${esc(d.neighborhoodName)} RESIDENTS</div>
+          <h1 style="margin:0;color:#fff;font-size:26px;line-height:1.3;">
+            WE JUST COMPLETED A<br>PROJECT NEAR YOU</h1>
+          <p style="margin:12px 0 0;font-size:14px;opacity:0.85;">
+            Your neighbor at ${esc(d.projectAddress)} trusted ${C.name} — and so can you.</p>
+        </div>
+        <div class="mailer-body">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;border-bottom:1px solid #eee;padding-bottom:24px;">
+            <div class="mailer-stat"><div class="mailer-stat-num">5★</div><div class="mailer-stat-label">Customer Rating</div></div>
+            <div class="mailer-stat"><div class="mailer-stat-num">100%</div><div class="mailer-stat-label">Satisfaction</div></div>
+            <div class="mailer-stat"><div class="mailer-stat-num">0</div><div class="mailer-stat-label">Cost for Inspection</div></div>
+          </div>
+
+          <p style="font-size:14px;color:#333;line-height:1.7;margin:0 0 20px;">
+            Whether your home was affected by the same storm or you have been thinking about an upgrade,
+            we would love the opportunity to take a look. Our inspections are always free, and there is
+            never any pressure or obligation.</p>
+
+          <div style="background:#fff8f5;border-radius:8px;padding:16px;border-left:4px solid ${P};margin-bottom:20px;">
+            <div style="font-size:14px;font-weight:700;color:${S};margin-bottom:4px;">
+              Ask about our neighbor referral program!</div>
+            <div style="font-size:13px;color:#555;">
+              Earn rewards for every referral that turns into a completed project.</div>
+          </div>
+
+          <div style="text-align:center;padding:20px;background:${P};border-radius:8px;color:#fff;">
+            <div style="font-size:18px;font-weight:700;">Schedule Your Free Inspection</div>
+            <div style="font-size:22px;font-weight:700;margin-top:8px;">${C.phone}</div>
+            <div style="font-size:13px;margin-top:4px;opacity:0.9;">${C.email} | ${C.website}</div>
+          </div>
+        </div>
+        <div class="mailer-footer">
+          <div style="font-size:12px;color:#666;">
+            ${C.name} | Licensed & Insured | Lexington, KY & Surrounding Areas</div>
+        </div>
+      </div>
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 18: CUSTOMER TESTIMONIAL SHEET
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderTestimonialSheet = function(data) {
+    const d = Object.assign({}, data);
+
+    const testimonials = [
+      { text:'They made the whole process feel like no big deal. From filing the claim to the final cleanup, everything was handled professionally and on time.', name:'Satisfied Homeowner', location:'Lexington, KY', project:'Roof Replacement', rating:5 },
+      { text:'The crew was on time, cleaned up everything, and the roof looks amazing. Best contractor experience I have ever had. Highly recommend.', name:'Satisfied Homeowner', location:'Georgetown, KY', project:'Roof & Gutters', rating:5 },
+      { text:'Joe and his team walked us through the entire insurance claim process. We did not have to stress about a single thing. The new roof looks incredible.', name:'Satisfied Homeowner', location:'Nicholasville, KY', project:'Insurance Restoration', rating:5 },
+      { text:'Professional from start to finish. They showed up when they said they would, did exactly what they said they would do, and left the property cleaner than they found it.', name:'Satisfied Homeowner', location:'Versailles, KY', project:'Siding Replacement', rating:5 }
+    ];
+
+    return page('Customer Testimonials', `
+      <style>
+        .test-hero { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
+          padding:40px; border-radius:12px; text-align:center; margin-bottom:32px; }
+        .test-card { background:#fff; border:1px solid #eee; border-radius:12px; padding:24px;
+          margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); position:relative; }
+        .test-quote { font-size:48px; color:${P}; opacity:0.3; position:absolute; top:8px; left:16px;
+          font-family:Georgia,serif; line-height:1; }
+        .test-stars { color:#fbbf24; font-size:16px; letter-spacing:2px; margin-bottom:8px; }
+        .test-text { font-size:15px; color:#333; line-height:1.7; font-style:italic; padding-left:20px;
+          border-left:3px solid ${P}; margin:12px 0; }
+        .test-meta { display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:12px; }
+      </style>
+      ${letterhead()}
+      <div class="test-hero">
+        <h1 style="margin:0;color:#fff;font-size:28px;">WHAT OUR CUSTOMERS SAY</h1>
+        <p style="color:${P};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
+          <div><div style="font-size:28px;font-weight:700;">5.0</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
+          <div><div style="font-size:28px;font-weight:700;">100%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
+        </div>
+      </div>
+
+      ${testimonials.map(t => `<div class="test-card">
+        <div class="test-quote">&ldquo;</div>
+        <div class="test-stars">${'★'.repeat(t.rating)}</div>
+        <div class="test-text">${esc(t.text)}</div>
+        <div class="test-meta">
+          <span><strong>${esc(t.name)}</strong> — ${esc(t.location)}</span>
+          <span>${esc(t.project)}</span>
+        </div>
+      </div>`).join('')}
+
+      <div class="section" style="text-align:center;margin-top:28px;">
+        <div style="font-size:18px;font-weight:700;color:${S};">Join Our Growing List of Happy Homeowners</div>
+        <div style="font-size:14px;color:#555;margin-top:8px;">
+          Schedule your free inspection and see why our customers love working with us.</div>
+        <div style="font-size:22px;font-weight:700;color:${P};margin-top:12px;">${C.phone}</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;">${C.email} | ${C.website}</div>
+      </div>
+
+      ${footer('Customer Testimonials')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 19: THANK YOU LETTER
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderThankYou = function(data) {
+    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      projectType:'roof replacement', completionDate:today() }, data);
+
+    return page('Thank You Letter', `
+      ${letterhead()}
+      <div style="max-width:6in;margin:24px auto;font-size:15px;line-height:2;color:#333;">
+        <p style="text-align:right;color:#666;font-size:13px;margin-bottom:28px;">${esc(d.completionDate)}</p>
+
+        <p>Dear ${esc(d.homeownerName)},</p>
+
+        <p>On behalf of everyone at ${C.name}, I want to personally thank you for trusting us with your
+        recent ${esc(d.projectType)} project at ${esc(d.address)}. It was a privilege to work on your home,
+        and we hope the experience lived up to our promise — no stress, no hassle, no big deal.</p>
+
+        <p>We take enormous pride in every project we complete, and your satisfaction is the single most
+        important measure of our success. If anything about your experience was less than exceptional, or
+        if there is anything we can do to improve, please do not hesitate to reach out.</p>
+
+        <p><strong>A few things to keep in mind going forward:</strong></p>
+
+        <p style="padding-left:20px;border-left:3px solid ${P};">
+          <strong>Your Warranty:</strong> Your workmanship warranty is now active. Keep your warranty certificate
+          in a safe place. If you ever notice an issue, call us first — we stand behind every project we touch.<br><br>
+          <strong>Maintenance:</strong> We recommend a visual check of your roof after any major storm. If you see
+          anything that concerns you, give us a call and we will come take a look at no charge.<br><br>
+          <strong>Referrals:</strong> If you know anyone who could benefit from our services, we would be grateful
+          for the introduction. Ask us about our referral program — it is our way of saying thanks.
+        </p>
+
+        <p>Once again, thank you for choosing ${C.name}. It truly means the world to our team.</p>
+
+        <p>If you have a moment, we would greatly appreciate a review on Google. It helps other homeowners
+        find a contractor they can trust, and it lets our team know we are on the right track.</p>
+
+        <p style="margin-top:32px;">
+          With gratitude,<br><br>
+          <strong>Joe Deal</strong><br>
+          <span style="font-size:13px;color:#666;">Owner, ${C.name}</span><br>
+          <span style="font-size:13px;color:#666;">${C.phone} | ${C.email}</span>
+        </p>
+      </div>
+      ${footer('Thank You Letter')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // TEMPLATE 20: PAYMENT AGREEMENT
+  // ═══════════════════════════════════════════════════════════════
+  DG.renderPaymentAgreement = function(data) {
+    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
+      totalAmount:'0.00', depositAmount:'0.00', depositDue:'Upon contract signing',
+      progressAmount:'0.00', progressDue:'Upon material delivery',
+      finalAmount:'0.00', finalDue:'Upon project completion',
+      projectDescription:'Complete roof replacement per attached scope of work and contract.' }, data);
+
+    const total = parseFloat(d.totalAmount)||0;
+    const deposit = parseFloat(d.depositAmount)||0;
+    const progress = parseFloat(d.progressAmount)||0;
+    const final = parseFloat(d.finalAmount)||0;
+
+    return page('Payment Agreement', `
+      ${letterhead()}
+      <h1 style="text-align:center;font-size:24px;color:${S};margin:24px 0 8px;">PAYMENT AGREEMENT</h1>
+      <p style="text-align:center;color:#666;font-size:13px;margin-bottom:28px;">Payment Schedule & Terms</p>
+
+      <div class="section">
+        <div class="section-title">Project Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
+          <div><strong>Property Owner:</strong> ${esc(d.homeownerName)}</div>
+          <div><strong>Date:</strong> ${today()}</div>
+          <div><strong>Property:</strong> ${esc(d.address)}</div>
+          <div><strong>Total Contract Amount:</strong> <span style="color:${P};font-weight:700;font-size:16px;">${money(total)}</span></div>
+        </div>
+        <p style="font-size:14px;margin-top:12px;">${esc(d.projectDescription)}</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Payment Schedule</div>
+        <table class="items">
+          <thead><tr><th>Payment</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. Deposit</strong></td><td class="right">${money(deposit)}</td><td>${esc(d.depositDue)}</td>
+              <td><span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span></td></tr>
+            <tr><td><strong>2. Progress Payment</strong></td><td class="right">${money(progress)}</td><td>${esc(d.progressDue)}</td>
+              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
+            <tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
+              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
+            <tr style="font-weight:700;border-top:3px solid ${P};">
+              <td>TOTAL</td><td class="right" style="color:${P};font-size:16px;">${money(total)}</td>
+              <td colspan="2"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Accepted Payment Methods</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;">
+          <div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;">
+            <div style="font-size:24px;margin-bottom:4px;">💰</div>Check</div>
+          <div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;">
+            <div style="font-size:24px;margin-bottom:4px;">📱</div>Zelle</div>
+          <div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;">
+            <div style="font-size:24px;margin-bottom:4px;">💳</div>Credit Card</div>
+          <div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;">
+            <div style="font-size:24px;margin-bottom:4px;">🏦</div>Financing</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Terms and Conditions</div>
+        <ol style="font-size:13px;line-height:2;padding-left:24px;color:#444;">
+          <li>All payments are due as specified above. Late payments may be subject to a 1.5% monthly finance charge.</li>
+          <li>Checks should be made payable to <strong>${C.name}</strong>.</li>
+          <li>For Zelle payments, send to <strong>${C.email}</strong>.</li>
+          <li>Credit card payments are accepted via secure link provided by ${C.name}. A convenience fee may apply.</li>
+          <li>Financing is available through Improvifi, subject to credit approval and separate terms.</li>
+          <li>Work will not commence until the deposit payment has been received and verified.</li>
+          <li>Final payment is due upon completion of the project and successful final walkthrough.</li>
+          <li>Any disputed amounts must be communicated in writing within 10 days of the payment due date.</li>
+        </ol>
+      </div>
+
+      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;">
+        <p style="font-size:14px;margin:0;">
+          By signing below, both parties acknowledge and agree to the payment schedule and terms outlined in
+          this document. This agreement is supplemental to the primary project contract.
+        </p>
+      </div>
+
+      ${sigBlock(['Property Owner','Authorized NBD Representative'])}
+      ${footer('Payment Agreement')}
+    `);
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // REGISTER ALL DOCUMENT TYPES (extended)
+  // ═══════════════════════════════════════════════════════════════
+  Object.assign(DG.DOCUMENT_TYPES, {
+    assignment_of_benefits: { name: 'Assignment of Benefits', template: 'renderAssignmentOfBenefits' },
+    material_delivery: { name: 'Material Delivery Notice', template: 'renderMaterialDelivery' },
+    storm_checklist: { name: 'Storm Damage Checklist', template: 'renderStormChecklist' },
+    claim_guide: { name: 'Insurance Claim Process Guide', template: 'renderClaimGuide' },
+    door_hanger: { name: 'Door Hanger', template: 'renderDoorHanger' },
+    neighborhood_mailer: { name: 'Neighborhood Mailer', template: 'renderNeighborhoodMailer' },
+    testimonial_sheet: { name: 'Customer Testimonial Sheet', template: 'renderTestimonialSheet' },
+    thank_you: { name: 'Thank You Letter', template: 'renderThankYou' },
+    payment_agreement: { name: 'Payment Agreement', template: 'renderPaymentAgreement' }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
   // REGISTER FILL FORM FIELDS FOR NEW TEMPLATES
   // ═══════════════════════════════════════════════════════════════
   if (DG.FORM_FIELDS) {
@@ -1008,9 +1676,18 @@
       company_intro: [],
       before_after_report: ['homeownerName','address','projectType','startDate','completionDate','workDescription'],
       financing_options: ['homeownerName','totalPrice'],
-      referral_card: []
+      referral_card: [],
+      assignment_of_benefits: ['homeownerName','address','claimNumber','policyNumber','insuranceCompany','dateOfLoss','scopeSummary'],
+      material_delivery: ['homeownerName','address','deliveryDate','deliveryTime','startDate'],
+      storm_checklist: [],
+      claim_guide: [],
+      door_hanger: [],
+      neighborhood_mailer: ['neighborhoodName','projectAddress'],
+      testimonial_sheet: [],
+      thank_you: ['homeownerName','address','projectType','completionDate'],
+      payment_agreement: ['homeownerName','address','totalAmount','depositAmount','depositDue','progressAmount','progressDue','finalAmount','finalDue','projectDescription']
     });
   }
 
-  console.log('NBDDocGen: 11 additional templates loaded');
+  console.log('NBDDocGen: 20 additional templates loaded');
 })();
