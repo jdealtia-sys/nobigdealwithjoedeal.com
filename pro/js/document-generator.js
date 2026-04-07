@@ -27,9 +27,9 @@ window.NBDDocGen = {
     tagline: 'No Big Deal — We\'ve Got You Covered',
     address: '', // Optional
     colors: {
-      primary: '#C8541A',    // Burnt orange
+      primary: '#1e3a6e',    // Navy blue (matches website brand)
       secondary: '#1a1a2e',  // Dark navy
-      accent: '#C8541A',
+      accent: '#C8541A',     // Burnt orange (accent/CTA color)
       lightGray: '#f5f5f5',
       borderGray: '#ddd'
     }
@@ -295,7 +295,7 @@ window.NBDDocGen = {
 
         .scope-list li:before {
           content: "•";
-          color: ${this.COMPANY.colors.primary};
+          color: ${this.COMPANY.colors.accent};
           font-weight: bold;
           margin-right: 0.1in;
           margin-left: -0.25in;
@@ -342,7 +342,7 @@ window.NBDDocGen = {
 
         .total-price {
           font-size: 14px;
-          color: ${this.COMPANY.colors.primary};
+          color: ${this.COMPANY.colors.accent};
           font-weight: bold;
         }
 
@@ -350,7 +350,7 @@ window.NBDDocGen = {
         .warranty-badge {
           display: inline-block;
           padding: 0.15in 0.25in;
-          background-color: ${this.COMPANY.colors.primary};
+          background-color: ${this.COMPANY.colors.accent};
           color: white;
           border-radius: 4px;
           font-weight: bold;
@@ -468,7 +468,7 @@ window.NBDDocGen = {
         }
 
         .print-button {
-          background-color: ${this.COMPANY.colors.primary};
+          background-color: ${this.COMPANY.colors.accent};
           color: white;
           border: none;
           padding: 0.4in 0.6in;
@@ -1419,7 +1419,7 @@ window.NBDDocGen = {
     modal.innerHTML = `
       <div style="background:#fff;border-radius:12px;max-width:600px;width:95%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
         <div style="padding:20px 24px;border-bottom:2px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:10px;color:#C8541A;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Generate Document</div>
+          <div><div style="font-size:10px;color:#1e3a6e;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Generate Document</div>
           <div style="font-size:18px;font-weight:700;color:#1a1a2e;font-family:'Helvetica Neue',Arial,sans-serif;">${docName}</div></div>
           <button onclick="document.getElementById('docgenFillModal').remove();" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">&times;</button>
         </div>
@@ -1442,12 +1442,35 @@ window.NBDDocGen = {
       if (!leadId || !window._leads) return;
       const lead = window._leads.find(l => l.id === leadId);
       if (!lead) return;
-      const map = { homeownerName:(lead.firstName||'')+' '+(lead.lastName||''),
-        address:lead.address||'', phone:lead.phone||'', email:lead.email||'',
-        claimNumber:lead.claimNumber||'', insuranceCompany:lead.insuranceCompany||'',
-        totalPrice:lead.jobValue||'', contractPrice:lead.jobValue||'',
-        projectDescription:lead.notes||'', scopeSummary:lead.notes||'',
-        dateOfLoss:lead.dateOfLoss||'', damageType:lead.damageType||'' };
+      const fullName = ((lead.firstName||'')+' '+(lead.lastName||'')).trim();
+      const map = {
+        homeownerName: fullName,
+        address: lead.address||'',
+        phone: lead.phone||'', homeownerPhone: lead.phone||'',
+        email: lead.email||'', homeownerEmail: lead.email||'',
+        claimNumber: lead.claimNumber||'',
+        policyNumber: lead.policyNumber||'',
+        insuranceCompany: lead.insCarrier||lead.insuranceCompany||'',
+        totalPrice: lead.jobValue||lead.estimateAmount||'',
+        contractPrice: lead.jobValue||lead.estimateAmount||'',
+        totalAmount: lead.jobValue||lead.estimateAmount||'',
+        originalApproved: lead.estimateAmount||lead.jobValue||'',
+        estimatedRepairCost: lead.estimateAmount||lead.jobValue||'',
+        projectDescription: lead.scopeOfWork||lead.notes||'',
+        scopeSummary: lead.scopeOfWork||lead.notes||'',
+        workPerformed: lead.scopeOfWork||lead.notes||'',
+        workDescription: lead.scopeOfWork||lead.notes||'',
+        projectType: lead.jobType||'',
+        dateOfLoss: lead.dateOfLoss||'',
+        damageType: lead.damageType||'',
+        startDate: lead.scheduledDate||'',
+        completionDate: lead.completionDate||'',
+        inspectorName: lead.assignedTo||'',
+        deductibleAmount: lead.deductibleOrOwedByHO||'',
+        notes: lead.notes||'',
+        warrantyTier: lead.warrantyTier||'best',
+        estimatedTimeline: lead.estimatedTimeline||''
+      };
       Object.keys(map).forEach(k => {
         const el = document.getElementById('docgen_'+k);
         if (el && map[k]) el.value = map[k].toString().trim();
@@ -1477,8 +1500,14 @@ window.NBDDocGen = {
       { name: 'homeownerName', label: 'Homeowner Name', required: true },
       { name: 'address', label: 'Property Address', required: true },
       { name: 'phone', label: 'Phone Number', required: false },
-      { name: 'email', label: 'Email Address', required: false },
-      { name: 'date', label: 'Document Date', required: true }
+      { name: 'email', label: 'Email Address', required: false }
+    ];
+
+    const insuranceFields = [
+      { name: 'claimNumber', label: 'Claim Number', required: true },
+      { name: 'policyNumber', label: 'Policy Number', required: false },
+      { name: 'insuranceCompany', label: 'Insurance Company', required: true },
+      { name: 'dateOfLoss', label: 'Date of Loss', required: true }
     ];
 
     const typeSpecificFields = {
@@ -1499,14 +1528,123 @@ window.NBDDocGen = {
       inspectionHomeowner: [
         ...commonFields,
         { name: 'inspectorName', label: 'Inspector Name', required: true },
-        { name: 'overallConditionGrade', label: 'Overall Grade', required: true, type: 'select', options: ['A', 'B', 'C', 'D', 'F'] }
+        { name: 'overallConditionGrade', label: 'Overall Grade', required: true, type: 'select', options: ['A', 'B', 'C', 'D', 'F'] },
+        { name: 'damageType', label: 'Type of Damage', required: false },
+        { name: 'projectDescription', label: 'Notes / Findings', required: false, type: 'textarea' }
       ],
       inspectionInsurance: [
         ...commonFields,
-        { name: 'claimNumber', label: 'Claim Number', required: true },
-        { name: 'dateOfLoss', label: 'Date of Loss', required: true },
+        ...insuranceFields,
         { name: 'damageType', label: 'Type of Damage', required: true },
-        { name: 'estimatedRepairCost', label: 'Estimated Repair Cost', required: true }
+        { name: 'estimatedRepairCost', label: 'Estimated Repair Cost', required: true },
+        { name: 'inspectorName', label: 'Inspector Name', required: false }
+      ],
+      warranty_certificate: [
+        ...commonFields,
+        { name: 'warrantyTier', label: 'Warranty Tier', required: true, type: 'select', options: ['good', 'better', 'best'] },
+        { name: 'workPerformed', label: 'Work Performed', required: true, type: 'textarea' },
+        { name: 'issueDate', label: 'Issue Date', required: false }
+      ],
+      supplement_request: [
+        ...commonFields,
+        ...insuranceFields,
+        { name: 'originalApproved', label: 'Original Approved Amount', required: true },
+        { name: 'justification', label: 'Justification / Reason', required: true, type: 'textarea' }
+      ],
+      scope_of_work: [
+        ...commonFields,
+        { name: 'projectDescription', label: 'Project Description', required: true, type: 'textarea' },
+        { name: 'materials', label: 'Material Specifications', required: false, type: 'textarea' },
+        { name: 'estimatedTimeline', label: 'Estimated Timeline', required: false },
+        { name: 'exclusions', label: 'Exclusions', required: false, type: 'textarea' }
+      ],
+      work_authorization: [
+        ...commonFields,
+        { name: 'scopeSummary', label: 'Scope Summary', required: true, type: 'textarea' },
+        { name: 'startDate', label: 'Authorized Start Date', required: true },
+        { name: 'emergencyContact', label: 'Emergency Contact', required: false },
+        { name: 'accessInstructions', label: 'Property Access Instructions', required: false, type: 'textarea' },
+        { name: 'isInsurance', label: 'Insurance Job?', required: false, type: 'select', options: ['false', 'true'] },
+        { name: 'claimNumber', label: 'Claim Number', required: false },
+        { name: 'insuranceCompany', label: 'Insurance Company', required: false }
+      ],
+      certificate_of_completion: [
+        ...commonFields,
+        { name: 'scopeSummary', label: 'Work Performed', required: true, type: 'textarea' },
+        { name: 'startDate', label: 'Start Date', required: true },
+        { name: 'completionDate', label: 'Completion Date', required: true },
+        { name: 'inspectorName', label: 'Inspector / Crew Lead', required: false },
+        { name: 'warrantyTier', label: 'Warranty Tier', required: false, type: 'select', options: ['good', 'better', 'best'] }
+      ],
+      change_order: [
+        ...commonFields,
+        { name: 'originalContractNumber', label: 'Original Contract #', required: true },
+        { name: 'originalContractDate', label: 'Original Contract Date', required: false },
+        { name: 'changeOrderNumber', label: 'Change Order #', required: true },
+        { name: 'changesDescription', label: 'Description of Changes', required: true, type: 'textarea' },
+        { name: 'originalTotal', label: 'Original Contract Total', required: true },
+        { name: 'scheduleImpact', label: 'Schedule Impact', required: false }
+      ],
+      invoice: [
+        ...commonFields,
+        { name: 'homeownerPhone', label: 'Homeowner Phone', required: false },
+        { name: 'homeownerEmail', label: 'Homeowner Email', required: false },
+        { name: 'invoiceNumber', label: 'Invoice Number', required: true },
+        { name: 'dueDate', label: 'Due Date', required: false },
+        { name: 'totalAmount', label: 'Total Amount', required: true },
+        { name: 'taxRate', label: 'Tax Rate (decimal, e.g. 0.06)', required: false },
+        { name: 'paymentsReceived', label: 'Payments Already Received', required: false },
+        { name: 'claimNumber', label: 'Claim # (if insurance)', required: false },
+        { name: 'insuranceCompany', label: 'Insurance Company', required: false },
+        { name: 'notes', label: 'Notes', required: false, type: 'textarea' }
+      ],
+      company_intro: [],
+      before_after_report: [
+        ...commonFields,
+        { name: 'projectType', label: 'Project Type', required: true },
+        { name: 'startDate', label: 'Start Date', required: false },
+        { name: 'completionDate', label: 'Completion Date', required: false },
+        { name: 'workDescription', label: 'Work Description', required: true, type: 'textarea' }
+      ],
+      financing_options: [
+        { name: 'homeownerName', label: 'Homeowner Name', required: false },
+        { name: 'totalPrice', label: 'Project Total', required: true }
+      ],
+      referral_card: [],
+      assignment_of_benefits: [
+        ...commonFields,
+        ...insuranceFields,
+        { name: 'scopeSummary', label: 'Scope of Work Summary', required: true, type: 'textarea' }
+      ],
+      material_delivery: [
+        ...commonFields,
+        { name: 'deliveryDate', label: 'Delivery Date', required: true },
+        { name: 'deliveryTime', label: 'Delivery Window', required: false },
+        { name: 'startDate', label: 'Project Start Date', required: false }
+      ],
+      storm_checklist: [],
+      claim_guide: [],
+      door_hanger: [],
+      neighborhood_mailer: [
+        { name: 'neighborhoodName', label: 'Neighborhood Name', required: true },
+        { name: 'projectAddress', label: 'Nearby Project Address', required: false }
+      ],
+      testimonial_sheet: [],
+      thank_you: [
+        ...commonFields,
+        { name: 'projectType', label: 'Project Type', required: true },
+        { name: 'completionDate', label: 'Completion Date', required: false }
+      ],
+      payment_agreement: [
+        ...commonFields,
+        { name: 'totalAmount', label: 'Total Contract Amount', required: true },
+        { name: 'depositAmount', label: 'Deposit Amount', required: false },
+        { name: 'depositDue', label: 'Deposit Due', required: false },
+        { name: 'progressAmount', label: 'Progress Payment Amount', required: false },
+        { name: 'progressDue', label: 'Progress Payment Due', required: false },
+        { name: 'finalAmount', label: 'Final Payment Amount', required: false },
+        { name: 'finalDue', label: 'Final Payment Due', required: false },
+        { name: 'projectDescription', label: 'Project Description', required: false, type: 'textarea' }
       ]
     };
 

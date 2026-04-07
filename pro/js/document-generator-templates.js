@@ -11,10 +11,11 @@
   const C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
     email: 'info@nobigdeal.pro', website: 'nobigdealwithjoedeal.com',
-    colors: { primary: '#C8541A', secondary: '#1a1a2e' }
+    colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#C8541A' }
   };
-  const P = C.colors?.primary || '#C8541A';
-  const S = C.colors?.secondary || '#1a1a2e';
+  const P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
+  const S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
+  const A = C.colors?.accent || '#C8541A';    // Orange — CTAs, totals, highlights
 
   // Register new document types
   Object.assign(DG.DOCUMENT_TYPES, {
@@ -38,7 +39,7 @@
     body { font-family:Georgia,'Times New Roman',serif; color:#222; line-height:1.6; margin:0; padding:0; background:#fff; }
     h1,h2,h3,h4 { font-family:'Helvetica Neue',Arial,sans-serif; color:${S}; margin:0 0 12px 0; }
     .doc-page { max-width:8.5in; margin:0 auto; padding:40px 50px; }
-    .orange { color:${P}; }
+    .orange { color:${A}; }
     .section { margin-bottom:28px; }
     .section-title { font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em;
       color:${P}; border-bottom:2px solid ${P}; padding-bottom:6px; margin-bottom:16px; }
@@ -57,12 +58,12 @@
     .letterhead { border-top:6px solid ${P}; padding:24px 0 16px; margin-bottom:24px;
       display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #ddd; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:700; color:${S}; }
-    .letterhead-tagline { font-size:12px; color:${P}; font-style:italic; margin-top:2px; }
+    .letterhead-tagline { font-size:12px; color:${A}; font-style:italic; margin-top:2px; }
     .letterhead-contact { text-align:right; font-size:12px; color:#555; line-height:1.8; }
     .footer { border-top:2px solid ${P}; margin-top:40px; padding-top:12px; display:flex;
       justify-content:space-between; font-size:10px; color:#999; }
     .print-btn { text-align:center; padding:24px; }
-    .print-btn button { background:${P}; color:#fff; border:none; padding:14px 36px; border-radius:8px;
+    .print-btn button { background:${A}; color:#fff; border:none; padding:14px 36px; border-radius:8px;
       font-size:16px; cursor:pointer; font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif; }
     .print-btn button:hover { opacity:0.9; }
   `;
@@ -136,7 +137,7 @@
           justify-content:center;color:#fff;font-size:32px;position:absolute;bottom:30px;right:30px;box-shadow:0 4px 12px rgba(0,0,0,0.2); }
         .cert-title { font-family:Georgia,serif; font-size:32px; text-align:center; color:${S};
           letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px; }
-        .cert-sub { text-align:center; font-size:14px; color:${P}; letter-spacing:0.08em; margin-bottom:32px; }
+        .cert-sub { text-align:center; font-size:14px; color:${A}; letter-spacing:0.08em; margin-bottom:32px; }
         .cert-body { text-align:center; font-size:16px; line-height:2; }
         .cert-name { font-size:24px; font-weight:700; color:${S}; }
         .tier-badge { display:inline-block; padding:10px 28px; border-radius:24px; background:${t.bg};
@@ -226,9 +227,9 @@
         <table class="items">
           <thead><tr><th>Description</th><th>Code</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr></thead>
           <tbody>${rows}
-            <tr style="border-top:3px solid ${P};font-weight:700;">
+            <tr style="border-top:3px solid ${A};font-weight:700;">
               <td colspan="5" style="text-align:right;font-size:15px;">SUPPLEMENT TOTAL:</td>
-              <td class="right" style="font-size:15px;color:${P};">${money(suppTotal)}</td></tr>
+              <td class="right" style="font-size:15px;color:${A};">${money(suppTotal)}</td></tr>
             <tr style="font-weight:700;">
               <td colspan="5" style="text-align:right;font-size:15px;">NEW PROJECT TOTAL:</td>
               <td class="right" style="font-size:15px;color:${S};">${money(parseFloat(d.originalApproved)+suppTotal)}</td></tr>
@@ -350,7 +351,7 @@
       <h1 style="text-align:center;font-size:24px;color:${S};margin:24px 0 8px;">WORK AUTHORIZATION</h1>
       <p style="text-align:center;color:#666;margin-bottom:28px;font-size:13px;">Authorization to Perform Work</p>
 
-      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;border-left:4px solid ${P};">
+      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;border-left:4px solid ${A};">
         <p style="font-size:15px;line-height:1.8;">
           I, <strong>${esc(d.homeownerName)}</strong>, as the owner of the property located at
           <strong>${esc(d.address)}</strong>, hereby authorize <strong>${C.name}</strong> to perform the
@@ -428,7 +429,7 @@
       ${letterhead()}
       <div class="comp-border">
         <h1 style="text-align:center;font-size:28px;color:${S};margin-bottom:4px;">CERTIFICATE OF COMPLETION</h1>
-        <p style="text-align:center;color:${P};font-size:13px;letter-spacing:0.08em;margin-bottom:28px;">${C.name}</p>
+        <p style="text-align:center;color:${A};font-size:13px;letter-spacing:0.08em;margin-bottom:28px;">${C.name}</p>
 
         <div class="section">
           <div class="section-title">Project Details</div>
@@ -530,7 +531,7 @@
           <div><div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Original Total</div>
             <div style="font-size:22px;font-weight:700;color:#333;">${money(d.originalTotal)}</div></div>
           <div><div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Change Amount</div>
-            <div style="font-size:22px;font-weight:700;color:${netChange>=0?P:'#16a34a'};">${netChange>=0?'+':''}${money(netChange)}</div></div>
+            <div style="font-size:22px;font-weight:700;color:${netChange>=0?A:'#16a34a'};">${netChange>=0?'+':''}${money(netChange)}</div></div>
           <div><div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">New Total</div>
             <div style="font-size:22px;font-weight:700;color:${S};">${money(newTotal)}</div></div>
         </div>
@@ -579,7 +580,7 @@
 
     return page('Invoice', `
       <style>
-        .inv-balance { background:${P}; color:#fff; padding:20px 28px; border-radius:8px; text-align:center; margin:20px 0; }
+        .inv-balance { background:${A}; color:#fff; padding:20px 28px; border-radius:8px; text-align:center; margin:20px 0; }
         .inv-balance-label { font-size:12px; text-transform:uppercase; letter-spacing:0.1em; opacity:0.9; }
         .inv-balance-amount { font-size:36px; font-weight:700; margin-top:4px; }
       </style>
@@ -673,10 +674,10 @@
         .intro-hero { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:48px 40px; border-radius:12px; text-align:center; margin-bottom:32px; }
         .intro-hero h1 { font-size:32px; margin:0 0 8px; color:#fff; }
-        .intro-hero .tagline { color:${P}; font-size:18px; font-style:italic; }
+        .intro-hero .tagline { color:${A}; font-size:18px; font-style:italic; }
         .svc-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:20px 0; }
         .svc-card { background:#f8f8f8; border-radius:8px; padding:20px; text-align:center;
-          border-top:3px solid ${P}; }
+          border-top:3px solid ${A}; }
         .svc-icon { font-size:28px; margin-bottom:8px; }
         .svc-name { font-weight:700; font-size:15px; color:${S}; margin-bottom:4px;
           font-family:'Helvetica Neue',Arial,sans-serif; }
@@ -688,11 +689,11 @@
         .value-title { font-weight:700; font-size:14px; color:${S};
           font-family:'Helvetica Neue',Arial,sans-serif; }
         .value-desc { font-size:12px; color:#666; margin-top:2px; }
-        .testimonial { background:#f8f8f8; border-left:4px solid ${P}; padding:16px 20px;
+        .testimonial { background:#f8f8f8; border-left:4px solid ${A}; padding:16px 20px;
           margin:12px 0; border-radius:0 8px 8px 0; }
         .testimonial-text { font-style:italic; font-size:14px; color:#444; }
         .testimonial-name { font-size:12px; color:#666; margin-top:8px; font-style:normal; }
-        .finance-cta { background:linear-gradient(135deg,${P} 0%,#e0712a 100%); color:#fff;
+        .finance-cta { background:linear-gradient(135deg,${A} 0%,#e0712a 100%); color:#fff;
           padding:24px; border-radius:12px; text-align:center; margin:24px 0; }
       </style>
 
@@ -754,10 +755,10 @@
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">Through our partnership with Improvifi — affordable monthly payments with quick approval.</div>
       </div>
 
-      <div style="text-align:center;padding:24px 0;border-top:2px solid ${P};">
+      <div style="text-align:center;padding:24px 0;border-top:2px solid ${A};">
         <div style="font-size:20px;font-weight:700;color:${S};font-family:'Helvetica Neue',Arial,sans-serif;">
           Schedule Your Free Inspection</div>
-        <div style="font-size:18px;color:${P};font-weight:700;margin-top:8px;">${C.phone}</div>
+        <div style="font-size:18px;color:${A};font-weight:700;margin-top:8px;">${C.phone}</div>
         <div style="font-size:14px;color:#555;margin-top:4px;">${C.email} | ${C.website}</div>
       </div>
     `);
@@ -784,7 +785,7 @@
       ${letterhead()}
       <div class="ba-header">
         <h1 style="margin:0;color:#fff;font-size:28px;">PROJECT DOCUMENTATION</h1>
-        <p style="color:${P};margin:8px 0 0;font-size:14px;">Before & After Photo Report</p>
+        <p style="color:${A};margin:8px 0 0;font-size:14px;">Before & After Photo Report</p>
       </div>
 
       <div class="section">
@@ -851,7 +852,7 @@
         .plan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:24px 0; }
         .plan-card { border:2px solid #eee; border-radius:12px; padding:24px; text-align:center;
           transition:border-color 0.2s; }
-        .plan-card:hover { border-color:${P}; }
+        .plan-card:hover { border-color:${A}; }
         .plan-badge { display:inline-block; padding:4px 12px; border-radius:12px; font-size:11px;
           font-weight:700; color:#fff; margin-bottom:12px; }
         .plan-monthly { font-size:36px; font-weight:700; color:${S}; }
@@ -859,20 +860,20 @@
         .plan-details { font-size:13px; color:#666; margin-top:8px; }
         .step-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin:24px 0; }
         .step-card { text-align:center; padding:20px; }
-        .step-num { width:40px; height:40px; border-radius:50%; background:${P}; color:#fff;
+        .step-num { width:40px; height:40px; border-radius:50%; background:${A}; color:#fff;
           display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700;
           margin:0 auto 12px; }
       </style>
       ${letterhead()}
       <div class="fin-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">FLEXIBLE FINANCING OPTIONS</h1>
-        <p style="color:${P};margin:12px 0 0;font-size:16px;">
+        <p style="color:${A};margin:12px 0 0;font-size:16px;">
           Make your home improvement project affordable with easy monthly payments</p>
         ${d.homeownerName ? `<p style="margin:16px 0 0;font-size:14px;opacity:0.8;">Prepared for: ${esc(d.homeownerName)}</p>` : ''}
       </div>
 
       <div class="section" style="text-align:center;">
-        <p style="font-size:16px;color:#555;">We've partnered with <strong style="color:${P};">Improvifi</strong> to offer
+        <p style="font-size:16px;color:#555;">We've partnered with <strong style="color:${A};">Improvifi</strong> to offer
         flexible financing solutions. Get approved in minutes with no impact to your credit score for pre-qualification.</p>
         ${price ? `<div style="margin:20px 0;"><div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">
           Project Total</div><div style="font-size:32px;font-weight:700;color:${S};">${money(price)}</div></div>` : ''}
@@ -920,7 +921,7 @@
       <div style="background:#f8f8f8;padding:20px;border-radius:8px;margin:24px 0;text-align:center;">
         <div style="font-size:18px;font-weight:700;color:${S};">Ready to Get Started?</div>
         <div style="font-size:14px;color:#555;margin-top:8px;">
-          Call <strong style="color:${P};">${C.phone}</strong> or visit <strong style="color:${P};">${C.website}</strong></div>
+          Call <strong style="color:${A};">${C.phone}</strong> or visit <strong style="color:${A};">${C.website}</strong></div>
       </div>
 
       <p style="font-size:10px;color:#999;text-align:center;margin-top:24px;">
@@ -940,17 +941,17 @@
 
     return page('Referral Card', `
       <style>
-        .ref-card { max-width:5.5in; margin:0 auto; border:3px solid ${P}; border-radius:16px;
+        .ref-card { max-width:5.5in; margin:0 auto; border:3px solid ${A}; border-radius:16px;
           overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
         .ref-top { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:28px 24px; text-align:center; }
         .ref-top h2 { margin:0; font-size:22px; color:#fff; line-height:1.3; }
         .ref-body { padding:24px; background:#fff; }
-        .ref-reward { background:#fff8f5; border:2px dashed ${P}; border-radius:8px;
+        .ref-reward { background:#fff8f5; border:2px dashed ${A}; border-radius:8px;
           padding:16px; text-align:center; margin:16px 0; }
         .ref-steps { margin:16px 0; }
         .ref-step { display:flex; align-items:flex-start; gap:12px; margin:12px 0; font-size:14px; }
-        .ref-step-num { width:28px; height:28px; border-radius:50%; background:${P}; color:#fff;
+        .ref-step-num { width:28px; height:28px; border-radius:50%; background:${A}; color:#fff;
           display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
         .ref-from { border-top:2px solid #eee; padding-top:16px; margin-top:20px; }
         .ref-contact { background:${S}; color:#fff; padding:16px; text-align:center;
@@ -960,12 +961,12 @@
       <div class="ref-card">
         <div class="ref-top">
           <h2>KNOW SOMEONE WHO<br>NEEDS A NEW ROOF?</h2>
-          <p style="margin:8px 0 0;font-size:14px;color:${P};">Refer them to ${C.name}!</p>
+          <p style="margin:8px 0 0;font-size:14px;color:${A};">Refer them to ${C.name}!</p>
         </div>
         <div class="ref-body">
           <div class="ref-reward">
             <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Referral Reward</div>
-            <div style="font-size:20px;font-weight:700;color:${P};">Ask Us For Details!</div>
+            <div style="font-size:20px;font-weight:700;color:${A};">Ask Us For Details!</div>
             <div style="font-size:12px;color:#888;margin-top:4px;">Earn rewards for every referral that becomes a project</div>
           </div>
 
@@ -1018,7 +1019,7 @@
         </div>
       </div>
 
-      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;border-left:4px solid ${P};">
+      <div class="section" style="background:#f8f8f8;padding:24px;border-radius:8px;border-left:4px solid ${A};">
         <p style="font-size:14px;line-height:1.8;margin:0;">
           I, <strong>${esc(d.homeownerName)}</strong>, as the named insured and owner of the property located at
           <strong>${esc(d.address)}</strong>, do hereby assign and transfer to <strong>${C.name}</strong>
@@ -1216,7 +1217,7 @@
       ${letterhead()}
       <div class="storm-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">STORM DAMAGE CHECKLIST</h1>
-        <p style="color:${P};margin:12px 0 0;font-size:16px;">Free Inspection Reference Guide</p>
+        <p style="color:${A};margin:12px 0 0;font-size:16px;">Free Inspection Reference Guide</p>
         <p style="margin:16px 0 0;font-size:13px;opacity:0.85;max-width:500px;margin-left:auto;margin-right:auto;">
           After a storm, use this checklist to identify potential damage to your property.
           Mark anything you notice and contact us for a professional inspection — always free, always no obligation.</p>
@@ -1235,7 +1236,7 @@
         </div>
       </div>`).join('')}
 
-      <div class="section" style="background:${P};color:#fff;padding:28px;border-radius:12px;text-align:center;">
+      <div class="section" style="background:${A};color:#fff;padding:28px;border-radius:12px;text-align:center;">
         <div style="font-size:20px;font-weight:700;">Found Damage? We Can Help.</div>
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">
           Schedule your free, no-obligation inspection today.</div>
@@ -1272,7 +1273,7 @@
         .step-row { display:flex; align-items:flex-start; gap:20px; padding:20px 0;
           border-bottom:1px solid #f0f0f0; }
         .step-row:last-child { border-bottom:none; }
-        .step-bubble { width:48px; height:48px; border-radius:50%; background:${P}; color:#fff;
+        .step-bubble { width:48px; height:48px; border-radius:50%; background:${A}; color:#fff;
           display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700;
           flex-shrink:0; box-shadow:0 2px 8px rgba(200,84,26,0.3); }
         .step-content h3 { margin:0 0 6px; font-size:16px; color:${S}; font-family:'Helvetica Neue',Arial,sans-serif; }
@@ -1284,7 +1285,7 @@
       ${letterhead()}
       <div class="guide-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">YOUR INSURANCE CLAIM</h1>
-        <h2 style="margin:8px 0 0;font-size:18px;color:${P};font-weight:400;">Step-by-Step Process Guide</h2>
+        <h2 style="margin:8px 0 0;font-size:18px;color:${A};font-weight:400;">Step-by-Step Process Guide</h2>
         <p style="margin:16px 0 0;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
           Filing an insurance claim can feel overwhelming. This guide walks you through every step
           so you know exactly what to expect. We handle the hard parts — so it really is no big deal.</p>
@@ -1321,7 +1322,7 @@
         </div>
       </div>
 
-      <div class="section" style="background:${P};color:#fff;padding:28px;border-radius:12px;text-align:center;">
+      <div class="section" style="background:${A};color:#fff;padding:28px;border-radius:12px;text-align:center;">
         <div style="font-size:20px;font-weight:700;">Ready to Get Started?</div>
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">Call us today for your free inspection. We will walk you through every step.</div>
         <div style="font-size:22px;font-weight:700;margin-top:12px;">${C.phone}</div>
@@ -1340,23 +1341,23 @@
 
     return page('Door Hanger', `
       <style>
-        .hanger { max-width:4in; margin:0 auto; border:2px solid ${P}; border-radius:16px;
+        .hanger { max-width:4in; margin:0 auto; border:2px solid ${A}; border-radius:16px;
           overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
         .hanger-top { background:linear-gradient(180deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:32px 24px 24px; text-align:center; position:relative; }
-        .hanger-hole { width:36px; height:36px; border-radius:50%; border:3px solid ${P};
+        .hanger-hole { width:36px; height:36px; border-radius:50%; border:3px solid ${A};
           background:#fff; margin:0 auto 16px; }
         .hanger-body { padding:24px; background:#fff; }
-        .hanger-cta { background:${P}; color:#fff; padding:16px; text-align:center;
+        .hanger-cta { background:${A}; color:#fff; padding:16px; text-align:center;
           font-size:14px; font-weight:700; }
         .hanger-service { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px; color:#333; }
-        .hanger-dot { width:8px; height:8px; border-radius:50%; background:${P}; flex-shrink:0; }
+        .hanger-dot { width:8px; height:8px; border-radius:50%; background:${A}; flex-shrink:0; }
       </style>
 
       <div class="hanger">
         <div class="hanger-top">
           <div class="hanger-hole"></div>
-          <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${P};margin-bottom:8px;">
+          <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${A};margin-bottom:8px;">
             WE'RE IN YOUR NEIGHBORHOOD</div>
           <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">FREE ROOF<br>INSPECTION</h2>
           <p style="margin:12px 0 0;font-size:13px;opacity:0.85;">No cost. No obligation. No big deal.</p>
@@ -1403,14 +1404,14 @@
           padding:36px 32px; text-align:center; }
         .mailer-body { padding:32px; background:#fff; }
         .mailer-stat { text-align:center; padding:16px; }
-        .mailer-stat-num { font-size:28px; font-weight:700; color:${P}; font-family:'Helvetica Neue',Arial,sans-serif; }
+        .mailer-stat-num { font-size:28px; font-weight:700; color:${A}; font-family:'Helvetica Neue',Arial,sans-serif; }
         .mailer-stat-label { font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
         .mailer-footer { background:#f8f8f8; padding:20px 32px; text-align:center; }
       </style>
 
       <div class="mailer">
         <div class="mailer-top">
-          <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${P};margin-bottom:12px;">
+          <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${A};margin-bottom:12px;">
             ATTENTION: ${esc(d.neighborhoodName)} RESIDENTS</div>
           <h1 style="margin:0;color:#fff;font-size:26px;line-height:1.3;">
             WE JUST COMPLETED A<br>PROJECT NEAR YOU</h1>
@@ -1429,14 +1430,14 @@
             we would love the opportunity to take a look. Our inspections are always free, and there is
             never any pressure or obligation.</p>
 
-          <div style="background:#fff8f5;border-radius:8px;padding:16px;border-left:4px solid ${P};margin-bottom:20px;">
+          <div style="background:#fff8f5;border-radius:8px;padding:16px;border-left:4px solid ${A};margin-bottom:20px;">
             <div style="font-size:14px;font-weight:700;color:${S};margin-bottom:4px;">
               Ask about our neighbor referral program!</div>
             <div style="font-size:13px;color:#555;">
               Earn rewards for every referral that turns into a completed project.</div>
           </div>
 
-          <div style="text-align:center;padding:20px;background:${P};border-radius:8px;color:#fff;">
+          <div style="text-align:center;padding:20px;background:${A};border-radius:8px;color:#fff;">
             <div style="font-size:18px;font-weight:700;">Schedule Your Free Inspection</div>
             <div style="font-size:22px;font-weight:700;margin-top:8px;">${C.phone}</div>
             <div style="font-size:13px;margin-top:4px;opacity:0.9;">${C.email} | ${C.website}</div>
@@ -1469,17 +1470,17 @@
           padding:40px; border-radius:12px; text-align:center; margin-bottom:32px; }
         .test-card { background:#fff; border:1px solid #eee; border-radius:12px; padding:24px;
           margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); position:relative; }
-        .test-quote { font-size:48px; color:${P}; opacity:0.3; position:absolute; top:8px; left:16px;
+        .test-quote { font-size:48px; color:${A}; opacity:0.3; position:absolute; top:8px; left:16px;
           font-family:Georgia,serif; line-height:1; }
         .test-stars { color:#fbbf24; font-size:16px; letter-spacing:2px; margin-bottom:8px; }
         .test-text { font-size:15px; color:#333; line-height:1.7; font-style:italic; padding-left:20px;
-          border-left:3px solid ${P}; margin:12px 0; }
+          border-left:3px solid ${A}; margin:12px 0; }
         .test-meta { display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:12px; }
       </style>
       ${letterhead()}
       <div class="test-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">WHAT OUR CUSTOMERS SAY</h1>
-        <p style="color:${P};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
+        <p style="color:${A};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
         <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
           <div><div style="font-size:28px;font-weight:700;">5.0</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
           <div><div style="font-size:28px;font-weight:700;">100%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
@@ -1500,7 +1501,7 @@
         <div style="font-size:18px;font-weight:700;color:${S};">Join Our Growing List of Happy Homeowners</div>
         <div style="font-size:14px;color:#555;margin-top:8px;">
           Schedule your free inspection and see why our customers love working with us.</div>
-        <div style="font-size:22px;font-weight:700;color:${P};margin-top:12px;">${C.phone}</div>
+        <div style="font-size:22px;font-weight:700;color:${A};margin-top:12px;">${C.phone}</div>
         <div style="font-size:13px;color:#666;margin-top:4px;">${C.email} | ${C.website}</div>
       </div>
 
@@ -1532,7 +1533,7 @@
 
         <p><strong>A few things to keep in mind going forward:</strong></p>
 
-        <p style="padding-left:20px;border-left:3px solid ${P};">
+        <p style="padding-left:20px;border-left:3px solid ${A};">
           <strong>Your Warranty:</strong> Your workmanship warranty is now active. Keep your warranty certificate
           in a safe place. If you ever notice an issue, call us first — we stand behind every project we touch.<br><br>
           <strong>Maintenance:</strong> We recommend a visual check of your roof after any major storm. If you see
@@ -1583,7 +1584,7 @@
           <div><strong>Property Owner:</strong> ${esc(d.homeownerName)}</div>
           <div><strong>Date:</strong> ${today()}</div>
           <div><strong>Property:</strong> ${esc(d.address)}</div>
-          <div><strong>Total Contract Amount:</strong> <span style="color:${P};font-weight:700;font-size:16px;">${money(total)}</span></div>
+          <div><strong>Total Contract Amount:</strong> <span style="color:${A};font-weight:700;font-size:16px;">${money(total)}</span></div>
         </div>
         <p style="font-size:14px;margin-top:12px;">${esc(d.projectDescription)}</p>
       </div>
@@ -1599,8 +1600,8 @@
               <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
             <tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
               <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
-            <tr style="font-weight:700;border-top:3px solid ${P};">
-              <td>TOTAL</td><td class="right" style="color:${P};font-size:16px;">${money(total)}</td>
+            <tr style="font-weight:700;border-top:3px solid ${A};">
+              <td>TOTAL</td><td class="right" style="color:${A};font-size:16px;">${money(total)}</td>
               <td colspan="2"></td></tr>
           </tbody>
         </table>
