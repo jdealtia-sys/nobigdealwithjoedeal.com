@@ -342,7 +342,11 @@ header {
     
     <div class="quick-actions">
       <a class="btn" id="callLink" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
+      <a class="btn" id="smsBookingLink" href="sms:" style="display:none;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Book Inspection</a>
       <a class="btn" id="emailLink" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
+      <button class="btn" onclick="copyBookingLink()" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
+        📋 Copy Booking Link
+      </button>
       <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
         📄 Export PDF
       </button>
@@ -1456,6 +1460,33 @@ async function loadCustomerData(id) {
     }
     if (lead.email) {
       document.getElementById('emailLink').href = `mailto:${lead.email}`;
+    }
+
+    // Booking link buttons — show for early-stage leads
+    const earlyStages = ['new','contacted','inspected'];
+    if (earlyStages.includes(stage)) {
+      const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+      const calUser = calSettings.username || 'nobigdeal';
+      const calSlug = calSettings.eventSlug || 'roof-inspection';
+      const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+      const custName = (lead.firstName || '').trim();
+
+      // SMS booking link
+      const smsBtn = document.getElementById('smsBookingLink');
+      if (smsBtn && lead.phone) {
+        const cleanPhone = lead.phone.replace(/\D/g, '');
+        const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+        smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
+        smsBtn.style.display = '';
+      }
+
+      // Copy booking link button
+      const copyBtn = document.getElementById('copyBookingBtn');
+      if (copyBtn) copyBtn.style.display = '';
+
+      // Store booking URL for copy function
+      window._bookingUrl = bookingUrl;
+      window._bookingCustomerName = custName;
     }
 
     // Populate info
@@ -2933,6 +2964,19 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// ── Booking Link Copy ─────────────────────────────
+window.copyBookingLink = function() {
+  const url = window._bookingUrl;
+  if (!url) { showToast('No booking link configured', 'error'); return; }
+  const name = window._bookingCustomerName;
+  const text = `Hey${name ? ' ' + name : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${url}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBookingBtn');
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Booking Link', 2000); }
+    showToast('Booking message copied to clipboard!', 'success');
+  }).catch(() => showToast('Failed to copy', 'error'));
+};
 
 console.log('✓ Customer page enhancements loaded');
 

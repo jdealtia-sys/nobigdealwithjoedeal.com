@@ -452,6 +452,7 @@ function buildCard(l){
           ${prevS ? `<button class="kc-arrow" title="← ${prevLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
           ${nextS ? `<button class="kc-arrow" title="→ ${nextLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
+        ${['new','contacted','inspected'].includes(_sk) && phone ? `<button class="kc-btn" title="Send booking link via SMS" onclick="event.stopPropagation();sendBookingSMS('${l.id}','${phone.replace(/'/g,'&#39;')}','${nameRaw.replace(/'/g,'&#39;').split(' ')[0]}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></button>` : ''}
         ${email ? `<button class="kc-btn" title="Email" onclick="event.stopPropagation();if(typeof emailByStage==='function')emailByStage('${l.id}');else if(typeof window.emailByStage==='function')window.emailByStage('${l.id}');"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg></button>` : ''}
         <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
         <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
@@ -1346,4 +1347,14 @@ window.permanentlyDelete = (id) => window._permanentDeleteLead(id);
 window.restoreDeletedLead = (id) => window._restoreLead(id);
 window.permanentDeleteLead = (id) => window._permanentDeleteLead(id);
 
+// ── Booking SMS from Kanban Card ─────────────────────
+window.sendBookingSMS = function(leadId, phone, firstName) {
+  const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+  const calUser = calSettings.username || 'nobigdeal';
+  const calSlug = calSettings.eventSlug || 'roof-inspection';
+  const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+  const cleanPhone = phone.replace(/\D/g, '');
+  const body = encodeURIComponent(`Hey${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+  window.open(`sms:${cleanPhone}?body=${body}`, '_self');
+};
 
