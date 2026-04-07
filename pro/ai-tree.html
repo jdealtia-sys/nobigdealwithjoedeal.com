@@ -943,6 +943,7 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="topbar-right">
     <a href="/pro/understand" style="display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">🔮 Understand</a>
     <a href="/pro/codex" style="display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">⬛ Codex</a>
+    <button class="icon-btn" onclick="openKeyConfig()" title="API Key" style="font-size:16px">🔑</button>
     <button class="icon-btn" onclick="openSearch()" title="Search (/)">🔍</button>
     <button class="theme-toggle" onclick="toggleTheme()"><div class="theme-toggle-icons"><span>🌙</span><span>☀️</span></div></button>
     <div class="pro-chip">Pro</div>
@@ -1555,6 +1556,21 @@ window.nbdNavToggle = nbdNavToggle;
 
 <div class="tcon" id="tcon"></div>
 
+<!-- API Key Config Modal -->
+<div id="keyConfigOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeKeyConfig()">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;max-width:440px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px;color:var(--text);margin-bottom:4px">🔑 API KEY CONFIG</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;font-family:'DM Sans',sans-serif">Enter your Anthropic API key for AI-powered comparison and 10X analysis. Without a key, the app uses a smart offline engine.</div>
+    <div id="keyStatus" style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid var(--border);background:var(--surface2)"></div>
+    <input id="keyInput" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;box-sizing:border-box;margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" onclick="saveKey()" style="flex:1">Save Key</button>
+      <button class="btn" onclick="clearKey()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2)">Clear Key</button>
+      <button class="btn" onclick="closeKeyConfig()" style="background:transparent;border:1px solid var(--border);color:var(--text3)">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── STATE ──
 const ROLE_COLORS={Personal:'#F97316',Business:'#0EA5E9',Client:'#A855F7','Developer / API':'#22C55E',Admin:'#EF4444','Creator / Content':'#F59E0B',Owner:'#EC4899',Collaborator:'#06B6D4','Viewer / Read-only':'#6B7280','API / Bot':'#84CC16',Archived:'#374151'};
@@ -2127,25 +2143,33 @@ For "available" tools (not in user's stack): include them so the user can see wh
 Be specific, honest, and ruthless about overlaps. Flag any two tools that do the same job.`;
 
   try{
-    const _tr=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':localStorage.getItem('nbd_joe_key')||''},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
-    });
-    const _td=await _tr.json();
-    const data={content:[{text:_td?.content?.[0]?.text||''}]};
-    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
-    cmpData=JSON.parse(raw);
+    const raw=await aiFetch(prompt,1000);
+    if(raw){
+      cmpData=JSON.parse(raw.replace(/```json|```/g,'').trim());
+      showCmpBanner('fresh','✓ AI analysis complete · '+new Date().toLocaleTimeString());
+      showToast('⚖️ Comparison ready','g');
+    }else{
+      cmpData=offlineComparison(tools);
+      showCmpBanner('fresh','✓ Offline analysis complete — add API key for deeper insights');
+      showToast('⚖️ Offline comparison ready','g');
+    }
     cmpLastRun=Date.now();
     saveCmpCache();
     renderComparison();
-    showCmpBanner('fresh','✓ Analysis complete · '+new Date().toLocaleTimeString());
     setTimeout(hideCmpBanner,5000);
-    showToast('⚖️ Comparison ready','g');
   }catch(e){
-    showCmpBanner('stale','⚠ Analysis failed — check your tools list and try again');
-    g('cmpResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runComparison()">Try Again</button></div>`;
-    showToast('Comparison failed: '+e.message,'');
+    // JSON parse failed on AI response — fall back to offline
+    try{
+      cmpData=offlineComparison(tools);
+      cmpLastRun=Date.now();saveCmpCache();renderComparison();
+      showCmpBanner('fresh','✓ Offline analysis (AI response was malformed)');
+      setTimeout(hideCmpBanner,5000);
+      showToast('⚖️ Offline comparison ready','g');
+    }catch(e2){
+      showCmpBanner('stale','⚠ Analysis failed — '+e2.message);
+      g('cmpResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runComparison()">Try Again</button></div>`;
+      showToast('Comparison failed: '+e.message,'');
+    }
   }finally{
     cmpRunning=false;
     if(btn){btn.disabled=false;btn.textContent='⚡ AI Refresh'}
@@ -2376,15 +2400,17 @@ Respond ONLY with valid JSON array, no markdown, no backticks:
 ]`;
 
   try{
-    const _tr=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':localStorage.getItem('nbd_joe_key')||''},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
-    });
-    const _td=await _tr.json();
-    const data={content:[{text:_td?.content?.[0]?.text||''}]};
-    const raw=data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(raw);
+    let parsed;
+    const raw=await aiFetch(prompt,1000);
+    if(raw){
+      parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+      showTenxBanner('fresh',`✓ 10X AI Analysis complete · ${parsed.length} tool${parsed.length!==1?'s':''} analyzed`);
+      showToast('🔭 10X Analysis ready','g');
+    }else{
+      parsed=offlineTenX(toolsToRun);
+      showTenxBanner('fresh',`✓ Offline 10X Analysis · ${parsed.length} tool${parsed.length!==1?'s':''} — add API key for deeper insights`);
+      showToast('🔭 Offline 10X ready','g');
+    }
 
     // Store per-tool in cache
     parsed.forEach(item=>{
@@ -2396,10 +2422,8 @@ Respond ONLY with valid JSON array, no markdown, no backticks:
     saveTenxCache();
     renderTenx(parsed);
     updateTenxStaleBadge();
-    showTenxBanner('fresh',`✓ 10X Analysis complete · ${parsed.length} tool${parsed.length!==1?'s':''} analyzed`);
     setTimeout(hideTenxBanner,5000);
     if(rbtn)rbtn.style.display='inline-flex';
-    showToast('🔭 10X Analysis ready','g');
 
     // Set auto-refresh timer
     clearTimeout(tenxAutoTimer);
@@ -2409,9 +2433,20 @@ Respond ONLY with valid JSON array, no markdown, no backticks:
     },TENX_STALE_MS);
 
   }catch(e){
-    showTenxBanner('stale','⚠ Analysis failed — '+e.message);
-    g('tenxResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runTenX(true)">Try Again</button></div>`;
-    showToast('10X failed: '+e.message,'');
+    // JSON parse failed — fall back to offline
+    try{
+      const parsed=offlineTenX(toolsToRun);
+      parsed.forEach(item=>{tenxData[item.id||item.name]=item});
+      tenxLastRun=Date.now();saveTenxCache();renderTenx(parsed);updateTenxStaleBadge();
+      showTenxBanner('fresh','✓ Offline 10X (AI response malformed)');
+      setTimeout(hideTenxBanner,5000);
+      if(rbtn)rbtn.style.display='inline-flex';
+      showToast('🔭 Offline 10X ready','g');
+    }catch(e2){
+      showTenxBanner('stale','⚠ Analysis failed — '+e2.message);
+      g('tenxResults').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Analysis Failed</div><div class="empty-desc">${e.message}</div><button class="btn btn-p" onclick="runTenX(true)">Try Again</button></div>`;
+      showToast('10X failed: '+e.message,'');
+    }
   }finally{
     tenxRunning=false;
     if(btn){btn.disabled=false;btn.textContent='🔭 Run 10X Analysis'}
@@ -3134,6 +3169,157 @@ function deleteAcct(toolId,acctId){
   showToast('🗑️ Account removed','');
 }
 
+// ── API KEY CONFIG ──
+function openKeyConfig(){
+  const ov=document.getElementById('keyConfigOverlay');
+  ov.style.display='flex';updateKeyStatus();
+}
+function closeKeyConfig(){document.getElementById('keyConfigOverlay').style.display='none'}
+function saveKey(){
+  const v=document.getElementById('keyInput').value.trim();
+  if(!v){showToast('Enter a key first','');return}
+  localStorage.setItem('nbd_joe_key',v);
+  document.getElementById('keyInput').value='';
+  updateKeyStatus();showToast('🔑 Key saved','g');
+}
+function clearKey(){
+  localStorage.removeItem('nbd_joe_key');
+  updateKeyStatus();showToast('Key cleared','');
+}
+function updateKeyStatus(){
+  const el=document.getElementById('keyStatus');if(!el)return;
+  const k=localStorage.getItem('nbd_joe_key');
+  if(k){
+    el.innerHTML='<span style="color:#22C55E">● Connected</span> — Key ending in <code style="font-size:11px">…'+k.slice(-6)+'</code>';
+  } else {
+    el.innerHTML='<span style="color:var(--text3)">○ No key</span> — Using offline analysis engine';
+  }
+}
+
+// ── OFFLINE FALLBACK ENGINES ──
+const KNOWN_TOOLS={
+  'chatgpt':{cat:'LLM',cost:'Medium',costNote:'Free tier / $20-200/mo',strengths:'Best all-round LLM, massive plugin ecosystem, GPT-4o multimodal',weaknesses:'Expensive at scale, rate-limited, no self-hosting',alts:['Claude','Gemini','Llama 3']},
+  'claude':{cat:'LLM',cost:'Medium',costNote:'Free tier / $20/mo Pro',strengths:'Strongest reasoning and long-context, excellent coding, honest outputs',weaknesses:'Smaller plugin ecosystem than ChatGPT, usage caps on free tier',alts:['ChatGPT','Gemini','Mistral']},
+  'gemini':{cat:'LLM',cost:'Low',costNote:'Free / $20/mo Advanced',strengths:'Deep Google integration, multimodal, competitive pricing',weaknesses:'Occasional hallucinations, smaller dev ecosystem',alts:['ChatGPT','Claude','Perplexity']},
+  'perplexity':{cat:'Search',cost:'Low',costNote:'Free / $20/mo Pro',strengths:'Real-time web search with citations, great for research',weaknesses:'Not suited for creative tasks, limited customization',alts:['ChatGPT Browse','Gemini','You.com']},
+  'grok':{cat:'LLM',cost:'Medium',costNote:'X Premium+ required',strengths:'Real-time X/Twitter integration, unfiltered responses',weaknesses:'Requires X subscription, less refined than top competitors',alts:['Perplexity','ChatGPT','Claude']},
+  'cursor':{cat:'Code',cost:'Medium',costNote:'Free tier / $20/mo Pro',strengths:'AI-native IDE, best-in-class autocomplete and chat for coding',weaknesses:'Resource heavy, young product with occasional bugs',alts:['GitHub Copilot','Windsurf','Cody']},
+  'github copilot':{cat:'Code',cost:'Low',costNote:'$10-19/mo',strengths:'Deep GitHub integration, inline suggestions, enterprise-ready',weaknesses:'Less agentic than Cursor, no multi-file editing',alts:['Cursor','Cody','Windsurf']},
+  'midjourney':{cat:'Design',cost:'Medium',costNote:'$10-60/mo',strengths:'Highest aesthetic quality for image generation, strong community',weaknesses:'Discord-only workflow (web beta), slow iterations',alts:['DALL-E 3','Stable Diffusion','Ideogram']},
+  'dall-e':{cat:'Design',cost:'Low',costNote:'Pay per image / ChatGPT Plus',strengths:'Easy access via ChatGPT, good text rendering, fast',weaknesses:'Less artistic than Midjourney, limited style control',alts:['Midjourney','Stable Diffusion','Ideogram']},
+  'zapier':{cat:'Automation',cost:'Medium',costNote:'Free tier / $20-100+/mo',strengths:'6000+ integrations, no-code automation, reliable triggers',weaknesses:'Gets expensive at scale, complex multi-step zaps are brittle',alts:['Make','n8n','Pipedream']},
+  'notion ai':{cat:'Productivity',cost:'Low',costNote:'$10/mo add-on',strengths:'Built into Notion workspace, great for writing and summarization',weaknesses:'Limited outside Notion, not great for complex analysis',alts:['Obsidian + AI','Coda AI','Craft AI']},
+  'jasper':{cat:'Productivity',cost:'High',costNote:'$39-125/mo',strengths:'Marketing-focused AI writing, brand voice, templates',weaknesses:'Expensive, most features available in ChatGPT/Claude for less',alts:['ChatGPT','Claude','Copy.ai']},
+  'elevenlabs':{cat:'Communication',cost:'Medium',costNote:'Free tier / $5-99/mo',strengths:'Best-in-class voice cloning and TTS, multilingual',weaknesses:'Expensive at scale, ethical concerns with voice cloning',alts:['Play.ht','Murf','OpenAI TTS']},
+  'stable diffusion':{cat:'Design',cost:'Free',costNote:'Free (self-hosted) / $10+/mo cloud',strengths:'Open source, fully customizable, no usage limits locally',weaknesses:'Requires technical setup, GPU needed, lower quality than MJ',alts:['Midjourney','DALL-E 3','Ideogram']},
+  'hubspot ai':{cat:'Analytics',cost:'High',costNote:'$20-1200+/mo',strengths:'CRM-native AI, sales forecasting, email automation',weaknesses:'Very expensive, AI features locked behind higher tiers',alts:['Salesforce Einstein','Zoho AI','Pipedrive']},
+  'julius ai':{cat:'Data',cost:'Low',costNote:'Free tier / $20/mo',strengths:'Natural language data analysis, chart generation, CSV/Excel support',weaknesses:'Limited to tabular data, less flexible than code-based tools',alts:['ChatGPT Code Interpreter','Claude','Pandas AI']},
+  'make':{cat:'Automation',cost:'Low',costNote:'Free tier / $9-29/mo',strengths:'Visual workflow builder, more flexible branching than Zapier, cheaper',weaknesses:'Steeper learning curve, fewer native integrations',alts:['Zapier','n8n','Pipedream']},
+  'n8n':{cat:'Automation',cost:'Free',costNote:'Free (self-hosted) / $20/mo cloud',strengths:'Open source, self-hostable, powerful custom nodes',weaknesses:'Requires technical skills, smaller community than Zapier',alts:['Zapier','Make','Pipedream']},
+  'windsurf':{cat:'Code',cost:'Low',costNote:'Free tier / $10/mo',strengths:'Fast AI IDE, good autocomplete, lightweight',weaknesses:'Newer product, smaller user base, fewer features than Cursor',alts:['Cursor','GitHub Copilot','Cody']},
+};
+
+function offlineComparison(toolsArr){
+  const results=[];
+  // Process user's tools
+  for(const t of toolsArr){
+    const key=t.name.toLowerCase();
+    const known=KNOWN_TOOLS[key]||null;
+    results.push({
+      name:t.name,
+      category:known?known.cat:t.category||'Other',
+      status:'current',
+      relevance:known?75:60,
+      costTier:known?known.cost:(t.cost>0?(t.cost>50?'High':t.cost>15?'Medium':'Low'):'Free'),
+      costNote:known?known.costNote:(t.cost>0?'$'+t.cost+'/'+t.billing:'Free'),
+      strengths:known?known.strengths:'Established tool in your stack — usage data needed for deeper analysis.',
+      weaknesses:known?known.weaknesses:'Run with API key for detailed competitive analysis.',
+      overlaps:[],
+      alternatives:known?known.alts:['Check manually'],
+      consolidationTip:'',
+      verdict:'Keep'
+    });
+  }
+  // Find overlaps
+  const cats={};
+  results.forEach(r=>{if(!cats[r.category])cats[r.category]=[];cats[r.category].push(r.name)});
+  results.forEach(r=>{
+    const siblings=(cats[r.category]||[]).filter(n=>n!==r.name);
+    if(siblings.length)r.overlaps=siblings;
+    if(siblings.length>=2)r.consolidationTip='Multiple '+r.category+' tools — evaluate if you can consolidate.';
+  });
+  // Add 4 suggested tools the user doesn't have
+  const userNames=new Set(toolsArr.map(t=>t.name.toLowerCase()));
+  const suggestions=['cursor','perplexity','make','elevenlabs','julius ai','claude'].filter(k=>!userNames.has(k));
+  for(const s of suggestions.slice(0,4)){
+    const k=KNOWN_TOOLS[s];if(!k)continue;
+    results.push({
+      name:s.split(' ').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '),
+      category:k.cat, status:'available', relevance:65,
+      costTier:k.cost, costNote:k.costNote,
+      strengths:k.strengths, weaknesses:k.weaknesses,
+      overlaps:[], alternatives:k.alts,
+      consolidationTip:'', verdict:'Evaluate'
+    });
+  }
+  return results;
+}
+
+function offlineTenX(toolsArr){
+  const results=[];
+  for(const t of toolsArr){
+    const key=t.name.toLowerCase();
+    const known=KNOWN_TOOLS[key]||null;
+    const score=known?72:55;
+    const alts=known?known.alts:['Manual research needed'];
+    results.push({
+      id:t.id||t.name.toLowerCase().replace(/\s+/g,'_'),
+      name:t.name,
+      category:known?known.cat:t.category||'Other',
+      score:score,
+      scoreLabel:score>=70?'Solid':score>=50?'Moderate':'Weak',
+      tenxInsight:known?'This tool is strong in '+known.cat.toLowerCase()+' but evaluate '+alts[0]+' as a potential upgrade.':'Add an API key for a detailed 10X breakdown of this tool.',
+      currentOptions:[
+        {label:'Option A',title:alts[0]||'Research alternatives',tag:'Evaluate',reasoning:'Worth comparing head-to-head. '+(known?known.strengths:'Run AI analysis for detailed comparison.'),effort:2},
+        {label:'Option B',title:alts[1]||'Optimize current workflow',tag:'Try Free',reasoning:'Explore the free tier to see if it covers your use case better. '+(known?known.weaknesses:'Check your usage patterns.'),effort:3}
+      ],
+      futureOptions:[
+        {label:'Option A',title:'AI Agent Workflows',tag:'Watch',reasoning:'The '+t.name+' space is rapidly evolving. Watch for agent-based automation that could 10x your productivity.',effort:4},
+        {label:'Option B',title:alts[2]||'Open Source Alternative',tag:'Emerging',reasoning:'Open source alternatives are catching up fast. Self-hosted options offer unlimited usage and full data control.',effort:3}
+      ]
+    });
+  }
+  return results;
+}
+
+const PROXY_URL='https://nbd-ai-proxy.jonathandeal459.workers.dev';
+
+async function aiFetch(prompt,maxTokens){
+  const apiKey=localStorage.getItem('nbd_joe_key')||'';
+  // Try direct API first
+  if(apiKey){
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':apiKey},
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens||1000,messages:[{role:'user',content:prompt}]})
+      });
+      if(r.ok){const d=await r.json();return d?.content?.[0]?.text||'';}
+    }catch(e){}
+  }
+  // Try proxy
+  try{
+    const r=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens||1000,messages:[{role:'user',content:prompt}]})
+    });
+    if(r.ok){const d=await r.json();return d?.content?.[0]?.text||'';}
+  }catch(e){}
+  // Both failed
+  return null;
+}
+
 // ── INIT ──
 async function init(){
   await load();
@@ -3149,7 +3335,7 @@ async function init(){
   showView(defView,navEl);
   // Apply default account view
   if(userSettings.defaultAcctView==='table'){amView='table';}
-  renderTools();refreshStats();
+  renderTools();refreshStats();updateKeyStatus();
   requestAnimationFrame(()=>requestAnimationFrame(drawChart));
   setTimeout(()=>showToast('🎉 NBD Pro — All 8 Batches Complete!','g'),700);
 }

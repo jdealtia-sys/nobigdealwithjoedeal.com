@@ -300,7 +300,29 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   .demo-hero{padding:56px 24px 40px}
   .demo-cta{padding:72px 24px}
   .demo-footer{padding:24px}
+  .demo-stats{grid-template-columns:1fr 1fr}
 }
+@media(max-width:520px){
+  .demo-stats{grid-template-columns:1fr}
+}
+
+/* STATS BANNER */
+.demo-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--border);border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;
+  max-width:900px;margin:0 auto;
+  position:relative;z-index:1;
+  margin-top:-32px;
+}
+.ds-stat{background:var(--s);padding:28px 24px;text-align:center}
+.ds-stat-val{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,3vw,40px);letter-spacing:1px;line-height:1}
+.ds-stat-label{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px}
+
+/* SCROLL ANIMATIONS */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.tool-card.reveal{transition-delay:.1s}
 </style>
 </head>
 <body>
@@ -328,11 +350,21 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   </div>
 </section>
 
+<!-- STATS -->
+<div style="padding:0 48px">
+  <div class="demo-stats reveal">
+    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--cyan)">6</div><div class="ds-stat-label">Pro Tools</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">100+</div><div class="ds-stat-label">Themes</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:#3fb950">45+</div><div class="ds-stat-label">AI Tools Mapped</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:#d29922">$0</div><div class="ds-stat-label">To Start</div></div>
+  </div>
+</div>
+
 <!-- TOOLS -->
 <div style="max-width:1200px;margin:0 auto;padding:0 48px">
 
   <!-- 1. CRM Dashboard -->
-  <div class="tool-card" style="margin-top:80px;padding-top:0">
+  <div class="tool-card reveal" style="margin-top:80px;padding-top:0">
     <div class="tc-info">
       <div class="tc-badge orange">Foundation Plan</div>
       <div class="tc-problem">Problem: You're losing jobs in your head</div>
@@ -384,7 +416,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div class="demo-divider"></div>
 
   <!-- 2. Daily Success -->
-  <div class="tool-card reverse" style="margin-top:80px">
+  <div class="tool-card reverse reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge green">Free Tool — No Login</div>
       <div class="tc-problem">Problem: You know the game but you're not running your day</div>
@@ -426,7 +458,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div class="demo-divider"></div>
 
   <!-- 3. AI Usability Tree -->
-  <div class="tool-card" style="margin-top:80px">
+  <div class="tool-card reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge cyan">Infused Plan · AI-Powered</div>
       <div class="tc-problem">Problem: You're paying for tools you don't actually use</div>
@@ -467,7 +499,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div class="demo-divider"></div>
 
   <!-- 4. AI Selection Codex -->
-  <div class="tool-card reverse" style="margin-top:80px">
+  <div class="tool-card reverse reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge purple">Infused Plan · AI-Powered</div>
       <div class="tc-problem">Problem: You don't know which AI tool to use for what</div>
@@ -510,7 +542,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div class="demo-divider"></div>
 
   <!-- 5. Understanding Tool -->
-  <div class="tool-card" style="margin-top:80px">
+  <div class="tool-card reveal" style="margin-top:80px">
     <div class="tc-info">
       <div class="tc-badge gold">Infused Plan · AI-Powered</div>
       <div class="tc-problem">Problem: You're buying tools you don't know how to use</div>
@@ -558,10 +590,54 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
     </div>
   </div>
 
+  <div class="demo-divider"></div>
+
+  <!-- 6. Project Codex -->
+  <div class="tool-card reverse reveal" style="margin-top:80px">
+    <div class="tc-info">
+      <div class="tc-badge orange">Foundation Plan</div>
+      <div class="tc-problem">Problem: You have no system to track what you've built</div>
+      <div class="tc-title">PROJECT CODEX</div>
+      <div class="tc-desc">Your business runs on systems — but which version is live? What changed last week? The Project Codex is a living record of every build session, every decision, every directive. It's your operating system's operating system.</div>
+      <ul class="tc-features">
+        <li>Session-based build log with full input/output/delta tracking</li>
+        <li>Priority task queue with origin tracking back to each session</li>
+        <li>AI-powered synthesis — auto-generates briefings and DNA snapshots</li>
+        <li>Directive system — standing orders that persist across sessions</li>
+        <li>Firestore cloud sync so your record follows you everywhere</li>
+      </ul>
+      <a href="/pro/register.html" class="tc-launch">Sign Up to Access →</a>
+    </div>
+    <div class="tc-mockup">
+      <div class="mock-bar">
+        <div class="mock-dot" style="background:#f85149"></div>
+        <div class="mock-dot" style="background:#d29922"></div>
+        <div class="mock-dot" style="background:#3fb950"></div>
+        <div class="mock-title">Project Codex · v12.0</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-row">
+          <div class="mock-stat"><div class="mock-stat-label">Sessions</div><div class="mock-stat-val" style="color:var(--orange)">12</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Tasks</div><div class="mock-stat-val" style="color:#f85149">13</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Version</div><div class="mock-stat-val" style="color:#3fb950">12.0</div></div>
+        </div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#f85149"></div><div><div class="mock-item-name">Wire Stripe payments</div><div class="mock-item-sub">Critical · From S6 · 2-3 hrs</div></div></div>
+          <div class="mock-pill" style="background:rgba(248,81,73,.15);color:#f85149">Critical</div>
+        </div>
+        <div class="mock-item">
+          <div class="mock-item-left"><div class="mock-dot-sm" style="background:#d29922"></div><div><div class="mock-item-name">Deploy AI proxy to production</div><div class="mock-item-sub">Critical · From S12 · 5 min</div></div></div>
+          <div class="mock-pill" style="background:rgba(210,153,34,.15);color:#d29922">High</div>
+        </div>
+        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:var(--orange);letter-spacing:.5px">⚡ AI Synthesis: 12 sessions tracked. 4 critical tasks. Next: Stripe wiring.</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- end tool cards -->
 
 <!-- CTA -->
-<section class="demo-cta">
+<section class="demo-cta reveal">
   <h2>READY TO STOP<br><span>WINGING IT?</span></h2>
   <p>Every tool above is live and working right now. Register free to access Daily Success and the AI tools — or go straight to Infused and get everything.</p>
   <div class="demo-cta-btns">
@@ -582,5 +658,12 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div style="font-size:11px;color:#4a5568">© 2026 No Big Deal Home Solutions</div>
 </footer>
 
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
 </body>
 </html>

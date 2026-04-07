@@ -1143,6 +1143,14 @@ let codex = {
 
 let taskFilter='all', sessionFilter='all';
 
+// ── STORAGE ADAPTER ──
+// Wire window.storage to localStorage so save/load actually persist
+window.storage = {
+  async set(key, value) { localStorage.setItem(key, value); },
+  async get(key) { const v = localStorage.getItem(key); return v ? { value: v } : null; },
+  async remove(key) { localStorage.removeItem(key); }
+};
+
 // ── STORAGE ──
 async function save(){try{await window.storage.set('nbd-codex-v2',JSON.stringify({tasks:codex.tasks,totalSessions:codex.totalSessions,lastSession:codex.lastSession,version:codex.version,sessions:codex.sessions.filter(s=>s.source==='original'||s.num>=10),directives:codex.directives}))}catch(e){}}
 async function load(){
