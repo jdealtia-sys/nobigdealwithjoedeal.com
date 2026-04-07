@@ -604,12 +604,6 @@ document.querySelectorAll('.faq-q').forEach(q => {
 document.getElementById('hamburger').addEventListener('click', () => {
   document.getElementById('mobileNav').classList.toggle('open');
 });
-document.querySelectorAll('.faq-q').forEach(q => {
-  q.addEventListener('click', () => {
-    const item = q.parentElement;
-    item.classList.toggle('open');
-  });
-});
 </script>
 </body>
 </html>
