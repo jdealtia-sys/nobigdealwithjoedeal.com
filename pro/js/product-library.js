@@ -111,6 +111,12 @@
     return Math.round(((sell - cost) / sell) * 100);
   }
 
+  // True gross margin: sell - material cost - labor cost
+  function grossMargin(sell, matCost, laborCost) {
+    if (!sell) return 0;
+    return Math.round(((sell - matCost - laborCost) / sell) * 100);
+  }
+
   function showToast(msg, type) {
     if (window._showToast) { window._showToast(msg, type); return; }
     const t = document.getElementById('product-toast');
@@ -212,7 +218,11 @@
       `;
       catProds.forEach(p => {
         const tierForMargin = currentFilter.tier || 'better';
-        const m = margin(p.pricing?.[tierForMargin]?.sell || 0, p.pricing?.[tierForMargin]?.cost || 0);
+        const laborCost = p.labor?.perUnit || 0;
+        const matCost = p.pricing?.[tierForMargin]?.cost || 0;
+        const sellPrice = p.pricing?.[tierForMargin]?.sell || 0;
+        const myCost = matCost + laborCost;
+        const m = grossMargin(sellPrice, matCost, laborCost);
         const colorCount = p.colors ? p.colors.length : 0;
         const hasLabor = p.labor && p.labor.perUnit > 0;
         productsHtml += `
@@ -234,23 +244,28 @@
                 return `<div style="background:${isHighlighted ? TIER_COLORS[t]+'20' : TIER_COLORS[t]+'0a'};border-radius:6px;padding:6px 8px;text-align:center;border:${isHighlighted ? '2px' : '1px'} solid ${isHighlighted ? TIER_COLORS[t] : TIER_COLORS[t]+'20'};${isHighlighted ? 'transform:scale(1.03);box-shadow:0 2px 8px '+TIER_COLORS[t]+'30;' : ''}">
                   <div style="font-size:10px;font-weight:600;color:${TIER_COLORS[t]};text-transform:uppercase;">${TIER_LABELS[t]}</div>
                   <div style="font-size:14px;font-weight:700;color:var(--t);">${formatCurrency(p.pricing?.[t]?.sell)}</div>
-                  <div style="font-size:10px;color:var(--m);">Cost ${formatCurrency(p.pricing?.[t]?.cost)} · ${margin(p.pricing?.[t]?.sell||0, p.pricing?.[t]?.cost||0)}%</div>
+                  <div style="font-size:10px;color:var(--m);">Profit ${grossMargin(p.pricing?.[t]?.sell||0, p.pricing?.[t]?.cost||0, laborCost)}%</div>
                 </div>`;
               }).join('')}
+            </div>
+
+            <!-- Cost Breakdown Row -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+              <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#1e293b;color:#f1f5f9;font-weight:700;">🏷️ My Cost: ${formatCurrency(myCost)}/${p.unit}</span>
+              ${matCost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 Mat ${formatCurrency(matCost)}/${p.unit}</span>` : ''}
+              ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ Lab ${formatCurrency(p.labor.perUnit)}/${p.unit}</span>` : ''}
             </div>
 
             <!-- Meta Row -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
               ${colorCount > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--s2);color:var(--t);">🎨 ${colorCount} colors</span>` : ''}
-              ${p.pricing?.[tierForMargin]?.cost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 ${formatCurrency(p.pricing[tierForMargin].cost)}/${p.unit}</span>` : ''}
-              ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ ${formatCurrency(p.labor.perUnit)}/${p.unit}</span>` : ''}
               ${p.warranty && p.warranty !== 'N/A' ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;">🛡️ ${escapeHtml(p.warranty.length > 20 ? p.warranty.substring(0, 18) + '…' : p.warranty)}</span>` : ''}
               ${p.coverage ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#eff6ff;color:#1e40af;">📐 ${escapeHtml(typeof p.coverage === 'string' ? p.coverage : p.coverage.perUnit || '')}</span>` : ''}
             </div>
 
             <!-- Footer -->
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);">
-              <div style="font-size:12px;color:var(--m);"><strong>${currentFilter.tier ? TIER_LABELS[currentFilter.tier] + ' Margin' : 'Margin'}:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:600;">${m}%</span></div>
+              <div style="font-size:12px;color:var(--m);"><strong>Gross Profit:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span></div>
               <div style="display:flex;gap:6px;">
                 <button onclick="window._productLib.editProduct('${p.id}')" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
                 <button onclick="window._productLib.archiveProduct('${p.id}')" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
