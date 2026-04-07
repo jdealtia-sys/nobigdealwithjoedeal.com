@@ -6222,6 +6222,10 @@ function switchScTab(tab, btn) {
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Drawing Tool</span>
       </button>
+      <button class="crm-sec-btn" onclick="goTo('schedule')" title="Schedule appointments" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="2" width="12" height="16" rx="1"/><path d="M8 6h4M6 10h8M6 14h8"/></svg></span>
+        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Schedule</span>
+      </button>
       <div style="flex:1;"></div>
       <button class="crm-sec-btn" onclick="goTo('dash')" title="Back to dashboard" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
@@ -7042,6 +7046,83 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
+  <!-- ══ CAL.COM SCHEDULING ══ -->
+  <div class="view" id="view-schedule">
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+          </div>
+          <div class="page-title">Schedule</div>
+          <div class="page-sub">Book inspections and appointments with Cal.com</div>
+        </div>
+      </div>
+
+      <!-- BOOKING LINK SHARE -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Your Booking Link</div><div class="panel-title">Share With Homeowners</div></div></div>
+        <div class="panel-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="text" id="calBookingUrl" value="https://cal.com/joedeal/roof-inspection" readonly style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
+            <button class="btn btn-orange" style="padding:10px 16px;font-size:12px;white-space:nowrap;" onclick="copyCalLink()">📋 Copy Link</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="shareCalViaSMS()">💬 Text to Client</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="shareCalViaEmail()">✉️ Email to Client</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="window.open(document.getElementById('calBookingUrl').value,'_blank')">🔗 Open Full Page</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAL.COM SETTINGS -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Setup</div><div class="panel-title">Cal.com Configuration</div></div></div>
+        <div class="panel-body">
+          <div class="sf-row">
+            <div class="sf" style="flex:2;">
+              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Cal.com Username</label>
+              <input type="text" id="calUsername" placeholder="joedeal" value="" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
+            </div>
+            <div class="sf" style="flex:2;">
+              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Event Type Slug</label>
+              <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
+            </div>
+            <div class="sf" style="flex:1;display:flex;align-items:flex-end;">
+              <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" onclick="saveCalSettings()">Save</button>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--m);margin-top:8px;">Don't have Cal.com? <a href="https://cal.com/signup" target="_blank" style="color:var(--orange);text-decoration:underline;">Sign up free</a> — unlimited bookings, zero cost.</div>
+        </div>
+      </div>
+
+      <!-- INLINE CAL.COM EMBED -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Live Calendar</div><div class="panel-title">Appointment Availability</div></div></div>
+        <div class="panel-body" style="padding:0;overflow:hidden;border-radius:0 0 10px 10px;">
+          <div id="calEmbed" style="min-height:500px;width:100%;"></div>
+          <div id="calPlaceholder" style="text-align:center;padding:40px 20px;color:var(--m);">
+            <div style="font-size:36px;margin-bottom:12px;">📅</div>
+            <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:6px;">Set Up Your Calendar</div>
+            <div style="font-size:12px;margin-bottom:16px;">Enter your Cal.com username above to embed your live booking calendar here.</div>
+            <a href="https://cal.com/signup" target="_blank" class="btn btn-orange" style="display:inline-flex;font-size:12px;padding:10px 20px;">Create Free Cal.com Account →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- UPCOMING BOOKINGS (placeholder for future webhook integration) -->
+      <div class="panel">
+        <div class="panel-hdr"><div><div class="panel-label">Upcoming</div><div class="panel-title">Scheduled Appointments</div></div></div>
+        <div class="panel-body">
+          <div id="calUpcoming" style="text-align:center;padding:20px;color:var(--m);font-size:12px;">
+            <div style="font-size:24px;margin-bottom:6px;">📋</div>
+            Bookings will appear here once Cal.com is connected. Future update: webhook integration for real-time sync.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /content -->
 </div><!-- /app-body -->
 
@@ -7663,6 +7744,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   // Default to dashboard
   goTo('dash', { skipHash: true });
+
+  // Load Cal.com settings on page load
+  loadCalSettings();
 });
 
 // ══════════════════════════════════════════════
@@ -10619,6 +10703,77 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 // HOTFIX: Ensure searchMap is exposed to window (cache issue workaround)
 if (typeof searchMap === 'function' && !window.searchMap) {
   window.searchMap = searchMap;
+}
+
+// ── CAL.COM SCHEDULING INTEGRATION ──────────────
+function loadCalSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+    if(saved.username) { document.getElementById('calUsername').value = saved.username; }
+    if(saved.eventSlug) { document.getElementById('calEventSlug').value = saved.eventSlug; }
+    if(saved.username) updateCalEmbed();
+  } catch(e) {}
+}
+
+function saveCalSettings() {
+  const username = document.getElementById('calUsername')?.value?.trim();
+  const eventSlug = document.getElementById('calEventSlug')?.value?.trim() || 'roof-inspection';
+  if(!username) { showToast('Enter your Cal.com username','error'); return; }
+  localStorage.setItem('nbd_cal_settings', JSON.stringify({username, eventSlug}));
+  updateCalEmbed();
+  showToast('Cal.com settings saved!','ok');
+}
+
+function updateCalEmbed() {
+  const username = document.getElementById('calUsername')?.value?.trim();
+  const eventSlug = document.getElementById('calEventSlug')?.value?.trim() || 'roof-inspection';
+  const embedEl = document.getElementById('calEmbed');
+  const placeholder = document.getElementById('calPlaceholder');
+  const urlEl = document.getElementById('calBookingUrl');
+
+  if(!username) {
+    if(embedEl) embedEl.innerHTML = '';
+    if(placeholder) placeholder.style.display = 'block';
+    return;
+  }
+
+  const calLink = username + '/' + eventSlug;
+  if(urlEl) urlEl.value = 'https://cal.com/' + calLink;
+  if(placeholder) placeholder.style.display = 'none';
+
+  // Load Cal.com embed script if not already loaded
+  if(!window.Cal) {
+    const script = document.createElement('script');
+    script.src = 'https://app.cal.com/embed/embed.js';
+    script.onload = () => {
+      Cal('init');
+      Cal('inline', { elementOrSelector: '#calEmbed', calLink: calLink });
+    };
+    document.head.appendChild(script);
+  } else {
+    if(embedEl) embedEl.innerHTML = '';
+    Cal('inline', { elementOrSelector: '#calEmbed', calLink: calLink });
+  }
+}
+
+function copyCalLink() {
+  const url = document.getElementById('calBookingUrl')?.value;
+  if(url) {
+    navigator.clipboard.writeText(url).then(() => showToast('Booking link copied!','ok'));
+  }
+}
+
+function shareCalViaSMS() {
+  const url = document.getElementById('calBookingUrl')?.value;
+  const msg = encodeURIComponent('Book your free roof inspection here: ' + url);
+  window.open('sms:?body=' + msg);
+}
+
+function shareCalViaEmail() {
+  const url = document.getElementById('calBookingUrl')?.value;
+  const subject = encodeURIComponent('Schedule Your Free Roof Inspection');
+  const body = encodeURIComponent('Hi,\n\nYou can schedule your free roof inspection at a time that works for you:\n\n' + url + '\n\nLooking forward to helping you!\n\nNo Big Deal Home Solutions');
+  window.open('mailto:?subject=' + subject + '&body=' + body);
 }
 </script>
 <script src="js/ai.js?v=2"></script>
