@@ -762,6 +762,7 @@ window.nbdNavToggle = nbdNavToggle;
     <button class="tbtn" onclick="openBrowse()">?? Browse & Learn</button>
     <button class="tbtn" onclick="openHistory()" id="histBtn">?? <span id="histCount">0</span> Saved</button>
     <button class="tbtn" onclick="openGuide()">? Guide</button>
+    <button class="tbtn" onclick="openKeyConfig()" id="keyBtn" title="API Key Settings">🔑 <span id="keyStatus"></span></button>
     <a class="tbtn" href="/pro/ai-tree">? AI Tree</a>
     <a class="tbtn" href="/pro/project-codex">Project Codex</a>
     <a class="tbtn" href="/pro/dashboard">CRM</a>
@@ -890,6 +891,25 @@ window.nbdNavToggle = nbdNavToggle;
 <div class="hs-bd" id="hsBd" onclick="closeHistory()"></div>
 <div class="hs-panel" id="hsPanel"><div class="hs-hd"><div class="hs-title">Saved Audits</div><button class="tbtn" onclick="closeHistory()">✕</button></div><div id="hsList"></div></div>
 
+<!-- API KEY CONFIG MODAL -->
+<div class="gd-bd" id="keyBd" onclick="if(event.target===this)closeKeyConfig()" style="display:none">
+<div class="gd-modal" style="max-width:440px">
+<div class="gd-hd"><div class="gd-title">API Key Settings</div><button class="tbtn" onclick="closeKeyConfig()">✕</button></div>
+<div class="gd-body" style="padding:18px 20px">
+<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);letter-spacing:.5px;margin-bottom:12px">OPTIONAL — Enables AI-powered deep analysis</div>
+<div style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:16px">Without an API key, the tool uses built-in intelligence for recommendations. With a key, you get live AI-powered deep analysis using Claude.</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);letter-spacing:1px;margin-bottom:6px">ANTHROPIC API KEY</div>
+<input id="keyInp" type="password" style="width:100%;background:var(--card);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;outline:none;margin-bottom:12px" placeholder="sk-ant-api03-...">
+<div style="display:flex;gap:8px;margin-bottom:14px">
+<button class="btn btn-p btn-sm" onclick="saveKey()">Save Key</button>
+<button class="btn btn-s btn-sm" onclick="clearKey()">Clear Key</button>
+</div>
+<div id="keyMsg" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gn);min-height:16px"></div>
+<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--b1);font-size:12px;color:var(--tx3);line-height:1.6">Your key is stored locally in your browser only. It is never sent to our servers — API calls go directly to Anthropic.</div>
+</div>
+</div>
+</div>
+
 <div class="tcon" id="tcon"></div>
 <script>
 // ══ DATA ══
@@ -943,6 +963,84 @@ const TM_SECTIONS=[
 ];
 const CACHE_TTL=7*24*60*60*1000;
 const PROXY='https://nbd-ai-proxy.jonathandeal459.workers.dev';
+
+// ══ TOOL INTELLIGENCE DATABASE (offline fallback) ══
+const TOOL_INTEL={
+'ChatGPT':{grade:'A',confidence:88,headline:'The Swiss army knife of AI — does everything well, masters nothing.',detail:'ChatGPT excels at general-purpose tasks: writing, brainstorming, code, and conversation. GPT-4o is fast and capable. The free tier is generous. Weakness: it hallucinates more than Claude on complex reasoning and can be verbose. Best for users who need one tool for many tasks. Not ideal for deep research or specialized workflows.',pricing:'Free tier + $20/mo Plus',effort:'moderate',bestFor:['Writing & Content Creation','Research & Summarization','Coding & Development'],weakFor:['Data Analysis & Reporting','Automation & Workflows'],alts:['Claude','Gemini','Perplexity']},
+'Claude':{grade:'A',confidence:92,headline:'The thinking AI — best for nuanced reasoning, writing, and code analysis.',detail:'Claude leads in careful reasoning, long-context analysis (200K tokens), and producing genuinely well-written content. Its code analysis capabilities are top-tier. Sonnet is fast and cheap; Opus is the strongest reasoning model available. Weakness: no image generation, no web browsing in API. Best for professionals who need quality over speed.',pricing:'Free tier + $20/mo Pro',effort:'moderate',bestFor:['Writing & Content Creation','Coding & Development','Research & Summarization','Legal & Compliance'],weakFor:['Image & Video Generation','Social Media & Marketing'],alts:['ChatGPT','Gemini','Perplexity']},
+'Gemini':{grade:'B',confidence:78,headline:'Google-native AI — strong on search, integrated into the ecosystem.',detail:'Gemini integrates natively with Google Workspace (Docs, Sheets, Gmail). Good at web search and multimodal tasks. The free tier is generous with Gemini 1.5 Flash. Weakness: reasoning quality trails Claude and GPT-4o on complex tasks. Output can feel generic. Best for Google-heavy workflows.',pricing:'Free tier + $20/mo Advanced',effort:'light',bestFor:['Research & Summarization','Email Marketing','Project Management'],weakFor:['Coding & Development','Legal & Compliance'],alts:['ChatGPT','Claude','Perplexity']},
+'Perplexity':{grade:'A',confidence:85,headline:'AI-powered search that actually cites sources — kills hallucination.',detail:'Perplexity is the best AI search engine. Every answer includes citations you can verify. Pro mode chains multiple searches for deep research. Excellent for fact-checking, market research, and competitive analysis. Weakness: not great for creative writing or coding. It searches, not creates.',pricing:'Free tier + $20/mo Pro',effort:'light',bestFor:['Research & Summarization','SEO & Search Strategy','Sales & Outreach'],weakFor:['Writing & Content Creation','Coding & Development','Image & Video Generation'],alts:['You.com','Phind','ChatGPT']},
+'Grok':{grade:'B',confidence:70,headline:'X-native AI with real-time social data — edgy but inconsistent.',detail:'Grok has unfiltered personality and access to real-time X/Twitter data. Good for trending topics and social media research. Weakness: reasoning quality is below Claude/GPT-4o, smaller ecosystem, limited integrations. Best for social media professionals and X power users.',pricing:'Included with X Premium ($8/mo)',effort:'light',bestFor:['Social Media & Marketing','Research & Summarization'],weakFor:['Coding & Development','Legal & Compliance','Data Analysis & Reporting'],alts:['ChatGPT','Perplexity','Claude']},
+'Cursor':{grade:'A',confidence:90,headline:'The AI code editor that actually understands your entire codebase.',detail:'Cursor is VS Code rebuilt with AI at its core. Tab autocomplete, multi-file editing, codebase-aware chat. It indexes your entire project for context. Supports Claude, GPT-4o, and custom models. Weakness: expensive at scale, can be aggressive with suggestions. Best for developers who spend 4+ hours/day coding.',pricing:'Free tier + $20/mo Pro',effort:'heavy',bestFor:['Coding & Development'],weakFor:['Writing & Content Creation','Image & Video Generation','Sales & Outreach'],alts:['GitHub Copilot','Codeium','Tabnine']},
+'GitHub Copilot':{grade:'B',confidence:82,headline:'Inline code completion that lives in your existing editor.',detail:'Copilot integrates directly into VS Code, JetBrains, and Neovim. Excellent inline suggestions and chat. GitHub integration is seamless for PR reviews and issue analysis. Weakness: not as smart as Cursor for multi-file refactoring. Best for developers who want AI assistance without switching editors.',pricing:'$10/mo individual',effort:'heavy',bestFor:['Coding & Development'],weakFor:['Writing & Content Creation','Image & Video Generation'],alts:['Cursor','Codeium','Tabnine']},
+'Midjourney':{grade:'A',confidence:88,headline:'The gold standard for AI image generation — photorealism to fantasy.',detail:'Midjourney produces the most aesthetically pleasing AI images. V6 handles photorealism, illustration, product shots, and concept art. The Discord-based workflow is unique but effective. Weakness: no API, Discord-only, expensive for high volume. Best for designers, marketers, and creative professionals.',pricing:'$10/mo Basic',effort:'moderate',bestFor:['Image & Video Generation','Social Media & Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting','Automation & Workflows'],alts:['DALL-E','Stable Diffusion','Ideogram']},
+'DALL-E':{grade:'B',confidence:75,headline:'OpenAI image gen — good enough, built into ChatGPT.',detail:'DALL-E 3 is integrated directly into ChatGPT, making it the easiest AI image generator to use. Good for quick mockups and social content. Weakness: less artistic control than Midjourney, limited style range. Best for casual users who want images without leaving ChatGPT.',pricing:'Included with ChatGPT Plus ($20/mo)',effort:'light',bestFor:['Image & Video Generation','Social Media & Marketing'],weakFor:['Coding & Development'],alts:['Midjourney','Stable Diffusion','Ideogram']},
+'Zapier AI':{grade:'B',confidence:80,headline:'Connect everything to everything — the automation backbone.',detail:'Zapier connects 6,000+ apps with no-code automation. AI features add smart routing and content generation to workflows. Excellent for business process automation. Weakness: gets expensive fast at scale, can be slow for complex multi-step zaps. Best for non-technical users automating repetitive business tasks.',pricing:'Free tier + $20/mo Starter',effort:'moderate',bestFor:['Automation & Workflows','Email Marketing','Sales & Outreach'],weakFor:['Coding & Development','Image & Video Generation'],alts:['Make','n8n','AutoGPT']},
+'Jasper':{grade:'C',confidence:65,headline:'AI writing for marketing teams — polished but overpriced.',detail:'Jasper generates marketing copy, blog posts, and ad content. Good templates and brand voice features. Weakness: the base LLM is just GPT-4, which you can use directly for less. Expensive for individuals. Best for marketing teams that need brand consistency at scale.',pricing:'$39/mo Creator',effort:'moderate',bestFor:['Writing & Content Creation','Social Media & Marketing','Email Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting'],alts:['ChatGPT','Claude','Copy.ai']},
+'Notion AI':{grade:'B',confidence:77,headline:'AI built into your workspace — write, summarize, organize.',detail:'Notion AI adds summarization, writing, and Q&A directly into your Notion workspace. Great for meeting notes, project docs, and knowledge management. Weakness: limited to Notion context, not as capable as standalone LLMs. Best for teams already using Notion.',pricing:'$10/mo add-on',effort:'light',bestFor:['Writing & Content Creation','Project Management','Research & Summarization'],weakFor:['Coding & Development','Image & Video Generation'],alts:['ChatGPT','Claude','Grammarly']},
+'ElevenLabs':{grade:'A',confidence:85,headline:'Most realistic AI voice generation — indistinguishable from human.',detail:'ElevenLabs produces the most natural-sounding AI speech. Voice cloning, multilingual, real-time streaming. Used by podcasters, video creators, and accessibility projects. Weakness: can be pricey at high volume. Ethical concerns around voice cloning. Best for content creators who need professional narration.',pricing:'Free tier + $5/mo Starter',effort:'light',bestFor:['Voice','Writing & Content Creation','Social Media & Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting'],alts:['Murf AI','Amazon Polly','Google TTS']},
+'Stable Diffusion':{grade:'B',confidence:74,headline:'Open-source image generation — ultimate control, steeper learning curve.',detail:'Stable Diffusion is free, open-source, and runs locally. Infinite customization via LoRAs, ControlNet, and fine-tuning. Weakness: requires technical setup, GPU hardware, and prompt engineering expertise. Best for developers and artists who want full control.',pricing:'Free (open source)',effort:'heavy',bestFor:['Image & Video Generation'],weakFor:['Writing & Content Creation','Sales & Outreach'],alts:['Midjourney','DALL-E','Ideogram']},
+'HubSpot AI':{grade:'B',confidence:76,headline:'CRM-native AI that writes emails, scores leads, and predicts deals.',detail:'HubSpot AI is baked into the CRM — email generation, lead scoring, conversation intelligence, and forecasting. Best for sales teams already on HubSpot. Weakness: locked to HubSpot ecosystem, expensive at higher tiers. Not a standalone AI tool.',pricing:'Included with HubSpot plans',effort:'moderate',bestFor:['Sales & Outreach','Email Marketing','Customer Service / Chatbot'],weakFor:['Coding & Development','Image & Video Generation'],alts:['Apollo AI','Salesforce Einstein','ChatGPT']},
+'Julius AI':{grade:'B',confidence:73,headline:'Upload data, ask questions in plain English — AI data analyst.',detail:'Julius AI lets you upload CSVs and spreadsheets, then ask questions in natural language. Generates charts, runs statistical analysis, writes Python code. Weakness: limited to tabular data, smaller model than ChatGPT for general reasoning. Best for non-technical analysts who need quick data insights.',pricing:'Free tier + $20/mo Pro',effort:'light',bestFor:['Data Analysis & Reporting','Finance & Accounting'],weakFor:['Writing & Content Creation','Image & Video Generation'],alts:['ChatGPT','Obviously AI','Elicit']},
+};
+
+function getToolIntel(name){return TOOL_INTEL[name]||null;}
+
+// ══ OFFLINE RECOMMENDATION ENGINE ══
+function runOfflineAnalysis(toolName,toolCat,goals,budget,effort){
+const intel=getToolIntel(toolName);
+const goalArr=goals.split(',').map(g=>g.trim().replace(/\s*\(.+\)/,''));
+
+// Score the tool against goals
+let fitScore=0,fitMax=0;
+if(intel){
+goalArr.forEach(goal=>{
+fitMax++;
+if(intel.bestFor.some(b=>b.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))fitScore++;
+else if(intel.weakFor.some(w=>w.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))fitScore-=0.5;
+else fitScore+=0.3;
+});
+}
+
+const pct=fitMax>0?Math.round((fitScore/fitMax)*100):50;
+const grade=pct>=85?'A':pct>=70?'B':pct>=50?'C':pct>=30?'D':'F';
+const isRightFit=pct>=50;
+const verdict=pct>=75?'RECOMMENDED':pct>=50?'CONDITIONALLY RECOMMENDED':'NOT RECOMMENDED';
+const verdictColor=pct>=75?'#22C55E':pct>=50?'#F59E0B':'#EF4444';
+
+// Build recommendations from TOOL_INTEL
+const recs=[];
+const candidates=Object.entries(TOOL_INTEL).filter(([n])=>n!==toolName).map(([name,ti])=>{
+let score=0;
+goalArr.forEach(goal=>{
+if(ti.bestFor.some(b=>b.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))score+=2;
+if(ti.weakFor.some(w=>w.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))score-=1;
+});
+return{name,score,...ti};
+}).sort((a,b)=>b.score-a.score);
+
+candidates.slice(0,3).forEach((c,i)=>{
+recs.push({rank:i+1,name:c.name,grade:c.grade,confidence:c.confidence,tagline:c.headline,why:c.detail.split('.').slice(0,2).join('.')+'. '+c.bestFor.slice(0,2).join(', ')+'.'});
+});
+
+const comparison=recs.length>0?[
+{aspect:'Best For',chosen:intel?intel.bestFor.slice(0,2).join(', '):'General use',recommended:candidates[0]?.bestFor?.slice(0,2).join(', ')||'—'},
+{aspect:'Cost',chosen:intel?.pricing||'Varies',recommended:candidates[0]?.pricing||'—'},
+{aspect:'Effort',chosen:intel?.effort||'moderate',recommended:candidates[0]?.effort||'moderate'},
+{aspect:'Key Weakness',chosen:intel?intel.weakFor.slice(0,2).join(', '):'Unknown',recommended:candidates[0]?.weakFor?.slice(0,2).join(', ')||'—'}
+]:[];
+
+return{
+toolEvaluated:toolName,grade,confidence:Math.min(pct+20,95),
+verdict,verdictColor,
+headline:intel?.headline||`${toolName} — ${verdict.toLowerCase()} for your use case.`,
+aiQuote:intel?`${toolName} ${isRightFit?'shines':'struggles'} specifically in ${goalArr[0]||'general tasks'}. ${intel.detail.split('.')[1]||''}.`:`Without specific intelligence on ${toolName}, I'd recommend exploring alternatives in the ${toolCat} category.`,
+detail:intel?.detail||`${toolName} is a ${toolCat} tool. For your goals (${goals}), ${isRightFit?'it could be a reasonable fit':'you may want to explore alternatives'}. Budget: ${budget}, engagement: ${effort}.`,
+isRightFit,notFitReason:isRightFit?'':intel?`${toolName} is weak in: ${intel.weakFor.join(', ')}. Your goals emphasize areas where this tool underperforms.`:`${toolName} may not align with your stated goals.`,
+recommendations:recs,comparison,
+_meta:{tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'offline'}
+};
+}
 
 // ══ STATE ══
 const S={path:null,tool:null,other:'',uc:{},budget:null,budgetAmt:'',effort:null,cur:0,asOpen:false,lmOn:false};
@@ -1157,16 +1255,38 @@ User profile:
 
 Return ONLY valid JSON (no markdown, no backticks):
 {"toolEvaluated":"${toolName}","grade":"A"|"B"|"C"|"D"|"F","confidence":0-100,"verdict":"RECOMMENDED"|"NOT RECOMMENDED"|"CONDITIONALLY RECOMMENDED","verdictColor":"#22C55E"|"#F97316"|"#EF4444","headline":"One bold sentence verdict","aiQuote":"One direct AI insight — the thing most people miss about this tool for this use case","detail":"2-3 paragraphs of specific analysis — real features, real limitations","isRightFit":true|false,"notFitReason":"If false — why this tool isn't right","recommendations":[{"rank":1,"name":"Tool Name","grade":"A","confidence":0-100,"tagline":"One line why this is #1","why":"2-3 sentences specific to the user's goals"},{"rank":2,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"},{"rank":3,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"}],"comparison":[{"aspect":"Best For","chosen":"...","recommended":"..."},{"aspect":"Cost","chosen":"...","recommended":"..."},{"aspect":"Effort","chosen":"...","recommended":"..."},{"aspect":"Key Weakness","chosen":"...","recommended":"..."}]}`;
+  const apiKey=localStorage.getItem('nbd_joe_key')||'';
+  let result=null;
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':localStorage.getItem('nbd_joe_key')||''},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-    const data=await resp.json();
-    const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-    const result=JSON.parse(raw);
-    result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString()};
+    if(apiKey){
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':apiKey},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+      const data=await resp.json();
+      const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+      result=JSON.parse(raw);
+      result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'api'};
+    } else {
+      // Try proxy
+      try{
+        const resp=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,tool:toolName,goals,budget,effort,path:S.path})});
+        if(resp.ok){const data=await resp.json();result=data;result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'proxy'};}
+      }catch(pe){}
+    }
+    if(!result){
+      // Offline fallback
+      result=runOfflineAnalysis(toolName,toolCat,goals,budget,effort);
+      toast('Using built-in intelligence (no API key set)','b');
+    }
     renderResult(result);
   }catch(e){
-    rmModal.innerHTML=`<div class="rm-hd"><div class="rm-tn" style="font-size:18px">Analysis Failed</div><button class="rm-x" onclick="closeRM()">✕</button></div><div class="rm-body"><div style="color:var(--tx2);font-size:15px;margin-bottom:14px">Check your connection and try again.</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)">${e.message}</div><div style="margin-top:14px"><button class="btn btn-p" onclick="runAnalysis()">Try Again</button></div></div>`;
-    toast('Analysis failed','r');
+    // Final fallback to offline
+    try{
+      result=runOfflineAnalysis(toolName,toolCat,goals,budget,effort);
+      renderResult(result);
+      toast('Offline analysis complete','b');
+    }catch(e2){
+      rmModal.innerHTML=`<div class="rm-hd"><div class="rm-tn" style="font-size:18px">Analysis Failed</div><button class="rm-x" onclick="closeRM()">✕</button></div><div class="rm-body"><div style="color:var(--tx2);font-size:15px;margin-bottom:14px">Something went wrong.</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)">${e.message}</div><div style="margin-top:14px"><button class="btn btn-p" onclick="runAnalysis()">Try Again</button></div></div>`;
+      toast('Analysis failed','r');
+    }
   }
 }
 
@@ -1294,13 +1414,27 @@ Teach me everything about "${n}" (Category: ${c||'AI Tool'}).
 
 Return ONLY valid JSON (no markdown, no backticks):
 {"tagline":"One punchy sentence","pricing":[{"tier":"Free","price":"$0/mo","desc":"What you get"},{"tier":"Pro","price":"$X/mo","desc":"What you get"}],"curve":{"level":1,"label":"Beginner","desc":"One plain sentence about daily use"},"persona":"2 sentences — exactly who this is built for","excels":["bullet 1","bullet 2","bullet 3","bullet 4"],"struggles":["bullet 1","bullet 2","bullet 3"],"bestUse":"2-3 sentences on when it shines with a concrete example","worstUse":"2-3 sentences on when NOT to use it","scenarios":[{"label":"Scenario title","text":"2 sentences real-world story"},{"label":"Scenario 2","text":"2 sentences"},{"label":"Scenario 3","text":"2 sentences"}],"alternatives":["Alt 1","Alt 2","Alt 3","Alt 4"],"altContext":"One sentence on when to pick an alternative"}`;
+  const apiKey=localStorage.getItem('nbd_joe_key')||'';
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':localStorage.getItem('nbd_joe_key')||''},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-    const data=await resp.json();
-    const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-    const lesson=JSON.parse(raw);
+    let lesson=null;
+    if(apiKey){
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':apiKey},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+      const data=await resp.json();
+      const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+      lesson=JSON.parse(raw);
+    }
+    if(!lesson){
+      // Offline fallback lesson from TOOL_INTEL
+      const intel=getToolIntel(n);
+      if(intel){
+        lesson={tagline:intel.headline,pricing:[{tier:'See Details',price:intel.pricing,desc:'Check official site for current plans'}],curve:{level:intel.effort==='light'?1:intel.effort==='moderate'?3:4,label:intel.effort==='light'?'Easy':intel.effort==='moderate'?'Moderate':'Advanced',desc:`${n} requires ${intel.effort} engagement to get the most value.`},persona:`Best for users focused on ${intel.bestFor.slice(0,2).join(' and ')}.`,excels:intel.bestFor.map(b=>`Strong at ${b}`),struggles:intel.weakFor.map(w=>`Not ideal for ${w}`),bestUse:intel.detail.split('.').slice(0,2).join('.')+'.',worstUse:`Avoid using ${n} primarily for ${intel.weakFor.join(' or ')}.`,scenarios:[{label:'Typical User',text:intel.detail.split('.').slice(2,4).join('.')+'.'}],alternatives:intel.alts,altContext:`Consider these alternatives if ${n} does not fit your primary use case.`};
+        toast('Using built-in intelligence','b');
+      } else {
+        throw new Error('No data available for '+n);
+      }
+    }
     lessonCache[n]={data:lesson,ts:Date.now()};store();
-    if(cacheTxt)cacheTxt.textContent='Fresh — just generated';
+    if(cacheTxt)cacheTxt.textContent=apiKey?'Fresh — just generated':'Built-in intelligence';
     if(cacheEl)cacheEl.classList.remove('stale');
     renderLesson(lesson,n,i,c);
   }catch(e){
@@ -1423,6 +1557,41 @@ function delRL(name){readingList=readingList.filter(r=>r.n!==name);store();updat
 function openGuide(){g('gdBd').classList.add('open');}
 function closeGuide(){g('gdBd').classList.remove('open');}
 
+// ══ API KEY CONFIG ══
+function openKeyConfig(){
+const bd=g('keyBd');bd.style.display='flex';bd.classList.add('open');
+const inp=g('keyInp');
+const existing=localStorage.getItem('nbd_joe_key')||'';
+inp.value=existing;
+g('keyMsg').textContent=existing?'Key is set and active.':'No key set — using built-in intelligence.';
+g('keyMsg').style.color=existing?'var(--gn)':'var(--tx3)';
+}
+function closeKeyConfig(){const bd=g('keyBd');bd.classList.remove('open');bd.style.display='none';}
+function saveKey(){
+const v=g('keyInp').value.trim();
+if(!v){g('keyMsg').textContent='Please enter a key or click Clear.';g('keyMsg').style.color='var(--go)';return;}
+localStorage.setItem('nbd_joe_key',v);
+g('keyMsg').textContent='Key saved! AI-powered analysis is now active.';
+g('keyMsg').style.color='var(--gn)';
+updateKeyStatus();
+toast('API key saved','g');
+}
+function clearKey(){
+localStorage.removeItem('nbd_joe_key');
+g('keyInp').value='';
+g('keyMsg').textContent='Key cleared. Using built-in intelligence.';
+g('keyMsg').style.color='var(--tx3)';
+updateKeyStatus();
+toast('API key cleared','');
+}
+function updateKeyStatus(){
+const has=!!localStorage.getItem('nbd_joe_key');
+const el=g('keyStatus');
+if(el)el.textContent=has?'Active':'Offline';
+const btn=g('keyBtn');
+if(btn)btn.classList.toggle('on',has);
+}
+
 // ══ COUNTS ══
 function updateCounts(){
   set('histCount',savedAudits.length);set('rlCount',readingList.length);
@@ -1433,7 +1602,7 @@ function updateCounts(){
 async function init(){
   await loadAll();syncAccent();
   if(localStorage.getItem('nbd-lm')==='1'){S.lmOn=true;applyLM();}
-  updateCounts();renderS1();renderS2();renderS3();renderS4();
+  updateCounts();updateKeyStatus();renderS1();renderS2();renderS3();renderS4();
   setTimeout(()=>toast('NBD Pro Understanding Tool · Ready','b'),800);
 }
 init();
