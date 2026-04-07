@@ -411,12 +411,11 @@ function damagNearMe() { showToast('Getting location...'); navigator.geolocation
 // DRAW MAP
 // ══════════════════════════════════════════════
 // ══════════════════════════════════════════════
-// DRAWING TOOL — full rewrite with perimeter, eave/rake, gutters, line select
+// DRAWING TOOL v2 — multi-facet, save/restore, drag, snap, shortcuts
 // ══════════════════════════════════════════════
 let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
 let drawMode = 'line'; // 'line' | 'perim' | 'er' | 'gutter'
 
-// LT index 10 = Gutters (added)
 const LT = [
   {n:'Ridge',      color:'#22C55E', dash:null},
   {n:'Ridge Vent', color:'#86EFAC', dash:'8,4'},
@@ -431,69 +430,205 @@ const LT = [
   {n:'Gutters',    color:'#06B6D4', dash:'10,4'}
 ];
 
-// Perimeter state
-let perimPoints   = [];   // latlng array
-let perimDots     = [];   // circleMarker array
-let perimSegments = [];   // {line, lbl, dist, p1, p2, subtype} subtype='eave'|'rake'
+// Multi-facet state
+const FACET_COLORS = ['#22C55E','#3B82F6','#F97316','#A855F7','#EC4899','#EAB308','#06B6D4','#EF4444'];
+let facets = []; // [{points, dots, segments, closed, polygon, baseArea, closeRing, pitch, label}]
+let activeFacetIdx = -1; // -1 = no active facet
+
+// Current perimeter state (points into active facet)
+let perimPoints   = [];
+let perimDots     = [];
+let perimSegments = [];
 let perimClosed   = false;
-let perimPendingP1 = null; // point waiting for rake/eave choice
+let perimPendingP1 = null;
 let perimPendingP2 = null;
 let perimTempLine  = null;
 let perimTempLbl   = null;
-let perimPolygon   = null; // fill polygon when closed
+let perimPolygon   = null;
 let perimBaseArea  = 0;
-// The first-point close indicator ring
 let perimCloseRing = null;
+
+// Gutter state (separate from perim)
+let gutterPoints = [];
+let gutterDots   = [];
 
 // Line select
 let selectedLineId = null;
 
+// Map layers
+let drawMapLayers = {};
+let currentLayerType = 'satellite';
+
+// Snap
+const SNAP_PX = 12;
+
 function initDrawMap() {
-  drawMap = L.map('drawMap').setView([39.07,-84.17],19);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:21}).addTo(drawMap);
+  drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],19);
+  // Map layers
+  drawMapLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:21});
+  drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19});
+  drawMapLayers.hybrid = L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:21}),
+    L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{maxZoom:20,opacity:.7})
+  ]);
+  drawMapLayers.satellite.addTo(drawMap);
+  currentLayerType = 'satellite';
 
   drawMap.on('click', e => {
     if(!drawOn) return;
-    if(drawMode === 'line') handleLineClick(e.latlng);
-    else if(drawMode === 'perim') handlePerimClick(e.latlng);
-    else if(drawMode === 'gutter') handleGutterClick(e.latlng);
-    // 'er' mode handled by segment click listeners
+    const snapped = snapToVertex(e.latlng);
+    if(drawMode === 'line') handleLineClick(snapped);
+    else if(drawMode === 'perim') handlePerimClick(snapped);
+    else if(drawMode === 'gutter') handleGutterClick(snapped);
   });
 
   drawMap.on('mousemove', e => {
     if(!drawOn) return;
+    const pt = snapToVertex(e.latlng);
     if(drawMode === 'line' && drawStart) {
       if(tempLine) drawMap.removeLayer(tempLine);
       if(tempLbl)  drawMap.removeLayer(tempLbl);
       const lt = LT[drawLT];
-      tempLine = L.polyline([drawStart, e.latlng], {color:lt.color, weight:3, dashArray:'6,4', opacity:.7}).addTo(drawMap);
-      const d = hav(drawStart, e.latlng);
-      tempLbl  = L.marker(mid(drawStart, e.latlng), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+      tempLine = L.polyline([drawStart, pt], {color:lt.color, weight:3, dashArray:'6,4', opacity:.7}).addTo(drawMap);
+      const d = hav(drawStart, pt);
+      tempLbl  = L.marker(mid(drawStart, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
     }
-    if((drawMode === 'perim' || drawMode === 'gutter') && perimPoints.length > 0 && !perimClosed) {
+    if(drawMode === 'perim' && perimPoints.length > 0 && !perimClosed) {
       const lastPt = perimPoints[perimPoints.length-1];
       if(perimTempLine) drawMap.removeLayer(perimTempLine);
       if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
-      const color = drawMode === 'gutter' ? '#06B6D4' : '#BE185D';
-      perimTempLine = L.polyline([lastPt, e.latlng], {color, weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
-      const d = hav(lastPt, e.latlng);
-      perimTempLbl  = L.marker(mid(lastPt, e.latlng), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+      perimTempLine = L.polyline([lastPt, pt], {color:'#BE185D', weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
+      const d = hav(lastPt, pt);
+      perimTempLbl  = L.marker(mid(lastPt, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    }
+    if(drawMode === 'gutter' && gutterPoints.length > 0) {
+      const lastPt = gutterPoints[gutterPoints.length-1];
+      if(perimTempLine) drawMap.removeLayer(perimTempLine);
+      if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
+      perimTempLine = L.polyline([lastPt, pt], {color:'#06B6D4', weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
+      const d = hav(lastPt, pt);
+      perimTempLbl  = L.marker(mid(lastPt, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
     }
   });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const tag = (e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select') return;
+    const active = document.getElementById('view-draw');
+    if(!active || active.style.display==='none' || !active.offsetParent) return;
+    if(e.key==='d'||e.key==='D') { e.preventDefault(); toggleDraw(); }
+    else if(e.key==='z'||e.key==='Z') { e.preventDefault(); undoLine(); }
+    else if(e.key==='c'&&!e.ctrlKey&&!e.metaKey) { e.preventDefault(); clearDraw(); }
+    else if(e.key==='Escape') { e.preventDefault(); if(drawOn) toggleDraw(); }
+    else if(e.key>='1'&&e.key<='9') { const i=parseInt(e.key)-1; if(i<LT.length){ const btn=document.querySelectorAll('.lt-btn')[i]; if(btn) selLT(i,btn); }}
+    else if(e.key==='f'||e.key==='F') { e.preventDefault(); zoomToFit(); }
+  });
+
+  // Show shortcut hint briefly
+  showShortcutHint();
+
+  // Try restore previous drawing
+  tryRestoreDrawing();
 
   recalc();
 }
 
+function showShortcutHint() {
+  if(localStorage.getItem('nbd_draw_hint_shown')) return;
+  const hint = document.createElement('div');
+  hint.className = 'draw-shortcut-hint';
+  hint.innerHTML = '<b>Shortcuts:</b> D=Draw Z=Undo C=Clear F=Fit 1-9=Type Esc=Cancel';
+  const area = document.querySelector('#view-draw .map-area');
+  if(area) { area.appendChild(hint); setTimeout(()=>{ hint.style.opacity='0'; setTimeout(()=>hint.remove(),500); },6000); }
+  localStorage.setItem('nbd_draw_hint_shown','1');
+}
+
+// ── SNAP TO VERTEX ──────────────────────────────
+function snapToVertex(latlng) {
+  if(!drawMap) return latlng;
+  const screenPt = drawMap.latLngToContainerPoint(latlng);
+  let best = null, bestDist = SNAP_PX+1;
+  // Check all existing dots/points
+  const allPts = [];
+  drawnLines.forEach(l => {
+    if(l.p1) allPts.push(l.p1);
+    if(l.p2) allPts.push(l.p2);
+  });
+  facets.forEach(f => f.points.forEach(p => allPts.push(p)));
+  gutterPoints.forEach(p => allPts.push(p));
+  perimPoints.forEach(p => allPts.push(p));
+
+  allPts.forEach(p => {
+    const sp = drawMap.latLngToContainerPoint(p);
+    const dx = sp.x - screenPt.x, dy = sp.y - screenPt.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if(d < bestDist) { bestDist = d; best = p; }
+  });
+  return best || latlng;
+}
+
+// ── MAP LAYER TOGGLE ────────────────────────────
+function toggleMapLayer() {
+  const order = ['satellite','street','hybrid'];
+  const labels = {satellite:'🛰️ Satellite',street:'🗺️ Street',hybrid:'🔀 Hybrid'};
+  const idx = order.indexOf(currentLayerType);
+  const next = order[(idx+1)%order.length];
+  // Remove current
+  if(drawMapLayers[currentLayerType]) drawMap.removeLayer(drawMapLayers[currentLayerType]);
+  // Add next
+  drawMapLayers[next].addTo(drawMap);
+  currentLayerType = next;
+  const btn = document.getElementById('layerToggleBtn');
+  if(btn) btn.textContent = labels[next]||next;
+}
+
+// ── MY LOCATION ─────────────────────────────
+function goToMyLocation() {
+  const btn = document.getElementById('myLocBtn');
+  if (!btn) return;
+  if (!navigator.geolocation) {
+    if (window.showToast) showToast('Geolocation not supported by this browser', 'error');
+    return;
+  }
+  btn.textContent = '⏳ Locating...';
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      if (drawMap) {
+        drawMap.setView([lat, lng], 20);
+        // Add a pulsing marker at current location
+        const locMarker = L.circleMarker([lat, lng], {
+          radius: 8, color: '#4A9EFF', fillColor: '#4A9EFF',
+          fillOpacity: 0.4, weight: 3
+        }).addTo(drawMap);
+        // Remove after 5 seconds
+        setTimeout(() => { if (drawMap.hasLayer(locMarker)) drawMap.removeLayer(locMarker); }, 5000);
+      }
+      btn.innerHTML = '📍 My Location';
+      btn.disabled = false;
+      if (window.showToast) showToast('Moved to your location', 'success');
+    },
+    (err) => {
+      btn.innerHTML = '📍 My Location';
+      btn.disabled = false;
+      const msgs = {1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out'};
+      if (window.showToast) showToast(msgs[err.code] || 'Could not get location', 'error');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 // ── DRAW MODE SWITCHER ───────────────────────
 function setDrawMode(mode, btn) {
-  // stop any active drawing
   if(drawOn) toggleDraw();
-  // cancel any pending perim chooser
   hideReChooser();
 
   drawMode = mode;
   document.querySelectorAll('.draw-mode-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
 
   const ltGrid = document.getElementById('ltGrid');
   const ltLabel = document.getElementById('ltGridLabel');
@@ -501,7 +636,6 @@ function setDrawMode(mode, btn) {
   const erBar = document.getElementById('erBar');
   const gutterResult = document.getElementById('gutterResult');
 
-  // Reset all status bars
   perimBar.classList.remove('visible');
   erBar.classList.remove('visible');
   gutterResult.classList.remove('visible');
@@ -509,7 +643,6 @@ function setDrawMode(mode, btn) {
   if(mode === 'line') {
     ltGrid.style.display = '';
     ltLabel.style.display = '';
-    // turn off ER click listeners on segments
     setERListeners(false);
   } else if(mode === 'perim') {
     ltGrid.style.display = 'none';
@@ -534,21 +667,73 @@ function setDrawMode(mode, btn) {
 function handleLineClick(latlng) {
   if(!drawStart) {
     drawStart = latlng;
-    // Store dot with line — create dot and keep reference
-    const dot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:LT[drawLT].color, fillOpacity:1, weight:2}).addTo(drawMap);
+    const dot = makeDraggableDot(latlng, LT[drawLT].color);
     drawStart._dot = dot;
   } else {
-    const endDot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:LT[drawLT].color, fillOpacity:1, weight:2}).addTo(drawMap);
+    const endDot = makeDraggableDot(latlng, LT[drawLT].color);
     finalizeLine(drawStart, latlng, drawStart._dot, endDot);
     drawStart = null;
   }
+}
+
+// ── DRAGGABLE DOT FACTORY ────────────────────
+function makeDraggableDot(latlng, color, opts) {
+  const dot = L.circleMarker(latlng, {
+    radius:6, color:'#fff', fillColor:color, fillOpacity:1, weight:2,
+    draggable:true, ...(opts||{})
+  }).addTo(drawMap);
+  // Make draggable via mouse events
+  let dragging = false, dragLine = null;
+  dot.on('mousedown', e => {
+    if(drawOn) return; // Don't drag while drawing
+    L.DomEvent.stopPropagation(e);
+    dragging = true;
+    drawMap.dragging.disable();
+    drawMap.on('mousemove', onDragMove);
+    drawMap.on('mouseup', onDragEnd);
+  });
+  function onDragMove(e) {
+    if(!dragging) return;
+    dot.setLatLng(e.latlng);
+    updateLinesForDot(dot, e.latlng);
+  }
+  function onDragEnd(e) {
+    if(!dragging) return;
+    dragging = false;
+    drawMap.dragging.enable();
+    drawMap.off('mousemove', onDragMove);
+    drawMap.off('mouseup', onDragEnd);
+    updateLinesForDot(dot, dot.getLatLng());
+    recalc(); recalcGutters(); autoSaveDrawing();
+    // Update facet polygons
+    facets.forEach((f,fi) => {
+      const dotIdx = f.dots.indexOf(dot);
+      if(dotIdx >= 0) { f.points[dotIdx] = dot.getLatLng(); rebuildFacetPolygon(fi); }
+    });
+  }
+  dot._nbd_id = Date.now() + Math.random();
+  return dot;
+}
+
+function updateLinesForDot(dot, newLatLng) {
+  drawnLines.forEach(l => {
+    let changed = false;
+    if(l.dot1 === dot) { l.p1 = newLatLng; changed = true; }
+    if(l.dot2 === dot) { l.p2 = newLatLng; changed = true; }
+    if(changed) {
+      l.line.setLatLngs([l.p1, l.p2]);
+      l.dist = hav(l.p1, l.p2);
+      drawMap.removeLayer(l.lbl);
+      l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${l.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    }
+  });
+  renderLineList();
 }
 
 function selLT(i, el) {
   document.querySelectorAll('.lt-btn').forEach(b => { b.classList.remove('active'); b.style.borderColor = ''; });
   el.classList.add('active'); el.style.borderColor = LT[i].color;
   drawLT = i;
-  // If a line is selected, retype it
   if(selectedLineId !== null) retypeLine(selectedLineId, i);
 }
 
@@ -562,7 +747,6 @@ function toggleDraw() {
     btn.textContent = '▶ Draw'; btn.className = 'draw-btn go';
     drawMap.getContainer().style.cursor = '';
     drawStart = null; clearTemp();
-    // Don't cancel pending perim chooser — user may need to choose
   }
 }
 
@@ -578,36 +762,65 @@ function finalizeLine(p1, p2, dot1, dot2) {
   const dash = lt.dash || null;
   const line = L.polyline([p1, p2], {color:lt.color, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
   const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  // Editable label on click
+  lbl.on('click', () => editLineLength(id));
   const id = Date.now() + Math.random();
   drawnLines.push({id, type:drawLT, name:lt.name, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
-  clearTemp(); renderLineList(); recalc();
+  clearTemp(); renderLineList(); recalc(); autoSaveDrawing();
   return id;
 }
 
-// ── PERIMETER MODE ────────────────────────────
+// ── LINE LENGTH EDITING ──────────────────────
+function editLineLength(lineId) {
+  if(drawOn) return;
+  const l = drawnLines.find(x => x.id === lineId);
+  if(!l) return;
+  const val = prompt(`Edit ${l.name} length (current: ${l.dist.toFixed(1)} ft):`, l.dist.toFixed(1));
+  if(!val || isNaN(parseFloat(val))) return;
+  const newDist = parseFloat(val);
+  if(newDist <= 0) return;
+  const ratio = newDist / l.dist;
+  // Scale line from p1 toward p2
+  const newLat = l.p1.lat + (l.p2.lat - l.p1.lat) * ratio;
+  const newLng = l.p1.lng + (l.p2.lng - l.p1.lng) * ratio;
+  const newP2 = L.latLng(newLat, newLng);
+  l.p2 = newP2;
+  l.dist = newDist;
+  l.line.setLatLngs([l.p1, l.p2]);
+  if(l.dot2) l.dot2.setLatLng(newP2);
+  drawMap.removeLayer(l.lbl);
+  l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${l.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  l.lbl.on('click', () => editLineLength(lineId));
+  renderLineList(); recalc(); autoSaveDrawing();
+  showToast(`Updated to ${newDist.toFixed(1)} ft`);
+}
+
+// ── PERIMETER MODE (multi-facet) ─────────────
 function handlePerimClick(latlng) {
-  if(perimClosed) return;
+  if(perimClosed) {
+    // Current facet closed — start new facet
+    saveFacet();
+    resetPerimState();
+  }
   // Check if clicking near first point to close
   if(perimPoints.length >= 3) {
     const first = perimPoints[0];
-    const dist = hav(first, latlng);
-    if(dist < 30) { // within 30ft — snap to close
+    const screenDist = drawMap.latLngToContainerPoint(first).distanceTo(drawMap.latLngToContainerPoint(latlng));
+    if(screenDist < 20) { // 20px on screen — much more precise than 30ft
       closePerimeter();
       return;
     }
   }
-  // Can't add next point until user chooses eave/rake for the last segment
   if(perimPendingP1 !== null) return;
 
-  const dot = L.circleMarker(latlng, {radius:6, color:'#fff', fillColor:'#22C55E', fillOpacity:1, weight:2}).addTo(drawMap);
+  const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
+  const dot = makeDraggableDot(latlng, facetColor);
 
   if(perimPoints.length === 0) {
-    // First point — add close-ring indicator
-    perimCloseRing = L.circleMarker(latlng, {radius:14, color:'#22C55E', fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6}).addTo(drawMap);
+    perimCloseRing = L.circleMarker(latlng, {radius:14, color:facetColor, fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6}).addTo(drawMap);
   }
 
   if(perimPoints.length > 0) {
-    // We have a previous point — prompt eave/rake
     perimPendingP1 = perimPoints[perimPoints.length - 1];
     perimPendingP2 = latlng;
     perimDots.push(dot);
@@ -626,58 +839,10 @@ function showReChooser() {
 }
 function hideReChooser() {
   document.getElementById('reChooser').classList.remove('visible');
-  document.getElementById('perimBar').classList.add('visible');
+  if(drawMode==='perim') document.getElementById('perimBar').classList.add('visible');
   perimPendingP1 = null;
   perimPendingP2 = null;
 }
-
-function perimChooseType(subtype) {
-  if(!perimPendingP1 || !perimPendingP2) return;
-  const p1 = perimPendingP1;
-  const p2 = perimPendingP2;
-  addPerimSegment(p1, p2, subtype);
-  perimPoints.push(p2);
-  hideReChooser();
-}
-
-function addPerimSegment(p1, p2, subtype) {
-  const color = '#BE185D'; // both eave and rake share this color family
-  const eaveColor = '#BE185D';
-  const rakeColor = '#EC4899';
-  const segColor  = subtype === 'eave' ? eaveColor : rakeColor;
-  const dash      = subtype === 'eave' ? null : '8,5';
-  const d = hav(p1, p2);
-  const line = L.polyline([p1, p2], {color:segColor, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
-  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${segColor}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  const id = Date.now() + Math.random();
-  const seg = {id, type: subtype==='eave' ? 5 : 4, name: subtype==='eave'?'Eave':'Rake', color:segColor, dist:d, line, lbl, p1, p2, subtype, isPerim:true};
-  perimSegments.push(seg);
-  drawnLines.push(seg);
-
-  // Add click listener for ER mode
-  line.on('click', () => { if(drawMode === 'er') erToggleSegment(id); });
-
-  renderLineList(); recalc();
-  return id;
-}
-
-function closePerimeter() {
-  if(perimPoints.length < 3) return;
-  // Final segment: first point to last
-  const last  = perimPoints[perimPoints.length - 1];
-  const first = perimPoints[0];
-  // Prompt eave/rake for closing segment too
-  perimPendingP1 = last;
-  perimPendingP2 = first;
-  showReChooser();
-  // After user chooses, we detect close in perimChooseType
-  // Override: mark that closing
-  window._perimClosing = true;
-}
-
-// Intercept perimChooseType for closing segment
-const _origPerimChoose = window.perimChooseType;
-// We handle closing inside perimChooseType by checking _perimClosing below
 
 function perimChooseType(subtype) {
   if(!perimPendingP1 || !perimPendingP2) return;
@@ -689,24 +854,144 @@ function perimChooseType(subtype) {
   } else {
     window._perimClosing = false;
     perimClosed = true;
-    // Draw fill polygon
+    const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
     if(perimPolygon) drawMap.removeLayer(perimPolygon);
-    perimPolygon = L.polygon(perimPoints, {color:'#22C55E', weight:0, fillColor:'#22C55E', fillOpacity:.08}).addTo(drawMap);
-    // Calculate base area via Shoelace
+    perimPolygon = L.polygon(perimPoints, {color:facetColor, weight:1, fillColor:facetColor, fillOpacity:.12}).addTo(drawMap);
     perimBaseArea = shoelaceArea(perimPoints);
-    showToast('Perimeter closed — '+perimBaseArea.toFixed(0)+' sf base area');
-    document.getElementById('perimBar').textContent = '⬡ Perimeter closed — '+perimBaseArea.toFixed(0)+' sf · redraw or continue adding lines';
+    // Add area label on polygon
+    addAreaLabel(perimPoints, perimBaseArea, facets.length);
+    showToast('Facet '+(facets.length+1)+' closed — '+perimBaseArea.toFixed(0)+' sf');
+    const bar = document.getElementById('perimBar');
+    bar.textContent = '⬡ Facet '+(facets.length+1)+' — '+perimBaseArea.toFixed(0)+' sf · click to start new facet';
     if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
-    recalc();
+    saveFacet();
+    recalc(); autoSaveDrawing();
   }
   hideReChooser();
 }
 
+function addPerimSegment(p1, p2, subtype) {
+  const eaveColor = '#BE185D', rakeColor = '#EC4899';
+  const segColor  = subtype === 'eave' ? eaveColor : rakeColor;
+  const dash      = subtype === 'eave' ? null : '8,5';
+  const d = hav(p1, p2);
+  const line = L.polyline([p1, p2], {color:segColor, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
+  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${segColor}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  lbl.on('click', () => editLineLength(id));
+  const id = Date.now() + Math.random();
+  const dot1 = perimDots.find(d => {
+    const ll = d.getLatLng();
+    return Math.abs(ll.lat-p1.lat)<0.0000001 && Math.abs(ll.lng-p1.lng)<0.0000001;
+  });
+  const dot2 = perimDots.find(d => {
+    const ll = d.getLatLng();
+    return Math.abs(ll.lat-p2.lat)<0.0000001 && Math.abs(ll.lng-p2.lng)<0.0000001;
+  });
+  const seg = {id, type: subtype==='eave' ? 5 : 4, name: subtype==='eave'?'Eave':'Rake', color:segColor, dist:d, line, lbl, p1, p2, dot1:dot1||null, dot2:dot2||null, subtype, isPerim:true};
+  perimSegments.push(seg);
+  drawnLines.push(seg);
+  line.on('click', () => { if(drawMode === 'er') erToggleSegment(id); });
+  renderLineList(); recalc();
+  return id;
+}
+
+function closePerimeter() {
+  if(perimPoints.length < 3) return;
+  const last  = perimPoints[perimPoints.length - 1];
+  const first = perimPoints[0];
+  perimPendingP1 = last;
+  perimPendingP2 = first;
+  window._perimClosing = true;
+  showReChooser();
+}
+
+// ── FACET MANAGEMENT ─────────────────────────
+function saveFacet() {
+  if(perimPoints.length < 3) return;
+  const pitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
+  facets.push({
+    points:[...perimPoints], dots:[...perimDots], segments:[...perimSegments],
+    closed:perimClosed, polygon:perimPolygon, baseArea:perimBaseArea,
+    closeRing:perimCloseRing, pitch, label:'Facet '+(facets.length+1),
+    areaLabel: null // set by addAreaLabel
+  });
+  activeFacetIdx = facets.length - 1;
+  renderFacetList();
+}
+
+function resetPerimState() {
+  perimPoints = []; perimDots = []; perimSegments = [];
+  perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
+  perimPolygon = null; perimBaseArea = 0; perimCloseRing = null;
+  window._perimClosing = false;
+  const bar = document.getElementById('perimBar');
+  if(bar) bar.textContent = '⬡ Perimeter mode — click to trace Facet '+(facets.length+1)+'. Click first dot to close.';
+}
+
+function rebuildFacetPolygon(fi) {
+  const f = facets[fi];
+  if(!f || !f.closed) return;
+  if(f.polygon) drawMap.removeLayer(f.polygon);
+  const color = FACET_COLORS[fi % FACET_COLORS.length];
+  f.polygon = L.polygon(f.points, {color, weight:1, fillColor:color, fillOpacity:.12}).addTo(drawMap);
+  f.baseArea = shoelaceArea(f.points);
+  // Update area label
+  if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
+  addAreaLabel(f.points, f.baseArea, fi);
+  recalc();
+}
+
+function addAreaLabel(points, area, facetIdx) {
+  if(!points.length) return;
+  // Center point
+  const cLat = points.reduce((s,p)=>s+p.lat,0)/points.length;
+  const cLng = points.reduce((s,p)=>s+p.lng,0)/points.length;
+  const color = FACET_COLORS[facetIdx % FACET_COLORS.length];
+  const lbl = L.marker([cLat,cLng], {icon:L.divIcon({
+    html:`<div class="facet-area-label" style="border-color:${color};color:${color}">F${facetIdx+1}: ${area.toFixed(0)} sf</div>`,
+    className:'', iconAnchor:[40,12]
+  })}).addTo(drawMap);
+  if(facets[facetIdx]) facets[facetIdx].areaLabel = lbl;
+}
+
+function renderFacetList() {
+  const el = document.getElementById('facetList');
+  if(!el) return;
+  if(!facets.length) { el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:4px;">No facets yet.</p>'; return; }
+  el.innerHTML = facets.map((f,i) => {
+    const color = FACET_COLORS[i % FACET_COLORS.length];
+    const pitched = f.baseArea * f.pitch;
+    return `<div class="facet-row" style="border-left:3px solid ${color};">
+      <span class="facet-name">${f.label}</span>
+      <span class="facet-area">${f.baseArea.toFixed(0)} sf</span>
+      <select class="facet-pitch-sel" onchange="updateFacetPitch(${i},this.value)" title="Facet pitch">
+        <option value="1.0" ${f.pitch===1?'selected':''}>Flat</option>
+        <option value="1.054" ${f.pitch===1.054?'selected':''}>4/12</option>
+        <option value="1.083" ${f.pitch===1.083?'selected':''}>5/12</option>
+        <option value="1.118" ${f.pitch===1.118?'selected':''}>6/12</option>
+        <option value="1.158" ${f.pitch===1.158?'selected':''}>7/12</option>
+        <option value="1.202" ${f.pitch===1.202?'selected':''}>8/12</option>
+        <option value="1.25" ${f.pitch===1.25?'selected':''}>9/12</option>
+        <option value="1.302" ${f.pitch===1.302?'selected':''}>10/12</option>
+        <option value="1.357" ${f.pitch===1.357?'selected':''}>11/12</option>
+        <option value="1.414" ${f.pitch===1.414?'selected':''}>12/12</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+
+function updateFacetPitch(fi, val) {
+  if(!facets[fi]) return;
+  facets[fi].pitch = parseFloat(val);
+  recalc(); autoSaveDrawing();
+}
+
+// ── AREA LABEL ON MAP ────────────────────────
+// (handled by addAreaLabel above)
+
 // Shoelace formula: area in sq feet from latlng array
 function shoelaceArea(pts) {
   if(pts.length < 3) return 0;
-  // Convert latlng to feet using haversine approximation
-  // Use first point as origin
   const origin = pts[0];
   const toFt = pts.map(p => {
     const dx = hav({lat:origin.lat, lng:p.lng}, {lat:origin.lat, lng:origin.lng});
@@ -725,73 +1010,62 @@ function shoelaceArea(pts) {
 
 // ── EAVE/RAKE TOGGLE MODE ─────────────────────
 function setERListeners(on) {
-  perimSegments.forEach(seg => {
+  const allSegs = [...perimSegments];
+  facets.forEach(f => allSegs.push(...f.segments));
+  allSegs.forEach(seg => {
     if(on) {
       seg.line.on('click', () => erToggleSegment(seg.id));
-      seg.line.getElement && seg.line.getElement()?.classList.add('er-hover');
     } else {
       seg.line.off('click');
-      // Re-attach non-ER handler
       seg.line.on('click', () => { if(drawMode === 'er') erToggleSegment(seg.id); });
     }
   });
 }
 
 function erToggleSegment(id) {
-  const seg = perimSegments.find(s => s.id === id);
+  // Find in current segments or facet segments
+  let seg = perimSegments.find(s => s.id === id);
+  if(!seg) { for(const f of facets) { seg = f.segments.find(s => s.id === id); if(seg) break; } }
   if(!seg) return;
-  // Toggle
   const newSub  = seg.subtype === 'eave' ? 'rake' : 'eave';
   const newColor = newSub === 'eave' ? '#BE185D' : '#EC4899';
   const newDash  = newSub === 'eave' ? null : '8,5';
   const newType  = newSub === 'eave' ? 5 : 4;
   const newName  = newSub === 'eave' ? 'Eave' : 'Rake';
 
-  // Update the Leaflet polyline in place
   seg.line.setStyle({color:newColor, dashArray:newDash});
-  // Update label
   drawMap.removeLayer(seg.lbl);
   seg.lbl = L.marker(mid(seg.p1, seg.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${newColor}">${seg.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  seg.subtype = newSub; seg.color = newColor; seg.type = newType; seg.name = newName;
 
-  // Update data
-  seg.subtype = newSub;
-  seg.color   = newColor;
-  seg.type    = newType;
-  seg.name    = newName;
-
-  // Sync drawnLines
   const dl = drawnLines.find(l => l.id === id);
   if(dl) { dl.subtype=newSub; dl.color=newColor; dl.type=newType; dl.name=newName; }
 
-  renderLineList(); recalc();
+  renderLineList(); recalc(); autoSaveDrawing();
   showToast(`Toggled to ${newName}`);
 }
 
-// ── GUTTER MODE ───────────────────────────────
+// ── GUTTER MODE (separate from perimeter) ────
 function handleGutterClick(latlng) {
-  if(!perimPoints.length || perimClosed) {
-    // Start new gutter run
-    perimPoints = [];
-    perimClosed = false;
-  }
-  const dot = L.circleMarker(latlng, {radius:5, color:'#fff', fillColor:'#06B6D4', fillOpacity:1, weight:2}).addTo(drawMap);
-  if(perimPoints.length > 0) {
-    const prev = perimPoints[perimPoints.length-1];
+  const dot = makeDraggableDot(latlng, '#06B6D4');
+  if(gutterPoints.length > 0) {
+    const prev = gutterPoints[gutterPoints.length-1];
     const d = hav(prev, latlng);
     const line = L.polyline([prev, latlng], {color:'#06B6D4', weight:4, opacity:.95, dashArray:'10,4'}).addTo(drawMap);
     const lbl  = L.marker(mid(prev, latlng), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:#06B6D4">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+    const prevDot = gutterDots[gutterDots.length-1]||null;
     const id = Date.now() + Math.random();
-    drawnLines.push({id, type:10, name:'Gutters', color:'#06B6D4', dist:d, line, lbl, p1:prev, p2:latlng, dot1:null, dot2:dot, subtype:'gutter'});
-    clearTemp(); renderLineList(); recalcGutters();
+    drawnLines.push({id, type:10, name:'Gutters', color:'#06B6D4', dist:d, line, lbl, p1:prev, p2:latlng, dot1:prevDot, dot2:dot, subtype:'gutter'});
+    clearTemp(); renderLineList(); recalcGutters(); autoSaveDrawing();
   }
-  perimPoints.push(latlng);
-  perimDots.push(dot);
+  gutterPoints.push(latlng);
+  gutterDots.push(dot);
 }
 
 function recalcGutters() {
   const gutterLines = drawnLines.filter(l => l.type === 10);
   const total = gutterLines.reduce((s, l) => s + l.dist, 0);
-  const ds = Math.ceil(total / 40); // rough: 1 downspout per 40lf
+  const ds = Math.ceil(total / 40);
   document.getElementById('gr-total').textContent = total.toFixed(1) + ' ft';
   document.getElementById('gr-ds').textContent = ds;
   const el = document.getElementById('gutterResult');
@@ -802,15 +1076,8 @@ function recalcGutters() {
 function selectLine(id) {
   selectedLineId = id;
   renderLineList();
-  // Highlight on map
   drawnLines.forEach(l => {
-    if(l.line) {
-      if(l.id === id) {
-        l.line.setStyle({weight:6, opacity:1});
-      } else {
-        l.line.setStyle({weight:4, opacity:.95});
-      }
-    }
+    if(l.line) l.line.setStyle({weight: l.id===id ? 6 : 4, opacity: l.id===id ? 1 : .95});
   });
 }
 
@@ -824,13 +1091,12 @@ function retypeLine(id, ltIndex) {
   const l = drawnLines.find(x => x.id === id);
   if(!l) return;
   const lt = LT[ltIndex];
-  l.type  = ltIndex;
-  l.name  = lt.n;
-  l.color = lt.color;
+  l.type = ltIndex; l.name = lt.n; l.color = lt.color;
   l.line.setStyle({color:lt.color, dashArray:lt.dash||null});
   drawMap.removeLayer(l.lbl);
   l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  renderLineList(); recalc();
+  l.lbl.on('click', () => editLineLength(id));
+  renderLineList(); recalc(); autoSaveDrawing();
 }
 
 // ── UNDO / DELETE / CLEAR ─────────────────────
@@ -839,28 +1105,35 @@ function deleteLine(id) {
   const l = drawnLines[i];
   drawMap.removeLayer(l.line);
   drawMap.removeLayer(l.lbl);
-  // Remove dots that belong to this line
-  if(l.dot1) drawMap.removeLayer(l.dot1);
-  if(l.dot2) drawMap.removeLayer(l.dot2);
-  // Remove from perimSegments if applicable
+  if(l.dot1 && !isSharedDot(l.dot1, id)) drawMap.removeLayer(l.dot1);
+  if(l.dot2 && !isSharedDot(l.dot2, id)) drawMap.removeLayer(l.dot2);
   const pi = perimSegments.findIndex(s => s.id === id);
   if(pi >= 0) perimSegments.splice(pi, 1);
   drawnLines.splice(i, 1);
   if(selectedLineId === id) deselectLine();
-  renderLineList(); recalc(); recalcGutters();
+  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
+}
+
+function isSharedDot(dot, excludeLineId) {
+  return drawnLines.some(l => l.id !== excludeLineId && (l.dot1 === dot || l.dot2 === dot));
 }
 
 function undoLine() {
   if(drawnLines.length) deleteLine(drawnLines[drawnLines.length-1].id);
-  // Also remove last perim dot if in perim mode and pending
-  if((drawMode === 'perim' || drawMode === 'gutter') && perimDots.length > 0 && !perimClosed) {
+  if(drawMode === 'perim' && perimDots.length > 0 && !perimClosed) {
     const d = perimDots.pop();
     drawMap.removeLayer(d);
     if(perimPoints.length > 0) perimPoints.pop();
   }
+  if(drawMode === 'gutter' && gutterDots.length > 0) {
+    const d = gutterDots.pop();
+    drawMap.removeLayer(d);
+    if(gutterPoints.length > 0) gutterPoints.pop();
+  }
 }
 
 function clearDraw() {
+  if(!confirm('Clear all lines and facets?')) return;
   drawnLines.forEach(l => {
     drawMap.removeLayer(l.line);
     drawMap.removeLayer(l.lbl);
@@ -868,17 +1141,68 @@ function clearDraw() {
     if(l.dot2) drawMap.removeLayer(l.dot2);
   });
   perimDots.forEach(d => drawMap.removeLayer(d));
+  gutterDots.forEach(d => drawMap.removeLayer(d));
   if(perimPolygon) { drawMap.removeLayer(perimPolygon); perimPolygon = null; }
   if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
-  if(perimTempLine) drawMap.removeLayer(perimTempLine);
-  if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
+  clearTemp();
+  // Clear facets
+  facets.forEach(f => {
+    if(f.polygon) drawMap.removeLayer(f.polygon);
+    if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
+    f.dots.forEach(d => { try{drawMap.removeLayer(d);}catch(e){} });
+  });
+  facets = []; activeFacetIdx = -1;
   drawnLines = []; perimSegments = []; perimPoints = []; perimDots = [];
+  gutterPoints = []; gutterDots = [];
   perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
   perimBaseArea = 0; selectedLineId = null;
-  clearTemp(); clearTemp();
   hideReChooser();
   document.getElementById('perimBar').textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
-  renderLineList(); recalc(); recalcGutters();
+  renderLineList(); renderFacetList(); recalc(); recalcGutters();
+  clearSavedDrawing();
+}
+
+// ── ANGLE DISPLAY ────────────────────────────
+function calcAngle(pA, pB, pC) {
+  // Angle at B between segments BA and BC, in degrees
+  const ax = pA.lng - pB.lng, ay = pA.lat - pB.lat;
+  const cx = pC.lng - pB.lng, cy = pC.lat - pB.lat;
+  const dot = ax*cx + ay*cy;
+  const cross = ax*cy - ay*cx;
+  let angle = Math.atan2(Math.abs(cross), dot) * 180 / Math.PI;
+  return angle;
+}
+
+function showAngles() {
+  // Show angles at each vertex where 2+ lines meet
+  const vertices = new Map(); // key: "lat,lng" -> [{p1,p2,lineId}]
+  drawnLines.forEach(l => {
+    if(!l.p1 || !l.p2) return;
+    const k1 = l.p1.lat.toFixed(7)+','+l.p1.lng.toFixed(7);
+    const k2 = l.p2.lat.toFixed(7)+','+l.p2.lng.toFixed(7);
+    if(!vertices.has(k1)) vertices.set(k1,[]);
+    if(!vertices.has(k2)) vertices.set(k2,[]);
+    vertices.get(k1).push({other:l.p2, id:l.id});
+    vertices.get(k2).push({other:l.p1, id:l.id});
+  });
+  // Remove old angle labels
+  document.querySelectorAll('.angle-label-marker').forEach(e=>e.remove());
+  vertices.forEach((edges, key) => {
+    if(edges.length < 2) return;
+    const [lat,lng] = key.split(',').map(Number);
+    const center = L.latLng(lat,lng);
+    for(let i=0; i<edges.length; i++) {
+      for(let j=i+1; j<edges.length; j++) {
+        const angle = calcAngle(edges[i].other, center, edges[j].other);
+        if(angle > 1 && angle < 179) {
+          L.marker(center, {icon:L.divIcon({
+            html:`<div class="angle-label">${angle.toFixed(0)}°</div>`,
+            className:'angle-label-marker', iconAnchor:[12,-8]
+          })}).addTo(drawMap);
+        }
+      }
+    }
+  });
 }
 
 function renderLineList() {
@@ -887,11 +1211,9 @@ function renderLineList() {
     el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';
     return;
   }
-  // Build LT options for inline retype select
   const ltOpts = LT.map((lt, i) => `<option value="${i}">${lt.n}</option>`).join('');
   el.innerHTML = drawnLines.map(l => {
     const isSel = l.id === selectedLineId;
-    const dash = l.subtype === 'rake' ? 'border-top:2px dashed' : '';
     return `<div class="line-item ${isSel ? 'selected' : ''}" onclick="selectLine(${l.id})">
       <div class="lt-dot" style="background:${l.color};${l.type===4?'border:1px dashed #fff;':''}"></div>
       <span class="line-lbl">${l.name}</span>
@@ -899,42 +1221,103 @@ function renderLineList() {
       ${isSel ? `<select class="line-type-sel" onchange="retypeLine(${l.id},parseInt(this.value))" onclick="event.stopPropagation()">${ltOpts}</select>` : `<button class="line-del" onclick="event.stopPropagation();deleteLine(${l.id})">✕</button>`}
     </div>`;
   }).join('');
-  // Set selected value in dropdown if selected
   if(selectedLineId !== null) {
     const sel = el.querySelector('.line-type-sel');
-    if(sel) {
-      const l = drawnLines.find(x => x.id === selectedLineId);
-      if(l) sel.value = l.type;
-    }
+    if(sel) { const l = drawnLines.find(x => x.id === selectedLineId); if(l) sel.value = l.type; }
   }
+  // Show angles when lines exist
+  showAngles();
 }
 
 function recalc() {
-  const pitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
+  const globalPitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
   const waste = parseFloat(document.getElementById('wasteSel')?.value || 1.17);
   const eave  = drawnLines.filter(l => l.type === 5);
   const rake  = drawnLines.filter(l => l.type === 4);
-  let base = 0;
+  let base = 0, pitched = 0;
 
-  // Priority 1: closed perimeter polygon — most accurate
-  if(perimClosed && perimBaseArea > 0) {
-    base = perimBaseArea;
+  // Multi-facet: sum each facet with its own pitch
+  if(facets.length > 0) {
+    facets.forEach(f => {
+      if(f.closed && f.baseArea > 0) {
+        base += f.baseArea;
+        pitched += f.baseArea * f.pitch;
+      }
+    });
+    // Add any open perimeter
+    if(perimClosed && perimBaseArea > 0 && !facets.find(f => f.baseArea === perimBaseArea)) {
+      base += perimBaseArea;
+      pitched += perimBaseArea * globalPitch;
+    }
   }
-  // Priority 2: eave × avg rake
+  // Fallback: single perimeter or line-based
+  else if(perimClosed && perimBaseArea > 0) {
+    base = perimBaseArea;
+    pitched = base * globalPitch;
+  }
   else if(eave.length && rake.length) {
     base = eave.reduce((s,l) => s+l.dist, 0) * (rake.reduce((s,l) => s+l.dist, 0) / rake.length);
+    pitched = base * globalPitch;
   }
-  // Priority 3: rough estimate from total line length
-  else if(drawnLines.length) {
-    const tot = drawnLines.reduce((s,l) => s+l.dist, 0);
+  else if(drawnLines.filter(l=>l.type!==10).length) {
+    const tot = drawnLines.filter(l=>l.type!==10).reduce((s,l) => s+l.dist, 0);
     base = (tot/4) * (tot/4);
+    pitched = base * globalPitch;
   }
 
-  const pitched = base * pitch, w = pitched * waste, sq = w / 100;
+  const w = pitched * waste, sq = w / 100;
   document.getElementById('cr-base').textContent    = base.toFixed(0) + ' sf';
   document.getElementById('cr-pitched').textContent = pitched.toFixed(0) + ' sf';
   document.getElementById('cr-waste').textContent   = w.toFixed(0) + ' sf';
   document.getElementById('cr-sq').textContent      = sq.toFixed(2) + ' sq';
+}
+
+// ── ZOOM TO FIT ──────────────────────────────
+function zoomToFit() {
+  if(!drawMap) return;
+  const allPts = [];
+  drawnLines.forEach(l => { if(l.p1) allPts.push(l.p1); if(l.p2) allPts.push(l.p2); });
+  facets.forEach(f => f.points.forEach(p => allPts.push(p)));
+  gutterPoints.forEach(p => allPts.push(p));
+  perimPoints.forEach(p => allPts.push(p));
+  if(!allPts.length) { showToast('No lines to fit','info'); return; }
+  const bounds = L.latLngBounds(allPts);
+  drawMap.fitBounds(bounds.pad(0.15));
+}
+
+// ── SCREENSHOT EXPORT ────────────────────────
+function screenshotMap() {
+  showToast('Capturing map...','info');
+  // Use leaflet-image or canvas approach
+  try {
+    const mapEl = document.getElementById('drawMap');
+    // Try html2canvas if available, else use leaflet's built-in
+    if(typeof html2canvas !== 'undefined') {
+      html2canvas(mapEl).then(canvas => {
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'nbd-drawing-'+(document.getElementById('drawSearch')?.value||'map').replace(/\s+/g,'-')+'.png';
+          a.click(); URL.revokeObjectURL(url);
+          showToast('Screenshot saved!','ok');
+        });
+      });
+    } else {
+      // Fallback: grab the tile canvas
+      const canvases = mapEl.querySelectorAll('canvas');
+      if(canvases.length) {
+        canvases[0].toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'nbd-drawing.png';
+          a.click(); URL.revokeObjectURL(url);
+          showToast('Screenshot saved!','ok');
+        });
+      } else {
+        showToast('Canvas not available — try in a different browser','error');
+      }
+    }
+  } catch(e) { showToast('Screenshot failed: '+e.message,'error'); }
 }
 
 function importToEstimate() {
@@ -1002,164 +1385,121 @@ function exportDrawReport() {
   ${lines.map(l=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${l.color};margin-right:6px;vertical-align:middle;"></span>${l.name}</td><td>${l.dist.toFixed(1)} ft</td></tr>`).join('')}
   </tbody></table>
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
-  <script>window.print();<\/script>
-
-<!-- ══ QM IMPORT MODAL ══ -->
-<div class="modal-bg" id="qmImportModal">
-  <div class="modal" style="max-width:480px;">
-    <button class="modal-close" onclick="closeQMImportModal()">✕</button>
-    <div style="margin-bottom:18px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">AI-Powered Import</div>
-      <div style="font-size:18px;font-weight:800;color:var(--t);">Quick Measure Import</div>
-      <div style="font-size:12px;color:var(--m);margin-top:4px;">Upload your GAF Quick Measure PDF. AI extracts all measurements automatically.</div>
-    </div>
-    <div id="qmDropZone" style="border:2px dashed var(--br);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px;" onclick="document.getElementById('qmFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='#C8541A'" ondragleave="this.style.borderColor=''" ondrop="handleQMDrop(event)">
-      <div style="font-size:32px;margin-bottom:8px;">📄</div>
-      <div style="font-weight:700;color:var(--t);font-size:13px;">Drop PDF here or click to browse</div>
-      <div style="font-size:11px;color:var(--m);margin-top:4px;">GAF Quick Measure PDF only</div>
-      <input type="file" id="qmFileInput" accept=".pdf" style="display:none;" onchange="handleQMFile(this.files[0])">
-    </div>
-    <div id="qmStatus" style="display:none;background:var(--s2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--m);margin-bottom:16px;min-height:44px;">
-      <span id="qmStatusText">Analyzing PDF with AI...</span>
-    </div>
-    <div id="qmPreview" style="display:none;margin-bottom:16px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Extracted Measurements</div>
-      <div id="qmPreviewGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;"></div>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-ghost" onclick="closeQMImportModal()" style="flex:1;">Cancel</button>
-      <button class="btn btn-orange" id="qmApplyBtn" onclick="applyQMData()" style="flex:2;display:none;">✓ Apply to Estimate</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- ══ ONBOARDING MODAL ══ -->
-<div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:var(--s);border:1px solid var(--br);border-radius:14px;width:100%;max-width:480px;padding:32px;position:relative;overflow:hidden;">
-    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--orange),transparent);"></div>
-
-    <!-- Step indicators -->
-    <div style="display:flex;gap:6px;margin-bottom:24px;" id="onbSteps">
-      <div id="onbDot1" style="flex:1;height:3px;border-radius:2px;background:var(--orange);transition:all .3s;"></div>
-      <div id="onbDot2" style="flex:1;height:3px;border-radius:2px;background:var(--br);transition:all .3s;"></div>
-      <div id="onbDot3" style="flex:1;height:3px;border-radius:2px;background:var(--br);transition:all .3s;"></div>
-    </div>
-
-    <!-- Step 1: Welcome + Company -->
-    <div id="onbStep1">
-      <div style="font-size:32px;margin-bottom:12px;">👋</div>
-      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Welcome to NBD Pro</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;margin-bottom:8px;" id="onbGreeting">Let's get you set up.</div>
-      <div style="font-size:13px;color:var(--m);margin-bottom:24px;line-height:1.6;">30 seconds. That's all this takes. We'll personalize the platform to your business.</div>
-      <div style="margin-bottom:16px;">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Company Name</label>
-        <input type="text" id="onbCompany" placeholder="No Big Deal Home Solutions"
-          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Name</label>
-        <input type="text" id="onbName" placeholder="Joe Deal"
-          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Your Phone</label>
-        <input type="tel" id="onbPhone" placeholder="(859) 420-7382"
-          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">I'm primarily a...</label>
-        <select id="onbRole"
-          style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
-          <option value="owner">Owner / Operator</option>
-          <option value="salesperson">Sales Rep / Canvasser</option>
-          <option value="estimator">Estimator</option>
-          <option value="pm">Project Manager</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <button onclick="onbNext(1)"
-        style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">
-        Continue →
-      </button>
-    </div>
-
-    <!-- Step 2: First Lead prompt -->
-    <div id="onbStep2" style="display:none;">
-      <div style="font-size:32px;margin-bottom:12px;">🎯</div>
-      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Your Pipeline</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Add Your First Lead</div>
-      <div style="font-size:13px;color:var(--m);margin-bottom:20px;line-height:1.6;">Got a property in mind? Add it now and it'll show up on your pipeline and map. You can always skip this.</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-        <div>
-          <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Property Address</label>
-          <div class="ac-wrap">
-            <input type="text" id="onbAddr" placeholder="123 Main St, Goshen OH..."
-              style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;"
-              autocomplete="off">
-            <div class="ac-drop" id="ac-onbAddr" style="display:none;"></div>
-          </div>
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Damage Type</label>
-          <select id="onbDamage"
-            style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:13px 14px;font-family:inherit;font-size:15px;color:var(--t);outline:none;">
-            <option value="Roof - Hail">Roof — Hail</option>
-            <option value="Roof - Wind">Roof — Wind</option>
-            <option value="Siding - Hail">Siding — Hail</option>
-            <option value="Full Exterior">Full Exterior</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="onbSkipLead()"
-          style="flex:1;background:transparent;color:var(--m);border:1px solid var(--br);border-radius:8px;padding:13px;font-family:inherit;font-size:13px;cursor:pointer;">
-          Skip for now
-        </button>
-        <button onclick="onbSaveLead()"
-          style="flex:2;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:13px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">
-          Add Lead →
-        </button>
-      </div>
-    </div>
-
-    <!-- Step 3: You're in -->
-    <div id="onbStep3" style="display:none;text-align:center;">
-      <div style="font-size:48px;margin-bottom:12px;">🚀</div>
-      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">You're in.</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;margin-bottom:16px;">NBD Pro is live.</div>
-
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;text-align:left;">
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
-          <span style="font-size:18px;">📊</span>
-          <div><div style="font-weight:700;font-size:13px;color:var(--t);">CRM is ready</div><div style="font-size:11px;color:var(--m);">Add leads, track stages, log follow-ups</div></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
-          <span style="font-size:18px;">📋</span>
-          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Estimate builder is loaded</div><div style="font-size:11px;color:var(--m);">Quick or Advanced — import GAF Quick Measure PDFs</div></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
-          <span style="font-size:18px;">🤖</span>
-          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Joe AI is watching your pipeline</div><div style="font-size:11px;color:var(--m);">Ask anything — claims, canvassing, closes</div></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border-radius:8px;border-left:3px solid var(--orange);">
-          <span style="font-size:18px;">🛡️</span>
-          <div><div style="font-weight:700;font-size:13px;color:var(--t);">Lifetime guarantee system active</div><div style="font-size:11px;color:var(--m);">Every estimate generates the right certificate automatically</div></div>
-        </div>
-      </div>
-
-      <button onclick="onbFinish()"
-        style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;">
-        Open My Dashboard →
-      </button>
-      <div style="font-size:11px;color:var(--m);">Tip: Tap <strong style="color:var(--t);">Ask Joe</strong> on the bottom nav any time — he knows your pipeline.</div>
-    </div>
-
-  </div>
-</div>
-</body></html>`;
+  <script>window.print();<\/script></body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+// ── SAVE / RESTORE DRAWING STATE (localStorage) ──────────
+function _drawStorageKey() {
+  const addr = (document.getElementById('drawSearch')?.value || '').trim();
+  return 'nbd_draw_' + (addr ? addr.replace(/\s+/g,'_').substring(0,60) : 'default');
+}
+
+function autoSaveDrawing() {
+  try {
+    const data = {
+      address: document.getElementById('drawSearch')?.value || '',
+      lines: drawnLines.map(l => ({
+        id:l.id, type:l.type, name:l.name, color:l.color, dist:l.dist,
+        p1:{lat:l.p1.lat,lng:l.p1.lng}, p2:{lat:l.p2.lat,lng:l.p2.lng},
+        subtype:l.subtype||null
+      })),
+      facets: facets.map(f => ({
+        name:f.name, color:f.color, pitch:f.pitch, closed:f.closed, baseArea:f.baseArea,
+        points: f.points.map(p=>({lat:p.lat,lng:p.lng}))
+      })),
+      perimPoints: perimPoints.map(p=>({lat:p.lat,lng:p.lng})),
+      perimClosed: perimClosed,
+      gutterPoints: gutterPoints.map(p=>({lat:p.lat,lng:p.lng})),
+      pitch: document.getElementById('pitchSel')?.value || '1.202',
+      waste: document.getElementById('wasteSel')?.value || '1.17',
+      ts: Date.now()
+    };
+    localStorage.setItem(_drawStorageKey(), JSON.stringify(data));
+  } catch(e) { /* quota or private browsing — silently fail */ }
+}
+
+function tryRestoreDrawing() {
+  try {
+    const key = _drawStorageKey();
+    const raw = localStorage.getItem(key);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    // Only restore if less than 7 days old
+    if(Date.now() - (data.ts||0) > 7*24*60*60*1000) { localStorage.removeItem(key); return; }
+    if(!data.lines || !data.lines.length) return;
+
+    // Restore lines
+    data.lines.forEach(l => {
+      const p1 = L.latLng(l.p1.lat, l.p1.lng);
+      const p2 = L.latLng(l.p2.lat, l.p2.lng);
+      const lt = LT[l.type] || LT[0];
+      const color = l.color || lt.color;
+      const line = L.polyline([p1,p2], {color:color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
+      const lbl = L.marker(mid(p1,p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+      lbl.on('click', () => editLineLength(l.id));
+      const dot1 = makeDraggableDot(p1, color);
+      const dot2 = makeDraggableDot(p2, color);
+      drawnLines.push({id:l.id, type:l.type, name:l.name, color:color, dist:l.dist, line, lbl, p1, p2, dot1, dot2, subtype:l.subtype});
+      // Track perimeter segments
+      if(l.type === 4 || l.type === 5) {
+        perimSegments.push({id:l.id, line, lbl, p1, p2, dist:l.dist, type:l.type, name:l.name, color:color, subtype:l.subtype||'eave'});
+      }
+    });
+
+    // Restore perimeter points
+    if(data.perimPoints && data.perimPoints.length) {
+      data.perimPoints.forEach(p => {
+        const ll = L.latLng(p.lat, p.lng);
+        perimPoints.push(ll);
+        perimDots.push(makeDraggableDot(ll, '#4A9EFF'));
+      });
+      perimClosed = !!data.perimClosed;
+      if(perimClosed && perimPoints.length >= 3) {
+        perimPolygon = L.polygon(perimPoints, {color:'#4A9EFF', fillColor:'#4A9EFF', fillOpacity:.12, weight:0}).addTo(drawMap);
+        perimBaseArea = shoelaceArea(perimPoints);
+        addAreaLabel(perimPoints, perimBaseArea);
+      }
+    }
+
+    // Restore facets
+    if(data.facets && data.facets.length) {
+      data.facets.forEach(fd => {
+        const pts = fd.points.map(p => L.latLng(p.lat, p.lng));
+        const f = {
+          name:fd.name, color:fd.color, pitch:fd.pitch, closed:fd.closed,
+          baseArea:fd.baseArea, points:pts, dots:[], segments:[], polygon:null, areaLabel:null
+        };
+        pts.forEach(p => f.dots.push(makeDraggableDot(p, fd.color)));
+        if(fd.closed && pts.length >= 3) {
+          f.polygon = L.polygon(pts, {color:fd.color, fillColor:fd.color, fillOpacity:.12, weight:0}).addTo(drawMap);
+          addAreaLabel(pts, fd.baseArea);
+        }
+        facets.push(f);
+      });
+      activeFacetIdx = facets.length - 1;
+    }
+
+    // Restore gutter points
+    if(data.gutterPoints && data.gutterPoints.length) {
+      data.gutterPoints.forEach(p => {
+        const ll = L.latLng(p.lat, p.lng);
+        gutterPoints.push(ll);
+        gutterDots.push(makeDraggableDot(ll, '#06B6D4'));
+      });
+    }
+
+    // Restore pitch/waste selectors
+    if(data.pitch) { const el = document.getElementById('pitchSel'); if(el) el.value = data.pitch; }
+    if(data.waste) { const el = document.getElementById('wasteSel'); if(el) el.value = data.waste; }
+
+    renderLineList(); renderFacetList(); recalc(); recalcGutters();
+    showToast('Previous drawing restored','ok');
+  } catch(e) { /* corrupted data — ignore */ }
+}
+
+function clearSavedDrawing() {
+  try { localStorage.removeItem(_drawStorageKey()); } catch(e) {}
 }
 
 
@@ -1525,6 +1865,7 @@ window.makeLeadFromPin = makeLeadFromPin;
 window.deletePinOnly = deletePinOnly;
 // Note: damagNearMe is an alias for spyglassGoToLocation
 window.damagNearMe = spyglassGoToLocation;
+window.goToMyLocation = goToMyLocation;
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {

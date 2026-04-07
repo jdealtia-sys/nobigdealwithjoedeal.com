@@ -2343,7 +2343,27 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 
 
 /* MEAS LABEL */
-.meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;pointer-events:none;}
+.meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(200,84,26,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;cursor:pointer;pointer-events:auto;}
+
+/* DRAW TOOL — shortcut hint */
+.draw-shortcut-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,12,15,.92);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 24px;border-radius:8px;border:1px solid var(--orange);pointer-events:none;z-index:9000;animation:shintFade .7s ease-out forwards;}
+@keyframes shintFade{0%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-60%) scale(.95);}}
+
+/* DRAW TOOL — facet area label on map */
+.facet-area-label{background:rgba(10,12,15,.85);color:#fff;border:1px solid rgba(74,158,255,.5);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;text-align:center;}
+
+/* DRAW TOOL — angle labels */
+.angle-label{background:rgba(10,12,15,.8);color:#EAB308;border:1px solid rgba(234,179,8,.4);border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;}
+.angle-label-marker{background:none!important;border:none!important;}
+
+/* DRAW TOOL — facet list in sidebar */
+.facet-list{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;margin-bottom:10px;}
+.facet-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--s2);border:1px solid var(--br);border-radius:5px;font-size:11px;cursor:pointer;transition:border-color .15s;}
+.facet-row:hover{border-color:var(--orange);}
+.facet-name{font-weight:700;color:var(--t);flex:1;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;text-transform:uppercase;}
+.facet-area{color:var(--m);font-size:10px;white-space:nowrap;}
+.facet-pitch-sel{background:var(--s);border:1px solid var(--br);border-radius:4px;padding:2px 4px;font-size:10px;color:var(--t);font-family:inherit;cursor:pointer;}
+.facet-pitch-sel:focus{border-color:var(--orange);outline:none;}
 
 /* MARKER CLUSTER — NBD Pro brand */
 .marker-cluster-small{background:rgba(200,84,26,0.35)!important}
@@ -5780,6 +5800,11 @@ function switchScTab(tab, btn) {
         </div>
         <div class="slabel2">Lines</div>
         <div class="line-list" id="lineList"><p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p></div>
+
+        <!-- FACET LIST (multi-facet support) -->
+        <div class="slabel2">Facets</div>
+        <div class="facet-list" id="facetList"><p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No facets yet. Close a perimeter to create one.</p></div>
+
         <div class="slabel2">Roof Calculator</div>
         <div class="calc-selects">
           <div><div style="font-size:9px;color:var(--m);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase;">Pitch</div>
@@ -5815,6 +5840,15 @@ function switchScTab(tab, btn) {
         </div>
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="exportDrawReport()">📤 Export Report</button>
+
+        <!-- MAP TOOLS -->
+        <div class="slabel2">Map Tools</div>
+        <div class="draw-btns" style="flex-wrap:wrap;">
+          <button class="draw-btn" id="layerToggleBtn" onclick="toggleMapLayer()" title="Switch between Satellite / Street / Hybrid">🗺️ Layer</button>
+          <button class="draw-btn" onclick="zoomToFit()" title="Zoom to fit all drawn lines">🔍 Fit All</button>
+          <button class="draw-btn" onclick="screenshotMap()" title="Export map screenshot">📸 Screenshot</button>
+          <button class="draw-btn" onclick="showAngles()" title="Show angles at vertices">📐 Angles</button>
+        </div>
       </div>
       <div class="map-area">
         <div id="drawMap"></div>
