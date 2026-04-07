@@ -2432,6 +2432,76 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .marker-cluster-large{background:rgba(200,84,26,0.55)!important}
 .marker-cluster-large div{background:rgba(200,84,26,0.9)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 
+/* ═══ DAILY COMMAND CENTER WIDGET ═══ */
+.dt-widget{margin:0 0 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;}
+.dt-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;transition:background .15s;gap:12px;}
+.dt-header:hover{background:var(--s2);}
+.dt-header-left{min-width:0;}
+.dt-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+.dt-date{font-size:11px;color:var(--m);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;}
+.dt-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.dt-floor-pill{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;letter-spacing:.04em;white-space:nowrap;}
+.dt-habit-pill{font-size:10px;color:var(--m);padding:2px 8px;background:var(--s2);border-radius:10px;white-space:nowrap;}
+.dt-chevron{font-size:14px;color:var(--m);transition:transform .2s;}
+.dt-body{padding:0 16px 16px;border-top:1px solid var(--br);}
+
+/* KPI Strip */
+.dt-kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px 0 12px;}
+@media(max-width:768px){.dt-kpi-strip{grid-template-columns:repeat(3,1fr);}.dt-kpi:nth-child(4),.dt-kpi:nth-child(5){grid-column:span 1;}}
+@media(max-width:480px){.dt-kpi-strip{grid-template-columns:repeat(2,1fr);}}
+.dt-kpi{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px;text-align:center;transition:all .2s;}
+.dt-kpi.hit{border-color:var(--kpi-color,#10b981);background:color-mix(in srgb,var(--kpi-color,#10b981) 8%,var(--s2));}
+.dt-kpi-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;color:var(--m);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dt-kpi-controls{display:flex;align-items:center;justify-content:center;gap:6px;}
+.dt-kpi-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--br);background:transparent;cursor:pointer;font-size:16px;font-weight:700;color:var(--m);display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;flex-shrink:0;}
+.dt-kpi-btn:hover{border-color:var(--kpi-color,var(--orange));color:var(--kpi-color,var(--orange));transform:scale(1.1);}
+.dt-kpi-btn:active{transform:scale(0.95);}
+.dt-kpi-val{font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:32px;color:var(--t);min-width:36px;text-align:center;line-height:1;}
+.dt-kpi-val.hit{color:var(--kpi-color,#10b981);}
+.dt-kpi-input{font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:26px;color:var(--t);background:transparent;border:none;outline:none;width:70px;text-align:center;padding:0;}
+.dt-kpi-input:focus{color:var(--orange);}
+.dt-kpi-bar{height:3px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;}
+.dt-kpi-bar-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+.dt-kpi-target{font-size:9px;color:var(--m);margin-top:4px;font-family:'DM Mono','Barlow Condensed',monospace;letter-spacing:.03em;}
+
+/* Bottom Row: Floors + Habits */
+.dt-bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:12px 0;border-top:1px solid var(--br);}
+@media(max-width:640px){.dt-bottom-row{grid-template-columns:1fr;}}
+.dt-section-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;color:var(--m);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+.dt-floor-grid{display:grid;gap:4px;}
+.dt-floor-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;cursor:pointer;transition:all .15s;font-size:12px;color:var(--t);}
+.dt-floor-item:hover{background:var(--s2);}
+.dt-floor-item.met{color:#10b981;}
+.dt-floor-item.met span{text-decoration:line-through;opacity:.7;}
+.dt-floor-check{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#10b981;flex-shrink:0;transition:all .15s;}
+.dt-floor-item.met .dt-floor-check{background:#10b981;border-color:#10b981;color:white;}
+.dt-egg-earned{margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;font-size:11px;font-weight:700;color:#92400e;text-align:center;letter-spacing:.02em;}
+.dt-habit-grid{display:grid;gap:4px;}
+.dt-habit-item{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:all .15s;font-size:12px;color:var(--t);}
+.dt-habit-item:hover{background:var(--s2);}
+.dt-habit-item.done{opacity:.6;}
+.dt-habit-item.done .dt-habit-text{text-decoration:line-through;}
+.dt-habit-icon{font-size:14px;flex-shrink:0;}
+.dt-habit-text{flex:1;min-width:0;}
+.dt-habit-check{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#10b981;flex-shrink:0;transition:all .15s;}
+.dt-habit-item.done .dt-habit-check{background:#10b981;border-color:#10b981;color:white;}
+
+/* Notes Row */
+.dt-notes-row{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--br);flex-wrap:wrap;}
+.dt-note-field{flex:1;min-width:140px;}
+.dt-note-field label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:600;color:var(--m);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;}
+.dt-note-field input{width:100%;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;font-size:12px;color:var(--t);box-sizing:border-box;}
+.dt-note-field input:focus{border-color:var(--orange);outline:none;}
+.dt-rating{display:flex;gap:2px;padding-top:2px;}
+.dt-rating-dot{cursor:pointer;font-size:12px;color:var(--br);transition:color .15s;line-height:1;}
+.dt-rating-dot.active{color:#f59e0b;}
+.dt-rating-dot:hover{color:#C8541A;}
+
+/* Footer */
+.dt-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);}
+.dt-config-btn{display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--m);font-size:10px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all .15s;}
+.dt-config-btn:hover{background:var(--s2);color:var(--t);}
+
 /* MAP BADGE */
 .leaflet-popup-content-wrapper.nbd-pin-popup,.nbd-pin-popup .leaflet-popup-content-wrapper{background:var(--s)!important;border:1px solid var(--br)!important;border-radius:8px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important;padding:0!important;}
 .nbd-pin-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
@@ -6394,6 +6464,9 @@ function switchScTab(tab, btn) {
       <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Job Board</button>
       <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">Simple</button>
     </div>
+
+    <!-- DAILY COMMAND CENTER — KPI counters, floors, habits -->
+    <div id="dailyCommandCenter" class="dt-widget"></div>
 
     <!-- KANBAN BOARD — columns generated dynamically by buildKanbanColumns() -->
     <div class="kanban-board" id="kanbanBoard">
@@ -10906,6 +10979,7 @@ function shareCalViaEmail() {
 <script src="js/email_system.js?v=2"></script>
 <script src="js/product-data.js?v=1"></script>
 <script src="js/estimate-templates.js?v=1"></script>
+<script src="js/daily-tracker.js?v=1"></script>
 <script src="js/product-library.js?v=2"></script>
 <script src="js/d2d-tracker.js?v=3"></script>
 <script src="js/sales-training.js?v=1"></script>
