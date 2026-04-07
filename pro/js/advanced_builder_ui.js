@@ -41,7 +41,7 @@ window.renderAdvancedBuilder = function() {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
   
   modal.innerHTML = `
-    <div style="background:white;border-radius:12px;max-width:1100px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div style="background:var(--s);border-radius:12px;max-width:1100px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
       <div style="padding:25px;background:linear-gradient(135deg, #C8541A 0%, #a64516 100%);color:white;">
         <h2 style="margin:0;font-size:28px;">🎯 Advanced Estimate Builder</h2>
         <div style="margin-top:10px;font-size:14px;opacity:0.9;">
@@ -53,7 +53,7 @@ window.renderAdvancedBuilder = function() {
         <!-- Step content rendered here -->
       </div>
       
-      <div id="advancedNavigation" style="padding:20px;border-top:2px solid #eee;background:#f9f9f9;">
+      <div id="advancedNavigation" style="padding:20px;border-top:2px solid var(--br);background:var(--s2);">
         <!-- Navigation buttons rendered here -->
       </div>
     </div>
@@ -154,21 +154,21 @@ function renderProjectSetup() {
   
   return `
     <div style="max-width:600px;margin:0 auto;">
-      <h3 style="font-size:22px;color:#333;margin:0 0 25px 0;">Project Information</h3>
+      <h3 style="font-size:22px;color:var(--t);margin:0 0 25px 0;">Project Information</h3>
       
       <div style="margin-bottom:20px;">
         <label style="display:block;font-weight:600;margin-bottom:8px;color:#555;">Project Name *</label>
         <input type="text" id="advProjectName" value="${window.advancedEstimate.projectName}" 
                placeholder="e.g., Main House Reroof" 
-               style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+               style="width:100%;padding:12px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
       </div>
       
       <div style="margin-bottom:20px;">
         <label style="display:block;font-weight:600;margin-bottom:8px;color:#555;">Structure/Building</label>
         <input type="text" id="advStructure" value="${window.advancedEstimate.structure}" 
                placeholder="e.g., Main House, Garage, Barn" 
-               style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
-        <div style="font-size:12px;color:#666;margin-top:5px;">Leave blank for default "Main House"</div>
+               style="width:100%;padding:12px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
+        <div style="font-size:12px;color:var(--m);margin-top:5px;">Leave blank for default "Main House"</div>
       </div>
       
       <div style="margin-bottom:20px;">
@@ -177,7 +177,7 @@ function renderProjectSetup() {
           <option value="">-- None (New Lead) --</option>
           ${customerOptions}
         </select>
-        <div style="font-size:12px;color:#666;margin-top:5px;">Connect this estimate to an existing customer</div>
+        <div style="font-size:12px;color:var(--m);margin-top:5px;">Connect this estimate to an existing customer</div>
       </div>
       
       <div style="background:#f0f9ff;border-left:4px solid #0ea5e9;padding:15px;border-radius:6px;margin-top:25px;">
@@ -186,7 +186,7 @@ function renderProjectSetup() {
         </div>
       </div>
 
-      <div style="margin-top:20px;border:1px solid #fde0d0;border-radius:8px;padding:16px;background:#fff8f5;">
+      <div style="margin-top:20px;border:1px solid #fde0d0;border-radius:8px;padding:16px;background:var(--s2);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-weight:700;font-size:13px;color:#C8541A;">📎 GAF Quick Measure Import</div>
           <button onclick="applyQMToAdvancedBuilder()" 
@@ -236,8 +236,8 @@ function renderTradeSelect() {
            onmouseover="if (!this.style.borderColor.includes('C8541A')) { this.style.borderColor='#999'; }"
            onmouseout="if (!this.style.borderColor.includes('C8541A')) { this.style.borderColor='#ddd'; }">
         <div style="font-size:36px;margin-bottom:10px;">${trade.icon}</div>
-        <div style="font-weight:600;font-size:16px;color:#333;margin-bottom:5px;">${trade.name}</div>
-        <div style="font-size:13px;color:#666;">${trade.desc}</div>
+        <div style="font-weight:600;font-size:16px;color:var(--t);margin-bottom:5px;">${trade.name}</div>
+        <div style="font-size:13px;color:var(--m);">${trade.desc}</div>
         ${isSelected ? '<div style="margin-top:10px;color:#C8541A;font-weight:600;font-size:13px;">✓ Selected</div>' : ''}
       </div>
     `;
@@ -285,17 +285,17 @@ function renderLineItems() {
   
   // Totals
   html += `
-    <div style="margin-top:30px;padding:20px;background:#f9f9f9;border-radius:8px;border:2px solid #eee;">
+    <div style="margin-top:30px;padding:20px;background:var(--s2);border-radius:8px;border:2px solid var(--br);">
       <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-        <span style="font-size:16px;color:#666;">Subtotal:</span>
+        <span style="font-size:16px;color:var(--m);">Subtotal:</span>
         <span style="font-size:18px;font-weight:600;">$${window.advancedEstimate.subtotal.toFixed(2)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-        <span style="font-size:16px;color:#666;">Tax (7%):</span>
+        <span style="font-size:16px;color:var(--m);">Tax (7%):</span>
         <span style="font-size:18px;font-weight:600;">$${window.advancedEstimate.tax.toFixed(2)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #ddd;">
-        <span style="font-size:20px;font-weight:700;color:#333;">Total:</span>
+        <span style="font-size:20px;font-weight:700;color:var(--t);">Total:</span>
         <span style="font-size:24px;font-weight:700;color:#C8541A;">$${window.advancedEstimate.total.toFixed(2)}</span>
       </div>
     </div>
@@ -310,7 +310,7 @@ function renderLineItemsList() {
     return `
       <div style="text-align:center;padding:60px 20px;background:#f9f9f9;border-radius:8px;border:2px dashed #ddd;">
         <div style="font-size:48px;margin-bottom:15px;opacity:0.3;">📋</div>
-        <div style="font-size:16px;color:#666;">No line items yet. Add items from the catalog or create custom items.</div>
+        <div style="font-size:16px;color:var(--m);">No line items yet. Add items from the catalog or create custom items.</div>
       </div>
     `;
   }
@@ -331,11 +331,11 @@ function renderLineItemsList() {
     
     sections[sectionName].forEach(item => {
       html += `
-        <div style="border:1px solid #ddd;border-radius:6px;padding:15px;margin-bottom:10px;background:white;">
+        <div style="border:1px solid var(--br);border-radius:6px;padding:15px;margin-bottom:10px;background:var(--s);">
           <div style="display:flex;justify-content:space-between;align-items:start;">
             <div style="flex:1;">
-              <div style="font-weight:600;color:#333;margin-bottom:5px;">${item.name}</div>
-              <div style="font-size:13px;color:#666;">
+              <div style="font-weight:600;color:var(--t);margin-bottom:5px;">${item.name}</div>
+              <div style="font-size:13px;color:var(--m);">
                 Qty: ${item.qty} ${item.unit} × $${item.sellPrice.toFixed(2)}
               </div>
             </div>
@@ -367,8 +367,8 @@ window.addCustomLineItem = function() {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10002;';
   
   modal.innerHTML = `
-    <div style="background:white;border-radius:12px;max-width:600px;width:90%;padding:30px;">
-      <h3 style="margin:0 0 20px 0;font-size:20px;color:#333;">Add Line Item</h3>
+    <div style="background:var(--s);border-radius:12px;max-width:600px;width:90%;padding:30px;">
+      <h3 style="margin:0 0 20px 0;font-size:20px;color:var(--t);">Add Line Item</h3>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Item Name</label>
@@ -470,8 +470,8 @@ window.editLineItem = function(itemId) {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10002;';
   
   modal.innerHTML = `
-    <div style="background:white;border-radius:12px;max-width:600px;width:90%;padding:30px;">
-      <h3 style="margin:0 0 20px 0;font-size:20px;color:#333;">Edit Line Item</h3>
+    <div style="background:var(--s);border-radius:12px;max-width:600px;width:90%;padding:30px;">
+      <h3 style="margin:0 0 20px 0;font-size:20px;color:var(--t);">Edit Line Item</h3>
       
       <div style="margin-bottom:15px;">
         <label style="display:block;font-weight:600;margin-bottom:6px;">Item Name</label>
@@ -588,15 +588,15 @@ function renderReview() {
   html += `
     <div style="background:#f9f9f9;border:2px solid #eee;border-radius:8px;padding:20px;margin-bottom:25px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-        <span style="font-size:16px;color:#666;">Subtotal:</span>
+        <span style="font-size:16px;color:var(--m);">Subtotal:</span>
         <span style="font-size:18px;font-weight:600;">$${est.subtotal.toFixed(2)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-        <span style="font-size:16px;color:#666;">Tax (7%):</span>
+        <span style="font-size:16px;color:var(--m);">Tax (7%):</span>
         <span style="font-size:18px;font-weight:600;">$${est.tax.toFixed(2)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #ddd;">
-        <span style="font-size:20px;font-weight:700;color:#333;">Total:</span>
+        <span style="font-size:20px;font-weight:700;color:var(--t);">Total:</span>
         <span style="font-size:24px;font-weight:700;color:#C8541A;">$${est.total.toFixed(2)}</span>
       </div>
     </div>
@@ -796,5 +796,71 @@ window.saveAdvancedEstimate = async function() {
   } catch (error) {
     console.error('Error saving estimate:', error);
     alert('Error saving estimate: ' + error.message);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// TEMPLATE LOADER — Populates Advanced Builder from Estimate Template
+// ═══════════════════════════════════════════════════════════════════════
+window._advancedBuilder_loadTemplate = function(template) {
+  if (!template || !template.items) return;
+
+  const products = window.NBD_PRODUCTS || [];
+
+  // Set project name from template
+  window.advancedEstimate.projectName = template.name;
+
+  // Collect unique trade categories from template items
+  const tradeSet = new Set();
+
+  // Build line items from template
+  template.items.forEach(function(tItem) {
+    const product = products.find(function(p) { return p.id === tItem.productId; });
+    if (!product) return;
+
+    // Resolve tier pricing (default to "better" if not specified)
+    const tier = tItem.tier || 'better';
+    const pricing = product.pricing || {};
+    const tierData = pricing[tier] || pricing.better || pricing.good || { sell: 0, cost: 0 };
+    const qty = tItem.qty || product.defaultQty || 1;
+    const sellPrice = tierData.sell || 0;
+    const costPrice = tierData.cost || 0;
+    const laborCost = product.labor ? (product.labor.perUnit || 0) : 0;
+
+    // Track trade category
+    const cat = window.NBD_CATEGORIES ? window.NBD_CATEGORIES[product.category] : null;
+    if (cat) tradeSet.add(cat.label);
+
+    window.advancedEstimate.lineItems.push({
+      id: Date.now() + Math.random(),
+      name: product.name,
+      qty: qty,
+      unit: product.unit || 'EA',
+      sellPrice: sellPrice,
+      section: (cat ? cat.label : 'General'),
+      total: qty * sellPrice,
+      costPrice: costPrice,
+      laborCost: laborCost,
+      productId: product.id,
+      tier: tier
+    });
+  });
+
+  // Set trades from discovered categories
+  window.advancedEstimate.trades = Array.from(tradeSet);
+
+  // Jump to step 3 (line items) so user sees the loaded items
+  window.advancedEstimate.currentStep = 3;
+  recalculateTotals();
+  renderAdvancedStep(3);
+
+  // Update header
+  const header = document.querySelector('#advancedBuilderModal h2');
+  if (header) header.textContent = '🎯 ' + template.name;
+  const stepLabel = document.querySelector('#advancedBuilderModal div[style*="opacity:0.9"]');
+  if (stepLabel) stepLabel.textContent = 'Step 3 of 4 — Loaded from template (' + template.items.length + ' items)';
+
+  if (typeof showToast === 'function') {
+    showToast('✅ Template loaded: ' + template.name + ' — ' + template.items.length + ' line items added');
   }
 };

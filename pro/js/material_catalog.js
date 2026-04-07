@@ -46,19 +46,19 @@ window.openMaterialCatalog = function() {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;';
   
   modal.innerHTML = `
-    <div style="background:white;border-radius:12px;max-width:900px;width:95%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
-      <div style="padding:25px;border-bottom:2px solid #eee;">
-        <h2 style="margin:0 0 15px 0;font-size:24px;color:#333;">📦 Material Catalog</h2>
-        <input type="text" id="catalogSearchInput" placeholder="Search materials..." 
-               oninput="filterMaterialCatalog()" 
-               style="width:100%;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+    <div style="background:var(--s);border-radius:12px;max-width:900px;width:95%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:25px;border-bottom:2px solid var(--br);">
+        <h2 style="margin:0 0 15px 0;font-size:24px;color:var(--t);">📦 Material Catalog</h2>
+        <input type="text" id="catalogSearchInput" placeholder="Search materials..."
+               oninput="filterMaterialCatalog()"
+               style="width:100%;padding:12px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
       </div>
       
       <div id="catalogItemsContainer" style="flex:1;overflow-y:auto;padding:20px;">
         ${renderCatalogItems('')}
       </div>
       
-      <div style="padding:20px;border-top:2px solid #eee;text-align:right;">
+      <div style="padding:20px;border-top:2px solid var(--br);text-align:right;">
         <button onclick="closeMaterialCatalog();" 
                 style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;">
           Close
@@ -126,17 +126,17 @@ function renderCatalogItems(searchTerm) {
     
     sections[sectionName].forEach(item => {
       html += `
-        <div onclick="addMaterialFromCatalog('${item.id}');" 
-             style="border:1px solid #ddd;border-radius:6px;padding:15px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
-             onmouseover="this.style.borderColor='#C8541A';this.style.backgroundColor='#fff8f5';"
-             onmouseout="this.style.borderColor='#ddd';this.style.backgroundColor='white';">
+        <div onclick="addMaterialFromCatalog('${item.id}');"
+             style="border:1px solid var(--br);border-radius:6px;padding:15px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
+             onmouseover="this.style.borderColor='#C8541A';this.style.backgroundColor='var(--s2)';"
+             onmouseout="this.style.borderColor='var(--br)';this.style.backgroundColor='var(--s)';">
           <div>
-            <div style="font-weight:600;color:#333;margin-bottom:4px;">${item.name}</div>
-            <div style="font-size:12px;color:#666;">Unit: ${item.unit}</div>
+            <div style="font-weight:600;color:var(--t);margin-bottom:4px;">${item.name}</div>
+            <div style="font-size:12px;color:var(--m);">Unit: ${item.unit}</div>
           </div>
           <div style="text-align:right;">
             <div style="font-size:18px;font-weight:700;color:#C8541A;">$${item.sellPrice.toFixed(2)}</div>
-            <div style="font-size:11px;color:#999;">per ${item.unit}</div>
+            <div style="font-size:11px;color:var(--m);">per ${item.unit}</div>
           </div>
         </div>
       `;

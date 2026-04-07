@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>NBD Pro</title>
+<script type="module">
+// Smart router: logged-in users → dashboard, everyone else → landing
+import { NBDAuth } from '/pro/js/nbd-auth.js';
+
+NBDAuth.init({
+  requiredPlan: 'free',
+  onReady: (user) => {
+    if (user) {
+      window.location.replace('/pro/dashboard.html');
+    } else {
+      window.location.replace('/pro/landing.html');
+    }
+  }
+});
+
+// Safety fallback — if auth takes >3s, send to landing
+setTimeout(() => {
+  if (document.visibilityState !== 'hidden') {
+    window.location.replace('/pro/landing.html');
+  }
+}, 3000);
+</script>
+</head><body></body></html>

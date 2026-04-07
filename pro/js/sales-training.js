@@ -1003,6 +1003,339 @@
           summary: 'Failed to close a warm prospect. Gave a competitor the opening.'
         }
       }
+    },
+
+    // ── SCENARIO 6: THE CALLBACK ─────────────────────────────
+    {
+      id: 'the_callback',
+      title: 'The Callback',
+      subtitle: 'Following up on a lead that went cold',
+      icon: '📞',
+      difficulty: 'Intermediate',
+      diffColor: '#F59E0B',
+      description: 'You inspected this property 2 weeks ago. The homeowner was interested but said "let me think about it." They stopped returning texts. You\'re driving by and notice they\'re home. Time to knock again.',
+      estimatedTime: '3-4 min',
+      skillFocus: ['closing', 'rapport', 'objection'],
+      nodes: {
+        start: {
+          id: 'start',
+          prompt: 'He opens the door and recognizes you. "Oh hey... yeah, sorry I haven\'t called back. Things have been crazy." He looks uncomfortable — classic avoidance.',
+          options: [
+            {
+              text: '"No worries at all, I totally get it — life gets busy. I was in the neighborhood and just wanted to drop off the updated scope from your insurance company. Good news is everything got approved. Mind if I walk you through the numbers real quick? Won\'t take 5 minutes."',
+              nextNode: 'reengaged',
+              score: 25,
+              tags: { closing: 25, rapport: 20, authority: 15, empathy: 15 },
+              feedback: 'Perfect callback technique. You relieved the guilt ("no worries"), gave a REASON for the visit (updated scope), dropped good news (approved), and made the ask low-commitment ("5 minutes"). This is how you resurrect dead leads.'
+            },
+            {
+              text: '"Hey! Just checking in — have you made a decision yet?"',
+              nextNode: 'deflect',
+              score: 8,
+              tags: { closing: 5, rapport: 5, empathy: 5 },
+              feedback: 'This is a yes/no question where "no" is the easy answer. Never ask if they\'ve decided — give them NEW information that moves them forward.'
+            },
+            {
+              text: '"I noticed you haven\'t signed the contract yet. The crew has availability next week but I need to know today."',
+              nextNode: 'pressure_fail',
+              score: 5,
+              tags: { closing: 10, empathy: 0, rapport: 0 },
+              feedback: 'Artificial urgency on a cold lead reads as desperation. He ghosted you for a reason — pressure won\'t fix that. You just confirmed why he was avoiding you.'
+            }
+          ]
+        },
+        reengaged: {
+          id: 'reengaged',
+          prompt: 'He relaxes a bit. "Yeah okay, show me what you\'ve got." You walk through the scope. He nods along. Then: "This all looks good, but I got another quote that came in lower."',
+          options: [
+            {
+              text: '"That makes sense — you should shop around. Can I see their quote? I\'ve found most lower bids leave out items that your insurance already approved. If they match, I\'ll shake your hand and wish you well. But if they\'re cutting corners, you\'d want to know."',
+              nextNode: 'callback_win',
+              score: 25,
+              tags: { objection: 30, authority: 20, empathy: 15, closing: 15 },
+              feedback: 'Brilliant. You validated shopping around, offered to compare instead of compete, and positioned yourself as the expert who catches what others miss. The "shake your hand" line shows confidence, not desperation.'
+            },
+            {
+              text: '"Price isn\'t everything — you get what you pay for."',
+              nextNode: 'callback_mid',
+              score: 10,
+              tags: { authority: 10, objection: 5 },
+              feedback: 'True but cliché. Everyone says this. It doesn\'t differentiate you or help him understand the SPECIFIC differences. Show, don\'t tell.'
+            },
+            {
+              text: '"I can match their price. What number do I need to beat?"',
+              nextNode: 'callback_loss',
+              score: 5,
+              tags: { closing: 10, authority: 0 },
+              feedback: 'Racing to the bottom on price kills your margin and your authority. If you can "match any price," what does your price even mean? You just told him your quote was inflated.'
+            }
+          ]
+        },
+        deflect: {
+          id: 'deflect',
+          prompt: '"Still thinking about it. I\'ll call you when I\'m ready." He starts closing the door.',
+          options: [
+            {
+              text: '"Totally fair. One thing I should mention — your insurance has a 12-month window from the storm date to file supplementals if needed. We\'re at month 5 now. I\'d hate for you to lose that coverage. Want me to put a reminder in for month 10 so we don\'t miss the deadline?"',
+              nextNode: 'callback_mid',
+              score: 20,
+              tags: { technical: 20, closing: 15, empathy: 10 },
+              feedback: 'Good recovery. You added real urgency (deadline) without being pushy, and offered a service (reminder) that keeps you in the conversation. He now has a reason to stay engaged.'
+            },
+            {
+              text: '"Okay, sounds good. Just call me when you\'re ready."',
+              nextNode: 'callback_loss',
+              score: 3,
+              tags: { rapport: 5 },
+              feedback: 'He won\'t call. "Call me when you\'re ready" is the salesperson\'s way of giving up while pretending they didn\'t. Set a specific follow-up or lose the deal.'
+            }
+          ]
+        },
+        pressure_fail: {
+          id: 'pressure_fail',
+          prompt: '"Yeah... I\'m going to pass. Thanks though." He closes the door firmly. Your pressure confirmed his instinct to avoid you.',
+          options: [],
+          terminal: true,
+          outcome: 'loss',
+          summary: 'Pushed a cold lead further away with urgency tactics. This one is gone for good.'
+        },
+        callback_win: {
+          id: 'callback_win',
+          prompt: '✅ He pulls up the competing quote on his phone. You spot 3 line items his insurance approved that the competitor left out — $4,200 worth. His eyes go wide. "So they were going to skip that stuff?" He signs your contract that afternoon.',
+          options: [],
+          terminal: true,
+          outcome: 'win',
+          summary: 'Resurrected a dead lead by adding value, not pressure. Expertise closed the deal.'
+        },
+        callback_mid: {
+          id: 'callback_mid',
+          prompt: '🔸 He appreciates the info but isn\'t ready to commit today. However, he saves your number, agrees to a specific follow-up date, and you leave with the relationship intact. Solid position.',
+          options: [],
+          terminal: true,
+          outcome: 'partial',
+          summary: 'Didn\'t close today but maintained the relationship and created a reason to follow up. Still alive.'
+        },
+        callback_loss: {
+          id: 'callback_loss',
+          prompt: '❌ Two months pass. You drive by and see a competitor\'s crew on his roof. He went with the lower bid. You never got the chance to show why your scope was better because you didn\'t create urgency or differentiate.',
+          options: [],
+          terminal: true,
+          outcome: 'loss',
+          summary: 'Lost a qualified lead to a competitor because you didn\'t control the follow-up.'
+        }
+      }
+    },
+
+    // ── SCENARIO 7: THE ANGRY NEIGHBOR ──────────────────────
+    {
+      id: 'angry_neighbor',
+      title: 'The Angry Neighbor',
+      subtitle: 'Dealing with hostility and turning it around',
+      icon: '😤',
+      difficulty: 'Advanced',
+      diffColor: '#EF4444',
+      description: 'You\'re halfway through an inspection on the Johnsons\' property when their next-door neighbor storms over. He\'s had a bad experience with a storm chaser 2 years ago and is convinced you\'re running a scam. He\'s loud enough for the whole block to hear.',
+      estimatedTime: '3-4 min',
+      skillFocus: ['empathy', 'authority', 'rapport'],
+      nodes: {
+        start: {
+          id: 'start',
+          prompt: '"HEY! Are you one of those roofing guys going door to door? My last roofer took my deposit and disappeared. You guys are all the same!" He\'s standing in the Johnsons\' driveway, arms crossed, voice raised. Mrs. Johnson looks nervous.',
+          options: [
+            {
+              text: '"I hear you, sir, and I\'m sorry that happened to you — that\'s exactly the kind of thing that gives our industry a bad name. I\'m [Name] with No Big Deal Home Solutions. We\'re licensed and bonded in [state] — here\'s my card with our license number. If you want to verify us right now, Google our name. I\'d actually love to hear what happened with your situation."',
+              nextNode: 'calming_down',
+              score: 25,
+              tags: { empathy: 30, authority: 25, rapport: 20 },
+              feedback: 'Masterclass in de-escalation. You: validated his anger, acknowledged the industry problem, provided verifiable credentials, and expressed genuine interest in his story. The neighbor is now a potential customer, not a threat.'
+            },
+            {
+              text: '"Sir, I\'m working with the Johnsons right now. This is their property. If you have concerns, I\'d be happy to talk to you at your house."',
+              nextNode: 'still_angry',
+              score: 12,
+              tags: { authority: 15, rapport: 5 },
+              feedback: 'Technically correct but feels dismissive. You redirected rather than engaged. He doesn\'t feel heard, and Mrs. Johnson just watched you tell her neighbor to go away. Not great optics.'
+            },
+            {
+              text: '"I\'m sorry you had a bad experience, but we\'re nothing like that. We\'re a legitimate company."',
+              nextNode: 'still_angry',
+              score: 8,
+              tags: { empathy: 10, rapport: 5 },
+              feedback: '"We\'re nothing like that" is what every scammer says. You offered zero proof and no real acknowledgment of his pain. Words without evidence are worthless here.'
+            }
+          ]
+        },
+        calming_down: {
+          id: 'calming_down',
+          prompt: 'His body language softens slightly. "Well... this guy said he was licensed too. Took $3,000 up front and never came back. I reported him but nothing happened." Mrs. Johnson is listening intently. The neighbor adds: "You know, my roof\'s been leaking since that storm too..."',
+          options: [
+            {
+              text: '"That\'s infuriating. Listen — here\'s how we\'re different. We don\'t take a penny until the job is done and you\'re satisfied. Zero deposit. Your insurance pays us directly after completion. I know trust is earned, not given. How about I swing by your place after I finish here and take a look at that leak? No charge, no commitment — just an honest assessment."',
+              nextNode: 'neighbor_win',
+              score: 25,
+              tags: { empathy: 20, closing: 20, authority: 20, rapport: 15 },
+              feedback: 'Turned an angry neighbor into your next customer. The "zero deposit" policy directly addresses his trauma. Offering to help the leak makes you the solution to his problem, not the source of another one. Two deals from one doorstep.'
+            },
+            {
+              text: '"I\'d be happy to help. Let me finish with the Johnsons and I can look at your roof after."',
+              nextNode: 'neighbor_mid',
+              score: 15,
+              tags: { rapport: 15, closing: 10 },
+              feedback: 'Good — you didn\'t miss the opportunity. But you didn\'t address his specific fear (deposits/payment). Explaining your payment structure would have sealed it.'
+            }
+          ]
+        },
+        still_angry: {
+          id: 'still_angry',
+          prompt: 'He\'s not satisfied. "Yeah, that\'s what the last guy said too." He turns to Mrs. Johnson: "Be careful with these guys." He walks away. Mrs. Johnson\'s confidence in you just took a hit.',
+          options: [
+            {
+              text: '"Mrs. Johnson, I totally understand his frustration. Scam roofers are a real problem after storms. Here\'s what separates us — we don\'t collect payment until the job is complete and inspected. Your insurance company pays us, not you. Want to call our office right now so you can verify everything?"',
+              nextNode: 'neighbor_mid',
+              score: 18,
+              tags: { authority: 20, empathy: 15, closing: 10, rapport: 10 },
+              feedback: 'Good recovery. You addressed the elephant in the room instead of pretending it didn\'t happen. Offering real-time verification rebuilds the trust the neighbor damaged.'
+            },
+            {
+              text: 'Ignore the situation and continue the inspection as if nothing happened.',
+              nextNode: 'neighbor_loss',
+              score: 3,
+              tags: {},
+              feedback: 'Mrs. Johnson just heard a scary story about roofers. Pretending it didn\'t happen tells her you don\'t care about her concerns. She\'s second-guessing everything now.'
+            }
+          ]
+        },
+        neighbor_win: {
+          id: 'neighbor_win',
+          prompt: '✅ You finish Mrs. Johnson\'s inspection, then walk next door. The neighbor — Tom — shows you the leak. It\'s a cracked boot vent, easy fix but also storm damage on the north slope. You file his claim too. Two signed contracts from one hostile encounter. Tom becomes your biggest referral source on the block.',
+          options: [],
+          terminal: true,
+          outcome: 'win',
+          summary: 'Turned hostility into trust. Two deals from one confrontation. Tom now vouches for you to every neighbor.'
+        },
+        neighbor_mid: {
+          id: 'neighbor_mid',
+          prompt: '🔸 Mrs. Johnson proceeds cautiously. You complete the inspection and she agrees to file the claim. The neighbor situation created some friction but didn\'t kill the deal. You didn\'t win Tom over today though — that\'s a missed second deal.',
+          options: [],
+          terminal: true,
+          outcome: 'partial',
+          summary: 'Saved the primary deal but missed the opportunity to convert the angry neighbor into a customer.'
+        },
+        neighbor_loss: {
+          id: 'neighbor_loss',
+          prompt: '❌ Mrs. Johnson calls you the next day and cancels. "I talked to my neighbor and we decided to wait." Tom\'s story planted enough doubt that she walked. Two lost deals.',
+          options: [],
+          terminal: true,
+          outcome: 'loss',
+          summary: 'Failed to address the trust damage from the neighbor encounter. Lost both deals.'
+        }
+      }
+    },
+
+    // ── SCENARIO 8: THE PRICE NEGOTIATOR ────────────────────
+    {
+      id: 'price_negotiator',
+      title: 'The Price Negotiator',
+      subtitle: 'When they want you to beat the other guy\'s number',
+      icon: '💰',
+      difficulty: 'Advanced',
+      diffColor: '#EF4444',
+      description: 'You\'ve done the inspection, the claim is filed, insurance approved the scope. The homeowner calls you in and shows you a competitor\'s quote that\'s $2,800 lower. He likes you but says he can\'t justify paying more. The other company is a legitimate local roofer — not a storm chaser.',
+      estimatedTime: '3-4 min',
+      skillFocus: ['closing', 'technical', 'authority'],
+      nodes: {
+        start: {
+          id: 'start',
+          prompt: '"Look, I like you guys, but $2,800 is $2,800. This other company is local, they\'ve been around 10 years. Why should I pay more?" He\'s sitting at his kitchen table with both quotes side by side.',
+          options: [
+            {
+              text: '"Fair question. May I see their scope? Because if your insurance approved $X, and they\'re coming in $2,800 under that, it means either they\'re using cheaper materials, fewer layers, or skipping line items your insurance is paying for. Let me show you exactly where the difference is."',
+              nextNode: 'line_by_line',
+              score: 25,
+              tags: { technical: 30, authority: 25, closing: 15, objection: 10 },
+              feedback: 'The scope comparison is the ultimate weapon. Insurance approved a specific amount for specific work. If the competitor is cheaper, they\'re either cutting scope or pocketing the difference. Showing this item by item turns price objection into a quality conversation.'
+            },
+            {
+              text: '"I totally understand. Let me see if I can work with my team to get closer to that number."',
+              nextNode: 'race_bottom',
+              score: 8,
+              tags: { rapport: 10, closing: 5 },
+              feedback: 'You just told him your price was negotiable, which means it was inflated. Now he\'ll always wonder what YOUR real price is. Never race to the bottom — differentiate on value.'
+            },
+            {
+              text: '"You get what you pay for. Our materials are premium and our crew is the best in the area."',
+              nextNode: 'generic_push',
+              score: 10,
+              tags: { authority: 10, technical: 5 },
+              feedback: 'Generic and unverifiable. Every roofer claims premium materials and the best crew. Show the SPECIFIC differences in the scope instead of making claims.'
+            }
+          ]
+        },
+        line_by_line: {
+          id: 'line_by_line',
+          prompt: 'You compare the scopes. You find the competitor left out ice & water shield on the eaves, downgraded the underlayment from synthetic to felt, and didn\'t include starter strips. Total value of shortcuts: about $2,400. His eyes widen. "So my insurance is paying for that stuff and they\'re just... not doing it?"',
+          options: [
+            {
+              text: '"Exactly. Your insurance approved and is paying for those items. You\'re entitled to that level of work. If a contractor doesn\'t install what\'s on the scope, and you have a leak in 3 years, the insurance company can deny the next claim because the work wasn\'t done to spec. That $2,800 savings could cost you a $15,000 denial."',
+              nextNode: 'price_win',
+              score: 25,
+              tags: { technical: 25, closing: 25, authority: 20, empathy: 10 },
+              feedback: 'You connected the shortcuts to a real financial risk. The $2,800 savings vs. $15,000 denial math does the closing for you. This is consultative selling at its finest.'
+            },
+            {
+              text: '"Yeah, they\'re cutting corners. You should go with us."',
+              nextNode: 'price_mid',
+              score: 12,
+              tags: { closing: 10, authority: 5 },
+              feedback: 'You identified the problem but didn\'t explain the CONSEQUENCE. "Cutting corners" is vague. Tell him what happens when those items are missing — leaks, claim denials, warranty voids.'
+            }
+          ]
+        },
+        race_bottom: {
+          id: 'race_bottom',
+          prompt: 'You drop your price by $2,000. He signs, but your margin is destroyed. You made less than $800 on a full roof replacement. Your crew notices the thin margins and quality starts to slip. The homeowner calls 6 months later with a leak.',
+          options: [],
+          terminal: true,
+          outcome: 'loss',
+          summary: 'Won the job but lost the profit. Thin margins lead to corners cut and callbacks. This is how companies go under.'
+        },
+        generic_push: {
+          id: 'generic_push',
+          prompt: '"That\'s what they all say. Can you give me a specific reason?" He\'s not convinced by marketing talk.',
+          options: [
+            {
+              text: '"You\'re right — let me show you specifically. Can I see their quote? I\'ll compare it line by line against what your insurance approved."',
+              nextNode: 'line_by_line',
+              score: 18,
+              tags: { technical: 15, authority: 10, empathy: 10, objection: 10 },
+              feedback: 'Good recovery — you acknowledged his point and pivoted to specifics. Should have led with this.'
+            },
+            {
+              text: '"I understand. If price is the most important factor, I respect that. But I want you to have all the information before you decide."',
+              nextNode: 'price_mid',
+              score: 12,
+              tags: { rapport: 10, empathy: 10 },
+              feedback: 'Professional but doesn\'t provide the information you say he should have. Follow through with the scope comparison.'
+            }
+          ]
+        },
+        price_win: {
+          id: 'price_win',
+          prompt: '✅ He calls the competitor and cancels. "I\'m going with the company that actually does the full scope." He signs your contract, full price. He also refers his brother-in-law two weeks later. Premium positioning creates premium referrals.',
+          options: [],
+          terminal: true,
+          outcome: 'win',
+          summary: 'Won on value, not price. Full margin preserved. Scope comparison was the deciding factor.'
+        },
+        price_mid: {
+          id: 'price_mid',
+          prompt: '🔸 He\'s leaning your way but still on the fence. He asks for a day to think about it. You schedule a follow-up. The deal is alive but not closed.',
+          options: [],
+          terminal: true,
+          outcome: 'partial',
+          summary: 'Good positioning but didn\'t close today. The scope comparison would have been the knockout punch.'
+        }
+      }
     }
   ];
 
@@ -1190,6 +1523,126 @@
         { text: '"There must be a misunderstanding. We\'ve done great work in this neighborhood."', score: 1, correct: false, explanation: 'Dismissing their claim as a "misunderstanding" without investigating is dismissive. Take the feedback seriously even if you think it\'s wrong.' }
       ],
       tags: { authority: 25, empathy: 20, rapport: 15, objection: 15 }
+    },
+    {
+      id: 'obj_16',
+      objection: '"Can you just leave me some information?"',
+      context: 'Polite brush-off disguised as interest',
+      options: [
+        { text: '"Absolutely — I have a packet in the truck. While I grab it, quick question: have you noticed any granules in your gutters since the storm? Just so I know what info is most relevant for you."', score: 3, correct: true, explanation: 'You agreed to their request but used the transition to re-engage with a qualifying question. Now you\'re having a conversation, not just dropping paper.' },
+        { text: '"Sure, here\'s my card."', score: 0, correct: false, explanation: 'The card is in the trash before your truck leaves the driveway. You had a live homeowner and traded them for a business card.' },
+        { text: '"I could, but honestly a lot gets lost in paper. Can I give you a 2-minute walkthrough instead?"', score: 2, correct: false, explanation: 'Good instinct to keep the conversation going, but you just refused their request, which feels pushy. Accept first, then redirect.' },
+        { text: '"Of course. I\'ll also text you some before-and-after photos from your neighbor\'s roof so you can see the difference."', score: 2, correct: false, explanation: 'Better — you\'re creating a reason to follow up. But you need their number to text, so you\'re still making an ask without engaging them first.' }
+      ],
+      tags: { objection: 25, rapport: 20, closing: 15 }
+    },
+    {
+      id: 'obj_17',
+      objection: '"We just had our roof inspected last month."',
+      context: 'They believe their roof is fine',
+      options: [
+        { text: '"That\'s great — who did the inspection? The reason I ask is we\'ve been finding damage that general inspectors miss because hail damage doesn\'t always look obvious from the ground. Was it a ground inspection or did they actually get on the roof?"', score: 3, correct: true, explanation: 'You validated, asked a qualifying question, and differentiated your inspection method. If it was a ground inspection, you just created doubt. If someone was on the roof, you can ask about specifics.' },
+        { text: '"Oh okay, you\'re all set then. Have a good day."', score: 0, correct: false, explanation: 'You took their word for it without any follow-up. A "general inspection" and a "storm damage inspection" are completely different things.' },
+        { text: '"Was that a storm damage inspection or a general maintenance check? Because they look for very different things."', score: 2, correct: false, explanation: 'Good question but a bit confrontational. Lead with validation before questioning their previous inspector.' },
+        { text: '"Mind if I take a quick look anyway? Second opinions are free."', score: 1, correct: false, explanation: '"Free second opinion" sounds like you\'re dismissing their previous inspection. Build the case for WHY a second look matters first.' }
+      ],
+      tags: { technical: 25, objection: 20, authority: 15 }
+    },
+    {
+      id: 'obj_18',
+      objection: '"I don\'t want to file a claim for something small."',
+      context: 'They think the damage is minor',
+      options: [
+        { text: '"That\'s a really common concern. Here\'s the thing — what looks small from the ground is often significant up close. And storm damage gets worse over time, not better. A $12,000 roof now could be a $25,000 interior damage claim in 2 years if it\'s left alone. The inspection is free — wouldn\'t you rather know for sure?"', score: 3, correct: true, explanation: 'You reframed "small" as potentially significant, quantified the risk of inaction, and made the ask zero-risk. Education selling at its best.' },
+        { text: '"It might not be as small as you think. Let me take a look."', score: 1, correct: false, explanation: 'Vague and slightly condescending. Give them a reason to believe the damage might be bigger, don\'t just tell them.' },
+        { text: '"Even small claims are worth filing. Your insurance covers it either way."', score: 1, correct: false, explanation: 'This might not even be true depending on their deductible and policy. Don\'t make blanket claims about insurance coverage.' },
+        { text: '"Most of our customers thought the same thing until they saw the inspection photos. Want me to show you what hail damage actually looks like?"', score: 2, correct: false, explanation: 'Using other customers as proof is decent social proof. But the inspection photos pitch is better saved for after you\'re on the roof, not before.' }
+      ],
+      tags: { technical: 25, empathy: 20, closing: 15 }
+    },
+    {
+      id: 'obj_19',
+      objection: '"I\'m renting — I don\'t own this house."',
+      context: 'Non-decision-maker at the door',
+      options: [
+        { text: '"No problem at all. Do you happen to have the landlord\'s number? I\'d love to let them know about the storm damage we\'re finding in the area. It protects you too — roof damage can lead to leaks that affect your living space."', score: 3, correct: true, explanation: 'Perfect pivot. You turned a dead end into a lead. The renter becomes your ally by framing it as protecting their living space, and you get the decision-maker\'s contact.' },
+        { text: '"Oh okay, sorry to bother you."', score: 0, correct: false, explanation: 'A renter just gave you a direct line to a property owner who has a roof that needs inspection. You walked away from a lead.' },
+        { text: '"Who\'s the property owner? I should talk to them."', score: 1, correct: false, explanation: 'Correct impulse, wrong delivery. Demanding the owner\'s info without giving them a reason feels like you\'re talking past them.' },
+        { text: '"Would you mind asking your landlord to call me? Here\'s my card."', score: 1, correct: false, explanation: 'You\'re asking the renter to do your sales job for you. They have zero incentive. Get the number and make the call yourself.' }
+      ],
+      tags: { rapport: 20, closing: 20, objection: 20 }
+    },
+    {
+      id: 'obj_20',
+      objection: '"My deductible is too high — it\'s not worth it."',
+      context: 'Financial barrier to filing a claim',
+      options: [
+        { text: '"What\'s your deductible? ... Okay, $2,500 — I understand that feels like a lot. But here\'s the math: your insurance approved a $14,000 replacement. You pay $2,500, they pay $11,500. That\'s an 82% discount on a brand new roof. If your roof is 15+ years old, this is actually the best deal you\'ll ever get on a replacement."', score: 3, correct: true, explanation: 'You turned the deductible from a cost into an investment. The percentage math makes the value undeniable. Reframing the deductible as a "discount" flips the entire psychology.' },
+        { text: '"We can work with you on that."', score: 0, correct: false, explanation: 'Implying you\'ll cover their deductible is illegal in most states — it\'s insurance fraud. Never go there, even vaguely.' },
+        { text: '"$2,500 is a lot less than a new roof out of pocket."', score: 2, correct: false, explanation: 'True but blunt. The math is right but the delivery needs more context — show them the full numbers, not just a comparison.' },
+        { text: '"Think of it as an investment in your home\'s value."', score: 1, correct: false, explanation: 'Generic financial advice that doesn\'t address the real concern — they don\'t want to spend $2,500 right now. Show them the specific ROI.' }
+      ],
+      tags: { technical: 20, closing: 25, objection: 20, empathy: 10 }
+    },
+    {
+      id: 'obj_21',
+      objection: '"I had a bad experience with my insurance company before."',
+      context: 'Past claim trauma creating resistance',
+      options: [
+        { text: '"I hear that a lot, and it\'s frustrating. What happened? ... The good thing is you don\'t have to deal with them alone this time. That\'s literally what we do — we handle the entire claims process. We meet with the adjuster, we submit the documentation, we fight for the full scope. You don\'t have to make a single call if you don\'t want to."', score: 3, correct: true, explanation: 'You listened first, empathized, then positioned yourself as the solution to their past problem. Handling the claims process for them removes the barrier entirely.' },
+        { text: '"That won\'t happen this time — insurance always covers storm damage."', score: 0, correct: false, explanation: 'Dismissive of their experience and not even accurate. Insurance doesn\'t "always" cover everything. This response kills trust.' },
+        { text: '"Which company are you with? Some are harder than others."', score: 2, correct: false, explanation: 'Not bad — knowing their carrier helps you tailor the approach. But you skipped over their emotional concern entirely. Listen first.' },
+        { text: '"I can refer you to a public adjuster who will fight for you."', score: 1, correct: false, explanation: 'Why are you sending them to someone else? YOU should be the one fighting for them. That\'s your value proposition.' }
+      ],
+      tags: { empathy: 30, authority: 20, objection: 15, rapport: 10 }
+    },
+    {
+      id: 'obj_22',
+      objection: '"How long will this take? I work from home and can\'t have noise all day."',
+      context: 'Practical concern about disruption',
+      options: [
+        { text: '"Great question. A typical roof takes 1-2 days depending on size. Most of the noise is the first morning during tear-off — by afternoon it quiets down significantly. We start at 7am and we\'re usually off the roof by 4. I\'d recommend scheduling your most important calls before 7 or after lunch. Want me to check what day works best for your schedule?"', score: 3, correct: true, explanation: 'Specific, honest, and solution-oriented. You gave real timelines, acknowledged the noise concern, and offered scheduling flexibility. This is a buying signal — they\'re thinking about WHEN, not IF.' },
+        { text: '"It\'ll be quick — you won\'t even notice us."', score: 0, correct: false, explanation: 'Blatant lie. A roof tear-off sounds like a war zone. Dishonesty here will destroy trust on day one of the job.' },
+        { text: '"Usually 1-2 days. We try to be quick."', score: 1, correct: false, explanation: 'Accurate but didn\'t address their specific concern about noise and working from home. Tailor the answer to their situation.' },
+        { text: '"We can do weekends if that works better."', score: 2, correct: false, explanation: 'Flexible, but you skipped the part where you address the noise reality. Set honest expectations AND offer solutions.' }
+      ],
+      tags: { rapport: 20, empathy: 20, closing: 15, technical: 10 }
+    },
+    {
+      id: 'obj_23',
+      objection: '"I\'m going to wait and see if any more storms hit this year."',
+      context: 'Procrastination masked as strategy',
+      options: [
+        { text: '"I understand the logic, but here\'s the risk: insurance companies date their claims from the FIRST storm. If you wait and another storm hits, they can argue the original damage was pre-existing and unclaimed — which actually weakens your case. Filing now protects you AND covers future damage. It\'s one claim, not two."', score: 3, correct: true, explanation: 'You addressed the underlying logic with specific insurance knowledge. The "pre-existing damage" risk is real and powerful. You turned their reason to wait into a reason to act.' },
+        { text: '"Why wait? Let\'s just get it done now."', score: 0, correct: false, explanation: 'You just told them their strategy is wrong without explaining why. People don\'t like being told what to do.' },
+        { text: '"More storms could make it worse. Better to fix it now."', score: 1, correct: false, explanation: 'True but sounds like fear-mongering without the insurance logic to back it up. Give them the WHY.' },
+        { text: '"That\'s a valid approach. Just know that most policies have a 12-month window for storm claims."', score: 2, correct: false, explanation: 'Good information drop. But you validated procrastination when you should have shown why waiting is actually riskier than acting.' }
+      ],
+      tags: { technical: 30, objection: 25, closing: 15 }
+    },
+    {
+      id: 'obj_24',
+      objection: '"My roof is only 5 years old — there\'s no way it\'s damaged."',
+      context: 'Age bias — newer roof assumed to be fine',
+      options: [
+        { text: '"A 5-year-old roof can actually show MORE damage than an older one because the granules are still well-bonded — when hail hits, it creates cleaner impact marks that adjusters can easily identify. Age doesn\'t make a roof hail-proof. Want me to check a few shingles? If it\'s clean, I\'ll tell you and you\'ll have peace of mind."', score: 3, correct: true, explanation: 'You educated them with a counterintuitive fact (newer roofs show clearer damage), removed the bias, and made the ask zero-risk ("if it\'s clean I\'ll tell you"). The "peace of mind" frame is powerful.' },
+        { text: '"Even new roofs get damaged by hail. It doesn\'t matter how old it is."', score: 1, correct: false, explanation: 'Correct but sounds like a generic pitch. EXPLAIN why new roofs are still vulnerable — give them something they didn\'t know.' },
+        { text: '"Your manufacturer warranty might actually be voided if you have unreported storm damage."', score: 2, correct: false, explanation: 'True for some warranties, but this feels like a threat. Lead with education, not fear.' },
+        { text: '"Okay, that makes sense. If you change your mind, here\'s my number."', score: 0, correct: false, explanation: 'You accepted a false premise. Their logic is wrong — new roofs absolutely get storm damage. You owed them the truth.' }
+      ],
+      tags: { technical: 30, objection: 20, authority: 15 }
+    },
+    {
+      id: 'obj_25',
+      objection: '"I\'ll just file the claim myself — I don\'t need a contractor for that."',
+      context: 'DIY mentality with insurance claims',
+      options: [
+        { text: '"You absolutely can file yourself — it\'s your policy. But here\'s what usually happens: the adjuster comes out, does a quick ground inspection, and approves a $3,000 repair. When we\'re there WITH the adjuster, pointing out every damaged shingle, vent boot, and flashing — that same claim comes back at $12,000+. Our presence at the meeting typically triples the approved scope. And it costs you nothing extra."', score: 3, correct: true, explanation: 'You respected their autonomy, then showed the massive dollar difference between DIY and professional claims. The "triples the scope" line backed by specifics makes the value undeniable.' },
+        { text: '"Trust me, you want a contractor there. Insurance companies lowball everyone."', score: 1, correct: false, explanation: '"Trust me" and "lowball" are alarm words. Show the math, don\'t make claims about insurance companies being adversarial.' },
+        { text: '"That\'s fine. Let me know if you need help."', score: 0, correct: false, explanation: 'You just let a qualified lead walk because they didn\'t understand the process. It\'s your job to educate, not surrender.' },
+        { text: '"Most homeowners who file alone end up getting about a third of what they\'re entitled to."', score: 2, correct: false, explanation: 'Good stat but sounds made up without context. Show the specific example of HOW the dollar difference happens — adjuster meeting, scope detail, line items.' }
+      ],
+      tags: { technical: 25, closing: 20, authority: 20, objection: 10 }
     }
   ];
 

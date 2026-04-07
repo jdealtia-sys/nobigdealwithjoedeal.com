@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="nbd-original">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1066,6 +1066,7 @@ async function uploadSingleDocument(item, index) {
           
           await window.addDoc(window.collection(window.db, 'documents'), {
             leadId: window._customerId,
+            userId: window.auth.currentUser.uid,
             url: downloadURL,
             filename: file.name,
             size: file.size,
@@ -1184,6 +1185,7 @@ window.saveNote = async function() {
   try {
     await window.addDoc(window.collection(window.db, 'notes'), {
       leadId: window._customerId,
+      userId: window.auth.currentUser.uid,
       text: noteText,
       createdAt: window.serverTimestamp(),
       createdBy: auth.currentUser?.email || 'Unknown'
@@ -2239,6 +2241,7 @@ async function uploadSinglePhoto(item, index) {
           
           await window.addDoc(window.collection(window.db, 'photos'), {
             leadId: window._customerId,
+            userId: window.auth.currentUser.uid,
             url: downloadURL,
             filename: file.name,
             size: file.size,
@@ -2648,6 +2651,7 @@ window.saveNote = async function() {
   try {
     await window.addDoc(window.collection(window.db, 'notes'), {
       leadId: window._customerId,
+      userId: window.auth.currentUser.uid,
       text: noteText,
       createdAt: window.serverTimestamp(),
       createdBy: auth.currentUser?.email || 'Unknown'

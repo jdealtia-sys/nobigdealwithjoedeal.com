@@ -1,716 +1,496 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="visibility:hidden">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>API Analytics — NBD Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<!-- Firebase SDK v9 (modular) -->
+<!-- Auth Gate -->
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-    authDomain: "nobigdeal-pro.firebaseapp.com",
-    projectId: "nobigdeal-pro",
-    storageBucket: "nobigdeal-pro.firebasestorage.app",
-    messagingSenderId: "717435841570",
-    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-
-  onAuthStateChanged(auth, (user) => {
-    window._currentUser = user;
-    if (user) {
-      window.dispatchEvent(new Event('auth-ready'));
-    } else {
-      window.location.replace('/pro/login.html');
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window._nbdAuth = NBDAuth.init({
+    requiredPlan: 'foundation',
+    onReady: (user) => {
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      window.bootAnalytics();
     }
   });
 </script>
 
 <style>
-:root {
-  --void: #050608;
-  --surface: #0D1117;
-  --card: #111722;
-  --lift: #161E2B;
-  --border: #1C2535;
-  --border2: #243044;
-  --orange: #C8541A;
-  --orange-dim: rgba(200,84,26,0.10);
-  --red: #E05252;
-  --red-dim: rgba(224,82,82,0.10);
-  --green: #3DD68C;
-  --green-dim: rgba(61,214,140,0.10);
-  --blue: #4E9BF5;
-  --blue-dim: rgba(78,155,245,0.10);
-  --text: #E2E8F0;
-  --text2: #8892A4;
-  --text3: #4A5568;
-  --ease: cubic-bezier(0.22,1,0.36,1);
-  --t: 0.2s;
-  --r: 8px;
-  --rlg: 12px;
+:root{
+  --bg:#050608;--s:#0D1117;--s2:#111722;--s3:#161E2B;--s4:#1C2535;
+  --border:#1C2535;--border2:#243044;
+  --orange:#e8720c;--orange-d:rgba(232,114,12,.12);
+  --green:#3DD68C;--green-d:rgba(61,214,140,.10);
+  --red:#E05252;--red-d:rgba(224,82,82,.10);
+  --blue:#4E9BF5;--blue-d:rgba(78,155,245,.10);
+  --cyan:#00d4ff;--cyan-d:rgba(0,212,255,.10);
+  --text:#E2E8F0;--text2:#8892A4;--text3:#4A5568;
+  --ease:cubic-bezier(0.22,1,0.36,1);--t:.2s;--r:8px;--rlg:14px;
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(78,155,245,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(78,155,245,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* TOPBAR */
+.topbar{height:56px;background:rgba(5,6,8,.97);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 24px;gap:16px}
+.tb-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.tb-mark{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:#fff}
+.tb-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text)}
+.tb-title span{color:var(--orange)}
+.tb-links{display:flex;gap:6px;margin-left:auto;align-items:center}
+.tb-link{padding:5px 12px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.tb-link:hover{border-color:var(--orange);color:var(--orange)}
+.tb-link.active{background:var(--orange-d);border-color:rgba(232,114,12,.4);color:var(--orange)}
 
-body {
-  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--void);
-  color: var(--text);
-  min-height: 100vh;
-  padding: 24px;
-}
+/* LAYOUT */
+.container{max-width:1300px;margin:0 auto;padding:28px 32px}
+@media(max-width:768px){.container{padding:16px}}
 
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-}
+/* HEADER */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+.ph-eyebrow{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--orange);margin-bottom:4px}
+.ph-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4vw,42px);letter-spacing:2px;line-height:.95}
+.ph-sub{font-size:13px;color:var(--text3);margin-top:4px}
 
-.page-header {
-  margin-bottom: 32px;
-}
+/* TIME TABS */
+.time-tabs{display:flex;gap:4px;background:var(--s);border:1px solid var(--border);border-radius:var(--r);padding:3px;flex-shrink:0}
+.tt{background:transparent;border:none;color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 16px;border-radius:6px;cursor:pointer;transition:all var(--t) var(--ease)}
+.tt:hover{color:var(--text2)}
+.tt.active{background:var(--orange);color:#000}
 
-.page-eyebrow {
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--orange);
-  margin-bottom: 8px;
-}
+/* STAT CARDS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.sc{background:var(--s);border:1px solid var(--border);border-radius:var(--rlg);padding:22px 20px;position:relative;overflow:hidden;transition:all var(--t) var(--ease)}
+.sc:hover{border-color:var(--border2);transform:translateY(-2px)}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sc.blue::before{background:var(--blue)}.sc.orange::before{background:var(--orange)}.sc.green::before{background:var(--green)}.sc.cyan::before{background:var(--cyan)}
+.sc-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.sc-val{font-family:'Bebas Neue',sans-serif;font-size:clamp(32px,3vw,44px);letter-spacing:1px;line-height:1}
+.sc-val.blue{color:var(--blue)}.sc-val.orange{color:var(--orange)}.sc-val.green{color:var(--green)}.sc-val.cyan{color:var(--cyan)}.sc-val.red{color:var(--red)}
+.sc-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:8px;letter-spacing:.3px}
 
-.page-title {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 8px;
-}
+/* CARDS */
+.card{background:var(--s);border:1px solid var(--border);border-radius:var(--rlg);margin-bottom:20px;overflow:hidden}
+.card-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+.card-body{padding:22px}
+.btn{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:7px 14px;border-radius:var(--r);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.btn:hover{border-color:var(--orange);color:var(--orange)}
 
-.page-subtitle {
-  font-size: 14px;
-  color: var(--text3);
-}
+/* CHART */
+.chart{display:flex;align-items:flex-end;gap:3px;height:220px;padding:12px 0}
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
+.chart-val{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3)}
+.chart-bar{width:100%;border-radius:3px 3px 0 0;transition:height .4s var(--ease);min-height:2px;position:relative}
+.chart-bar:hover{opacity:1!important;filter:brightness(1.3)}
+.chart-label{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3)}
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:10px 14px;border-bottom:1px solid var(--border)}
+.tbl td{padding:12px 14px;border-bottom:1px solid rgba(28,37,53,.5);font-size:13px;color:var(--text2)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(78,155,245,.03)}
+.rank{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text3);width:36px;text-align:center}
+.feature-name{font-weight:600;color:var(--text)}
+.feature-icon{font-size:16px;margin-right:8px}
+.cost-cell{font-family:'JetBrains Mono',monospace;font-weight:500}
+.cost-cell.green{color:var(--green)}.cost-cell.orange{color:var(--orange)}.cost-cell.red{color:var(--red)}
 
-.stat-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--rlg);
-  padding: 20px;
-  transition: all var(--t) var(--ease);
-}
+/* COST BREAKDOWN BAR */
+.cost-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:14px;background:var(--s3)}
+.cost-seg{height:100%;transition:width .4s var(--ease)}
 
-.stat-card:hover {
-  border-color: var(--border2);
-  transform: translateY(-2px);
-}
+/* PRICING TABLE */
+.pricing{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
+.price-card{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
+.price-model{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.price-row{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:4px}
+.price-val{color:var(--text);font-weight:500}
 
-.stat-label {
-  font-size: 12px;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-}
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-icon{font-size:36px;margin-bottom:12px}
+.empty-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.empty-desc{font-size:13px;line-height:1.6}
 
-.stat-value {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 4px;
-}
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
 
-.stat-value.green { color: var(--green); }
-.stat-value.red { color: var(--red); }
-.stat-value.orange { color: var(--orange); }
-.stat-value.blue { color: var(--blue); }
-
-.stat-meta {
-  font-size: 11px;
-  color: var(--text3);
-  font-family: 'DM Mono', monospace;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--rlg);
-  margin-bottom: 24px;
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.refresh-btn {
-  background: var(--orange);
-  color: #000;
-  border: none;
-  padding: 8px 16px;
-  border-radius: var(--r);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all var(--t) var(--ease);
-}
-
-.refresh-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.chart-container {
-  width: 100%;
-  height: 300px;
-  position: relative;
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--text3);
-  font-size: 14px;
-}
-
-.user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.user-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.user-rank {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--text3);
-  width: 40px;
-  text-align: center;
-}
-
-.user-info {
-  flex: 1;
-}
-
-.user-email {
-  font-size: 14px;
-  color: var(--text);
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.user-meta {
-  font-size: 12px;
-  color: var(--text3);
-  font-family: 'DM Mono', monospace;
-}
-
-.user-stats {
-  display: flex;
-  gap: 24px;
-}
-
-.user-stat {
-  text-align: center;
-}
-
-.user-stat-val {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--blue);
-}
-
-.user-stat-lbl {
-  font-size: 10px;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.error {
-  background: var(--red-dim);
-  border: 1px solid var(--red);
-  border-radius: var(--r);
-  padding: 16px;
-  color: var(--red);
-  font-size: 14px;
-}
-
-.timestamp {
-  font-size: 11px;
-  color: var(--text3);
-  font-family: 'DM Mono', monospace;
-  margin-top: 8px;
-}
-
-.time-tab {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text3);
-  padding: 10px 20px;
-  border-radius: var(--r);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--t) var(--ease);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.time-tab:hover {
-  border-color: var(--border2);
-  color: var(--text2);
-  transform: translateY(-1px);
-}
-
-.time-tab.active {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: #000;
-}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:12px 20px;font-size:12px;color:var(--text);z-index:9999;animation:toastIn .3s var(--ease);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 </style>
-
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div id="authLoading" style="
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--void); display: flex; align-items: center; justify-content: center;
-  z-index: 9999;
-">
-  <div style="text-align: center;">
-    <div style="font-size: 24px; color: var(--orange); margin-bottom: 12px;">🔐</div>
-    <div style="color: var(--text); font-size: 14px;">Authenticating...</div>
-  </div>
+<!-- Auth Loading -->
+<div id="authGate" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="text-align:center"><div style="font-size:28px;margin-bottom:12px">📊</div><div style="color:var(--text2);font-size:13px;font-family:'DM Mono',monospace;letter-spacing:1px">LOADING ANALYTICS…</div></div>
 </div>
 
-<div class="container" id="mainContent" style="display:none;">
-  <div class="page-header">
-    <div class="page-eyebrow">Admin Dashboard</div>
-    <div class="page-title">📊 API Analytics</div>
-    <div class="page-subtitle">Real-time usage, costs, and abuse monitoring</div>
+<!-- App -->
+<div id="app" style="display:none">
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <a class="tb-brand" href="/pro/">
+    <div class="tb-mark">NBD</div>
+    <div class="tb-title">No Big <span>Deal</span> Pro</div>
+  </a>
+  <div class="tb-links">
+    <a class="tb-link" href="/pro/dashboard.html">📋 CRM</a>
+    <a class="tb-link" href="/pro/daily-success/">📊 Daily</a>
+    <a class="tb-link" href="/pro/ai-tree.html">🛠 AI Tree</a>
+    <a class="tb-link" href="/pro/codex.html">⬛ Codex</a>
+    <a class="tb-link" href="/pro/understand.html">🔮 Understand</a>
+    <a class="tb-link" href="/pro/project-codex.html">📦 Project</a>
+    <a class="tb-link active" href="/pro/analytics.html">💰 Analytics</a>
+    <a class="tb-link" href="/pro/login.html">👤 Account</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="page-head">
+    <div>
+      <div class="ph-eyebrow">API Cost Intelligence</div>
+      <div class="ph-title">ANALYTICS DASHBOARD</div>
+      <div class="ph-sub">Real-time usage and cost tracking from Firestore <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue)">api_usage</code> collection</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="time-tabs">
+        <button class="tt active" onclick="setRange('today',this)">Today</button>
+        <button class="tt" onclick="setRange('7d',this)">7 Days</button>
+        <button class="tt" onclick="setRange('30d',this)">30 Days</button>
+        <button class="tt" onclick="setRange('all',this)">All Time</button>
+      </div>
+      <button class="btn" onclick="loadData()" id="refreshBtn">↻ Refresh</button>
+    </div>
   </div>
 
-  <!-- Time Range Selector -->
-  <div style="display:flex; gap:12px; margin-bottom:24px; border-bottom:1px solid var(--border); padding-bottom:16px;">
-    <button class="time-tab active" data-range="today" onclick="switchTimeRange('today')">Today</button>
-    <button class="time-tab" data-range="weekly" onclick="switchTimeRange('weekly')">Weekly</button>
-    <button class="time-tab" data-range="monthly" onclick="switchTimeRange('monthly')">Monthly</button>
-    <button class="time-tab" data-range="alltime" onclick="switchTimeRange('alltime')">All-Time</button>
+  <!-- STAT CARDS -->
+  <div class="stats">
+    <div class="sc blue"><div class="sc-label" id="lReq">Requests Today</div><div class="sc-val blue" id="vReq">—</div><div class="sc-meta" id="mReq">Loading…</div></div>
+    <div class="sc orange"><div class="sc-label" id="lTok">Tokens Used</div><div class="sc-val orange" id="vTok">—</div><div class="sc-meta" id="mTok">Loading…</div></div>
+    <div class="sc green"><div class="sc-label" id="lCost">Estimated Cost</div><div class="sc-val green" id="vCost">—</div><div class="sc-meta" id="mCost">Loading…</div></div>
+    <div class="sc cyan"><div class="sc-label">Avg Tokens / Request</div><div class="sc-val cyan" id="vAvg">—</div><div class="sc-meta" id="mAvg">Loading…</div></div>
   </div>
 
-  <!-- Stats Grid (Dynamic Labels) -->
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-label" id="requestsLabel">Requests Today</div>
-      <div class="stat-value blue" id="requestsToday">0</div>
-      <div class="stat-meta">Last hour: <span id="requestsLastHour">0</span></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label" id="tokensLabel">Tokens Used Today</div>
-      <div class="stat-value orange" id="tokensToday">0</div>
-      <div class="stat-meta">Avg per request: <span id="avgTokens">0</span></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label" id="costLabel">Cost Today</div>
-      <div class="stat-value green" id="costToday">$0.00</div>
-      <div class="stat-meta" id="costMeta">Projected monthly: <span id="projectedCost">$0.00</span></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Success Rate</div>
-      <div class="stat-value" id="successRate">100%</div>
-      <div class="stat-meta">Errors: <span id="errorCount">0</span> | Rate limits: <span id="rateLimitCount">0</span></div>
-    </div>
-  </div>
-
-  <!-- Activity Chart (Dynamic Time Range) -->
+  <!-- CHART -->
   <div class="card">
-    <div class="card-header">
-      <div class="card-title" id="chartTitle">📈 Last 24 Hours Activity</div>
-      <button class="refresh-btn" onclick="loadAnalytics()">🔄 Refresh</button>
+    <div class="card-head">
+      <div class="card-title" id="chartTitle">📈 Request Volume</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)" id="lastRefresh">—</div>
     </div>
     <div class="card-body">
-      <div class="chart-container" id="chartContainer">
-        <div class="loading">Loading chart data...</div>
-      </div>
-      <div class="timestamp" id="lastRefresh">Never refreshed</div>
+      <div class="chart" id="chart"><div class="empty"><div class="empty-icon">📈</div><div class="empty-desc">Loading chart…</div></div></div>
     </div>
   </div>
 
-  <!-- Top Users (Dynamic) -->
+  <div class="grid-2">
+    <!-- FEATURE BREAKDOWN -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Usage by Feature</div></div>
+      <div class="card-body" id="featureBody"><div class="empty"><div class="empty-desc">Loading…</div></div></div>
+    </div>
+
+    <!-- MODEL BREAKDOWN -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">🤖 Usage by Model</div></div>
+      <div class="card-body" id="modelBody"><div class="empty"><div class="empty-desc">Loading…</div></div></div>
+    </div>
+  </div>
+
+  <!-- COST BREAKDOWN -->
   <div class="card">
-    <div class="card-header">
-      <div class="card-title" id="usersTitle">👥 Top 10 Users (Today)</div>
-    </div>
+    <div class="card-head"><div class="card-title">💰 Cost Breakdown</div></div>
     <div class="card-body">
-      <div class="user-list" id="topUsers">
-        <div class="loading">Loading user data...</div>
-      </div>
+      <div id="costBreakdown"><div class="empty"><div class="empty-desc">Loading…</div></div></div>
+      <div class="cost-bar" id="costBar"></div>
     </div>
   </div>
 
-  <!-- Feature Breakdown (Dynamic) -->
+  <!-- ANTHROPIC PRICING REFERENCE -->
   <div class="card">
-    <div class="card-header">
-      <div class="card-title" id="featuresTitle">🎯 Usage by Feature (Today)</div>
-    </div>
+    <div class="card-head"><div class="card-title">📋 Anthropic Pricing Reference</div></div>
     <div class="card-body">
-      <div id="featureBreakdown">
-        <div class="loading">Loading feature data...</div>
+      <div class="pricing">
+        <div class="price-card"><div class="price-model" style="color:var(--cyan)">Claude Opus 4</div><div class="price-row">Input: <span class="price-val">$15 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$75 / 1M tokens</span></div></div>
+        <div class="price-card"><div class="price-model" style="color:var(--orange)">Claude Sonnet 4</div><div class="price-row">Input: <span class="price-val">$3 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$15 / 1M tokens</span></div></div>
+        <div class="price-card"><div class="price-model" style="color:var(--green)">Claude Haiku 3.5</div><div class="price-row">Input: <span class="price-val">$0.80 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$4 / 1M tokens</span></div></div>
       </div>
     </div>
   </div>
-</div>
 
-<script>
-const WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+  <!-- FOOTER -->
+  <div style="text-align:center;padding:24px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.5px">
+    NBD Pro Analytics · Data from Firestore <code>api_usage</code> · Auto-refreshes every 60s
+  </div>
 
-let autoRefreshTimer = null;
-let currentTimeRange = 'today'; // today | weekly | monthly | alltime
+</div><!-- /container -->
+</div><!-- /app -->
 
-function switchTimeRange(range) {
-  currentTimeRange = range;
-  
-  // Update active tab
-  document.querySelectorAll('.time-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.range === range);
-  });
-  
-  // Reload analytics with new range
-  loadAnalytics();
-}
+<script type="module">
+import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-window.addEventListener('auth-ready', () => {
-  const user = window._currentUser;
+// Anthropic pricing per 1M tokens
+const PRICING = {
+  'claude-opus-4-6':          { input: 15,   output: 75 },
+  'claude-sonnet-4-6':        { input: 3,    output: 15 },
+  'claude-haiku-4-5-20251001': { input: 0.80, output: 4 },
+  // Fallback for unknown models
+  'default':                   { input: 3,    output: 15 }
+};
 
-  // Auth check: require Firebase authenticated user
-  if (!user) {
-    window.location.replace('/pro/login.html');
-    return;
-  }
+let range = 'today';
+let allDocs = [];
+let autoTimer = null;
 
-  // Auth passed - show main content and load analytics
-  document.getElementById('authLoading').style.display = 'none';
-  document.getElementById('mainContent').style.display = 'block';
-  
-  loadAnalytics();
-  
-  // Auto-refresh every 30 seconds
-  autoRefreshTimer = setInterval(loadAnalytics, 30000);
-});
-
-async function loadAnalytics() {
-  try {
-    const now = new Date();
-    // Use real Firestore data if available via parent window, else mock
-    const mockData = generateMockDataForRange(currentTimeRange);
-    
-    // Update UI labels based on time range
-    updateUILabels(currentTimeRange);
-    
-    // Update stats
-    document.getElementById('requestsToday').textContent = mockData.total.requests.toLocaleString();
-    document.getElementById('requestsLastHour').textContent = mockData.total.lastPeriod || 0;
-    document.getElementById('tokensToday').textContent = mockData.total.tokens.toLocaleString();
-    document.getElementById('avgTokens').textContent = Math.round(mockData.total.tokens / mockData.total.requests);
-    document.getElementById('costToday').textContent = `$${mockData.total.cost.toFixed(currentTimeRange === 'alltime' ? 2 : 4)}`;
-    
-    // Update cost meta based on range
-    const costMetaEl = document.getElementById('costMeta');
-    if (currentTimeRange === 'today') {
-      document.getElementById('projectedCost').textContent = `$${(mockData.total.cost * 30).toFixed(2)}`;
-      costMetaEl.innerHTML = 'Projected monthly: <span id="projectedCost">$' + (mockData.total.cost * 30).toFixed(2) + '</span>';
-    } else if (currentTimeRange === 'weekly') {
-      costMetaEl.innerHTML = 'Daily avg: $' + (mockData.total.cost / 7).toFixed(4);
-    } else if (currentTimeRange === 'monthly') {
-      costMetaEl.innerHTML = 'Daily avg: $' + (mockData.total.cost / 30).toFixed(4);
-    } else {
-      costMetaEl.innerHTML = 'Monthly avg: $' + (mockData.total.cost / mockData.total.months).toFixed(2);
-    }
-    
-    const successRate = ((mockData.total.requests - mockData.total.errors) / mockData.total.requests * 100).toFixed(1);
-    document.getElementById('successRate').textContent = `${successRate}%`;
-    document.getElementById('successRate').className = 'stat-value ' + (successRate >= 99 ? 'green' : successRate >= 95 ? 'orange' : 'red');
-    document.getElementById('errorCount').textContent = mockData.total.errors;
-    document.getElementById('rateLimitCount').textContent = mockData.total.rateLimits;
-    
-    // Render chart
-    renderChart(mockData.chartData, currentTimeRange);
-    
-    // Render top users
-    renderTopUsers(mockData.topUsers);
-    
-    // Render features
-    renderFeatures(mockData.features);
-    
-    // Update timestamp
-    document.getElementById('lastRefresh').textContent = `Last refreshed: ${now.toLocaleTimeString()}`;
-    
-  } catch (error) {
-    console.error('Analytics load error:', error);
-    document.getElementById('chartContainer').innerHTML = `<div class="error">Failed to load analytics: ${error.message}</div>`;
-  }
-}
-
-function updateUILabels(range) {
-  const labels = {
-    today: {
-      requests: 'Requests Today',
-      tokens: 'Tokens Used Today',
-      cost: 'Cost Today',
-      chart: '📈 Last 24 Hours Activity',
-      users: '👥 Top 10 Users (Today)',
-      features: '🎯 Usage by Feature (Today)'
-    },
-    weekly: {
-      requests: 'Requests This Week',
-      tokens: 'Tokens Used (7 Days)',
-      cost: 'Cost This Week',
-      chart: '📈 Last 7 Days Activity',
-      users: '👥 Top 10 Users (This Week)',
-      features: '🎯 Usage by Feature (This Week)'
-    },
-    monthly: {
-      requests: 'Requests This Month',
-      tokens: 'Tokens Used (30 Days)',
-      cost: 'Cost This Month',
-      chart: '📈 Last 30 Days Activity',
-      users: '👥 Top 10 Users (This Month)',
-      features: '🎯 Usage by Feature (This Month)'
-    },
-    alltime: {
-      requests: 'Total Requests',
-      tokens: 'Total Tokens Used',
-      cost: 'Total Cost',
-      chart: '📈 All-Time Activity (Monthly)',
-      users: '👥 Top 10 Users (All-Time)',
-      features: '🎯 Usage by Feature (All-Time)'
-    }
-  };
-  
-  const l = labels[range];
-  document.getElementById('requestsLabel').textContent = l.requests;
-  document.getElementById('tokensLabel').textContent = l.tokens;
-  document.getElementById('costLabel').textContent = l.cost;
-  document.getElementById('chartTitle').textContent = l.chart;
-  document.getElementById('usersTitle').textContent = l.users;
-  document.getElementById('featuresTitle').textContent = l.features;
-}
-
-function generateMockDataForRange(range) {
-  const baseMultipliers = {
-    today: 1,
-    weekly: 7,
-    monthly: 30,
-    alltime: 180 // ~6 months
-  };
-  
-  const mult = baseMultipliers[range];
-  
-  return {
-    total: {
-      requests: 247 * mult + Math.floor(Math.random() * 50),
-      tokens: 52840 * mult + Math.floor(Math.random() * 1000),
-      cost: (0.0158 * mult) + (Math.random() * 0.01),
-      errors: 3 * mult,
-      rateLimits: 1 * mult,
-      lastPeriod: range === 'today' ? 18 : Math.floor((247 * mult) / (range === 'weekly' ? 7 : range === 'monthly' ? 30 : 180)),
-      months: range === 'alltime' ? 6 : 1
-    },
-    chartData: generateChartData(range),
-    topUsers: [
-      { email: 'demo@nbdpro.com', requests: 142 * mult, tokens: 31200 * mult, cost: 0.0094 * mult },
-      { email: 'jdeal@nobigdealsolutions.com', requests: 89 * mult, tokens: 18400 * mult, cost: 0.0055 * mult },
-      { email: 'contractor1@example.com', requests: 16 * mult, tokens: 3240 * mult, cost: 0.0009 * mult }
-    ],
-    features: {
-      'ask-joe': { requests: 198 * mult, tokens: 44200 * mult, cost: 0.0133 * mult },
-      'vault-analyzer': { requests: 32 * mult, tokens: 6800 * mult, cost: 0.0020 * mult },
-      'property-intel': { requests: 17 * mult, tokens: 1840 * mult, cost: 0.0005 * mult }
-    }
-  };
-}
-
-function generateChartData(range) {
+function getRangeStart(r) {
   const now = new Date();
-  const data = [];
-  
-  if (range === 'today') {
-    // Hourly for last 24 hours
-    for (let i = 23; i >= 0; i--) {
-      const hour = new Date(now.getTime() - i * 3600000);
-      data.push({
-        label: hour.getHours(),
-        requests: Math.floor(Math.random() * 20) + 5
-      });
+  if (r === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (r === '7d') return new Date(now.getTime() - 7 * 86400000);
+  if (r === '30d') return new Date(now.getTime() - 30 * 86400000);
+  return new Date(2020, 0, 1); // all time
+}
+
+function costForDoc(d) {
+  const p = PRICING[d.model] || PRICING['default'];
+  return ((d.inputTokens || 0) * p.input + (d.outputTokens || 0) * p.output) / 1e6;
+}
+
+window.setRange = function(r, btn) {
+  range = r;
+  document.querySelectorAll('.tt').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+};
+
+window.bootAnalytics = async function() {
+  await loadData();
+  autoTimer = setInterval(loadData, 60000);
+};
+
+window.loadData = async function() {
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '⏳ Loading…'; btn.disabled = true;
+
+  try {
+    const db = window._db;
+    if (!db) { btn.textContent = '↻ Refresh'; btn.disabled = false; renderEmpty(); return; }
+
+    // Query all api_usage docs for current user
+    const uid = window._user?.uid;
+    const q = uid
+      ? query(collection(db, 'api_usage'), where('uid', '==', uid), orderBy('timestamp', 'desc'))
+      : query(collection(db, 'api_usage'), orderBy('timestamp', 'desc'));
+
+    const snap = await getDocs(q);
+    allDocs = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.timestamp) {
+        allDocs.push({
+          ...d,
+          ts: d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp)
+        });
+      }
+    });
+
+    render();
+    document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    showToast('✓ Analytics refreshed · ' + allDocs.length + ' records');
+  } catch(e) {
+    console.error('Analytics load error:', e);
+    if (e.message?.includes('index')) {
+      showToast('⚠ Firestore index needed — check console');
+    } else {
+      showToast('⚠ ' + e.message);
     }
-  } else if (range === 'weekly') {
-    // Daily for last 7 days
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    for (let i = 6; i >= 0; i--) {
-      const day = new Date(now.getTime() - i * 86400000);
-      data.push({
-        label: days[day.getDay()],
-        requests: Math.floor(Math.random() * 100) + 150
-      });
-    }
-  } else if (range === 'monthly') {
-    // Daily for last 30 days (show every 5th day for readability)
-    for (let i = 29; i >= 0; i--) {
-      const day = new Date(now.getTime() - i * 86400000);
-      data.push({
-        label: i % 5 === 0 ? (day.getMonth() + 1) + '/' + day.getDate() : '',
-        requests: Math.floor(Math.random() * 100) + 200
-      });
-    }
-  } else {
-    // Monthly for last 6 months
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let i = 5; i >= 0; i--) {
-      const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      data.push({
-        label: months[month.getMonth()],
-        requests: Math.floor(Math.random() * 3000) + 5000
-      });
-    }
+    renderEmpty();
+  } finally {
+    btn.textContent = '↻ Refresh'; btn.disabled = false;
   }
-  
-  return data;
+};
+
+function render() {
+  const start = getRangeStart(range);
+  const docs = allDocs.filter(d => d.ts >= start);
+  const labels = { today: 'Today', '7d': 'Last 7 Days', '30d': 'Last 30 Days', all: 'All Time' };
+  const label = labels[range];
+
+  // Stats
+  const totalReq = docs.length;
+  const totalInput = docs.reduce((s, d) => s + (d.inputTokens || 0), 0);
+  const totalOutput = docs.reduce((s, d) => s + (d.outputTokens || 0), 0);
+  const totalTokens = totalInput + totalOutput;
+  const totalCost = docs.reduce((s, d) => s + costForDoc(d), 0);
+  const avgTokens = totalReq > 0 ? Math.round(totalTokens / totalReq) : 0;
+
+  document.getElementById('lReq').textContent = 'Requests · ' + label;
+  document.getElementById('vReq').textContent = totalReq.toLocaleString();
+  document.getElementById('mReq').textContent = totalReq > 0 ? (range === 'today' ? 'Since midnight' : docs.length + ' total records') : 'No requests yet';
+
+  document.getElementById('lTok').textContent = 'Tokens · ' + label;
+  document.getElementById('vTok').textContent = totalTokens > 1e6 ? (totalTokens / 1e6).toFixed(2) + 'M' : totalTokens.toLocaleString();
+  document.getElementById('mTok').textContent = 'Input: ' + totalInput.toLocaleString() + ' · Output: ' + totalOutput.toLocaleString();
+
+  document.getElementById('lCost').textContent = 'Cost · ' + label;
+  document.getElementById('vCost').textContent = totalCost < 1 ? '$' + totalCost.toFixed(4) : '$' + totalCost.toFixed(2);
+  const projected = range === 'today' ? totalCost * 30 : range === '7d' ? (totalCost / 7) * 30 : totalCost;
+  document.getElementById('mCost').textContent = range !== 'all' ? 'Projected 30d: $' + projected.toFixed(2) : 'Lifetime total';
+
+  document.getElementById('vAvg').textContent = avgTokens.toLocaleString();
+  document.getElementById('mAvg').textContent = totalReq > 0 ? 'In: ' + Math.round(totalInput / totalReq) + ' · Out: ' + Math.round(totalOutput / totalReq) : '—';
+
+  // Chart
+  renderChart(docs);
+
+  // Features
+  renderFeatures(docs);
+
+  // Models
+  renderModels(docs);
+
+  // Cost breakdown
+  renderCostBreakdown(docs, totalCost);
 }
 
-function renderChart(chartData, range) {
-  const container = document.getElementById('chartContainer');
-  const max = Math.max(...chartData.map(d => d.requests));
-  
-  let html = '<div style="display:flex; align-items:flex-end; gap:' + (range === 'monthly' ? '4px' : '8px') + '; height:100%; padding:20px 0;">';
-  
-  chartData.forEach(d => {
-    const height = (d.requests / max) * 100;
-    html += `
-      <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <div style="font-size:${range === 'monthly' ? '9px' : '11px'}; color:var(--text3); font-family:'DM Mono',monospace;">${d.requests}</div>
-        <div style="
-          width:100%;
-          background:var(--blue);
-          height:${height}%;
-          border-radius:4px 4px 0 0;
-          transition:all 0.3s var(--ease);
-          opacity:0.7;
-        " title="${d.requests} requests - ${d.label}"></div>
-        <div style="font-size:${range === 'monthly' ? '8px' : '10px'}; color:var(--text3);">${d.label}</div>
-      </div>
-    `;
+function renderChart(docs) {
+  const el = document.getElementById('chart');
+  if (!docs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📈</div><div class="empty-title">No Data Yet</div><div class="empty-desc">API requests will appear here once the proxy is in use.</div></div>'; return; }
+
+  // Bucket by time period
+  const buckets = {};
+  const now = new Date();
+
+  docs.forEach(d => {
+    let key;
+    if (range === 'today') {
+      key = d.ts.getHours() + ':00';
+    } else if (range === '7d') {
+      key = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.ts.getDay()] + ' ' + (d.ts.getMonth()+1) + '/' + d.ts.getDate();
+    } else if (range === '30d') {
+      key = (d.ts.getMonth()+1) + '/' + d.ts.getDate();
+    } else {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      key = months[d.ts.getMonth()] + ' ' + d.ts.getFullYear();
+    }
+    buckets[key] = (buckets[key] || 0) + 1;
   });
-  
-  html += '</div>';
-  container.innerHTML = html;
+
+  const entries = Object.entries(buckets);
+  const max = Math.max(...entries.map(e => e[1]), 1);
+
+  el.innerHTML = entries.map(([label, count]) => {
+    const pct = (count / max * 100);
+    return `<div class="chart-bar-wrap"><div class="chart-val">${count}</div><div style="flex:1;display:flex;align-items:flex-end;width:100%"><div class="chart-bar" style="height:${pct}%;background:var(--blue);opacity:.7;width:100%" title="${count} requests · ${label}"></div></div><div class="chart-label">${label}</div></div>`;
+  }).join('');
 }
 
-function renderTopUsers(users) {
-  const container = document.getElementById('topUsers');
-  
-  if (users.length === 0) {
-    container.innerHTML = '<div style="color:var(--text3); font-size:14px;">No user data available</div>';
+function renderFeatures(docs) {
+  const el = document.getElementById('featureBody');
+  // Group by feature (extracted from model or context — we'll use model as proxy)
+  const features = {};
+  docs.forEach(d => {
+    const feat = d.feature || d.model || 'unknown';
+    if (!features[feat]) features[feat] = { requests: 0, tokens: 0, cost: 0 };
+    features[feat].requests++;
+    features[feat].tokens += (d.inputTokens || 0) + (d.outputTokens || 0);
+    features[feat].cost += costForDoc(d);
+  });
+
+  const sorted = Object.entries(features).sort((a, b) => b[1].requests - a[1].requests);
+  if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="empty-desc">No feature data yet</div></div>'; return; }
+
+  const icons = { 'ask-joe': '🤖', 'vault-analyzer': '🔐', 'property-intel': '🏠', 'comparison': '⚖️', 'tenx': '🔭' };
+
+  el.innerHTML = '<table class="tbl"><thead><tr><th>Feature</th><th>Requests</th><th>Tokens</th><th>Cost</th></tr></thead><tbody>' +
+    sorted.map(([name, d]) => `<tr><td><span class="feature-icon">${icons[name] || '⚡'}</span><span class="feature-name">${name}</span></td><td>${d.requests.toLocaleString()}</td><td>${d.tokens.toLocaleString()}</td><td class="cost-cell green">$${d.cost.toFixed(4)}</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+function renderModels(docs) {
+  const el = document.getElementById('modelBody');
+  const models = {};
+  docs.forEach(d => {
+    const m = d.model || 'unknown';
+    if (!models[m]) models[m] = { requests: 0, input: 0, output: 0, cost: 0 };
+    models[m].requests++;
+    models[m].input += d.inputTokens || 0;
+    models[m].output += d.outputTokens || 0;
+    models[m].cost += costForDoc(d);
+  });
+
+  const sorted = Object.entries(models).sort((a, b) => b[1].cost - a[1].cost);
+  if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="empty-desc">No model data yet</div></div>'; return; }
+
+  const colors = { 'claude-opus-4-6': 'var(--cyan)', 'claude-sonnet-4-6': 'var(--orange)', 'claude-haiku-4-5-20251001': 'var(--green)' };
+
+  el.innerHTML = '<table class="tbl"><thead><tr><th>Model</th><th>Calls</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead><tbody>' +
+    sorted.map(([name, d]) => {
+      const color = colors[name] || 'var(--text2)';
+      const shortName = name.replace('claude-','').replace('-20251001','');
+      return `<tr><td><span style="color:${color};font-weight:600">${shortName}</span></td><td>${d.requests}</td><td>${d.input.toLocaleString()}</td><td>${d.output.toLocaleString()}</td><td class="cost-cell" style="color:${color}">$${d.cost.toFixed(4)}</td></tr>`;
+    }).join('') +
+    '</tbody></table>';
+}
+
+function renderCostBreakdown(docs, totalCost) {
+  const el = document.getElementById('costBreakdown');
+  const bar = document.getElementById('costBar');
+
+  if (!docs.length || totalCost === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-desc">No cost data yet</div></div>';
+    bar.innerHTML = '';
     return;
   }
-  
-  let html = '';
-  users.forEach((user, i) => {
-    html += `
-      <div class="user-item">
-        <div class="user-rank">${i + 1}</div>
-        <div class="user-info">
-          <div class="user-email">${user.email}</div>
-          <div class="user-meta">${user.requests} requests • ${user.tokens.toLocaleString()} tokens</div>
-        </div>
-        <div class="user-stats">
-          <div class="user-stat">
-            <div class="user-stat-val">$${user.cost.toFixed(4)}</div>
-            <div class="user-stat-lbl">Cost</div>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  
-  container.innerHTML = html;
+
+  // Split by input vs output
+  const totalInput = docs.reduce((s, d) => {
+    const p = PRICING[d.model] || PRICING['default'];
+    return s + ((d.inputTokens || 0) * p.input / 1e6);
+  }, 0);
+  const totalOutput = totalCost - totalInput;
+  const inputPct = (totalInput / totalCost * 100).toFixed(1);
+  const outputPct = (100 - parseFloat(inputPct)).toFixed(1);
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--blue);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Input tokens</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--blue);margin-top:4px">$${totalInput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${inputPct}% of total</div></div>
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--orange);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Output tokens</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--orange);margin-top:4px">$${totalOutput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${outputPct}% of total</div></div>
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Total cost</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--green);margin-top:4px">$${totalCost.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${docs.length} requests</div></div>
+    </div>
+  `;
+
+  bar.innerHTML = `<div class="cost-seg" style="width:${inputPct}%;background:var(--blue)"></div><div class="cost-seg" style="width:${outputPct}%;background:var(--orange)"></div>`;
 }
 
-function renderFeatures(features) {
-  const container = document.getElementById('featureBreakdown');
-  
-  let html = '<div class="user-list">';
-  
-  Object.entries(features).forEach(([name, data]) => {
-    html += `
-      <div class="user-item">
-        <div class="user-info">
-          <div class="user-email">${name}</div>
-          <div class="user-meta">${data.requests} requests • ${data.tokens.toLocaleString()} tokens</div>
-        </div>
-        <div class="user-stats">
-          <div class="user-stat">
-            <div class="user-stat-val">$${data.cost.toFixed(4)}</div>
-            <div class="user-stat-lbl">Cost</div>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  
-  html += '</div>';
-  container.innerHTML = html;
+function renderEmpty() {
+  document.getElementById('vReq').textContent = '0';
+  document.getElementById('vTok').textContent = '0';
+  document.getElementById('vCost').textContent = '$0.00';
+  document.getElementById('vAvg').textContent = '0';
+  document.getElementById('chart').innerHTML = '<div class="empty"><div class="empty-icon">📈</div><div class="empty-title">No Data Yet</div><div class="empty-desc">API requests will appear here once the Cloud Function proxy is deployed and in use.<br><br>Deploy with: <code style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:var(--orange)">firebase deploy --only functions</code></div></div>';
 }
 
-// Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-});
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// Cleanup
+window.addEventListener('beforeunload', () => { if (autoTimer) clearInterval(autoTimer); });
 </script>
-
 </body>
 </html>

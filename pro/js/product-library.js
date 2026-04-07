@@ -242,6 +242,7 @@
             <!-- Meta Row -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
               ${colorCount > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--s2);color:var(--t);">🎨 ${colorCount} colors</span>` : ''}
+              ${p.pricing?.[tierForMargin]?.cost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 ${formatCurrency(p.pricing[tierForMargin].cost)}/${p.unit}</span>` : ''}
               ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ ${formatCurrency(p.labor.perUnit)}/${p.unit}</span>` : ''}
               ${p.warranty && p.warranty !== 'N/A' ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;">🛡️ ${escapeHtml(p.warranty.length > 20 ? p.warranty.substring(0, 18) + '…' : p.warranty)}</span>` : ''}
               ${p.coverage ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#eff6ff;color:#1e40af;">📐 ${escapeHtml(typeof p.coverage === 'string' ? p.coverage : p.coverage.perUnit || '')}</span>` : ''}

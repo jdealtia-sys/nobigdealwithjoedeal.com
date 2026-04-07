@@ -138,15 +138,15 @@ function updateJoeContextBar(ctx) {
 // ── Chat persistence ────────────────────────────────────────────────
 function loadJoeChat() {
   try {
-    const saved = localStorage.getItem(JOE_CHAT_STORE);
+    const saved = sessionStorage.getItem(JOE_CHAT_STORE);
     if(saved) _joeMessages = JSON.parse(saved);
   } catch { _joeMessages = []; }
 }
 function saveJoeChat() {
   try {
-    // Keep last 40 messages to avoid localStorage bloat
+    // Keep last 40 messages to avoid sessionStorage bloat
     const trimmed = _joeMessages.slice(-40);
-    localStorage.setItem(JOE_CHAT_STORE, JSON.stringify(trimmed));
+    sessionStorage.setItem(JOE_CHAT_STORE, JSON.stringify(trimmed));
   } catch(e){}
 }
 
@@ -351,10 +351,19 @@ function saveJoeKeyFromSettings() {
   showToast('✓ Joe AI activated', 'success');
 }
 
+// Clear chat history from current session
+function clearJoeChat() {
+  try { sessionStorage.removeItem(JOE_CHAT_STORE); } catch(e){}
+  _joeMessages = [];
+  initJoeChat();
+  showToast('Chat cleared', 'success');
+}
+
 // Expose all AI functions to window scope (required for onclick handlers)
 window.saveJoeKey = saveJoeKey;
 window.saveJoeKeyFromSettings = saveJoeKeyFromSettings;
 window.clearJoeKey = clearJoeKey;
+window.clearJoeChat = clearJoeChat;
 window.getJoeKey = getJoeKey;
 window.initJoeChat = initJoeChat;
 window.sendJoeMessage = sendJoeMessage;

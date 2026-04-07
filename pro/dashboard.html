@@ -1922,6 +1922,13 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .panel-label{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:2px;}
 .panel-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .panel-body{padding:16px 18px;}
+/* Toggle switch component */
+.ob-toggle{position:relative;display:inline-block;width:38px;height:20px;flex-shrink:0;}
+.ob-toggle input{opacity:0;width:0;height:0;position:absolute;}
+.ob-toggle span{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;}
+.ob-toggle span::before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.3s;}
+.ob-toggle input:checked + span{background:var(--orange,#e8720c);}
+.ob-toggle input:checked + span::before{transform:translateX(18px);}
 .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 .stat-card{background:var(--s);border:1px solid var(--br);border-radius:9px;padding:16px 18px;display:flex;align-items:center;gap:12px;}
 .stat-card:hover{border-color:rgba(255,255,255,.12);}
@@ -4825,6 +4832,9 @@ body.theme-frosted {
   --nbd-nav-white: #f0f6fc;
 }
 
+/* ── HIDE TOP NAV on dashboard — sidebar + header handle all navigation ── */
+#nbd-pro-nav, #nbd-nav-drawer { display: none !important; }
+
 #nbd-pro-nav {
   position: sticky;
   top: 0;
@@ -5585,6 +5595,7 @@ function switchScTab(tab, btn) {
 
   <!-- TIER 4: SYSTEM (Always Visible) -->
   <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
+  <div class="ni" onclick="window.location.href='/pro/analytics.html'" id="nav-analytics"><span class="ni-icon">💰</span>API Analytics</div>
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   
 </nav>
@@ -6926,8 +6937,8 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Theme</div><div class="panel-title">Color Theme</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:16px;">60 themes — changes apply instantly and persist across sessions.</p>
-            <div class="theme-grid" id="settings-theme-grid-tab">
-            <!-- themes injected by renderThemeGrid() -->
+            <div class="npm-grid" id="settings-theme-grid-tab">
+            <!-- themes injected by switchSettingsTab -->
             </div>
           </div>
         </div>
@@ -7041,7 +7052,7 @@ function switchScTab(tab, btn) {
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-orange" onclick="dsSaveConfig()">💾 Save Daily Program Settings</button>
           <button class="btn btn-ghost" onclick="dsResetDefaults()" style="font-size:11px;">↺ Reset to Defaults</button>
-          <a href="/pro/daily-success" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
+          <a href="/pro/daily-success/" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
 
@@ -8060,13 +8071,23 @@ function renderPhotoLeads(){
   const leads=window._leads||[];
   const wrap=document.getElementById('photoLeadsList');
   if(!leads.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Add leads first to attach photos.</div>';return;}
-  wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;">'+leads.map(l=>`
+  wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;">'+leads.map(l=>{
+    const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || l.name || 'Unknown';
+    const addr = l.address || 'No address';
+    const stage = l.stage || 'new';
+    const stageLabel = {'new':'New','contacted':'Contacted','inspected':'Inspected','claim_filed':'Claim Filed','contract_signed':'Signed','closed':'Closed'}[stage] || stage.replace(/_/g,' ');
+    return `
     <div class="panel" style="margin:0;">
-      <div class="panel-hdr" style="cursor:pointer;" onclick="openPhotoFor('${l.id}','${l.address?.replace(/'/g,"\\'")}')">
-        <div><div class="panel-label">Photos</div><div class="panel-title" style="font-size:14px;">${l.address}</div><div style="font-size:11px;color:var(--m);">${l.name}</div></div>
+      <div class="panel-hdr" style="cursor:pointer;" onclick="openPhotoFor('${l.id}','${addr.replace(/'/g,"\\'")}')">
+        <div>
+          <div class="panel-label" style="display:flex;align-items:center;gap:6px;">📸 Photos <span style="background:var(--s3);color:var(--orange);font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${stageLabel}</span></div>
+          <div class="panel-title" style="font-size:14px;">${name}</div>
+          <div style="font-size:11px;color:var(--m);margin-top:2px;">📍 ${addr}</div>
+        </div>
         <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">📷 View / Upload</button>
       </div>
-    </div>`).join('')+'</div>';
+    </div>`;
+  }).join('')+'</div>';
 }
 
 async function openPhotoFor(leadId, addr){
@@ -10884,6 +10905,7 @@ function shareCalViaEmail() {
 <script src="js/ai_review_system.js?v=2"></script>
 <script src="js/email_system.js?v=2"></script>
 <script src="js/product-data.js?v=1"></script>
+<script src="js/estimate-templates.js?v=1"></script>
 <script src="js/product-library.js?v=2"></script>
 <script src="js/d2d-tracker.js?v=3"></script>
 <script src="js/sales-training.js?v=1"></script>

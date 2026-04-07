@@ -574,18 +574,46 @@ function switchSettingsTab(tab) {
   const btn = document.getElementById('stab-' + tab);
   if (btn) btn.classList.add('stab-active');
 
-  // Lazy-load appearance tab content
+  // Lazy-load appearance tab content — render theme/font grids from picker system
   if (tab === 'appearance') {
     const grid = document.getElementById('settings-theme-grid-tab');
     if (grid && !grid.dataset.loaded) {
-      // Clone from existing theme-grid
-      const src = document.querySelector('.theme-grid:not(#settings-theme-grid-tab)');
-      if (src) { grid.innerHTML = src.innerHTML; grid.dataset.loaded = '1'; }
+      // Render themes using the picker system (defined in maps.js)
+      if (typeof NBD_THEMES !== 'undefined') {
+        const _nbdUnlocked = window._nbdUnlocked || (() => true);
+        const _nbd_activeTheme = window._nbd_activeTheme || '';
+        grid.innerHTML = '';
+        NBD_THEMES.forEach(t => {
+          const isAct = t.id === _nbd_activeTheme;
+          const d = document.createElement('div');
+          d.className = 'npm-bubble' + (isAct ? ' active' : '');
+          d.onclick = () => { if (typeof nbdApplyTheme === 'function') nbdApplyTheme(t.id); };
+          d.style.cssText = 'background:' + (t.s||'#13171d') + ';border-color:' + t.accent + ';cursor:pointer;';
+          if (isAct) d.style.boxShadow = '0 0 0 2.5px #fff, 0 4px 22px rgba(0,0,0,0.6)';
+          d.innerHTML = '<div class="npm-dot" style="background:' + t.accent + ';box-shadow:0 0 5px ' + t.accent + '88"></div><span class="npm-lbl" style="color:#e8eaf0">' + t.name + '</span>';
+          grid.appendChild(d);
+        });
+        grid.dataset.loaded = '1';
+      }
     }
     const fontGrid = document.getElementById('settings-font-grid');
     if (fontGrid && !fontGrid.dataset.loaded) {
-      if (typeof renderFontGrid === 'function') renderFontGrid('settings-font-grid');
-      fontGrid.dataset.loaded = '1';
+      if (typeof NBD_FONTS !== 'undefined') {
+        fontGrid.innerHTML = '';
+        const _nbd_activeFont = window._nbd_activeFont || '';
+        NBD_FONTS.forEach(f => {
+          const isAct = f.id === _nbd_activeFont;
+          const d = document.createElement('div');
+          d.style.cssText = 'background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px;cursor:pointer;transition:border-color .15s;' + (isAct ? 'border-color:var(--orange);' : '');
+          d.onclick = () => { if (typeof nbdApplyFont === 'function') nbdApplyFont(f.id); };
+          d.innerHTML = '<div style="font-family:' + f.css.fd + ';font-size:13px;font-weight:700;margin-bottom:4px;">' + f.name + (isAct ? ' ✓' : '') + '</div><div style="font-family:' + f.css.fb + ';font-size:11px;color:var(--m);">' + f.preview.b + '</div>';
+          fontGrid.appendChild(d);
+        });
+        fontGrid.dataset.loaded = '1';
+      } else if (typeof renderFontGrid === 'function') {
+        renderFontGrid('settings-font-grid');
+        fontGrid.dataset.loaded = '1';
+      }
     }
   }
   // Re-init daily floors when switching to daily tab

@@ -132,7 +132,7 @@ window.openEmailModal = function(options = {}) {
   modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;';
   
   modal.innerHTML = `
-    <div class="modal-content" style="max-width:700px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;background:white;border-radius:12px;">
+    <div class="modal-content" style="max-width:700px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;background:var(--s);border-radius:12px;">
       <div class="modal-header" style="padding:25px;background:linear-gradient(135deg, #C8541A 0%, #a64516 100%);color:white;">
         <h3 style="margin:0;font-size:22px;">📧 Send Email</h3>
         <button onclick="closeEmailModal()" style="position:absolute;top:20px;right:20px;background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;">&times;</button>
@@ -141,20 +141,20 @@ window.openEmailModal = function(options = {}) {
       <div style="flex:1;overflow-y:auto;padding:25px;">
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">To:</label>
-          <input type="email" id="emailTo" value="${to}" placeholder="customer@example.com" 
-                 style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+          <input type="email" id="emailTo" value="${to}" placeholder="customer@example.com"
+                 style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
         </div>
         
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">Subject:</label>
-          <input type="text" id="emailSubject" value="${subject}" 
-                 style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+          <input type="text" id="emailSubject" value="${subject}"
+                 style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
         </div>
         
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">Message:</label>
-          <textarea id="emailBody" rows="12" 
-                    style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:vertical;">${body}</textarea>
+          <textarea id="emailBody" rows="12"
+                    style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;resize:vertical;">${body}</textarea>
         </div>
         
         ${attachmentName ? `
@@ -162,8 +162,8 @@ window.openEmailModal = function(options = {}) {
             <div style="display:flex;align-items:center;gap:10px;">
               <div style="font-size:32px;">📎</div>
               <div style="flex:1;">
-                <div style="font-weight:600;color:#0c4a6e;">${attachmentName}</div>
-                <div style="font-size:12px;color:#666;">Attachment will be included</div>
+                <div style="font-weight:600;color:var(--t);">${attachmentName}</div>
+                <div style="font-size:12px;color:var(--m);">Attachment will be included</div>
               </div>
             </div>
           </div>
@@ -174,7 +174,7 @@ window.openEmailModal = function(options = {}) {
         </div>
       </div>
       
-      <div class="modal-footer" style="padding:20px;border-top:2px solid #eee;background:#f9f9f9;display:flex;gap:10px;justify-content:flex-end;">
+      <div class="modal-footer" style="padding:20px;border-top:2px solid var(--br);background:var(--s2);display:flex;gap:10px;justify-content:flex-end;">
         <button onclick="closeEmailModal()" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
           Cancel
         </button>

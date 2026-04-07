@@ -25,8 +25,8 @@ function renderPricingDatabase() {
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;">
         <div>
-          <h2 style="margin:0 0 5px 0;font-size:28px;color:#333;">💰 Pricing Database</h2>
-          <p style="margin:0;color:#666;">Manage material pricing for your region</p>
+          <h2 style="margin:0 0 5px 0;font-size:28px;color:var(--t);">💰 Pricing Database</h2>
+          <p style="margin:0;color:var(--m);">Manage material pricing for your region</p>
         </div>
         <div style="display:flex;gap:10px;">
           <button onclick="addCustomMaterial();" 
@@ -41,15 +41,15 @@ function renderPricingDatabase() {
       </div>
       
       <div style="margin-bottom:20px;">
-        <input type="text" id="pricingSearchInput" placeholder="Search materials..." 
-               oninput="filterPricingTable()" 
-               style="width:100%;max-width:400px;padding:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+        <input type="text" id="pricingSearchInput" placeholder="Search materials..."
+               oninput="filterPricingTable()"
+               style="width:100%;max-width:400px;padding:12px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
       </div>
       
-      <div style="background:white;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+      <div style="background:var(--s);border:1px solid var(--br);border-radius:8px;overflow:hidden;">
         <table style="width:100%;border-collapse:collapse;">
           <thead>
-            <tr style="background:#f9f9f9;border-bottom:2px solid #ddd;">
+            <tr style="background:var(--s2);border-bottom:2px solid var(--br);">
               <th style="padding:15px;text-align:left;font-weight:600;">Material Name</th>
               <th style="padding:15px;text-align:left;font-weight:600;">Category</th>
               <th style="padding:15px;text-align:left;font-weight:600;">Unit</th>
@@ -81,16 +81,16 @@ function renderPricingTableRows(searchTerm) {
   );
   
   if (filtered.length === 0) {
-    return '<tr><td colspan="6" style="padding:40px;text-align:center;color:#999;">No materials found</td></tr>';
+    return '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--m);">No materials found</td></tr>';
   }
   
   return filtered.map(material => `
-    <tr style="border-bottom:1px solid #eee;">
+    <tr style="border-bottom:1px solid var(--br);">
       <td style="padding:15px;">${material.name}</td>
-      <td style="padding:15px;color:#666;text-transform:capitalize;">${material.category}</td>
+      <td style="padding:15px;color:var(--m);text-transform:capitalize;">${material.category}</td>
       <td style="padding:15px;font-weight:600;">${material.unit}</td>
       <td style="padding:15px;text-align:right;font-weight:600;color:#C8541A;">$${material.sellPrice.toFixed(2)}</td>
-      <td style="padding:15px;text-align:right;color:#666;">$${(material.costPrice || 0).toFixed(2)}</td>
+      <td style="padding:15px;text-align:right;color:var(--m);">$${(material.costPrice || 0).toFixed(2)}</td>
       <td style="padding:15px;text-align:center;">
         <button onclick="editMaterialPrice('${material.id}');" 
                 style="background:#0ea5e9;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">
