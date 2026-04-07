@@ -2365,6 +2365,44 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .facet-pitch-sel{background:var(--s);border:1px solid var(--br);border-radius:4px;padding:2px 4px;font-size:10px;color:var(--t);font-family:inherit;cursor:pointer;}
 .facet-pitch-sel:focus{border-color:var(--orange);outline:none;}
 
+/* DRAW TOOL — structure list */
+.structure-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--s2);border:1px solid var(--br);border-radius:5px;font-size:11px;cursor:pointer;transition:all .15s;margin-bottom:3px;}
+.structure-row:hover{border-color:var(--orange);}
+.structure-active{border-color:var(--orange);background:rgba(200,84,26,.06);}
+.structure-icon{font-size:14px;}
+.structure-name{flex:1;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.03em;text-transform:uppercase;}
+.structure-rename,.structure-del{background:none;border:none;color:var(--m);cursor:pointer;font-size:11px;padding:2px 4px;}
+.structure-rename:hover{color:var(--orange);}
+.structure-del:hover{color:var(--red);}
+
+/* DRAW TOOL — voice button active state */
+.voice-active{background:rgba(239,68,68,.15)!important;border-color:#EF4444!important;color:#EF4444!important;animation:voicePulse 1.5s infinite;}
+@keyframes voicePulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.3);}50%{box-shadow:0 0 0 6px rgba(239,68,68,0);}}
+
+/* DRAW TOOL — presentation overlay */
+#presentOverlay{position:absolute;inset:0;z-index:900;pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end;}
+.present-bar{pointer-events:all;background:rgba(10,12,15,.92);backdrop-filter:blur(12px);border-top:2px solid var(--orange);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.present-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;color:#fff;letter-spacing:.04em;}
+.present-controls{display:flex;align-items:center;gap:8px;}
+.present-btn{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--t);cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;}
+.present-btn:hover{border-color:var(--orange);color:var(--orange);}
+.present-btn-next{background:var(--orange);border-color:var(--orange);color:#fff;}
+.present-btn-next:hover{background:#B44A17;}
+.present-btn-close{border-color:var(--red);color:var(--red);}
+.present-step{font-size:11px;color:var(--m);font-weight:700;letter-spacing:.1em;}
+.present-info{pointer-events:all;background:rgba(10,12,15,.85);backdrop-filter:blur(8px);padding:12px 20px;font-size:13px;color:var(--m);border-top:1px solid var(--br);}
+
+/* DRAW TOOL — comparison results */
+.comp-row{display:flex;align-items:center;gap:4px;padding:5px 8px;border-radius:4px;font-size:11px;margin-bottom:2px;}
+.comp-label{flex:1;font-weight:600;color:var(--t);}
+.comp-ours,.comp-theirs{width:55px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+.comp-ours{color:var(--orange);}
+.comp-theirs{color:var(--blue);}
+.comp-diff{width:50px;text-align:right;font-weight:700;font-size:10px;}
+.comp-match{background:rgba(46,204,138,.06);}.comp-match .comp-diff{color:var(--green);}
+.comp-warn{background:rgba(234,179,8,.06);}.comp-warn .comp-diff{color:#EAB308;}
+.comp-off{background:rgba(239,68,68,.06);}.comp-off .comp-diff{color:var(--red);}
+
 /* MARKER CLUSTER — NBD Pro brand */
 .marker-cluster-small{background:rgba(200,84,26,0.35)!important}
 .marker-cluster-small div{background:rgba(200,84,26,0.7)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
@@ -5838,8 +5876,19 @@ function switchScTab(tab, btn) {
           <div class="cr-row"><span class="cr-key">With Waste</span><span class="cr-val" id="cr-waste">0 sf</span></div>
           <div class="cr-row hl"><span class="cr-key">Squares</span><span class="cr-val" id="cr-sq">0.0 sq</span></div>
         </div>
+        <!-- SMART WASTE -->
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;margin-bottom:4px;border-color:var(--green);color:var(--green);" onclick="applySmartWaste()" title="Calculate waste based on roof complexity">🧠 Smart Waste (AI)</button>
+        <div id="smartWasteInfo" style="display:none;font-size:10px;color:var(--m);padding:4px 6px;background:var(--s2);border-radius:5px;margin-bottom:8px;"></div>
+
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="exportDrawReport()">📤 Export Report</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Export Report</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#2ECC8A;color:#2ECC8A;" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#EAB308;color:#EAB308;" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
+
+        <!-- STRUCTURES -->
+        <div class="slabel2">Structures</div>
+        <div id="structureList"><p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p></div>
+        <button class="draw-btn" style="width:100%;margin-bottom:8px;font-size:10px;" onclick="addStructure()">＋ Add Structure (Garage, Shed...)</button>
 
         <!-- MAP TOOLS -->
         <div class="slabel2">Map Tools</div>
@@ -5849,11 +5898,70 @@ function switchScTab(tab, btn) {
           <button class="draw-btn" onclick="screenshotMap()" title="Export map screenshot">📸 Screenshot</button>
           <button class="draw-btn" onclick="showAngles()" title="Show angles at vertices">📐 Angles</button>
         </div>
+
+        <!-- WOW TOOLS -->
+        <div class="slabel2">Advanced Tools</div>
+        <div class="draw-btns" style="flex-wrap:wrap;">
+          <button class="draw-btn" onclick="startShadowPitch()" title="Estimate roof pitch from satellite shadow">☀️ Shadow Pitch</button>
+          <button class="draw-btn" onclick="startAutoDetect()" title="AI auto-detect roof edges">🤖 Auto-Detect</button>
+          <button class="draw-btn" id="voiceBtn" onclick="toggleVoiceControl()" title="Voice-controlled measurement">🎤 Voice</button>
+          <button class="draw-btn" onclick="toggleHistoricalImagery()" title="Compare historical satellite imagery">🕐 History</button>
+          <button class="draw-btn" onclick="startPresentation()" title="Full-screen homeowner presentation">🎬 Present</button>
+          <button class="draw-btn" onclick="openComparisonMode()" title="Compare with EagleView/RoofScope report">⚖️ Compare</button>
+        </div>
+
+        <!-- SHADOW PITCH BAR -->
+        <div id="shadowBar" style="display:none;font-size:11px;color:var(--m);padding:8px;background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:6px;margin-top:6px;"></div>
+
+        <!-- AUTO-DETECT ACCEPT/CANCEL -->
+        <div id="autoDetectBar" style="display:none;gap:6px;margin-top:6px;">
+          <button class="btn btn-orange" style="flex:1;font-size:11px;padding:8px;" onclick="acceptAutoDetect()">✓ Accept Edges</button>
+          <button class="btn btn-ghost" style="flex:1;font-size:11px;padding:8px;" onclick="cancelAutoDetect()">✕ Cancel</button>
+        </div>
+
+        <!-- HISTORICAL IMAGERY PANEL -->
+        <div id="historyPanel" style="display:none;padding:8px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-top:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);">Historical Imagery</span>
+            <button style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;" onclick="closeHistoricalImagery()">✕</button>
+          </div>
+          <div style="margin-bottom:6px;">
+            <label style="font-size:10px;color:var(--m);">Date: <span id="historyDateLabel">—</span></label>
+            <input type="range" min="0" max="7" value="7" style="width:100%;" oninput="setHistoricalLayer(parseInt(this.value))">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--m);">Opacity: <span id="historyOpacityLabel">100%</span></label>
+            <input type="range" min="0" max="1" step="0.05" value="1" style="width:100%;" oninput="updateHistoryOpacity(this.value)">
+          </div>
+        </div>
+
+        <!-- VOICE LOG -->
+        <div id="voiceLog" style="display:none;font-size:10px;color:var(--m);padding:4px 6px;background:var(--s2);border-radius:4px;margin-top:6px;font-style:italic;"></div>
+
+        <!-- COMPARISON RESULTS -->
+        <div id="comparisonResults" style="display:none;margin-top:6px;"></div>
+
       </div>
       <div class="map-area">
         <div id="drawMap"></div>
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-draw')">☰ Draw Tools</button>
         <div class="map-badge" style="color:#22C55E;border-color:rgba(34,197,94,.3);">✏️ DRAWING TOOL</div>
+      </div>
+
+      <!-- COMPARISON MODAL -->
+      <div id="comparisonModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;width:100%;max-width:440px;padding:24px;position:relative;">
+          <button style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;" onclick="closeComparisonMode()">✕</button>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Measurement Comparison</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t);margin-bottom:4px;">Compare Your Drawing vs. Report</div>
+          <div style="font-size:12px;color:var(--m);margin-bottom:16px;">Upload an EagleView, RoofScope, or Quick Measure report (PDF or text). We'll extract measurements and compare side-by-side.</div>
+          <div style="border:2px dashed var(--br);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;" onclick="document.getElementById('compFile').click()">
+            <div style="font-size:28px;margin-bottom:6px;">📄</div>
+            <div style="font-weight:700;color:var(--t);font-size:12px;">Drop report here or click to browse</div>
+            <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" style="display:none;" onchange="handleComparisonFile(this.files[0])">
+          </div>
+          <button class="btn btn-ghost" style="width:100%;" onclick="closeComparisonMode()">Cancel</button>
+        </div>
       </div>
     </div>
   </div>

@@ -462,6 +462,33 @@ let currentLayerType = 'satellite';
 // Snap
 const SNAP_PX = 12;
 
+// Multi-structure support
+let structures = []; // [{name, facets[], lines[], gutterPts[], gutterDots[], pitch}]
+let activeStructureIdx = 0;
+
+// Shadow pitch estimation
+let shadowMode = false;
+let shadowLine = null; // The shadow line drawn by user
+let shadowEdgeLine = null; // The corresponding roof edge
+
+// Voice control
+let voiceRecognition = null;
+let voiceActive = false;
+
+// Historical imagery
+let historyLayerOld = null;
+let historySliderActive = false;
+
+// Presentation mode
+let presentationActive = false;
+let presentationStep = 0;
+
+// Edge auto-detect
+let autoDetectActive = false;
+
+// Comparison mode
+let comparisonData = null; // Parsed external report data
+
 function initDrawMap() {
   drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],19);
   // Map layers
@@ -475,6 +502,7 @@ function initDrawMap() {
   currentLayerType = 'satellite';
 
   drawMap.on('click', e => {
+    if(shadowMode) { handleShadowClick(e.latlng); return; }
     if(!drawOn) return;
     const snapped = snapToVertex(e.latlng);
     if(drawMode === 'line') handleLineClick(snapped);
@@ -1501,6 +1529,1211 @@ function tryRestoreDrawing() {
 function clearSavedDrawing() {
   try { localStorage.removeItem(_drawStorageKey()); } catch(e) {}
 }
+
+// ╔═══════════════════════════════════════════════════════════════════╗
+// ║  WOW FEATURES — INDUSTRY-FIRST CAPABILITIES                     ║
+// ╚═══════════════════════════════════════════════════════════════════╝
+
+// ── FEATURE 1: SMART WASTE CALCULATOR ────────────────────────────
+// Calculates waste % based on actual roof complexity instead of flat %
+function calcSmartWaste() {
+  const valleys = drawnLines.filter(l => l.type === 3);
+  const hips    = drawnLines.filter(l => l.type === 2);
+  const ridges  = drawnLines.filter(l => l.type === 0 || l.type === 1);
+  const flashings = drawnLines.filter(l => l.type === 6 || l.type === 7);
+  const nFacets = Math.max(facets.length, 1);
+
+  // Base waste: 10% for simple, scales with complexity
+  let waste = 0.10;
+  // Valleys add 2.5% each (lots of cuts)
+  waste += valleys.length * 0.025;
+  // Hips add 1.5% each
+  waste += hips.length * 0.015;
+  // Extra facets beyond 2 add 1% each
+  if(nFacets > 2) waste += (nFacets - 2) * 0.01;
+  // Flashings add 0.5% each (detail work = more cuts)
+  waste += flashings.length * 0.005;
+  // Short ridge relative to perimeter = steep/complex
+  const totalRidge = ridges.reduce((s,l) => s+l.dist, 0);
+  const totalPerim = drawnLines.filter(l => l.type === 4 || l.type === 5).reduce((s,l) => s+l.dist, 0);
+  if(totalPerim > 0 && totalRidge > 0 && totalRidge / totalPerim < 0.15) waste += 0.03;
+
+  // Compute average angle at vertices — tight angles = more waste
+  const vertices = new Map();
+  drawnLines.forEach(l => {
+    if(!l.p1 || !l.p2 || l.type === 10) return;
+    const k1 = l.p1.lat.toFixed(7)+','+l.p1.lng.toFixed(7);
+    const k2 = l.p2.lat.toFixed(7)+','+l.p2.lng.toFixed(7);
+    if(!vertices.has(k1)) vertices.set(k1,[]);
+    if(!vertices.has(k2)) vertices.set(k2,[]);
+    vertices.get(k1).push(l.p2);
+    vertices.get(k2).push(l.p1);
+  });
+  let angles=[], angleCnt=0;
+  vertices.forEach((others, key) => {
+    if(others.length < 2) return;
+    const [lat,lng] = key.split(',').map(Number);
+    const center = {lat,lng};
+    for(let i=0;i<others.length;i++) {
+      for(let j=i+1;j<others.length;j++) {
+        const a = calcAngle(others[i], center, others[j]);
+        if(a > 1 && a < 179) { angles.push(a); angleCnt++; }
+      }
+    }
+  });
+  if(angleCnt > 0) {
+    const avgAngle = angles.reduce((s,a)=>s+a,0) / angleCnt;
+    if(avgAngle < 75) waste += 0.04;
+    else if(avgAngle < 90) waste += 0.02;
+  }
+
+  // Cap between 8% and 35%
+  waste = Math.max(0.08, Math.min(0.35, waste));
+
+  // Build explanation
+  const reasons = [];
+  if(valleys.length) reasons.push(`${valleys.length} valley${valleys.length>1?'s':''}`);
+  if(hips.length) reasons.push(`${hips.length} hip${hips.length>1?'s':''}`);
+  if(nFacets > 2) reasons.push(`${nFacets} facets`);
+  if(flashings.length) reasons.push(`${flashings.length} flashing detail${flashings.length>1?'s':''}`);
+  if(angleCnt > 0 && angles.reduce((s,a)=>s+a,0)/angleCnt < 90) reasons.push('tight angles');
+
+  return {
+    pct: waste,
+    multiplier: 1 + waste,
+    label: (waste * 100).toFixed(0) + '%',
+    reasons: reasons.length ? reasons.join(', ') : 'simple geometry',
+    complexity: waste <= 0.12 ? 'Simple' : waste <= 0.18 ? 'Moderate' : waste <= 0.25 ? 'Complex' : 'Very Complex'
+  };
+}
+
+function applySmartWaste() {
+  const sw = calcSmartWaste();
+  // Find closest waste option or use custom
+  const wasteSel = document.getElementById('wasteSel');
+  if(!wasteSel) return;
+  // Add smart option if not present
+  let smartOpt = wasteSel.querySelector('option[value="smart"]');
+  if(!smartOpt) {
+    smartOpt = document.createElement('option');
+    smartOpt.value = 'smart';
+    wasteSel.insertBefore(smartOpt, wasteSel.firstChild);
+  }
+  smartOpt.textContent = `Smart: ${sw.label} (${sw.complexity})`;
+  smartOpt.value = sw.multiplier.toFixed(4);
+  wasteSel.value = sw.multiplier.toFixed(4);
+  recalc();
+  // Update smart waste display
+  const swEl = document.getElementById('smartWasteInfo');
+  if(swEl) {
+    swEl.innerHTML = `<span style="color:var(--orange);font-weight:700;">${sw.label}</span> waste — ${sw.complexity} roof (${sw.reasons})`;
+    swEl.style.display = 'block';
+  }
+  showToast(`Smart Waste: ${sw.label} — ${sw.reasons}`, 'ok');
+  autoSaveDrawing();
+}
+
+
+// ── FEATURE 2: ONE-CLICK MATERIAL TAKEOFF ────────────────────────
+const MATERIAL_SPECS = {
+  shingleBundlesPerSq: 3,       // Architectural shingles
+  underlaymentSqPerRoll: 4,     // Synthetic underlayment
+  dripEdgeFtPerPiece: 10,       // Standard drip edge length
+  starterStripFtPerBundle: 120, // Starter strip coverage
+  ridgeCapBundleLF: 31.7,       // Hip & ridge cap per bundle
+  iceWaterFtPerRoll: 75,        // Ice & water shield per roll
+  iceWaterWidthFt: 3,           // 36" wide = eave coverage
+  stepFlashPerPiece: 1,         // Each piece ~1 LF coverage
+  pipeBootCount: 2,             // Default estimate
+  ventCount: 1,                 // Ridge vent per 40ft ridge
+};
+
+function generateMaterialTakeoff() {
+  const sw = calcSmartWaste();
+  const base = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
+  const pitched = parseFloat(document.getElementById('cr-pitched')?.textContent) || 0;
+  const wasteArea = pitched * sw.multiplier;
+  const squares = wasteArea / 100;
+
+  // Line totals by type
+  const ridgeLF  = drawnLines.filter(l => l.type === 0 || l.type === 1).reduce((s,l) => s+l.dist, 0);
+  const hipLF    = drawnLines.filter(l => l.type === 2).reduce((s,l) => s+l.dist, 0);
+  const valleyLF = drawnLines.filter(l => l.type === 3).reduce((s,l) => s+l.dist, 0);
+  const rakeLF   = drawnLines.filter(l => l.type === 4).reduce((s,l) => s+l.dist, 0);
+  const eaveLF   = drawnLines.filter(l => l.type === 5).reduce((s,l) => s+l.dist, 0);
+  const flashLF  = drawnLines.filter(l => l.type === 6).reduce((s,l) => s+l.dist, 0);
+  const stepLF   = drawnLines.filter(l => l.type === 7).reduce((s,l) => s+l.dist, 0);
+  const dripLF   = drawnLines.filter(l => l.type === 8).reduce((s,l) => s+l.dist, 0);
+  const gutterLF = drawnLines.filter(l => l.type === 10).reduce((s,l) => s+l.dist, 0);
+
+  const M = MATERIAL_SPECS;
+  const materials = [
+    { name: 'Shingle Bundles', qty: Math.ceil(squares * M.shingleBundlesPerSq), unit: 'bdl', note: `${squares.toFixed(1)} sq × ${M.shingleBundlesPerSq}/sq` },
+    { name: 'Underlayment Rolls', qty: Math.ceil(squares / M.underlaymentSqPerRoll), unit: 'roll', note: `${M.underlaymentSqPerRoll} sq/roll` },
+    { name: 'Drip Edge', qty: Math.ceil((eaveLF + rakeLF + dripLF) / M.dripEdgeFtPerPiece), unit: 'pc', note: `${(eaveLF+rakeLF+dripLF).toFixed(0)} LF total` },
+    { name: 'Starter Strip', qty: Math.ceil((eaveLF + rakeLF) / M.starterStripFtPerBundle), unit: 'bdl', note: `${(eaveLF+rakeLF).toFixed(0)} LF perimeter` },
+    { name: 'Hip & Ridge Cap', qty: Math.ceil((ridgeLF + hipLF) / M.ridgeCapBundleLF), unit: 'bdl', note: `${(ridgeLF+hipLF).toFixed(0)} LF ridge+hip` },
+  ];
+
+  // Conditional materials
+  if(eaveLF > 0) {
+    materials.push({ name: 'Ice & Water Shield', qty: Math.ceil(eaveLF / M.iceWaterFtPerRoll), unit: 'roll', note: `${eaveLF.toFixed(0)} LF eave` });
+  }
+  if(valleyLF > 0) {
+    materials.push({ name: 'Valley Metal / Ice Shield', qty: Math.ceil(valleyLF / 10), unit: 'pc', note: `${valleyLF.toFixed(0)} LF valley` });
+  }
+  if(stepLF > 0) {
+    materials.push({ name: 'Step Flashing', qty: Math.ceil(stepLF), unit: 'pc', note: `${stepLF.toFixed(0)} LF step` });
+  }
+  if(flashLF > 0) {
+    materials.push({ name: 'Flashing (misc)', qty: Math.ceil(flashLF / 10), unit: 'pc', note: `${flashLF.toFixed(0)} LF` });
+  }
+  if(ridgeLF > 0) {
+    materials.push({ name: 'Ridge Vent', qty: Math.ceil(ridgeLF / 4), unit: 'pc (4ft)', note: `${ridgeLF.toFixed(0)} LF ridge` });
+  }
+  if(gutterLF > 0) {
+    materials.push({ name: 'Gutter Sections (10ft)', qty: Math.ceil(gutterLF / 10), unit: 'pc', note: `${gutterLF.toFixed(0)} LF gutter` });
+    materials.push({ name: 'Downspouts', qty: Math.ceil(gutterLF / 40), unit: 'pc', note: '1 per 40 LF' });
+  }
+  // Always add nails + pipe boots
+  materials.push({ name: 'Roofing Nails (coil)', qty: Math.ceil(squares / 4), unit: 'box', note: '~4 sq per box' });
+  materials.push({ name: 'Pipe Boots', qty: M.pipeBootCount, unit: 'pc', note: 'Verify on-site' });
+
+  return { materials, squares, wasteInfo: sw };
+}
+
+function showMaterialTakeoff() {
+  const t = generateMaterialTakeoff();
+  if(!t.materials.length || t.squares < 0.1) { showToast('Draw some lines first','info'); return; }
+
+  const addr = document.getElementById('drawSearch')?.value || 'Property';
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Material Takeoff — ${addr}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #C8541A;margin-bottom:22px;}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
+  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
+  td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}tr:nth-child(even) td{background:#fafafa;}
+  .qty{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#C8541A;}
+  .note{font-size:10px;color:#888;}
+  .summary{background:#f8f8f8;border:1px solid #eee;border-radius:8px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;}
+  .summary .v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#C8541A;}
+  .summary .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;}
+  .warn{background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:10px 14px;font-size:11px;color:#92400E;margin-top:16px;}
+  .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+  </style></head><body>
+  <div class="hdr"><div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">Material Takeoff</div></div>
+  <div><div class="addr">${addr}</div><div class="date">${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div></div></div>
+  <div class="summary">
+    <div><div class="v">${t.squares.toFixed(1)} sq</div><div class="k">Total Squares</div></div>
+    <div><div class="v">${t.wasteInfo.label}</div><div class="k">Smart Waste (${t.wasteInfo.complexity})</div></div>
+    <div><div class="v">${t.materials.length}</div><div class="k">Material Items</div></div>
+  </div>
+  <h2>Material List</h2>
+  <table><thead><tr><th>Material</th><th>Qty</th><th>Unit</th><th>Based On</th></tr></thead><tbody>
+  ${t.materials.map(m => `<tr><td><b>${m.name}</b></td><td class="qty">${m.qty}</td><td>${m.unit}</td><td class="note">${m.note}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="warn">⚠️ Quantities are estimates based on satellite measurements. Always verify on-site before ordering. Pipe boot count and specialty items should be confirmed during inspection.</div>
+  <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Generated from NBD Pro Drawing Tool</div></div>
+  <script>window.print();<\/script></body></html>`;
+  const w = window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+
+// ── FEATURE 3: SHADOW-BASED PITCH ESTIMATION ─────────────────────
+// Solar position calculator
+function getSunPosition(lat, lng, date) {
+  const d = date || new Date();
+  const rad = Math.PI / 180;
+  // Day of year
+  const start = new Date(d.getFullYear(), 0, 0);
+  const diff = d - start;
+  const dayOfYear = Math.floor(diff / 86400000);
+  // Solar declination (simplified)
+  const declination = 23.45 * Math.sin(rad * (360/365) * (dayOfYear - 81));
+  // Hour angle
+  const solarNoon = 12; // approximate
+  const hours = d.getHours() + d.getMinutes()/60;
+  const hourAngle = (hours - solarNoon) * 15;
+  // Elevation angle
+  const sinElev = Math.sin(lat*rad)*Math.sin(declination*rad) +
+                  Math.cos(lat*rad)*Math.cos(declination*rad)*Math.cos(hourAngle*rad);
+  const elevation = Math.asin(sinElev) / rad;
+  // Azimuth
+  const cosAz = (Math.sin(declination*rad) - Math.sin(elevation*rad)*Math.sin(lat*rad)) /
+                (Math.cos(elevation*rad)*Math.cos(lat*rad));
+  let azimuth = Math.acos(Math.max(-1, Math.min(1, cosAz))) / rad;
+  if(hourAngle > 0) azimuth = 360 - azimuth;
+
+  return { elevation, azimuth };
+}
+
+function startShadowPitch() {
+  shadowMode = 'shadow'; // First: draw shadow line
+  showToast('Step 1: Draw a line along the shadow edge on the satellite image', 'info');
+  const bar = document.getElementById('shadowBar');
+  if(bar) { bar.style.display = 'block'; bar.textContent = '☀️ Step 1: Click two points along the roof shadow on the ground.'; }
+}
+
+function handleShadowClick(latlng) {
+  if(shadowMode === 'shadow') {
+    if(!shadowLine) {
+      shadowLine = { p1: latlng };
+      makeDraggableDot(latlng, '#EAB308');
+      showToast('Now click the end of the shadow', 'info');
+    } else {
+      shadowLine.p2 = latlng;
+      makeDraggableDot(latlng, '#EAB308');
+      const sl = L.polyline([shadowLine.p1, shadowLine.p2], {color:'#EAB308', weight:3, dashArray:'6,3', opacity:.8}).addTo(drawMap);
+      shadowLine.leafletLine = sl;
+      shadowLine.dist = hav(shadowLine.p1, shadowLine.p2);
+      shadowMode = 'edge'; // Next: draw roof edge
+      const bar = document.getElementById('shadowBar');
+      if(bar) bar.textContent = `☀️ Shadow: ${shadowLine.dist.toFixed(1)} ft — Step 2: Now draw the corresponding roof edge (eave to ridge).`;
+      showToast('Step 2: Draw the corresponding roof edge line (eave to peak)', 'info');
+    }
+  } else if(shadowMode === 'edge') {
+    if(!shadowEdgeLine) {
+      shadowEdgeLine = { p1: latlng };
+      makeDraggableDot(latlng, '#F97316');
+    } else {
+      shadowEdgeLine.p2 = latlng;
+      makeDraggableDot(latlng, '#F97316');
+      const el = L.polyline([shadowEdgeLine.p1, shadowEdgeLine.p2], {color:'#F97316', weight:3, dashArray:'6,3', opacity:.8}).addTo(drawMap);
+      shadowEdgeLine.leafletLine = el;
+      shadowEdgeLine.dist = hav(shadowEdgeLine.p1, shadowEdgeLine.p2);
+      // Calculate pitch
+      estimatePitchFromShadow();
+    }
+  }
+}
+
+function estimatePitchFromShadow() {
+  if(!shadowLine || !shadowEdgeLine) return;
+  const center = drawMap.getCenter();
+  const sun = getSunPosition(center.lat, center.lng);
+
+  // Shadow length on ground = building height / tan(sun elevation)
+  // So building height = shadow length * tan(sun elevation)
+  // Pitch = atan(height / run) where run = horizontal roof extent
+  const shadowLen = shadowLine.dist;
+  const roofEdgeLen = shadowEdgeLine.dist;
+  const sunElevRad = sun.elevation * Math.PI / 180;
+
+  if(sun.elevation < 10) {
+    showToast('Sun too low for reliable pitch estimation — try when sun is higher', 'error');
+    resetShadowMode();
+    return;
+  }
+
+  // Estimated vertical rise from shadow
+  const estHeight = shadowLen * Math.tan(sunElevRad);
+  // Pitch ratio: rise per 12 inches of run
+  const pitchRatio = (estHeight / roofEdgeLen) * 12;
+  const pitchRounded = Math.round(pitchRatio);
+  const clampedPitch = Math.max(1, Math.min(12, pitchRounded));
+
+  // Map to pitch multiplier
+  const pitchMultipliers = {1:1.003,2:1.014,3:1.031,4:1.054,5:1.083,6:1.118,7:1.158,8:1.202,9:1.25,10:1.302,11:1.357,12:1.414};
+  const mult = pitchMultipliers[clampedPitch] || 1.202;
+
+  // Apply to pitch selector
+  const pitchSel = document.getElementById('pitchSel');
+  if(pitchSel) {
+    // Find closest option
+    let best = null, bestDiff = 999;
+    for(const opt of pitchSel.options) {
+      const diff = Math.abs(parseFloat(opt.value) - mult);
+      if(diff < bestDiff) { bestDiff = diff; best = opt; }
+    }
+    if(best) pitchSel.value = best.value;
+  }
+
+  recalc();
+  const bar = document.getElementById('shadowBar');
+  if(bar) {
+    bar.innerHTML = `☀️ <b>Estimated Pitch: ${clampedPitch}/12</b> (multiplier: ${mult}×) — Sun elevation: ${sun.elevation.toFixed(1)}° | Shadow: ${shadowLine.dist.toFixed(1)}ft | Edge: ${shadowEdgeLine.dist.toFixed(1)}ft`;
+  }
+  showToast(`Pitch estimated: ${clampedPitch}/12 (${mult}× multiplier)`, 'ok');
+  resetShadowMode();
+  autoSaveDrawing();
+}
+
+function resetShadowMode() {
+  shadowMode = false;
+  shadowLine = null;
+  shadowEdgeLine = null;
+}
+
+
+// ── FEATURE 4: HISTORICAL IMAGERY SLIDER ─────────────────────────
+// Uses Esri World Imagery Wayback service
+const ESRI_WAYBACK_VERSIONS = [
+  {date:'2024-06-12', version:'WB_2024_R06'},
+  {date:'2023-06-14', version:'WB_2023_R06'},
+  {date:'2022-06-15', version:'WB_2022_R06'},
+  {date:'2021-06-16', version:'WB_2021_R06'},
+  {date:'2020-06-10', version:'WB_2020_R06'},
+  {date:'2019-06-12', version:'WB_2019_R06'},
+  {date:'2018-02-14', version:'WB_2018_R02'},
+  {date:'2017-09-20', version:'WB_2017_R09'},
+];
+
+function toggleHistoricalImagery() {
+  if(historySliderActive) {
+    closeHistoricalImagery();
+    return;
+  }
+  historySliderActive = true;
+  // Show the slider UI
+  const panel = document.getElementById('historyPanel');
+  if(panel) panel.style.display = 'block';
+  // Default: show oldest available
+  setHistoricalLayer(ESRI_WAYBACK_VERSIONS.length - 1);
+  showToast('Historical imagery loaded — use slider to compare dates', 'ok');
+}
+
+function setHistoricalLayer(idx) {
+  const v = ESRI_WAYBACK_VERSIONS[idx];
+  if(!v) return;
+  if(historyLayerOld) drawMap.removeLayer(historyLayerOld);
+  historyLayerOld = L.tileLayer(
+    `https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/${v.version}/{z}/{y}/{x}`,
+    { maxZoom: 21, opacity: 1 }
+  ).addTo(drawMap);
+  // Put behind current drawings
+  historyLayerOld.setZIndex(-1);
+
+  const label = document.getElementById('historyDateLabel');
+  if(label) label.textContent = v.date;
+}
+
+function updateHistoryOpacity(val) {
+  if(historyLayerOld) historyLayerOld.setOpacity(parseFloat(val));
+  const pctLabel = document.getElementById('historyOpacityLabel');
+  if(pctLabel) pctLabel.textContent = Math.round(val * 100) + '%';
+}
+
+function closeHistoricalImagery() {
+  historySliderActive = false;
+  if(historyLayerOld) { drawMap.removeLayer(historyLayerOld); historyLayerOld = null; }
+  const panel = document.getElementById('historyPanel');
+  if(panel) panel.style.display = 'none';
+}
+
+
+// ── FEATURE 5: ROOF EDGE AUTO-DETECT ─────────────────────────────
+function startAutoDetect() {
+  autoDetectActive = true;
+  showToast('Click a corner of the roof — AI will try to trace the edges', 'info');
+  drawMap.once('click', async (e) => {
+    autoDetectActive = false;
+    await detectRoofEdges(e.latlng);
+  });
+}
+
+async function detectRoofEdges(startLatLng) {
+  showToast('Analyzing satellite imagery...', 'info');
+  try {
+    const mapEl = document.getElementById('drawMap');
+    const canvases = mapEl.querySelectorAll('canvas');
+    if(!canvases.length) { showToast('No canvas found — switch to satellite layer', 'error'); return; }
+
+    const canvas = canvases[0];
+    const ctx = canvas.getContext('2d', {willReadFrequently:true});
+    const w = canvas.width, h = canvas.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    // Convert click to pixel position
+    const startPx = drawMap.latLngToContainerPoint(startLatLng);
+    const sx = Math.round(startPx.x * (w / mapEl.clientWidth));
+    const sy = Math.round(startPx.y * (h / mapEl.clientHeight));
+
+    // Sobel edge detection on grayscale
+    const gray = new Float32Array(w * h);
+    for(let i = 0; i < w*h; i++) {
+      gray[i] = data[i*4]*0.299 + data[i*4+1]*0.587 + data[i*4+2]*0.114;
+    }
+
+    const edges = new Float32Array(w * h);
+    for(let y = 1; y < h-1; y++) {
+      for(let x = 1; x < w-1; x++) {
+        const gx = -gray[(y-1)*w+x-1] + gray[(y-1)*w+x+1]
+                   -2*gray[y*w+x-1] + 2*gray[y*w+x+1]
+                   -gray[(y+1)*w+x-1] + gray[(y+1)*w+x+1];
+        const gy = -gray[(y-1)*w+x-1] - 2*gray[(y-1)*w+x] - gray[(y-1)*w+x+1]
+                   +gray[(y+1)*w+x-1] + 2*gray[(y+1)*w+x] + gray[(y+1)*w+x+1];
+        edges[y*w+x] = Math.sqrt(gx*gx + gy*gy);
+      }
+    }
+
+    // Find edge threshold (adaptive: use top 15% of edge magnitudes)
+    const sorted = Array.from(edges).sort((a,b) => b-a);
+    const threshold = sorted[Math.floor(sorted.length * 0.15)] || 50;
+
+    // Trace edge from starting point using greedy walk
+    const traced = [];
+    const visited = new Set();
+    let cx = sx, cy = sy;
+    const maxSteps = 2000;
+    const searchRadius = 6;
+
+    // Find nearest strong edge from click point
+    let bestDist = Infinity;
+    for(let dy = -searchRadius; dy <= searchRadius; dy++) {
+      for(let dx = -searchRadius; dx <= searchRadius; dx++) {
+        const nx = cx+dx, ny = cy+dy;
+        if(nx<0||ny<0||nx>=w||ny>=h) continue;
+        if(edges[ny*w+nx] >= threshold) {
+          const d = dx*dx+dy*dy;
+          if(d < bestDist) { bestDist = d; cx = nx; cy = ny; }
+        }
+      }
+    }
+
+    // Walk along edge
+    for(let step = 0; step < maxSteps; step++) {
+      const key = cx+','+cy;
+      if(visited.has(key)) {
+        // Closed loop detected
+        if(traced.length > 10) break;
+        else { visited.clear(); } // reset if too early
+      }
+      visited.add(key);
+
+      // Only add every Nth pixel as a vertex (reduces noise)
+      if(step % 8 === 0) {
+        const pt = drawMap.containerPointToLatLng(
+          L.point(cx * (mapEl.clientWidth / w), cy * (mapEl.clientHeight / h))
+        );
+        traced.push(pt);
+      }
+
+      // Find strongest neighboring edge pixel (8-connected)
+      let bestVal = -1, bx = cx, by = cy;
+      for(let dy = -2; dy <= 2; dy++) {
+        for(let dx = -2; dx <= 2; dx++) {
+          if(dx===0 && dy===0) continue;
+          const nx = cx+dx, ny = cy+dy;
+          if(nx<0||ny<0||nx>=w||ny>=h) continue;
+          const nk = nx+','+ny;
+          if(visited.has(nk)) continue;
+          if(edges[ny*w+nx] > bestVal) { bestVal = edges[ny*w+nx]; bx = nx; by = ny; }
+        }
+      }
+
+      if(bestVal < threshold * 0.3) break; // Lost the edge
+      cx = bx; cy = by;
+    }
+
+    if(traced.length < 4) {
+      showToast('Could not detect clear edges — try a different corner or zoom level', 'error');
+      return;
+    }
+
+    // Simplify the traced points (Douglas-Peucker)
+    const simplified = douglasPeucker(traced, 0.00003);
+
+    // Draw the detected outline as a preview
+    const preview = L.polyline(simplified, {color:'#EAB308', weight:3, dashArray:'8,4', opacity:.8}).addTo(drawMap);
+    simplified.forEach(p => makeDraggableDot(p, '#EAB308'));
+
+    showToast(`Detected ${simplified.length} edge points — adjust dots to refine, or accept`, 'ok');
+
+    // Store for acceptance
+    window._autoDetectPreview = { line: preview, points: simplified };
+    const bar = document.getElementById('autoDetectBar');
+    if(bar) bar.style.display = 'flex';
+
+  } catch(e) {
+    showToast('Edge detection failed: ' + e.message, 'error');
+  }
+}
+
+// Douglas-Peucker simplification for lat/lng
+function douglasPeucker(points, epsilon) {
+  if(points.length <= 2) return points;
+  let maxDist = 0, maxIdx = 0;
+  const first = points[0], last = points[points.length-1];
+  for(let i = 1; i < points.length - 1; i++) {
+    const d = perpDist(points[i], first, last);
+    if(d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if(maxDist > epsilon) {
+    const left = douglasPeucker(points.slice(0, maxIdx+1), epsilon);
+    const right = douglasPeucker(points.slice(maxIdx), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+  return [first, last];
+}
+
+function perpDist(p, a, b) {
+  const dx = b.lng - a.lng, dy = b.lat - a.lat;
+  const len2 = dx*dx + dy*dy;
+  if(len2 === 0) return Math.sqrt((p.lng-a.lng)**2 + (p.lat-a.lat)**2);
+  const t = Math.max(0, Math.min(1, ((p.lng-a.lng)*dx + (p.lat-a.lat)*dy) / len2));
+  const projLng = a.lng + t*dx, projLat = a.lat + t*dy;
+  return Math.sqrt((p.lng-projLng)**2 + (p.lat-projLat)**2);
+}
+
+function acceptAutoDetect() {
+  const ad = window._autoDetectPreview;
+  if(!ad) return;
+  // Convert to perimeter points
+  ad.points.forEach(p => {
+    perimPoints.push(p);
+    perimDots.push(makeDraggableDot(p, '#4A9EFF'));
+  });
+  // Auto-close if enough points
+  if(ad.points.length >= 3) {
+    // Create segments between consecutive points
+    for(let i = 0; i < ad.points.length; i++) {
+      const p1 = ad.points[i];
+      const p2 = ad.points[(i+1) % ad.points.length];
+      addPerimSegment(p1, p2, 'eave'); // Default all to eave — user can toggle with E/R mode
+    }
+    perimClosed = true;
+    perimPolygon = L.polygon(perimPoints, {color:'#4A9EFF', fillColor:'#4A9EFF', fillOpacity:.12, weight:0}).addTo(drawMap);
+    perimBaseArea = shoelaceArea(perimPoints);
+    addAreaLabel(perimPoints, perimBaseArea);
+    saveFacet();
+    renderLineList(); renderFacetList(); recalc(); autoSaveDrawing();
+    showToast(`Auto-detected facet: ${perimBaseArea.toFixed(0)} sf — switch to Eave/Rake mode to classify edges`, 'ok');
+  }
+  // Clean up preview
+  if(ad.line) drawMap.removeLayer(ad.line);
+  window._autoDetectPreview = null;
+  const bar = document.getElementById('autoDetectBar');
+  if(bar) bar.style.display = 'none';
+}
+
+function cancelAutoDetect() {
+  const ad = window._autoDetectPreview;
+  if(ad) {
+    if(ad.line) drawMap.removeLayer(ad.line);
+    window._autoDetectPreview = null;
+  }
+  const bar = document.getElementById('autoDetectBar');
+  if(bar) bar.style.display = 'none';
+  showToast('Auto-detect cancelled', 'info');
+}
+
+
+// ── FEATURE 6: VOICE-CONTROLLED MEASUREMENT ──────────────────────
+function initVoiceControl() {
+  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('Voice control not supported in this browser', 'error');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SR();
+  voiceRecognition.continuous = true;
+  voiceRecognition.interimResults = false;
+  voiceRecognition.lang = 'en-US';
+
+  voiceRecognition.onresult = (event) => {
+    const last = event.results[event.results.length - 1];
+    if(!last.isFinal) return;
+    const cmd = last[0].transcript.trim().toLowerCase();
+    processVoiceCommand(cmd);
+  };
+
+  voiceRecognition.onerror = (e) => {
+    if(e.error !== 'no-speech') showToast('Voice error: ' + e.error, 'error');
+  };
+
+  voiceRecognition.onend = () => {
+    // Auto-restart if voice is still active
+    if(voiceActive) {
+      try { voiceRecognition.start(); } catch(e) {}
+    }
+  };
+}
+
+function toggleVoiceControl() {
+  if(!voiceRecognition) initVoiceControl();
+  if(!voiceRecognition) return;
+
+  voiceActive = !voiceActive;
+  const btn = document.getElementById('voiceBtn');
+
+  if(voiceActive) {
+    voiceRecognition.start();
+    if(btn) { btn.classList.add('voice-active'); btn.textContent = '🎙️ Listening...'; }
+    showToast('Voice control ON — say commands like "ridge 48 feet" or "undo"', 'ok');
+  } else {
+    voiceRecognition.stop();
+    if(btn) { btn.classList.remove('voice-active'); btn.textContent = '🎤 Voice'; }
+    showToast('Voice control OFF', 'info');
+  }
+}
+
+function processVoiceCommand(cmd) {
+  const voiceLog = document.getElementById('voiceLog');
+  if(voiceLog) voiceLog.textContent = `"${cmd}"`;
+
+  // Normalize
+  const c = cmd.replace(/[^\w\s]/g, '').trim();
+
+  // Action commands
+  if(c.includes('undo')) { undoLine(); showToast('↩ Undo (voice)', 'info'); return; }
+  if(c.includes('clear')) { clearDraw(); return; }
+  if(c.includes('draw') || c.includes('start')) { if(!drawOn) toggleDraw(); return; }
+  if(c.includes('stop') || c.includes('done')) { if(drawOn) toggleDraw(); return; }
+  if(c.includes('fit') || c.includes('zoom')) { zoomToFit(); return; }
+  if(c.includes('close') && c.includes('perim')) { if(perimPoints.length >= 3) closePerimeter(); return; }
+  if(c.includes('new facet') || c.includes('next facet')) { resetPerimState(); showToast('New facet started', 'ok'); return; }
+  if(c.includes('screenshot') || c.includes('capture')) { screenshotMap(); return; }
+  if(c.includes('materials') || c.includes('takeoff')) { showMaterialTakeoff(); return; }
+  if(c.includes('report') || c.includes('export')) { exportDrawReport(); return; }
+  if(c.includes('estimate')) { importToEstimate(); return; }
+  if(c.includes('perimeter mode') || c.includes('perimeter')) { setDrawMode('perim', document.getElementById('modePerimBtn')); return; }
+  if(c.includes('line mode') || c.includes('lines')) { setDrawMode('line', document.getElementById('modeLineBtn')); return; }
+  if(c.includes('gutter mode') || c.includes('gutters')) { setDrawMode('gutter', document.getElementById('modeGutterBtn')); return; }
+
+  // Measurement commands: "[type] [number] feet"
+  const typeMap = {
+    'ridge':0, 'ridge vent':1, 'hip':2, 'valley':3, 'rake':4,
+    'eave':5, 'flashing':6, 'step flash':7, 'drip edge':8, 'parapet':9, 'gutter':10
+  };
+
+  // Try to match "[type] [number] feet/foot/ft"
+  const numMatch = c.match(/(\d+\.?\d*)\s*(feet|foot|ft)/);
+  if(numMatch) {
+    const dist = parseFloat(numMatch[1]);
+    let matchedType = null;
+    for(const [name, typeIdx] of Object.entries(typeMap)) {
+      if(c.includes(name)) { matchedType = typeIdx; break; }
+    }
+    if(matchedType !== null && dist > 0) {
+      // Add a measurement line at the given length
+      voiceAddMeasurement(matchedType, dist);
+      return;
+    }
+  }
+
+  // Line type selection
+  for(const [name, typeIdx] of Object.entries(typeMap)) {
+    if(c === name || c === name + 's') {
+      drawLT = typeIdx;
+      showToast(`Line type: ${LT[typeIdx].n} (voice)`, 'info');
+      return;
+    }
+  }
+
+  showToast(`Voice: "${cmd}" — not recognized`, 'info');
+}
+
+function voiceAddMeasurement(typeIdx, dist) {
+  // If we have a starting point, extend from it at current bearing
+  // Otherwise create a horizontal line from map center
+  const lt = LT[typeIdx];
+  let p1, p2;
+
+  if(drawStart) {
+    p1 = drawStart;
+  } else if(drawnLines.length > 0) {
+    p1 = drawnLines[drawnLines.length-1].p2;
+  } else {
+    p1 = drawMap.getCenter();
+  }
+
+  // Convert distance to lat offset (approximate: 1 ft ≈ 0.0000027° lat)
+  const ftToLat = 1 / 364000;
+  const ftToLng = ftToLat / Math.cos(p1.lat * Math.PI / 180);
+  // Default: extend east
+  p2 = L.latLng(p1.lat, p1.lng + dist * ftToLng);
+
+  const dot1 = makeDraggableDot(p1, lt.color);
+  const dot2 = makeDraggableDot(p2, lt.color);
+  const line = L.polyline([p1, p2], {color:lt.color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
+  const lbl  = L.marker(mid(p1,p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+  lbl.on('click', () => editLineLength(id));
+  const id = Date.now() + Math.random();
+  drawnLines.push({id, type:typeIdx, name:lt.n, color:lt.color, dist, line, lbl, p1, p2, dot1, dot2, subtype:null});
+  drawStart = p2; // Chain from end
+  renderLineList(); recalc(); autoSaveDrawing();
+  showToast(`Added ${lt.n}: ${dist} ft (voice)`, 'ok');
+}
+
+
+// ── FEATURE 7: HOMEOWNER PRESENTATION MODE ───────────────────────
+function startPresentation() {
+  if(!drawnLines.length) { showToast('Draw some lines first', 'info'); return; }
+  presentationActive = true;
+  presentationStep = 0;
+
+  // Hide sidebar, go fullscreen
+  const sidebar = document.getElementById('map-sidebar-draw');
+  if(sidebar) sidebar.style.display = 'none';
+  const mapArea = document.querySelector('#view-draw .map-area');
+  if(mapArea) mapArea.style.flex = '1';
+
+  // Create presentation overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'presentOverlay';
+  overlay.innerHTML = `
+    <div class="present-bar">
+      <div class="present-title" id="presentTitle">Your Roof Measurement</div>
+      <div class="present-controls">
+        <button class="present-btn" onclick="presentPrev()">← Back</button>
+        <span class="present-step" id="presentStepLabel">1 / 5</span>
+        <button class="present-btn present-btn-next" onclick="presentNext()">Next →</button>
+        <button class="present-btn present-btn-close" onclick="endPresentation()">✕</button>
+      </div>
+    </div>
+    <div class="present-info" id="presentInfo"></div>
+  `;
+  document.getElementById('view-draw').appendChild(overlay);
+
+  // Build presentation steps
+  window._presentSteps = buildPresentationSteps();
+  showPresentationStep(0);
+}
+
+function buildPresentationSteps() {
+  const addr = document.getElementById('drawSearch')?.value || 'Your Property';
+  const steps = [];
+
+  // Step 1: Overview
+  steps.push({
+    title: addr,
+    info: 'Satellite aerial measurement of your property',
+    action: () => { zoomToFit(); hideAllDrawnLayers(); }
+  });
+
+  // Step 2: Show perimeter/facets
+  steps.push({
+    title: 'Roof Outline',
+    info: `${facets.length || 1} roof section${facets.length !== 1 ? 's' : ''} identified — ${(parseFloat(document.getElementById('cr-base')?.textContent)||0)} base square feet`,
+    action: () => {
+      zoomToFit();
+      showOnlyLayers('perim');
+    }
+  });
+
+  // Step 3: Show all measurements
+  steps.push({
+    title: 'Detailed Measurements',
+    info: `${drawnLines.length} measurements taken — Ridge, Hip, Valley, Eave, Rake mapped`,
+    action: () => {
+      zoomToFit();
+      showAllDrawnLayers();
+    }
+  });
+
+  // Step 4: Calculations
+  const t = generateMaterialTakeoff();
+  steps.push({
+    title: 'Roof Calculation',
+    info: `${t.squares.toFixed(1)} squares | Smart waste: ${t.wasteInfo.label} (${t.wasteInfo.complexity}) | ${t.materials.length} material items needed`,
+    action: () => { zoomToFit(); showAllDrawnLayers(); }
+  });
+
+  // Step 5: Call to action
+  steps.push({
+    title: 'Ready to Protect Your Home',
+    info: 'All measurements verified by satellite. Tap below to review your estimate.',
+    action: () => { zoomToFit(); showAllDrawnLayers(); }
+  });
+
+  return steps;
+}
+
+function showPresentationStep(idx) {
+  const steps = window._presentSteps;
+  if(!steps || idx < 0 || idx >= steps.length) return;
+  presentationStep = idx;
+  const step = steps[idx];
+  step.action();
+  document.getElementById('presentTitle').textContent = step.title;
+  document.getElementById('presentInfo').textContent = step.info;
+  document.getElementById('presentStepLabel').textContent = `${idx+1} / ${steps.length}`;
+}
+
+function presentNext() {
+  if(presentationStep < (window._presentSteps?.length||1) - 1) {
+    showPresentationStep(presentationStep + 1);
+  } else {
+    endPresentation();
+    importToEstimate();
+  }
+}
+
+function presentPrev() {
+  if(presentationStep > 0) showPresentationStep(presentationStep - 1);
+}
+
+function endPresentation() {
+  presentationActive = false;
+  const overlay = document.getElementById('presentOverlay');
+  if(overlay) overlay.remove();
+  const sidebar = document.getElementById('map-sidebar-draw');
+  if(sidebar) sidebar.style.display = '';
+  showAllDrawnLayers();
+}
+
+function hideAllDrawnLayers() {
+  drawnLines.forEach(l => {
+    if(l.line) l.line.setStyle({opacity:0});
+    if(l.lbl) l.lbl.setOpacity(0);
+  });
+}
+
+function showAllDrawnLayers() {
+  drawnLines.forEach(l => {
+    if(l.line) l.line.setStyle({opacity:.95});
+    if(l.lbl) l.lbl.setOpacity(1);
+  });
+}
+
+function showOnlyLayers(type) {
+  drawnLines.forEach(l => {
+    const isPerim = l.type === 4 || l.type === 5;
+    const show = (type === 'perim' && isPerim) || type === 'all';
+    if(l.line) l.line.setStyle({opacity: show ? .95 : 0});
+    if(l.lbl) l.lbl.setOpacity(show ? 1 : 0);
+  });
+}
+
+
+// ── FEATURE 8: MULTI-STRUCTURE SUPPORT ───────────────────────────
+function addStructure(name) {
+  const structName = name || `Structure ${structures.length + 1}`;
+  structures.push({
+    name: structName,
+    facets: [],
+    lines: [],
+    gutterPts: [],
+    gutterDts: [],
+    pitch: 1.202
+  });
+  activeStructureIdx = structures.length - 1;
+  renderStructureList();
+  showToast(`Added: ${structName}`, 'ok');
+}
+
+function switchStructure(idx) {
+  if(idx < 0 || idx >= structures.length) return;
+  // Save current state to current structure
+  saveCurrentToStructure();
+  activeStructureIdx = idx;
+  loadStructureState(idx);
+  renderStructureList();
+  showToast(`Switched to: ${structures[idx].name}`, 'info');
+}
+
+function saveCurrentToStructure() {
+  if(structures.length === 0) return;
+  const s = structures[activeStructureIdx];
+  if(!s) return;
+  s.facets = [...facets];
+  s.lines = drawnLines.map(l => ({...l}));
+  s.gutterPts = [...gutterPoints];
+}
+
+function loadStructureState(idx) {
+  const s = structures[idx];
+  if(!s) return;
+  // Clear current visual state
+  drawnLines.forEach(l => {
+    drawMap.removeLayer(l.line);
+    drawMap.removeLayer(l.lbl);
+    if(l.dot1) drawMap.removeLayer(l.dot1);
+    if(l.dot2) drawMap.removeLayer(l.dot2);
+  });
+  facets.forEach(f => {
+    if(f.polygon) drawMap.removeLayer(f.polygon);
+    if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
+  });
+  // Load structure state — simplified: just clear for new drawing
+  drawnLines = [];
+  facets = [];
+  perimPoints = [];
+  perimDots = [];
+  perimSegments = [];
+  perimClosed = false;
+  perimBaseArea = 0;
+  gutterPoints = [];
+  gutterDots = [];
+  renderLineList(); renderFacetList(); recalc(); recalcGutters();
+}
+
+function renameStructure(idx) {
+  const s = structures[idx];
+  if(!s) return;
+  const name = prompt('Rename structure:', s.name);
+  if(name && name.trim()) {
+    s.name = name.trim();
+    renderStructureList();
+  }
+}
+
+function removeStructure(idx) {
+  if(!confirm(`Remove "${structures[idx]?.name}"?`)) return;
+  structures.splice(idx, 1);
+  if(activeStructureIdx >= structures.length) activeStructureIdx = Math.max(0, structures.length-1);
+  renderStructureList();
+  if(structures.length) loadStructureState(activeStructureIdx);
+}
+
+function renderStructureList() {
+  const el = document.getElementById('structureList');
+  if(!el) return;
+  if(!structures.length) {
+    el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p>';
+    return;
+  }
+  el.innerHTML = structures.map((s, i) => `
+    <div class="structure-row ${i===activeStructureIdx?'structure-active':''}" onclick="switchStructure(${i})">
+      <span class="structure-icon">${i===0?'🏠':i===1?'🏗️':'🏚️'}</span>
+      <span class="structure-name">${s.name}</span>
+      <button class="structure-rename" onclick="event.stopPropagation();renameStructure(${i})" title="Rename">✏️</button>
+      ${i>0?`<button class="structure-del" onclick="event.stopPropagation();removeStructure(${i})" title="Remove">✕</button>`:''}
+    </div>
+  `).join('');
+}
+
+function recalcAllStructures() {
+  let totalBase = 0, totalPitched = 0;
+  structures.forEach(s => {
+    s.facets.forEach(f => {
+      if(f.closed && f.baseArea > 0) {
+        totalBase += f.baseArea;
+        totalPitched += f.baseArea * (f.pitch || 1.202);
+      }
+    });
+  });
+  return { totalBase, totalPitched };
+}
+
+
+// ── FEATURE 9: XACTIMATE ESX EXPORT ─────────────────────────────
+// Xactimate line item mapping
+const XACTIMATE_CODES = {
+  0: {code:'RFG RDGV', desc:'Ridge vent - standard', unit:'LF', cat:'Roofing'},
+  1: {code:'RFG RDGV', desc:'Ridge vent', unit:'LF', cat:'Roofing'},
+  2: {code:'RFG HPRD', desc:'Hip & ridge cap', unit:'LF', cat:'Roofing'},
+  3: {code:'RFG VALY', desc:'Valley flashing', unit:'LF', cat:'Roofing'},
+  4: {code:'RFG RAKE', desc:'Rake edge detail', unit:'LF', cat:'Roofing'},
+  5: {code:'RFG EAVE', desc:'Eave/starter strip', unit:'LF', cat:'Roofing'},
+  6: {code:'RFG FLAS', desc:'Flashing - general', unit:'LF', cat:'Roofing'},
+  7: {code:'RFG STPF', desc:'Step flashing', unit:'LF', cat:'Roofing'},
+  8: {code:'RFG DRPE', desc:'Drip edge', unit:'LF', cat:'Roofing'},
+  9: {code:'RFG PRPT', desc:'Parapet cap', unit:'LF', cat:'Roofing'},
+  10:{code:'GTR ALUM', desc:'Gutter - aluminum', unit:'LF', cat:'Gutters'},
+};
+
+function exportXactimateESX() {
+  if(!drawnLines.length) { showToast('No measurements to export', 'info'); return; }
+
+  const addr = document.getElementById('drawSearch')?.value || 'Property';
+  const date = new Date().toISOString().split('T')[0];
+  const baseSF = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
+  const pitchedSF = parseFloat(document.getElementById('cr-pitched')?.textContent) || 0;
+
+  // Group lines by type
+  const grouped = {};
+  drawnLines.forEach(l => {
+    if(!grouped[l.type]) grouped[l.type] = {total:0, count:0, lines:[]};
+    grouped[l.type].total += l.dist;
+    grouped[l.type].count++;
+    grouped[l.type].lines.push(l);
+  });
+
+  // Build ESX-compatible XML
+  let items = '';
+  let itemIdx = 1;
+
+  // Add roof area as main line item
+  items += `    <Item seq="${itemIdx++}">
+      <Code>RFG LAMI</Code>
+      <Description>Remove &amp; Replace - Roofing - Laminated - comp/asphalt shingle</Description>
+      <Category>Roofing</Category>
+      <Quantity>${(pitchedSF/100).toFixed(2)}</Quantity>
+      <Unit>SQ</Unit>
+      <Note>Base area: ${baseSF.toFixed(0)} SF, pitched area: ${pitchedSF.toFixed(0)} SF</Note>
+    </Item>\n`;
+
+  // Add felt/underlayment
+  items += `    <Item seq="${itemIdx++}">
+      <Code>RFG FELT</Code>
+      <Description>Felt paper - 15 lb.</Description>
+      <Category>Roofing</Category>
+      <Quantity>${(pitchedSF/100).toFixed(2)}</Quantity>
+      <Unit>SQ</Unit>
+      <Note>Full roof coverage</Note>
+    </Item>\n`;
+
+  // Add each line type
+  Object.entries(grouped).forEach(([typeStr, data]) => {
+    const typeIdx = parseInt(typeStr);
+    const xact = XACTIMATE_CODES[typeIdx];
+    if(!xact) return;
+    items += `    <Item seq="${itemIdx++}">
+      <Code>${xact.code}</Code>
+      <Description>${xact.desc}</Description>
+      <Category>${xact.cat}</Category>
+      <Quantity>${data.total.toFixed(1)}</Quantity>
+      <Unit>${xact.unit}</Unit>
+      <Note>${data.count} segment(s), total ${data.total.toFixed(1)} LF</Note>
+    </Item>\n`;
+  });
+
+  // Ice & water shield for eaves
+  const eaveLF = grouped[5]?.total || 0;
+  if(eaveLF > 0) {
+    items += `    <Item seq="${itemIdx++}">
+      <Code>RFG ICSHL</Code>
+      <Description>Ice &amp; water shield membrane</Description>
+      <Category>Roofing</Category>
+      <Quantity>${eaveLF.toFixed(1)}</Quantity>
+      <Unit>LF</Unit>
+      <Note>Along eave line, 3ft width</Note>
+    </Item>\n`;
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<XactimateClaim>
+  <ClaimInfo>
+    <Address>${addr.replace(/&/g,'&amp;')}</Address>
+    <DateOfLoss>${date}</DateOfLoss>
+    <CreatedBy>NBD Pro Drawing Tool</CreatedBy>
+    <CreatedDate>${date}</CreatedDate>
+  </ClaimInfo>
+  <Structure name="Main">
+    <Room name="Roof">
+      <Dimensions>
+        <Area unit="SF">${pitchedSF.toFixed(0)}</Area>
+        <Perimeter unit="LF">${(eaveLF + (grouped[4]?.total||0)).toFixed(0)}</Perimeter>
+      </Dimensions>
+      <Items>
+${items}      </Items>
+    </Room>
+  </Structure>
+</XactimateClaim>`;
+
+  // Download as file
+  const blob = new Blob([xml], {type:'application/xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NBD-Xactimate-${addr.replace(/[^a-zA-Z0-9]/g,'-').substring(0,40)}-${date}.esx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Xactimate ESX file downloaded — import into Xactimate', 'ok');
+}
+
+
+// ── FEATURE 10: MEASUREMENT COMPARISON MODE ──────────────────────
+function openComparisonMode() {
+  const modal = document.getElementById('comparisonModal');
+  if(modal) modal.style.display = 'flex';
+}
+
+function closeComparisonMode() {
+  const modal = document.getElementById('comparisonModal');
+  if(modal) modal.style.display = 'none';
+}
+
+function handleComparisonFile(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      parseComparisonReport(e.target.result, file.name);
+    } catch(err) {
+      showToast('Could not parse report: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseComparisonReport(text, filename) {
+  // Try to extract common measurement values from report text
+  const data = { source: filename, measurements: {} };
+
+  // Common patterns in roofing reports
+  const patterns = [
+    {key:'totalArea', regex:/total\s*(?:roof\s*)?area[:\s]*([0-9,.]+)\s*(?:sq\.?\s*ft|sf)/i},
+    {key:'ridgeLF',  regex:/ridge[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'hipLF',    regex:/hip[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'valleyLF', regex:/valley[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'eaveLF',   regex:/eave[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'rakeLF',   regex:/rake[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'perimLF',  regex:/perimeter[:\s]*([0-9,.]+)\s*(?:lf|ft|lin)/i},
+    {key:'pitch',    regex:/(?:predominant\s*)?pitch[:\s]*(\d+)\s*\/\s*12/i},
+    {key:'squares',  regex:/(\d+\.?\d*)\s*squares/i},
+    {key:'facets',   regex:/(\d+)\s*(?:facets|sections|planes)/i},
+  ];
+
+  patterns.forEach(p => {
+    const m = text.match(p.regex);
+    if(m) data.measurements[p.key] = parseFloat(m[1].replace(',',''));
+  });
+
+  if(Object.keys(data.measurements).length === 0) {
+    showToast('No measurements found in report — try a different file format', 'error');
+    return;
+  }
+
+  comparisonData = data;
+  renderComparison();
+}
+
+function renderComparison() {
+  if(!comparisonData) return;
+  const ext = comparisonData.measurements;
+  const el = document.getElementById('comparisonResults');
+  if(!el) return;
+
+  // Our measurements
+  const ourArea = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
+  const ourRidge = drawnLines.filter(l=>l.type===0||l.type===1).reduce((s,l)=>s+l.dist,0);
+  const ourHip = drawnLines.filter(l=>l.type===2).reduce((s,l)=>s+l.dist,0);
+  const ourValley = drawnLines.filter(l=>l.type===3).reduce((s,l)=>s+l.dist,0);
+  const ourEave = drawnLines.filter(l=>l.type===5).reduce((s,l)=>s+l.dist,0);
+  const ourRake = drawnLines.filter(l=>l.type===4).reduce((s,l)=>s+l.dist,0);
+  const ourPerim = ourEave + ourRake;
+  const ourSq = parseFloat(document.getElementById('cr-sq')?.textContent) || 0;
+
+  const comparisons = [
+    {label:'Total Area (sf)', ours:ourArea, theirs:ext.totalArea},
+    {label:'Ridge (LF)', ours:ourRidge, theirs:ext.ridgeLF},
+    {label:'Hip (LF)', ours:ourHip, theirs:ext.hipLF},
+    {label:'Valley (LF)', ours:ourValley, theirs:ext.valleyLF},
+    {label:'Eave (LF)', ours:ourEave, theirs:ext.eaveLF},
+    {label:'Rake (LF)', ours:ourRake, theirs:ext.rakeLF},
+    {label:'Perimeter (LF)', ours:ourPerim, theirs:ext.perimLF},
+    {label:'Squares', ours:ourSq, theirs:ext.squares},
+  ];
+
+  el.innerHTML = `<div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Comparison: ${comparisonData.source}</div>` +
+    comparisons.filter(c => c.theirs !== undefined).map(c => {
+      const diff = c.ours > 0 && c.theirs > 0 ? ((c.ours - c.theirs) / c.theirs * 100) : null;
+      const diffClass = diff !== null ? (Math.abs(diff) <= 5 ? 'comp-match' : Math.abs(diff) <= 15 ? 'comp-warn' : 'comp-off') : 'comp-na';
+      const diffLabel = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`) : '—';
+      return `<div class="comp-row ${diffClass}">
+        <span class="comp-label">${c.label}</span>
+        <span class="comp-ours">${typeof c.ours === 'number' ? c.ours.toFixed(1) : '—'}</span>
+        <span class="comp-theirs">${typeof c.theirs === 'number' ? c.theirs.toFixed(1) : '—'}</span>
+        <span class="comp-diff">${diffLabel}</span>
+      </div>`;
+    }).join('');
+
+  el.style.display = 'block';
+  closeComparisonMode();
+  showToast('Comparison loaded — check results in sidebar', 'ok');
+}
+
+
+// ╔═══════════════════════════════════════════════════════════════════╗
+// ║  END WOW FEATURES                                                ║
+// ╚═══════════════════════════════════════════════════════════════════╝
 
 
 /* ── NBD UNIFIED APPEARANCE ENGINE (inlined) ── */
