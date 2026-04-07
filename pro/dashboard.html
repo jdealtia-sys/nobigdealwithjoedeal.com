@@ -1057,6 +1057,22 @@
               await window._savePin(pinData);
               
               console.log('✓ Auto-pinned lead:', leadRef.id);
+
+              // If this came from a D2D knock, mark it as converted
+              if (data.d2dKnockId) {
+                try {
+                  await updateDoc(doc(db, 'knocks', data.d2dKnockId), { convertedToLead: true, leadId: leadRef.id, updatedAt: serverTimestamp() });
+                } catch (d2dErr) { console.warn('Could not mark D2D knock as converted:', d2dErr); }
+              }
+              // If this came from a pin, link the pin to the lead
+              if (window._pendingPinId) {
+                try {
+                  await window._savePin({ id: window._pendingPinId, leadId: leadRef.id });
+                } catch (pinErr) { console.warn('Could not link pin:', pinErr); }
+                window._pendingPinId = null;
+                window._pendingPinLatLng = null;
+              }
+
               await loadPins(); // Refresh map pins
               await loadLeads();
               return;
@@ -1068,11 +1084,28 @@
         }
         
         // Fallback: create lead without geocoding
-        await addDoc(collection(db,'leads'), {
-          ...data, 
-          createdAt: serverTimestamp(), 
+        // Use lat/lng from D2D knock or pin if available
+        if (!data.lat && window._pendingPinLatLng) {
+          data.lat = window._pendingPinLatLng.lat;
+          data.lng = window._pendingPinLatLng.lng;
+        }
+        const fallbackRef = await addDoc(collection(db,'leads'), {
+          ...data,
+          createdAt: serverTimestamp(),
           userId: window._user?.uid
         });
+        // Mark D2D knock as converted
+        if (data.d2dKnockId) {
+          try {
+            await updateDoc(doc(db, 'knocks', data.d2dKnockId), { convertedToLead: true, leadId: fallbackRef.id, updatedAt: serverTimestamp() });
+          } catch (d2dErr) { console.warn('Could not mark D2D knock as converted:', d2dErr); }
+        }
+        // Link pin if pending
+        if (window._pendingPinId) {
+          try { await window._savePin({ id: window._pendingPinId, leadId: fallbackRef.id }); } catch (pe) {}
+          window._pendingPinId = null;
+          window._pendingPinLatLng = null;
+        }
       } else {
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
@@ -10883,8 +10916,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/tools.js?v=2"></script>
 <script src="js/icons.js?v=2"></script>
 <script src="js/claude-proxy.js?v=1"></script>
-<script src="js/crm.js?v=3"></script>
-<script src="js/maps.js?v=2"></script>
+<script src="js/crm.js?v=4"></script>
+<script src="js/maps.js?v=3"></script>
 <script src="js/widgets.js?v=1"></script>
 <script src="js/ui.js?v=2"></script>
 <script src="js/estimates.js?v=2"></script>
@@ -10981,7 +11014,7 @@ function shareCalViaEmail() {
 <script src="js/estimate-templates.js?v=1"></script>
 <script src="js/daily-tracker.js?v=1"></script>
 <script src="js/product-library.js?v=2"></script>
-<script src="js/d2d-tracker.js?v=3"></script>
+<script src="js/d2d-tracker.js?v=4"></script>
 <script src="js/sales-training.js?v=1"></script>
 <script src="js/storm-center.js?v=1"></script>
 <script src="js/close-board.js?v=1"></script>

@@ -120,9 +120,24 @@ async function saveLead(){
       propertyType:  intelData.propertyType || null,
       parcelId:      intelData.parcelId || null,
       isLLC:         intelData.isLLC || false,
-      homestead:     intelData.homestead || false
+      homestead:     intelData.homestead || false,
+      // D2D knock linkage (set by convertToLeadWithEdit flow)
+      d2dKnockId:    window._pendingD2DConvertId || null
     });
     window._modalIntel = null;
+    // If this save came from a D2D conversion (Edit First flow), mark the knock as converted
+    if (window._pendingD2DConvertId) {
+      try {
+        if (window.updateDoc && window.doc && window._db) {
+          await window.updateDoc(window.doc(window._db, 'knocks', window._pendingD2DConvertId), {
+            convertedToLead: true,
+            updatedAt: window.serverTimestamp()
+          });
+        }
+        if (window.D2D?.renderD2D) window.D2D.renderD2D();
+      } catch (d2dErr) { console.warn('Could not mark D2D knock as converted:', d2dErr); }
+      window._pendingD2DConvertId = null;
+    }
     mOk.textContent='Lead saved!';mOk.style.display='block';
     setTimeout(closeLeadModal,800);
   } catch(e) {

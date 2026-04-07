@@ -332,13 +332,31 @@ function makeLeadFromPin(pinId) {
   if(mainMap) mainMap.closePopup();
   const pin = window._pins?.find(p=>p.id===pinId);
   openLeadModal();
-  if(pin?.notes) {
-    setTimeout(()=>{
-      const notesEl = document.getElementById('lNotes');
-      if(notesEl) notesEl.value = pin.notes;
-      document.getElementById('lFname')?.focus();
-    }, 80);
-  }
+  setTimeout(()=>{
+    const fill = (id, val) => { const el = document.getElementById(id); if(el && val) el.value = val; };
+    if(pin) {
+      // Carry address from pin
+      fill('lAddr', pin.address || pin.name || '');
+      // Carry name if available
+      if(pin.name && pin.name !== pin.address) {
+        const parts = pin.name.split(' ');
+        fill('lFname', parts[0] || '');
+        fill('lLname', parts.slice(1).join(' ') || '');
+      }
+      // Carry notes
+      fill('lNotes', pin.notes || '');
+      // Set source to map pin
+      const srcEl = document.getElementById('lSource');
+      if(srcEl) {
+        const opt = Array.from(srcEl.options).find(o => o.value.toLowerCase().includes('door') || o.value.toLowerCase().includes('map'));
+        if(opt) srcEl.value = opt.value;
+      }
+      // Store pin reference so _saveLead can link them
+      window._pendingPinId = pinId;
+      window._pendingPinLatLng = { lat: pin.lat, lng: pin.lng };
+    }
+    document.getElementById('lFname')?.focus();
+  }, 100);
 }
 
 function deletePinOnly(pinId) {

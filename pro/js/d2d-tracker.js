@@ -679,39 +679,128 @@
     }
   }
 
+  // Dispositions that should auto-offer lead conversion
+  const HOT_DISPOSITIONS = ['appointment', 'interested', 'storm_damage', 'ins_has_claim', 'ins_needs_file'];
+
   async function convertToLead(knockId) {
     try {
       const knock = knocks.find(k => k.id === knockId);
       if (!knock || knock.convertedToLead) return;
 
+      const firstName = (knock.homeowner || '').split(' ')[0] || 'D2D';
+      const lastName = (knock.homeowner || '').split(' ').slice(1).join(' ') || 'Lead';
+
+      // Map D2D disposition → CRM stage
+      let stage = 'New';
+      if (knock.disposition === 'appointment') stage = 'Inspection';
+      else if (knock.disposition === 'interested') stage = 'Contacted';
+      else if (INS_DISPOSITIONS.includes(knock.disposition)) stage = 'Claim Filed';
+
+      // Map D2D disposition → CRM job type
+      let jobType = '';
+      if (INS_DISPOSITIONS.includes(knock.disposition)) jobType = 'insurance';
+
+      // Map D2D disposition → claim status
+      let claimStatus = 'No Claim';
+      if (knock.disposition === 'ins_has_claim') claimStatus = 'Has Claim';
+      else if (knock.disposition === 'ins_needs_file') claimStatus = 'Needs Filing';
+      else if (knock.disposition === 'ins_denied') claimStatus = 'Denied';
+
       const leadData = {
-        name: knock.homeowner || 'D2D Lead',
-        firstName: (knock.homeowner || '').split(' ')[0] || 'D2D',
-        lastName: (knock.homeowner || '').split(' ').slice(1).join(' ') || 'Lead',
+        firstName,
+        lastName,
         address: knock.address || '',
         phone: knock.phone || '',
         email: knock.email || '',
-        stage: knock.disposition === 'appointment' ? 'Inspection' : 'New',
+        stage,
+        jobType,
         source: 'Door-to-Door',
         damageType: knock.disposition === 'storm_damage' ? 'Storm Damage' : '',
         insCarrier: knock.insCarrier || '',
-        claimStatus: INS_DISPOSITIONS.includes(knock.disposition) ? knock.disposition.replace('ins_', '').replace('_', ' ') : 'No Claim',
-        notes: `D2D Knock #${knock.attemptNumber}: ${DISPOSITIONS[knock.disposition]?.label}${knock.notes ? '\n' + knock.notes : ''}`,
-        userId: window._user.uid,
+        claimNumber: knock.claimNumber || '',
+        claimStatus,
+        notes: `D2D Knock #${knock.attemptNumber || 1}: ${DISPOSITIONS[knock.disposition]?.label || ''}${knock.notes ? '\n' + knock.notes : ''}`,
         d2dKnockId: knockId,
-        createdAt: window.serverTimestamp()
+        lat: knock.lat || null,
+        lng: knock.lng || null,
+        followUp: knock.followUpDate ? (typeof knock.followUpDate === 'object' && knock.followUpDate.toISOString ? knock.followUpDate.toISOString().split('T')[0] : String(knock.followUpDate)) : ''
       };
 
-      const ref = await window.addDoc(window.collection(window._db, 'leads'), leadData);
-      await updateKnock(knockId, { convertedToLead: true, leadId: ref.id });
-      if (typeof window._loadLeads === 'function') window._loadLeads();
-      else if (typeof window.loadLeads === 'function') window.loadLeads();
+      // Use _saveLead which also creates map pin and geocodes
+      if (typeof window._saveLead === 'function') {
+        await window._saveLead(leadData);
+      } else {
+        // Fallback: direct Firestore write
+        await window.addDoc(window.collection(window._db, 'leads'), {
+          ...leadData,
+          userId: window._user.uid,
+          createdAt: window.serverTimestamp()
+        });
+        if (typeof window._loadLeads === 'function') window._loadLeads();
+      }
+
+      await updateKnock(knockId, { convertedToLead: true });
       closeKnockDetail();
-      window.showToast?.('Converted to CRM Lead — go to CRM to create estimate', 'success');
+      renderD2D();
+      window.showToast?.('✅ Converted to CRM Lead — visible in your pipeline', 'success');
     } catch (e) {
       console.error('convertToLead failed:', e);
       window.showToast?.('Failed to convert to lead', 'error');
     }
+  }
+
+  // Quick-convert: open lead modal pre-filled from a knock (for manual editing before save)
+  function convertToLeadWithEdit(knockId) {
+    const knock = knocks.find(k => k.id === knockId);
+    if (!knock) return;
+
+    closeKnockDetail();
+
+    // Open the CRM lead modal
+    if (typeof openLeadModal === 'function') openLeadModal();
+    else if (typeof window.openLeadModal === 'function') window.openLeadModal();
+    else { document.getElementById('leadModal')?.classList.add('open'); }
+
+    // Pre-fill fields from knock data
+    setTimeout(() => {
+      const firstName = (knock.homeowner || '').split(' ')[0] || '';
+      const lastName = (knock.homeowner || '').split(' ').slice(1).join(' ') || '';
+
+      const fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      fill('lFname', firstName);
+      fill('lLname', lastName);
+      fill('lAddr', knock.address);
+      fill('lPhone', knock.phone);
+      fill('lEmail', knock.email);
+      fill('lInsCarrier', knock.insCarrier);
+      fill('lClaimNumber', knock.claimNumber);
+      fill('lNotes', `D2D Knock: ${DISPOSITIONS[knock.disposition]?.label || ''}${knock.notes ? '\n' + knock.notes : ''}`);
+
+      // Set source to Door-to-Door
+      const sourceEl = document.getElementById('lSource');
+      if (sourceEl) {
+        const opt = Array.from(sourceEl.options).find(o => o.value.toLowerCase().includes('door'));
+        if (opt) sourceEl.value = opt.value;
+        else sourceEl.value = 'Door-to-Door';
+      }
+
+      // Set stage based on disposition
+      const stageEl = document.getElementById('lStage');
+      if (stageEl) {
+        if (knock.disposition === 'appointment') stageEl.value = 'Inspection';
+        else if (knock.disposition === 'interested') stageEl.value = 'Contacted';
+        else stageEl.value = 'New';
+      }
+
+      // Set job type for insurance dispositions
+      if (INS_DISPOSITIONS.includes(knock.disposition)) {
+        const jtEl = document.getElementById('lJobType');
+        if (jtEl) jtEl.value = 'insurance';
+      }
+
+      // Mark knock as converted after modal is open (will be finalized on save)
+      window._pendingD2DConvertId = knockId;
+    }, 150);
   }
 
   async function loadTeamKnocks() {
@@ -1435,11 +1524,22 @@
     currentKnockEntry.photoUrls = photoUrls;
     currentKnockEntry.voiceUrl = voiceUrl;
 
+    const savedDispo = currentKnockEntry.disposition;
+    const savedPhone = currentKnockEntry.phone;
     const knockId = await submitKnock(currentKnockEntry);
     closeQuickKnock();
 
-    // Offer SMS follow-up for relevant dispositions
-    if (knockId && currentKnockEntry.phone && ['interested', 'appointment', 'storm_damage', 'ins_has_claim'].includes(currentKnockEntry.disposition)) {
+    if (!knockId) return;
+
+    // Auto-offer lead conversion for hot dispositions
+    if (HOT_DISPOSITIONS.includes(savedDispo)) {
+      setTimeout(() => {
+        const dispoLabel = DISPOSITIONS[savedDispo]?.label || savedDispo;
+        showConversionPrompt(knockId, dispoLabel);
+      }, 400);
+    }
+    // Offer SMS follow-up for relevant dispositions (if not already converting)
+    else if (savedPhone && ['interested', 'appointment', 'storm_damage', 'ins_has_claim'].includes(savedDispo)) {
       setTimeout(() => {
         if (confirm('Send follow-up text?')) {
           const knock = knocks.find(k => k.id === knockId);
@@ -1447,6 +1547,38 @@
         }
       }, 500);
     }
+  }
+
+  // Show a branded prompt to convert knock → CRM lead
+  function showConversionPrompt(knockId, dispoLabel) {
+    const overlay = document.createElement('div');
+    overlay.className = 'd2d-modal-overlay open';
+    overlay.id = 'd2d-convert-prompt';
+    overlay.style.zIndex = '10002';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    const modal = document.createElement('div');
+    modal.className = 'd2d-modal';
+    modal.style.maxWidth = '360px';
+    modal.innerHTML = `
+      <div class="d2d-modal-body" style="text-align:center;padding:28px 20px;">
+        <div style="font-size:36px;margin-bottom:10px;">🔥</div>
+        <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">Hot Lead Detected</div>
+        <div style="font-size:13px;color:var(--m);margin-bottom:20px;">"${esc(dispoLabel)}" — convert this knock into a CRM lead so it shows up in your pipeline?</div>
+        <div style="display:flex;gap:10px;">
+          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:#2ECC8A;color:white;font-weight:700;font-size:14px;cursor:pointer;" onclick="window.D2D.convertToLead('${knockId}');document.getElementById('d2d-convert-prompt')?.remove();">
+            ✅ Convert Now
+          </button>
+          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--s2);color:var(--t);font-weight:600;font-size:14px;cursor:pointer;border:1px solid var(--br);" onclick="window.D2D.convertToLeadWithEdit('${knockId}');document.getElementById('d2d-convert-prompt')?.remove();">
+            ✏️ Edit First
+          </button>
+        </div>
+        <button style="margin-top:12px;background:none;border:none;color:var(--m);font-size:12px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('d2d-convert-prompt')?.remove();">Skip for now</button>
+      </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
   }
 
   // ============================================================================
@@ -1748,6 +1880,13 @@
                   </div>
                 </div>
                 ${knock.notes ? `<div style="font-size:12px;color:var(--m);margin-top:6px;padding-top:6px;border-top:1px solid var(--br);">${esc(knock.notes.substring(0, 80))}</div>` : ''}
+                ${!knock.convertedToLead && HOT_DISPOSITIONS.includes(knock.disposition) ? `
+                  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--br);display:flex;gap:6px;" onclick="event.stopPropagation();">
+                    <button style="flex:1;padding:8px;border:none;border-radius:6px;background:#2ECC8A;color:white;font-size:12px;font-weight:700;cursor:pointer;" onclick="event.stopPropagation();window.D2D.convertToLead('${knock.id}')">✅ Convert to Lead</button>
+                    <button style="padding:8px 12px;border:none;border-radius:6px;background:var(--s2);color:var(--t);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--br);" onclick="event.stopPropagation();window.D2D.convertToLeadWithEdit('${knock.id}')">✏️</button>
+                  </div>
+                ` : ''}
+                ${knock.convertedToLead ? `<div style="margin-top:6px;font-size:11px;color:#2ECC8A;font-weight:600;">✓ In CRM Pipeline</div>` : ''}
               </div>
             `;
           }).join('')}
@@ -1962,6 +2101,7 @@
     openKnockDetail,
     closeKnockDetail,
     convertToLead,
+    convertToLeadWithEdit,
     deleteKnock,
     toggleHeatMap,
     setDateFilter,
