@@ -10957,27 +10957,7 @@ function shareCalViaEmail() {
   };
 
   // ══════════════════════════════════════════════════════════════
-  // NOTIFICATION DROPDOWN TOGGLE
-  // ══════════════════════════════════════════════════════════════
-  function toggleNotificationDropdown() {
-    const dropdown = document.getElementById('notifDropdown');
-    if (!dropdown) return;
-    if (dropdown.style.display === 'flex') {
-      dropdown.style.display = 'none';
-    } else {
-      dropdown.style.display = 'flex';
-    }
-  }
-  window.toggleNotificationDropdown = toggleNotificationDropdown;
-
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('notifDropdown');
-    const btn = document.getElementById('notifBtn');
-    if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
-      dropdown.style.display = 'none';
-    }
-  });
+  // Notification toggle + click-outside handled by crm.js
 </script>
 
 

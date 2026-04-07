@@ -805,18 +805,23 @@ document.addEventListener('click', (e) => {
 
 async function markNotificationRead(notifId) {
   try {
-    await _updateDoc(_doc(window.db, 'notifications', notifId), {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    await updateDoc(doc(_db, 'notifications', notifId), {
       read: true,
-      readAt: _serverTimestamp()
+      readAt: serverTimestamp()
     });
-    
+
     // Update local state
     const notif = window._notifications.find(n => n.id === notifId);
     if (notif) notif.read = true;
-    
+
     // Refresh display
     await loadNotifications();
-    
+
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
@@ -824,21 +829,26 @@ async function markNotificationRead(notifId) {
 
 async function markAllNotificationsRead() {
   try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
     const unread = window._notifications.filter(n => !n.read);
-    
-    await Promise.all(unread.map(n => 
-      _updateDoc(_doc(window.db, 'notifications', n.id), {
+
+    await Promise.all(unread.map(n =>
+      updateDoc(doc(_db, 'notifications', n.id), {
         read: true,
-        readAt: _serverTimestamp()
+        readAt: serverTimestamp()
       })
     ));
-    
+
     // Update local state
     window._notifications.forEach(n => n.read = true);
-    
+
     // Refresh display
     await loadNotifications();
-    
+
   } catch (error) {
     console.error('Error marking all as read:', error);
   }
@@ -847,14 +857,19 @@ async function markAllNotificationsRead() {
 // Helper function to create notifications (for system use)
 async function createNotification(userId, type, title, message, leadId = null) {
   try {
-    await _addDoc(col(window.db, 'notifications'), {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { addDoc, collection, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    await addDoc(collection(_db, 'notifications'), {
       userId: userId,
       type: type,
       title: title,
       message: message,
       leadId: leadId,
       read: false,
-      createdAt: _serverTimestamp()
+      createdAt: serverTimestamp()
     });
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -934,10 +949,15 @@ async function checkAndCreateFollowUpNotifications(leads) {
 
   // Write to Firestore
   try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { addDoc, collection: firestoreCol, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
     await Promise.all(toCreate.map(n =>
-      _addDoc(col(window.db, 'notifications'), {
+      addDoc(firestoreCol(_db, 'notifications'), {
         ...n,
-        createdAt: _serverTimestamp()
+        createdAt: serverTimestamp()
       })
     ));
     // Reload notifications so badge updates immediately
@@ -957,6 +977,10 @@ async function checkAndCreateFollowUpNotifications(leads) {
   }
 }
 window.checkAndCreateFollowUpNotifications = checkAndCreateFollowUpNotifications;
+window.markNotificationRead = markNotificationRead;
+window.markAllNotificationsRead = markAllNotificationsRead;
+window.loadNotifications = loadNotifications;
+window.renderNotifications = renderNotifications;
 
 // Request browser notification permission on first load (once)
 async function requestNotifPermission() {
