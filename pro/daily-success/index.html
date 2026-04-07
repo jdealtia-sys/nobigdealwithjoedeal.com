@@ -7,6 +7,11 @@
 <title>No Big Deal · Daily Success Program</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700&family=DM+Mono:wght@400;500&family=Montserrat:wght@400;600;700&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<!-- Auth gate — free tier, no login required, just exposes NBDAuth for optional cloud sync -->
+<script type="module">
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window._nbdAuth = NBDAuth.init({ requiredPlan: 'free' });
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 [data-theme="dark"]{

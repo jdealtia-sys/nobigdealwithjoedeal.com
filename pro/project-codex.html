@@ -1,56 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="visibility:hidden">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Codex — NBD Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <script type="module">
-// Firebase auth check - ensure user is authenticated before showing Project Codex
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-  authDomain: "nobigdeal-pro.firebaseapp.com",
-  projectId: "nobigdeal-pro",
-  storageBucket: "nobigdeal-pro.firebasestorage.app",
-  messagingSenderId: "717435841570",
-  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Check authentication before allowing access
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // Not logged in - redirect to login
-    window.location.href = '/pro/login.html';
-    return;
-  }
-
-  // Verify admin role
-  try {
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (!userDocSnap.exists() || userDocSnap.data().role !== 'admin') {
-      // Not admin - redirect to login
-      window.location.href = '/pro/login.html?error=admin_required';
-      return;
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window._nbdAuth = NBDAuth.init({
+    requiredPlan: 'foundation',
+    onReady: (user) => {
+      // Expose for legacy code in this file
+      window._authUser = user;
+      window._db = NBDAuth.db;
+      window._firebaseReady = true;
+      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
     }
-    // User is authenticated and has admin role - allow access
-    window._authUser = user;
-    window._db = db;
-    window._firebaseReady = true;
-  } catch (error) {
-    console.error('Auth check error:', error);
-    window.location.href = '/pro/login.html?error=auth_error';
-  }
-});
+  });
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="visibility:hidden">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -375,6 +375,15 @@ body.lm .tool-card.selected{border-color:var(--or)!important;background:var(--or
 .tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--tx);line-height:1}
 .tb-title span{color:var(--or)}
 </style>
+<script type="module">
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window._nbdAuth = NBDAuth.init({
+    requiredPlan: 'professional',
+    onReady: (user) => {
+      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
+    }
+  });
+</script>
 </head>
 <body>
 <!-- ═══════════════════════════════════════════════════════════════

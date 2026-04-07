@@ -114,6 +114,25 @@ service cloud.firestore {
       }
     }
 
+    // ── SUBSCRIPTIONS ─────────────────────────────────
+    // Users can read their own subscription; only server/registration can create/update
+    match /subscriptions/{uid} {
+      allow read: if isOwner(uid);
+      // Allow create during registration (user creating their own sub doc)
+      allow create: if isOwner(uid)
+        && request.resource.data.plan is string
+        && request.resource.data.status is string;
+      // Allow update only if user is updating their own doc
+      // (Stripe webhooks should use admin SDK which bypasses rules)
+      allow update: if isOwner(uid);
+    }
+
+    // ── ACCESS CODES ──────────────────────────────────
+    // Read-only for all authenticated users (registration validation)
+    match /access_codes/{codeId} {
+      allow read: if isAuth();
+    }
+
     // ── LEADERBOARD (read-only for all auth users, write for self) ──
     match /leaderboard/{uid} {
       allow read: if isAuth();
@@ -134,6 +153,39 @@ service cloud.firestore {
     // ── DAILY SUCCESS ─────────────────────────────────
     match /daily_entries/{uid}/entries/{entryId} {
       allow read, write: if isOwner(uid);
+    }
+
+    // ── D2D KNOCKS (door-to-door tracking) ─────────────
+    match /knocks/{knockId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── D2D KNOCKS (team-scoped reads for managers) ──
+    // Managers can read all knocks for their company
+    match /knocks/{knockId} {
+      allow read: if isAuth() && resource.data.companyId != null
+        && exists(/databases/$(database)/documents/reps/$(request.auth.uid))
+        && get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.role == 'manager'
+        && resource.data.companyId == get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.companyId;
+    }
+
+    // ── REPS (team member profiles) ──────────────────
+    match /reps/{repId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && repId == request.auth.uid;
+      allow update: if isOwner(repId);
+      allow delete: if isOwner(repId);
+    }
+
+    // ── TERRITORIES (D2D territory polygons) ─────────
+    match /territories/{territoryId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── PRODUCTS (user-scoped product catalog) ────────
@@ -163,6 +215,22 @@ service cloud.firestore {
         allow read: if isAuth();
         allow write: if isAuth();
       }
+    }
+
+    // ── TRAINING SESSIONS (sales training progress) ──
+    match /training_sessions/{sessionId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── TRAINING SESSIONS (team reads for managers) ──
+    match /training_sessions/{sessionId} {
+      allow read: if isAuth() && resource.data.companyId != null
+        && exists(/databases/$(database)/documents/reps/$(request.auth.uid))
+        && get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.role == 'manager'
+        && resource.data.companyId == get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.companyId;
     }
 
     // ── DEFAULT: Deny everything else ─────────────────

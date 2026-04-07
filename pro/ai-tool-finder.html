@@ -1,6 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="visibility:hidden">
 <head>
+<script type="module">
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window._nbdAuth = NBDAuth.init({
+    requiredPlan: 'professional',
+    onReady: (user) => {
+      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
+    }
+  });
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Selection Codex — NBD Pro</title>

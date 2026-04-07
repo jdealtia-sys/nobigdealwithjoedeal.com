@@ -85,6 +85,18 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- Centralized Auth Gate -->
+<script type="module">
+  import { NBDAuth } from '/pro/js/nbd-auth.js';
+  // Dashboard does its own heavy Firebase init below — NBDAuth just provides
+  // the access gate and exposes window.NBDAuth for plan badges / feature checks
+  window._nbdAuth = NBDAuth.init({
+    requiredPlan: 'foundation',
+    onReady: (user) => {
+      console.log('NBDAuth gate passed — plan:', NBDAuth.userPlan);
+    }
+  });
+</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
