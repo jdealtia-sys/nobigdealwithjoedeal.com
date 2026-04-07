@@ -181,7 +181,7 @@
     const marginTier = currentFilter.tier || 'better';
     const avgMargin = activeCount > 0 ? Math.round(
       products.filter(p => p.isActive !== false).reduce((s, p) => {
-        return s + margin(p.pricing?.[marginTier]?.sell || 0, p.pricing?.[marginTier]?.cost || 0);
+        return s + grossMargin(p.pricing?.[marginTier]?.sell || 0, p.pricing?.[marginTier]?.cost || 0, p.labor?.perUnit || 0);
       }, 0) / activeCount
     ) : 0;
 
@@ -251,9 +251,9 @@
 
             <!-- Cost Breakdown Row -->
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-              <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#1e293b;color:#f1f5f9;font-weight:700;">🏷️ My Cost: ${formatCurrency(myCost)}/${p.unit}</span>
-              ${matCost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 Mat ${formatCurrency(matCost)}/${p.unit}</span>` : ''}
-              ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ Lab ${formatCurrency(p.labor.perUnit)}/${p.unit}</span>` : ''}
+              <span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#1e293b;color:#f1f5f9;font-weight:700;">🏷️ My Cost: ${formatCurrency(myCost)}/${p.unit} <span style="opacity:.6;font-weight:400;">(${TIER_LABELS[tierForMargin]})</span></span>
+              ${matCost ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;">💲 Mat ${formatCurrency(matCost)}</span>` : ''}
+              ${hasLabor ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e;">⚒️ Lab ${formatCurrency(p.labor.perUnit)}</span>` : ''}
             </div>
 
             <!-- Meta Row -->
@@ -265,7 +265,7 @@
 
             <!-- Footer -->
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);">
-              <div style="font-size:12px;color:var(--m);"><strong>Gross Profit:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span></div>
+              <div style="font-size:12px;color:var(--m);"><strong>Gross Profit <span style="font-weight:400;opacity:.7;">(${TIER_LABELS[tierForMargin]})</span>:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span></div>
               <div style="display:flex;gap:6px;">
                 <button onclick="window._productLib.editProduct('${p.id}')" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
                 <button onclick="window._productLib.archiveProduct('${p.id}')" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
@@ -416,15 +416,17 @@
                   <div style="font-size:11px;font-weight:600;color:${TIER_COLORS[t]};text-transform:uppercase;margin-bottom:6px;text-align:center;">${TIER_LABELS[t]}</div>
                   <div style="margin-bottom:6px;">
                     <label style="font-size:10px;color:var(--m);">Sell Price</label>
-                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div>
                     <label style="font-size:10px;color:var(--m);">Material Cost</label>
-                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
+                  <div id="pm-margin-${t}" style="text-align:center;margin-top:6px;font-size:11px;font-weight:700;"></div>
                 </div>
               `).join('')}
             </div>
+            <div id="pm-margin-warnings" style="margin-top:8px;"></div>
           </div>
 
           <!-- Labor -->
@@ -433,7 +435,7 @@
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
               <div>
                 <label style="font-size:10px;color:var(--m);">Per Unit Cost</label>
-                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
               </div>
               <div>
                 <label style="font-size:10px;color:var(--m);">Rate / Man-Hour</label>
@@ -500,6 +502,8 @@
     `;
 
     document.body.appendChild(modal);
+    // Trigger initial margin calc
+    setTimeout(recalcModalMargins, 0);
   }
 
   function closeModal() {
@@ -508,9 +512,41 @@
     editingProduct = null;
   }
 
+  function recalcModalMargins() {
+    const labor = parseFloat(document.getElementById('pm-labor-perunit')?.value) || 0;
+    const warnings = [];
+    TIERS.forEach(t => {
+      const sell = parseFloat(document.getElementById('pm-sell-' + t)?.value) || 0;
+      const mat = parseFloat(document.getElementById('pm-cost-' + t)?.value) || 0;
+      const myCost = mat + labor;
+      const el = document.getElementById('pm-margin-' + t);
+      if (!el) return;
+      if (sell <= 0) { el.innerHTML = '<span style="color:var(--m);">—</span>'; return; }
+      const m = Math.round(((sell - myCost) / sell) * 100);
+      const profit = sell - myCost;
+      const color = sell <= myCost ? '#ef4444' : m < 25 ? '#f59e0b' : '#10b981';
+      el.innerHTML = '<span style="color:' + color + ';">' + m + '% ($' + profit.toFixed(2) + ')</span>';
+      if (sell <= myCost) warnings.push(TIER_LABELS[t] + ' sell ($' + sell + ') is at or below cost ($' + myCost.toFixed(2) + ')');
+    });
+    const warnEl = document.getElementById('pm-margin-warnings');
+    if (warnEl) {
+      warnEl.innerHTML = warnings.map(w => '<div style="font-size:11px;color:#ef4444;padding:4px 8px;background:#ef444415;border-radius:4px;margin-bottom:4px;">⚠️ ' + w + '</div>').join('');
+    }
+  }
+
   function saveFromModal() {
     const name = document.getElementById('pm-name').value.trim();
     if (!name) { showToast('Product name is required', 'error'); return; }
+
+    // Validate: no tier sells below cost
+    const laborVal = parseFloat(document.getElementById('pm-labor-perunit')?.value) || 0;
+    const belowCost = [];
+    TIERS.forEach(t => {
+      const sell = parseFloat(document.getElementById('pm-sell-' + t)?.value) || 0;
+      const mat = parseFloat(document.getElementById('pm-cost-' + t)?.value) || 0;
+      if (sell > 0 && sell <= mat + laborVal) belowCost.push(TIER_LABELS[t]);
+    });
+    if (belowCost.length && !confirm('Warning: ' + belowCost.join(', ') + ' tier(s) have sell price at or below cost. Save anyway?')) return;
 
     const product = editingProduct ? { ...editingProduct } : {};
     product.name = name;
@@ -644,6 +680,7 @@
     resetDefaults: resetToDefaults,
     openModal,
     closeModal,
+    recalcModalMargins,
     editProduct: openModal,
     addProduct: () => openModal(null),
     saveFromModal,
@@ -657,7 +694,7 @@
       total: products.filter(p => p.isActive !== false).length,
       categories: new Set(products.filter(p => p.isActive !== false).map(p => p.category)).size,
       avgMargin: Math.round(
-        products.filter(p => p.isActive !== false).reduce((s, p) => s + margin(p.pricing?.better?.sell || 0, p.pricing?.better?.cost || 0), 0) /
+        products.filter(p => p.isActive !== false).reduce((s, p) => s + grossMargin(p.pricing?.better?.sell || 0, p.pricing?.better?.cost || 0, p.labor?.perUnit || 0), 0) /
         Math.max(products.filter(p => p.isActive !== false).length, 1)
       )
     })
