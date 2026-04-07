@@ -838,18 +838,103 @@ async function setupFinish() {
   launchApp();
 }
 
-function launchApp() {
+async function launchApp() {
   document.getElementById('lock-screen').style.display = 'none';
   const app = document.getElementById('app');
   app.classList.add('unlocked');
   renderAll();
   goTo('synthesis');
+  // Try to merge cloud data
+  if (window._firebaseReady && window._authUser) {
+    const cloudDocs = await loadFromFirestore();
+    if (cloudDocs && cloudDocs.length) {
+      const codexId = btoa(CODEX.accessCode || '').slice(0,8);
+      const cloudDoc = cloudDocs.find(d => btoa(d.accessCode||'').slice(0,8) === codexId) || cloudDocs[0];
+      if (cloudDoc) {
+        // Merge: cloud sessions we don't have locally
+        const localIds = new Set(CODEX.sessions.map(s => s.number));
+        (cloudDoc.sessions || []).forEach(s => {
+          if (!localIds.has(s.number)) CODEX.sessions.push(s);
+        });
+        // Merge tasks
+        const localTaskIds = new Set(CODEX.tasks.map(t => t.id));
+        (cloudDoc.tasks || []).forEach(t => {
+          if (!localTaskIds.has(t.id)) CODEX.tasks.push(t);
+        });
+        // Use cloud synthesis if local is empty
+        if (!CODEX.synthesis && cloudDoc.synthesis) CODEX.synthesis = cloudDoc.synthesis;
+        // Merge DNA
+        if (cloudDoc.dna) {
+          Object.keys(cloudDoc.dna).forEach(k => {
+            if (!CODEX.dna[k] && cloudDoc.dna[k]) CODEX.dna[k] = cloudDoc.dna[k];
+          });
+        }
+        saveCodex();
+        renderAll();
+        showSyncBadge('Cloud merged');
+      }
+    } else {
+      // No cloud data — push local up
+      syncToFirestore();
+    }
+  }
 }
 
 // ── SAVE / LOAD ───────────────────────────────────────
+let _syncTimer = null;
 function saveCodex() {
   if (CODEX.storageMode === 'export') return;
   localStorage.setItem(storageKey(), JSON.stringify(CODEX));
+  // Debounced Firestore sync
+  if (window._firebaseReady && window._authUser && window._db) {
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(() => syncToFirestore(), 2000);
+  }
+}
+
+async function syncToFirestore() {
+  if (!window._db || !window._authUser) return;
+  try {
+    const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const uid = window._authUser.uid;
+    const codexId = btoa(CODEX.accessCode || '').slice(0,8);
+    await setDoc(doc(window._db, 'users', uid, 'codex', codexId), {
+      ...CODEX,
+      accessCode: undefined, // Don't store access code in Firestore
+      _uid: uid,
+      _updatedAt: serverTimestamp()
+    }, { merge: true });
+    showSyncBadge('Synced');
+  } catch(e) {
+    console.warn('Codex Firestore sync failed:', e);
+    showSyncBadge('Sync failed');
+  }
+}
+
+async function loadFromFirestore() {
+  if (!window._db || !window._authUser) return null;
+  try {
+    const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const uid = window._authUser.uid;
+    const snap = await getDocs(collection(window._db, 'users', uid, 'codex'));
+    if (snap.empty) return null;
+    const docs = [];
+    snap.forEach(d => docs.push(d.data()));
+    return docs;
+  } catch(e) { return null; }
+}
+
+function showSyncBadge(msg) {
+  let badge = document.getElementById('sync-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'sync-badge';
+    badge.style.cssText = 'position:fixed;top:10px;right:16px;z-index:9999;font-family:DM Mono,monospace;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--cyan);transition:opacity .4s;opacity:0;pointer-events:none;';
+    document.body.appendChild(badge);
+  }
+  badge.textContent = msg;
+  badge.style.opacity = '1';
+  setTimeout(() => { badge.style.opacity = '0'; }, 2400);
 }
 
 // ── NAVIGATION ────────────────────────────────────────
@@ -1609,19 +1694,46 @@ async function parseAndImport(text) {
 
 // ── AI CALL ───────────────────────────────────────────
 async function callAI(prompt) {
+  const apiKey = localStorage.getItem('nbd_joe_key') || '';
+  if (!apiKey) {
+    return offlineAIFallback(prompt);
+  }
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true', 'x-api-key': localStorage.getItem('nbd_joe_key') || '' },
+      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true', 'x-api-key': apiKey },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{role: 'user', content: prompt}]
       }),
     });
     const data = await res.json();
-    return data?.content?.[0]?.text || 'AI unavailable';
+    return data?.content?.[0]?.text || offlineAIFallback(prompt);
   } catch(e) {
-    return 'AI call failed: ' + e.message;
+    return offlineAIFallback(prompt);
   }
+}
+
+function offlineAIFallback(prompt) {
+  // Basic rule-based fallback when no API key is available
+  const lower = prompt.toLowerCase();
+  if (lower.includes('synthesis') || lower.includes('executive')) {
+    const sessions = CODEX.sessions.length;
+    const openTasks = CODEX.tasks.filter(t => !t.closed).length;
+    const lastSession = CODEX.sessions[CODEX.sessions.length - 1];
+    return `${CODEX.projectName} has ${sessions} session${sessions!==1?'s':''} logged with ${openTasks} open task${openTasks!==1?'s':''}. ${lastSession ? 'Last session: "'+lastSession.title+'" covered: '+(lastSession.content||'').split('\n')[0] : 'No sessions recorded yet.'}. ${openTasks > 3 ? 'Task backlog is growing — prioritize and close items.' : 'Task load is manageable.'} [Auto-generated — set API key in Understand → 🔑 for AI-powered synthesis]`;
+  }
+  if (lower.includes('briefing') || lower.includes('agent')) {
+    const lastSession = CODEX.sessions[CODEX.sessions.length - 1];
+    const tasks = CODEX.tasks.filter(t => !t.closed).slice(0, 5).map(t => '□ ' + t.text).join('\n');
+    return `PROJECT: ${CODEX.projectName}\nSTATUS: ${CODEX.sessions.length} sessions logged\n${lastSession ? 'LAST SESSION: '+lastSession.title+'\n'+lastSession.content : ''}\n\nOPEN TASKS:\n${tasks || '(none)'}\n\n[Auto-generated briefing — set API key for AI-powered version]`;
+  }
+  if (lower.includes('extract') && lower.includes('task')) {
+    return '[]'; // Return empty JSON array for task extraction
+  }
+  if (lower.includes('format') || lower.includes('extract')) {
+    return prompt.split('Summary from user:')[1]?.split('\n')[0]?.trim() || prompt.split('Raw notes:')[1]?.trim() || 'Content saved as-is. Set API key for AI formatting.';
+  }
+  return 'AI features require an API key. Set one in the Understand Tool → 🔑 button. Your data is saved locally and synced to the cloud.';
 }
 
 // ── UTILS ─────────────────────────────────────────────
