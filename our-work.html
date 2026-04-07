@@ -11,42 +11,107 @@
 {"@context":"https://schema.org","@type":"ImageGallery","name":"Our Work — No Big Deal Home Solutions","description":"Roof replacement, storm damage repair, siding, and gutter project photos from Greater Cincinnati","url":"https://www.nobigdealwithjoedeal.com/our-work"}
 </script>
 <style>
-:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0}
+:root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c85a08;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0;--success:#22c55e}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white)}
+a{text-decoration:none}
+
+/* NAV */
 nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4)}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}.nav-logo img{height:42px;border-radius:6px}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white}.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6)}
 .nav-links{display:flex;list-style:none;gap:24px;align-items:center}.nav-links a{color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600}
 .nav-cta{background:var(--orange);color:white!important;padding:8px 20px;border-radius:6px;font-weight:700!important}
 .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px}.hamburger span{width:24px;height:2.5px;background:white;border-radius:2px}
-.hero{background:var(--navy-dark);padding:64px 40px;text-align:center}
-h1{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:white;letter-spacing:1px;margin-bottom:12px}h1 span{color:var(--orange)}
-.hero p{color:rgba(255,255,255,.7);font-size:.95rem;max-width:600px;margin:0 auto}
-section{padding:48px 40px}.inner{max-width:1100px;margin:0 auto}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,var(--navy-dark) 0%,#1a3560 100%);padding:72px 40px 64px;text-align:center;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--orange),var(--orange-light))}
+h1{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;color:white;letter-spacing:2px;margin-bottom:12px}h1 span{color:var(--orange)}
+.hero p{color:rgba(255,255,255,.7);font-size:.95rem;max-width:600px;margin:0 auto;line-height:1.7}
+.hero-stats{display:flex;justify-content:center;gap:40px;margin-top:28px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat-num{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--orange);line-height:1}
+.hero-stat-lbl{font-size:.7rem;font-weight:600;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+
+/* SECTIONS */
+section{padding:56px 40px}.inner{max-width:1100px;margin:0 auto}
 .ey{font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
-.sec-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark);margin-bottom:24px;letter-spacing:.5px}.sec-title span{color:var(--orange)}
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
-.project{background:white;border:1px solid var(--light-gray);border-radius:14px;overflow:hidden;transition:box-shadow .2s}
-.project:hover{box-shadow:0 6px 24px rgba(0,0,0,.1)}
-.project-img{width:100%;height:220px;object-fit:cover;display:block}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy-dark);margin-bottom:8px;letter-spacing:.5px}.sec-title span{color:var(--orange)}
+.sec-sub{font-size:.88rem;color:var(--gray);line-height:1.6;margin-bottom:28px;max-width:600px}
+
+/* FILTER TABS */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
+.filter-btn{background:white;border:1.5px solid var(--light-gray);border-radius:100px;padding:8px 18px;font-size:.78rem;font-weight:700;color:var(--navy-dark);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif}
+.filter-btn:hover{border-color:var(--orange);color:var(--orange)}
+.filter-btn.active{background:var(--orange);border-color:var(--orange);color:white}
+
+/* GALLERY */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.project{background:white;border:1px solid var(--light-gray);border-radius:14px;overflow:hidden;transition:all .25s;opacity:1;transform:translateY(0)}
+.project:hover{box-shadow:0 8px 32px rgba(0,0,0,.1);transform:translateY(-3px)}
+.project.hidden{display:none}
+.project-img{width:100%;height:230px;object-fit:cover;display:block}
 .project-body{padding:20px}
-.project-tag{display:inline-block;background:rgba(232,114,12,.1);color:var(--orange);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;margin-bottom:8px}
+.project-tag{display:inline-block;background:rgba(232,114,12,.1);color:var(--orange);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:100px;margin-bottom:8px}
 .project h3{font-size:1rem;font-weight:700;color:var(--navy-dark);margin-bottom:6px}
 .project p{font-size:.82rem;color:var(--gray);line-height:1.6}
-.project-loc{font-size:.75rem;color:var(--gray);margin-top:8px;display:flex;align-items:center;gap:4px}
-.empty-gallery{text-align:center;padding:60px 20px;background:var(--off-white);border-radius:14px;border:2px dashed var(--light-gray)}
-.empty-gallery h3{font-size:1.1rem;color:var(--navy-dark);margin-bottom:8px}
-.empty-gallery p{font-size:.88rem;color:var(--gray);line-height:1.6;max-width:500px;margin:0 auto 20px}
-.btn-primary{background:var(--orange);color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:.88rem;display:inline-flex;align-items:center;gap:8px}
-.cta-section{background:var(--navy-dark);text-align:center;padding:64px 40px}
+.project-loc{font-size:.75rem;color:var(--gray);margin-top:10px;display:flex;align-items:center;gap:4px}
+
+/* BEFORE / AFTER */
+.ba-section{background:var(--off-white);padding:56px 40px}
+.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;max-width:1100px;margin:0 auto}
+.ba-pair{background:white;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.ba-images{display:grid;grid-template-columns:1fr 1fr;position:relative}
+.ba-images img{width:100%;height:220px;object-fit:cover;display:block}
+.ba-label{position:absolute;bottom:8px;padding:4px 12px;border-radius:4px;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.ba-label.before{left:8px;background:rgba(220,38,38,.9);color:white}
+.ba-label.after{right:8px;background:rgba(34,197,94,.9);color:white}
+.ba-divider{position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;z-index:2}
+.ba-body{padding:18px 22px}
+.ba-body h3{font-size:.95rem;font-weight:700;color:var(--navy-dark);margin-bottom:4px}
+.ba-body p{font-size:.8rem;color:var(--gray);line-height:1.6}
+
+/* CTA */
+.cta-section{background:var(--navy-dark);text-align:center;padding:64px 40px;position:relative}
+.cta-section::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--orange),var(--orange-light))}
 .cta-section h2{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:white;margin-bottom:12px}.cta-section h2 span{color:var(--orange)}
 .cta-section p{color:rgba(255,255,255,.7);font-size:.9rem;margin-bottom:24px}
+.btn-primary{background:var(--orange);color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:.88rem;display:inline-flex;align-items:center;gap:8px;transition:all .2s}
+.btn-primary:hover{background:var(--orange-dark);transform:translateY(-1px)}
+.btn-cal{background:white;color:var(--navy-dark);padding:14px 28px;border-radius:8px;font-weight:800;font-size:.88rem;text-decoration:none;transition:all .25s;border:2px solid white;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.btn-cal:hover{background:var(--orange-light);color:white;border-color:var(--orange-light);transform:translateY(-2px)}
+.btn-ghost{border:2px solid rgba(255,255,255,.3);color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:.88rem;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-ghost:hover{border-color:white;background:rgba(255,255,255,.08)}
+
+/* AREA PILLS */
+.area-pills{display:flex;flex-wrap:wrap;gap:8px}
+.area-pill{background:white;border:1px solid var(--light-gray);border-radius:100px;padding:8px 16px;font-size:.82rem;font-weight:600;color:var(--navy-dark);transition:all .2s}
+.area-pill:hover{border-color:var(--orange);color:var(--orange)}
+.area-pill.accent{background:transparent;border-color:var(--orange);color:var(--orange);font-weight:700}
+
+/* FOOTER */
 footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:40px;text-align:center}
 footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{color:var(--orange-light);text-decoration:none}
-@media(max-width:768px){nav{padding:0 16px;height:60px}.nav-links{display:none}.hamburger{display:flex}section,.hero,.cta-section{padding:40px 20px}h1{font-size:2.2rem}.gallery{grid-template-columns:1fr}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  nav{padding:0 16px;height:60px}.nav-links{display:none}.hamburger{display:flex}
+  section,.hero,.cta-section,.ba-section{padding:40px 20px}
+  h1{font-size:2.2rem}
+  .gallery{grid-template-columns:1fr}
+  .ba-grid{grid-template-columns:1fr}
+  .ba-images{grid-template-columns:1fr}
+  .ba-images img{height:180px}
+  .ba-divider{display:none}
+  .ba-label.before{left:8px;top:8px;bottom:auto}
+  .ba-label.after{right:8px;top:8px;bottom:auto}
+  .hero-stats{gap:24px}
+}
 </style>
 </head>
 <body>
+
+<!-- NAV -->
 <nav>
   <a href="/" class="nav-logo"><img src="/assets/images/nbd-logo.png" alt="NBD"><div class="nav-logo-text"><div class="brand">NO BIG DEAL</div><div class="sub">Home Solutions</div></div></a>
   <ul class="nav-links"><li><a href="/#services">Services</a></li><li><a href="/#reviews">Reviews</a></li><li><a href="/#areas">Areas</a></li><li><a href="/blog">Blog</a></li><li><a href="/#contact" class="nav-cta">Free Estimate →</a></li></ul>
@@ -54,85 +119,211 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
   <div style="display:none;position:absolute;top:70px;left:0;right:0;background:var(--navy-dark);padding:16px 20px;flex-direction:column;gap:12px;z-index:999"><a href="/#services" style="color:white;text-decoration:none;font-weight:600">Services</a><a href="/blog" style="color:white;text-decoration:none;font-weight:600">Blog</a><a href="tel:8594207382" style="background:var(--orange);color:white;padding:10px;border-radius:6px;text-decoration:none;font-weight:700;text-align:center">Call Joe</a></div>
 </nav>
 
+<!-- HERO -->
 <section class="hero">
   <h1>Our <span>Work</span></h1>
-  <p>Real projects across Greater Cincinnati. Every roof, every repair, every install — done by Joe and his crew.</p>
+  <p>Real projects across Greater Cincinnati. Every roof, every repair, every install — documented by drone and done right by Joe and his crew.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="hero-stat-num">150+</div><div class="hero-stat-lbl">Projects Completed</div></div>
+    <div class="hero-stat"><div class="hero-stat-num">100%</div><div class="hero-stat-lbl">Drone Documented</div></div>
+    <div class="hero-stat"><div class="hero-stat-num">5★</div><div class="hero-stat-lbl">Average Rating</div></div>
+  </div>
 </section>
 
+<!-- BEFORE & AFTER -->
+<section class="ba-section">
+  <div class="inner">
+    <div class="ey">The proof</div>
+    <h2 class="sec-title">Before & <span>After</span></h2>
+    <p class="sec-sub">Same house. Same angle. Completely different roof. This is what Joe and his crew do — every single time.</p>
+
+    <div class="ba-grid">
+      <div class="ba-pair">
+        <div class="ba-images">
+          <img src="/assets/images/projects/before-blue-tarp.jpg" alt="Before: damaged roof with blue tarp emergency cover">
+          <img src="/assets/images/projects/after-new-roof.jpg" alt="After: brand new architectural shingle roof">
+          <div class="ba-divider"></div>
+          <span class="ba-label before">Before</span>
+          <span class="ba-label after">After</span>
+        </div>
+        <div class="ba-body">
+          <h3>Emergency Tarp → Full Replacement</h3>
+          <p>Storm-damaged roof with active leaks. Emergency tarped, then full tear-off and replacement with GAF Timberline HDZ. Insurance covered 100%.</p>
+        </div>
+      </div>
+
+      <div class="ba-pair">
+        <div class="ba-images">
+          <img src="/assets/images/projects/before-brick-tearoff.jpg" alt="During: large brick home mid-tearoff with crew working">
+          <img src="/assets/images/projects/after-brick-completed.jpg" alt="After: completed multi-section roof on brick home">
+          <div class="ba-divider"></div>
+          <span class="ba-label before">During</span>
+          <span class="ba-label after">After</span>
+        </div>
+        <div class="ba-body">
+          <h3>Full-Scale Tear-Off → Premium Re-Roof</h3>
+          <p>Large brick two-story. Full crew, full tear-off down to decking, new underlayment, ice & water shield, architectural shingles with ridge vent upgrade.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT GALLERY -->
 <section>
   <div class="inner">
     <div class="ey">Recent projects</div>
     <h2 class="sec-title">Roofing & <span>Exterior</span> Projects</h2>
-    
-    <div class="gallery">
-      <div class="project">
-        <img src="/assets/images/roofing-1.jpg" alt="Roof replacement in Greater Cincinnati" class="project-img">
-        <div class="project-body">
-          <span class="project-tag">Roof Replacement</span>
-          <h3>Full Tear-Off & Replacement</h3>
-          <p>Complete roof replacement with GAF Timberline HDZ shingles. Old 3-tab removed, new underlayment, ice & water shield in all valleys.</p>
-          <div class="project-loc">📍 Greater Cincinnati, OH</div>
-        </div>
-      </div>
-      <div class="project">
-        <img src="/assets/images/roofing-2.jpg" alt="Storm damage repair Cincinnati" class="project-img">
-        <div class="project-body">
-          <span class="project-tag">Storm Damage</span>
-          <h3>Hail Damage Insurance Claim</h3>
-          <p>Full insurance restoration after severe hail event. Documented damage, coordinated with adjuster, full replacement covered by insurance.</p>
-          <div class="project-loc">📍 Greater Cincinnati, OH</div>
-        </div>
-      </div>
-      <div class="project">
-        <img src="/assets/images/roofing-3.jpg" alt="Residential roofing Cincinnati" class="project-img">
-        <div class="project-body">
-          <span class="project-tag">Roof Replacement</span>
-          <h3>Residential Re-Roof</h3>
-          <p>Premium architectural shingle installation with ridge vent upgrade. New drip edge, starter strip, and pipe boot replacements throughout.</p>
-          <div class="project-loc">📍 Greater Cincinnati, OH</div>
-        </div>
-      </div>
-      <div class="project">
-        <img src="/assets/images/roofing-4.jpg" alt="Roofing project Cincinnati Ohio" class="project-img">
-        <div class="project-body">
-          <span class="project-tag">Roof Replacement</span>
-          <h3>Complete Exterior Upgrade</h3>
-          <p>Roof replacement paired with gutter installation. Coordinated both scopes under a single insurance claim for maximum coverage.</p>
-          <div class="project-loc">📍 Greater Cincinnati, OH</div>
-        </div>
-      </div>
+    <p class="sec-sub">Filter by category or browse everything. Every photo is from a real NBD jobsite — no stock images, no faking it.</p>
+
+    <div class="filters">
+      <button class="filter-btn active" onclick="filterProjects('all',this)">All Projects</button>
+      <button class="filter-btn" onclick="filterProjects('replacement',this)">Roof Replacement</button>
+      <button class="filter-btn" onclick="filterProjects('storm',this)">Storm Damage</button>
+      <button class="filter-btn" onclick="filterProjects('active',this)">Active Jobsite</button>
+      <button class="filter-btn" onclick="filterProjects('specialty',this)">Metal & Specialty</button>
     </div>
 
-    <div style="text-align:center;margin-top:32px;padding:24px;background:var(--off-white);border-radius:12px;">
-      <p style="font-size:.88rem;color:var(--gray);line-height:1.7;margin-bottom:12px"><strong style="color:var(--navy-dark)">More projects coming soon.</strong> Joe photographs every job for documentation and quality assurance. As new projects complete, they'll appear here with full before/after coverage.</p>
-      <p style="font-size:.82rem;color:var(--gray)">Want to see a specific type of project? <a href="tel:8594207382" style="color:var(--orange);font-weight:700">Call Joe</a> — he's happy to share examples.</p>
+    <div class="gallery" id="gallery">
+
+      <!-- COMPLETED / REPLACEMENT -->
+      <div class="project" data-cat="replacement">
+        <img src="/assets/images/projects/completed-colonial-spring.jpg" alt="Completed roof on brick colonial home with spring landscaping" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Roof Replacement</span>
+          <h3>Brick Colonial — Full Re-Roof</h3>
+          <p>Architectural shingle replacement on a two-story colonial. New drip edge, starter strip, and ridge vent. Curb appeal speaks for itself.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <div class="project" data-cat="replacement">
+        <img src="/assets/images/projects/completed-brick-aerial.jpg" alt="Aerial drone view of completed brick home roof replacement" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Roof Replacement</span>
+          <h3>Brick Two-Story — Drone Verified</h3>
+          <p>Complete tear-off and replacement. Every project gets drone documentation so the homeowner can see exactly what was done — and so can the insurance company.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <div class="project" data-cat="replacement">
+        <img src="/assets/images/projects/completed-multisection.jpg" alt="Complex multi-section roof replacement completed" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Roof Replacement</span>
+          <h3>Multi-Section Complex Roof</h3>
+          <p>Large footprint with multiple roof sections, valleys, and transitions. New underlayment throughout, architectural shingles, all flashing replaced.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <!-- STORM DAMAGE -->
+      <div class="project" data-cat="storm">
+        <img src="/assets/images/projects/damage-lifted-shingles.jpg" alt="Storm damaged roof with lifted and missing shingles" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Storm Damage</span>
+          <h3>Wind Damage — Lifted & Missing Shingles</h3>
+          <p>High winds peeled back shingles and exposed underlayment. Documented damage for insurance claim, full replacement approved and completed within two weeks.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <div class="project" data-cat="storm">
+        <img src="/assets/images/projects/damage-chalk-marked.jpg" alt="Chalk-marked hail damage during roof inspection" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Hail Damage</span>
+          <h3>Hail Impact — Chalk-Marked Inspection</h3>
+          <p>Joe marks every impact with chalk during inspection so the adjuster can verify. This roof had 50+ hits per test square — clear approval for full replacement.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <!-- ACTIVE JOBSITE -->
+      <div class="project" data-cat="active">
+        <img src="/assets/images/projects/active-culdescac-crew.jpg" alt="NBD crew actively working on roof tear-off in residential neighborhood" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Active Jobsite</span>
+          <h3>Full Crew — Cul-de-Sac Tear-Off</h3>
+          <p>Branded trucks, tarps down, materials staged, crew on the roof. This is what a professional jobsite looks like. Neighbors took notice — two more estimates booked that week.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <div class="project" data-cat="active">
+        <img src="/assets/images/projects/active-brick-underlayment.jpg" alt="Crew installing synthetic underlayment on large brick home" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Active Jobsite</span>
+          <h3>Underlayment Install — Premium Brick Home</h3>
+          <p>Hi-vis crew laying synthetic underlayment on a large brick two-story. Materials staged, safety protocols in place. The decking underneath was clean — no surprises.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="project" data-cat="replacement">
+        <img src="/assets/images/projects/detail-valley-shingle.jpg" alt="Close-up of sharp valley cut and dark architectural shingles" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Craftsmanship</span>
+          <h3>Valley Detail — Clean Cuts, Tight Lines</h3>
+          <p>This is where quality shows. Sharp valley cuts with proper flashing underneath. No shortcuts, no overlaps. Every detail gets the same attention whether you're looking or not.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <!-- AERIAL -->
+      <div class="project" data-cat="active">
+        <img src="/assets/images/projects/aerial-dual-property.jpg" alt="Aerial drone shot of two roofs being replaced simultaneously" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Drone Aerial</span>
+          <h3>Two Properties — One Day</h3>
+          <p>Side-by-side tear-offs on neighboring properties. Full decking exposed, materials staged, crew running both roofs. Efficiency at scale — no wasted time.</p>
+          <div class="project-loc">📍 Greater Cincinnati, OH</div>
+        </div>
+      </div>
+
+      <!-- METAL / SPECIALTY -->
+      <div class="project" data-cat="specialty">
+        <img src="/assets/images/projects/metal-aframe-cabin.jpg" alt="A-frame cabin with standing seam metal roof" class="project-img" loading="lazy">
+        <div class="project-body">
+          <span class="project-tag">Metal Roof</span>
+          <h3>A-Frame Cabin — Standing Seam Metal</h3>
+          <p>Not every job is shingles. This mountain A-frame got a standing seam metal roof — built for steep pitch, heavy snow loads, and decades of zero maintenance.</p>
+          <div class="project-loc">📍 Appalachian Region</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
 
 <!-- SERVICE AREAS -->
-<section style="background:var(--off-white);padding:40px">
+<section style="background:var(--off-white)">
   <div class="inner">
     <div class="ey">Where we work</div>
     <h2 class="sec-title">Serving Greater <span>Cincinnati</span></h2>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <a href="/areas/cincinnati-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Cincinnati</a>
-      <a href="/areas/mason-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Mason</a>
-      <a href="/areas/loveland-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Loveland</a>
-      <a href="/areas/batavia-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Batavia</a>
-      <a href="/areas/west-chester-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">West Chester</a>
-      <a href="/areas/goshen-oh" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#142a52;">Goshen</a>
-      <a href="/#areas" style="background:white;border:1px solid #e8e5e0;border-radius:100px;padding:8px 16px;text-decoration:none;font-size:.82rem;font-weight:600;color:#e8720c;">All 25+ Cities →</a>
+    <div class="area-pills">
+      <a href="/areas/cincinnati-oh" class="area-pill">Cincinnati</a>
+      <a href="/areas/mason-oh" class="area-pill">Mason</a>
+      <a href="/areas/loveland-oh" class="area-pill">Loveland</a>
+      <a href="/areas/batavia-oh" class="area-pill">Batavia</a>
+      <a href="/areas/west-chester-oh" class="area-pill">West Chester</a>
+      <a href="/areas/goshen-oh" class="area-pill">Goshen</a>
+      <a href="/areas/milford-oh" class="area-pill">Milford</a>
+      <a href="/areas/anderson-township-oh" class="area-pill">Anderson Twp</a>
+      <a href="/areas/indian-hill-oh" class="area-pill">Indian Hill</a>
+      <a href="/#areas" class="area-pill accent">All 25+ Cities →</a>
     </div>
   </div>
 </section>
 
+<!-- CTA -->
 <section class="cta-section">
   <h2>Ready to Start <span>Your Project?</span></h2>
-  <p>Free inspections. Honest quotes. Quality work guaranteed.</p>
+  <p>Free inspections. Honest quotes. Quality work guaranteed. Every job drone-documented.</p>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <a href="tel:8594207382" class="btn-primary">📞 Call Joe: (859) 420-7382</a>
-    <a href="/#contact" style="border:2px solid rgba(255,255,255,.3);color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Request Estimate</a>
+    <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener" class="btn-cal">📅 Schedule Inspection</a>
+    <a href="/#contact" class="btn-ghost">Request Estimate</a>
   </div>
 </section>
 
@@ -140,5 +331,19 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
   <p>&copy; 2025 No Big Deal Home Solutions — Goshen, OH<br>
   <a href="tel:8594207382">(859) 420-7382</a> · <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a> · <a href="/">nobigdealwithjoedeal.com</a></p>
 </footer>
+
+<script>
+function filterProjects(cat, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.project').forEach(p => {
+    if (cat === 'all' || p.dataset.cat === cat) {
+      p.classList.remove('hidden');
+    } else {
+      p.classList.add('hidden');
+    }
+  });
+}
+</script>
 </body>
 </html>
