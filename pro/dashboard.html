@@ -7171,25 +7171,19 @@ function switchScTab(tab, btn) {
       <!-- ══ TAB: APPEARANCE ══ -->
       <div class="stab-panel" id="stab-panel-appearance" style="display:none;">
 
+        <!-- All themes rendered by category in collapsible sections -->
+        <div id="te-theme-sections"></div>
+
+        <!-- Overlay + Sound toggles -->
         <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-hdr"><div><div class="panel-label">Theme Engine</div><div class="panel-title">155 Themes — Colors, Overlays, Sound & More</div></div></div>
-          <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Each theme has its own color palette, background overlay, border style, and personality. Achievement themes are earned by using NBD Pro.</p>
-            <!-- Category filter tabs -->
-            <div id="te-category-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
-            <!-- Search -->
-            <input type="text" id="te-search" placeholder="Search themes..." style="width:100%;padding:8px 12px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:13px;margin-bottom:14px;outline:none;" oninput="window._filterThemes()">
-            <!-- Theme grid -->
-            <div id="te-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;max-height:500px;overflow-y:auto;padding-right:4px;"></div>
-            <!-- Overlay + Sound toggles -->
-            <div style="display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--br);">
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
-                <input type="checkbox" id="te-overlays-toggle" onchange="if(window.ThemeOverlays)window.ThemeOverlays.setEnabled(this.checked)" checked> Visual Overlays
-              </label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
-                <input type="checkbox" id="te-sound-toggle" onchange="if(window.ThemeSounds)window.ThemeSounds.setEnabled(this.checked)"> Ambient Sound
-              </label>
-            </div>
+          <div class="panel-hdr"><div><div class="panel-label">Effects</div><div class="panel-title">Overlays & Sound</div></div></div>
+          <div class="panel-body" style="display:flex;gap:16px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
+              <input type="checkbox" id="te-overlays-toggle" onchange="if(window.ThemeOverlays)window.ThemeOverlays.setEnabled(this.checked)" checked> Visual Overlays
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
+              <input type="checkbox" id="te-sound-toggle" onchange="if(window.ThemeSounds)window.ThemeSounds.setEnabled(this.checked)"> Ambient Sound
+            </label>
           </div>
         </div>
 

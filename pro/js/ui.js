@@ -576,70 +576,85 @@ function switchSettingsTab(tab) {
 
   // Lazy-load appearance tab content — render theme/font grids
   if (tab === 'appearance') {
-    // === NEW: ThemeEngine-powered picker with categories ===
-    const teGrid = document.getElementById('te-theme-grid');
-    const teTabs = document.getElementById('te-category-tabs');
-    if (teGrid && !teGrid.dataset.loaded && window.ThemeEngine) {
+    // === ThemeEngine: collapsible category sections ===
+    const teSections = document.getElementById('te-theme-sections');
+    if (teSections && !teSections.dataset.loaded) {
+      // Gather theme data — use ThemeEngine if loaded, otherwise fall back to legacy THEME_KEYS + CSS themes
       const TE = window.ThemeEngine;
-      const cats = TE.getCategories();
-      const current = TE.getCurrent() || 'nbd-original';
-      // Build category filter tabs
-      let catHTML = '<button class="te-cat-btn te-cat-active" data-cat="all" onclick="window._filterThemes(\'all\',this)" style="padding:5px 12px;border-radius:16px;border:1px solid var(--br);background:var(--orange);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.04em;text-transform:uppercase;">All</button>';
-      cats.forEach(c => {
-        catHTML += `<button class="te-cat-btn" data-cat="${c.key}" onclick="window._filterThemes('${c.key}',this)" style="padding:5px 12px;border-radius:16px;border:1px solid var(--br);background:var(--s2);color:var(--m);font-size:11px;font-weight:600;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;transition:all .15s;">${c.icon} ${c.label}</button>`;
-      });
-      teTabs.innerHTML = catHTML;
-      // Build theme grid
-      const allThemes = TE.getAll();
-      let gridHTML = '';
-      Object.entries(allThemes).forEach(([key, t]) => {
-        const isActive = key === current;
-        const isLocked = t.locked && !TE.isUnlocked(key);
-        const bg = t.colors?.bg || '#1a1a2e';
-        const accent = t.colors?.accent || '#C8541A';
-        const surface = t.colors?.surface || '#16213e';
-        gridHTML += `<div class="te-theme-card" data-key="${key}" data-cat="${t.category}" data-name="${t.name.toLowerCase()}" onclick="${isLocked ? '' : `applyTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'var(--br)'};border-radius:10px;padding:10px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;min-height:80px;position:relative;opacity:${isLocked?'0.5':'1'};">
-          <div style="display:flex;gap:4px;margin-bottom:6px;">
-            <span style="width:12px;height:12px;border-radius:50%;background:${accent};display:block;"></span>
-            <span style="width:12px;height:12px;border-radius:50%;background:${surface};display:block;"></span>
-            ${t.colors?.accent2 ? `<span style="width:12px;height:12px;border-radius:50%;background:${t.colors.accent2};display:block;"></span>` : ''}
-          </div>
-          <div style="font-size:11px;font-weight:700;color:${t.colors?.text || '#e2e8f0'};font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isLocked ? '🔒 ' : ''}${t.name}</div>
-          <div style="font-size:9px;color:${t.colors?.muted || '#6b7280'};text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">${t.category}</div>
-          ${isActive ? `<div style="position:absolute;top:6px;right:6px;background:${accent};color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:8px;">ACTIVE</div>` : ''}
-          ${t.overlay?.type && t.overlay.type !== 'none' ? `<div style="position:absolute;bottom:6px;right:6px;font-size:8px;color:${t.colors?.muted || '#6b7280'};">✦</div>` : ''}
-        </div>`;
-      });
-      teGrid.innerHTML = gridHTML;
-      teGrid.dataset.loaded = '1';
-      // Init achievements panel
-      if (window.ThemeAchievements?.renderAchievementPanel) {
-        window.ThemeAchievements.renderAchievementPanel('te-achievements-panel');
-      }
-      // Init builder panel
-      if (window.ThemeBuilder?.renderBuilder) {
-        window.ThemeBuilder.renderBuilder('te-builder-panel');
-      }
-    }
-    // Legacy fallback if ThemeEngine not loaded
-    const grid = document.getElementById('settings-theme-grid-tab');
-    if (grid && !grid.dataset.loaded && !window.ThemeEngine) {
-      if (typeof NBD_THEMES !== 'undefined') {
-        const _nbdUnlocked = window._nbdUnlocked || (() => true);
-        const _nbd_activeTheme = window._nbd_activeTheme || '';
-        grid.innerHTML = '';
-        NBD_THEMES.forEach(t => {
-          const isAct = t.id === _nbd_activeTheme;
-          const d = document.createElement('div');
-          d.className = 'npm-bubble' + (isAct ? ' active' : '');
-          d.onclick = () => { if (typeof nbdApplyTheme === 'function') nbdApplyTheme(t.id); };
-          d.style.cssText = 'background:' + (t.s||'#13171d') + ';border-color:' + t.accent + ';cursor:pointer;';
-          if (isAct) d.style.boxShadow = '0 0 0 2.5px #fff, 0 4px 22px rgba(0,0,0,0.6)';
-          d.innerHTML = '<div class="npm-dot" style="background:' + t.accent + ';box-shadow:0 0 5px ' + t.accent + '88"></div><span class="npm-lbl" style="color:#e8eaf0">' + t.name + '</span>';
-          grid.appendChild(d);
+      const current = (TE ? TE.getCurrent() : (document.documentElement.getAttribute('data-theme') || 'nbd-original'));
+
+      if (TE) {
+        // === ThemeEngine path: 155 themes in collapsible category sections ===
+        const cats = TE.getCategories();
+        const allThemes = TE.getAll();
+        let html = '';
+
+        cats.forEach((cat, ci) => {
+          // Get themes for this category
+          const catThemes = Object.entries(allThemes).filter(([,t]) => t.category === cat.key);
+          if (!catThemes.length) return;
+          const isFirst = ci < 2; // First 2 categories open by default
+          html += `<div class="panel" style="margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;" onclick="this.parentElement.querySelector('.te-cat-body').style.display=this.parentElement.querySelector('.te-cat-body').style.display==='none'?'grid':'none';this.querySelector('.te-chev').textContent=this.parentElement.querySelector('.te-cat-body').style.display==='none'?'▸':'▾';">
+              <span class="te-chev" style="font-size:12px;color:var(--m);width:12px;">${isFirst?'▾':'▸'}</span>
+              <span style="font-size:16px;">${cat.icon}</span>
+              <span style="font-size:13px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;">${cat.label}</span>
+              <span style="font-size:10px;color:var(--m);margin-left:auto;background:var(--s2);padding:2px 8px;border-radius:10px;">${catThemes.length}</span>
+            </div>
+            <div class="te-cat-body" style="display:${isFirst?'grid':'none'};grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;padding:0 12px 12px;">`;
+          catThemes.forEach(([key, t]) => {
+            const isActive = key === current;
+            const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
+            const bg = t.colors?.bg || '#1a1a2e';
+            const accent = t.colors?.accent || '#C8541A';
+            const surface = t.colors?.surface || '#16213e';
+            const txt = t.colors?.text || '#e2e8f0';
+            const muted = t.colors?.muted || '#6b7280';
+            html += `<div onclick="${isLocked ? '' : `window._tePreviewTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};" onmouseover="if(!${isLocked})this.style.borderColor='${accent}'" onmouseout="if(!${isActive})this.style.borderColor='rgba(255,255,255,.06)'">
+              <div style="display:flex;gap:3px;margin-bottom:4px;">
+                <span style="width:10px;height:10px;border-radius:50%;background:${accent};"></span>
+                <span style="width:10px;height:10px;border-radius:50%;background:${surface};"></span>
+                ${t.colors?.accent2 ? `<span style="width:10px;height:10px;border-radius:50%;background:${t.colors.accent2};"></span>` : ''}
+              </div>
+              <div style="font-size:10px;font-weight:700;color:${txt};font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isLocked?'🔒 ':''}${t.name}</div>
+              ${isActive ? `<div style="position:absolute;top:4px;right:4px;background:${accent};color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:6px;">✓</div>` : ''}
+              ${t.overlay?.type && t.overlay.type !== 'none' ? `<div style="position:absolute;bottom:3px;right:4px;font-size:7px;color:${muted};">✦</div>` : ''}
+            </div>`;
+          });
+          html += '</div></div>';
         });
-        grid.dataset.loaded = '1';
+        teSections.innerHTML = html;
+      } else {
+        // === Legacy fallback: use THEME_KEYS or NBD_THEMES ===
+        let legacyHTML = '<div class="panel" style="margin-bottom:16px;"><div class="panel-hdr"><div><div class="panel-label">Theme</div><div class="panel-title">Color Theme</div></div></div><div class="panel-body">';
+        if (typeof NBD_THEMES !== 'undefined') {
+          legacyHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">';
+          const activeT = window._nbd_activeTheme || current;
+          NBD_THEMES.forEach(t => {
+            const isAct = t.id === activeT;
+            legacyHTML += `<div onclick="if(typeof nbdApplyTheme==='function')nbdApplyTheme('${t.id}');else if(typeof applyTheme==='function')applyTheme('${t.id}');" style="background:${t.s||'#13171d'};border:2px solid ${isAct?t.accent:'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;transition:all .15s;">
+              <span style="width:10px;height:10px;border-radius:50%;background:${t.accent};display:inline-block;"></span>
+              <span style="font-size:10px;font-weight:700;color:#e8eaf0;font-family:'Barlow Condensed',sans-serif;">${t.name}${isAct?' ✓':''}</span>
+            </div>`;
+          });
+          legacyHTML += '</div>';
+        } else if (typeof THEME_KEYS !== 'undefined') {
+          legacyHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">';
+          THEME_KEYS.forEach(k => {
+            const isAct = k === current;
+            legacyHTML += `<div onclick="applyTheme('${k}')" style="background:var(--s2);border:2px solid ${isAct?'var(--orange)':'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;">
+              <span style="font-size:10px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;text-transform:capitalize;">${k.replace(/-/g,' ')}${isAct?' ✓':''}</span>
+            </div>`;
+          });
+          legacyHTML += '</div>';
+        }
+        legacyHTML += '</div></div>';
+        teSections.innerHTML = legacyHTML;
       }
+      teSections.dataset.loaded = '1';
+      // Init achievements + builder
+      if (window.ThemeAchievements?.renderAchievementPanel) window.ThemeAchievements.renderAchievementPanel('te-achievements-panel');
+      if (window.ThemeBuilder?.renderBuilder) window.ThemeBuilder.renderBuilder('te-builder-panel');
     }
     const fontGrid = document.getElementById('settings-font-grid');
     if (fontGrid && !fontGrid.dataset.loaded) {
@@ -690,25 +705,48 @@ function switchSettingsTab(tab) {
 }
 window.switchSettingsTab = switchSettingsTab;
 
-// Theme Engine filter helper
-window._filterThemes = function(cat, btn) {
-  if(!cat) { // text search mode
-    const q = (document.getElementById('te-search')?.value || '').toLowerCase();
-    document.querySelectorAll('.te-theme-card').forEach(c => {
-      c.style.display = c.dataset.name.includes(q) ? '' : 'none';
-    });
-    return;
+// Theme preview system — click previews, confirm bar to apply or revert
+window._tePreviewTheme = function(key) {
+  const TE = window.ThemeEngine;
+  const prev = window._teOriginalTheme || (TE ? TE.getCurrent() : (document.documentElement.getAttribute('data-theme') || 'nbd-original'));
+  if (!window._teOriginalTheme) window._teOriginalTheme = prev;
+
+  // Apply preview without saving
+  if (TE) { TE.apply(key, false); } else { applyTheme(key, false); }
+
+  // Show confirm bar if not already showing
+  if (!document.getElementById('te-confirm-bar')) {
+    const bar = document.createElement('div');
+    bar.id = 'te-confirm-bar';
+    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--s);border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;backdrop-filter:blur(12px);';
+    bar.innerHTML = `
+      <div style="font-size:13px;color:var(--t);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.04em;">PREVIEWING THEME</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="window._teRevertTheme()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✕ Revert</button>
+        <button onclick="window._teConfirmTheme()" style="padding:8px 20px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✓ Apply Theme</button>
+      </div>`;
+    document.body.appendChild(bar);
   }
-  // Category filter mode
-  document.querySelectorAll('.te-cat-btn').forEach(b => {
-    b.style.background = 'var(--s2)'; b.style.color = 'var(--m)';
-  });
-  if(btn) { btn.style.background = 'var(--orange)'; btn.style.color = '#fff'; }
-  document.querySelectorAll('.te-theme-card').forEach(c => {
-    c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
-  });
-  // Clear search
-  const s = document.getElementById('te-search'); if(s) s.value = '';
+};
+window._teRevertTheme = function() {
+  const orig = window._teOriginalTheme || 'nbd-original';
+  const TE = window.ThemeEngine;
+  if (TE) { TE.apply(orig, false); } else { applyTheme(orig, false); }
+  window._teOriginalTheme = null;
+  const bar = document.getElementById('te-confirm-bar');
+  if (bar) bar.remove();
+};
+window._teConfirmTheme = function() {
+  // Save the currently previewed theme permanently
+  const cur = window.ThemeEngine ? window.ThemeEngine.getCurrent() : (document.documentElement.getAttribute('data-theme') || 'nbd-original');
+  if (window.ThemeEngine) { window.ThemeEngine.apply(cur, true); } else { applyTheme(cur, true); }
+  window._teOriginalTheme = null;
+  const bar = document.getElementById('te-confirm-bar');
+  if (bar) bar.remove();
+  if (typeof showToast === 'function') showToast('Theme applied ✓');
+  // Refresh the section to update active states
+  const s = document.getElementById('te-theme-sections');
+  if (s) { s.dataset.loaded = ''; switchSettingsTab('appearance'); }
 };
 
 function toggleSettingsSection(section) {
