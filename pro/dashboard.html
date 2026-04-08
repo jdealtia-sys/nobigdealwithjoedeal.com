@@ -11210,7 +11210,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
     </div>
     
     <!-- Action Buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openPhotosForLead()">
         📸 Photos
       </button>
@@ -11219,6 +11219,18 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       </button>
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openTaskModal(window._cardDetailLeadId,null)">
         ✓ Tasks
+      </button>
+    </div>
+    <!-- New Module Actions -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading...','error')}">
+        📷 Camera
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading...','error')}">
+        💰 Invoice
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){closeCardDetailModal();InspectionReportEngine.openBuilder('inspectionBuilderContainer',window._cardDetailLeadId)}else{showToast('Report engine loading...','error')}">
+        📋 Report
       </button>
     </div>
     
@@ -11428,6 +11440,33 @@ function shareCalViaEmail() {
 
   // ══════════════════════════════════════════════════════════════
   // Notification toggle + click-outside handled by crm.js
+
+  // ══════════════════════════════════════════════════════════════
+  // REPORT EXPORT HOOKS — inject PDF export buttons into reporting dashboard
+  // ══════════════════════════════════════════════════════════════
+  (function() {
+    const _origRender = window.ReportingDashboard?.render;
+    if (_origRender) {
+      window.ReportingDashboard.render = function(containerId) {
+        _origRender.call(this, containerId);
+        // Inject export toolbar after render
+        setTimeout(() => {
+          const container = document.getElementById(containerId);
+          if (!container || container.querySelector('.report-export-bar')) return;
+          const bar = document.createElement('div');
+          bar.className = 'report-export-bar';
+          bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--br);margin-top:16px;';
+          bar.innerHTML = `
+            <span style="font-size:10px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;line-height:32px;">Export PDF:</span>
+            <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="if(window.ReportExport)ReportExport.generatePipelineReport({});else showToast('Loading...','error')">📊 Pipeline</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="if(window.ReportExport)ReportExport.generateRevenueReport({period:'monthly'});else showToast('Loading...','error')">💰 Revenue</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="if(window.ReportExport)ReportExport.generateTeamReport({});else showToast('Loading...','error')">👥 Team</button>
+          `;
+          container.firstChild?.prepend(bar);
+        }, 500);
+      };
+    }
+  })();
 </script>
 
 

@@ -2143,10 +2143,11 @@
       // Save draft
       this._saveDraft(state.leadId, state.data);
 
-      // Open in new window for printing
-      const win = window.open('', '_blank');
-      win.document.write(html);
-      win.document.close();
+      // Open in new window for printing (uses blob URL for Safari standalone compatibility)
+      const blob = new Blob([html], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
       showToast('Report generated! Use Print or Save as PDF from the browser.', 'success');
     },
@@ -2228,9 +2229,10 @@
         }
 
         const report = reportDoc.data();
-        const win = window.open('', '_blank');
-        win.document.write(report.html);
-        win.document.close();
+        const blob = new Blob([report.html], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
       } catch (err) {
         console.error('Error opening report:', err);
         showToast('Failed to open report', 'error');

@@ -446,7 +446,7 @@
           <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
             <button onclick="window.print()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
             <button onclick="window.InvoicePipeline.sendInvoiceUI('${invoiceId}')" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
-            ${inv.stripePaymentLink ? `<button onclick="navigator.clipboard.writeText('${inv.stripePaymentLink}'); alert('Payment link copied!')" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
+            ${inv.stripePaymentLink ? `<button onclick="navigator.clipboard.writeText('${inv.stripePaymentLink}'); if(typeof showToast==='function')showToast('Payment link copied!','ok');else alert('Payment link copied!')" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
           </div>
 
           <div style="background:var(--s2);padding:12px;border-radius:5px;font-size:11px;color:var(--m);">
@@ -613,37 +613,100 @@
   }
 
   /**
-   * UI: Create invoice from estimate dialog
+   * UI: Create invoice from estimate dialog (modal instead of prompt for Safari compat)
    */
   async function createInvoiceUI(leadId) {
-    const estimateId = prompt('Enter Estimate ID:');
-    if (!estimateId) return;
+    // Build inline modal instead of using prompt()
+    const existing = document.getElementById('nbd-invoice-modal');
+    if (existing) existing.remove();
 
-    try {
-      showToast('Creating invoice...', 'info');
-      const invoiceId = await createInvoiceFromEstimate(estimateId);
-      await generateStripePaymentLink(invoiceId);
-      showToast('Invoice created successfully', 'success');
-      renderInvoicePanel('invoice-panel', leadId);
-    } catch (error) {
-      showToast(`Error: ${error.message}`, 'error');
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-invoice-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+    overlay.innerHTML = `
+      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:420px;width:92%;padding:28px;color:#fff;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Create Invoice from Estimate</div>
+        <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Estimate ID</label>
+        <input id="nbd-inv-est-id" type="text" placeholder="Select or enter estimate ID..." style="width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:14px;margin-top:6px;box-sizing:border-box;">
+        <div style="display:flex;gap:8px;margin-top:20px;">
+          <button id="nbd-inv-cancel" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+          <button id="nbd-inv-create" style="flex:1;padding:12px;background:#C8541A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">Create Invoice</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Populate estimate dropdown if leads have estimates
+    const input = document.getElementById('nbd-inv-est-id');
+    if (leadId && window._leads) {
+      const lead = window._leads.find(l => l.id === leadId);
+      if (lead?.estimateId) input.value = lead.estimateId;
     }
+    input.focus();
+
+    return new Promise((resolve) => {
+      document.getElementById('nbd-inv-cancel').onclick = () => { overlay.remove(); resolve(); };
+      overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(); } };
+      document.getElementById('nbd-inv-create').onclick = async () => {
+        const estimateId = input.value.trim();
+        if (!estimateId) { if (typeof showToast === 'function') showToast('Enter an estimate ID', 'error'); return; }
+        overlay.remove();
+        try {
+          showToast('Creating invoice...', 'info');
+          const invoiceId = await createInvoiceFromEstimate(estimateId);
+          await generateStripePaymentLink(invoiceId);
+          showToast('Invoice created successfully', 'success');
+          renderInvoicePanel('invoice-panel', leadId);
+        } catch (error) {
+          showToast(`Error: ${error.message}`, 'error');
+        }
+        resolve();
+      };
+    });
   }
 
   /**
-   * UI: Send invoice dialog
+   * UI: Send invoice dialog (modal instead of prompt for Safari compat)
    */
   async function sendInvoiceUI(invoiceId) {
-    const method = prompt('Send via (email/sms/portal)?', 'email');
-    if (!method || !['email', 'sms', 'portal'].includes(method)) return;
+    const existing = document.getElementById('nbd-send-invoice-modal');
+    if (existing) existing.remove();
 
-    try {
-      showToast(`Sending invoice via ${method}...`, 'info');
-      await sendInvoice(invoiceId, method);
-      showToast('Invoice sent successfully', 'success');
-    } catch (error) {
-      showToast(`Error: ${error.message}`, 'error');
-    }
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-send-invoice-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+    overlay.innerHTML = `
+      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Send Invoice</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;">How would you like to send this invoice?</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="nbd-send-method" data-method="email" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">📧 Send via Email</button>
+          <button class="nbd-send-method" data-method="sms" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">💬 Send via SMS</button>
+          <button class="nbd-send-method" data-method="portal" style="padding:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;text-align:left;font-size:14px;">🌐 Share Customer Portal Link</button>
+        </div>
+        <button id="nbd-send-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    return new Promise((resolve) => {
+      document.getElementById('nbd-send-cancel').onclick = () => { overlay.remove(); resolve(); };
+      overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(); } };
+      overlay.querySelectorAll('.nbd-send-method').forEach(btn => {
+        btn.onclick = async () => {
+          const method = btn.dataset.method;
+          overlay.remove();
+          try {
+            showToast(`Sending invoice via ${method}...`, 'info');
+            await sendInvoice(invoiceId, method);
+            showToast('Invoice sent successfully', 'success');
+          } catch (error) {
+            showToast(`Error: ${error.message}`, 'error');
+          }
+          resolve();
+        };
+      });
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════
