@@ -5787,6 +5787,7 @@ function switchScTab(tab, btn) {
       <div class="ni" onclick="goTo('products')" id="nav-products"><span class="ni-icon">📦</span>Products</div>
       <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
       <div class="ni" onclick="goTo('training')" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
+      <div class="ni" onclick="goTo('academy')" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
     </div>
   </div>
 
@@ -7449,6 +7450,13 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
+  <!-- ══ REAL DEAL ACADEMY ══ -->
+  <div class="view" id="view-academy">
+    <div class="view-scroll" id="academyContainer">
+      <!-- Rendered by real-deal-academy.js -->
+    </div>
+  </div>
+
   <!-- ══ CAL.COM SCHEDULING ══ -->
   <div class="view" id="view-schedule">
     <div class="view-scroll">
@@ -8102,6 +8110,7 @@ function goTo(name, params = {}) {
   if(name==='home') { if(window.NBDWidgets) window.NBDWidgets.render(); }
   if(name==='d2d') { waitForLeaflet(()=>{ if(window.D2D) window.D2D.init(); }); }
   if(name==='training') { if(window.SalesTraining) window.SalesTraining.init(); }
+  if(name==='academy') { if(window.RealDealAcademy) { window.RealDealAcademy.init(); window.RealDealAcademy.renderAcademy('academyContainer'); } }
   if(name==='products') {
     const pc = document.getElementById('productLibraryContainer');
     if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
@@ -10982,6 +10991,9 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
   <div class="mm-item" onclick="mobileNav('training');closeMobileMore()">
     <span class="mm-item-icon">🎯</span>Sales Training
   </div>
+  <div class="mm-item" onclick="mobileNav('academy');closeMobileMore()">
+    <span class="mm-item-icon">🎓</span>Real Deal Academy
+  </div>
   <div class="mm-item" onclick="if(typeof toggleCrewCalendar==='function'){toggleCrewCalendar();mobileNav('home');}closeMobileMore()">
     <span class="mm-item-icon">📅</span>Crew Calendar
   </div>
@@ -11300,6 +11312,12 @@ function shareCalViaEmail() {
 <script src="js/stripe-billing.js?v=1"></script>
 <script src="js/push-notifications.js?v=1"></script>
 <script src="js/nbd-comms.js?v=1"></script>
+<!-- Real Deal Academy -->
+<script src="js/academy-insurance-tree.js?v=1"></script>
+<script src="js/academy-retail-tree.js?v=1"></script>
+<script src="js/academy-courses.js?v=1"></script>
+<script src="js/academy-admin.js?v=1"></script>
+<script src="js/real-deal-academy.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {
