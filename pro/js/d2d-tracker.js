@@ -1301,9 +1301,26 @@
       .replace(/\{rep\}/g, repName)
       .replace(/\{address\}/g, knock.address || '')
       .replace(/\{follow_up_date\}/g, knock.followUpDate ? formatDate(knock.followUpDate) : 'soon');
-    const cleanPhone = phone.replace(/[^0-9+]/g, '');
-    window.open(`sms:${cleanPhone}?body=${encodeURIComponent(body)}`, '_blank');
-    window.showToast?.('Opening SMS...', 'info');
+
+    // Try NBDComms first
+    if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
+      window.NBDComms.sendSMS(phone, body, knock.id).then(result => {
+        if (result.success) {
+          const nameDisplay = knock.homeowner || 'contact';
+          window.showToast?.(`Text sent to ${nameDisplay}`, 'ok');
+        } else {
+          // Fallback on failure
+          const cleanPhone = phone.replace(/[^0-9+]/g, '');
+          window.open(`sms:${cleanPhone}?body=${encodeURIComponent(body)}`, '_blank');
+          window.showToast?.('Opening SMS...', 'info');
+        }
+      });
+    } else {
+      // Fallback: sms: link
+      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      window.open(`sms:${cleanPhone}?body=${encodeURIComponent(body)}`, '_blank');
+      window.showToast?.('Opening SMS...', 'info');
+    }
   }
 
   function sendFollowUpEmail(knock, templateKey) {

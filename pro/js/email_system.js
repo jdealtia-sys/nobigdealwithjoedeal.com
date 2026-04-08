@@ -200,21 +200,35 @@ window.sendEmail = async function() {
   const to = document.getElementById('emailTo').value.trim();
   const subject = document.getElementById('emailSubject').value.trim();
   const body = document.getElementById('emailBody').value.trim();
-  
+
   if (!to || !subject || !body) {
     if(typeof showToast==='function') showToast('Please fill in all fields','error'); else alert('Please fill in all fields');
     return;
   }
-  
+
   // Validate email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(to)) {
     if(typeof showToast==='function') showToast('Please enter a valid email address','error'); else alert('Please enter a valid email address');
     return;
   }
-  
+
   try {
-    // Log email to Firestore
+    // If NBDComms is available, use Cloud Function to send
+    if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
+      const result = await window.NBDComms.sendEmail(to, subject, body, {
+        leadId: window._emailLeadId,
+        html: null
+      });
+
+      if (result.success) {
+        closeEmailModal();
+        return;
+      }
+      // If NBDComms fails, fall through to mailto fallback
+    }
+
+    // Fallback: Log and use mailto
     if (window._emailLeadId && window.db) {
       await window.addDoc(window.collection(window.db, 'emails'), {
         leadId: window._emailLeadId,
@@ -227,35 +241,31 @@ window.sendEmail = async function() {
         sentBy: window.auth?.currentUser?.email || 'Unknown'
       });
     }
-    
-    // If attachment exists, we need to handle it differently
+
+    // If attachment exists, download it
     if (window._emailAttachment) {
-      // For now, download the attachment and inform user to attach manually
-      // In production, use SendGrid/Mailgun API
       alert('⚠️ Email will open with message pre-filled.\n\nThe PDF has been downloaded to your computer.\nPlease attach it manually before sending.');
-      
-      // Download attachment
       const link = document.createElement('a');
       link.href = URL.createObjectURL(window._emailAttachment);
       link.download = `attachment_${Date.now()}.pdf`;
       link.click();
       URL.revokeObjectURL(link.href);
     }
-    
+
     // Open mailto link
     const mailtoLink = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
-    
+
     // Close modal after short delay
     setTimeout(() => {
       closeEmailModal();
-      
+
       // Show success message
       if (typeof showToast === 'function') {
         showToast('✅ Email client opened', 'success');
       }
     }, 500);
-    
+
   } catch (error) {
     console.error('Email error:', error);
     if(typeof showToast==='function') showToast('Failed to send email. Please try again.','error'); else alert('Failed to send email. Please try again.');

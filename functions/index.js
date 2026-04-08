@@ -542,3 +542,15 @@ exports.getSubscriptionStatus = onRequest(
 // ═══════════════════════════════════════════════════════════════
 const pushFunctions = require('./push-functions');
 Object.assign(exports, pushFunctions);
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+const emailFunctions = require('./email-functions');
+Object.assign(exports, emailFunctions);
+
+// ═══════════════════════════════════════════════════════════════
+// SMS FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+const smsFunctions = require('./sms-functions');
+Object.assign(exports, smsFunctions);

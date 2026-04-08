@@ -479,14 +479,13 @@ function inviteTeamMember(email, role) {
 
   window._showToast?.(`Invitation sent to ${email}. They'll need to create an NBD Pro account.`);
 
-  // TODO: Send invite email
-  // if (window._sendEmail) {
-  //   window._sendEmail({
-  //     to: email,
-  //     subject: `Join No Big Deal Pro - ${ROLES[role].label} Invite`,
-  //     html: `You've been invited to join NBD Pro as a ${ROLES[role].label}...`
-  //   });
-  // }
+  // Send invite email via NBDComms
+  if (window.NBDComms && typeof window.NBDComms.sendTeamInvite === 'function') {
+    const inviterName = window._user?.displayName || 'Your team';
+    window.NBDComms.sendTeamInvite(email, role, inviterName).catch(err => {
+      console.error('Failed to send team invite email:', err);
+    });
+  }
 
   return true;
 }
