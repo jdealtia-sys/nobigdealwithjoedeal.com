@@ -2421,8 +2421,10 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 /* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:10px 16px;font-size:13px;z-index:3000;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;display:flex;flex-direction:column;gap:8px;min-width:200px;}
 .toast.show{transform:translateY(0);opacity:1;}
-.toast.success{border-color:var(--green);color:var(--green);}
+.toast.success,.toast.ok{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
+.toast.info{border-color:var(--blue);color:var(--blue);}
+.toast.warning{border-color:var(--gold,#D4A017);color:var(--gold,#D4A017);}
 .toast-progress{height:3px;background:currentColor;border-radius:3px;animation:toast-progress 2.8s linear;}
 @keyframes toast-progress{from{width:100%;}to{width:0%;}}
 
@@ -6733,17 +6735,56 @@ function switchScTab(tab, btn) {
 
   <!-- ══ STORM MAP ══ -->
   <div class="view" id="view-storm">
-    <div class="view-scroll"></div>
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Storm Center</div>
+          <div class="page-sub">Live weather tracking & storm-based canvassing</div>
+        </div>
+      </div>
+      <div id="stormCenterContainer">
+        <div class="empty"><div class="empty-icon">🌩️</div>Loading Storm Center...</div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ CLOSE BOARD ══ -->
   <div class="view" id="view-closeboard">
-    <div class="view-scroll"></div>
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to Pipeline</span>
+          </div>
+          <div class="page-title">Close Board</div>
+          <div class="page-sub">Track deals through to close</div>
+        </div>
+      </div>
+      <div id="closeBoardContainer">
+        <div class="empty"><div class="empty-icon">🏆</div>Loading Close Board...</div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ REP OS ══ -->
   <div class="view" id="view-repos">
-    <div class="view-scroll"></div>
+    <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Rep OS</div>
+          <div class="page-sub">Your personal operating system for sales success</div>
+        </div>
+      </div>
+      <div id="repOSContainer">
+        <div class="empty"><div class="empty-icon">🎯</div>Loading Rep OS...</div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ TEMPLATES ══ -->
@@ -7474,6 +7515,15 @@ function switchScTab(tab, btn) {
   <!-- ══ PRODUCTS ══ -->
   <div class="view" id="view-products">
     <div class="view-scroll">
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Product Library</div>
+          <div class="page-sub">Shingle lines, materials, and pricing reference</div>
+        </div>
+      </div>
       <div id="productLibraryContainer">
         <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
       </div>
@@ -7491,14 +7541,32 @@ function switchScTab(tab, btn) {
   <!-- ══ SALES TRAINING ══ -->
   <div class="view" id="view-training">
     <div class="view-scroll" id="trainingContent">
-      <!-- Rendered by sales-training.js -->
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Sales Training</div>
+          <div class="page-sub">Scripts, objection handling, and closing techniques</div>
+        </div>
+      </div>
+      <div class="empty"><div class="empty-icon">📚</div>Loading Sales Training...</div>
     </div>
   </div>
 
   <!-- ══ REAL DEAL ACADEMY ══ -->
   <div class="view" id="view-academy">
     <div class="view-scroll" id="academyContainer">
-      <!-- Rendered by real-deal-academy.js -->
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">The Real Deal Academy</div>
+          <div class="page-sub">Master insurance restoration & retail roofing</div>
+        </div>
+      </div>
+      <div class="empty"><div class="empty-icon">🎓</div>Loading Academy...</div>
     </div>
   </div>
 
