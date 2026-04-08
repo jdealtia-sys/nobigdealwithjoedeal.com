@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="nbd-original" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1442,8 +1442,10 @@ onAuthStateChanged(auth, async (user) => {
 
   try {
     await loadCustomerData(customerId);
+    document.documentElement.style.opacity = '1';
   } catch (error) {
     console.error('Critical error:', error);
+    document.documentElement.style.opacity = '1';
     showError('Something went wrong', 'Unable to load customer data. Please try again.');
   }
 });

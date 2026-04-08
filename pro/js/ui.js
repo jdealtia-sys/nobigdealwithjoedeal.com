@@ -574,11 +574,56 @@ function switchSettingsTab(tab) {
   const btn = document.getElementById('stab-' + tab);
   if (btn) btn.classList.add('stab-active');
 
-  // Lazy-load appearance tab content — render theme/font grids from picker system
+  // Lazy-load appearance tab content — render theme/font grids
   if (tab === 'appearance') {
+    // === NEW: ThemeEngine-powered picker with categories ===
+    const teGrid = document.getElementById('te-theme-grid');
+    const teTabs = document.getElementById('te-category-tabs');
+    if (teGrid && !teGrid.dataset.loaded && window.ThemeEngine) {
+      const TE = window.ThemeEngine;
+      const cats = TE.getCategories();
+      const current = TE.getCurrent() || 'nbd-original';
+      // Build category filter tabs
+      let catHTML = '<button class="te-cat-btn te-cat-active" data-cat="all" onclick="window._filterThemes(\'all\',this)" style="padding:5px 12px;border-radius:16px;border:1px solid var(--br);background:var(--orange);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.04em;text-transform:uppercase;">All</button>';
+      cats.forEach(c => {
+        catHTML += `<button class="te-cat-btn" data-cat="${c.key}" onclick="window._filterThemes('${c.key}',this)" style="padding:5px 12px;border-radius:16px;border:1px solid var(--br);background:var(--s2);color:var(--m);font-size:11px;font-weight:600;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;transition:all .15s;">${c.icon} ${c.label}</button>`;
+      });
+      teTabs.innerHTML = catHTML;
+      // Build theme grid
+      const allThemes = TE.getAll();
+      let gridHTML = '';
+      Object.entries(allThemes).forEach(([key, t]) => {
+        const isActive = key === current;
+        const isLocked = t.locked && !TE.isUnlocked(key);
+        const bg = t.colors?.bg || '#1a1a2e';
+        const accent = t.colors?.accent || '#C8541A';
+        const surface = t.colors?.surface || '#16213e';
+        gridHTML += `<div class="te-theme-card" data-key="${key}" data-cat="${t.category}" data-name="${t.name.toLowerCase()}" onclick="${isLocked ? '' : `applyTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'var(--br)'};border-radius:10px;padding:10px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;min-height:80px;position:relative;opacity:${isLocked?'0.5':'1'};">
+          <div style="display:flex;gap:4px;margin-bottom:6px;">
+            <span style="width:12px;height:12px;border-radius:50%;background:${accent};display:block;"></span>
+            <span style="width:12px;height:12px;border-radius:50%;background:${surface};display:block;"></span>
+            ${t.colors?.accent2 ? `<span style="width:12px;height:12px;border-radius:50%;background:${t.colors.accent2};display:block;"></span>` : ''}
+          </div>
+          <div style="font-size:11px;font-weight:700;color:${t.colors?.text || '#e2e8f0'};font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isLocked ? '🔒 ' : ''}${t.name}</div>
+          <div style="font-size:9px;color:${t.colors?.muted || '#6b7280'};text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">${t.category}</div>
+          ${isActive ? `<div style="position:absolute;top:6px;right:6px;background:${accent};color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:8px;">ACTIVE</div>` : ''}
+          ${t.overlay?.type && t.overlay.type !== 'none' ? `<div style="position:absolute;bottom:6px;right:6px;font-size:8px;color:${t.colors?.muted || '#6b7280'};">✦</div>` : ''}
+        </div>`;
+      });
+      teGrid.innerHTML = gridHTML;
+      teGrid.dataset.loaded = '1';
+      // Init achievements panel
+      if (window.ThemeAchievements?.renderAchievementPanel) {
+        window.ThemeAchievements.renderAchievementPanel('te-achievements-panel');
+      }
+      // Init builder panel
+      if (window.ThemeBuilder?.renderBuilder) {
+        window.ThemeBuilder.renderBuilder('te-builder-panel');
+      }
+    }
+    // Legacy fallback if ThemeEngine not loaded
     const grid = document.getElementById('settings-theme-grid-tab');
-    if (grid && !grid.dataset.loaded) {
-      // Render themes using the picker system (defined in maps.js)
+    if (grid && !grid.dataset.loaded && !window.ThemeEngine) {
       if (typeof NBD_THEMES !== 'undefined') {
         const _nbdUnlocked = window._nbdUnlocked || (() => true);
         const _nbd_activeTheme = window._nbd_activeTheme || '';
@@ -644,6 +689,27 @@ function switchSettingsTab(tab) {
   }
 }
 window.switchSettingsTab = switchSettingsTab;
+
+// Theme Engine filter helper
+window._filterThemes = function(cat, btn) {
+  if(!cat) { // text search mode
+    const q = (document.getElementById('te-search')?.value || '').toLowerCase();
+    document.querySelectorAll('.te-theme-card').forEach(c => {
+      c.style.display = c.dataset.name.includes(q) ? '' : 'none';
+    });
+    return;
+  }
+  // Category filter mode
+  document.querySelectorAll('.te-cat-btn').forEach(b => {
+    b.style.background = 'var(--s2)'; b.style.color = 'var(--m)';
+  });
+  if(btn) { btn.style.background = 'var(--orange)'; btn.style.color = '#fff'; }
+  document.querySelectorAll('.te-theme-card').forEach(c => {
+    c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+  });
+  // Clear search
+  const s = document.getElementById('te-search'); if(s) s.value = '';
+};
 
 function toggleSettingsSection(section) {
   const container = document.getElementById('settings-'+section);

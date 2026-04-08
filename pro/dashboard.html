@@ -3724,9 +3724,7 @@ body {
   /* Add Lead button — 44px+ tap target on mobile */
   .crm-header .btn-orange{ min-height:44px!important; font-size:13px!important; padding:10px 14px!important; }
 
-  /* Quick Add FAB — show on mobile */
-  #quickAddFab { display:flex!important; align-items:center; justify-content:center; }
-  #quickAddFab:active { transform:scale(.92); }
+  /* Quick Add FAB removed */
 
   /* Lead modal — full screen on mobile, bigger tap targets */
   #leadModal .modal { max-width:100%!important; width:100%!important; margin:0!important; border-radius:16px 16px 0 0!important; position:fixed!important; bottom:0!important; left:0!important; right:0!important; max-height:92vh!important; }
@@ -6870,7 +6868,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('company_intro')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('company_intro')">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">🏢</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Company One-Pager</div>
@@ -6894,7 +6892,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('storm_checklist')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('storm_checklist')">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">⛈️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Storm Damage Checklist</div>
@@ -6902,7 +6900,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('claim_guide')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('claim_guide')">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">📖</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Insurance Claim Process Guide</div>
@@ -6923,7 +6921,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('referral_card')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('referral_card')">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🤝</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Referral Card</div>
@@ -6939,7 +6937,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('door_hanger')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('door_hanger')">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🚪</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Door Hanger</div>
@@ -6955,7 +6953,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.generate('testimonial_sheet')">
+            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('testimonial_sheet')">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">⭐</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Customer Testimonial Sheet</div>
@@ -7174,12 +7172,40 @@ function switchScTab(tab, btn) {
       <div class="stab-panel" id="stab-panel-appearance" style="display:none;">
 
         <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-hdr"><div><div class="panel-label">Theme</div><div class="panel-title">Color Theme</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Theme Engine</div><div class="panel-title">155 Themes — Colors, Overlays, Sound & More</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">60 themes — changes apply instantly and persist across sessions.</p>
-            <div class="npm-grid" id="settings-theme-grid-tab">
-            <!-- themes injected by switchSettingsTab -->
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Each theme has its own color palette, background overlay, border style, and personality. Achievement themes are earned by using NBD Pro.</p>
+            <!-- Category filter tabs -->
+            <div id="te-category-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+            <!-- Search -->
+            <input type="text" id="te-search" placeholder="Search themes..." style="width:100%;padding:8px 12px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:13px;margin-bottom:14px;outline:none;" oninput="window._filterThemes()">
+            <!-- Theme grid -->
+            <div id="te-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;max-height:500px;overflow-y:auto;padding-right:4px;"></div>
+            <!-- Overlay + Sound toggles -->
+            <div style="display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--br);">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
+                <input type="checkbox" id="te-overlays-toggle" onchange="if(window.ThemeOverlays)window.ThemeOverlays.setEnabled(this.checked)" checked> Visual Overlays
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
+                <input type="checkbox" id="te-sound-toggle" onchange="if(window.ThemeSounds)window.ThemeSounds.setEnabled(this.checked)"> Ambient Sound
+              </label>
             </div>
+          </div>
+        </div>
+
+        <!-- Achievement Themes -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Achievements</div><div class="panel-title">Unlock Special Themes</div></div></div>
+          <div class="panel-body">
+            <div id="te-achievements-panel"></div>
+          </div>
+        </div>
+
+        <!-- Custom Theme Builder -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Builder</div><div class="panel-title">Create Your Own Theme</div></div></div>
+          <div class="panel-body">
+            <div id="te-builder-panel"></div>
           </div>
         </div>
 
@@ -9320,13 +9346,22 @@ const THEME_KEYS = [
 const DEFAULT_THEME = 'nbd-original';
 
 function applyTheme(key, save=true) {
+  // Delegate to ThemeEngine if loaded (supports 155 themes with overlays, sounds, etc.)
+  if(window.ThemeEngine) {
+    window.ThemeEngine.apply(key, save);
+    // Also update legacy UI elements
+    document.querySelectorAll('.theme-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.key === key);
+    });
+    window._currentTheme = key;
+    return;
+  }
+  // Legacy fallback for themes defined in CSS
   if(!THEME_KEYS.includes(key)) key = DEFAULT_THEME;
   document.documentElement.setAttribute('data-theme', key);
-  // Update active state on cards
   document.querySelectorAll('.theme-card').forEach(c => {
     c.classList.toggle('active', c.dataset.key === key);
   });
-  // Save to localStorage + Firebase
   try { localStorage.setItem('nbd-theme', key); } catch(e){}
   if(save && window._user && window._db) {
     try {
@@ -9360,6 +9395,20 @@ function loadSavedTheme() {
 // Load saved theme when user auth resolves
 document.addEventListener('DOMContentLoaded', () => {
   loadSavedTheme();
+  // Boot Theme Engine (overlays, sounds, achievements)
+  setTimeout(() => {
+    if(window.ThemeEngine) {
+      window.ThemeEngine.init();
+      if(window.ThemeOverlays) window.ThemeOverlays.init();
+      if(window.ThemeSounds) window.ThemeSounds.init();
+    }
+  }, 500);
+  // Boot achievements after leads load
+  setTimeout(() => {
+    if(window.ThemeAchievements && window._user) {
+      window.ThemeAchievements.init();
+    }
+  }, 3000);
 });
 
 // Mark current theme card active whenever settings opens
@@ -10822,8 +10871,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
   </div>
 </div>
 
-<!-- ── QUICK ADD LEAD FAB ── -->
-<button id="quickAddFab" onclick="openQuickAddLead()" aria-label="Quick Add Lead" style="display:none;position:fixed;bottom:74px;right:16px;z-index:1998;width:52px;height:52px;border-radius:50%;background:var(--orange);border:none;cursor:pointer;box-shadow:0 4px 16px rgba(200,84,26,.5);font-size:22px;line-height:1;color:#fff;transition:transform .15s;-webkit-tap-highlight-color:transparent;">＋</button>
+<!-- Quick Add FAB removed — system is smooth enough without it -->
 
 <!-- ── MOBILE BOTTOM NAV ── -->
 <nav id="mobile-nav">
@@ -11205,6 +11253,11 @@ function shareCalViaEmail() {
 <script src="js/insurance-claim.js?v=1"></script>
 <script src="js/reporting-dashboard.js?v=1"></script>
 <script src="js/supplier-pricing.js?v=1"></script>
+<script src="js/theme-engine.js?v=1"></script>
+<script src="js/theme-overlays.js?v=1"></script>
+<script src="js/theme-sounds.js?v=1"></script>
+<script src="js/theme-achievements.js?v=1"></script>
+<script src="js/theme-builder.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {
