@@ -70,7 +70,35 @@
       errEl.textContent = 'Passwords do not match.'; return;
     }
     if(!code) {
-      errEl.textContent = 'Access code required. Contact Joe at jd@nobigdealwithjoedeal.com to get one.'; return;
+      // No access code — register as free/lite user
+      btn.disabled = true;
+      btn.textContent = 'Creating free account...';
+
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          firstName, lastName, company: company || '', email,
+          role: 'member', plan: 'lite',
+          createdAt: serverTimestamp(), onboarded: false
+        });
+
+        await setDoc(doc(db, 'subscriptions', cred.user.uid), {
+          plan: 'lite', status: 'active',
+          createdAt: serverTimestamp(), source: 'registration-free',
+          limits: { maxLeads: 25 }
+        });
+
+        window.location.replace('/pro/dashboard.html');
+        return;
+      } catch(e) {
+        errEl.textContent = e.code === 'auth/email-already-in-use'
+          ? 'This email is already registered. Try logging in.'
+          : (e.message || 'Registration failed');
+        btn.disabled = false; btn.textContent = 'Create Account';
+        return;
+      }
     }
 
     btn.disabled = true;
@@ -134,7 +162,33 @@
     errEl.textContent = '';
 
     if(!code) {
-      errEl.textContent = 'Enter your access code first, then sign in with Google.'; return;
+      // No access code — register as lite via Google
+      try {
+        const provider = new GoogleAuthProvider();
+        const cred = await signInWithPopup(auth, provider);
+        const user = cred.user;
+        const existing = await getDoc(doc(db,'users',user.uid));
+        if(!existing.exists()) {
+          const nameParts = (user.displayName||'').split(' ');
+          await setDoc(doc(db,'users',user.uid), {
+            firstName: nameParts[0]||'', lastName: nameParts.slice(1).join(' ')||'',
+            company:'', email:user.email, role:'member', plan:'lite',
+            createdAt:serverTimestamp(), onboarded:false
+          });
+        }
+        const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
+        if(!subSnap.exists()) {
+          await setDoc(doc(db,'subscriptions',user.uid), {
+            plan:'lite', status:'active', createdAt:serverTimestamp(),
+            source:'registration-google-free', limits:{maxLeads:25}
+          });
+        }
+        window.location.replace('/pro/dashboard.html');
+        return;
+      } catch(e) {
+        errEl.textContent = e.message || 'Google sign-in failed';
+        return;
+      }
     }
 
     const valid = await validateCode(code);
@@ -657,7 +711,7 @@ body {
   <div class="form-card">
     <div class="form-eyebrow">NBD Pro — Member Signup</div>
     <div class="form-title">Create Your Account</div>
-    <div class="form-sub">You need an access code to join. If you don't have one, <a href="mailto:jd@nobigdealwithjoedeal.com" style="color:var(--orange);text-decoration:none;">contact Joe</a>.</div>
+    <div class="form-sub">Start free with 25 leads, basic CRM & estimates. Have an access code? Enter it below for full Pro access.</div>
 
     <button class="google-btn" onclick="googleRegister()">
       <span class="google-icon">
@@ -674,8 +728,8 @@ body {
 
       <!-- Access code FIRST — most important gate -->
       <div class="ffield code-field">
-        <label>Access Code <span>*</span></label>
-        <input class="finput" id="regCode" type="text" placeholder="NBD-XXXXX" autocomplete="off" spellcheck="false"
+        <label>Access Code <span style="font-weight:400;color:rgba(255,255,255,.3);">(optional — leave blank for free tier)</span></label>
+        <input class="finput" id="regCode" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false"
           oninput="this.value=this.value.toUpperCase()">
         <div class="code-hint">Use code <strong style="color:#C8541A;letter-spacing:.05em;">NBD-PRO</strong> to get started, or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> for a custom code.</div>
       </div>

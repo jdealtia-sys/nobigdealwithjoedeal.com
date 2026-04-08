@@ -715,8 +715,8 @@
 
     .pricing-cards {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 32px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
       max-width: 1200px;
       margin: 0 auto 40px;
     }
@@ -1372,6 +1372,23 @@
       <h2 class="section-title">SIMPLE, TRANSPARENT PRICING</h2>
 
       <div class="pricing-cards">
+        <!-- Lite Plan (Free) -->
+        <div class="pricing-card">
+          <h3>Lite</h3>
+          <div class="pricing-price">Free<span> forever</span></div>
+          <p class="pricing-description">Try NBD Pro with no commitment</p>
+          <ul class="pricing-features">
+            <li>CRM Pipeline (up to 25 leads)</li>
+            <li>Basic Estimate Builder</li>
+            <li>Map & Pin Tracking</li>
+            <li>1 user</li>
+            <li>Community support</li>
+          </ul>
+          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html'; return false;" style="background:transparent;border:2px solid var(--orange);color:var(--orange);">
+            Start Free — No Card Needed
+          </button>
+        </div>
+
         <!-- Foundation Plan -->
         <div class="pricing-card">
           <h3>Foundation</h3>

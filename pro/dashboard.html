@@ -333,6 +333,21 @@
     }
     
     document.documentElement.style.visibility="visible";
+    
+    // Show upgrade banner for lite users
+    if (window._userPlan === 'lite') {
+      setTimeout(() => {
+        const banner = document.createElement('div');
+        banner.id = 'liteBanner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#1e3a6e,#142a52);border-top:2px solid #e8720c;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
+        banner.innerHTML = `
+          <span>🚀 You're on <strong style="color:#e8720c;">NBD Pro Lite</strong> (25 leads max)</span>
+          <a href="/pro/landing.html#pricing" style="background:#e8720c;color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
+        `;
+        document.body.appendChild(banner);
+      }, 2000);
+    }
     window._user = user;
     requestNotifPermission();
     // Pick up pending warranty cert from customer page
@@ -1058,6 +1073,15 @@
       const editId = data.id;
       delete data.id;
       
+      // LITE PLAN: enforce 25-lead limit on new leads
+      if ((!editId || editId.startsWith('d-')) && window._userPlan === 'lite') {
+        const currentCount = (window._leads || []).length;
+        if (currentCount >= 25) {
+          showToast('Free tier limit: 25 leads. Upgrade to Pro for unlimited leads.', 'error');
+          return null;
+        }
+      }
+
       // NEW LEAD: Geocode address and create map pin
       if (!editId || editId.startsWith('d-')) {
         if (data.address) {

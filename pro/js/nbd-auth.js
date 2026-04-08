@@ -32,7 +32,7 @@ const FIREBASE_CONFIG = {
 };
 
 // ── Plan Hierarchy ────────────────────────────────────────
-const PLAN_LEVELS = { free: 0, foundation: 1, blueprint: 2, professional: 3 };
+const PLAN_LEVELS = { free: 0, lite: 1, foundation: 2, blueprint: 3, professional: 4 };
 
 // ── Page → Required Plan Mapping ──────────────────────────
 const PAGE_PLANS = {
@@ -62,6 +62,7 @@ const PAGE_PLANS = {
 // ── Feature Names (for upgrade wall) ──────────────────────
 const PLAN_NAMES = {
   free:         'Free',
+  lite:         'Lite',
   foundation:   'Foundation',
   blueprint:    'Blueprint',
   professional: 'Professional'
