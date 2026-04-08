@@ -339,6 +339,237 @@ header {
   font-size:28px; line-height:1; padding:0; width:32px; height:32px;
 }
 .modal-close:hover { color:var(--t); }
+
+/* TAB NAVIGATION */
+.tab-bar {
+  display:flex; flex:0 0 auto;
+  background:var(--s); border-bottom:1px solid var(--br);
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+.tab {
+  padding:16px 20px; border:none; background:none;
+  font-size:13px; font-weight:600; cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  color:var(--m); text-transform:uppercase;
+  border-bottom:2px solid transparent; white-space:nowrap;
+  transition:all .15s;
+}
+.tab:hover { color:var(--t); }
+.tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+
+/* CONTENT SECTIONS */
+.tab-content {
+  display:none;
+}
+.tab-content.active {
+  display:block;
+}
+
+/* TIMELINE VISUAL */
+.timeline-vertical {
+  position:relative; padding:20px 0;
+}
+.timeline-vertical::before {
+  content:''; position:absolute; left:15px; top:0;
+  bottom:0; width:2px; background:var(--br);
+}
+.milestone {
+  display:flex; gap:16px; margin-bottom:24px;
+  position:relative; padding-left:60px;
+}
+.milestone-dot {
+  position:absolute; left:0; top:4px;
+  width:32px; height:32px; border-radius:50%;
+  background:var(--s2); border:2px solid var(--br);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; z-index:1;
+  transition:all .3s;
+}
+.milestone.active .milestone-dot {
+  background:var(--orange); border-color:var(--orange);
+  box-shadow:0 0 0 8px rgba(200,84,26,.2);
+  animation:pulse-ring 2s ease-in-out infinite;
+}
+.milestone.completed .milestone-dot {
+  background:var(--green); border-color:var(--green);
+}
+.milestone.pending .milestone-dot {
+  opacity:.4;
+}
+.milestone-content { flex:1; }
+.milestone-title {
+  font-size:14px; font-weight:600;
+  margin-bottom:4px; color:var(--t);
+}
+.milestone.pending .milestone-title {
+  color:var(--m);
+}
+.milestone-date {
+  font-size:12px; color:var(--m); margin-bottom:4px;
+  font-family:'DM Mono',monospace;
+}
+.milestone-desc {
+  font-size:12px; color:var(--m); line-height:1.4;
+}
+@keyframes pulse-ring {
+  0% { box-shadow:0 0 0 0 rgba(200,84,26,.4); }
+  70% { box-shadow:0 0 0 12px rgba(200,84,26,0); }
+  100% { box-shadow:0 0 0 0 rgba(200,84,26,0); }
+}
+
+/* INVOICE & PAYMENTS */
+.invoice-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.invoice-item:last-child { border-bottom:none; }
+.invoice-left { flex:1; }
+.invoice-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.invoice-desc {
+  font-size:13px; font-weight:600; margin-bottom:4px;
+}
+.invoice-right {
+  display:flex; gap:12px; align-items:center; flex-shrink:0;
+}
+.invoice-amount {
+  font-size:14px; font-weight:700; color:var(--orange);
+  min-width:80px; text-align:right;
+}
+.invoice-status {
+  font-size:10px; font-weight:600; padding:4px 8px;
+  border-radius:4px; text-transform:uppercase;
+  background:var(--s2); color:var(--m);
+}
+.invoice-status.paid { background:#0f2a1a; color:var(--green); }
+.invoice-status.sent { background:#1a2440; color:var(--blue); }
+.invoice-status.draft { background:var(--s2); color:var(--m); }
+.invoice-status.overdue { background:#2a1414; color:var(--red); }
+
+.payment-summary {
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  padding:12px 0; border-top:1px solid var(--br);
+  margin-top:12px;
+}
+.summary-item {
+  display:flex; flex-direction:column; gap:4px;
+}
+.summary-label {
+  font-size:11px; color:var(--m); font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.summary-value {
+  font-size:16px; font-weight:700; color:var(--orange);
+}
+
+/* PHOTO GALLERY PHASES */
+.photo-phase {
+  margin-bottom:24px;
+}
+.photo-phase-title {
+  font-size:12px; font-weight:600; color:var(--m);
+  text-transform:uppercase; letter-spacing:.06em;
+  margin-bottom:8px; font-family:'Barlow Condensed',sans-serif;
+}
+.photo-grid-phase {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
+  gap:8px;
+}
+
+/* DOCUMENT & REPORT ITEMS */
+.doc-item {
+  display:flex; gap:12px; align-items:center;
+  padding:12px; background:var(--s2); border-radius:8px;
+  margin-bottom:8px; transition:all .15s;
+}
+.doc-item:hover { background:var(--s3); border-color:var(--orange); }
+.doc-icon {
+  font-size:24px; flex-shrink:0;
+}
+.doc-content { flex:1; }
+.doc-type {
+  font-size:11px; color:var(--m); font-weight:600;
+  text-transform:uppercase; letter-spacing:.06em;
+}
+.doc-name {
+  font-size:13px; font-weight:600; margin-bottom:2px;
+}
+.doc-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.doc-actions {
+  display:flex; gap:6px; flex-shrink:0;
+}
+.doc-btn {
+  padding:6px 10px; background:var(--orange); color:#fff;
+  border:none; border-radius:4px; font-size:11px;
+  font-weight:600; cursor:pointer; transition:all .15s;
+}
+.doc-btn:hover { background:var(--ob); }
+
+/* COMMUNICATION LOG */
+.comm-item {
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.comm-item:last-child { border-bottom:none; }
+.comm-header {
+  display:flex; gap:8px; align-items:center; margin-bottom:6px;
+}
+.comm-type {
+  font-size:10px; font-weight:700; padding:3px 8px;
+  border-radius:4px; background:var(--s2); color:var(--m);
+  text-transform:uppercase; flex-shrink:0;
+}
+.comm-type.email { background:rgba(74,158,255,.2); color:var(--blue); }
+.comm-type.sms { background:rgba(46,204,138,.2); color:var(--green); }
+.comm-status {
+  font-size:10px; color:var(--m); flex-shrink:0;
+}
+.comm-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.comm-subject {
+  font-size:13px; font-weight:600; margin-bottom:4px;
+}
+.comm-preview {
+  font-size:12px; color:var(--m); line-height:1.4;
+}
+
+/* HEADER UPGRADES */
+.company-banner {
+  display:flex; gap:16px; align-items:center;
+  padding:12px; background:var(--s2); border-radius:8px;
+  margin-bottom:12px;
+}
+.company-logo {
+  width:48px; height:48px; background:var(--orange);
+  border-radius:8px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700;
+  font-size:14px; flex-shrink:0;
+}
+.company-info { flex:1; }
+.company-name {
+  font-size:13px; font-weight:600; margin-bottom:2px;
+}
+.company-contact {
+  font-size:11px; color:var(--m);
+}
+
+/* QUICK CONTACT BAR */
+.quick-contact {
+  display:flex; gap:6px; margin-top:8px;
+}
+.quick-contact-btn {
+  flex:1; padding:8px 12px; background:var(--orange);
+  color:#fff; border:none; border-radius:6px;
+  font-size:11px; font-weight:600; cursor:pointer;
+  transition:all .15s; display:flex; align-items:center;
+  justify-content:center; gap:4px;
+}
+.quick-contact-btn:hover { background:var(--ob); }
+
 </style>
 </head>
 <body>
@@ -397,7 +628,18 @@ header {
     </div>
   </div>
 
-  <div class="content-grid">
+  <!-- TAB NAVIGATION -->
+  <div class="tab-bar active" id="tabBar">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('timeline')">Timeline</button>
+    <button class="tab" onclick="switchTab('photos')">Photos</button>
+    <button class="tab" onclick="switchTab('documents')">Documents</button>
+    <button class="tab" onclick="switchTab('contact')">Contact</button>
+  </div>
+
+  <div class="tab-content active" id="overviewTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+    <div class="content-grid">
     
     <!-- LEFT COLUMN -->
     <div>
@@ -579,6 +821,121 @@ header {
       </div>
     </div>
 
+    </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE TAB -->
+  <div class="tab-content" id="timelineTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <!-- PROJECT TIMELINE PANEL -->
+      <div class="panel">
+        <div class="panel-title">Project Milestones</div>
+        <div id="projectTimeline" class="timeline-vertical">
+          <div class="empty">
+            <div class="empty-icon">📅</div>
+            Loading timeline...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHOTOS TAB -->
+  <div class="tab-content" id="photosTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="panel">
+        <div class="panel-title">Project Photos by Phase</div>
+        <div id="photosByPhase">
+          <div class="empty">
+            <div class="empty-icon">📸</div>
+            Loading photos...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENTS TAB -->
+  <div class="tab-content" id="documentsTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="content-grid">
+        <div>
+          <!-- INVOICES & PAYMENTS -->
+          <div class="panel">
+            <div class="panel-title">Invoices & Payments</div>
+            <div id="invoiceList">
+              <div class="empty">
+                <div class="empty-icon">💰</div>
+                Loading invoices...
+              </div>
+            </div>
+          </div>
+
+          <!-- REPORTS -->
+          <div class="panel">
+            <div class="panel-title">Inspection Reports</div>
+            <div id="reportList">
+              <div class="empty">
+                <div class="empty-icon">📋</div>
+                No reports yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- DOCUMENTS -->
+          <div class="panel">
+            <div class="panel-title">Shared Documents</div>
+            <div id="sharedDocList">
+              <div class="empty">
+                <div class="empty-icon">📄</div>
+                No documents shared yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT TAB -->
+  <div class="tab-content" id="contactTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="content-grid">
+        <div>
+          <!-- CONTRACTOR INFO & QUICK CONTACT -->
+          <div class="panel">
+            <div class="company-banner">
+              <div class="company-logo">NBD</div>
+              <div class="company-info">
+                <div class="company-name">No Big Deal Home Solutions</div>
+                <div class="company-contact" id="contractorPhone">(859) 420-7382</div>
+              </div>
+            </div>
+            <div class="quick-contact">
+              <a class="quick-contact-btn" id="contactCallBtn" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
+              <a class="quick-contact-btn" id="contactTextBtn" href="sms:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Text</a>
+              <a class="quick-contact-btn" id="contactEmailBtn" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- COMMUNICATION LOG -->
+          <div class="panel">
+            <div class="panel-title">Recent Communications</div>
+            <div id="communicationLog">
+              <div class="empty">
+                <div class="empty-icon">💬</div>
+                No messages yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1688,6 +2045,13 @@ async function loadCustomerData(id) {
         window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow', id);
       }
     } catch (e) { console.warn('Claim workflow render failed:', e.message); }
+
+    // Load new portal sections (timeline, invoices, photos by phase, reports, documents, communication log)
+    try {
+      await window.loadNewPortalSections(id);
+      // Setup contact tab
+      window.setupContactTab(lead);
+    } catch (e) { console.warn('Portal sections render failed:', e.message); }
 
   } catch (error) {
     console.error('Error loading customer data:', error);
@@ -3231,6 +3595,401 @@ window.copyBookingLink = function() {
     if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Booking Link', 2000); }
     showToast('Booking message copied to clipboard!', 'success');
   }).catch(() => showToast('Failed to copy', 'error'));
+};
+
+// ── Tab Navigation ─────────────────────────────
+window.switchTab = function(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+
+  // Deactivate all tab buttons
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // Show selected tab
+  const selectedTab = document.getElementById(tabName + 'Tab');
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+
+  // Activate selected tab button
+  event.target.classList.add('active');
+};
+
+// ── Project Timeline (Milestones) ──────────────────
+window.loadProjectTimeline = async function(leadId) {
+  try {
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', leadId));
+    if (!leadSnap.exists()) return;
+
+    const lead = leadSnap.data();
+    const currentStage = lead.stage || 'new';
+
+    // Define milestone stages with descriptions
+    const milestones = [
+      { stage: 'new', label: 'Lead Created', icon: '📌', desc: 'New lead in system' },
+      { stage: 'contacted', label: 'Contacted', icon: '📞', desc: 'Customer contacted' },
+      { stage: 'inspected', label: 'Inspection Completed', icon: '✓', desc: 'Roof inspection done' },
+      { stage: 'claim_filed', label: 'Claim Filed', icon: '📋', desc: 'Insurance claim submitted' },
+      { stage: 'adjuster_meeting_scheduled', label: 'Adjuster Meeting', icon: '📅', desc: 'Meeting scheduled' },
+      { stage: 'adjuster_inspection_done', label: 'Adjuster Inspection', icon: '✓', desc: 'Adjuster completed review' },
+      { stage: 'scope_received', label: 'Scope Received', icon: '📄', desc: 'Scope of work received' },
+      { stage: 'estimate_submitted', label: 'Estimate Approved', icon: '💰', desc: 'Estimate sent to customer' },
+      { stage: 'supplement_requested', label: 'Supplement Requested', icon: '⚙️', desc: 'Additional work requested' },
+      { stage: 'supplement_approved', label: 'Supplement Approved', icon: '✓', desc: 'Supplement approved' },
+      { stage: 'contract_signed', label: 'Contract Signed', icon: '✍️', desc: 'Customer signed contract' },
+      { stage: 'job_created', label: 'Job Created', icon: '🎯', desc: 'Job scheduled' },
+      { stage: 'permit_pulled', label: 'Permit Pulled', icon: '🔐', desc: 'Building permit obtained' },
+      { stage: 'materials_ordered', label: 'Materials Ordered', icon: '📦', desc: 'Materials ordered' },
+      { stage: 'materials_delivered', label: 'Materials Delivered', icon: '🚚', desc: 'Materials on site' },
+      { stage: 'crew_scheduled', label: 'Crew Scheduled', icon: '👥', desc: 'Crew scheduled' },
+      { stage: 'install_in_progress', label: 'Installation In Progress', icon: '🔨', desc: 'Work in progress' },
+      { stage: 'install_complete', label: 'Installation Complete', icon: '✓', desc: 'Installation finished' },
+      { stage: 'final_photos', label: 'Final Photos', icon: '📸', desc: 'Final photos taken' },
+      { stage: 'deductible_collected', label: 'Deductible Collected', icon: '💳', desc: 'Payment collected' },
+      { stage: 'final_payment', label: 'Final Payment', icon: '✓', desc: 'Project paid in full' },
+      { stage: 'closed', label: 'Warranty Registered', icon: '✅', desc: 'Project complete' }
+    ];
+
+    // Find current stage index
+    const currentIndex = milestones.findIndex(m => m.stage === currentStage);
+
+    let html = '';
+    milestones.forEach((milestone, index) => {
+      const isCompleted = index < currentIndex;
+      const isActive = index === currentIndex;
+      const isPending = index > currentIndex;
+
+      const stateClass = isCompleted ? 'completed' : isActive ? 'active' : 'pending';
+      const date = lead.stageHistory?.[milestone.stage]?.date;
+      const dateStr = date ? new Date(date.seconds ? date.seconds * 1000 : date).toLocaleDateString() : '';
+
+      html += `
+        <div class="milestone ${stateClass}">
+          <div class="milestone-dot">${milestone.icon}</div>
+          <div class="milestone-content">
+            <div class="milestone-title">${milestone.label}</div>
+            ${dateStr ? `<div class="milestone-date">${dateStr}</div>` : ''}
+            <div class="milestone-desc">${milestone.desc}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('projectTimeline').innerHTML = html;
+  } catch (error) {
+    console.error('Timeline load error:', error);
+    document.getElementById('projectTimeline').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load timeline</div>';
+  }
+};
+
+// ── Invoices & Payments ─────────────────────────
+window.loadInvoices = async function(leadId) {
+  try {
+    const invoicesRef = window.collection(window.db, 'invoices');
+    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
+      return;
+    }
+
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let html = '';
+
+    snap.forEach(doc => {
+      const inv = doc.data();
+      const amount = parseFloat(inv.amount || 0);
+      const isPaid = inv.status === 'paid';
+
+      totalAmount += amount;
+      if (isPaid) totalPaid += amount;
+
+      const date = inv.date?.toDate ? inv.date.toDate() : new Date(inv.date);
+      html += `
+        <div class="invoice-item">
+          <div class="invoice-left">
+            <div class="invoice-date">${date.toLocaleDateString()}</div>
+            <div class="invoice-desc">${inv.description || 'Invoice'}</div>
+          </div>
+          <div class="invoice-right">
+            <div class="invoice-amount">$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+            <div class="invoice-status ${inv.status}">${inv.status || 'draft'}</div>
+            ${inv.status !== 'paid' && inv.paymentUrl ? `
+              <a href="${inv.paymentUrl}" target="_blank" class="doc-btn">Pay</a>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="payment-summary">
+        <div class="summary-item">
+          <div class="summary-label">Total Owed</div>
+          <div class="summary-value">$${(totalAmount - totalPaid).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Paid</div>
+          <div class="summary-value">$${totalPaid.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('invoiceList').innerHTML = html;
+  } catch (error) {
+    console.error('Invoice load error:', error);
+    document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load invoices</div>';
+  }
+};
+
+// ── Photos by Phase ─────────────────────────────
+window.loadPhotosByPhase = async function(leadId) {
+  try {
+    const photosRef = window.collection(window.db, 'photos');
+    const q = window.query(photosRef, window.where('leadId', '==', leadId), window.orderBy('date', 'asc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+      return;
+    }
+
+    // Group photos by phase
+    const phases = { 'Before': [], 'During': [], 'After': [] };
+    snap.forEach(doc => {
+      const photo = doc.data();
+      const phase = photo.phase || 'During';
+      if (phases[phase]) phases[phase].push({id: doc.id, ...photo});
+    });
+
+    let html = '';
+    Object.entries(phases).forEach(([phase, photos]) => {
+      if (photos.length === 0) return;
+
+      html += `<div class="photo-phase">
+        <div class="photo-phase-title">${phase} Phase (${photos.length})</div>
+        <div class="photo-grid-phase">`;
+
+      photos.forEach(photo => {
+        html += `
+          <div class="photo-item" onclick="openPhotoLightbox('${photo.url}', '${(photo.description || '').replace(/'/g, "\\'")}')">
+            <img src="${photo.url}" alt="${photo.description || 'Photo'}" style="width:100%;height:100%;object-fit:cover;">
+          </div>
+        `;
+      });
+
+      html += `</div></div>`;
+    });
+
+    document.getElementById('photosByPhase').innerHTML = html || '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+  } catch (error) {
+    console.error('Photos load error:', error);
+    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load photos</div>';
+  }
+};
+
+// ── Reports ────────────────────────────────────
+window.loadReports = async function(leadId) {
+  try {
+    const reportsRef = window.collection(window.db, 'reports');
+    const q = window.query(reportsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('reportList').innerHTML = '<div class="empty"><div class="empty-icon">📋</div>No reports yet</div>';
+      return;
+    }
+
+    let html = '';
+    snap.forEach(doc => {
+      const report = doc.data();
+      const date = report.date?.toDate ? report.date.toDate() : new Date(report.date);
+      const icon = report.type === 'inspection' ? '📋' : report.type === 'damage' ? '⚠️' : '✓';
+
+      html += `
+        <div class="doc-item">
+          <div class="doc-icon">${icon}</div>
+          <div class="doc-content">
+            <div class="doc-type">${report.type || 'Report'}</div>
+            <div class="doc-name">${report.title || report.type || 'Report'}</div>
+            <div class="doc-date">${date.toLocaleDateString()}</div>
+          </div>
+          <div class="doc-actions">
+            <button class="doc-btn" onclick="window.open('${report.htmlUrl || '#'}', '_blank')">View</button>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('reportList').innerHTML = html;
+  } catch (error) {
+    console.error('Reports load error:', error);
+    document.getElementById('reportList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load reports</div>';
+  }
+};
+
+// ── Shared Documents ───────────────────────────
+window.loadSharedDocuments = async function(leadId) {
+  try {
+    const docsRef = window.collection(window.db, 'lead_documents');
+    const q = window.query(docsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No shared documents</div>';
+      return;
+    }
+
+    let html = '';
+    snap.forEach(doc => {
+      const docData = doc.data();
+      const date = docData.date?.toDate ? docData.date.toDate() : new Date(docData.date);
+      const icons = {
+        'estimate': '💰',
+        'contract': '📝',
+        'warranty': '✅',
+        'insurance': '📋'
+      };
+      const icon = icons[docData.type] || '📄';
+
+      html += `
+        <div class="doc-item">
+          <div class="doc-icon">${icon}</div>
+          <div class="doc-content">
+            <div class="doc-type">${docData.type || 'Document'}</div>
+            <div class="doc-name">${docData.name || 'Document'}</div>
+            <div class="doc-date">${date.toLocaleDateString()}</div>
+          </div>
+          <div class="doc-actions">
+            <a href="${docData.url}" target="_blank" class="doc-btn">View</a>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('sharedDocList').innerHTML = html;
+  } catch (error) {
+    console.error('Documents load error:', error);
+    document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load documents</div>';
+  }
+};
+
+// ── Communication Log ──────────────────────────
+window.loadCommunicationLog = async function(leadId) {
+  try {
+    // Load emails and SMS
+    const emailRef = window.collection(window.db, 'email_log');
+    const smsRef = window.collection(window.db, 'sms_log');
+
+    const emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'), window.limit(20));
+    const smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'), window.limit(20));
+
+    const emailSnap = await window.getDocs(emailQ);
+    const smsSnap = await window.getDocs(smsQ);
+
+    let comms = [];
+
+    emailSnap.forEach(doc => {
+      const data = doc.data();
+      comms.push({
+        type: 'email',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.subject || 'Email',
+        preview: data.body?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    smsSnap.forEach(doc => {
+      const data = doc.data();
+      comms.push({
+        type: 'sms',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.message || 'Text Message',
+        preview: data.message?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    // Sort by date descending
+    comms.sort((a, b) => b.date - a.date);
+    comms = comms.slice(0, 20);
+
+    if (comms.length === 0) {
+      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>No messages yet</div>';
+      return;
+    }
+
+    let html = '';
+    comms.forEach(comm => {
+      const dateStr = comm.date.toLocaleDateString() + ' ' + comm.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      html += `
+        <div class="comm-item">
+          <div class="comm-header">
+            <div class="comm-type ${comm.type}">${comm.type.toUpperCase()}</div>
+            <div class="comm-status">${comm.status}</div>
+            <div class="comm-date">${dateStr}</div>
+          </div>
+          <div class="comm-subject">${comm.subject}</div>
+          ${comm.preview ? `<div class="comm-preview">${comm.preview}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    document.getElementById('communicationLog').innerHTML = html;
+  } catch (error) {
+    console.error('Communication log error:', error);
+    document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load messages</div>';
+  }
+};
+
+// ── Load all new sections when customer loads ───
+window.loadNewPortalSections = async function(leadId) {
+  try {
+    await Promise.all([
+      window.loadProjectTimeline(leadId),
+      window.loadPhotosByPhase(leadId),
+      window.loadInvoices(leadId),
+      window.loadReports(leadId),
+      window.loadSharedDocuments(leadId),
+      window.loadCommunicationLog(leadId)
+    ]);
+  } catch (error) {
+    console.error('Error loading portal sections:', error);
+  }
+};
+
+// ── Setup contact tab links ────────────────────
+window.setupContactTab = function(customerData) {
+  const phone = '(859) 420-7382';
+  const email = 'info@nobigdeal.com';
+
+  document.getElementById('contractorPhone').textContent = phone;
+  document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+};
+
+// ── Open Photo in Lightbox ─────────────────────
+window.openPhotoLightbox = function(url, description) {
+  const lightbox = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  if (lightbox && img) {
+    img.src = url;
+    if (description) img.alt = description;
+    lightbox.classList.add('active');
+  }
+};
+
+window.closeLightbox = function() {
+  const lightbox = document.getElementById('lightbox');
+  if (lightbox) lightbox.classList.remove('active');
 };
 
 console.log('✓ Customer page enhancements loaded');

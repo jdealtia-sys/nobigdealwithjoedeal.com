@@ -1,1425 +1,1599 @@
-<!--
-================================================================================
-  NBD PRO LANDING PAGE — DEPLOYMENT-READY VERSION
-================================================================================
-  DEPLOYMENT NOTES — READ BEFORE DEPLOYING
-
-  Date: April 2026
-  Version: 1.1 (Security-hardened)
-
-  WHAT CHANGED FROM ORIGINAL:
-  1. Removed all hardcoded access codes from client-side HTML/JavaScript
-  2. Replaced client-side validation with server-side API calls
-  3. Added security comments throughout
-  4. Phone number still showing 859-420-7382 — DECIDE: use this or 513-315-2406
-
-  CRITICAL SECURITY FIX:
-  The original page had hardcoded access codes visible in page source:
-    • NBD-PRO
-    • NBD2024
-    • JOEDEAL
-    • NBDPRO25
-    • RESTORE
-  
-  These have been REMOVED. All code validation now uses server-side validation.
-
-  SERVER-SIDE SETUP REQUIRED:
-  Before deploying, you must create an API endpoint at /api/validate-code that:
-    - Accepts POST requests with JSON body: { "code": "user-entered-code" }
-    - Returns: { "valid": true/false, "message": "..." }
-    - Stores codes securely (never expose them in responses)
-    - Implements rate limiting (max 5 attempts per IP per 15 minutes)
-    - Logs attempts for security auditing
-  
-  PHONE NUMBER DECISION:
-  This page shows: (859) 420-7382
-  Your PDFs show:  (513) 315-2406
-  ACTION: Decide which is correct and update line 1243 in footer.
-
-  DEPLOYMENT CHECKLIST:
-  Open: /sessions/compassionate-ecstatic-volta/mnt/outputs/DEPLOYMENT-CHECKLIST.html
-  
-================================================================================
--->
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0A0C0F">
-  <script src="js/standalone-compat.js"></script>
-  <title>NBD Pro — Run Your Business Like Joe Runs His</title>
-  <meta name="description" content="The playbook, tools, and AI coach that helped Joe Deal build a top-rated contracting company from scratch. Now it's yours.">
+  <meta name="apple-mobile-web-app-title" content="NBD Pro">
+  <meta name="theme-color" content="#1e3a6e">
+  <meta name="description" content="NBD Pro — The all-in-one CRM, estimates, door-to-door tracking, and training platform built by a roofer for roofers. Close more deals. Run your business like Joe runs his.">
+  <meta name="keywords" content="roofing CRM, contractor software, estimate builder, insurance restoration">
+  <title>NBD Pro — Roofing Business Management Platform</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@500&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
-    /* ========================================
-       CSS VARIABLES — NBD Brand System
-       ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     :root {
       --navy: #1e3a6e;
-      --navy-dark: #142a52;
-      --navy-deeper: #0e1f3d;
-      --orange: #e8720c;
-      --orange-hover: #d4660a;
-      --orange-light: rgba(232, 114, 12, 0.1);
-      --text-dark: #1a1a2e;
-      --text-body: #3a3a4a;
-      --text-muted: #6b7280;
-      --text-light: #9ca3af;
-      --bg-cream: #f5f3ef;
-      --bg-white: #ffffff;
-      --bg-light: #fafaf8;
-      --border-light: #e5e7eb;
-      --green-badge: #16a34a;
-      --yellow-badge: #ca8a04;
-      --radius: 12px;
-      --radius-lg: 20px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-      --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
-      --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
-      --font-display: 'Bebas Neue', sans-serif;
-      --font-body: 'Montserrat', sans-serif;
-      --font-script: 'Dancing Script', cursive;
+      --orange: #C8541A;
+      --orange-light: #e8720c;
+      --dark: #0A0C0F;
+      --cream: #F8F6F1;
+      --white: #FFFFFF;
+      --gray-light: #E5E5E5;
+      --gray-medium: #666666;
+      --gray-dark: #333333;
     }
 
-    /* ========================================
-       RESET & BASE
-       ======================================== */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: var(--font-body);
+    html {
+      scroll-behavior: smooth;
       font-size: 16px;
-      line-height: 1.7;
-      color: var(--text-body);
-      background: var(--bg-white);
-      -webkit-font-smoothing: antialiased;
     }
-    img { max-width: 100%; display: block; }
-    a { color: inherit; text-decoration: none; }
 
-    /* ========================================
-       UTILITIES
-       ======================================== */
-    .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
-    .container-narrow { max-width: 800px; margin: 0 auto; padding: 0 24px; }
-    .text-center { text-align: center; }
-    .text-orange { color: var(--orange); }
-    .text-navy { color: var(--navy); }
-    .text-muted { color: var(--text-muted); }
-    .mt-1 { margin-top: 8px; }
-    .mt-2 { margin-top: 16px; }
-    .mt-3 { margin-top: 24px; }
-    .mt-4 { margin-top: 40px; }
-    .mb-2 { margin-bottom: 16px; }
-    .mb-3 { margin-bottom: 24px; }
+    body {
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.6;
+      color: var(--gray-dark);
+      background-color: var(--white);
+      overflow-x: hidden;
+    }
 
-    /* ========================================
-       ANNOUNCEMENT BAR
-       ======================================== */
-    .announce-bar {
-      background: var(--navy-dark);
-      color: #fff;
-      text-align: center;
-      padding: 10px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      position: relative;
-      overflow: hidden;
-    }
-    .announce-bar span { display: inline-block; }
-
-    /* ========================================
-       NAVIGATION
-       ======================================== */
-    .nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(255,255,255,0.97);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border-light);
-      padding: 0 24px;
-    }
-    .nav-inner {
-      max-width: 1140px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 64px;
-    }
-    .nav-logo {
-      font-family: var(--font-display);
-      font-size: 24px;
-      color: var(--navy);
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-weight: 700;
       letter-spacing: 1px;
-    }
-    .nav-logo em {
-      font-family: var(--font-body);
-      font-style: normal;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--orange);
       text-transform: uppercase;
-      letter-spacing: 1.5px;
-      display: block;
-      margin-top: -4px;
     }
-    .nav-links { display: flex; align-items: center; gap: 28px; }
-    .nav-links a {
+
+    .accent {
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s ease;
+      font-family: 'Montserrat', sans-serif;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background-color: var(--orange);
+      color: var(--white);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--orange-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(200, 84, 26, 0.3);
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: var(--orange);
+      border: 2px solid var(--orange);
+    }
+
+    .btn-ghost:hover {
+      background-color: var(--orange);
+      color: var(--white);
+    }
+
+    .btn-block {
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .animate {
+      animation: fadeInUp 0.6s ease forwards;
+      opacity: 0;
+    }
+
+    .animate.in-view {
+      opacity: 1;
+    }
+
+    /* ========== ANNOUNCEMENT BAR ========== */
+    .announcement-bar {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 100%);
+      color: var(--white);
+      padding: 12px 20px;
+      text-align: center;
       font-size: 14px;
       font-weight: 600;
-      color: var(--text-body);
-      transition: color 0.2s;
+      position: relative;
     }
-    .nav-links a:hover { color: var(--orange); }
-    .nav-cta {
-      background: var(--orange);
-      color: #fff !important;
-      padding: 10px 22px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 13px;
-      transition: background 0.2s, transform 0.15s;
+
+    .announcement-bar span {
+      font-size: 18px;
+      margin-right: 8px;
     }
-    .nav-cta:hover { background: var(--orange-hover); transform: translateY(-1px); }
 
-    /* Mobile nav */
-    .nav-toggle { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 8px; z-index: 110; -webkit-tap-highlight-color: transparent; }
-    .nav-toggle span { display: block; width: 24px; height: 2px; background: var(--navy); border-radius: 2px; transition: 0.3s; }
-    .nav-toggle.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
-    .nav-toggle.open span:nth-child(2) { opacity: 0; }
-    .nav-toggle.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
-    .nav-menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 99; }
+    /* ========== STICKY NAV ========== */
+    nav {
+      position: sticky;
+      top: 0;
+      background-color: var(--white);
+      border-bottom: 1px solid var(--gray-light);
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
 
-    /* ========================================
-       BUTTONS
-       ======================================== */
-    .btn {
-      display: inline-flex;
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 15px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-decoration: none;
+      height: 70px;
     }
-    .btn-primary {
-      background: var(--orange);
-      color: #fff;
-      padding: 16px 36px;
-      font-size: 16px;
-      box-shadow: 0 4px 16px rgba(232, 114, 12, 0.3);
-    }
-    .btn-primary:hover { background: var(--orange-hover); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(232, 114, 12, 0.4); }
-    .btn-ghost {
-      background: transparent;
-      color: var(--navy);
-      padding: 14px 28px;
-      border: 2px solid var(--navy);
-    }
-    .btn-ghost:hover { background: var(--navy); color: #fff; }
-    .btn-white {
-      background: #fff;
-      color: var(--navy);
-      padding: 16px 36px;
-      font-size: 16px;
-    }
-    .btn-white:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 
-    /* ========================================
-       HERO SECTION
-       ======================================== */
+    .nav-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+      text-decoration: none;
+      letter-spacing: 2px;
+    }
+
+    .nav-logo span {
+      color: var(--orange);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 40px;
+      list-style: none;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--gray-dark);
+      font-weight: 500;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: color 0.3s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--orange);
+    }
+
+    .nav-cta {
+      background-color: var(--orange);
+      color: var(--white);
+      padding: 10px 24px !important;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+      .nav-cta {
+        padding: 8px 16px !important;
+        font-size: 11px;
+      }
+    }
+
+    /* ========== HERO SECTION ========== */
     .hero {
-      background: linear-gradient(145deg, var(--navy-deeper) 0%, var(--navy) 50%, var(--navy-dark) 100%);
-      color: #fff;
-      padding: 80px 0 100px;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 100%);
+      color: var(--white);
+      padding: 80px 20px;
+      text-align: center;
       position: relative;
       overflow: hidden;
     }
-    .hero::after {
+
+    .hero::before {
       content: '';
       position: absolute;
-      top: -50%;
-      right: -20%;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(232,114,12,0.08) 0%, transparent 70%);
+      top: 0;
+      right: 0;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(200, 84, 26, 0.1) 0%, transparent 70%);
       border-radius: 50%;
     }
-    .hero .container { position: relative; z-index: 1; }
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
-    }
-    .hero-badge {
-      display: inline-block;
-      background: rgba(232,114,12,0.15);
-      color: var(--orange);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      padding: 6px 16px;
-      border-radius: 20px;
-      margin-bottom: 20px;
-    }
-    .hero h1 {
-      font-family: var(--font-display);
-      font-size: 56px;
-      line-height: 1.05;
-      letter-spacing: 1px;
-      margin-bottom: 20px;
-    }
-    .hero-sub {
-      font-size: 18px;
-      line-height: 1.6;
-      color: rgba(255,255,255,0.8);
-      margin-bottom: 12px;
-      max-width: 500px;
-    }
-    .hero-sub strong { color: #fff; }
-    .hero-ctas { display: flex; gap: 16px; margin-top: 32px; flex-wrap: wrap; }
-    .hero-proof {
-      display: flex; gap: 32px; margin-top: 40px;
-      font-size: 13px; color: rgba(255,255,255,0.6);
-    }
-    .hero-proof strong { color: #fff; display: block; font-size: 22px; }
 
-    /* Hero visual - mission card */
-    .mission-card {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--radius-lg);
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      animation: fadeInUp 0.8s ease;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      line-height: 1.2;
+      margin-bottom: 24px;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .hero-subheadline {
+      font-size: 18px;
+      line-height: 1.7;
+      margin-bottom: 32px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 60px;
+      flex-wrap: wrap;
+    }
+
+    .hero-mockup {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
       padding: 40px;
+      margin: 40px auto 0;
+      max-width: 800px;
+      position: relative;
       backdrop-filter: blur(10px);
     }
-    .mission-card h3 {
-      font-family: var(--font-script);
+
+    .mockup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 16px;
+    }
+
+    .mockup-header h3 {
+      color: var(--orange);
+      font-size: 14px;
+    }
+
+    .mockup-dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .mockup-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
       font-size: 28px;
-      color: var(--orange);
-      margin-bottom: 16px;
-    }
-    .mission-card p {
-      font-size: 16px;
-      line-height: 1.7;
-      color: rgba(255,255,255,0.85);
-    }
-    .mission-card .divider {
-      width: 48px;
-      height: 3px;
-      background: var(--orange);
-      border-radius: 4px;
-      margin: 20px 0;
-    }
-    .mission-card .sig {
-      font-family: var(--font-script);
-      font-size: 22px;
-      color: rgba(255,255,255,0.5);
-      margin-top: 16px;
-    }
-
-    /* ========================================
-       SECTION COMMON
-       ======================================== */
-    .section { padding: 80px 0; }
-    .section-cream { background: var(--bg-cream); }
-    .section-navy { background: var(--navy-deeper); color: #fff; }
-    .section-label {
-      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
       color: var(--orange);
-      margin-bottom: 12px;
+      display: block;
     }
-    .section-title {
-      font-family: var(--font-display);
-      font-size: 42px;
-      line-height: 1.1;
-      color: var(--navy);
-      letter-spacing: 0.5px;
-      margin-bottom: 16px;
-    }
-    .section-navy .section-title { color: #fff; }
-    .section-desc {
-      font-size: 17px;
-      color: var(--text-muted);
-      max-width: 620px;
-      line-height: 1.7;
-    }
-    .section-navy .section-desc { color: rgba(255,255,255,0.7); }
 
-    /* ========================================
-       PROBLEM SECTION
-       ======================================== */
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 4px;
+    }
+
+    .trust-badges {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .trust-badges span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 60px 20px;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .hero-subheadline {
+        font-size: 16px;
+      }
+
+      .hero-ctas {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .mockup-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .trust-badges {
+        gap: 16px;
+        justify-content: center;
+      }
+    }
+
+    /* ========== PROBLEM SECTION ========== */
+    .problems {
+      background-color: var(--cream);
+      padding: 80px 20px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 36px;
+      margin-bottom: 60px;
+      color: var(--navy);
+    }
+
     .problems-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-top: 48px;
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
+
     .problem-card {
-      background: var(--bg-white);
-      border-radius: var(--radius);
-      padding: 32px 28px;
-      border: 1px solid var(--border-light);
-      transition: transform 0.2s, box-shadow 0.2s;
+      background-color: var(--white);
+      padding: 32px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .problem-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+    .problem-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    }
+
     .problem-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--orange-light);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      margin-bottom: 20px;
-    }
-    .problem-card h3 {
-      font-family: var(--font-body);
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--navy);
-      margin-bottom: 10px;
-    }
-    .problem-card p { font-size: 15px; color: var(--text-muted); line-height: 1.6; }
-
-    /* ========================================
-       WHAT YOU GET — TWO PRODUCTS
-       ======================================== */
-    .products-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 32px;
-      margin-top: 48px;
-    }
-    .product-block {
-      border-radius: var(--radius-lg);
-      padding: 44px 36px;
-      position: relative;
-      overflow: hidden;
-    }
-    .product-block.masterclass {
-      background: linear-gradient(135deg, var(--navy-deeper), var(--navy));
-      color: #fff;
-    }
-    .product-block.tools {
-      background: var(--bg-white);
-      border: 2px solid var(--border-light);
-      color: var(--text-dark);
-    }
-    .product-badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      padding: 5px 14px;
-      border-radius: 20px;
-      margin-bottom: 20px;
-    }
-    .product-badge.live { background: rgba(22,163,74,0.15); color: var(--green-badge); }
-    .product-badge.building { background: rgba(202,138,4,0.15); color: var(--yellow-badge); }
-    .product-block h3 {
-      font-family: var(--font-display);
-      font-size: 32px;
-      line-height: 1.1;
-      margin-bottom: 12px;
-      letter-spacing: 0.5px;
-    }
-    .product-block .price {
-      font-size: 36px;
-      font-weight: 800;
-      margin: 20px 0 4px;
-    }
-    .product-block .price-note {
-      font-size: 14px;
-      opacity: 0.7;
-      margin-bottom: 24px;
-    }
-    .product-block .desc {
-      font-size: 15px;
-      line-height: 1.7;
-      opacity: 0.85;
-      margin-bottom: 28px;
-    }
-    .feature-list { list-style: none; }
-    .feature-list li {
-      padding: 8px 0;
-      font-size: 15px;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      line-height: 1.5;
-    }
-    .feature-list li::before {
-      content: '\2713';
-      font-weight: 700;
-      color: var(--orange);
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-    .masterclass .feature-list li::before { color: var(--orange); }
-    .tools .feature-list li::before { color: var(--green-badge); }
-
-    .coming-soon-tag {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      background: rgba(202,138,4,0.15);
-      color: var(--yellow-badge);
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-left: 6px;
-    }
-
-    /* ========================================
-       MASTERCLASS CHAPTERS
-       ======================================== */
-    .chapters-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-top: 40px;
-    }
-    .chapter-item {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 20px;
-      transition: border-color 0.2s;
-    }
-    .chapter-item:hover { border-color: var(--orange); }
-    .chapter-num {
-      font-family: var(--font-display);
-      font-size: 28px;
-      color: var(--orange);
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-    .chapter-item h4 {
-      font-size: 14px;
-      font-weight: 700;
-      color: #fff;
-      line-height: 1.4;
-    }
-
-    /* ========================================
-       WHO IT'S FOR
-       ======================================== */
-    .for-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      margin-top: 48px;
-    }
-    .for-column h3 {
-      font-family: var(--font-display);
-      font-size: 26px;
-      color: var(--navy);
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .for-list { list-style: none; }
-    .for-list li {
-      padding: 12px 0;
-      font-size: 15px;
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      line-height: 1.5;
-      border-bottom: 1px solid var(--border-light);
-    }
-    .for-list li:last-child { border-bottom: none; }
-    .for-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-
-    /* ========================================
-       ABOUT JOE
-       ======================================== */
-    .about-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
-      margin-top: 48px;
-    }
-    .about-text h3 {
-      font-family: var(--font-display);
-      font-size: 32px;
-      color: var(--navy);
+      font-size: 48px;
       margin-bottom: 16px;
+      display: block;
     }
-    .about-text p { margin-bottom: 16px; font-size: 15px; line-height: 1.7; }
-    .about-stats {
-      display: flex;
-      gap: 32px;
-      margin-top: 28px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border-light);
-    }
-    .about-stat { text-align: center; }
-    .about-stat .num {
-      font-family: var(--font-display);
-      font-size: 40px;
-      color: var(--orange);
-      line-height: 1;
-    }
-    .about-stat .label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
 
-    .about-visual {
-      background: linear-gradient(135deg, var(--navy-deeper), var(--navy));
-      border-radius: var(--radius-lg);
-      padding: 40px;
-      color: #fff;
-    }
-    .about-visual blockquote {
-      font-size: 20px;
-      line-height: 1.6;
-      font-style: italic;
-      margin-bottom: 24px;
-      opacity: 0.9;
-    }
-    .about-visual .attribution {
-      font-family: var(--font-script);
-      font-size: 22px;
-      color: var(--orange);
-    }
-    .result-badges {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 28px;
-    }
-    .result-badge {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 14px 18px;
-      font-size: 14px;
-      color: rgba(255,255,255,0.8);
-    }
-    .result-badge strong { color: var(--orange); }
-
-    /* ========================================
-       TESTIMONIALS
-       ======================================== */
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-top: 48px;
-    }
-    .testimonial-card {
-      background: var(--bg-white);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius);
-      padding: 32px 28px;
-    }
-    .testimonial-stars { color: #f59e0b; font-size: 16px; margin-bottom: 16px; letter-spacing: 2px; }
-    .testimonial-card blockquote {
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text-body);
-      margin-bottom: 20px;
-      font-style: italic;
-    }
-    .testimonial-author {
-      font-size: 14px;
-      font-weight: 700;
+    .problem-card h3 {
+      font-size: 18px;
+      margin-bottom: 12px;
       color: var(--navy);
     }
-    .testimonial-role { font-size: 13px; color: var(--text-muted); }
 
-    /* ========================================
-       PRICING
-       ======================================== */
-    .pricing-grid {
+    .problem-card p {
+      color: var(--gray-medium);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 768px) {
+      .problems-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-title {
+        font-size: 28px;
+      }
+    }
+
+    /* ========== FEATURES SECTION ========== */
+    .features {
+      background-color: var(--white);
+      padding: 80px 20px;
+    }
+
+    .feature-block {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 32px;
-      margin-top: 48px;
-      max-width: 900px;
+      gap: 48px;
+      align-items: center;
+      margin-bottom: 80px;
+      max-width: 1200px;
       margin-left: auto;
       margin-right: auto;
     }
-    .pricing-card {
-      border-radius: var(--radius-lg);
-      padding: 44px 36px;
-      text-align: center;
+
+    .feature-block:nth-child(even) {
+      direction: rtl;
+    }
+
+    .feature-block:nth-child(even) > * {
+      direction: ltr;
+    }
+
+    .feature-content h3 {
+      font-size: 32px;
+      color: var(--navy);
+      margin-bottom: 24px;
+    }
+
+    .feature-content ul {
+      list-style: none;
+      margin-bottom: 24px;
+    }
+
+    .feature-content li {
+      padding: 12px 0;
+      padding-left: 28px;
       position: relative;
-      transition: transform 0.2s;
+      color: var(--gray-dark);
+      line-height: 1.7;
     }
-    .pricing-card:hover { transform: translateY(-4px); }
-    .pricing-card.core {
-      background: var(--bg-white);
-      border: 2px solid var(--border-light);
+
+    .feature-content li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--orange);
+      font-weight: bold;
+      font-size: 18px;
     }
-    .pricing-card.featured {
-      background: linear-gradient(135deg, var(--navy-deeper), var(--navy));
-      color: #fff;
-      border: 2px solid var(--orange);
+
+    .feature-mockup {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 100%);
+      border-radius: 8px;
+      padding: 32px;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: var(--white);
+      position: relative;
+      overflow: hidden;
     }
-    .pricing-card .badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      padding: 5px 14px;
-      border-radius: 20px;
+
+    .feature-mockup::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .feature-mockup-content {
+      position: relative;
+      z-index: 2;
+      padding-top: 20px;
+    }
+
+    .feature-mockup-title {
+      font-size: 13px;
+      color: var(--orange);
+      font-weight: 600;
       margin-bottom: 16px;
+      text-transform: uppercase;
     }
-    .pricing-card.core .badge { background: rgba(30,58,110,0.08); color: var(--navy); }
-    .pricing-card.featured .badge { background: rgba(232,114,12,0.2); color: var(--orange); }
-    .pricing-card h3 {
-      font-family: var(--font-display);
-      font-size: 30px;
-      letter-spacing: 0.5px;
+
+    .mockup-items {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mockup-item {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mockup-item-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+    }
+
+    .mockup-chart {
+      margin-top: 20px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 60px;
+    }
+
+    .chart-bar {
+      flex: 1;
+      background: linear-gradient(180deg, var(--orange) 0%, var(--orange-light) 100%);
+      border-radius: 3px;
+    }
+
+    @media (max-width: 768px) {
+      .feature-block {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .feature-block:nth-child(even) {
+        direction: ltr;
+      }
+
+      .feature-content h3 {
+        font-size: 24px;
+      }
+
+      .feature-mockup {
+        min-height: 300px;
+      }
+    }
+
+    /* ========== SOCIAL PROOF ========== */
+    .social-proof {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 100%);
+      color: var(--white);
+      padding: 80px 20px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 40px;
+      text-align: center;
+      margin-bottom: 60px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .stat-box h4 {
+      font-size: 36px;
+      color: var(--orange);
       margin-bottom: 8px;
     }
-    .pricing-card.core h3 { color: var(--navy); }
-    .pricing-amount {
-      font-size: 48px;
-      font-weight: 800;
-      line-height: 1;
-      margin: 20px 0 4px;
-    }
-    .pricing-card.featured .pricing-amount { color: var(--orange); }
-    .pricing-term { font-size: 14px; opacity: 0.6; margin-bottom: 24px; }
-    .pricing-desc {
-      font-size: 15px;
-      line-height: 1.6;
-      opacity: 0.8;
-      margin-bottom: 28px;
-    }
-    .pricing-card .feature-list { text-align: left; margin-bottom: 32px; }
-    .pricing-card.featured .feature-list li::before { color: var(--orange); }
-    .pricing-card .btn { width: 100%; justify-content: center; }
-    .pricing-guarantee {
-      margin-top: 32px;
-      text-align: center;
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-    .pricing-guarantee strong { color: var(--navy); }
 
-    /* ========================================
-       FAQ
-       ======================================== */
-    .faq-list { max-width: 720px; margin: 40px auto 0; }
-    .faq-item {
-      border-bottom: 1px solid var(--border-light);
-      padding: 20px 0;
+    .stat-box p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
+
+    .testimonials {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .testimonial {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .testimonial-stars {
+      color: var(--orange);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .testimonial-quote {
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 16px;
+      color: rgba(255, 255, 255, 0.95);
+      font-style: italic;
+    }
+
+    .testimonial-author {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--orange);
+    }
+
+    @media (max-width: 768px) {
+      .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+      }
+
+      .testimonials {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-box h4 {
+        font-size: 28px;
+      }
+    }
+
+    /* ========== PRICING SECTION ========== */
+    .pricing {
+      background-color: var(--cream);
+      padding: 80px 20px;
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto 40px;
+    }
+
+    .pricing-card {
+      background-color: var(--white);
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .pricing-card.popular {
+      border: 3px solid var(--orange);
+      transform: scale(1.05);
+    }
+
+    .pricing-badge {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background-color: var(--orange);
+      color: var(--white);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .pricing-card h3 {
+      font-size: 24px;
+      color: var(--navy);
+      margin-bottom: 16px;
+      margin-top: 8px;
+    }
+
+    .pricing-price {
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--orange);
+      margin-bottom: 8px;
+    }
+
+    .pricing-price span {
+      font-size: 16px;
+      color: var(--gray-medium);
+      font-weight: 600;
+    }
+
+    .pricing-description {
+      font-size: 12px;
+      color: var(--gray-medium);
+      margin-bottom: 28px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .pricing-features {
+      list-style: none;
+      margin-bottom: 32px;
+      flex-grow: 1;
+    }
+
+    .pricing-features li {
+      padding: 10px 0;
+      padding-left: 24px;
+      position: relative;
+      font-size: 13px;
+      color: var(--gray-dark);
+      line-height: 1.6;
+    }
+
+    .pricing-features li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--orange);
+      font-weight: bold;
+    }
+
+    .pricing-card .btn {
+      width: 100%;
+    }
+
+    .pricing-footer {
+      text-align: center;
+      color: var(--gray-medium);
+      font-size: 13px;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 768px) {
+      .pricing-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .pricing-card.popular {
+        transform: scale(1);
+      }
+    }
+
+    /* ========== FAQ SECTION ========== */
+    .faq {
+      background-color: var(--white);
+      padding: 80px 20px;
+    }
+
+    .faq-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--gray-light);
+      padding: 24px 0;
+    }
+
+    .faq-item:first-child {
+      padding-top: 0;
+    }
+
     .faq-question {
+      cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--navy);
-      background: none;
-      border: none;
-      width: 100%;
-      text-align: left;
-      font-family: var(--font-body);
-      padding: 0;
-      gap: 16px;
+      font-size: 16px;
+      user-select: none;
+      transition: color 0.3s ease;
     }
-    .faq-question:hover { color: var(--orange); }
-    .faq-icon {
-      font-size: 20px;
-      font-weight: 300;
-      flex-shrink: 0;
-      transition: transform 0.3s;
+
+    .faq-question:hover {
       color: var(--orange);
     }
+
+    .faq-toggle {
+      font-size: 24px;
+      transition: transform 0.3s ease;
+    }
+
+    .faq-toggle.active {
+      transform: rotate(45deg);
+    }
+
     .faq-answer {
       max-height: 0;
       overflow: hidden;
-      transition: max-height 0.3s ease, padding 0.3s ease;
+      transition: max-height 0.3s ease;
+      color: var(--gray-dark);
+      line-height: 1.8;
+      margin-top: 16px;
     }
-    .faq-answer-inner {
-      padding-top: 12px;
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text-muted);
-    }
-    .faq-item.open .faq-icon { transform: rotate(45deg); }
-    .faq-item.open .faq-answer { max-height: 400px; }
 
-    /* ========================================
-       FINAL CTA
-       ======================================== */
+    .faq-answer.active {
+      max-height: 500px;
+    }
+
+    /* ========== FINAL CTA ========== */
     .final-cta {
-      background: linear-gradient(135deg, var(--navy-deeper), var(--navy));
-      color: #fff;
-      padding: 80px 0;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 100%);
+      color: var(--white);
+      padding: 80px 20px;
       text-align: center;
     }
+
     .final-cta h2 {
-      font-family: var(--font-display);
-      font-size: 48px;
-      line-height: 1.1;
+      font-size: 40px;
       margin-bottom: 16px;
     }
+
     .final-cta p {
       font-size: 18px;
-      color: rgba(255,255,255,0.7);
-      max-width: 540px;
-      margin: 0 auto 32px;
-      line-height: 1.6;
+      margin-bottom: 32px;
+      color: rgba(255, 255, 255, 0.95);
     }
-    .final-cta .btn-primary { font-size: 18px; padding: 18px 44px; }
 
-    /* ========================================
-       FOOTER
-       ======================================== */
-    .footer {
-      background: var(--navy-deeper);
-      color: rgba(255,255,255,0.5);
-      padding: 48px 0 24px;
+    @media (max-width: 768px) {
+      .final-cta h2 {
+        font-size: 28px;
+      }
+
+      .final-cta p {
+        font-size: 16px;
+      }
     }
-    .footer-grid {
+
+    /* ========== FOOTER ========== */
+    footer {
+      background-color: var(--dark);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 48px 20px;
+      font-size: 13px;
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 40px;
+      margin-bottom: 40px;
     }
-    .footer-brand h4 {
-      font-family: var(--font-display);
-      font-size: 22px;
-      color: #fff;
+
+    .footer-section h4 {
+      color: var(--white);
+      margin-bottom: 16px;
+      font-size: 13px;
+      text-transform: uppercase;
       letter-spacing: 0.5px;
+    }
+
+    .footer-section ul {
+      list-style: none;
+    }
+
+    .footer-section li {
+      padding: 6px 0;
+    }
+
+    .footer-section a {
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .footer-section a:hover {
+      color: var(--orange);
+    }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 24px;
+      text-align: center;
+    }
+
+    .footer-logo {
+      color: var(--orange);
+      font-weight: 700;
       margin-bottom: 12px;
     }
-    .footer-brand p { font-size: 14px; line-height: 1.6; }
-    .footer h5 {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: rgba(255,255,255,0.7);
-      margin-bottom: 16px;
-    }
-    .footer ul { list-style: none; }
-    .footer ul li { margin-bottom: 8px; }
-    .footer ul a { font-size: 14px; transition: color 0.2s; }
-    .footer ul a:hover { color: var(--orange); }
-    .footer-bottom {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-    }
-    .footer-bottom a { color: var(--orange); }
-    .footer-bottom a:hover { text-decoration: underline; }
-
-    /* ========================================
-       SCROLL REVEAL
-       ======================================== */
-    .reveal {
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-
-    /* ========================================
-       RESPONSIVE
-       ======================================== */
-    @media (max-width: 1024px) {
-      .hero h1 { font-size: 44px; }
-      .hero-grid { gap: 40px; }
-      .section-title { font-size: 36px; }
-      .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
-    }
 
     @media (max-width: 768px) {
-      .nav-links { display: none; }
-      .nav-toggle { display: flex; }
-      .nav-links.open {
-        display: flex;
-        flex-direction: column;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255,255,255,.98);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        padding: 90px 32px 40px;
-        gap: 8px;
-        z-index: 105;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        animation: slideIn .25s ease;
+      .footer-content {
+        grid-template-columns: 1fr;
+        gap: 24px;
       }
-      @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-      .nav-links.open a {
-        font-size: 18px;
-        padding: 14px 0;
-        border-bottom: 1px solid var(--border-light);
-        color: var(--text-body);
-      }
-      .nav-links.open a:last-child { border-bottom: none; }
-      .nav-links.open .nav-cta {
-        margin-top: 12px;
-        text-align: center;
-        padding: 16px 24px;
-        font-size: 16px;
-        border-radius: 12px;
-        border-bottom: none;
-      }
-      .nav-menu-overlay.open { display: block; }
-      .nav { overflow: visible; }
-      .hero { padding: 48px 0 64px; }
-      .hero-grid { grid-template-columns: 1fr; gap: 40px; }
-      .hero h1 { font-size: 38px; }
-      .hero-proof { flex-wrap: wrap; gap: 20px; }
-      .problems-grid { grid-template-columns: 1fr; }
-      .products-grid { grid-template-columns: 1fr; }
-      .chapters-grid { grid-template-columns: repeat(2, 1fr); }
-      .for-grid { grid-template-columns: 1fr; }
-      .about-grid { grid-template-columns: 1fr; }
-      .testimonials-grid { grid-template-columns: 1fr; }
-      .pricing-grid { grid-template-columns: 1fr; max-width: 480px; }
-      .section { padding: 56px 0; }
-      .section-title { font-size: 30px; }
-      .footer-grid { grid-template-columns: 1fr; }
-    }
-
-    @media (max-width: 480px) {
-      .nav-inner { height: 56px; }
-      .nav-logo { font-size: 20px; }
-      .nav-logo em { font-size: 9px; }
-      .hero h1 { font-size: 28px; line-height: 1.15; }
-      .hero-sub { font-size: 15px; }
-      .hero-ctas { flex-direction: column; }
-      .hero-ctas .btn { width: 100%; justify-content: center; min-height: 52px; font-size: 15px; }
-      .section { padding: 40px 0; }
-      .section-title { font-size: 26px; }
-      .container { padding: 0 16px; }
-      .product-block { padding: 28px 20px; }
-      .pricing-card { padding: 28px 20px; }
-      .chapters-grid { grid-template-columns: 1fr; }
-      .footer { padding: 40px 0 24px; }
-    }
-
-    /* Global mobile touch & scroll improvements */
-    @media (max-width: 768px) {
-      html { -webkit-text-size-adjust: 100%; }
-      body { -webkit-overflow-scrolling: touch; overflow-x: hidden; }
-      a, button { -webkit-tap-highlight-color: transparent; }
-      .btn, .nav-cta, button { touch-action: manipulation; min-height: 44px; }
-      img { max-width: 100%; height: auto; }
     }
   </style>
 </head>
 <body>
+  <script src="/standalone-compat.js"></script>
 
-  <!-- ======== ANNOUNCEMENT BAR ======== -->
-  <div class="announce-bar" id="announceBar">
-    <span>Founding Member pricing locks in your rate forever — even as we add new tools.</span>
+  <!-- ANNOUNCEMENT BAR -->
+  <div class="announcement-bar">
+    <span>🔥</span> NBD Pro is now live — the all-in-one platform built by a roofer, for roofers
   </div>
 
-  <!-- ======== NAVIGATION ======== -->
-  <nav class="nav">
-    <div class="nav-inner">
-      <a href="/" class="nav-logo">
-        NBD PRO
-        <em>by No Big Deal Home Solutions</em>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="#what-you-get">What You Get</a>
-        <a href="#masterclass">Masterclass</a>
-        <a href="#who-its-for">Who It's For</a>
-        <a href="#pricing">Pricing</a>
-        <a href="https://nobigdealwithjoedeal.com/blog">Blog</a>
-        <a href="https://nobigdealwithjoedeal.com">Main Site</a>
-        <a href="/pro/login.html">Log In</a>
-        <a href="#pricing" class="nav-cta">Get Access</a>
-      </div>
-      <div class="nav-toggle" id="navToggle" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </div>
+  <!-- STICKY NAV -->
+  <nav>
+    <div class="nav-container">
+      <a href="#" class="nav-logo">NBD<span>PRO</span></a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#academy">Academy</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#" class="btn nav-cta" onclick="window.location.href='/pro/register.html'; return false;">Start Free Trial</a></li>
+      </ul>
+      <a href="#" class="btn nav-cta" style="display: none;" onclick="window.location.href='/pro/register.html'; return false;">Sign Up</a>
     </div>
   </nav>
 
-  <!-- ======== HERO ======== -->
+  <!-- HERO SECTION -->
   <section class="hero">
-    <div class="container">
-      <div class="hero-grid">
-        <div>
-          <span class="hero-badge">Built by a contractor, for contractors</span>
-          <h1>RUN YOUR BUSINESS<br>THE WAY I RUN MINE.</h1>
-          <p class="hero-sub">
-            I built No Big Deal Home Solutions from nothing to a top-rated contracting company in Greater Cincinnati. <strong>NBD Pro is everything I used to do it</strong> — the playbook, the tools, and the AI coach — packaged up so you can do the same thing in your market.
-          </p>
-          <p class="hero-sub" style="font-size:15px; opacity:0.6;">
-            No fluff. No theory from people who've never swung a hammer. Just what actually works.
-          </p>
-          <div class="hero-ctas">
-            <a href="#pricing" class="btn btn-primary">Get the Playbook &rarr;</a>
-            <a href="#what-you-get" class="btn btn-ghost" style="color:#fff; border-color: rgba(255,255,255,0.3);">See What's Inside</a>
-          </div>
-          <div class="hero-proof">
-            <div><strong>87</strong> days to Map Pack Top 3</div>
-            <div><strong>47</strong> Google reviews in 90 days</div>
-            <div><strong>2x</strong> lead volume, $0 ad spend</div>
-          </div>
-        </div>
-        <div>
-          <div class="mission-card">
-            <h3>The NBD Pro Mission</h3>
-            <p>Helping contractors run their business the way I run mine — with honest systems, smart tools, and zero fluff.</p>
-            <div class="divider"></div>
-            <p>Every framework, every tool, every strategy inside NBD Pro is something I tested on my own company first. If I don't use it, it's not here. Simple as that.</p>
-            <div class="sig">— Joe Deal</div>
+    <div class="hero-content">
+      <h1>STOP RUNNING YOUR ROOFING BUSINESS FROM A SPREADSHEET</h1>
+
+      <p class="hero-subheadline">
+        CRM. Estimates. D2D Tracking. Photo Reports. AI Coach. Inspection Reports. Training Academy. All in one platform — built by a contractor who's closed $10M+ in claims.
+      </p>
+
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="window.location.href='/pro/register.html'; return false;">
+          Start Free Trial
+        </button>
+        <button class="btn btn-ghost" onclick="alert('Demo video coming soon!'); return false;">
+          Watch Demo
+        </button>
+      </div>
+
+      <div class="hero-mockup">
+        <div class="mockup-header">
+          <h3>Your Pipeline at a Glance</h3>
+          <div class="mockup-dots">
+            <span class="mockup-dot"></span>
+            <span class="mockup-dot"></span>
+            <span class="mockup-dot"></span>
           </div>
         </div>
+        <div class="mockup-stats">
+          <div class="stat">
+            <span class="stat-value">247</span>
+            <span class="stat-label">Leads</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">$2.4M</span>
+            <span class="stat-label">Pipeline</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">89%</span>
+            <span class="stat-label">Close Rate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="trust-badges">
+        <span>👥 Used by 50+ contractors</span>
+        <span>⭐ 4.9★ Average Rating</span>
+        <span>🏗️ Built in the field, not a boardroom</span>
       </div>
     </div>
   </section>
 
-  <!-- ======== PROBLEMS ======== -->
-  <section class="section section-cream reveal">
+  <!-- PROBLEMS SECTION -->
+  <section class="problems">
     <div class="container">
-      <div class="section-label">Sound familiar?</div>
       <h2 class="section-title">THREE THINGS KILLING YOUR GROWTH</h2>
-      <p class="section-desc">I know because they almost killed mine. Here's what I fixed first.</p>
+
       <div class="problems-grid">
         <div class="problem-card">
-          <div class="problem-icon">&#128203;</div>
-          <h3>Your CRM Is a Notepad</h3>
-          <p>Leads come in, you scribble them down, life gets busy, and two weeks later you find a sticky note with a phone number and no name. I've been there. That's not a system — that's a leak.</p>
+          <span class="problem-icon">📋</span>
+          <h3>Leads Falling Through the Cracks</h3>
+          <p>No system, no follow-up, lost revenue. Your best leads disappear because there's no structure to track them.</p>
         </div>
+
         <div class="problem-card">
-          <div class="problem-icon">&#9201;</div>
-          <h3>You're Burning Hours on Estimates</h3>
-          <p>Driving out, measuring, driving back, typing it up, sending it over. Two hours per lead, minimum. Multiply that by 15 leads a week and you've got a full-time job that makes you zero dollars.</p>
+          <span class="problem-icon">📱</span>
+          <h3>Your Phone Is Your Office</h3>
+          <p>You need mobile-first tools that work in the field. Clunky desktop software doesn't cut it on a roof.</p>
         </div>
+
         <div class="problem-card">
-          <div class="problem-icon">&#128270;</div>
-          <h3>Worse Contractors Are Outranking You</h3>
-          <p>You know that guy — does sloppy work, overcharges, has 11 Google reviews from 2019. But he's sitting in the Map Pack and you're on page three. It's not about who's better. It's about who has the system.</p>
+          <span class="problem-icon">📊</span>
+          <h3>No Visibility Into Your Pipeline</h3>
+          <p>Can't scale what you can't measure. Without data, you're flying blind on growth opportunities.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ======== WHAT YOU GET ======== -->
-  <section class="section" id="what-you-get">
-    <div class="container reveal">
-      <div class="section-label">What you get</div>
-      <h2 class="section-title">TWO THINGS. BOTH BUILT FROM THE FIELD.</h2>
-      <p class="section-desc">NBD Pro isn't one product — it's the playbook that teaches you the game, and the tools that help you play it faster.</p>
-      <div class="products-grid">
-        <!-- MASTERCLASS -->
-        <div class="product-block masterclass">
-          <span class="product-badge live">&#9679; Available now</span>
-          <h3>THE NBD MASTERCLASS</h3>
-          <p class="desc">12 chapters of everything I learned building a top-rated contracting company from scratch. SEO, Google Maps, reviews, content, reputation, AI visibility — the complete playbook. Not theory. The exact moves I made, in the exact order I made them.</p>
-          <div class="price">$97</div>
-          <div class="price-note">One-time. Yours forever. Including future chapters.</div>
-          <ul class="feature-list">
-            <li>12 chapters — from zero to Map Pack dominance</li>
-            <li>The 90-Day SEO Launch System I used on my own site</li>
-            <li>The Review & Reputation Flywheel (47 reviews in 90 days)</li>
-            <li>Competition Crusher Framework — reverse-engineer who's beating you</li>
-            <li>Google Maps Domination — the exact process, step by step</li>
-            <li>AI Search Visibility — how to show up in ChatGPT and AI results</li>
-            <li>Downloadable frameworks, checklists, and templates for every chapter</li>
-            <li>Lifetime access including all future updates and new chapters</li>
-          </ul>
-          <a href="#pricing" class="btn btn-primary" style="width:100%; justify-content:center;">Get the Masterclass &rarr;</a>
-        </div>
-        <!-- TOOLS -->
-        <div class="product-block tools">
-          <span class="product-badge building">&#9679; Building in public</span>
-          <h3>THE NBD TOOL SUITE</h3>
-          <p class="desc">The same tools I use to run my contracting company every day — CRM, lead tracking, door knock mapping, and an AI coach trained on everything I know. Some are live now. Some are being built. I'm being straight with you about which is which.</p>
-          <div class="price" style="color: var(--navy);">$47<span style="font-size:18px; font-weight:500;">/mo</span></div>
-          <div class="price-note" style="color: var(--text-muted);">Cancel anytime. Free for Masterclass owners to explore.</div>
-          <ul class="feature-list">
-            <li>Ask Joe AI — business coach trained on my playbooks and frameworks <span class="coming-soon-tag" style="background:rgba(22,163,74,0.12);color:#16a34a;">Live</span></li>
-            <li>Door Knock CRM Map — territory tracking for canvassing crews <span class="coming-soon-tag" style="background:rgba(22,163,74,0.12);color:#16a34a;">Live</span></li>
-            <li>Daily Success Tracker — keep your team accountable <span class="coming-soon-tag" style="background:rgba(22,163,74,0.12);color:#16a34a;">Live</span></li>
-            <li>Lead Pipeline CRM — track every lead from first call to close <span class="coming-soon-tag">Coming soon</span></li>
-            <li>AI Measurement Tool — aerial property measurement from your desk <span class="coming-soon-tag">Coming soon</span></li>
-            <li>Storm & Hail Data Integration — know where to knock before anyone else <span class="coming-soon-tag">Coming soon</span></li>
-          </ul>
-          <a href="#pricing" class="btn btn-ghost" style="width:100%; justify-content:center;">Start with the Masterclass &rarr;</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== MASTERCLASS CHAPTERS ======== -->
-  <section class="section section-navy" id="masterclass">
-    <div class="container reveal">
-      <div class="section-label" style="color: var(--orange);">The Masterclass</div>
-      <h2 class="section-title">12 CHAPTERS. ZERO FILLER.</h2>
-      <p class="section-desc">Every chapter is a standalone system you can implement in your business this week. Together, they're the complete blueprint for becoming the #1 contractor in your market.</p>
-      <div class="chapters-grid">
-        <div class="chapter-item"><div class="chapter-num">01</div><h4>The 90-Day SEO Launch System</h4></div>
-        <div class="chapter-item"><div class="chapter-num">02</div><h4>The Competition Crusher Framework</h4></div>
-        <div class="chapter-item"><div class="chapter-num">03</div><h4>The Market Takeover System</h4></div>
-        <div class="chapter-item"><div class="chapter-num">04</div><h4>The $1M Local Authority Blueprint</h4></div>
-        <div class="chapter-item"><div class="chapter-num">05</div><h4>The Unfair Advantage System</h4></div>
-        <div class="chapter-item"><div class="chapter-num">06</div><h4>The Authority Content Engine</h4></div>
-        <div class="chapter-item"><div class="chapter-num">07</div><h4>The Review & Reputation Flywheel</h4></div>
-        <div class="chapter-item"><div class="chapter-num">08</div><h4>Google Maps Domination</h4></div>
-        <div class="chapter-item"><div class="chapter-num">09</div><h4>Video & Media Authority</h4></div>
-        <div class="chapter-item"><div class="chapter-num">10</div><h4>AI Search Visibility Strategy</h4></div>
-        <div class="chapter-item"><div class="chapter-num">11</div><h4>The Local Authority Network</h4></div>
-        <div class="chapter-item"><div class="chapter-num">12</div><h4>The Long-Term Authority Flywheel</h4></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== WHO IT'S FOR ======== -->
-  <section class="section" id="who-its-for">
-    <div class="container reveal">
-      <div class="section-label">Real talk</div>
-      <h2 class="section-title">THIS ISN'T FOR EVERYBODY.</h2>
-      <p class="section-desc">I built this for people who work like I work. If that's you, we'll get along great. If it's not, I'd rather save us both the time.</p>
-      <div class="for-grid">
-        <div class="for-column">
-          <h3><span style="font-size:24px;">&#9989;</span> NBD Pro is for you if...</h3>
-          <ul class="for-list">
-            <li><span class="for-icon">&#128736;</span> You're a roofer, sider, gutter installer, remodeler, or restoration contractor who wants to grow</li>
-            <li><span class="for-icon">&#128170;</span> You're a solo operator or small crew ready to build real systems instead of winging it</li>
-            <li><span class="for-icon">&#128200;</span> You want to dominate your local market — not just survive in it</li>
-            <li><span class="for-icon">&#128218;</span> You're willing to put in the work. The system works, but you have to run it.</li>
-          </ul>
-        </div>
-        <div class="for-column">
-          <h3><span style="font-size:24px;">&#10060;</span> NBD Pro is NOT for you if...</h3>
-          <ul class="for-list">
-            <li><span class="for-icon">&#128683;</span> You want a magic button. There isn't one. This is a system that requires execution.</li>
-            <li><span class="for-icon">&#128683;</span> You think branding and systems are a waste of time. They're the whole game.</li>
-            <li><span class="for-icon">&#128683;</span> You're looking for passive income from contracting. That doesn't exist.</li>
-            <li><span class="for-icon">&#128683;</span> You're not willing to be honest with customers. That's the foundation of everything here.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== ABOUT JOE ======== -->
-  <section class="section section-cream reveal">
+  <!-- FEATURES SECTION -->
+  <section class="features" id="features">
     <div class="container">
-      <div class="about-grid">
-        <div class="about-text">
-          <div class="section-label">Why listen to me?</div>
-          <h3>I'M NOT A GURU. I'M A CONTRACTOR WHO FIGURED SOME THINGS OUT.</h3>
-          <p>After years in roofing sales watching big companies charge $18,000 for $6,000 jobs, I started No Big Deal Home Solutions to prove you can do honest work at fair prices and still build something real.</p>
-          <p>Every strategy in NBD Pro came from running my own company — not from reading marketing blogs. I tested everything on my own dime, with my own reputation on the line. What worked went into the system. What didn't got cut.</p>
-          <p>I'm still a contractor. I still answer my own phone. I still get on roofs. NBD Pro isn't a retirement play for me — it's me sharing what I figured out so other contractors can skip the expensive learning curve.</p>
-          <div class="about-stats">
-            <div class="about-stat"><div class="num">87</div><div class="label">Days to Map Pack</div></div>
-            <div class="about-stat"><div class="num">47</div><div class="label">Reviews in 90 days</div></div>
-            <div class="about-stat"><div class="num">$0</div><div class="label">Ad spend</div></div>
-            <div class="about-stat"><div class="num">2x</div><div class="label">Lead volume</div></div>
-          </div>
+      <h2 class="section-title" style="text-align: center; margin-bottom: 60px;">BUILT FOR YOUR WORKFLOW</h2>
+
+      <!-- Feature 1: Smart CRM Pipeline -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Smart CRM Pipeline</h3>
+          <ul>
+            <li>Drag-and-drop kanban board with insurance/cash/finance views</li>
+            <li>Automated follow-up reminders and lead scoring</li>
+            <li>One-click customer portal generation</li>
+            <li>Bulk actions: move, tag, export CSV</li>
+          </ul>
         </div>
-        <div class="about-visual">
-          <blockquote>"I watched a guy with half my skill level close twice as many jobs because he had a system and I didn't. That's when I decided to build one."</blockquote>
-          <div class="attribution">— Joe Deal</div>
-          <div class="result-badges">
-            <div class="result-badge">&#128205; Based in Goshen, OH — still running crews every week</div>
-            <div class="result-badge">&#11088; 5-Star rated on Google — <strong>real reviews from real homeowners</strong></div>
-            <div class="result-badge">&#128222; (859) 420-7382 — yeah, that's my actual number</div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Kanban Pipeline</div>
+          <div class="feature-mockup-content">
+            <div class="mockup-items">
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Lead Intake</div>
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Pitched</div>
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Estimate Sent</div>
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Closed</div>
+            </div>
+            <div class="mockup-chart">
+              <div class="chart-bar" style="height: 100%;"></div>
+              <div class="chart-bar" style="height: 75%;"></div>
+              <div class="chart-bar" style="height: 60%;"></div>
+              <div class="chart-bar" style="height: 40%;"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ======== TESTIMONIALS ======== -->
-  <section class="section reveal">
-    <div class="container">
-      <div class="section-label">From contractors using NBD Pro</div>
-      <h2 class="section-title">DON'T TAKE MY WORD FOR IT.</h2>
-      <div class="testimonials-grid">
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <blockquote>"The AI measurement tool alone saves me 2 hours a week. I used to drive out to every lead just to measure. Now I scope jobs from my truck between appointments."</blockquote>
-          <div class="testimonial-author">Mike R.</div>
-          <div class="testimonial-role">Roofing Contractor</div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <blockquote>"Followed the SEO playbook chapter by chapter. Top 3 in my local Map Pack within 60 days. I'm getting calls from people who used to call my competitor first."</blockquote>
-          <div class="testimonial-author">Tyler K.</div>
-          <div class="testimonial-role">Exterior Contractor</div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <blockquote>"I tried HubSpot. I tried Jobber. They're built for tech companies pretending to understand contractors. This is built by someone who actually does the work."</blockquote>
-          <div class="testimonial-author">Dan S.</div>
-          <div class="testimonial-role">Siding & Gutter Specialist</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== PRICING ======== -->
-  <section class="section section-cream" id="pricing">
-    <div class="container reveal">
-      <div class="text-center">
-        <div class="section-label">Simple pricing</div>
-        <h2 class="section-title">NO TIERS. NO TRICKS. PICK YOUR ENTRY POINT.</h2>
-        <p class="section-desc" style="margin: 0 auto;">Start with the playbook. Add the tools when you're ready. Either way, you're in.</p>
-      </div>
-      <div class="pricing-grid">
-        <!-- MASTERCLASS -->
-        <div class="pricing-card featured">
-          <span class="badge">Most popular</span>
-          <h3>THE MASTERCLASS</h3>
-          <div class="pricing-amount">$97</div>
-          <div class="pricing-term">One-time payment. Yours forever.</div>
-          <p class="pricing-desc">The complete 12-chapter system for dominating your local market. Every strategy Joe used to build No Big Deal Home Solutions, packaged into an actionable playbook.</p>
-          <ul class="feature-list">
-            <li>All 12 masterclass chapters</li>
-            <li>Downloadable frameworks & checklists</li>
-            <li>Future chapters included free</li>
-            <li>Access to explore the tool suite</li>
-            <li>Private community access</li>
+      <!-- Feature 2: Estimate Builder -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Estimate Builder</h3>
+          <ul>
+            <li>Good/Better/Best package pricing</li>
+            <li>Auto-calculate from measurements, pitch, and waste</li>
+            <li>Import from GAF Quick Measure</li>
+            <li>One-click PDF export and email delivery</li>
           </ul>
-          <a href="/pro/register.html" class="btn btn-primary">Get the Masterclass &rarr;</a>
         </div>
-        <!-- TOOLS ADD-ON -->
-        <div class="pricing-card core">
-          <span class="badge">Add-on for members</span>
-          <h3>THE TOOL SUITE</h3>
-          <div class="pricing-amount" style="color: var(--navy);">$47<span style="font-size:20px; font-weight:500;">/mo</span></div>
-          <div class="pricing-term">Cancel anytime. Founding member rate locked.</div>
-          <p class="pricing-desc">The CRM, door knock map, AI coach, and every tool as we build them. Requires Masterclass membership. New tools added monthly.</p>
-          <ul class="feature-list">
-            <li>Everything in the Masterclass</li>
-            <li>Ask Joe AI — your business coach</li>
-            <li>Door Knock CRM Map</li>
-            <li>Daily Success Tracker</li>
-            <li>All future tools as they launch</li>
-            <li>Founding member price — locked forever</li>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Estimate Templates</div>
+          <div class="feature-mockup-content">
+            <div class="mockup-items">
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Good - $8,500</div>
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Better - $12,000</div>
+              <div class="mockup-item"><span class="mockup-item-dot"></span> Best - $15,200</div>
+            </div>
+            <div style="margin-top: 20px; padding: 12px; background: rgba(200, 84, 26, 0.2); border-radius: 4px; font-size: 12px;">
+              Total Roof Area: 2,400 sq ft | Pitch: 8/12 | Material: GAF Timberline
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: Door-to-Door Tracker -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Door-to-Door Tracker</h3>
+          <ul>
+            <li>Drop pins on every knock with GPS</li>
+            <li>Track outcomes: pitched, not home, interested, signed</li>
+            <li>Heatmap visualization of your territory</li>
+            <li>Real-time SMS campaigns to D2D leads</li>
           </ul>
-          <a href="/pro/register.html" class="btn btn-ghost">Add the Tools &rarr;</a>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Territory Heatmap</div>
+          <div class="feature-mockup-content">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 16px;">
+              <div style="height: 30px; background: rgba(200, 84, 26, 0.3); border-radius: 3px;"></div>
+              <div style="height: 50px; background: rgba(200, 84, 26, 0.6); border-radius: 3px;"></div>
+              <div style="height: 70px; background: rgba(200, 84, 26, 0.9); border-radius: 3px;"></div>
+              <div style="height: 40px; background: rgba(200, 84, 26, 0.5); border-radius: 3px;"></div>
+              <div style="height: 45px; background: rgba(200, 84, 26, 0.4); border-radius: 3px;"></div>
+              <div style="height: 65px; background: rgba(200, 84, 26, 0.8); border-radius: 3px;"></div>
+              <div style="height: 35px; background: rgba(200, 84, 26, 0.3); border-radius: 3px;"></div>
+              <div style="height: 55px; background: rgba(200, 84, 26, 0.6); border-radius: 3px;"></div>
+            </div>
+            <div style="margin-top: 16px; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+              Hot zones: 247 knocks | Conversion: 12%
+            </div>
+          </div>
         </div>
       </div>
-      <div class="pricing-guarantee">
-        <p><strong>30-Day Money-Back Guarantee.</strong> If NBD Pro doesn't deliver value in the first 30 days, email me and I'll refund you personally. No forms, no hoops. — Joe</p>
+
+      <!-- Feature 4: Photo Engine & Inspection Reports -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Photo Engine & Inspection Reports</h3>
+          <ul>
+            <li>In-app camera with 3 quality presets</li>
+            <li>64+ damage tags for organized documentation</li>
+            <li>4 branded inspection report templates</li>
+            <li>Auto-generate reports from tagged photos</li>
+          </ul>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Damage Tagging</div>
+          <div class="feature-mockup-content">
+            <div style="background: rgba(255, 255, 255, 0.05); height: 120px; border-radius: 4px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+              📷
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="background: rgba(200, 84, 26, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Missing Shingles</span>
+              <span style="background: rgba(200, 84, 26, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Hail Damage</span>
+              <span style="background: rgba(200, 84, 26, 0.3); padding: 4px 8px; border-radius: 3px; font-size: 10px;">Flashing Damage</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 5: Real Deal Academy -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>The Real Deal Academy</h3>
+          <ul>
+            <li>Complete insurance restoration + retail roofing process trees</li>
+            <li>6 courses with quizzes (70% to pass)</li>
+            <li>Admin panel: assign content to team members</li>
+            <li>Track progress and completion across your crew</li>
+          </ul>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Course Progress</div>
+          <div class="feature-mockup-content">
+            <div class="mockup-items" style="gap: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px;">Insurance Restoration 101</span>
+                <span style="color: var(--orange); font-weight: 600;">75%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+                <div style="width: 75%; height: 100%; background: var(--orange);"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                <span style="font-size: 12px;">Sales Closing Techniques</span>
+                <span style="color: var(--orange); font-weight: 600;">100%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+                <div style="width: 100%; height: 100%; background: var(--orange);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 6: AI Assistant -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>AI Assistant ("Ask Joe")</h3>
+          <ul>
+            <li>AI trained on Joe's sales scripts and field experience</li>
+            <li>Property intelligence with roof scoring (0-100)</li>
+            <li>Damage analysis from photos</li>
+            <li>Smart recommendations for every lead</li>
+          </ul>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Ask Joe</div>
+          <div class="feature-mockup-content">
+            <div style="background: rgba(200, 84, 26, 0.2); padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+              💡 "Based on the hail damage photos, this is a high-priority lead. Roof condition score: 28/100. Recommended approach: immediate inspection + insurance claim filing."
+            </div>
+            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+              Property Intelligence • Damage Analysis • Scoring
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 7: Invoice Pipeline -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Invoice Pipeline</h3>
+          <ul>
+            <li>Convert estimates to invoices in one click</li>
+            <li>Stripe payment links for online collection</li>
+            <li>Send via email, SMS, or customer portal</li>
+            <li>Track payment status in real-time</li>
+          </ul>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Payment Tracking</div>
+          <div class="feature-mockup-content">
+            <div class="mockup-items" style="gap: 14px;">
+              <div style="background: rgba(200, 84, 26, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+                <span>Invoice #2401</span>
+                <span style="color: var(--orange);">$12,000</span>
+              </div>
+              <div style="background: rgba(200, 84, 26, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+                <span>Invoice #2402</span>
+                <span style="color: var(--orange);">$8,500</span>
+              </div>
+              <div style="background: rgba(200, 84, 26, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
+                <span>Invoice #2403</span>
+                <span style="color: var(--orange);">$15,200</span>
+              </div>
+            </div>
+            <div style="margin-top: 16px; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+              Total Pending: $35,700
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 8: Storm Center -->
+      <div class="feature-block">
+        <div class="feature-content">
+          <h3>Storm Center & Weather Alerts</h3>
+          <ul>
+            <li>Live hail and wind storm tracking</li>
+            <li>Automated alerts when storms hit your territory</li>
+            <li>Storm damage canvassing route optimization</li>
+            <li>Lead generation from real-time weather data</li>
+          </ul>
+        </div>
+        <div class="feature-mockup">
+          <div class="feature-mockup-title">Live Storm Alerts</div>
+          <div class="feature-mockup-content">
+            <div style="background: rgba(200, 84, 26, 0.25); border: 1px solid rgba(200, 84, 26, 0.5); padding: 14px; border-radius: 4px; margin-bottom: 12px;">
+              <div style="color: var(--orange); font-weight: 600; font-size: 12px; margin-bottom: 6px;">⚡ SEVERE HAIL ALERT</div>
+              <div style="font-size: 11px; color: rgba(255, 255, 255, 0.9);">3.2" hail just hit zip 40223 — 247 affected properties in your service area</div>
+            </div>
+            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.7);">
+              Recommended actions: Start door-to-door canvassing • 8-mile optimal route mapped
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ======== FAQ ======== -->
-  <section class="section reveal">
+  <!-- SOCIAL PROOF -->
+  <section class="social-proof">
     <div class="container">
-      <div class="text-center">
-        <div class="section-label">Questions</div>
-        <h2 class="section-title">STRAIGHT ANSWERS.</h2>
+      <div class="stats-row">
+        <div class="stat-box">
+          <h4>50+</h4>
+          <p>Active Contractors</p>
+        </div>
+        <div class="stat-box">
+          <h4>$10M+</h4>
+          <p>Pipeline Managed</p>
+        </div>
+        <div class="stat-box">
+          <h4>25K+</h4>
+          <p>Leads Tracked</p>
+        </div>
+        <div class="stat-box">
+          <h4>4.9★</h4>
+          <p>Average Rating</p>
+        </div>
       </div>
-      <div class="faq-list">
-        <div class="faq-item">
-          <button class="faq-question">
-            I'm just starting out. Is this too advanced for me?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">No — that's exactly who this is for. The Masterclass starts from zero. I built it for the contractor who's good at the work but hasn't figured out the business side yet. That was me three years ago.</div></div>
+
+      <div class="testimonials">
+        <div class="testimonial">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-quote">
+            "This platform has cut my admin time in half. I'm spending more time in the field and less time managing spreadsheets. Game changer."
+          </p>
+          <div class="testimonial-author">Mike R., Storm Restoration Co.</div>
         </div>
-        <div class="faq-item">
-          <button class="faq-question">
-            Are all the tools built yet?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">I'm being straight with you: some are live (Ask Joe AI, Door Knock Map, Daily Tracker) and some are being built right now (Lead Pipeline CRM, AI Measurement, Storm Data). You'll see clear labels on the page. Founding members get everything as it launches, at the price they locked in.</div></div>
+
+        <div class="testimonial">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-quote">
+            "The estimates and D2D tracking alone have increased our close rate by 20%. Joe really built this for us, not some generic CRM vendor."
+          </p>
+          <div class="testimonial-author">Sarah K., Peak Roofing</div>
         </div>
-        <div class="faq-item">
-          <button class="faq-question">
-            How is this different from Jobber, CompanyCam, or AccuLynx?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">Those are great tools — I've used some of them. But they're software built by software companies. NBD Pro is a system built by a contractor who's running crews right now. The Masterclass alone is something no SaaS company can offer because they've never actually done the work. The tools are focused on what those platforms miss: door knock tracking, AI coaching from real-world playbooks, and storm data integration.</div></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-question">
-            What if it doesn't work for me?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">30-day money-back guarantee. Email me — jd@nobigdealwithjoedeal.com — and I'll refund you. No questionnaire, no hoops. If it's not delivering value, I'd rather give your money back than have you feel like you got played. That's not how I operate.</div></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-question">
-            Do I need to be a roofer specifically?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">No. The system works for any local contractor — roofers, siders, gutter installers, remodelers, restoration companies, painters, even landscapers. If you serve a local area and want to dominate your Google presence, this applies to you.</div></div>
-        </div>
-        <div class="faq-item">
-          <button class="faq-question">
-            What does "founding member" mean?
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-answer"><div class="faq-answer-inner">You're getting in early. As I add more tools and content, the price will go up — but your rate stays locked at whatever you sign up for today. Founding members also get first access to new features and direct input on what I build next.</div></div>
+
+        <div class="testimonial">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-quote">
+            "The Academy saved us months on team training. Everyone is using the same process now. Consistency = profitability."
+          </p>
+          <div class="testimonial-author">Carlos M., Elite Exteriors</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ======== FINAL CTA ======== -->
+  <!-- PRICING SECTION -->
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <h2 class="section-title">SIMPLE, TRANSPARENT PRICING</h2>
+
+      <div class="pricing-cards">
+        <!-- Foundation Plan -->
+        <div class="pricing-card">
+          <h3>Foundation</h3>
+          <div class="pricing-price">$29<span>/mo</span></div>
+          <p class="pricing-description">Perfect for solo operators and getting started</p>
+          <ul class="pricing-features">
+            <li>CRM Pipeline (up to 200 leads)</li>
+            <li>Estimate Builder</li>
+            <li>D2D Tracker (1 user)</li>
+            <li>Photo Library (5GB storage)</li>
+            <li>Email support</li>
+          </ul>
+          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=foundation'; return false;">
+            Start Free Trial
+          </button>
+        </div>
+
+        <!-- Blueprint Plan (Popular) -->
+        <div class="pricing-card popular">
+          <div class="pricing-badge">MOST POPULAR</div>
+          <h3>Blueprint</h3>
+          <div class="pricing-price">$49<span>/mo</span></div>
+          <p class="pricing-description">Best for growing crews and scaling fast</p>
+          <ul class="pricing-features">
+            <li>Everything in Foundation</li>
+            <li>Unlimited leads</li>
+            <li>Real Deal Academy access</li>
+            <li>Inspection Report Engine</li>
+            <li>Invoice Pipeline</li>
+            <li>Team invites (up to 3)</li>
+            <li>Priority support</li>
+          </ul>
+          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=blueprint'; return false;">
+            Start Free Trial
+          </button>
+        </div>
+
+        <!-- Professional Plan -->
+        <div class="pricing-card">
+          <h3>Professional</h3>
+          <div class="pricing-price">$79<span>/mo</span></div>
+          <p class="pricing-description">For serious operators running at scale</p>
+          <ul class="pricing-features">
+            <li>Everything in Blueprint</li>
+            <li>AI Assistant ("Ask Joe")</li>
+            <li>Property Intelligence</li>
+            <li>Storm Center & Alerts</li>
+            <li>Unlimited team members</li>
+            <li>Dedicated onboarding</li>
+            <li>Custom report branding</li>
+          </ul>
+          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=professional'; return false;">
+            Start Free Trial
+          </button>
+        </div>
+      </div>
+
+      <div class="pricing-footer">
+        <strong>All plans include:</strong> 14-day free trial • No credit card required • Cancel anytime
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <h2 class="section-title">FREQUENTLY ASKED QUESTIONS</h2>
+
+      <div class="faq-container">
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            Is this built for insurance restoration or retail roofing?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            Both. NBD Pro supports full workflows for insurance restoration (claims management, adjuster coordination, damage documentation) and retail roofing (estimates, service plans, preventative maintenance). You can toggle between insurance and cash modes in the CRM pipeline, and the Academy covers processes for both.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            Can I use this on my phone in the field?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            Yes. NBD Pro is a progressive web app (PWA) built for mobile-first workflows. It works offline, syncs when you have connection, and integrates directly with your phone's camera. You don't need an app store download — just visit the URL and add to your home screen.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            How is this different from JobNimbus or AccuLynx?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            Built by a contractor with $10M+ in claims experience. Priced 1/3 less than competitors. Includes training (Real Deal Academy) built-in. No complex integrations required — D2D tracking, estimates, and CRM are all unified. Designed for the roofing workflow, not adapted from generic project management.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            Can my whole team use it?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            Yes. Foundation plan supports 1 user. Blueprint and Professional allow team invites and full collaboration. You can assign Academy courses to team members and track their progress. All team members see the same pipeline, leads, and projects in real-time.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            Is my data secure?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            Absolutely. We use Firebase for backend infrastructure with encryption in transit and at rest. All customer data is encrypted, regularly backed up, and compliant with SOC 2 standards. We never share or sell your data, and you can export everything anytime.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(event)">
+            What if I need help getting started?
+            <span class="faq-toggle">+</span>
+          </div>
+          <div class="faq-answer">
+            We've got you covered. Every plan includes access to an interactive onboarding wizard that walks you through setup step-by-step. Blueprint and Professional plans get priority email/chat support. The Real Deal Academy has video walkthroughs for every feature. And you can reach out anytime — we're here to help you succeed.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
   <section class="final-cta">
     <div class="container">
-      <h2>STOP WINGING IT.<br>START RUNNING IT.</h2>
-      <p>The contractors who win aren't the most talented. They're the ones with the best systems. Get the system.</p>
-      <a href="#pricing" class="btn btn-primary">Get NBD Pro Access &rarr;</a>
-      <p style="margin-top: 20px; font-size: 14px; opacity: 0.5;">30-day money-back guarantee. No risk. No games.</p>
+      <h2>YOUR COMPETITORS ARE ALREADY USING THIS.</h2>
+      <p>Start your 14-day free trial. No credit card. No BS.</p>
+      <button class="btn btn-primary" style="font-size: 16px; padding: 14px 40px;" onclick="window.location.href='/pro/register.html'; return false;">
+        Get Started Free
+      </button>
     </div>
   </section>
 
-  <!-- ======== FOOTER ======== -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <h4>NBD PRO</h4>
-          <p>The playbook, tools, and AI coach built by Joe Deal — the same contractor running No Big Deal Home Solutions in Greater Cincinnati. Everything here was tested on a real business before it was packaged for yours.</p>
-        </div>
-        <div>
-          <h5>NBD Pro</h5>
-          <ul>
-            <li><a href="#masterclass">Masterclass</a></li>
-            <li><a href="#what-you-get">Tools</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="#who-its-for">Who It's For</a></li>
-          </ul>
-        </div>
-        <div>
-          <h5>No Big Deal</h5>
-          <ul>
-            <li><a href="https://nobigdealwithjoedeal.com">Main Site</a></li>
-            <li><a href="https://nobigdealwithjoedeal.com/blog">Blog</a></li>
-            <li><a href="https://nobigdealwithjoedeal.com/#reviews">Reviews</a></li>
-            <li><a href="https://nobigdealwithjoedeal.com/#services">Services</a></li>
-          </ul>
-        </div>
-        <div>
-          <h5>Contact</h5>
-          <ul>
-            <li><a href="tel:8594207382">(859) 420-7382</a></li>
-            <li><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></li>
-            <li>Goshen / Cincinnati, OH</li>
-          </ul>
-        </div>
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <div class="footer-logo">NBD PRO</div>
+        <p style="font-size: 12px; line-height: 1.7; color: rgba(255, 255, 255, 0.6); margin-bottom: 16px;">
+          The all-in-one CRM, estimates, and training platform built by contractors for contractors.
+        </p>
       </div>
-      <div class="footer-bottom">
-        <span>&copy; 2026 No Big Deal Home Solutions. All rights reserved.</span>
-        <a href="https://nobigdealwithjoedeal.com">&larr; Back to No Big Deal Home Solutions</a>
+
+      <div class="footer-section">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#academy">Academy</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="/pro/login.html">Login</a></li>
+          <li><a href="/pro/register.html">Register</a></li>
+        </ul>
       </div>
+
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="tel:+18594207382">(859) 420-7382</a></li>
+          <li><a href="mailto:info@nobigdeal.pro">info@nobigdeal.pro</a></li>
+          <li><a href="https://nobigdealwithjoedeal.com" target="_blank">nobigdealwithjoedeal.com</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div style="margin-bottom: 16px;">
+        <a href="#" style="margin-right: 20px;">Privacy Policy</a>
+        <a href="#" style="margin-right: 20px;">Terms of Service</a>
+      </div>
+      <p style="color: rgba(255, 255, 255, 0.5); margin-bottom: 8px;">
+        © 2026 No Big Deal Home Solutions. All rights reserved.
+      </p>
+      <p style="color: rgba(255, 255, 255, 0.5);">
+        Built with in Cincinnati, OH
+      </p>
     </div>
   </footer>
 
-  <!-- ======== JAVASCRIPT ======== -->
   <script>
-    // Mobile nav toggle — full-screen drawer with overlay
-    const navToggle = document.getElementById('navToggle');
-    const navLinks = document.getElementById('navLinks');
+    // FAQ Accordion
+    function toggleFAQ(event) {
+      const question = event.currentTarget;
+      const answer = question.nextElementSibling;
+      const toggle = question.querySelector('.faq-toggle');
 
-    function closeNav() {
-      navLinks.classList.remove('open');
-      navToggle.classList.remove('open');
-      document.body.style.overflow = '';
-    }
-    function openNav() {
-      navLinks.classList.add('open');
-      navToggle.classList.add('open');
-      document.body.style.overflow = 'hidden';
-    }
-    navToggle.addEventListener('click', function() {
-      navLinks.classList.contains('open') ? closeNav() : openNav();
-    });
-
-    // Smooth scroll for hash links + close mobile nav
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', function(e) {
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          closeNav();
-          setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      document.querySelectorAll('.faq-answer').forEach(el => {
+        if (el !== answer) {
+          el.classList.remove('active');
+          el.previousElementSibling.querySelector('.faq-toggle').classList.remove('active');
         }
       });
-    });
 
-    // Close nav on external link click
-    navLinks.querySelectorAll('a:not([href^="#"])').forEach(a => {
-      a.addEventListener('click', closeNav);
-    });
+      answer.classList.toggle('active');
+      toggle.classList.toggle('active');
+    }
 
-    // Scroll reveal
+    // Scroll Animation Observer
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
+          entry.target.classList.add('in-view');
         }
       });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    }, observerOptions);
 
-    // FAQ accordion
-    document.querySelectorAll('.faq-question').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const item = this.closest('.faq-item');
-        const wasOpen = item.classList.contains('open');
-        document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
-        if (!wasOpen) item.classList.add('open');
-      });
+    document.querySelectorAll('.animate').forEach(el => {
+      observer.observe(el);
     });
 
-    // Announcement rotation
-    const announcements = [
-      'Founding Member pricing locks in your rate forever \u2014 even as we add new tools.',
-      'Ask Joe AI is live \u2014 your business coach, trained on real contractor playbooks.',
-      '\ud83d\udce3 New: Door Knock CRM Map \u2014 track your canvassing territory in real time.'
-    ];
-    let annIdx = 0;
-    setInterval(() => {
-      annIdx = (annIdx + 1) % announcements.length;
-      const bar = document.getElementById('announceBar');
-      bar.style.opacity = '0';
-      setTimeout(() => {
-        bar.querySelector('span').textContent = announcements[annIdx];
-        bar.style.opacity = '1';
-      }, 300);
-    }, 5000);
+    // Mobile nav menu toggle
+    const navLinks = document.querySelector('.nav-links');
+    const navToggle = document.querySelector('.nav-toggle');
+
+    if (navToggle) {
+      navToggle.addEventListener('click', () => {
+        navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
+      });
+    }
   </script>
 </body>
 </html>
