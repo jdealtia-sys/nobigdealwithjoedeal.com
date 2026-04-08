@@ -1292,6 +1292,18 @@
       rateDrip: parseFloat(document.getElementById('rateDrip').value) || 2.10,
       rateGutter: parseFloat(document.getElementById('rateGutter').value) || 8.50
     };
+    try {
+      const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      await setDoc(doc(window._db, 'userSettings', window._user.uid), 
+        { estimateDefaults: defaults }, 
+        { merge: true }
+      );
+      showToast('✓ Estimate defaults saved', 'success');
+    } catch (error) {
+      console.error('Error saving estimate defaults:', error);
+      showToast('Failed to save defaults', 'error');
+    }
+  };
 
   // Load estimate defaults from Firestore
   window._loadEstimateDefaults = async function() {
@@ -1310,19 +1322,6 @@
       }
     } catch (error) {
       console.error('Error loading estimate defaults:', error);
-    }
-  };
-    
-    try {
-      const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-      await setDoc(doc(window._db, 'userSettings', window._user.uid), 
-        { estimateDefaults: defaults }, 
-        { merge: true }
-      );
-      showToast('✓ Estimate defaults saved', 'success');
-    } catch (error) {
-      console.error('Error saving estimate defaults:', error);
-      showToast('Failed to save defaults', 'error');
     }
   };
 </script>
