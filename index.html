@@ -370,6 +370,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   "telephone": "+18594207382",
   "email": "jd@nobigdealwithjoedeal.com",
   "description": "Honest roofing, siding, gutter and storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly.",
+  "aggregateRating": {"@type": "AggregateRating", "ratingValue": "5.0", "reviewCount": "47", "bestRating": "5"},
+  "hasCredential": [
+    {"@type": "EducationalOccupationalCredential", "credentialCategory": "certification", "name": "GAF Certified Installer"},
+    {"@type": "EducationalOccupationalCredential", "credentialCategory": "certification", "name": "James Hardie Alliance Contractor"}
+  ],
   "areaServed": [
     "Goshen, OH", "Milford, OH", "Batavia, OH", "Loveland, OH",
     "Mason, OH", "Lebanon, OH", "Maineville, OH", "Blue Ash, OH",
@@ -416,7 +421,12 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
 
-<!-- NAV -->
+<!-- STORM ALERT BANNER -->
+<div id="stormBanner" style="display:none;background:linear-gradient(90deg,#b91c1c,#dc2626);color:white;text-align:center;padding:12px 20px;font-size:.82rem;font-weight:700;letter-spacing:.04em;cursor:pointer" onclick="window.location.href='tel:8594207382'">
+  <span id="stormBannerText"></span>
+</div>
+
+<!-- NAV --><!-- NAV -->
 <nav id="mainNav">
   <a href="/" class="nav-logo">
     <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
@@ -894,6 +904,20 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   </div>
 </section>
 
+<!-- CERTIFICATIONS & BRAND PARTNERS -->
+<section style="background:var(--navy);padding:40px 5%;text-align:center;border-top:3px solid var(--orange)">
+  <div style="max-width:1100px;margin:0 auto">
+    <p style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:rgba(255,255,255,.5);letter-spacing:2px;margin-bottom:24px">Certified &bull; Trusted &bull; Locally Sourced</p>
+    <div style="display:flex;gap:24px;justify-content:center;align-items:center;flex-wrap:wrap">
+      <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.06em;text-transform:uppercase;padding:12px 24px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.03)">GAF Certified Installer</span>
+      <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.06em;text-transform:uppercase;padding:12px 24px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.03)">James Hardie Alliance</span>
+      <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.06em;text-transform:uppercase;padding:12px 24px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.03)">ABC Supply</span>
+      <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.06em;text-transform:uppercase;padding:12px 24px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.03)">SRS Distribution</span>
+      <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.06em;text-transform:uppercase;padding:12px 24px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.03)">Beacon Building Products</span>
+    </div>
+  </div>
+</section>
+
 <!-- CONTACT -->
 <section class="contact-section" id="contact">
   <div class="section-inner">
@@ -1318,6 +1342,26 @@ async function submitForm(){
     alert('Something went wrong. Please call or text Joe directly at (859) 420-7382.');
   }
 }
+</script>
+
+<!-- STORM BANNER LOGIC (seasonal messaging) -->
+<script>
+(function(){
+  var b=document.getElementById('stormBanner'),t=document.getElementById('stormBannerText');
+  if(!b||!t)return;
+  var m=new Date().getMonth();
+  // Mar-Jun = storm season (urgent), Jul-Feb = off-season (maintenance)
+  if(m>=2&&m<=5){
+    t.innerHTML='\u26A1 Recent Storm? Free Emergency Roof Inspection \u2014 Call Joe Now: (859) 420-7382';
+    b.style.display='block';
+  } else if(m>=6&&m<=9){
+    t.innerHTML='\u2600\uFE0F Summer is the best time for roof replacement \u2014 Schedule your free inspection today';
+    b.style.display='block';
+  } else {
+    t.innerHTML='\u2744\uFE0F Protect your home before winter storms \u2014 Free roof inspection: (859) 420-7382';
+    b.style.display='block';
+  }
+})();
 </script>
 </body>
 </html>
