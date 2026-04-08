@@ -695,6 +695,18 @@ function switchSettingsTab(tab) {
       a.innerHTML = window.renderAccessControl();
     }
   }
+  // Lazy-render Billing tab
+  if (tab === 'billing') {
+    if (window.StripeBilling?.renderBillingPanel) {
+      window.StripeBilling.renderBillingPanel('billingContainer');
+    }
+  }
+  // Lazy-render Notifications tab
+  if (tab === 'notifications') {
+    if (window.PushNotifications?.renderSettingsPanel) {
+      window.PushNotifications.renderSettingsPanel('notificationSettingsContainer');
+    }
+  }
 }
 window.switchSettingsTab = switchSettingsTab;
 

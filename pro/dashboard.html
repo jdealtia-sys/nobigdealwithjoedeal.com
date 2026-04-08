@@ -7109,6 +7109,8 @@ function switchScTab(tab, btn) {
         <button class="stab-btn" onclick="switchSettingsTab('daily')" id="stab-daily">⚡ Daily OS</button>
         <button class="stab-btn" onclick="switchSettingsTab('company')" id="stab-company">🏢 Company</button>
         <button class="stab-btn" onclick="switchSettingsTab('team')" id="stab-team">👥 Team</button>
+        <button class="stab-btn" onclick="switchSettingsTab('billing')" id="stab-billing">💳 Billing</button>
+        <button class="stab-btn" onclick="switchSettingsTab('notifications')" id="stab-notifications">🔔 Notifications</button>
         <button class="stab-btn" onclick="switchSettingsTab('access')" id="stab-access">🔐 Access</button>
         <button class="stab-btn" onclick="switchSettingsTab('help')" id="stab-help">❓ Help</button>
       </div>
@@ -7366,6 +7368,20 @@ function switchScTab(tab, btn) {
           <div class="empty"><div class="empty-icon">🔐</div>Loading access controls...</div>
         </div>
       </div><!-- /stab-panel-access -->
+
+      <!-- ══ TAB: BILLING ══ -->
+      <div class="stab-panel" id="stab-panel-billing" style="display:none;">
+        <div id="billingContainer">
+          <div class="empty"><div class="empty-icon">💳</div>Loading billing info...</div>
+        </div>
+      </div><!-- /stab-panel-billing -->
+
+      <!-- ══ TAB: NOTIFICATIONS ══ -->
+      <div class="stab-panel" id="stab-panel-notifications" style="display:none;">
+        <div id="notificationSettingsContainer">
+          <div class="empty"><div class="empty-icon">🔔</div>Loading notification settings...</div>
+        </div>
+      </div><!-- /stab-panel-notifications -->
 
       <!-- ══ TAB: HELP ══ -->
       <div class="stab-panel" id="stab-panel-help" style="display:none;">
@@ -11280,6 +11296,9 @@ function shareCalViaEmail() {
 <script src="js/theme-sounds.js?v=1"></script>
 <script src="js/theme-achievements.js?v=1"></script>
 <script src="js/theme-builder.js?v=1"></script>
+<script src="js/offline-manager.js?v=1"></script>
+<script src="js/stripe-billing.js?v=1"></script>
+<script src="js/push-notifications.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {
@@ -11325,5 +11344,26 @@ function shareCalViaEmail() {
 </script>
 
 
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/pro/sw.js', { scope: '/pro/' })
+      .then(reg => {
+        console.log('[SW] Registered:', reg.scope);
+        // Check for updates
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (nw) nw.addEventListener('statechange', () => {
+            if (nw.state === 'activated' && navigator.serviceWorker.controller) {
+              window.showToast?.('App updated — tap to refresh', 'info');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
+</script>
 </body>
 </html>

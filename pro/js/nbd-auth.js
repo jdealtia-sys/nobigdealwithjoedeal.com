@@ -377,7 +377,7 @@ export const NBDAuth = {
           ${features.map(f => `<li>${f}</li>`).join('')}
         </ul>
         <div class="nbd-wall-btns">
-          <a href="/pro/landing.html#pricing" class="nbd-wall-btn primary">See Plans & Pricing →</a>
+          <button onclick="if(window.StripeBilling){window.StripeBilling.checkout('${requiredPlan}')}else{window.location.href='/pro/landing.html#pricing'}" class="nbd-wall-btn primary">Upgrade to ${planName} →</button>
           <a href="/pro/" class="nbd-wall-btn secondary">← Back to Home</a>
         </div>
         <div class="nbd-wall-current">
