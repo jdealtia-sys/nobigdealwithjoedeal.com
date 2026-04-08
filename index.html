@@ -1146,8 +1146,21 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 <!-- BACK TO TOP -->
 <button class="back-to-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<script>
-// ── ANNOUNCEMENT BAR ROTATION ──
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app = initializeApp({
+  apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",authDomain:"nobigdeal-pro.firebaseapp.com",
+  projectId:"nobigdeal-pro",storageBucket:"nobigdeal-pro.firebasestorage.app",
+  messagingSenderId:"717435841570",appId:"1:717435841570:web:c2338e11052c96fde02e7b"
+});
+const db = getFirestore(app);
+window._captureContactLead = async (data) => {
+  try { await addDoc(collection(db,'contact_leads'), {...data, source:'homepage', createdAt:serverTimestamp()}); }
+  catch(e) { console.warn('Lead capture failed:', e); }
+};
+</script>
+<script>// ── ANNOUNCEMENT BAR ROTATION ──
 (function(){
   const slides = document.querySelectorAll('.ann-slide');
   let current = 0;
@@ -1256,6 +1269,14 @@ async function submitForm(){
   const btn = document.querySelector('.form-submit');
   btn.textContent = 'Sending…';
   btn.disabled = true;
+
+  // Capture to Firestore as backup
+  if (window._captureContactLead) {
+    window._captureContactLead({
+      firstName: first, lastName: last, phone, email,
+      address, service, message
+    });
+  }
 
   const body = new FormData();
   body.append('name',    `${first} ${last}`.trim());
