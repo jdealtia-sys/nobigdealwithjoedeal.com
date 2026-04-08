@@ -550,7 +550,20 @@ async function moveCard(id, newStage){
     // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
     lead.stageHistory.push(historyEvent);
-    
+
+    // Auto-log activity note for timeline
+    try {
+      const stageLabel = window.STAGE_META?.[newStage]?.label || newStage;
+      await window.addDoc(window.collection(window.db, 'notes'), {
+        leadId: id,
+        userId: window._user?.uid,
+        text: `Stage moved to "${stageLabel}"`,
+        type: 'stage_change',
+        createdAt: window.serverTimestamp(),
+        createdBy: window._user?.email || 'system'
+      });
+    } catch(e) { console.warn('Activity log write failed:', e.message); }
+
     // Mark as synced
     lead._syncing = false;
     lead._syncSuccess = true;
@@ -762,6 +775,7 @@ function renderNotifItem(n, opts = {}) {
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:10px;color:var(--m);opacity:0.8;">${timeAgo}</span>
             ${hasLead && !isDismissed ? `<span style="font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.03em;">→ VIEW LEAD</span>` : ''}
+            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span onclick="event.stopPropagation();sendFollowUpSMS('${n.leadId}')" style="font-size:9px;color:var(--green,#2ECC8A);font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
             ${isDismissed ? `<span onclick="event.stopPropagation();restoreNotification('${n.id}')" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
           </div>
         </div>
@@ -1525,6 +1539,26 @@ window.sendBookingSMS = function(leadId, phone, firstName) {
   const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
   const cleanPhone = phone.replace(/\D/g, '');
   const body = encodeURIComponent(`Hey${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+  window.open(`sms:${cleanPhone}?body=${body}`, '_self');
+};
+
+// ── Follow-Up SMS Reminder ─────────────────────
+// Quick SMS from notification or follow-up alert
+window.sendFollowUpSMS = function(leadId) {
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead || !lead.phone) {
+    if (typeof showToast === 'function') showToast('No phone number on file for this lead', 'error');
+    return;
+  }
+  const firstName = lead.firstName || lead.fname || '';
+  const cleanPhone = lead.phone.replace(/\D/g, '');
+  const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+  const calUser = calSettings.username || 'nobigdeal';
+  const calSlug = calSettings.eventSlug || 'roof-inspection';
+  const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+  const body = encodeURIComponent(
+    `Hi${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Home Solutions. Just following up on your project — wanted to check in and see if you have any questions. If you'd like to schedule a time to chat: ${bookingUrl}`
+  );
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };
 

@@ -705,6 +705,8 @@
     }
     // Fire follow-up notifications after leads are fresh
     setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
+    // Render KPI analytics row on home dashboard
+    if (typeof renderKPIRow === 'function') setTimeout(renderKPIRow, 200);
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
@@ -5771,6 +5773,22 @@ function switchScTab(tab, btn) {
         <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
       </div>
       
+      <!-- KPI ROW — Real-time business metrics -->
+      <div id="kpiRow" style="margin-bottom:16px;"></div>
+      <style>
+        .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;}
+        .kpi-card{background:var(--s2,#1a1d23);border:1px solid var(--br);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:border-color .15s;}
+        .kpi-card:hover{border-color:var(--blue);}
+        .kpi-primary{border-left:3px solid var(--blue);}
+        .kpi-green{border-left:3px solid var(--green,#2ECC8A);}
+        .kpi-warning{border-left:3px solid var(--orange);background:rgba(200,84,26,0.06);}
+        .kpi-icon{font-size:22px;flex-shrink:0;}
+        .kpi-data{min-width:0;}
+        .kpi-value{font-size:22px;font-weight:800;color:var(--t);line-height:1.2;font-family:'Barlow Condensed',sans-serif;}
+        .kpi-label{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+        .kpi-sub{font-size:10px;color:var(--m);opacity:.7;margin-top:1px;}
+      </style>
+
       <!-- THIS WEEK QUICK STATS -->
       <div class="panel" style="margin-bottom:16px;">
         <div class="panel-hdr">
@@ -11058,6 +11076,10 @@ function shareCalViaEmail() {
 <script src="js/company-admin.js?v=1"></script>
 <script src="js/document-generator.js?v=3"></script>
 <script src="js/document-generator-templates.js?v=3"></script>
+<script src="js/customer-portal.js?v=1"></script>
+<script src="js/analytics-kpi.js?v=1"></script>
+<script src="js/onboarding.js?v=1"></script>
+<script src="js/photo-report.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

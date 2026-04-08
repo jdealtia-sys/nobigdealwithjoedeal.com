@@ -353,6 +353,12 @@ header {
       <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
         → Move to Next Stage
       </button>
+      <button class="btn" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.generate(leadId).then(url=>{if(url)prompt('Portal link (copied):',url)})" title="Generate shareable customer portal">
+        🔗 Share Portal
+      </button>
+      <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(leadId)" title="Generate before/after photo report">
+        📸 Photo Report
+      </button>
     </div>
   </div>
 
@@ -2982,5 +2988,7 @@ console.log('✓ Customer page enhancements loaded');
 
 </script>
 <script src="js/email_system.js"></script>
+<script src="js/customer-portal.js?v=1"></script>
+<script src="js/photo-report.js?v=1"></script>
 </body>
 </html>
