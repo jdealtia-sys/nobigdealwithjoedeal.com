@@ -6,7 +6,7 @@ window.runAIReview = async function() {
   const est = window.advancedEstimate;
   
   if (est.lineItems.length === 0) {
-    alert('Add some line items first before running AI review');
+    if(typeof showToast==='function') showToast('Add some line items first before running AI review','error'); else alert('Add some line items first before running AI review');
     return;
   }
   
@@ -77,7 +77,7 @@ Keep your response concise and formatted with bullet points. Use ✓ for include
     
   } catch (error) {
     console.error('AI Review error:', error);
-    alert('AI review failed: ' + error.message);
+    if(typeof showToast==='function') showToast('AI review failed: ' + error.message,'error'); else alert('AI review failed: ' + error.message);
   } finally {
     loadingModal.remove();
   }

@@ -84,7 +84,7 @@ window.NBDDocGen = {
   generate(type, data = {}) {
     const html = this.getHTML(type, data);
     if (!html) {
-      alert('Error: Document type not found.');
+      if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
       return;
     }
     const win = window.open('', '_blank');

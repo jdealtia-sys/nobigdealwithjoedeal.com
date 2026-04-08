@@ -8,7 +8,7 @@ window.saveAsTemplate = function() {
   const est = window.advancedEstimate;
   
   if (est.lineItems.length === 0) {
-    alert('Cannot save a template with no line items');
+    if(typeof showToast==='function') showToast('Cannot save a template with no line items','error'); else alert('Cannot save a template with no line items');
     return;
   }
   
@@ -67,7 +67,7 @@ window.confirmSaveTemplate = function() {
   const description = document.getElementById('templateDescription').value.trim();
   
   if (!name) {
-    alert('Please enter a template name');
+    if(typeof showToast==='function') showToast('Please enter a template name','error'); else alert('Please enter a template name');
     return;
   }
   
@@ -87,12 +87,12 @@ window.confirmSaveTemplate = function() {
   localStorage.setItem('nbd_estimate_templates', JSON.stringify(window.estimateTemplates));
   
   closeSaveTemplateModal();
-  alert('✓ Template saved successfully!');
+  if(typeof showToast==='function') showToast('Template saved successfully!','ok'); else alert('✓ Template saved successfully!');
 };
 
 window.loadFromTemplate = function() {
   if (window.estimateTemplates.length === 0) {
-    alert('No templates saved yet. Create your first template by building an estimate and clicking "Save as Template".');
+    if(typeof showToast==='function') showToast('No templates saved yet — build an estimate and click "Save as Template"','error'); else alert('No templates saved yet.');
     return;
   }
   
@@ -172,5 +172,5 @@ window.applyTemplate = function(templateId) {
   window.advancedEstimate.currentStep = 3;
   renderAdvancedStep(3);
   
-  alert(`✓ Template "${template.name}" loaded with ${template.lineItems.length} items`);
+  if(typeof showToast==='function') showToast(`Template "${template.name}" loaded — ${template.lineItems.length} items`,'ok'); else alert(`✓ Template "${template.name}" loaded`);
 };

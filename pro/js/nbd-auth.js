@@ -275,7 +275,7 @@ export const NBDAuth = {
     try {
       localStorage.removeItem('nbd_user_plan');
       await signOut(_auth);
-    } catch(e) {}
+    } catch(e) { console.warn('Logout error:', e.message); }
     window.location.replace(redirect);
   },
 

@@ -74,11 +74,11 @@ async function _toggleTask(leadId, taskId, done) {
     await updateDoc(doc(db,'leads',leadId,'tasks',taskId), {
       done,
       completedAt: done ? serverTimestamp() : null
-    }); 
-  } catch(e){}
+    });
+  } catch(e){ console.error('toggleTask error:', e); }
 }
 async function _deleteTask(leadId, taskId) {
-  try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); } catch(e){}
+  try { await deleteDoc(doc(db,'leads',leadId,'tasks',taskId)); } catch(e){ console.error('deleteTask error:', e); }
 }
 async function loadAllTasks() {
   // Use allSettled so a single lead's failure doesn't block the rest

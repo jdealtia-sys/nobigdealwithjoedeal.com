@@ -123,7 +123,7 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
     try {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if(jsonMatch) intel = JSON.parse(jsonMatch[0]);
-    } catch(e) {}
+    } catch(e) { console.warn('Property intel JSON parse failed:', e.message); }
 
     if(!intel) throw new Error('No parseable data returned');
 

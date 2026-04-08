@@ -184,7 +184,7 @@ window.saveMaterialPrice = function(materialId) {
     tbody.innerHTML = renderPricingTableRows('');
   }
   
-  alert('✓ Pricing updated successfully!');
+  if(typeof showToast==='function') showToast('Pricing updated successfully!','ok'); else alert('✓ Pricing updated successfully!');
 };
 
 window.exportPricingCSV = function() {
@@ -205,7 +205,7 @@ window.exportPricingCSV = function() {
 };
 
 window.addCustomMaterial = function() {
-  alert('Custom material addition feature - to be implemented in next iteration');
+  if(typeof showToast==='function') showToast('Custom material addition coming soon','warning'); else alert('Custom material addition — coming soon');
 };
 
 // Load saved pricing on page load

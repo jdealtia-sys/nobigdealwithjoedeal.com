@@ -6,7 +6,7 @@ window.exportAdvancedEstimatePDF = function(type) {
   const est = window.advancedEstimate;
   
   if (!est.lineItems || est.lineItems.length === 0) {
-    alert('No line items to export');
+    if(typeof showToast==='function') showToast('No line items to export','error'); else alert('No line items to export');
     return;
   }
   
@@ -110,7 +110,7 @@ window.exportAdvancedEstimatePDF = function(type) {
     if (typeof emailEstimatePDF === 'function') {
       emailEstimatePDF(est, pdfBlob);
     } else {
-      alert('Email system not loaded. Downloading instead.');
+      if(typeof showToast==='function') showToast('Email system not loaded — downloading instead','warning'); else alert('Email system not loaded. Downloading instead.');
       doc.save(filename);
     }
   } else {

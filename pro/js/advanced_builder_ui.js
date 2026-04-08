@@ -119,7 +119,7 @@ window.advNextStep = function(currentStep) {
   if (currentStep === 1) {
     const projectName = document.getElementById('advProjectName').value.trim();
     if (!projectName) {
-      alert('Please enter a project name');
+      if(typeof showToast==='function') showToast('Please enter a project name','error'); else alert('Please enter a project name');
       return;
     }
     window.advancedEstimate.projectName = projectName;
@@ -128,7 +128,7 @@ window.advNextStep = function(currentStep) {
   }
   
   if (currentStep === 2 && window.advancedEstimate.trades.length === 0) {
-    alert('Please select at least one trade');
+    if(typeof showToast==='function') showToast('Please select at least one trade','error'); else alert('Please select at least one trade');
     return;
   }
   
@@ -421,7 +421,7 @@ window.saveLineItem = function() {
   const section = document.getElementById('liSection').value.trim() || 'General';
   
   if (!name || qty <= 0 || sellPrice < 0) {
-    alert('Please fill in all required fields');
+    if(typeof showToast==='function') showToast('Please fill in all required fields','error'); else alert('Please fill in all required fields');
     return;
   }
   
@@ -637,7 +637,7 @@ function renderReview() {
 // ── Apply QM data to Advanced Builder ─────────────────────────────────────
 window.applyQMToAdvancedBuilder = function() {
   const qm = window._qmData;
-  if (!qm) { alert('No Quick Measure data found. Import a PDF first.'); return; }
+  if (!qm) { if(typeof showToast==='function') showToast('No Quick Measure data found. Import a PDF first.','error'); else alert('No Quick Measure data found. Import a PDF first.'); return; }
 
   const est = window.advancedEstimate;
 
@@ -707,7 +707,7 @@ window.applyQMToAdvancedBuilder = function() {
   // Re-render current step
   renderAdvancedStep(est.currentStep);
 
-  alert(`✓ QM data applied!\n\n${newItems.length} line items seeded from ${sq} squares.\nReview in the Line Items step.`);
+  if(typeof showToast==='function') showToast(`QM data applied — ${newItems.length} items seeded from ${sq} squares`,'ok'); else alert(`✓ QM data applied! ${newItems.length} line items seeded from ${sq} squares.`);
 };
 // ── End QM Apply ───────────────────────────────────────────────────────────
 
@@ -715,7 +715,7 @@ window.saveAdvancedEstimate = async function() {
   const est = window.advancedEstimate;
   
   if (est.lineItems.length === 0) {
-    alert('Cannot save an estimate with no line items');
+    if(typeof showToast==='function') showToast('Cannot save an estimate with no line items','error'); else alert('Cannot save an estimate with no line items');
     return;
   }
   
@@ -723,7 +723,7 @@ window.saveAdvancedEstimate = async function() {
     // Use modular SDK via window-exposed functions
     const user = window._user;
     if (!user) {
-      alert('You must be logged in to save estimates');
+      if(typeof showToast==='function') showToast('You must be logged in to save estimates','error'); else alert('You must be logged in to save estimates');
       return;
     }
 
@@ -771,7 +771,7 @@ window.saveAdvancedEstimate = async function() {
     } else {
       // Fallback — should not happen if dashboard loaded correctly
       console.error('window._saveEstimate not available');
-      alert('Save failed — please refresh and try again.');
+      if(typeof showToast==='function') showToast('Save failed — please refresh and try again.','error'); else alert('Save failed — please refresh and try again.');
       return;
     }
 
@@ -785,7 +785,7 @@ window.saveAdvancedEstimate = async function() {
         window.location.href = `/pro/customer.html?id=${leadId}`;
       }
     } else {
-      alert('✓ Estimate saved successfully!');
+      if(typeof showToast==='function') showToast('Estimate saved successfully!','ok'); else alert('✓ Estimate saved successfully!');
     }
     
     // Refresh estimates list if on estimates page
@@ -795,7 +795,7 @@ window.saveAdvancedEstimate = async function() {
     
   } catch (error) {
     console.error('Error saving estimate:', error);
-    alert('Error saving estimate: ' + error.message);
+    if(typeof showToast==='function') showToast('Error saving estimate: ' + error.message,'error'); else alert('Error saving estimate: ' + error.message);
   }
 };
 

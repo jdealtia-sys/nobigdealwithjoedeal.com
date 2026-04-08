@@ -202,14 +202,14 @@ window.sendEmail = async function() {
   const body = document.getElementById('emailBody').value.trim();
   
   if (!to || !subject || !body) {
-    alert('Please fill in all fields');
+    if(typeof showToast==='function') showToast('Please fill in all fields','error'); else alert('Please fill in all fields');
     return;
   }
   
   // Validate email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(to)) {
-    alert('Please enter a valid email address');
+    if(typeof showToast==='function') showToast('Please enter a valid email address','error'); else alert('Please enter a valid email address');
     return;
   }
   
@@ -258,7 +258,7 @@ window.sendEmail = async function() {
     
   } catch (error) {
     console.error('Email error:', error);
-    alert('Failed to send email. Please try again.');
+    if(typeof showToast==='function') showToast('Failed to send email. Please try again.','error'); else alert('Failed to send email. Please try again.');
   }
 };
 
@@ -599,7 +599,7 @@ No Big Deal Home Solutions
  */
 window.emailByStage = async function(leadId) {
   const lead = await getLeadData(leadId);
-  if (!lead) { alert('Lead not found'); return; }
+  if (!lead) { if(typeof showToast==='function') showToast('Lead not found','error'); else alert('Lead not found'); return; }
 
   const stage = lead.stage || 'new';
   const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';

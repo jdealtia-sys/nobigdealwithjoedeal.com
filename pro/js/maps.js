@@ -105,7 +105,7 @@ async function buildJobsLayer() {
       jobMarkers.push(m);
       if(overlayState.jobs) m.addTo(mainMap);
       await new Promise(r=>setTimeout(r,180)); // rate-limit Nominatim
-    } catch(e){}
+    } catch(e){ console.warn('Job overlay geocode failed for:', lead.address, e.message); }
   }
 }
 function showJobsLayer() {
@@ -154,13 +154,10 @@ function cancelPinConfirm() {
   document.getElementById('pinConfirmOverlay').classList.remove('open');
 }
 async function commitPin() {
-  console.log('📌 commitPin called, pendingPin=', pendingPin);
   if(!pendingPin) return;
   const notes = document.getElementById('pcd-notes').value.trim();
   document.getElementById('pinConfirmOverlay').classList.remove('open');
-  console.log('📌 calling dropPin...');
   await dropPin(pendingPin.lat, pendingPin.lng, pendingPin.status, pendingPin.color, null, notes);
-  console.log('📌 dropPin complete');
   refreshHeatLayer();
   pendingPin = null;
   showToast('Pin saved ✓');
@@ -192,9 +189,7 @@ function makePinIcon(color, status) {
 }
 
 async function dropPin(lat,lng,status,color,existingId,notes) {
-  console.log('📌 dropPin: _savePin exists?', typeof window._savePin);
   const id = existingId || await window._savePin({lat,lng,status,color,notes});
-  console.log('📌 dropPin: got id=', id);
   addPinMarker({id,lat,lng,status,color,notes});
 }
 
@@ -375,7 +370,7 @@ function selectPin(status,color,el) {
   curPinStatus=status; curPinColor=color;
   document.getElementById('mapBadge').textContent='📍 '+(PIN_LABELS[status]||status).toUpperCase();
 }
-function deletePin(id) { if(pinMarkers[id]){if(pinClusterGroup)pinClusterGroup.removeLayer(pinMarkers[id]);else mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} window._deletePin(id); refreshHeatLayer(); }
+async function deletePin(id) { if(pinMarkers[id]){if(pinClusterGroup)pinClusterGroup.removeLayer(pinMarkers[id]);else mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} await window._deletePin(id); refreshHeatLayer(); }
 function clearAllPins() { if(pinClusterGroup){pinClusterGroup.clearLayers();}else{Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m));} pinMarkers={}; }
 
 async function searchMap() {

@@ -309,7 +309,7 @@ function getCurrentUserPermissions() {
 /**
  * Load user data and initialize state
  */
-function loadUserData() {
+async function loadUserData() {
   const stored = localStorage.getItem('nbd_user_settings');
   if (stored) {
     const userData = JSON.parse(stored);
@@ -317,12 +317,28 @@ function loadUserData() {
     currentUserId = userData.uid || 'demo_user';
   }
 
-  const storedProfile = localStorage.getItem('nbd_company_profile');
-  if (storedProfile) {
-    companyProfile = JSON.parse(storedProfile);
-  } else {
-    companyProfile = { ...DEFAULT_COMPANY_PROFILE };
-    saveCompanyProfile();
+  // Try Firestore first, fall back to localStorage
+  let loadedFromFirestore = false;
+  if (window._db && window._user) {
+    try {
+      // Load company profile from Firestore
+      const companySnap = await window.getDocs(window.query(window.collection(window._db, 'companies'), window.where('userId', '==', window._user.uid)));
+      if (!companySnap.empty) {
+        companyProfile = { ...companySnap.docs[0].data(), companyId: companySnap.docs[0].id };
+        localStorage.setItem('nbd_company_profile', JSON.stringify(companyProfile));
+        loadedFromFirestore = true;
+      }
+    } catch(e) { console.warn('Firestore company load failed, using localStorage:', e.message); }
+  }
+
+  if (!loadedFromFirestore) {
+    const storedProfile = localStorage.getItem('nbd_company_profile');
+    if (storedProfile) {
+      companyProfile = JSON.parse(storedProfile);
+    } else {
+      companyProfile = { ...DEFAULT_COMPANY_PROFILE };
+      saveCompanyProfile();
+    }
   }
 
   const storedTeam = localStorage.getItem('nbd_team_members');
@@ -341,14 +357,17 @@ function loadUserData() {
 /**
  * Save company profile to localStorage (will sync to Firestore later)
  */
-function saveCompanyProfile() {
+async function saveCompanyProfile() {
   companyProfile.updatedAt = new Date().toISOString();
   localStorage.setItem('nbd_company_profile', JSON.stringify(companyProfile));
 
-  // TODO: Sync to Firestore
-  // if (window._db) {
-  //   window._db.collection('companies').doc(companyProfile.companyId).set(companyProfile);
-  // }
+  // Sync to Firestore for persistence across devices
+  if (window._db && window._user && companyProfile.companyId) {
+    try {
+      const docRef = window.doc(window._db, 'companies', companyProfile.companyId);
+      await window.setDoc(docRef, { ...companyProfile, userId: window._user.uid }, { merge: true });
+    } catch(e) { console.warn('Company profile Firestore sync failed:', e.message); }
+  }
 
   window._showToast?.('Company settings saved successfully');
 }
@@ -399,15 +418,28 @@ function loadTeamMembers() {
 /**
  * Save team to localStorage
  */
-function saveTeamMembers() {
+async function saveTeamMembers() {
   localStorage.setItem('nbd_team_members', JSON.stringify(teamMembers));
 
-  // TODO: Sync to Firestore
-  // if (window._db) {
-  //   teamMembers.forEach(member => {
-  //     window._db.collection('team').doc(member.uid).set(member);
-  //   });
-  // }
+  // Sync to Firestore for persistence across devices
+  if (window._db && window._user) {
+    try {
+      const batch = window.writeBatch ? window.writeBatch(window._db) : null;
+      if (batch) {
+        teamMembers.forEach(member => {
+          const ref = window.doc(window._db, 'team', member.uid);
+          batch.set(ref, { ...member, companyId: companyProfile.companyId, updatedBy: window._user.uid }, { merge: true });
+        });
+        await batch.commit();
+      } else {
+        // Fallback: individual writes
+        for (const member of teamMembers) {
+          const ref = window.doc(window._db, 'team', member.uid);
+          await window.setDoc(ref, { ...member, companyId: companyProfile.companyId, updatedBy: window._user.uid }, { merge: true });
+        }
+      }
+    } catch(e) { console.warn('Team members Firestore sync failed:', e.message); }
+  }
 }
 
 /**

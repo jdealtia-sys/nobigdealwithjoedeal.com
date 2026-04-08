@@ -81,7 +81,7 @@ async function saveLead(){
   const origText=saveBtn.textContent;
   saveBtn.textContent='Saving...';
   const intelData = window._modalIntel || {};
-  console.log('💾 saveLead: _saveLead exists?', typeof window._saveLead, '_user?', !!window._user);
+  // saveLead: proceed with save
   try {
     await window._saveLead({
       id: (document.getElementById('lEditId')?.value||undefined)||undefined,
@@ -295,21 +295,19 @@ function renderLeads(leads, filtered){
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
         card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
       });
-      body.addEventListener('dragover', e=>{
-        e.preventDefault();
-        e.dataTransfer.dropEffect='move';
-        body.classList.add('drag-over');
-      });
-      body.addEventListener('dragleave', e=>{
-        if(e.target===body) body.classList.remove('drag-over');
-      });
-      body.addEventListener('drop', e=>{
-        e.preventDefault();
-        body.classList.remove('drag-over');
-        if(!_dragId) return;
-        moveCard(_dragId, stageKey);
-        _dragId=null;
-      });
+      // Clean up previous drag listeners before adding new ones (prevents memory leak)
+      if (body._dragHandlers) {
+        body.removeEventListener('dragover', body._dragHandlers.over);
+        body.removeEventListener('dragleave', body._dragHandlers.leave);
+        body.removeEventListener('drop', body._dragHandlers.drop);
+      }
+      const overHandler = e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); };
+      const leaveHandler = e=>{ if(e.target===body) body.classList.remove('drag-over'); };
+      const dropHandler = e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stageKey); _dragId=null; };
+      body.addEventListener('dragover', overHandler);
+      body.addEventListener('dragleave', leaveHandler);
+      body.addEventListener('drop', dropHandler);
+      body._dragHandlers = { over: overHandler, leave: leaveHandler, drop: dropHandler };
     });
   } else {
     // LEGACY FALLBACK: Use display name stages
@@ -329,9 +327,19 @@ function renderLeads(leads, filtered){
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
         card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
       });
-      body.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); });
-      body.addEventListener('dragleave', e=>{ if(e.target===body) body.classList.remove('drag-over'); });
-      body.addEventListener('drop', e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stage); _dragId=null; });
+      // Clean up previous drag listeners (prevents memory leak on re-render)
+      if (body._dragHandlers) {
+        body.removeEventListener('dragover', body._dragHandlers.over);
+        body.removeEventListener('dragleave', body._dragHandlers.leave);
+        body.removeEventListener('drop', body._dragHandlers.drop);
+      }
+      const overH = e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); };
+      const leaveH = e=>{ if(e.target===body) body.classList.remove('drag-over'); };
+      const dropH = e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stage); _dragId=null; };
+      body.addEventListener('dragover', overH);
+      body.addEventListener('dragleave', leaveH);
+      body.addEventListener('drop', dropH);
+      body._dragHandlers = { over: overH, leave: leaveH, drop: dropH };
     });
   }
 }
@@ -1153,10 +1161,12 @@ async function requestNotifPermission() {
 // ══ END FOLLOW-UP NOTIFICATION ENGINE ═════════════════════════════════
 
 // Load notifications on auth - poll for window._user set by main auth callback
+let _notifInterval = null;
 (function waitForNotifAuth() {
   if (window._user) {
     loadNotifications();
-    setInterval(loadNotifications, 120000);
+    if (_notifInterval) clearInterval(_notifInterval);
+    _notifInterval = setInterval(loadNotifications, 120000);
   } else {
     setTimeout(waitForNotifAuth, 300);
   }
@@ -1235,15 +1245,15 @@ async function bulkMoveStage() {
   const newStage = stageSelect.value;
   
   if (!newStage) {
-    alert('Please select a stage');
+    showToast('Please select a stage', 'error');
     return;
   }
   
   if (window._bulkSelected.size === 0) {
-    alert('No cards selected');
+    showToast('No cards selected', 'error');
     return;
   }
-  
+
   if (!confirm(`Move ${window._bulkSelected.size} lead(s) to "${newStage}"?`)) {
     return;
   }
@@ -1270,10 +1280,10 @@ async function bulkMoveStage() {
 
 async function bulkDelete() {
   if (window._bulkSelected.size === 0) {
-    alert('No cards selected');
+    showToast('No cards selected', 'error');
     return;
   }
-  
+
   if (!confirm(`Delete ${window._bulkSelected.size} lead(s)? They will be moved to the trash.`)) {
     return;
   }
@@ -1460,7 +1470,7 @@ async function refreshTrashBadge() {
       badge.textContent = deleted.length || '';
       badge.style.display = deleted.length ? 'flex' : 'none';
     }
-  } catch(e) {}
+  } catch(e) { console.warn('refreshTrashBadge:', e.message); }
 }
 
 // Expose CRM functions to window for onclick handlers

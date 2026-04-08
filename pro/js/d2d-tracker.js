@@ -736,7 +736,7 @@
           userId: window._user.uid,
           createdAt: window.serverTimestamp()
         });
-        if (typeof window._loadLeads === 'function') window._loadLeads();
+        if (typeof window._loadLeads === 'function') await window._loadLeads();
       }
 
       await updateKnock(knockId, { convertedToLead: true });

@@ -100,7 +100,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -255,6 +255,20 @@
   window.listAll = listAll;
   window._signOut = signOut;
   window._onAuthStateChanged = onAuthStateChanged;
+  window.setDoc = setDoc;
+  window.writeBatch = writeBatch;
+
+  // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
+  // Catch uncaught errors and unhandled promise rejections so failures
+  // surface to the user instead of dying silently.
+  window.addEventListener('error', e => {
+    console.error('Uncaught error:', e.error || e.message);
+    if (typeof showToast === 'function') showToast('Something went wrong — check console', 'error');
+  });
+  window.addEventListener('unhandledrejection', e => {
+    console.error('Unhandled promise rejection:', e.reason);
+    if (typeof showToast === 'function') showToast('An operation failed — check console', 'error');
+  });
 
   onAuthStateChanged(auth, async user => {
     if (!user) { window.location.replace("/pro/login.html"); return; }
@@ -263,17 +277,7 @@
     // Check if user has active subscription (unless demo account)
     const isDemoAccount = user.email === 'demo@nobigdeal.pro';
     
-    // ──────────────────────────────────────────────────────────
-    // EMERGENCY OVERRIDE: Set to true to bypass subscription check during testing
-    const BYPASS_SUBSCRIPTION_CHECK = false;
-    // ──────────────────────────────────────────────────────────
-    
-    if (BYPASS_SUBSCRIPTION_CHECK) {
-      // Testing mode - grant full access
-      window._userPlan = 'professional';
-      window._subscription = { plan: 'professional', status: 'active' };
-      console.warn('⚠️ SUBSCRIPTION CHECK BYPASSED - Testing mode active');
-    } else if (!isDemoAccount) {
+    if (!isDemoAccount) {
       // Production mode - enforce subscription
       try {
         const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
@@ -5327,14 +5331,14 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="hright">
   <div style="display:flex;align-items:center;gap:4px;margin-right:8px;">
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
+      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
       <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
         <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
         <div id="recentList"></div>
       </div>
     </div>
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;position:relative;" onclick="toggleNotificationDropdown()" title="Notifications" id="notifBtn">
+      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;position:relative;" onclick="toggleNotificationDropdown()" title="Notifications" id="notifBtn">
         🔔
         <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:16px;text-align:center;">0</span>
       </button>
@@ -5355,9 +5359,9 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="notifDismissedList" style="display:none;overflow-y:auto;max-height:200px;border-top:1px solid var(--br);background:var(--s2);"></div>
       </div>
     </div>
-    <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:#6B7280;font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
   </div>
     <div class="upill" onclick="goTo('settings')">
       <div class="av" id="userAvatar">J</div>
@@ -10947,8 +10951,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/tools.js?v=2"></script>
 <script src="js/icons.js?v=2"></script>
 <script src="js/claude-proxy.js?v=1"></script>
-<script src="js/crm.js?v=6"></script>
-<script src="js/maps.js?v=4"></script>
+<script src="js/crm.js?v=7"></script>
+<script src="js/maps.js?v=5"></script>
 <script src="js/widgets.js?v=1"></script>
 <script src="js/ui.js?v=2"></script>
 <script src="js/estimates.js?v=2"></script>
@@ -11052,7 +11056,7 @@ function shareCalViaEmail() {
 <script src="js/rep-os.js?v=1"></script>
 <script src="js/template-suite.js?v=1"></script>
 <script src="js/company-admin.js?v=1"></script>
-<script src="js/document-generator.js?v=2"></script>
+<script src="js/document-generator.js?v=3"></script>
 <script src="js/document-generator-templates.js?v=3"></script>
 <script>
   // Display subscription tier in settings
