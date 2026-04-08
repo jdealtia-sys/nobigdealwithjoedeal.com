@@ -558,7 +558,8 @@ body {
 
 /* Mobile */
 @media (max-width: 760px) {
-  body { flex-direction: column; }
+  body { flex-direction: column; -webkit-overflow-scrolling: touch; overflow-x: hidden; }
+  * { -webkit-tap-highlight-color: transparent; }
   .left-panel {
     width: 100%;
     height: auto;
@@ -568,7 +569,17 @@ body {
   .left-headline { font-size: 28px; }
   .feat-list { display: none; }
   .right-panel { padding: 28px 20px; }
-  .frow { flex-direction: column; gap: 0; }
+  .frow { flex-direction: column; gap: 12px; }
+  input, select { font-size: 16px !important; min-height: 48px; } /* prevent iOS zoom */
+  .form-card { padding: 24px 20px; }
+  .step-btn, .submit-btn { min-height: 52px; font-size: 14px; touch-action: manipulation; }
+  a, button { touch-action: manipulation; }
+}
+@media (max-width: 400px) {
+  .left-panel { padding: 20px 16px; }
+  .right-panel { padding: 20px 16px; }
+  .left-headline { font-size: 24px; }
+  .form-card { padding: 20px 16px; }
 }
 </style>
 </head>

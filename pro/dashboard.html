@@ -3753,6 +3753,29 @@ body {
   /* Notification button — bigger tap target */
   #notifBtn { width:44px!important; height:44px!important; }
 
+  /* ══ SAFE AREA INSETS (iPhone notch, home indicator) ══ */
+  body { padding-bottom:calc(62px + env(safe-area-inset-bottom, 0px))!important; }
+  #mobile-nav { height:calc(62px + env(safe-area-inset-bottom, 0px))!important; padding-bottom:env(safe-area-inset-bottom, 0px)!important; }
+  #mobile-more-menu { padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px))!important; }
+  header { padding-top:env(safe-area-inset-top, 0px)!important; }
+
+  /* ══ GLOBAL MOBILE TOUCH & SCROLL ══ */
+  html { -webkit-text-size-adjust:100%; }
+  body { -webkit-overflow-scrolling:touch; overflow-x:hidden!important; }
+  * { -webkit-tap-highlight-color:transparent; }
+  a, button, .btn, .ni, .mn-item, .mm-item, .k-card { touch-action:manipulation; }
+  input, select, textarea { font-size:16px!important; } /* prevent iOS zoom on focus */
+
+  /* ══ SCROLL FIX: ensure views are always scrollable ══ */
+  .view.active { display:block!important; min-height:auto!important; }
+  .view-scroll { min-height:auto!important; padding-bottom:80px!important; }
+
+  /* ══ MODALS: full-width on mobile, bottom-sheet style ══ */
+  .modal { max-width:100vw!important; width:calc(100% - 16px)!important; margin:8px!important; border-radius:16px!important; max-height:calc(100vh - 80px)!important; overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
+
+  /* ══ TOAST: above mobile nav ══ */
+  .toast { bottom:calc(72px + env(safe-area-inset-bottom, 0px))!important; right:12px!important; left:12px!important; max-width:none!important; }
+
 }
 
 /* ── Extra small phones (under 400px) ── */
@@ -3766,11 +3789,23 @@ body {
 
 /* Always hidden on desktop, shown via media query above */
 #mobile-nav{display:none;}
-#mobile-more-menu{display:none;position:fixed;bottom:64px;left:0;right:0;z-index:1999;background:var(--s);border-top:1px solid var(--br);padding:8px 0;}
-.mm-item{display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;font-size:14px;color:var(--t);border-left:2px solid transparent;transition:all .15s;}
+#mobile-more-menu{
+  display:none;position:fixed;bottom:0;left:0;right:0;top:0;z-index:2001;
+  background:rgba(10,12,15,.98);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 0 80px;
+}
+#mobile-more-menu.open{display:flex;}
+.mm-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--br);}
+.mm-header-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);letter-spacing:.04em;}
+.mm-close{background:none;border:1px solid var(--br);border-radius:10px;color:var(--m);font-size:18px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.mm-section{padding:8px 12px 4px;font-size:9px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--m);font-weight:700;}
+.mm-item{display:flex;align-items:center;gap:14px;padding:15px 20px;cursor:pointer;font-size:15px;color:var(--t);border-left:3px solid transparent;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:48px;}
 .mm-item:hover,.mm-item:active{background:var(--s2);border-left-color:var(--orange);color:var(--orange);}
-.mm-item-icon{font-size:18px;width:24px;text-align:center;}
+.mm-item-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
 .mm-overlay{display:none;position:fixed;inset:0;z-index:1998;background:rgba(0,0,0,.5);}
+.mm-overlay.open{display:block;}
 .map-toggle-btn{display:none;}
 
 /* ── MAP FLOATING TOOLBAR ── */
@@ -4262,7 +4297,7 @@ body {
   display:none;position:fixed;top:0;left:0;right:0;bottom:0;
   background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
   z-index:10000;align-items:flex-start;justify-content:center;
-  padding-top:15vh;animation:cmdFadeIn .15s ease;
+  padding-top:min(15vh,80px);animation:cmdFadeIn .15s ease;
 }
 .cmd-palette-overlay.active{display:flex;}
 @keyframes cmdFadeIn{from{opacity:0;} to{opacity:1;}}
@@ -5169,6 +5204,13 @@ body.theme-frosted {
   #nbd-pro-nav .nnav-right .nnav-login-btn { display: none; }
   #nbd-pro-nav .nnav-right .nnav-user { display: none; }
   #nbd-pro-nav .nnav-burger { display: flex; }
+  #nbd-nav-drawer .nnav-drawer-link { padding: 15px 16px; font-size: 13px; min-height: 48px; }
+}
+@media (max-width: 400px) {
+  #nbd-pro-nav { padding: 0 12px; --nbd-nav-h: 48px; }
+  #nbd-pro-nav .nnav-mark { font-size: 11px; width: 32px; height: 32px; }
+  #nbd-pro-nav .nnav-wordmark { font-size: 13px; }
+  #nbd-nav-drawer { top: 48px; }
 }
 
 /* Position variants */
@@ -5799,6 +5841,19 @@ function switchScTab(tab, btn) {
         .kpi-value{font-size:22px;font-weight:800;color:var(--t);line-height:1.2;font-family:'Barlow Condensed',sans-serif;}
         .kpi-label{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
         .kpi-sub{font-size:10px;color:var(--m);opacity:.7;margin-top:1px;}
+        @media(max-width:480px){
+          .kpi-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+          .kpi-card{padding:10px 12px;gap:8px;border-radius:8px;}
+          .kpi-icon{font-size:18px;}
+          .kpi-value{font-size:18px;}
+          .kpi-label{font-size:9px;}
+          .kpi-sub{font-size:9px;}
+        }
+        @media(max-width:360px){
+          .kpi-grid{grid-template-columns:1fr 1fr;gap:6px;}
+          .kpi-card{padding:8px 10px;}
+          .kpi-value{font-size:16px;}
+        }
       </style>
 
       <!-- CREW CALENDAR — Scheduling view -->
@@ -9522,18 +9577,17 @@ function mobileNav(view) {
 
 function toggleMobileMore() {
   const menu = document.getElementById('mobile-more-menu');
-  const overlay = document.getElementById('mm-overlay');
   const moreBtn = document.getElementById('mni-more');
   const isOpen = menu.classList.contains('open');
   menu.classList.toggle('open', !isOpen);
-  overlay.classList.toggle('open', !isOpen);
   if (moreBtn) moreBtn.classList.toggle('active', !isOpen);
+  document.body.style.overflow = !isOpen ? 'hidden' : '';
 }
 
 function closeMobileMore() {
   document.getElementById('mobile-more-menu')?.classList.remove('open');
-  document.getElementById('mm-overlay')?.classList.remove('open');
   document.getElementById('mni-more')?.classList.remove('active');
+  document.body.style.overflow = '';
 }
 // ══════════════════════════════════════════════
 // MAP ENHANCEMENTS — spyglass, fab bar, zones, stats
@@ -10797,20 +10851,54 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- More menu overlay -->
 <div class="mm-overlay" id="mm-overlay" onclick="closeMobileMore()"></div>
 
-<!-- More menu panel -->
+<!-- More menu panel — full-screen drawer with all tools -->
 <div id="mobile-more-menu">
-  <div class="mm-item" onclick="mobileNav('d2d');closeMobileMore()">
-    <span class="mm-item-icon">🚪</span>Door-to-Door
+  <div class="mm-header">
+    <div class="mm-header-title">All Tools</div>
+    <button class="mm-close" onclick="closeMobileMore()" aria-label="Close">✕</button>
+  </div>
+
+  <div class="mm-section">Core</div>
+  <div class="mm-item" onclick="mobileNav('home');closeMobileMore()">
+    <span class="mm-item-icon">🏠</span>Home
+  </div>
+  <div class="mm-item" onclick="mobileNav('dash');closeMobileMore()">
+    <span class="mm-item-icon">📊</span>Dashboard
+  </div>
+  <div class="mm-item" onclick="mobileNav('crm');closeMobileMore()">
+    <span class="mm-item-icon">👥</span>Pipeline
   </div>
   <div class="mm-item" onclick="mobileNav('est');closeMobileMore()">
     <span class="mm-item-icon">📋</span>Estimate Builder
+  </div>
+
+  <div class="mm-section">Tools</div>
+  <div class="mm-item" onclick="mobileNav('d2d');closeMobileMore()">
+    <span class="mm-item-icon">🚪</span>Door-to-Door
+  </div>
+  <div class="mm-item" onclick="mobileNav('map');closeMobileMore()">
+    <span class="mm-item-icon">🗺️</span>Maps &amp; Pins
   </div>
   <div class="mm-item" onclick="mobileNav('photos');closeMobileMore()">
     <span class="mm-item-icon">📸</span>Damage Photos
   </div>
   <div class="mm-item" onclick="mobileNav('docs');closeMobileMore()">
-    <span class="mm-item-icon">📁</span>Documents
+    <span class="mm-item-icon">📁</span>Templates
   </div>
+  <div class="mm-item" onclick="mobileNav('products');closeMobileMore()">
+    <span class="mm-item-icon">📦</span>Products
+  </div>
+  <div class="mm-item" onclick="mobileNav('draw');closeMobileMore()">
+    <span class="mm-item-icon">✏️</span>Drawing Tool
+  </div>
+  <div class="mm-item" onclick="mobileNav('training');closeMobileMore()">
+    <span class="mm-item-icon">🎯</span>Sales Training
+  </div>
+  <div class="mm-item" onclick="if(typeof toggleCrewCalendar==='function'){toggleCrewCalendar();mobileNav('home');}closeMobileMore()">
+    <span class="mm-item-icon">📅</span>Crew Calendar
+  </div>
+
+  <div class="mm-section">Insights</div>
   <div class="mm-item" onclick="mobileNav('storm');closeMobileMore()">
     <span class="mm-item-icon">⛈️</span>Storm Center
   </div>
@@ -10820,19 +10908,20 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
   <div class="mm-item" onclick="mobileNav('repos');closeMobileMore()">
     <span class="mm-item-icon">🧠</span>Rep OS
   </div>
-  <div class="mm-item" onclick="mobileNav('draw');closeMobileMore()">
-    <span class="mm-item-icon">✏️</span>Drawing Tool
-  </div>
-  <div class="mm-item" onclick="mobileNav('training');closeMobileMore()">
-    <span class="mm-item-icon">🎯</span>Sales Training
-  </div>
   <div class="mm-item" onclick="mobileNav('board');closeMobileMore()">
     <span class="mm-item-icon">🏆</span>Leaderboard
   </div>
   <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
+  <div class="mm-item" onclick="window.location.href='/pro/analytics.html';closeMobileMore()">
+    <span class="mm-item-icon">💰</span>API Analytics
+  </div>
 
+  <div class="mm-section">System</div>
+  <div class="mm-item" onclick="mobileNav('joe');closeMobileMore()">
+    <span class="mm-item-icon">🤖</span>Ask Joe AI
+  </div>
   <div class="mm-item" onclick="mobileNav('settings');closeMobileMore()">
     <span class="mm-item-icon">⚙️</span>Settings
   </div>

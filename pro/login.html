@@ -131,6 +131,23 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
   .lp{padding:40px 28px 48px;overflow:visible}
   .access-tabs .tab-btn{font-size:10px;padding:8px 4px;letter-spacing:.5px}
 }
+@media(max-width:480px){
+  body{-webkit-overflow-scrolling:touch;overflow-x:hidden;}
+  * { -webkit-tap-highlight-color:transparent; }
+  .bp{padding:28px 20px 24px;}
+  .bp-headline{font-size:clamp(32px,8vw,52px);}
+  .bp-desc{font-size:14px;}
+  .lp{padding:28px 20px 40px;}
+  .fi{font-size:16px!important;padding:14px 16px;min-height:48px;}
+  .code-input{font-size:22px;letter-spacing:5px;padding:14px 16px;}
+  .code-input::placeholder{font-size:16px;letter-spacing:3px;}
+  .btn-main,.btn-demo{min-height:52px;font-size:14px;padding:14px;}
+  .access-tabs{gap:0;}
+  .access-tabs .tab-btn{padding:10px 6px;font-size:9px;min-height:44px;}
+  .fn{font-size:10px;padding:10px 12px;}
+  a, button { touch-action:manipulation; }
+  input, select { font-size:16px!important; } /* prevent iOS zoom */
+}
 </style>
 <style id="theme-system">
 [data-theme="nbd-original"] { --orange:#C8541A;--ob:#E8621E;--og:rgba(200,84,26,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
