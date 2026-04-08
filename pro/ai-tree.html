@@ -1343,7 +1343,7 @@ window.nbdNavToggle = nbdNavToggle;
           <div style="font-size:13px;color:var(--text2);line-height:1.7">
             <div><strong>NBD Pro · AI Usability Tree</strong></div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);margin-top:4px">Version 1.0 · All 8 Batches Complete</div>
-            <div style="margin-top:8px">Built for <a href="https://nobigdealwithjoedeal.com/pro" target="_blank" style="color:var(--accent)">nobigdealwithjoedeal.com/pro</a></div>
+            <div style="margin-top:8px">Built for <a href="https://nobigdealwithjoedeal.com/pro" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">nobigdealwithjoedeal.com/pro</a></div>
             <div style="margin-top:4px;font-size:12px;color:var(--text3)">Your AI stack — owned, tracked, optimized.</div>
           </div>
         </div>
@@ -1413,7 +1413,7 @@ window.nbdNavToggle = nbdNavToggle;
 
 <footer class="footer">
   <div style="display:flex;align-items:center;gap:8px"><div class="logo-badge" style="width:22px;height:22px;font-size:10px">NBD</div><span>No Big Deal Pro · AI Usability Tree</span></div>
-  <span><a href="https://nobigdealwithjoedeal.com/pro" target="_blank">nobigdealwithjoedeal.com/pro</a> · v1.0 · All 8 Batches Complete ✓ · <a href="/pro/understand.html" style="color:var(--accent)">Understanding Tool</a> · <a href="/pro/codex.html" style="color:var(--accent)">Codex</a></span>
+  <span><a href="https://nobigdealwithjoedeal.com/pro" target="_blank" rel="noopener noreferrer">nobigdealwithjoedeal.com/pro</a> · v1.0 · All 8 Batches Complete ✓ · <a href="/pro/understand.html" style="color:var(--accent)">Understanding Tool</a> · <a href="/pro/codex.html" style="color:var(--accent)">Codex</a></span>
 </footer>
 </div>
 
@@ -1740,7 +1740,7 @@ function buildCard(t){
         <span class="tclabel">Plan</span>
         <span class="tcval">${cs}</span>
         ${t.cost>0?`<span class="tccycle">/ ${t.billing}</span>`:''}
-        ${t.url?`<a href="${t.url}" target="_blank" style="margin-left:auto;font-size:11px;color:var(--blue);text-decoration:none">↗ Visit</a>`:''}
+        ${t.url?`<a href="${t.url}" target="_blank" rel="noopener noreferrer" style="margin-left:auto;font-size:11px;color:var(--blue);text-decoration:none">↗ Visit</a>`:''}
       </div>
     </div>
     <button class="exp-btn" onclick="toggleExp('${t.id}')">
@@ -1846,7 +1846,7 @@ function openDetail(id){
     <div class="dp-sec"><div class="dp-lbl">Overview</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="pill p-${t.status}">${t.status}</span><span class="pill p-cat">${t.category}</span>${t.tier==='Free'?'<span class="pill p-free">FREE</span>':'<span class="pill p-cost">'+t.tier+'</span>'}${t.pinned?'<span class="pill" style="background:var(--accent-dim);color:var(--accent);border-color:var(--accent)">⭐ PINNED</span>':''}</div>
       ${t.desc?`<p style="font-size:13px;color:var(--text2);line-height:1.6">${t.desc}</p>`:''}
-      ${t.url?`<a href="${t.url}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:var(--blue)">↗ ${t.url}</a>`:''}
+      ${t.url?`<a href="${t.url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;font-size:12px;color:var(--blue)">↗ ${t.url}</a>`:''}
     </div>
     <div class="dp-sec"><div class="dp-lbl">Cost</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--accent)">${t.cost>0?'$'+fmt(t.cost):'Free'}</div>
@@ -3019,7 +3019,7 @@ function buildKbCard(a){
       ${a.role}
     </div>
     ${a.desc?`<div class="kb-desc">${a.desc}</div>`:''}
-    <div class="kb-platform">${a.toolEmoji} <span>${a.toolName}</span>${a.url?`<a href="${a.url}" target="_blank" style="margin-left:4px;color:var(--blue);text-decoration:none;font-size:10px">↗</a>`:''}</div>
+    <div class="kb-platform">${a.toolEmoji} <span>${a.toolName}</span>${a.url?`<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="margin-left:4px;color:var(--blue);text-decoration:none;font-size:10px">↗</a>`:''}</div>
     <div class="kb-status-row">
       <div class="kb-status-dot ${a.status}"></div>
       <span class="kb-status-lbl">${a.status}</span>
@@ -3081,7 +3081,7 @@ function renderTableView(accts){
       <td><div class="td-user"><span style="font-size:15px">${a.toolEmoji}</span>${a.username}</div></td>
       <td><div class="td-role"><div class="td-role-dot" style="background:${c}"></div><span class="td-role-tag" style="color:${c};border-color:${c}33">${a.role}</span></div></td>
       <td style="font-size:12px;color:var(--text2)">${a.desc||'—'}</td>
-      <td style="font-size:12px;color:var(--text2)">${a.toolName}${a.url?`<a href="${a.url}" target="_blank" style="margin-left:6px;color:var(--blue);font-size:10px">↗</a>`:''}</td>
+      <td style="font-size:12px;color:var(--text2)">${a.toolName}${a.url?`<a href="${a.url}" target="_blank" rel="noopener noreferrer" style="margin-left:6px;color:var(--blue);font-size:10px">↗</a>`:''}</td>
       <td><span class="td-status"><span class="td-status-dot ${a.status}"></span>${a.status}</span></td>
       <td><span class="td-cost${a.toolCost>0?'':' free'}">${a.toolCost>0?'$'+fmt(a.toolCost):'Free'}</span></td>
       <td class="td-login">${loginStr}</td>

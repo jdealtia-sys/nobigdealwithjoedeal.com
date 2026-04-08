@@ -1945,7 +1945,7 @@ async function loadCustomerData(id) {
       document.getElementById('infoLoanStatus').textContent = lead.loanStatus || lead.softPullStatus || '—';
       const preQualLink = lead.preQualLink;
       if (preQualLink) {
-        document.getElementById('infoPreQualLink').innerHTML = `<a href="${preQualLink}" target="_blank" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
+        document.getElementById('infoPreQualLink').innerHTML = `<a href="${preQualLink}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
       }
     }
 
@@ -3721,7 +3721,7 @@ window.loadInvoices = async function(leadId) {
             <div class="invoice-amount">$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
             <div class="invoice-status ${inv.status}">${inv.status || 'draft'}</div>
             ${inv.status !== 'paid' && inv.paymentUrl ? `
-              <a href="${inv.paymentUrl}" target="_blank" class="doc-btn">Pay</a>
+              <a href="${inv.paymentUrl}" target="_blank" rel="noopener noreferrer" class="doc-btn">Pay</a>
             ` : ''}
           </div>
         </div>
@@ -3867,7 +3867,7 @@ window.loadSharedDocuments = async function(leadId) {
             <div class="doc-date">${date.toLocaleDateString()}</div>
           </div>
           <div class="doc-actions">
-            <a href="${docData.url}" target="_blank" class="doc-btn">View</a>
+            <a href="${docData.url}" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>
           </div>
         </div>
       `;

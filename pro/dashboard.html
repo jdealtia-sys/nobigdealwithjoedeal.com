@@ -7236,7 +7236,7 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:var(--orange);">console.anthropic.com</a> → API Keys.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style="color:var(--orange);">console.anthropic.com</a> → API Keys.</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
               <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
                 style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
@@ -7414,7 +7414,7 @@ function switchScTab(tab, btn) {
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-orange" onclick="dsSaveConfig()">💾 Save Daily Program Settings</button>
           <button class="btn btn-ghost" onclick="dsResetDefaults()" style="font-size:11px;">↺ Reset to Defaults</button>
-          <a href="/pro/daily-success/" target="_blank" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
+          <a href="/pro/daily-success/" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
 
@@ -7601,7 +7601,7 @@ function switchScTab(tab, btn) {
               <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" onclick="saveCalSettings()">Save</button>
             </div>
           </div>
-          <div style="font-size:11px;color:var(--m);margin-top:8px;">Don't have Cal.com? <a href="https://cal.com/signup" target="_blank" style="color:var(--orange);text-decoration:underline;">Sign up free</a> — unlimited bookings, zero cost.</div>
+          <div style="font-size:11px;color:var(--m);margin-top:8px;">Don't have Cal.com? <a href="https://cal.com/signup" target="_blank" rel="noopener noreferrer" style="color:var(--orange);text-decoration:underline;">Sign up free</a> — unlimited bookings, zero cost.</div>
         </div>
       </div>
 
@@ -7614,7 +7614,7 @@ function switchScTab(tab, btn) {
             <div style="font-size:36px;margin-bottom:12px;">📅</div>
             <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:6px;">Set Up Your Calendar</div>
             <div style="font-size:12px;margin-bottom:16px;">Enter your Cal.com username above to embed your live booking calendar here.</div>
-            <a href="https://cal.com/signup" target="_blank" class="btn btn-orange" style="display:inline-flex;font-size:12px;padding:10px 20px;">Create Free Cal.com Account →</a>
+            <a href="https://cal.com/signup" target="_blank" rel="noopener noreferrer" class="btn btn-orange" style="display:inline-flex;font-size:12px;padding:10px 20px;">Create Free Cal.com Account →</a>
           </div>
         </div>
       </div>
@@ -8875,7 +8875,7 @@ function renderIntelCard(targetElId, intel, county, address) {
         ${intel.homestead ? `<div class="pi-stat"><span class="pi-stat-val" style="color:var(--green);">Yes</span><span class="pi-stat-key">Homestead</span></div>` : ''}
         ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${intel.parcelId}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
       </div>
-      ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank">↗ View Full County Record</a>` : ''}
+      ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank" rel="noopener noreferrer">↗ View Full County Record</a>` : ''}
     </div>
   </div>`;
 
@@ -9483,7 +9483,7 @@ async function loadDocs(){
       <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--br);">
         <div style="font-size:20px;">📄</div>
         <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${d.name}</div><div style="font-size:10px;color:var(--m);">${d.category} · ${d.fileName||''}</div></div>
-        <a href="${d.url||'#'}" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;">Open</a>
+        <a href="${d.url||'#'}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;">Open</a>
       </div>`).join('');
   } catch(e){ console.error('loadDocs error:',e); }
 }
