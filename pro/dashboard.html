@@ -719,6 +719,8 @@
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
+    // Init supplier pricing database
+    if (window.SupplierPricing?.initPriceDB && window._user) setTimeout(() => window.SupplierPricing.initPriceDB(window._user.uid), 2500);
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
@@ -4559,9 +4561,9 @@ body.theme-frosted {
 .d2d-details-summary, .d2d-details > summary { padding:10px 14px; cursor:pointer; font-size:12px; font-weight:600; color:var(--m); background:var(--s2); list-style:none; }
 .d2d-details-summary::-webkit-details-marker, .d2d-details > summary::-webkit-details-marker { display:none; }
 .d2d-extras-body { padding:12px; }
-.d2d-revenue-banner { background:linear-gradient(135deg, #C8541A 0%, #E8721F 100%); border-radius:12px; padding:16px 20px; margin-bottom:14px; text-align:center; }
-.d2d-revenue-amount { font-size:28px; font-weight:900; color:#fff; font-family:'Barlow Condensed',sans-serif; }
-.d2d-revenue-label { font-size:12px; color:rgba(255,255,255,.85); font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.08em; }
+.d2d-revenue-banner { background:color-mix(in srgb, var(--orange,#C8541A) 18%, var(--s2,#1a1a2e)); border:1px solid color-mix(in srgb, var(--orange,#C8541A) 25%, var(--br,rgba(255,255,255,.08))); border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; }
+.d2d-revenue-amount { font-size:18px; font-weight:800; color:var(--orange,#C8541A); font-family:'Barlow Condensed',sans-serif; line-height:1.1; }
+.d2d-revenue-label { font-size:10px; color:var(--m,#9ca3af); font-weight:600; margin-top:1px; text-transform:uppercase; letter-spacing:.08em; }
 .d2d-funnel { display:flex; align-items:center; gap:0; margin:14px 0; overflow:hidden; border-radius:8px; }
 .d2d-funnel-step { padding:8px 4px; text-align:center; transition:all .2s; min-width:0; }
 .d2d-funnel-count { font-size:16px; font-weight:900; color:#fff; font-family:'Barlow Condensed',sans-serif; }
@@ -4571,9 +4573,9 @@ body.theme-frosted {
 .d2d-big-btn:hover { filter:brightness(1.1); }
 .d2d-big-btn-sec { background:var(--s2); color:var(--t); border:1px solid var(--br); }
 .d2d-big-btn-sec:hover { background:var(--br); }
-.d2d-streak { text-align:center; margin-left:auto; padding:6px 12px; background:var(--s2); border-radius:10px; border:1px solid var(--br); }
-.d2d-streak-num { font-size:22px; font-weight:900; color:var(--orange); font-family:'Barlow Condensed',sans-serif; line-height:1; }
-.d2d-streak-lbl { font-size:9px; color:var(--m); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+.d2d-streak { text-align:center; margin-left:auto; padding:4px 10px; background:var(--s2); border-radius:8px; border:1px solid var(--br); }
+.d2d-streak-num { font-size:16px; font-weight:800; color:var(--orange); font-family:'Barlow Condensed',sans-serif; line-height:1; }
+.d2d-streak-lbl { font-size:8px; color:var(--m); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
 .d2d-followups-banner { background:color-mix(in srgb, var(--gold) 12%, var(--s2)); border:1px solid color-mix(in srgb, var(--gold) 30%, var(--br)); border-radius:10px; padding:12px; margin-bottom:14px; }
 .d2d-followups-title { font-size:13px; font-weight:700; color:var(--gold); margin-bottom:8px; }
 .d2d-followups-list { display:flex; flex-direction:column; gap:4px; }
@@ -11198,6 +11200,11 @@ function shareCalViaEmail() {
 <script src="js/profit-tracker.js?v=1"></script>
 <script src="js/crew-calendar.js?v=1"></script>
 <script src="js/email-drip.js?v=1"></script>
+<script src="js/lead-scoring.js?v=1"></script>
+<script src="js/material-calculator.js?v=1"></script>
+<script src="js/insurance-claim.js?v=1"></script>
+<script src="js/reporting-dashboard.js?v=1"></script>
+<script src="js/supplier-pricing.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

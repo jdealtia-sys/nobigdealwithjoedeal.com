@@ -1740,7 +1740,7 @@
               <div class="d2d-streak-lbl">Day Streak ${gamify.currentMilestone ? gamify.currentMilestone.badge : ''}</div>
             </div>
           </div>
-          <div style="font-size:12px;opacity:0.85;margin-top:6px;color:#fff;">
+          <div style="font-size:10px;opacity:0.7;margin-top:4px;color:var(--m,#9ca3af);">
             ${revenue.totalClosed > 0 ? `${revenue.totalClosed} closed · $${revenue.avgDealSize} avg` : 'Track deals to see projections'}
             ${gamify.projectedRevenue > 0 ? ` · $${gamify.projectedRevenue.toLocaleString()}/mo` : ''}
           </div>

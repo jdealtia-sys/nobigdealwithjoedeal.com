@@ -531,22 +531,14 @@ header {
         </div>
       </div>
 
+      <!-- LEAD SCORE -->
+      <div id="leadScoringPanel" style="margin-bottom:16px;"></div>
+
+      <!-- INSURANCE CLAIM WORKFLOW -->
+      <div id="insuranceClaimWorkflow" style="margin-bottom:16px;"></div>
+
       <!-- JOB COSTS & PROFIT -->
-      <div id="profitPanel" style="margin-bottom:0;"></div>
-      <script>
-        // Render profit tracker when lead loads
-        window.addEventListener('DOMContentLoaded', () => {
-          const origLoad = window._loadCustomerDetail;
-          if (origLoad) {
-            window._loadCustomerDetail = async function() {
-              await origLoad.apply(this, arguments);
-              if (window.ProfitTracker?.renderCostPanel && window._customerId) {
-                setTimeout(() => window.ProfitTracker.renderCostPanel('profitPanel', window._customerId), 300);
-              }
-            };
-          }
-        });
-      </script>
+      <div id="profitPanel" style="margin-bottom:16px;"></div>
 
       <!-- ESTIMATES -->
       <div class="panel">
@@ -1391,7 +1383,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -1425,7 +1417,12 @@ window.collection = collection;
 window.serverTimestamp = serverTimestamp;
 window.ref = ref;
 window.uploadBytesResumable = uploadBytesResumable;
+window.uploadBytes = uploadBytes;
 window.getDownloadURL = getDownloadURL;
+
+// Initialize globals needed by external modules (customer-portal, photo-report, review-engine, profit-tracker)
+window._user = null;  // Set in onAuthStateChanged
+window._leads = [];   // Populated with current customer data
 
 // Auth guard
 onAuthStateChanged(auth, async (user) => {
@@ -1433,6 +1430,9 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = '/pro/login.html';
     return;
   }
+
+  // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
+  window._user = user;
 
   // Get customer ID from URL
   const params = new URLSearchParams(window.location.search);
@@ -1464,7 +1464,11 @@ async function loadCustomerData(id) {
     }
 
     const lead = { id: leadSnap.id, ...leadSnap.data() };
-    
+
+    // CRITICAL: Populate window._leads so external modules can find this lead
+    window._leads = [lead];
+    window._currentLead = lead;
+
     // Populate header
     const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
     document.getElementById('customerName').textContent = name;
@@ -1654,9 +1658,30 @@ async function loadCustomerData(id) {
     try { await window.loadEstimates(id); } 
     catch (e) { console.error('Estimates load failed:', e); }
     
-    try { await window.loadNotes(id); } 
+    try { await window.loadNotes(id); }
     catch (e) { console.error('Notes load failed:', e); }
-    
+
+    // Render Profit Tracker cost panel (external module)
+    try {
+      if (window.ProfitTracker?.renderCostPanel) {
+        window.ProfitTracker.renderCostPanel('profitPanel', id);
+      }
+    } catch (e) { console.warn('Profit panel render failed:', e.message); }
+
+    // Render Lead Scoring panel
+    try {
+      if (window.LeadScoring?.renderScorePanel) {
+        window.LeadScoring.renderScorePanel('leadScoringPanel', id);
+      }
+    } catch (e) { console.warn('Lead scoring render failed:', e.message); }
+
+    // Render Insurance Claim Workflow
+    try {
+      if (window.InsuranceClaim?.renderClaimWorkflow) {
+        window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow', id);
+      }
+    } catch (e) { console.warn('Claim workflow render failed:', e.message); }
+
   } catch (error) {
     console.error('Error loading customer data:', error);
     showError('Load Error', 'Could not load customer data');
@@ -2491,6 +2516,176 @@ window.closeEstimateModal = function() {
 
 
 // ============================================
+// EXPORT ESTIMATE AS PDF
+// ============================================
+window.exportCustomerEstimate = async function(estimateId) {
+  if (!estimateId || !window._customerEstimates) {
+    if (typeof showToast === 'function') showToast('Estimate not found', 'error');
+    return;
+  }
+  const est = window._customerEstimates.find(e => e.id === estimateId);
+  if (!est) { if (typeof showToast === 'function') showToast('Estimate not found', 'error'); return; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'letter');
+    const pw = pdf.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    pdf.setFillColor(30, 58, 110);
+    pdf.rect(0, 0, pw, 28, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.text('No Big Deal Home Solutions', 14, 14);
+    pdf.setFontSize(9);
+    pdf.text('ESTIMATE', 14, 22);
+    pdf.setFontSize(9);
+    pdf.text(new Date().toLocaleDateString(), pw - 14, 14, { align: 'right' });
+    y = 38;
+
+    // Customer info
+    const lead = window._currentLead || {};
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFontSize(11);
+    pdf.text(`Customer: ${(lead.firstName || '') + ' ' + (lead.lastName || '')}`.trim(), 14, y); y += 6;
+    if (lead.address) { pdf.text(`Address: ${lead.address}`, 14, y); y += 6; }
+    if (lead.phone) { pdf.text(`Phone: ${lead.phone}`, 14, y); y += 6; }
+    y += 4;
+
+    // Estimate details
+    pdf.setFontSize(13);
+    pdf.setTextColor(200, 84, 26);
+    pdf.text(est.title || 'Estimate', 14, y); y += 8;
+    const tier = est.tier || est.tierName || '';
+    if (tier) { pdf.setFontSize(9); pdf.setTextColor(100,100,100); pdf.text(`Tier: ${tier.toUpperCase()}`, 14, y); y += 6; }
+
+    // Line items
+    if (est.lineItems && est.lineItems.length > 0) {
+      pdf.setFontSize(9);
+      pdf.setTextColor(100,100,100);
+      pdf.text('DESCRIPTION', 14, y);
+      pdf.text('QTY', 120, y);
+      pdf.text('PRICE', 150, y);
+      pdf.text('TOTAL', 180, y);
+      y += 2;
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(14, y, pw - 14, y);
+      y += 5;
+
+      pdf.setTextColor(30, 30, 30);
+      est.lineItems.forEach(item => {
+        if (y > 250) { pdf.addPage(); y = 20; }
+        pdf.text((item.description || item.name || '—').substring(0, 40), 14, y);
+        pdf.text(String(item.qty || item.quantity || 1), 125, y);
+        pdf.text('$' + (parseFloat(item.unitPrice || item.price || 0)).toFixed(2), 148, y);
+        pdf.text('$' + (parseFloat(item.total || item.lineTotal || 0)).toFixed(2), 178, y);
+        y += 6;
+      });
+      y += 4;
+      pdf.line(14, y, pw - 14, y); y += 6;
+    }
+
+    // Totals
+    pdf.setFontSize(12);
+    pdf.setTextColor(30, 58, 110);
+    const total = est.grandTotal || est.total || est.amount || 0;
+    pdf.text(`Total: $${parseFloat(total).toLocaleString()}`, pw - 14, y, { align: 'right' });
+
+    // Notes
+    if (est.notes) {
+      y += 12;
+      pdf.setFontSize(9);
+      pdf.setTextColor(100,100,100);
+      pdf.text('Notes:', 14, y); y += 5;
+      pdf.setTextColor(60,60,60);
+      const noteLines = pdf.splitTextToSize(est.notes, pw - 28);
+      pdf.text(noteLines, 14, y);
+    }
+
+    const custName = ((lead.firstName || '') + '_' + (lead.lastName || '')).trim().replace(/\s+/g, '_') || 'customer';
+    pdf.save(`NBD_Estimate_${custName}_${estimateId.slice(0,6)}.pdf`);
+    if (typeof showToast === 'function') showToast('Estimate PDF exported', 'ok');
+  } catch (e) {
+    console.error('Estimate export failed:', e);
+    if (typeof showToast === 'function') showToast('Export failed — ' + e.message, 'error');
+  }
+};
+
+// ============================================
+// GENERATE WARRANTY CERTIFICATE FROM ESTIMATE
+// ============================================
+window.generateCertFromEstimate = async function(estimateId) {
+  if (!estimateId || !window._customerEstimates) {
+    if (typeof showToast === 'function') showToast('Estimate not found', 'error');
+    return;
+  }
+  const est = window._customerEstimates.find(e => e.id === estimateId);
+  if (!est) { if (typeof showToast === 'function') showToast('Estimate not found', 'error'); return; }
+
+  const lead = window._currentLead || {};
+  const custName = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Customer';
+  const installDate = lead.scheduledDate || new Date().toISOString().split('T')[0];
+  const warrantyYears = 5;
+  const expiryDate = new Date(installDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warranty Certificate — ${custName}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Georgia',serif;background:#f8f6f1;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;}
+  .cert{background:#fff;border:3px double #1e3a6e;padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
+  .cert::before{content:'';position:absolute;inset:8px;border:1px solid #d4a017;pointer-events:none;}
+  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:#1e3a6e;letter-spacing:3px;margin-bottom:4px;}
+  .logo-sub{font-size:11px;color:#C8541A;letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
+  h1{font-size:32px;color:#1e3a6e;margin-bottom:6px;letter-spacing:2px;}
+  .seal{font-size:14px;color:#666;margin-bottom:30px;letter-spacing:1px;}
+  .details{text-align:left;margin:24px 0;padding:20px;background:#fafaf8;border:1px solid #e8e4d8;border-radius:4px;}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;}
+  .row:last-child{border:none;}
+  .label{color:#888;font-size:13px;}
+  .value{color:#1e3a6e;font-weight:bold;font-size:14px;}
+  .footer{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end;}
+  .sig{text-align:center;}
+  .sig-line{width:180px;border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:11px;color:#888;}
+  .print-btn{margin-top:24px;padding:12px 32px;background:#1e3a6e;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double #1e3a6e;}}
+</style></head><body>
+<div class="cert">
+  <div class="logo">NBD</div>
+  <div class="logo-sub">No Big Deal Home Solutions</div>
+  <h1>WARRANTY CERTIFICATE</h1>
+  <div class="seal">Certificate of Workmanship Warranty</div>
+  <div class="details">
+    <div class="row"><span class="label">Customer</span><span class="value">${custName}</span></div>
+    <div class="row"><span class="label">Property</span><span class="value">${lead.address || '—'}</span></div>
+    <div class="row"><span class="label">Work Performed</span><span class="value">${est.title || 'Roofing Installation'}</span></div>
+    <div class="row"><span class="label">Completion Date</span><span class="value">${new Date(installDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    <div class="row"><span class="label">Warranty Period</span><span class="value">${warrantyYears} Years</span></div>
+    <div class="row"><span class="label">Warranty Expires</span><span class="value">${expiryDate.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    <div class="row"><span class="label">Certificate #</span><span class="value">NBD-${estimateId.slice(0,8).toUpperCase()}</span></div>
+  </div>
+  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the period specified above.</p>
+  <div class="footer">
+    <div class="sig"><div class="sig-line">Joe Deal, Owner</div></div>
+    <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Print Certificate</button>
+</div></body></html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    if (typeof showToast === 'function') showToast('Warranty certificate generated', 'ok');
+  } else {
+    if (typeof showToast === 'function') showToast('Pop-up blocked — allow pop-ups to generate certificates', 'error');
+  }
+};
+
+// ============================================
 // CUSTOMER PDF EXPORT
 // ============================================
 
@@ -3039,5 +3234,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/photo-report.js?v=1"></script>
 <script src="js/review-engine.js?v=1"></script>
 <script src="js/profit-tracker.js?v=1"></script>
+<script src="js/lead-scoring.js?v=1"></script>
+<script src="js/insurance-claim.js?v=1"></script>
 </body>
 </html>
