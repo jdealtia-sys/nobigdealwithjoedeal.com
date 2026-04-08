@@ -1,10 +1,132 @@
 // ══════════════════════════════════════════════════════════════
-// NBD Pro — property-intel.js
+// NBD Pro — property-intel.js (ENHANCED)
 // Property Intel: auditor lookup, intel cards, modal display
+// Cloud Function proxy + free data sources + Roof Score
 // ══════════════════════════════════════════════════════════════
 
 // Use var to avoid redeclaration collision with dashboard.html inline script
 var _piCache = _piCache || {};
+
+// ──────────────────────────────────────────────────────────────
+// FREE DATA SOURCE HELPERS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Query US Census Geocoder for census tract and county FIPS
+ * Returns { tract, tractId, countyFips, state }
+ */
+async function fetchCensusGeodata(address) {
+  try {
+    const res = await fetch(
+      `https://geocoding.geo.census.gov/geocoder/geographies/address?street=${encodeURIComponent(address)}&format=json`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.result?.addressMatches?.length) return null;
+    const match = data.result.addressMatches[0];
+    const geo = match.geographies || {};
+    const tract = geo['Census Tracts']?.[0];
+    const county = geo['Counties']?.[0];
+    return {
+      tract: tract?.NAME || null,
+      tractId: tract?.GEOID || null,
+      countyFips: county?.GEOID || null,
+      state: county?.STATE || null
+    };
+  } catch(e) {
+    console.warn('Census geocoding failed:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Reverse geocode via Nominatim for neighborhood context (already used in D2D)
+ * Returns { neighborhood, suburb, district }
+ */
+async function fetchNominatimContext(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address || {};
+    return {
+      neighborhood: addr.neighbourhood || addr.suburb || null,
+      suburb: addr.suburb || addr.town || null,
+      district: addr.county || null
+    };
+  } catch(e) {
+    console.warn('Nominatim reverse geocode failed:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Compute Roof Score (0-100) from available property data
+ * Factors: roof age (major), property age, material type, storm history
+ */
+function computeRoofScore(intel) {
+  let score = 100;
+  const roofAge = intel.roofAge || 0;
+
+  // Age-based deductions (roof lifespan ~20-30 years)
+  if (roofAge >= 30) score -= 50;
+  else if (roofAge >= 25) score -= 40;
+  else if (roofAge >= 20) score -= 30;
+  else if (roofAge >= 15) score -= 15;
+  else if (roofAge >= 10) score -= 5;
+
+  // Material factors (assume asphalt shingles by default)
+  const material = (intel.roofMaterial || 'asphalt').toLowerCase();
+  if (material.includes('metal')) score -= 5; // metal roofs last longer
+  if (material.includes('tile') || material.includes('slate')) score -= 10;
+
+  // Property age (if roof age not available)
+  if (!intel.roofAge && intel.yearBuilt) {
+    const propAge = new Date().getFullYear() - parseInt(intel.yearBuilt);
+    if (propAge >= 40) score -= 25;
+    else if (propAge >= 30) score -= 15;
+  }
+
+  // Storm history (placeholder for future integration)
+  if (intel.stormHistory) score -= 10;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Determine action priority based on roof score and age
+ */
+function computeRecommendedAction(roofScore, roofAge) {
+  if (roofScore <= 30) return 'High Priority';
+  if (roofScore <= 60) return 'Follow Up';
+  if (roofScore <= 80) return 'Low Priority';
+  return 'Monitor';
+}
+
+/**
+ * Estimate project value range based on sqft and roofing rates
+ * Returns { min, max, perSqft }
+ */
+function estimateProjectValue(sqft, tier = 'better') {
+  const rates = window.R || {
+    good: 4.5,    // $/sqft base
+    better: 6.5,
+    best: 8.5
+  };
+  const baseRate = rates[tier] || 6.5;
+  const perSqft = baseRate;
+  const min = sqft * baseRate;
+  const max = sqft * (baseRate * 1.2); // Allow 20% variance
+  return { min, max, perSqft };
+}
+
+// ──────────────────────────────────────────────────────────────
+// MAIN INTEL FETCH — uses Cloud Function proxy
+// ──────────────────────────────────────────────────────────────
 
 async function fetchPropertyIntel(nominatimData, targetElId) {
   const targetEl = document.getElementById(targetElId);
@@ -21,6 +143,8 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
   const state = addr.state_code || addr.state || 'OH';
   const zip   = addr.postcode || '';
   const fullAddr = [num+' '+road, city, state+' '+zip].map(s=>s.trim()).filter(Boolean).join(', ');
+  const lat = nominatimData?.lat || null;
+  const lon = nominatimData?.lon || null;
 
   // Cache check
   const cacheKey = fullAddr.toLowerCase().replace(/\s/g,'');
@@ -36,7 +160,6 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
   if(county.toLowerCase().includes('hamilton')) {
     const numEnc  = encodeURIComponent(num.toUpperCase());
     const roadEnc = encodeURIComponent(road.toUpperCase());
-    // Hamilton address search returns list with parcel IDs
     auditorUrl = `https://wedge1.hcauditor.org/search/address/${numEnc}/${roadEnc}//1/10`;
     searchUrl  = auditorUrl;
   } else if(county.toLowerCase().includes('clermont')) {
@@ -47,27 +170,31 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
   } else if(county.toLowerCase().includes('butler')) {
     auditorUrl = `https://propertysearch.bcohio.gov/search/commonsearch.aspx?mode=address`;
   } else {
-    // Unknown county — use Claude to try to find it
     auditorUrl = `https://www.hamiltoncountyauditor.org/`;
   }
 
-  // ── Claude-powered extraction ─────────────────────────────────
-  // For Hamilton we can fetch the search page HTML and parse parcel ID,
-  // then fetch the summary page. For others, we ask Claude to help interpret.
-
   try {
-    // Step 1: Ask Claude to look up the property data
-    const prompt = `You are a property data extraction assistant for a roofing contractor app covering the Cincinnati, Ohio metro area (Hamilton, Clermont, Warren, Butler counties).
+    // Fetch free data sources in parallel
+    const [censusData, nominatimContext] = await Promise.all([
+      fetchCensusGeodata(fullAddr),
+      lat && lon ? fetchNominatimContext(lat, lon) : Promise.resolve(null)
+    ]);
 
-The user needs property intel for this address: "${fullAddr}"
-County: ${countyClean || 'unknown — likely Hamilton or Clermont, OH'}
+    // Build Claude prompt with enriched context
+    const prompt = `You are a property data extraction assistant for a roofing contractor app covering the Cincinnati, Ohio metro area.
 
-Your job: Return ONLY a valid JSON object with these fields (use null for unknown):
+Address: "${fullAddr}"
+County: ${countyClean || 'unknown'}
+${censusData?.tract ? `Census Tract: ${censusData.tract}` : ''}
+${nominatimContext?.neighborhood ? `Neighborhood: ${nominatimContext.neighborhood}` : ''}
+
+Return ONLY a valid JSON object (no markdown, no preamble):
 {
   "ownerName": "FULL NAME OR LLC NAME",
   "isLLC": true/false,
   "yearBuilt": 1985,
   "roofAge": 40,
+  "roofMaterial": "asphalt shingles",
   "lastSaleDate": "MM/DD/YYYY",
   "lastSaleAmount": 245000,
   "marketValue": 310000,
@@ -84,26 +211,23 @@ Your job: Return ONLY a valid JSON object with these fields (use null for unknow
   "dataSource": "Hamilton County Auditor"
 }
 
-To find this data, use the Hamilton County auditor search at: ${auditorUrl}
-The page at wedge1.hcauditor.org/search/address/[HOUSE_NUMBER]/[STREET_NAME]//1/10 returns matching parcels.
-Then wedge1.hcauditor.org/view/re/[PARCEL_ID_NO_DASHES]/2024/summary has the full record.
+Find this data at: ${auditorUrl}
+Use county records, tax assessor data, and MLS history if available.
+Return best estimates with "dataSource": "estimated" if some fields are unavailable.`;
 
-For the address "${fullAddr}", search the auditor, find the parcel, and extract all available fields.
-If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
-RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
+    // Call Cloud Function proxy instead of direct API
+    const token = window._auth?.currentUser ?
+      await window._auth.currentUser.getIdToken(true) : null;
 
-    const _piKey = getJoeKey ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
-    if (!_piKey || !_piKey.startsWith('sk-ant')) {
-      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Property Intel');
+    if (!token) {
+      throw new Error('Not authenticated. Log in to use Property Intel.');
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const proxyResp = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _piKey
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
@@ -112,10 +236,12 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
       })
     });
 
-    if(!resp.ok) throw new Error('API ' + resp.status);
-    const data = await resp.json();
+    if (!proxyResp.ok) {
+      const errData = await proxyResp.json();
+      throw new Error(errData.error || `API ${proxyResp.status}`);
+    }
 
-    // Extract text from Anthropic response
+    const data = await proxyResp.json();
     let rawText = data?.content?.[0]?.text || '';
 
     // Parse JSON from response
@@ -123,7 +249,9 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
     try {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if(jsonMatch) intel = JSON.parse(jsonMatch[0]);
-    } catch(e) { console.warn('Property intel JSON parse failed:', e.message); }
+    } catch(e) {
+      console.warn('Property intel JSON parse failed:', e.message);
+    }
 
     if(!intel) throw new Error('No parseable data returned');
 
@@ -132,15 +260,23 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
       intel.roofAge = new Date().getFullYear() - parseInt(intel.yearBuilt);
     }
 
+    // Enrich with computed fields
+    intel.roofScore = computeRoofScore(intel);
+    intel.recommendedAction = computeRecommendedAction(intel.roofScore, intel.roofAge || 0);
+    intel.projectValue = estimateProjectValue(intel.sqft || 1500, 'better');
+    intel.censusData = censusData;
+    intel.neighborhood = nominatimContext?.neighborhood;
+
     _piCache[cacheKey] = intel;
     renderIntelCard(targetElId, intel, countyClean, fullAddr);
 
   } catch(err) {
     if(targetEl) {
       const card = targetEl.querySelector('.pi-card');
-      const errHtml = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county">${countyClean}</span></div><div class="pi-error">Could not load property data. Check your API key or try again.<br><small>${err.message}</small></div></div>`;
+      const errHtml = `<div class="pi-card"><div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county">${countyClean}</span></div><div class="pi-error">Could not load property data. ${err.message}<br><small>Make sure you're logged in and have an active subscription.</small></div></div>`;
       if(card) card.outerHTML = errHtml;
     }
+    console.error('Property intel error:', err);
   }
 }
 
@@ -154,6 +290,9 @@ function renderIntelCard(targetElId, intel, county, address) {
   const yr = intel.yearBuilt ? parseInt(intel.yearBuilt) : null;
   const age = yr ? (new Date().getFullYear() - yr) : null;
   const roofAge = intel.roofAge || age;
+  const roofScore = intel.roofScore || 0;
+  const recommendedAction = intel.recommendedAction || 'Monitor';
+  const projectValue = intel.projectValue || { min: 0, max: 0 };
 
   let roofBadgeClass = 'pi-roof-mid';
   let roofLabel = '';
@@ -164,11 +303,34 @@ function renderIntelCard(targetElId, intel, county, address) {
     else                  { roofBadgeClass='pi-roof-ancient'; roofLabel=`${roofAge} yrs — Due for replacement`; }
   }
 
+  // Roof Score color
+  let scoreColor = '#2ECC8A';
+  if (roofScore <= 30) scoreColor = '#FF6B6B';
+  else if (roofScore <= 60) scoreColor = '#FFB84D';
+  else if (roofScore <= 80) scoreColor = '#FFA500';
+
+  // Action badge color
+  let actionColor = '#999';
+  let actionBgColor = '#f5f5f5';
+  if (recommendedAction === 'High Priority') {
+    actionColor = '#fff';
+    actionBgColor = '#E05252';
+  } else if (recommendedAction === 'Follow Up') {
+    actionColor = '#fff';
+    actionBgColor = '#FFA500';
+  } else if (recommendedAction === 'Low Priority') {
+    actionColor = '#333';
+    actionBgColor = '#E8F4E8';
+  }
+
   const ownerName  = intel.ownerName || 'Owner Unknown';
   const isLLC     = intel.isLLC || /LLC|INC|CORP|TRUST|PROPERTIES|HOLDINGS|INVESTMENTS/i.test(ownerName);
   const lastSale  = intel.lastSaleAmount ? '$'+parseInt(intel.lastSaleAmount).toLocaleString() : null;
   const mktVal    = intel.marketValue ? '$'+parseInt(intel.marketValue).toLocaleString() : null;
   const dataNote  = intel.dataSource === 'estimated' ? ' (est.)' : '';
+  const projectValueStr = projectValue.min > 0
+    ? `$${parseInt(projectValue.min).toLocaleString()} — $${parseInt(projectValue.max).toLocaleString()}`
+    : 'Not available';
 
   const card = `<div class="pi-card">
     <div class="pi-header">
@@ -176,12 +338,25 @@ function renderIntelCard(targetElId, intel, county, address) {
       <span class="pi-county">${county || 'OH'} County</span>
     </div>
     <div class="pi-body">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px;">
-        <span class="pi-owner">${ownerName}</span>
-        ${isLLC ? '<span class="pi-llc-flag">🏢 LLC/Corp</span>' : ''}
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;justify-content:space-between;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;flex-wrap:wrap;">
+            <span class="pi-owner">${ownerName}</span>
+            ${isLLC ? '<span class="pi-llc-flag">🏢 LLC/Corp</span>' : ''}
+          </div>
+          <div class="pi-addr-line">${address}</div>
+        </div>
+        <div style="text-align:right;min-width:120px;">
+          <div style="font-size:11px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Roof Score</div>
+          <div style="font-size:28px;font-weight:700;color:${scoreColor};">${roofScore}</div>
+          <div style="font-size:9px;color:var(--m);">/ 100</div>
+        </div>
       </div>
-      <div class="pi-addr-line">${address}</div>
       ${roofAge !== null ? `<div class="pi-roof-badge ${roofBadgeClass}">🏠 ${roofLabel}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="background:${actionBgColor};color:${actionColor};padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">⭐ ${recommendedAction}</div>
+        <div style="background:var(--s2);color:var(--m);padding:5px 10px;border-radius:5px;font-size:11px;">Est. Value: ${projectValueStr}</div>
+      </div>
       <div class="pi-grid">
         ${yr ? `<div class="pi-stat"><span class="pi-stat-val">${yr}</span><span class="pi-stat-key">Year Built</span></div>` : ''}
         ${intel.propertyType ? `<div class="pi-stat"><span class="pi-stat-val">${intel.propertyType}</span><span class="pi-stat-key">Type</span></div>` : ''}
@@ -194,7 +369,10 @@ function renderIntelCard(targetElId, intel, county, address) {
         ${intel.homestead ? `<div class="pi-stat"><span class="pi-stat-val" style="color:var(--green);">Yes</span><span class="pi-stat-key">Homestead</span></div>` : ''}
         ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${intel.parcelId}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
       </div>
-      ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank">↗ View Full County Record</a>` : ''}
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank" style="flex:1;">↗ View County Record</a>` : ''}
+        <button class="pi-lead-btn" onclick="createLeadFromProperty('${address}', '${ownerName}')" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
+      </div>
     </div>
   </div>`;
 
@@ -203,7 +381,24 @@ function renderIntelCard(targetElId, intel, county, address) {
   if(existingCard) {
     existingCard.outerHTML = card;
   } else {
-    targetEl.innerHTML = card + '<button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>';
+    targetEl.innerHTML = card;
+  }
+}
+
+/**
+ * Create lead from property — called from intel card
+ */
+async function createLeadFromProperty(address, ownerName) {
+  if (!window._lastIntel) {
+    showToast('Property intel not loaded', 'error');
+    return;
+  }
+
+  // Trigger lead creation modal with pre-filled intel
+  if (typeof window.makeLeadFromSearch === 'function') {
+    window.makeLeadFromSearch();
+  } else {
+    showToast('Lead creation not available', 'error');
   }
 }
 

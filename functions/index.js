@@ -554,3 +554,176 @@ Object.assign(exports, emailFunctions);
 // ═══════════════════════════════════════════════════════════════
 const smsFunctions = require('./sms-functions');
 Object.assign(exports, smsFunctions);
+
+// ═══════════════════════════════════════════════════════════════
+// INVOICE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Creates a Stripe Payment Link for an invoice
+ * POST /createStripePaymentLink
+ * Body: { invoiceId: string }
+ * Headers: Authorization: Bearer <firebase-id-token>
+ * Returns: { url: string, paymentLinkId: string }
+ */
+exports.createStripePaymentLink = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [STRIPE_SECRET_KEY],
+    maxInstances: 10,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Verify Firebase auth token
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+    if (!idToken) {
+      res.status(401).json({ error: 'Missing authorization token' });
+      return;
+    }
+
+    try {
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      if (!decoded.uid) {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
+      }
+
+      const { invoiceId } = req.body;
+
+      if (!invoiceId) {
+        res.status(400).json({ error: 'invoiceId required' });
+        return;
+      }
+
+      // Fetch invoice from Firestore
+      const db = admin.firestore();
+      const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
+
+      if (!invoiceSnap.exists) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+
+      const invoice = invoiceSnap.data();
+
+      // Validate ownership
+      if (invoice.createdBy !== decoded.uid) {
+        res.status(403).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      // Initialize Stripe
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+
+      // Build line items for payment link
+      const lineItems = (invoice.items || []).map(item => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.description,
+            description: `Invoice ${invoiceId}`,
+          },
+          unit_amount: Math.round(item.total * 100), // Convert to cents
+        },
+        quantity: 1,
+      }));
+
+      // Create Payment Link
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: lineItems,
+        after_completion: {
+          type: 'redirect',
+          redirect: {
+            url: `https://nobigdeal-pro.web.app/pro/invoice-success.html?invoiceId=${invoiceId}`,
+          },
+        },
+      });
+
+      console.log(`Payment link created: ${paymentLink.url} for invoice ${invoiceId}`);
+
+      res.json({ url: paymentLink.url, paymentLinkId: paymentLink.id });
+
+    } catch (e) {
+      console.error('createStripePaymentLink error:', e);
+      if (e.code === 'auth/id-token-expired') {
+        res.status(401).json({ error: 'Token expired — please re-authenticate' });
+      } else {
+        res.status(500).json({ error: 'Failed to create payment link' });
+      }
+    }
+  }
+);
+
+/**
+ * Handles Stripe webhook events for invoice payments
+ * POST /invoiceWebhook
+ * No auth required (verifies Stripe signature instead)
+ * Handles: payment_intent.succeeded → marks invoice as paid
+ */
+exports.invoiceWebhook = onRequest(
+  {
+    cors: false, // Webhook should not use CORS
+    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
+    maxInstances: 5,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const signature = req.headers['stripe-signature'] || '';
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+
+      // Verify Stripe signature
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+          req.rawBody || req.body,
+          signature,
+          STRIPE_WEBHOOK_SECRET.value()
+        );
+      } catch (err) {
+        console.error('Webhook signature verification failed:', err.message);
+        res.status(400).json({ error: 'Invalid signature' });
+        return;
+      }
+
+      // Handle payment_intent.succeeded event
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+        const metadata = paymentIntent.metadata || {};
+        const invoiceId = metadata.invoiceId;
+
+        if (invoiceId) {
+          const db = admin.firestore();
+          await db.collection('invoices').doc(invoiceId).update({
+            status: 'paid',
+            paidAt: admin.firestore.FieldValue.serverTimestamp(),
+            stripePaymentIntentId: paymentIntent.id,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          console.log(`Invoice ${invoiceId} marked as paid via Stripe`);
+        }
+      }
+
+      res.json({ received: true });
+
+    } catch (e) {
+      console.error('invoiceWebhook error:', e);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  }
+);
