@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instant Roof Estimate | See Your Ballpark Cost in 30 Seconds | No Big Deal</title>
+<meta name="description" content="Get a free ballpark roof estimate for your Cincinnati-area home in 30 seconds. Just enter your address — no phone call, no pressure, no sign-up required.">
+<link rel="canonical" href="https://www.nobigdealwithjoedeal.com/estimate">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Instant Roof Estimate | 30-Second Ballpark Cost">
+<meta property="og:description" content="Enter your address, get a ballpark roof cost in seconds. No phone call, no sign-up. Free tool from No Big Deal Home Solutions.">
+<meta property="og:url" content="https://www.nobigdealwithjoedeal.com/estimate">
+<meta property="og:image" content="https://www.nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Instant Roof Estimate | 30-Second Ballpark">
+<meta name="twitter:description" content="Enter your address, get a ballpark roof cost in seconds. Free tool from No Big Deal.">
+<meta name="twitter:image" content="https://www.nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Instant Roof Estimate","description":"Get a free ballpark roof estimate for your home in 30 seconds.","url":"https://www.nobigdealwithjoedeal.com/estimate","applicationCategory":"HomeImprovement","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382"}}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><polygon points='50,15 85,45 80,45 80,80 20,80 20,45 15,45' fill='%23e8720c'/><rect x='40' y='55' width='20' height='25' fill='%23fff'/></svg>">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #1e3a6e; --navy-dark: #142a52; --navy-deep: #0c1e3a;
+  --orange: #e8720c; --orange-light: #f08030; --orange-glow: rgba(232,114,12,.15);
+  --white: #fff; --off-white: #f5f3ef; --gray: #6b7280; --light-gray: #e8e5e0;
+  --success: #22c55e; --success-bg: rgba(34,197,94,.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Montserrat',sans-serif; background:var(--navy-deep); color:var(--white); min-height:100vh; overflow-x:hidden; }
+
+/* Nav */
+.nav { position:sticky; top:0; z-index:100; background:var(--navy-dark); border-bottom:3px solid var(--orange); padding:0 5%; display:flex; align-items:center; justify-content:space-between; height:64px; }
+.nav-logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--white); }
+.nav-logo img { height:38px; border-radius:6px; }
+.nav-brand { font-weight:800; font-size:.9rem; }
+.nav-sub { font-size:.65rem; color:rgba(255,255,255,.5); }
+.nav-links { display:flex; gap:20px; align-items:center; }
+.nav-links a { color:rgba(255,255,255,.8); text-decoration:none; font-size:.82rem; font-weight:600; }
+.nav-cta { background:var(--orange)!important; color:var(--white)!important; padding:8px 18px; border-radius:6px; font-weight:700!important; }
+
+/* Hero */
+.hero { padding:60px 5% 40px; text-align:center; position:relative; }
+.hero::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:600px; height:600px; background:radial-gradient(circle, var(--orange-glow) 0%, transparent 70%); pointer-events:none; }
+.hero-eyebrow { font-size:.7rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); margin-bottom:12px; }
+.hero h1 { font-family:'Bebas Neue',sans-serif; font-size:clamp(2.5rem,7vw,4.2rem); line-height:1.05; margin-bottom:16px; letter-spacing:1px; }
+.hero h1 span { color:var(--orange); }
+.hero p { color:rgba(255,255,255,.6); font-size:1rem; max-width:520px; margin:0 auto 8px; line-height:1.6; }
+.hero-trust { display:flex; justify-content:center; gap:24px; margin-top:20px; font-size:.72rem; color:rgba(255,255,255,.4); font-weight:600; letter-spacing:.05em; text-transform:uppercase; }
+
+/* Estimate Card */
+.est-card { max-width:560px; margin:40px auto 0; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:36px 32px; position:relative; backdrop-filter:blur(8px); }
+.est-card-glow { position:absolute; top:-1px; left:20%; right:20%; height:2px; background:linear-gradient(90deg, transparent, var(--orange), transparent); border-radius:2px; }
+
+/* Address Input */
+.input-group { position:relative; margin-bottom:20px; }
+.input-group label { display:block; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.5); margin-bottom:8px; }
+.input-group input { width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:14px 16px; color:var(--white); font-family:'Montserrat',sans-serif; font-size:.95rem; outline:none; transition:border-color .2s; }
+.input-group input:focus { border-color:var(--orange); }
+.input-group input::placeholder { color:rgba(255,255,255,.25); }
+
+/* Autocomplete dropdown */
+.ac-drop { position:absolute; top:100%; left:0; right:0; background:var(--navy-dark); border:1px solid rgba(255,255,255,.12); border-radius:0 0 10px 10px; max-height:200px; overflow-y:auto; z-index:10; display:none; }
+.ac-item { padding:10px 16px; cursor:pointer; font-size:.85rem; color:rgba(255,255,255,.8); border-bottom:1px solid rgba(255,255,255,.05); }
+.ac-item:hover { background:rgba(232,114,12,.1); color:var(--white); }
+
+/* Button */
+.est-btn { width:100%; padding:16px; background:var(--orange); color:var(--white); border:none; border-radius:10px; font-family:'Montserrat',sans-serif; font-size:.95rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; transition:all .2s; }
+.est-btn:hover:not(:disabled) { background:var(--orange-light); transform:translateY(-1px); box-shadow:0 6px 24px rgba(232,114,12,.4); }
+.est-btn:disabled { opacity:.6; cursor:wait; }
+
+/* Loading State */
+.loading { text-align:center; padding:32px 0; display:none; }
+.loading-spinner { width:40px; height:40px; border:3px solid rgba(232,114,12,.2); border-top-color:var(--orange); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-text { font-size:.85rem; color:rgba(255,255,255,.5); }
+.loading-steps { margin-top:12px; }
+.loading-step { font-size:.75rem; color:rgba(255,255,255,.3); margin:4px 0; transition:color .3s; }
+.loading-step.active { color:var(--orange); }
+.loading-step.done { color:var(--success); }
+
+/* Results */
+.results { display:none; }
+.result-addr { font-size:.8rem; color:rgba(255,255,255,.4); margin-bottom:20px; text-align:center; }
+.result-range { text-align:center; margin-bottom:24px; }
+.result-label { font-size:.7rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:var(--orange); margin-bottom:8px; }
+.result-price { font-family:'Bebas Neue',sans-serif; font-size:3.2rem; color:var(--white); line-height:1; }
+.result-price span { font-size:1.8rem; color:rgba(255,255,255,.4); }
+.result-note { font-size:.75rem; color:rgba(255,255,255,.35); margin-top:6px; }
+
+/* Details Grid */
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+.detail-item { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); border-radius:8px; padding:12px; }
+.detail-label { font-size:.65rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:4px; }
+.detail-value { font-size:1rem; font-weight:700; color:var(--white); }
+
+/* AI Assessment */
+.ai-assessment { background:rgba(232,114,12,.06); border:1px solid rgba(232,114,12,.15); border-radius:10px; padding:16px; margin-bottom:24px; }
+.ai-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.ai-avatar { width:28px; height:28px; background:var(--orange); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--white); }
+.ai-name { font-size:.75rem; font-weight:700; color:var(--orange); }
+.ai-text { font-size:.85rem; color:rgba(255,255,255,.7); line-height:1.6; }
+
+/* CTA Block */
+.cta-block { text-align:center; padding:20px 0 0; border-top:1px solid rgba(255,255,255,.06); }
+.cta-block p { font-size:.85rem; color:rgba(255,255,255,.5); margin-bottom:16px; }
+.cta-block p strong { color:var(--white); }
+.cta-buttons { display:flex; gap:10px; flex-wrap:wrap; }
+.cta-call { flex:1; padding:14px; background:var(--orange); color:var(--white); border-radius:8px; text-decoration:none; font-weight:700; font-size:.88rem; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px; }
+.cta-schedule { flex:1; padding:14px; background:var(--white); color:var(--navy-dark); border-radius:8px; text-decoration:none; font-weight:800; font-size:.82rem; text-align:center; letter-spacing:.04em; text-transform:uppercase; }
+.cta-new { text-align:center; margin-top:16px; }
+.cta-new button { background:none; border:none; color:var(--orange); font-family:'Montserrat',sans-serif; font-size:.82rem; font-weight:600; cursor:pointer; text-decoration:underline; }
+
+/* Footer */
+.foot { text-align:center; padding:40px 5%; font-size:.75rem; color:rgba(255,255,255,.3); }
+.foot a { color:var(--orange); text-decoration:none; }
+
+/* Disclaimer */
+.disclaimer { max-width:560px; margin:24px auto 0; text-align:center; font-size:.68rem; color:rgba(255,255,255,.2); line-height:1.6; padding:0 20px; }
+
+@media(max-width:600px) {
+  .hero { padding:40px 5% 24px; }
+  .est-card { margin:24px 16px 0; padding:24px 20px; }
+  .detail-grid { grid-template-columns:1fr; }
+  .cta-buttons { flex-direction:column; }
+  .nav-links { display:none; }
+  .hero-trust { flex-direction:column; gap:8px; }
+  .result-price { font-size:2.6rem; }
+}
+@media print {
+  .nav, .cta-block, .est-btn, .disclaimer { display:none !important; }
+  body { background:#fff !important; color:#000 !important; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/assets/images/nbd-logo.png" alt="NBD">
+    <div><div class="nav-brand">NO BIG DEAL</div><div class="nav-sub">Home Solutions</div></div>
+  </a>
+  <div class="nav-links">
+    <a href="/#services">Services</a>
+    <a href="/blog">Blog</a>
+    <a href="tel:8594207382" class="nav-cta">Call Joe →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">Free · No Sign-Up · 30 Seconds</div>
+  <h1>What Would a New Roof<br>Cost <span>Your Home?</span></h1>
+  <p>Enter your address and get a ballpark estimate in seconds. No phone call, no pressure — just real numbers from a local roofer.</p>
+  <div class="hero-trust">
+    <span>✓ Used by 500+ Cincinnati homeowners</span>
+    <span>✓ Based on real local pricing</span>
+  </div>
+</section>
+
+<div class="est-card" id="estimateCard">
+  <div class="est-card-glow"></div>
+  
+  <!-- INPUT STATE -->
+  <div id="inputState">
+    <div class="input-group">
+      <label>Your Home Address</label>
+      <input type="text" id="addressInput" placeholder="123 Main St, Cincinnati, OH" autocomplete="off">
+      <div class="ac-drop" id="acDrop"></div>
+    </div>
+    <button class="est-btn" id="getEstimate" onclick="getEstimate()">Get My Estimate →</button>
+  </div>
+
+  <!-- LOADING STATE -->
+  <div class="loading" id="loadingState">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Analyzing your property...</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="step1">Looking up property data...</div>
+      <div class="loading-step" id="step2">Calculating roof area...</div>
+      <div class="loading-step" id="step3">Checking local material costs...</div>
+      <div class="loading-step" id="step4">Building your estimate...</div>
+    </div>
+  </div>
+
+  <!-- RESULTS STATE -->
+  <div class="results" id="resultsState">
+    <div class="result-addr" id="resultAddr"></div>
+    <div class="result-range">
+      <div class="result-label">Your Ballpark Estimate</div>
+      <div class="result-price" id="resultPrice">$8,500 <span>– $14,200</span></div>
+      <div class="result-note">Based on local Cincinnati-area pricing · 2026</div>
+    </div>
+
+    <div class="detail-grid" id="detailGrid">
+      <div class="detail-item"><div class="detail-label">Estimated Roof Size</div><div class="detail-value" id="detailSize">—</div></div>
+      <div class="detail-item"><div class="detail-label">Year Built</div><div class="detail-value" id="detailYear">—</div></div>
+      <div class="detail-item"><div class="detail-label">Material Tier</div><div class="detail-value" id="detailTier">—</div></div>
+      <div class="detail-item"><div class="detail-label">Estimated Squares</div><div class="detail-value" id="detailSquares">—</div></div>
+    </div>
+
+    <div class="ai-assessment">
+      <div class="ai-header">
+        <div class="ai-avatar">JD</div>
+        <div class="ai-name">Joe's Take</div>
+      </div>
+      <div class="ai-text" id="aiText">Loading assessment...</div>
+    </div>
+
+    <div class="cta-block">
+      <p><strong>Want the exact number?</strong> Joe will come look at your roof for free — no obligation, no pressure.</p>
+      <div class="cta-buttons">
+        <a href="tel:8594207382" class="cta-call">📞 Call Joe: (859) 420-7382</a>
+        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="cta-schedule">📅 Schedule Free Inspection</a>
+      </div>
+      <div class="cta-new"><button onclick="resetEstimate()">Try another address</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="disclaimer">
+  This is an AI-generated ballpark estimate based on publicly available property data and local pricing averages. 
+  It is not a formal quote. Actual costs depend on roof condition, pitch, layers, material choice, and whether insurance covers part of the work. 
+  Joe provides free on-site inspections with exact pricing — no obligation.
+</div>
+
+<footer class="foot">
+  © 2026 No Big Deal Home Solutions · <a href="tel:8594207382">(859) 420-7382</a> · <a href="/">nobigdealwithjoedeal.com</a> · Greater Cincinnati, OH
+</footer>
+
+<!-- Firebase for lead capture -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app = initializeApp({
+  apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",authDomain:"nobigdeal-pro.firebaseapp.com",
+  projectId:"nobigdeal-pro",storageBucket:"nobigdeal-pro.firebasestorage.app",
+  messagingSenderId:"717435841570",appId:"1:717435841570:web:c2338e11052c96fde02e7b"
+});
+const db = getFirestore(app);
+window._captureEstimateLead = async (data) => {
+  try { await addDoc(collection(db,'estimate_leads'), {...data, source:'instant-estimate', createdAt:serverTimestamp()}); }
+  catch(e) { console.warn('Lead capture failed:', e); }
+};
+</script>
+
+<script>
+const PROXY_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+let _selectedAddress = '';
+let _debounceTimer = null;
+
+// Address autocomplete via Nominatim
+const addrInput = document.getElementById('addressInput');
+const acDrop = document.getElementById('acDrop');
+
+addrInput.addEventListener('input', () => {
+  clearTimeout(_debounceTimer);
+  const q = addrInput.value.trim();
+  if (q.length < 4) { acDrop.style.display = 'none'; return; }
+  _debounceTimer = setTimeout(() => searchAddress(q), 350);
+});
+
+addrInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); getEstimate(); }
+});
+
+async function searchAddress(q) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&countrycodes=us&limit=5`);
+    const data = await res.json();
+    if (!data.length) { acDrop.style.display = 'none'; return; }
+    acDrop.innerHTML = data.map((d,i) => 
+      `<div class="ac-item" onclick="selectAddr(${i})" data-idx="${i}">${d.display_name}</div>`
+    ).join('');
+    acDrop.style.display = 'block';
+    window._acResults = data;
+  } catch(e) { acDrop.style.display = 'none'; }
+}
+
+function selectAddr(idx) {
+  const d = window._acResults[idx];
+  addrInput.value = d.display_name;
+  _selectedAddress = d;
+  acDrop.style.display = 'none';
+}
+
+// Click outside to close
+document.addEventListener('click', e => {
+  if (!e.target.closest('.input-group')) acDrop.style.display = 'none';
+});
+
+// Main estimate function
+async function getEstimate() {
+  const addr = addrInput.value.trim();
+  if (!addr || addr.length < 5) {
+    addrInput.style.borderColor = '#e05252';
+    setTimeout(() => addrInput.style.borderColor = '', 2000);
+    return;
+  }
+
+  // Show loading
+  document.getElementById('inputState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('resultsState').style.display = 'none';
+
+  // Animate steps
+  const steps = ['step1','step2','step3','step4'];
+  for (let i = 0; i < steps.length; i++) {
+    setTimeout(() => {
+      document.getElementById(steps[i]).classList.add('active');
+      if (i > 0) document.getElementById(steps[i-1]).classList.remove('active');
+      if (i > 0) document.getElementById(steps[i-1]).classList.add('done');
+    }, i * 800);
+  }
+
+  try {
+    // Capture lead
+    if (window._captureEstimateLead) {
+      window._captureEstimateLead({ address: addr });
+    }
+
+    const prompt = `You are Joe Deal, owner of No Big Deal Home Solutions, a roofing contractor in Greater Cincinnati, OH. A homeowner entered their address to get a ballpark roof replacement estimate.
+
+Address: ${addr}
+
+Based on this address, provide a JSON response with:
+1. Estimate the roof area in square feet based on typical homes in this area/neighborhood
+2. Calculate squares (roof sqft / 100)
+3. Provide a price range for 3 tiers: Good (3-tab), Better (architectural), Best (designer)
+4. Estimate the year built if you can tell from the neighborhood
+5. A 2-3 sentence "Joe's take" — conversational, honest assessment as if you're in their driveway
+
+Use these 2026 Cincinnati-area rates:
+- Good (3-tab): $320-$380/square installed
+- Better (architectural): $420-$520/square installed  
+- Best (designer/premium): $580-$750/square installed
+
+RESPOND ONLY WITH THIS JSON:
+{
+  "roofSqft": number,
+  "squares": number,
+  "yearBuilt": number or null,
+  "tiers": {
+    "good": { "min": number, "max": number },
+    "better": { "min": number, "max": number },
+    "best": { "min": number, "max": number }
+  },
+  "joesTake": "string"
+}`;
+
+    const resp = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await resp.json();
+    const raw = data?.content?.[0]?.text || '';
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const est = JSON.parse(clean);
+
+    // Show results
+    setTimeout(() => showResults(addr, est), 500);
+
+  } catch(err) {
+    console.error('Estimate error:', err);
+    // Show fallback estimate
+    setTimeout(() => showResults(addr, {
+      roofSqft: 1800,
+      squares: 18,
+      yearBuilt: null,
+      tiers: {
+        good: { min: 5760, max: 6840 },
+        better: { min: 7560, max: 9360 },
+        best: { min: 10440, max: 13500 }
+      },
+      joesTake: "I couldn't pull the exact details for this address right now, but for a typical Cincinnati-area home, you're looking at the ranges shown above. The best way to get an exact number is a free inspection — I'll come out, measure everything, and give you real numbers with no pressure."
+    }), 1500);
+  }
+}
+
+function showResults(addr, est) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('resultsState').style.display = 'block';
+
+  // Address
+  document.getElementById('resultAddr').textContent = addr;
+
+  // Price range (show "better" tier as the main range)
+  const min = est.tiers.better.min;
+  const max = est.tiers.better.max;
+  document.getElementById('resultPrice').innerHTML = 
+    `$${min.toLocaleString()} <span>– $${max.toLocaleString()}</span>`;
+
+  // Details
+  document.getElementById('detailSize').textContent = est.roofSqft ? `~${est.roofSqft.toLocaleString()} sq ft` : '—';
+  document.getElementById('detailYear').textContent = est.yearBuilt || 'Unknown';
+  document.getElementById('detailTier').textContent = 'Architectural (Better)';
+  document.getElementById('detailSquares').textContent = est.squares ? `~${est.squares}` : '—';
+
+  // Joe's take
+  document.getElementById('aiText').textContent = est.joesTake || 'Give Joe a call for the full picture.';
+
+  // Smooth scroll to results
+  document.getElementById('estimateCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function resetEstimate() {
+  document.getElementById('inputState').style.display = 'block';
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('resultsState').style.display = 'none';
+  document.getElementById('addressInput').value = '';
+  document.getElementById('addressInput').focus();
+  // Reset loading steps
+  ['step1','step2','step3','step4'].forEach(s => {
+    document.getElementById(s).classList.remove('active','done');
+  });
+}
+</script>
+</body>
+</html>

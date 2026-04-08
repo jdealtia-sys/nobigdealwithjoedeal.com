@@ -263,6 +263,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── ESTIMATE LEADS (instant estimate tool — no auth required) ──
+    match /estimate_leads/{leadId} {
+      allow create: if request.resource.data.keys().hasAll(["address", "source"])
+        && request.resource.data.address is string
+        && request.resource.data.address.size() > 3
+        && request.resource.data.address.size() < 500;
+      allow read: if isAuth();
+      allow delete: if false;
+    }
+
     // ── DEFAULT: Deny everything else ─────────────────
     match /{document=**} {
       allow read, write: if false;
