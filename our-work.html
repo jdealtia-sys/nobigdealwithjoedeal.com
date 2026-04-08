@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
+<!-- <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","GA_MEASUREMENT_ID");</script> -->
 <title>Our Work | Roof Replacement & Storm Damage Photos | No Big Deal Home Solutions</title>
 <meta name="description" content="See real roof replacements, storm damage repairs, siding installs, and gutter work across Greater Cincinnati. Before and after photos from No Big Deal Home Solutions.">
 <link rel="canonical" href="https://www.nobigdealwithjoedeal.com/our-work">
@@ -115,6 +118,14 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
   .ba-label.before{left:8px;top:8px;bottom:auto}
   .ba-label.after{right:8px;top:8px;bottom:auto}
   .hero-stats{gap:24px}
+}
+@media print {
+  .ann-bar, nav, .mobile-nav, .cta-float, .footer-cta, footer .social { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  a[href]:after { content: " (" attr(href) ")"; font-size: 9px; color: #666; }
+  a[href^="#"]:after, a[href^="tel"]:after, a[href^="javascript"]:after { content: ""; }
+  section { page-break-inside: avoid; }
+  @page { margin: 0.75in; }
 }
 </style>
 </head>

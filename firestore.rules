@@ -237,6 +237,13 @@ service cloud.firestore {
         && resource.data.companyId == get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.companyId;
     }
 
+    // ── GUIDE LEADS (public lead capture — no auth required to submit) ──
+    match /guide_leads/{leadId} {
+      allow create: if true;  // Anyone can submit the form
+      allow read: if isAuth(); // Only logged-in users can read
+      allow delete: if false;  // No public deletion
+    }
+
     // ── DEFAULT: Deny everything else ─────────────────
     match /{document=**} {
       allow read, write: if false;

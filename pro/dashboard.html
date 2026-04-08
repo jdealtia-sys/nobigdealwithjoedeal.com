@@ -5286,6 +5286,43 @@ body.theme-frosted {
 }
 #nbd-pro-nav.pos-dock .nnav-wordmark,
 #nbd-pro-nav.pos-dock .nnav-sub { display: none; }
+
+/* ── PRINT STYLESHEET ─────────────────────────────── */
+@media print {
+  /* Hide navigation, toolbars, modals, FAB */
+  #nbd-pro-nav, .crm-secondary-toolbar, .fab-container,
+  .modal-bg, .toast-container, .mobile-more-menu,
+  .cmd-palette-overlay, .nav-bottom-mobile,
+  button, .btn, .upload-zone { display: none !important; }
+
+  /* Full width content */
+  body { background: #fff !important; color: #000 !important; }
+  .app-body { margin: 0 !important; padding: 0 !important; }
+  .view { padding: 10px !important; }
+  .view.active { display: block !important; }
+
+  /* Clean up panels */
+  .panel { border: 1px solid #ccc !important; box-shadow: none !important;
+    background: #fff !important; color: #000 !important; break-inside: avoid; }
+  .panel-title { color: #000 !important; }
+  .panel-label { color: #666 !important; }
+
+  /* Kanban cards print as list */
+  .k-col { display: block !important; width: 100% !important; float: none !important; }
+  .k-card { border: 1px solid #ddd !important; margin-bottom: 8px !important;
+    background: #fff !important; color: #000 !important; break-inside: avoid; }
+
+  /* Links show URL */
+  a[href]:after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
+  a[href^="#"]:after, a[href^="javascript"]:after { content: ""; }
+
+  /* Page breaks */
+  h1, h2, h3 { page-break-after: avoid; }
+  .panel, .k-card { page-break-inside: avoid; }
+
+  /* Footer */
+  @page { margin: 0.75in; }
+}
 </style>
 
 <!-- NAV HTML -->

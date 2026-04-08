@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
+<!-- <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","GA_MEASUREMENT_ID");</script> -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>No Big Deal Home Solutions | Roofing, Siding & Gutters — Cincinnati, OH</title>
 <meta name="description" content="Honest roofing, siding, gutter & storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly — (859) 420-7382.">
@@ -346,6 +349,14 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .hs-blog-item .tag{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;}
 .hs-blog-item a{font-size:.84rem;font-weight:600;color:var(--navy-dark);text-decoration:none;line-height:1.4;display:block;}
 .hs-blog-item a:hover{color:var(--orange);}
+@media print {
+  .ann-bar, nav, .mobile-nav, .cta-float, .footer-cta, footer .social { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  a[href]:after { content: " (" attr(href) ")"; font-size: 9px; color: #666; }
+  a[href^="#"]:after, a[href^="tel"]:after, a[href^="javascript"]:after { content: ""; }
+  section { page-break-inside: avoid; }
+  @page { margin: 0.75in; }
+}
 </style>
 <script type="application/ld+json">
 {
