@@ -6,6 +6,15 @@
   <title>AI Home Visualizer | See Your New Roof, Siding & Gutters | No Big Deal</title>
   <meta name="description" content="Upload a photo of your home and see exactly what new roofing, siding, or gutters would look like — before you spend a dollar. Free AI visualizer from No Big Deal Home Solutions.">
   <link rel="canonical" href="https://www.nobigdealwithjoedeal.com/visualizer">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AI Home Visualizer | See Your New Roof Before You Buy">
+  <meta property="og:description" content="Upload a photo of your home and see what new roofing, siding, or gutters would look like — free AI tool from No Big Deal Home Solutions.">
+  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/visualizer">
+  <meta property="og:image" content="https://www.nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AI Home Visualizer | See Your New Roof Before You Buy">
+  <meta name="twitter:description" content="Upload a photo and see what new roofing, siding, or gutters would look like. Free tool from No Big Deal.">
+  <meta name="twitter:image" content="https://www.nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><polygon points='50,15 85,45 80,45 80,80 20,80 20,45 15,45' fill='%23e8720c'/><rect x='40' y='55' width='20' height='25' fill='%23fff'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -665,7 +674,7 @@ async function runVisualizer() {
     const base64 = uploadedDataUrl.split(',')[1];
     const mediaType = uploadedDataUrl.split(';')[0].split(':')[1];
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
