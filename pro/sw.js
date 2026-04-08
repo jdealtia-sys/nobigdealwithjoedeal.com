@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v1',
-  cdn: 'nbd-cdn-v1',
+  shell: 'nbd-shell-v2',
+  cdn: 'nbd-cdn-v2',
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v1'
@@ -169,20 +169,26 @@ async function handleAssetRequest(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
 
+  // Stale-while-revalidate: serve cached immediately, but fetch fresh in background
+  const fetchPromise = fetch(request).then(response => {
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  }).catch(() => null);
+
   if (cached) {
+    // Serve cached now, update in background for next load
+    fetchPromise; // fire and forget
     return cached;
   }
 
+  // No cache — wait for network
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const responseClone = response.clone();
-      cache.add(request);
-      return response;
-    }
-    return response;
+    const response = await fetchPromise;
+    if (response) return response;
+    return new Response('Offline — please check connection', { status: 503 });
   } catch (err) {
-    // Offline: return cached or offline placeholder
     return cache.match('/pro/dashboard.html') ||
            new Response('Offline — please check connection', { status: 503 });
   }

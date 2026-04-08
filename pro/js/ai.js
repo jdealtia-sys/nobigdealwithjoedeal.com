@@ -262,17 +262,6 @@ async function sendJoeMessage() {
   }));
 
   try {
-    // Build Gemini contents array from message history
-    const geminiContents = apiMessages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{text: m.content}]
-    }));
-    // Prepend system prompt as first user turn if history is short
-    if (geminiContents.length === 1) {
-      geminiContents.unshift({role:'user', parts:[{text: systemPrompt}]});
-      geminiContents.splice(1, 0, {role:'model', parts:[{text:'Understood. Ready to help.'}]});
-    }
-
     // Use stored Anthropic key (set in Settings → Ask Joe AI)
     const _joeApiKey = getJoeKey();
     if (!_joeApiKey) {
