@@ -42,6 +42,12 @@
                   "short_name": "Estimate",
                   "description": "Start a new job estimate",
                   "url": "/pro/dashboard.html#estimates"
+          },
+          {
+                  "name": "Door-to-Door",
+                  "short_name": "D2D",
+                  "description": "Track D2D knocks — works offline",
+                  "url": "/pro/dashboard.html#d2d"
           }
     ],
     "prefer_related_applications": false

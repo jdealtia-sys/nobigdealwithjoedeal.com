@@ -705,8 +705,20 @@
     }
     // Fire follow-up notifications after leads are fresh
     setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
-    // Render KPI analytics row on home dashboard
-    if (typeof renderKPIRow === 'function') setTimeout(renderKPIRow, 200);
+    // Render KPI analytics row on home dashboard (with margin card)
+    if (typeof renderKPIRow === 'function') setTimeout(() => {
+      renderKPIRow();
+      // Inject margin KPI card if profit data exists
+      if (window.ProfitTracker?.getMarginKPICard) {
+        const kpiGrid = document.querySelector('#kpiRow .kpi-grid');
+        if (kpiGrid) {
+          const marginHTML = window.ProfitTracker.getMarginKPICard();
+          if (marginHTML) kpiGrid.insertAdjacentHTML('beforeend', marginHTML);
+        }
+      }
+    }, 200);
+    // Auto-check for review requests on recently closed jobs
+    if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
@@ -5788,6 +5800,18 @@ function switchScTab(tab, btn) {
         .kpi-label{font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
         .kpi-sub{font-size:10px;color:var(--m);opacity:.7;margin-top:1px;}
       </style>
+
+      <!-- CREW CALENDAR — Scheduling view -->
+      <div id="crewCalendar" style="margin-bottom:16px;display:none;"></div>
+      <script>
+        // Calendar toggle — show via command palette or settings
+        window.toggleCrewCalendar = function() {
+          const el = document.getElementById('crewCalendar');
+          if (!el) return;
+          el.style.display = el.style.display === 'none' ? 'block' : 'none';
+          if (el.style.display !== 'none' && window.CrewCalendar?.render) window.CrewCalendar.render('crewCalendar');
+        };
+      </script>
 
       <!-- THIS WEEK QUICK STATS -->
       <div class="panel" style="margin-bottom:16px;">
@@ -10969,7 +10993,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/tools.js?v=2"></script>
 <script src="js/icons.js?v=2"></script>
 <script src="js/claude-proxy.js?v=1"></script>
-<script src="js/crm.js?v=7"></script>
+<script src="js/crm.js?v=8"></script>
 <script src="js/maps.js?v=5"></script>
 <script src="js/widgets.js?v=1"></script>
 <script src="js/ui.js?v=2"></script>
@@ -11067,7 +11091,7 @@ function shareCalViaEmail() {
 <script src="js/estimate-templates.js?v=1"></script>
 <script src="js/daily-tracker.js?v=1"></script>
 <script src="js/product-library.js?v=2"></script>
-<script src="js/d2d-tracker.js?v=4"></script>
+<script src="js/d2d-tracker.js?v=5"></script>
 <script src="js/sales-training.js?v=1"></script>
 <script src="js/storm-center.js?v=1"></script>
 <script src="js/close-board.js?v=1"></script>
@@ -11080,6 +11104,11 @@ function shareCalViaEmail() {
 <script src="js/analytics-kpi.js?v=1"></script>
 <script src="js/onboarding.js?v=1"></script>
 <script src="js/photo-report.js?v=1"></script>
+<script src="js/review-engine.js?v=1"></script>
+<script src="js/storm-alerts.js?v=1"></script>
+<script src="js/profit-tracker.js?v=1"></script>
+<script src="js/crew-calendar.js?v=1"></script>
+<script src="js/email-drip.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

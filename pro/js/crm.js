@@ -564,6 +564,13 @@ async function moveCard(id, newStage){
       });
     } catch(e) { console.warn('Activity log write failed:', e.message); }
 
+    // Trigger email drip automation on stage change
+    try {
+      if (window.EmailDrip?.onStageChange) {
+        window.EmailDrip.onStageChange(id, oldStageKey, lead._stageKey || newStage);
+      }
+    } catch(e) { console.warn('Drip trigger failed:', e.message); }
+
     // Mark as synced
     lead._syncing = false;
     lead._syncSuccess = true;

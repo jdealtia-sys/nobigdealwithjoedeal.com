@@ -248,6 +248,24 @@
     renderD2D();
   });
 
+  // Register background sync for offline knocks (if SW supports it)
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    navigator.serviceWorker.ready.then(reg => {
+      window.addEventListener('online', () => {
+        reg.sync.register('nbd-d2d-sync').catch(() => {});
+      });
+    });
+  }
+
+  // Listen for SW flush message
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data?.type === 'FLUSH_OFFLINE_QUEUE') {
+        flushOfflineQueue();
+      }
+    });
+  }
+
   // ============================================================================
   // REVERSE GEOCODING & ADDRESS AUTOCOMPLETE
   // ============================================================================

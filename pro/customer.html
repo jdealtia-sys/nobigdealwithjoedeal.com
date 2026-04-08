@@ -359,6 +359,12 @@ header {
       <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(leadId)" title="Generate before/after photo report">
         📸 Photo Report
       </button>
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(leadId)" title="Send Google review request via SMS">
+        ⭐ Review Request
+      </button>
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.assignReferralCode(leadId).then(c=>{if(c)ReviewEngine.sendReferralSMS(leadId)})" title="Generate and send referral code">
+        🎁 Referral Code
+      </button>
     </div>
   </div>
 
@@ -500,6 +506,23 @@ header {
           </div>
         </div>
       </div>
+
+      <!-- JOB COSTS & PROFIT -->
+      <div id="profitPanel" style="margin-bottom:0;"></div>
+      <script>
+        // Render profit tracker when lead loads
+        window.addEventListener('DOMContentLoaded', () => {
+          const origLoad = window._loadCustomerDetail;
+          if (origLoad) {
+            window._loadCustomerDetail = async function() {
+              await origLoad.apply(this, arguments);
+              if (window.ProfitTracker?.renderCostPanel && window._customerId) {
+                setTimeout(() => window.ProfitTracker.renderCostPanel('profitPanel', window._customerId), 300);
+              }
+            };
+          }
+        });
+      </script>
 
       <!-- ESTIMATES -->
       <div class="panel">
@@ -2990,5 +3013,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/email_system.js"></script>
 <script src="js/customer-portal.js?v=1"></script>
 <script src="js/photo-report.js?v=1"></script>
+<script src="js/review-engine.js?v=1"></script>
+<script src="js/profit-tracker.js?v=1"></script>
 </body>
 </html>
