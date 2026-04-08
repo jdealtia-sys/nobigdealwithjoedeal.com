@@ -154,10 +154,13 @@ function cancelPinConfirm() {
   document.getElementById('pinConfirmOverlay').classList.remove('open');
 }
 async function commitPin() {
+  console.log('📌 commitPin called, pendingPin=', pendingPin);
   if(!pendingPin) return;
   const notes = document.getElementById('pcd-notes').value.trim();
   document.getElementById('pinConfirmOverlay').classList.remove('open');
+  console.log('📌 calling dropPin...');
   await dropPin(pendingPin.lat, pendingPin.lng, pendingPin.status, pendingPin.color, null, notes);
+  console.log('📌 dropPin complete');
   refreshHeatLayer();
   pendingPin = null;
   showToast('Pin saved ✓');
@@ -189,7 +192,9 @@ function makePinIcon(color, status) {
 }
 
 async function dropPin(lat,lng,status,color,existingId,notes) {
+  console.log('📌 dropPin: _savePin exists?', typeof window._savePin);
   const id = existingId || await window._savePin({lat,lng,status,color,notes});
+  console.log('📌 dropPin: got id=', id);
   addPinMarker({id,lat,lng,status,color,notes});
 }
 

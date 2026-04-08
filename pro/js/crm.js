@@ -81,6 +81,7 @@ async function saveLead(){
   const origText=saveBtn.textContent;
   saveBtn.textContent='Saving...';
   const intelData = window._modalIntel || {};
+  console.log('💾 saveLead: _saveLead exists?', typeof window._saveLead, '_user?', !!window._user);
   try {
     await window._saveLead({
       id: (document.getElementById('lEditId')?.value||undefined)||undefined,

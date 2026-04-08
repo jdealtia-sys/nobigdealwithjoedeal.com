@@ -1194,25 +1194,33 @@
   async function loadPins() {
     try {
       const uid = window._user?.uid;
-      if (!uid) { window._pins = []; return; }
+      console.log('📌 loadPins: uid=', uid);
+      if (!uid) { console.warn('📌 loadPins: no uid, skipping'); window._pins = []; return; }
       const snap = await getDocs(query(collection(db,'pins'), where('userId','==',uid)));
       window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
-    } catch(e) { console.error('loadPins error:', e); window._pins = []; }
+      console.log('📌 loadPins: loaded', window._pins.length, 'pins');
+    } catch(e) { console.error('📌 loadPins FAILED:', e.code, e.message, e); window._pins = []; }
   }
   window._savePin = async (data) => {
+    console.log('📌 _savePin called with:', JSON.stringify(data));
+    console.log('📌 _savePin: userId=', window._user?.uid, 'db=', !!db);
     try {
       if (data.id) {
         // Update existing pin
         const pinId = data.id;
         delete data.id;
         await updateDoc(doc(db,'pins',pinId), {...data, updatedAt:serverTimestamp()});
+        console.log('📌 Pin updated:', pinId);
         return pinId;
       }
       // Create new pin
-      const r = await addDoc(collection(db,'pins'), {...data, userId:window._user?.uid, createdAt:serverTimestamp()});
+      const pinDoc = {...data, userId:window._user?.uid, createdAt:serverTimestamp()};
+      console.log('📌 Writing pin to Firestore:', Object.keys(pinDoc));
+      const r = await addDoc(collection(db,'pins'), pinDoc);
+      console.log('📌 Pin saved! ID:', r.id);
       return r.id;
     }
-    catch(e) { console.error('savePin error:', e); return 'd-'+Date.now(); }
+    catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
   window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){} };
 
@@ -10930,8 +10938,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/tools.js?v=2"></script>
 <script src="js/icons.js?v=2"></script>
 <script src="js/claude-proxy.js?v=1"></script>
-<script src="js/crm.js?v=4"></script>
-<script src="js/maps.js?v=3"></script>
+<script src="js/crm.js?v=5"></script>
+<script src="js/maps.js?v=4"></script>
 <script src="js/widgets.js?v=1"></script>
 <script src="js/ui.js?v=2"></script>
 <script src="js/estimates.js?v=2"></script>
