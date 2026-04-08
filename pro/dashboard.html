@@ -76,9 +76,18 @@
 </style>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NBD Pro">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0A0C0F">
+<link rel="manifest" href="/pro/manifest.json">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
+<script src="js/standalone-compat.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
@@ -1329,7 +1338,7 @@
   --paper:#1E2229; --ink:#E8EAF0; --rule:rgba(255,255,255,.09);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;}
 
 /* HEADER */
 header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;z-index:1000;}
@@ -2104,7 +2113,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);backdrop-filter:blur(12px);bo
 .del-confirm-btns{display:flex;gap:8px;}
 .del-confirm-btns .btn{flex:1;justify-content:center;}
 /* ── DELETED LEADS DRAWER ── */
-.deleted-drawer{position:fixed;top:0;right:-420px;width:400px;height:100vh;background:var(--s);border-left:1px solid var(--br);z-index:1500;transition:right .3s ease;box-shadow:-8px 0 40px rgba(0,0,0,.5);display:flex;flex-direction:column;}
+.deleted-drawer{position:fixed;top:0;right:-420px;width:400px;height:100vh;height:100dvh;background:var(--s);border-left:1px solid var(--br);z-index:1500;transition:right .3s ease;box-shadow:-8px 0 40px rgba(0,0,0,.5);display:flex;flex-direction:column;}
 .deleted-drawer.open{right:0;}
 .deleted-drawer-hdr{padding:16px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .deleted-drawer-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;color:var(--t);}
@@ -3543,6 +3552,17 @@ body {
   .tier-grid{grid-template-columns:1fr;}
 }
 
+/* ── SAFARI STANDALONE (Add to Home Screen) FIXES ── */
+@media(display-mode: standalone) {
+  /* Use dvh (dynamic viewport height) for map — accounts for missing Safari toolbar */
+  #d2dMap { height:55dvh!important; min-height:300px; }
+  /* Prevent overscroll bounce that breaks map pan */
+  html, body { overscroll-behavior: none; }
+  /* Safe area insets for notched devices */
+  header { padding-top: env(safe-area-inset-top, 0); }
+  .mn { padding-bottom: env(safe-area-inset-bottom, 0); }
+}
+
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
 @media(max-width:768px){
   /* ── MOBILE SCROLL FIX ── */
@@ -3746,7 +3766,7 @@ body {
   .k-card { cursor:pointer; min-height:80px; }
 
   /* Joe view — full height on mobile */
-  #view-joe.active { height:calc(100vh - 110px); display:flex; flex-direction:column; }
+  #view-joe.active { height:calc(100vh - 110px); height:calc(100dvh - 110px); display:flex; flex-direction:column; }
   #view-joe:not(.active) { display:none!important; }
   .joe-messages { flex:1!important; }
 
@@ -7400,7 +7420,7 @@ function switchScTab(tab, btn) {
 
   <!-- ══ DOOR-TO-DOOR TRACKER ══ -->
   <div class="view" id="view-d2d">
-    <div id="d2dMap" style="width:100%;height:55vh;min-height:300px;position:relative;z-index:1;"></div>
+    <div id="d2dMap" style="width:100%;height:55vh;height:55dvh;min-height:300px;position:relative;z-index:1;"></div>
     <div class="view-scroll" id="d2dContent" style="flex:1;overflow-y:auto;padding:0 16px 80px;">
       <div class="empty"><div class="empty-icon">🚪</div>Loading Door-to-Door Tracker...</div>
     </div>
@@ -8064,7 +8084,7 @@ function goTo(name, params = {}) {
   if(name==='photos') renderPhotoLeads();
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
   if(name==='home') { if(window.NBDWidgets) window.NBDWidgets.render(); }
-  if(name==='d2d') { if(window.D2D) window.D2D.init(); }
+  if(name==='d2d') { waitForLeaflet(()=>{ if(window.D2D) window.D2D.init(); }); }
   if(name==='training') { if(window.SalesTraining) window.SalesTraining.init(); }
   if(name==='products') {
     const pc = document.getElementById('productLibraryContainer');

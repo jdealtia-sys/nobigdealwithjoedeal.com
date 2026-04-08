@@ -2,9 +2,13 @@
 <html lang="en" data-theme="nbd-original">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0C0F">
 <title>Customer Details — NBD Pro</title>
 <meta name="robots" content="noindex, nofollow">
+<script src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -29,7 +33,7 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body { 
   font-family:'Barlow',sans-serif; background:var(--bg); color:var(--t); 
-  min-height:100vh; display:flex; flex-direction:column;
+  min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
 }
 
 /* HEADER */
@@ -140,7 +144,7 @@ header {
   .meta-item { font-size:12px; }
   .info-value { font-size:13px; word-break:break-word; }
   .photo-grid { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; }
-  .modal-content { max-width:calc(100vw - 24px)!important; margin:12px; border-radius:14px; max-height:calc(100vh - 40px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .modal-content { max-width:calc(100vw - 24px)!important; margin:12px; border-radius:14px; max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
   input, select, textarea { font-size:16px!important; } /* prevent iOS zoom */
   a, button { touch-action:manipulation; }
 }

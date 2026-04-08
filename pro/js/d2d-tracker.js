@@ -1065,8 +1065,24 @@
 
     if (d2dMap) { d2dMap.invalidateSize(); return; }
 
-    d2dMap = L.map('d2dMap').setView(CINCINNATI, 13);
+    // Safari standalone (Add to Home Screen) breaks Leaflet's tap handler —
+    // it fires ghost clicks that prevent marker popups from opening.
+    // Detect standalone mode and disable tap to fix pin clicks.
+    const isStandalone = window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    d2dMap = L.map('d2dMap', {
+      tap: !isStandalone,          // disable Leaflet tap shim in standalone
+      bounceAtZoomLimits: false     // smoother UX on iOS
+    }).setView(CINCINNATI, 13);
+
     L.tileLayer(ESRI_TILES, { attribution: 'ESRI', maxZoom: 18 }).addTo(d2dMap);
+
+    // Force map to recalculate size after standalone viewport settles
+    if (isStandalone) {
+      setTimeout(() => { if (d2dMap) d2dMap.invalidateSize(); }, 500);
+      setTimeout(() => { if (d2dMap) d2dMap.invalidateSize(); }, 1500);
+    }
 
     d2dCluster = L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 17 });
     d2dMap.addLayer(d2dCluster);
@@ -1125,9 +1141,29 @@
       label.textContent = dispo?.short || '?';
 
       const icon = L.divIcon({ html: label.outerHTML, iconSize: [30, 30], className: '' });
-      const marker = L.marker([knock.lat, knock.lng], { icon }).bindPopup(
-        `<div style="font-size:12px;"><strong>${esc(knock.address)}</strong><br/>${dispo?.icon} ${dispo?.label}<br/>Knock #${attempts}/${MAX_ATTEMPTS}<br/><small>${timeAgo(knock.createdAt)}</small><br/><button onclick="window.D2D.openKnockDetail('${knock.id}')" style="margin-top:8px;padding:4px 8px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Details</button> <button onclick="window.D2D.openQuickKnock({address:'${esc(knock.address)}',lat:${knock.lat},lng:${knock.lng}})" style="margin-top:8px;padding:4px 8px;background:var(--orange, #C8541A);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Re-Knock</button></div>`
-      );
+
+      // Build popup with data-attributes + touchend listeners instead of inline onclick
+      // (iOS Safari standalone swallows inline onclick in Leaflet popups)
+      const popupDiv = document.createElement('div');
+      popupDiv.style.cssText = 'font-size:12px;';
+      popupDiv.innerHTML = `<strong>${esc(knock.address)}</strong><br/>${dispo?.icon} ${dispo?.label}<br/>Knock #${attempts}/${MAX_ATTEMPTS}<br/><small>${timeAgo(knock.createdAt)}</small><br/>`;
+
+      const detailBtn = document.createElement('button');
+      detailBtn.textContent = 'Details';
+      detailBtn.style.cssText = 'margin-top:8px;padding:4px 8px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      detailBtn.addEventListener('click', function(ev) { ev.stopPropagation(); window.D2D.openKnockDetail(knock.id); });
+      detailBtn.addEventListener('touchend', function(ev) { ev.stopPropagation(); ev.preventDefault(); window.D2D.openKnockDetail(knock.id); });
+
+      const reknockBtn = document.createElement('button');
+      reknockBtn.textContent = 'Re-Knock';
+      reknockBtn.style.cssText = 'margin-top:8px;margin-left:4px;padding:4px 8px;background:var(--orange, #C8541A);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      reknockBtn.addEventListener('click', function(ev) { ev.stopPropagation(); window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
+      reknockBtn.addEventListener('touchend', function(ev) { ev.stopPropagation(); ev.preventDefault(); window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
+
+      popupDiv.appendChild(detailBtn);
+      popupDiv.appendChild(reknockBtn);
+
+      const marker = L.marker([knock.lat, knock.lng], { icon }).bindPopup(popupDiv);
       d2dCluster.addLayer(marker);
       heatData.push([knock.lat, knock.lng, 0.5]);
     });
