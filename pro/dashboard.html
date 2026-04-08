@@ -1193,13 +1193,26 @@
   // ── PINS ───────────────────────────────────────
   async function loadPins() {
     try {
-      const snap = await getDocs(collection(db,'pins'));
+      const uid = window._user?.uid;
+      if (!uid) { window._pins = []; return; }
+      const snap = await getDocs(query(collection(db,'pins'), where('userId','==',uid)));
       window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
-    } catch(e) { window._pins = []; }
+    } catch(e) { console.error('loadPins error:', e); window._pins = []; }
   }
   window._savePin = async (data) => {
-    try { const r = await addDoc(collection(db,'pins'), {...data, createdAt:serverTimestamp()}); return r.id; }
-    catch(e) { return 'd-'+Date.now(); }
+    try {
+      if (data.id) {
+        // Update existing pin
+        const pinId = data.id;
+        delete data.id;
+        await updateDoc(doc(db,'pins',pinId), {...data, updatedAt:serverTimestamp()});
+        return pinId;
+      }
+      // Create new pin
+      const r = await addDoc(collection(db,'pins'), {...data, userId:window._user?.uid, createdAt:serverTimestamp()});
+      return r.id;
+    }
+    catch(e) { console.error('savePin error:', e); return 'd-'+Date.now(); }
   };
   window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){} };
 
@@ -1209,14 +1222,15 @@
       const r = ref(storage, `photos/${leadId}/${Date.now()}_${file.name}`);
       await uploadBytes(r, file);
       const url = await getDownloadURL(r);
-      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, createdAt:serverTimestamp()});
+      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:window._user?.uid, createdAt:serverTimestamp()});
       return url;
     } catch(e) { console.error('Upload failed',e); return null; }
   };
 
   window._getPhotos = async (leadId) => {
     try {
-      const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId)));
+      const uid = window._user?.uid;
+      const snap = await getDocs(query(collection(db,'photos'), where('leadId','==',leadId), where('userId','==',uid)));
       return snap.docs.map(d => ({id:d.id,...d.data()}));
     } catch(e) { return []; }
   };
