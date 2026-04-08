@@ -287,6 +287,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── STORM ALERTS SENT LOG (Cloud Function only) ──
+    match /storm_alerts_sent/{alertId} {
+      allow read: if isAuth();
+      allow create: if false;  // Only Cloud Function (admin SDK) can write
+      allow delete: if false;
+    }
+
     // ── DEFAULT: Deny everything else ─────────────────
     match /{document=**} {
       allow read, write: if false;

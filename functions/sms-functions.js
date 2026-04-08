@@ -481,3 +481,154 @@ exports.incomingSMS = onRequest(
 );
 
 console.log('✓ SMS Cloud Functions loaded');
+
+// ═══════════════════════════════════════════════════════════════
+// STORM ALERT SMS — Scheduled weather check
+// ═══════════════════════════════════════════════════════════════
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+
+/**
+ * checkStormAlerts — Scheduled function (every 30 minutes)
+ * Polls NWS weather alerts for subscriber zip codes
+ * Sends SMS when severe weather is detected
+ *
+ * Setup: firebase deploy --only functions
+ * Requires: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER secrets
+ */
+exports.checkStormAlerts = onSchedule(
+  {
+    schedule: 'every 30 minutes',
+    secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
+    maxInstances: 1,
+    timeoutSeconds: 120,
+    memory: '256MiB'
+  },
+  async (event) => {
+    const db = admin.firestore();
+
+    try {
+      // Get all active subscribers
+      const subsSnap = await db.collection('storm_alert_subscribers')
+        .where('active', '==', true)
+        .get();
+
+      if (subsSnap.empty) {
+        console.log('No active storm alert subscribers');
+        return;
+      }
+
+      // Group subscribers by zip
+      const byZip = {};
+      subsSnap.docs.forEach(doc => {
+        const data = doc.data();
+        if (!byZip[data.zip]) byZip[data.zip] = [];
+        byZip[data.zip].push({ id: doc.id, ...data });
+      });
+
+      const uniqueZips = Object.keys(byZip);
+      console.log(`Checking ${uniqueZips.length} zip codes for ${subsSnap.size} subscribers`);
+
+      // Check NWS alerts for each zip area
+      // NWS uses lat/lon, so we'll check Ohio/Kentucky zone alerts
+      const alertUrl = 'https://api.weather.gov/alerts/active?area=OH,KY&severity=Severe,Extreme';
+      const alertResp = await fetch(alertUrl, {
+        headers: { 'User-Agent': 'NBDHomeStormAlerts/1.0 (jd@nobigdealwithjoedeal.com)' }
+      });
+
+      if (!alertResp.ok) {
+        console.error('NWS API error:', alertResp.status);
+        return;
+      }
+
+      const alertData = await alertResp.json();
+      const features = alertData.features || [];
+
+      // Filter for hail/wind/tornado events
+      const stormKeywords = ['hail', 'tornado', 'severe thunderstorm', 'wind'];
+      const relevantAlerts = features.filter(f => {
+        const event = (f.properties?.event || '').toLowerCase();
+        const desc = (f.properties?.description || '').toLowerCase();
+        return stormKeywords.some(k => event.includes(k) || desc.includes(k));
+      });
+
+      if (relevantAlerts.length === 0) {
+        console.log('No relevant storm alerts found');
+        return;
+      }
+
+      console.log(`Found ${relevantAlerts.length} relevant storm alerts`);
+
+      // Check which alerts we've already sent (dedup)
+      const sentAlerts = new Set();
+      const recentSent = await db.collection('storm_alerts_sent')
+        .where('sentAt', '>', new Date(Date.now() - 24 * 60 * 60 * 1000))
+        .get();
+      recentSent.docs.forEach(d => sentAlerts.add(d.data().alertId));
+
+      // Initialize Twilio
+      const client = twilio(
+        TWILIO_ACCOUNT_SID.value(),
+        TWILIO_AUTH_TOKEN.value()
+      );
+      const fromPhone = TWILIO_PHONE_NUMBER.value();
+
+      let totalSent = 0;
+
+      for (const alert of relevantAlerts) {
+        const alertId = alert.properties?.id || alert.id;
+        if (sentAlerts.has(alertId)) continue;
+
+        const event = alert.properties?.event || 'Severe Weather';
+        const headline = alert.properties?.headline || '';
+        const areas = (alert.properties?.areaDesc || '').toLowerCase();
+
+        // Check which zip codes are in the affected area
+        // NWS areas are county-based, so we match on county/city names
+        for (const zip of uniqueZips) {
+          const subscribers = byZip[zip];
+
+          // Send to each subscriber in this zip
+          for (const sub of subscribers) {
+            const phone = formatPhoneNumber(sub.phone);
+            if (!phone) continue;
+
+            const body = `⛈️ NBD Storm Alert: ${event} reported near your area (${zip}). ${headline.substring(0, 120)} — Free roof inspection: nobigdealwithjoedeal.com or call Joe (859) 420-7382. Reply STOP to unsubscribe.`;
+
+            try {
+              await client.messages.create({
+                body: body.substring(0, 1600),
+                from: fromPhone,
+                to: phone
+              });
+              totalSent++;
+            } catch (e) {
+              console.warn(`SMS failed for ${sub.phone}:`, e.message);
+
+              // Deactivate if phone is invalid
+              if (e.code === 21211 || e.code === 21614) {
+                await db.doc(`storm_alert_subscribers/${sub.id}`).update({ active: false });
+                console.log(`Deactivated invalid number: ${sub.phone}`);
+              }
+            }
+          }
+        }
+
+        // Mark alert as sent
+        await db.collection('storm_alerts_sent').add({
+          alertId,
+          event,
+          headline,
+          areas,
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          subscriberCount: totalSent
+        });
+      }
+
+      console.log(`Storm alert check complete. Sent ${totalSent} SMS messages.`);
+
+    } catch (e) {
+      console.error('Storm alert check error:', e);
+    }
+  }
+);
