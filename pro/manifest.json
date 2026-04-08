@@ -8,16 +8,45 @@
   "background_color": "#0A0C0F",
   "theme_color": "#C8541A",
   "orientation": "any",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/pro/img/nbd-icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/pro/img/nbd-icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "CRM Pipeline",
+      "short_name": "CRM",
+      "url": "/pro/dashboard.html#/crm",
+      "description": "Open the lead pipeline"
+    },
+    {
+      "name": "Door Knocking",
+      "short_name": "D2D",
+      "url": "/pro/dashboard.html#/d2d",
+      "description": "Door-to-door tracker"
+    },
+    {
+      "name": "Map",
+      "short_name": "Map",
+      "url": "/pro/dashboard.html#/map",
+      "description": "Pin map and territory view"
+    },
+    {
+      "name": "New Estimate",
+      "short_name": "Estimate",
+      "url": "/pro/dashboard.html#/est",
+      "description": "Create a new estimate"
     }
   ]
 }
