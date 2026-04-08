@@ -294,6 +294,63 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── INVOICES ─────────────────────────────────────
+    match /invoices/{invoiceId} {
+      allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ── EMAIL DRIP ───────────────────────────────────
+    match /drip_queue/{docId} {
+      allow read, write: if isAuth();
+    }
+    match /drip_log/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+    }
+
+    // ── EMAIL LOG ────────────────────────────────────
+    match /email_log/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+    }
+
+    // ── SMS LOG ──────────────────────────────────────
+    match /sms_log/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+    }
+
+    // ── LEAD DOCUMENTS ───────────────────────────────
+    match /lead_documents/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // ── REFERRALS ────────────────────────────────────
+    match /referrals/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+    }
+
+    // ── REVIEW REQUESTS ──────────────────────────────
+    match /review_requests/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+    }
+
+    // ── REPORTS ──────────────────────────────────────
+    match /reports/{docId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+    }
+
     // ── DEFAULT: Deny everything else ─────────────────
     match /{document=**} {
       allow read, write: if false;
