@@ -3561,6 +3561,12 @@ body {
   /* Safe area insets for notched devices */
   header { padding-top: env(safe-area-inset-top, 0); }
   .mn { padding-bottom: env(safe-area-inset-bottom, 0); }
+  /* Estimate builder — ensure scroll works in standalone */
+  #est-builder { -webkit-overflow-scrolling:touch!important; overflow-y:auto!important; }
+  .tier-grid { overflow:visible!important; }
+  /* Views — enable proper scroll in standalone */
+  .view.active { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
+  .view-scroll { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
 }
 
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
@@ -3759,8 +3765,38 @@ body {
   #quickAddModal .modal { max-width:100%!important; width:100%!important; margin:0!important; border-radius:16px 16px 0 0!important; position:fixed!important; bottom:0!important; left:0!important; right:0!important; }
   #quickAddModal.modal-bg.open { align-items:flex-end!important; }
 
-  /* Estimate builder — single column on mobile */
-  .est-meas-grid { grid-template-columns:1fr!important; }
+  /* ══ ESTIMATE BUILDER — FULL MOBILE OVERHAUL ══ */
+  .est-meas-grid { grid-template-columns:1fr!important; gap:8px!important; }
+  .meas-field input, .meas-field select { font-size:16px!important; padding:12px 14px!important; min-height:48px!important; }
+  .meas-field label { font-size:11px!important; margin-bottom:6px!important; }
+
+  /* Tier grid — force single column, scrollable */
+  .tier-grid { grid-template-columns:1fr!important; gap:14px!important; max-height:none!important; overflow:visible!important; }
+  .tier-card { padding:20px!important; min-height:auto!important; }
+  .tier-card .tier-name { font-size:16px!important; }
+  .tier-card .tier-items { font-size:13px!important; line-height:1.7!important; }
+  .tier-card .tier-price { font-size:20px!important; margin-top:10px!important; }
+  .tier-badge { font-size:11px!important; padding:4px 12px!important; }
+
+  /* Est steps progress — compact on mobile */
+  .est-steps { gap:0!important; padding:0 8px!important; margin-bottom:16px!important; }
+  .est-step .step-circle { width:28px!important; height:28px!important; font-size:12px!important; }
+  .est-step .step-label { font-size:9px!important; }
+
+  /* Est builder — proper scrolling */
+  #est-builder { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; padding-bottom:100px!important; }
+  #est-builder .panel { margin:0 0 12px!important; }
+  #est-builder .panel-body { padding:14px!important; }
+  #est-builder .btn { min-height:48px!important; font-size:14px!important; padding:12px 20px!important; }
+
+  /* Review step — scrollable on mobile */
+  #estStep4 .panel-body { max-height:none!important; overflow:visible!important; }
+  #estReviewBody { font-size:13px!important; }
+  #estReviewBody table { display:block!important; overflow-x:auto!important; -webkit-overflow-scrolling:touch!important; }
+
+  /* view-est needs to allow scroll */
+  #view-est.active { display:flex!important; flex-direction:column!important; overflow:visible!important; }
+  #view-est .view-scroll { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; flex:1!important; }
 
   /* Kanban cards — bigger tap targets */
   .k-card { cursor:pointer; min-height:80px; }
@@ -6669,20 +6705,29 @@ function switchScTab(tab, btn) {
             <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
           </div>
           <div class="page-title">Photo Library</div>
-          <div class="page-sub">Property documentation & damage photos</div>
+          <div class="page-sub">Capture, tag, and organize property documentation</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-orange" onclick="if(window.PhotoEngine){PhotoEngine.openCamera(window._currentPhotoLeadId||'')}else{showToast('Photo engine loading...','error')}" style="font-size:12px;">📷 Open Camera</button>
+          <button class="btn btn-ghost" onclick="if(window.InspectionReportEngine){InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId||'')}else{showToast('Report engine loading...','error')}" style="font-size:12px;">📄 New Report</button>
         </div>
       </div>
-      <div class="panel" style="margin-bottom:14px;">
-        <div class="panel-hdr"><div><div class="panel-label">Field Intel</div><div class="panel-title">Damage Near Me</div></div></div>
-        <div class="panel-body">
-          <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Instantly pull up damage inspections near your current location — one-tap credibility tool while canvassing.</p>
-          <button class="btn btn-orange" onclick="damageNearMePhotos()" style="margin-right:8px;">📍 Show Damage Near Me</button>
-          <button class="btn btn-ghost" onclick="goTo('map')">🗺 View on Map</button>
+      <!-- Quick actions bar -->
+      <div style="display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Damage Near Me</button>
+        <button class="btn btn-ghost" onclick="goTo('map')" style="font-size:11px;padding:6px 12px;">🗺 View on Map</button>
+        <select id="photoLeadSelect" onchange="window._currentPhotoLeadId=this.value;if(window.PhotoEngine)PhotoEngine.openGallery('photoGalleryContainer',this.value);" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:7px 10px;font-size:11px;color:var(--t);max-width:200px;">
+          <option value="">Select a property...</option>
+        </select>
+      </div>
+      <!-- Photo gallery container (rendered by PhotoEngine) -->
+      <div id="photoGalleryContainer" style="padding:0 16px;">
+        <div id="photoLeadsList">
+          <div class="empty"><div class="empty-icon">📸</div>Select a property above, then capture or upload photos.</div>
         </div>
       </div>
-      <div id="photoLeadsList">
-        <div class="empty"><div class="empty-icon">📸</div>Select a property to view or upload damage photos.</div>
-      </div>
+      <!-- Inspection report builder container -->
+      <div id="inspectionBuilderContainer" style="padding:0 16px;"></div>
     </div>
   </div>
 
@@ -8105,7 +8150,22 @@ function goTo(name, params = {}) {
   if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
   if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
   if(name==='board') renderLeaderboard();
-  if(name==='photos') renderPhotoLeads();
+  if(name==='photos') {
+    renderPhotoLeads();
+    // Populate lead selector for photo engine
+    const sel = document.getElementById('photoLeadSelect');
+    if (sel && window._leads) {
+      sel.innerHTML = '<option value="">Select a property...</option>';
+      window._leads.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = (l.name || 'Unknown') + ' — ' + (l.address || 'No address');
+        sel.appendChild(opt);
+      });
+      // Restore last selected lead
+      if (window._currentPhotoLeadId) sel.value = window._currentPhotoLeadId;
+    }
+  }
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
   if(name==='home') { if(window.NBDWidgets) window.NBDWidgets.render(); }
   if(name==='d2d') { waitForLeaflet(()=>{ if(window.D2D) window.D2D.init(); }); }
@@ -11323,6 +11383,9 @@ function shareCalViaEmail() {
 <script src="js/report-export.js?v=1"></script>
 <script src="js/script-loader.js?v=1"></script>
 <script src="js/perf-monitor.js?v=1"></script>
+<!-- Photo Engine & Inspection Reports -->
+<script src="js/photo-engine.js?v=1"></script>
+<script src="js/inspection-report-engine.js?v=1"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {
