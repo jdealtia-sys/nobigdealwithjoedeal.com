@@ -273,6 +273,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── STORM ALERT SUBSCRIBERS (public SMS opt-in) ──
+    match /storm_alert_subscribers/{subId} {
+      allow create: if request.resource.data.keys().hasAll(["name", "phone", "zip", "source"])
+        && request.resource.data.name is string
+        && request.resource.data.phone is string
+        && request.resource.data.zip is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.phone.size() > 6
+        && request.resource.data.zip.size() == 5;
+      allow read: if isAuth();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── DEFAULT: Deny everything else ─────────────────
     match /{document=**} {
       allow read, write: if false;
