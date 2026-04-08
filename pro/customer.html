@@ -1499,7 +1499,7 @@ async function uploadSingleDocument(item, index) {
 async function loadDocuments(leadId) {
   try {
     const docSnap = await getDocs(
-      query(collection(db, 'documents'), where('leadId', '==', leadId), orderBy('uploadedAt', 'desc'))
+      query(collection(db, 'documents'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('uploadedAt', 'desc'))
     );
     
     if (docSnap.empty) {
@@ -1621,7 +1621,7 @@ window.saveNote = async function() {
 async function loadNotes(leadId) {
   try {
     const noteSnap = await getDocs(
-      query(collection(db, 'notes'), where('leadId', '==', leadId), orderBy('createdAt', 'desc'))
+      query(collection(db, 'notes'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('createdAt', 'desc'))
     );
     
     if (noteSnap.empty) {
@@ -2102,7 +2102,7 @@ async function loadTimeline(leadId, lead) {
   // Load tasks
   try {
     const taskSnap = await getDocs(
-      query(collection(db, 'tasks'), where('leadId', '==', leadId))
+      query(collection(db, 'tasks'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
     taskSnap.docs.forEach(d => {
       const task = d.data();
@@ -2123,7 +2123,7 @@ async function loadTimeline(leadId, lead) {
   // Load estimates
   try {
     const estSnap = await getDocs(
-      query(collection(db, 'estimates'), where('leadId', '==', leadId))
+      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
     estSnap.docs.forEach(d => {
       const est = d.data();
@@ -2143,7 +2143,7 @@ async function loadTimeline(leadId, lead) {
   // Load photos for timeline
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId))
+      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
     photoSnap.docs.forEach(d => {
       const photo = d.data();
@@ -2202,7 +2202,7 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId))
+      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
     
     if (photoSnap.empty) {
@@ -2249,7 +2249,7 @@ async function loadPhotos(leadId) {
 async function loadEstimates(leadId) {
   try {
     const estSnap = await getDocs(
-      query(collection(db, 'estimates'), where('leadId', '==', leadId))
+      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
     
     if (estSnap.empty) {
@@ -3691,7 +3691,7 @@ window.loadProjectTimeline = async function(leadId) {
 window.loadInvoices = async function(leadId) {
   try {
     const invoicesRef = window.collection(window.db, 'invoices');
-    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
@@ -3839,7 +3839,7 @@ window.loadReports = async function(leadId) {
 window.loadSharedDocuments = async function(leadId) {
   try {
     const docsRef = window.collection(window.db, 'lead_documents');
-    const q = window.query(docsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const q = window.query(docsRef, window.where('leadId', '==', leadId), window.where('userId', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
@@ -3888,8 +3888,8 @@ window.loadCommunicationLog = async function(leadId) {
     const emailRef = window.collection(window.db, 'email_log');
     const smsRef = window.collection(window.db, 'sms_log');
 
-    const emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'), window.limit(20));
-    const smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'), window.limit(20));
+    const emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
+    const smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
 
     const emailSnap = await window.getDocs(emailQ);
     const smsSnap = await window.getDocs(smsQ);
