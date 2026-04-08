@@ -114,6 +114,10 @@ service cloud.firestore {
       }
     }
 
+    match /userSettings/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
     // ── SUBSCRIPTIONS ─────────────────────────────────
     // Users can read their own subscription; only server/registration can create/update
     match /subscriptions/{uid} {

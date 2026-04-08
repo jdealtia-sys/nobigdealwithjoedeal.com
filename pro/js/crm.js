@@ -678,8 +678,8 @@ async function loadNotifications() {
     if (!_auth || !_db) return;
     const user  = _auth.currentUser;
     if (!user) return;
-    
-    // Load notifications from Firestore
+
+    // Load notifications from Firestore (including dismissed, we filter client-side)
     const {getDocs: _getDocs, query: _query, collection: _col, where: _where, orderBy: _order, limit: _limit} =
       await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const notifSnap = await _getDocs(
@@ -687,15 +687,17 @@ async function loadNotifications() {
         _col(_db, 'notifications'),
         _where('userId', '==', user.uid),
         _order('createdAt', 'desc'),
-        _limit(20)
+        _limit(50)
       )
     );
-    
-    window._notifications = notifSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Count unread
+
+    const allNotifs = notifSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window._notifications = allNotifs.filter(n => !n.dismissed);
+    window._dismissedNotifications = allNotifs.filter(n => n.dismissed);
+
+    // Count unread (non-dismissed)
     const unreadCount = window._notifications.filter(n => !n.read).length;
-    
+
     // Update badge
     const badge = document.getElementById('notifBadge');
     if (badge) {
@@ -706,82 +708,94 @@ async function loadNotifications() {
         badge.style.display = 'none';
       }
     }
-    
+
     // Render list if dropdown is open
     if (window._notifDropdownOpen) {
       renderNotifications();
     }
-    
+
   } catch (error) {
     console.error('Error loading notifications:', error);
   }
 }
 
+const NOTIF_ICONS = {
+  'task_due': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
+  'task_overdue': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg>',
+  'estimate_approved': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg>',
+  'stage_change': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
+  'follow_up': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg>',
+  'new_lead': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0112 0"/></svg>',
+  'default': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg>'
+};
+
+function renderNotifItem(n, opts = {}) {
+  const isUnread = !n.read;
+  const isDismissed = opts.dismissed || false;
+  const timestamp = n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt || Date.now());
+  const timeAgo = getTimeAgo(timestamp);
+  const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.default;
+  const hasLead = n.leadId && !n.leadId.startsWith('d-');
+
+  return `
+    <div style="padding:10px 14px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s;${isUnread && !isDismissed ? 'background:var(--og);' : ''}${isDismissed ? 'opacity:0.65;' : ''}"
+         onclick="notifAction('${n.id}','${n.leadId||''}',${isDismissed})"
+         onmouseenter="this.style.background='var(--s2)'"
+         onmouseleave="this.style.background='${isUnread && !isDismissed ? 'var(--og)' : ''}'">
+      <div style="display:flex;gap:10px;align-items:start;">
+        <div style="font-size:20px;flex-shrink:0;">${icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:${isUnread ? '600' : '400'};margin-bottom:3px;color:var(--t);">
+            ${n.title || 'Notification'}
+          </div>
+          <div style="font-size:12px;color:var(--m);margin-bottom:3px;line-height:1.4;">
+            ${n.message || ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:10px;color:var(--m);opacity:0.8;">${timeAgo}</span>
+            ${hasLead && !isDismissed ? `<span style="font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.03em;">→ VIEW LEAD</span>` : ''}
+            ${isDismissed ? `<span onclick="event.stopPropagation();restoreNotification('${n.id}')" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
+          </div>
+        </div>
+        ${isUnread && !isDismissed ? `<div style="width:8px;height:8px;background:var(--orange);border-radius:50%;flex-shrink:0;margin-top:4px;"></div>` : ''}
+        ${!isDismissed ? `<button onclick="event.stopPropagation();dismissNotification('${n.id}')" title="Dismiss" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.4;flex-shrink:0;line-height:1;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.4'">✕</button>` : ''}
+      </div>
+    </div>`;
+}
+
 function renderNotifications() {
   const list = document.getElementById('notifList');
   if (!list) return;
-  
-  // Count unread notifications
+
   const unreadCount = window._notifications.filter(n => !n.read).length;
-  
-  // Show/hide "Mark all read" button based on unread count
+  const dismissedCount = (window._dismissedNotifications||[]).length;
+
+  // Show/hide header buttons
   const markAllBtn = document.querySelector('[onclick="markAllNotificationsRead()"]');
-  if (markAllBtn) {
-    markAllBtn.style.display = unreadCount > 0 ? 'inline-block' : 'none';
-  }
-  
+  if (markAllBtn) markAllBtn.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+  const clearAllBtn = document.getElementById('clearAllNotifBtn');
+  if (clearAllBtn) clearAllBtn.style.display = window._notifications.length > 0 ? 'inline-block' : 'none';
+
+  // Show/hide dismissed toggle
+  const dismissedToggle = document.getElementById('notifDismissedToggle');
+  if (dismissedToggle) dismissedToggle.style.display = dismissedCount > 0 ? 'block' : 'none';
+  const dismissedCountEl = document.getElementById('dismissedCount');
+  if (dismissedCountEl) dismissedCountEl.textContent = dismissedCount > 0 ? `(${dismissedCount})` : '';
+
   if (window._notifications.length === 0) {
     list.innerHTML = `
       <div style="padding:40px 20px;text-align:center;color:var(--m);">
         <div style="margin-bottom:8px;opacity:0.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg></div>
-        <div style="font-size:13px;">No notifications yet</div>
-      </div>
-    `;
+        <div style="font-size:13px;">${dismissedCount > 0 ? 'All caught up' : 'No notifications yet'}</div>
+        ${dismissedCount > 0 ? '<div style="font-size:11px;color:var(--m);margin-top:4px;">Dismissed items are below</div>' : ''}
+      </div>`;
     return;
   }
-  
-  const html = window._notifications.map(n => {
-    const isUnread = !n.read;
-    const timestamp = n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt || Date.now());
-    const timeAgo = getTimeAgo(timestamp);
-    
-    const iconMap = {
-      'task_due': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
-      'task_overdue': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg>',
-      'estimate_approved': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg>',
-      'stage_change': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
-      'follow_up': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg>',
-      'new_lead': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0112 0"/></svg>',
-      'default': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg>'
-    };
-    
-    const icon = iconMap[n.type] || iconMap.default;
-    
-    return `
-      <div style="padding:12px 14px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s;${isUnread ? 'background:var(--og);' : ''}" 
-           onclick="markNotificationRead('${n.id}')"
-           onmouseenter="this.style.background='var(--s2)'"
-           onmouseleave="this.style.background='${isUnread ? 'var(--og)' : ''}'">
-        <div style="display:flex;gap:10px;align-items:start;">
-          <div style="font-size:20px;flex-shrink:0;">${icon}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:${isUnread ? '600' : '400'};margin-bottom:4px;color:var(--t);">
-              ${n.title || 'Notification'}
-            </div>
-            <div style="font-size:12px;color:var(--m);margin-bottom:4px;line-height:1.4;">
-              ${n.message || ''}
-            </div>
-            <div style="font-size:10px;color:var(--m);opacity:0.8;">
-              ${timeAgo}
-            </div>
-          </div>
-          ${isUnread ? `<div style="width:8px;height:8px;background:var(--orange);border-radius:50%;flex-shrink:0;margin-top:4px;"></div>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  list.innerHTML = html;
+
+  list.innerHTML = window._notifications.map(n => renderNotifItem(n)).join('');
+
+  // Render dismissed list if open
+  renderDismissedNotifications();
 }
 
 function getTimeAgo(date) {
@@ -820,6 +834,36 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ── Click a notification: mark read + navigate to lead ──
+async function notifAction(notifId, leadId, isDismissed) {
+  if (isDismissed) {
+    // If clicking a dismissed notification, restore it
+    await restoreNotification(notifId);
+    return;
+  }
+  // Mark as read
+  await markNotificationRead(notifId);
+  // Navigate to the lead if we have one
+  if (leadId && !leadId.startsWith('d-')) {
+    // Close dropdown
+    window._notifDropdownOpen = false;
+    const dropdown = document.getElementById('notifDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    // Go to CRM and open the lead
+    if (typeof goTo === 'function') goTo('crm');
+    // Small delay to let CRM view render, then trigger lead card click
+    setTimeout(() => {
+      if (typeof handleCardClick === 'function') {
+        handleCardClick(leadId);
+      } else {
+        // Fallback: find card and click it
+        const card = document.querySelector(`.lead-card[data-id="${leadId}"]`);
+        if (card) card.click();
+      }
+    }, 300);
+  }
+}
+
 async function markNotificationRead(notifId) {
   try {
     const _db = window._db || window.db;
@@ -842,6 +886,100 @@ async function markNotificationRead(notifId) {
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
+}
+
+// ── Dismiss a single notification ──
+async function dismissNotification(notifId) {
+  try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    await updateDoc(doc(_db, 'notifications', notifId), {
+      dismissed: true,
+      dismissedAt: serverTimestamp(),
+      read: true
+    });
+
+    await loadNotifications();
+    window.showToast?.('Notification dismissed', 'success');
+  } catch (error) {
+    console.error('Error dismissing notification:', error);
+  }
+}
+
+// ── Clear ALL visible notifications ──
+async function clearAllNotifications() {
+  try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    const visible = window._notifications.filter(n => !n.dismissed);
+    if (!visible.length) return;
+
+    await Promise.all(visible.map(n =>
+      updateDoc(doc(_db, 'notifications', n.id), {
+        dismissed: true,
+        dismissedAt: serverTimestamp(),
+        read: true
+      })
+    ));
+
+    await loadNotifications();
+    window.showToast?.(`${visible.length} notification${visible.length!==1?'s':''} cleared`, 'success');
+  } catch (error) {
+    console.error('Error clearing all notifications:', error);
+  }
+}
+
+// ── Restore a dismissed notification ──
+async function restoreNotification(notifId) {
+  try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    await updateDoc(doc(_db, 'notifications', notifId), {
+      dismissed: false,
+      read: false,
+      restoredAt: serverTimestamp()
+    });
+
+    await loadNotifications();
+    window.showToast?.('Notification restored', 'success');
+  } catch (error) {
+    console.error('Error restoring notification:', error);
+  }
+}
+
+// ── Toggle dismissed notifications drawer ──
+window._dismissedDrawerOpen = false;
+function toggleDismissedNotifications() {
+  window._dismissedDrawerOpen = !window._dismissedDrawerOpen;
+  const dismissedList = document.getElementById('notifDismissedList');
+  const toggleLabel = document.getElementById('dismissedToggleLabel');
+  if (dismissedList) {
+    dismissedList.style.display = window._dismissedDrawerOpen ? 'block' : 'none';
+  }
+  if (toggleLabel) {
+    toggleLabel.textContent = window._dismissedDrawerOpen ? 'Hide dismissed' : 'Show dismissed';
+  }
+  if (window._dismissedDrawerOpen) renderDismissedNotifications();
+}
+
+function renderDismissedNotifications() {
+  const list = document.getElementById('notifDismissedList');
+  if (!list || !window._dismissedDrawerOpen) return;
+  const dismissed = window._dismissedNotifications || [];
+  if (!dismissed.length) {
+    list.innerHTML = `<div style="padding:16px;text-align:center;font-size:11px;color:var(--m);">No dismissed notifications</div>`;
+    return;
+  }
+  list.innerHTML = dismissed.map(n => renderNotifItem(n, {dismissed:true})).join('');
 }
 
 async function markAllNotificationsRead() {
@@ -998,6 +1136,12 @@ window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.loadNotifications = loadNotifications;
 window.renderNotifications = renderNotifications;
+window.notifAction = notifAction;
+window.dismissNotification = dismissNotification;
+window.clearAllNotifications = clearAllNotifications;
+window.restoreNotification = restoreNotification;
+window.toggleDismissedNotifications = toggleDismissedNotifications;
+window.renderDismissedNotifications = renderDismissedNotifications;
 
 // Request browser notification permission on first load (once)
 async function requestNotifPermission() {
