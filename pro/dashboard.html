@@ -421,7 +421,7 @@
     } else if (estParam || leadParam) {
       // ── NEW ESTIMATE (optionally pre-filled from lead) ──
       (async () => {
-        try { await loadEstimates(); } catch(e) {}
+        try { await loadEstimates(); } catch(e) { console.warn('loadEstimates failed:', e); }
         goTo('est');
         if (estParam && !editId) {
           // Reopen estimate by ID (direct link, no lead context)
@@ -617,16 +617,12 @@
     
     try {
       const uid = window._user?.uid;
-      console.log('🔍 loadLeads: uid=', uid);
-      console.log('🔍 loadLeads: window._user=', window._user);
-      console.log('🔍 loadLeads: Firebase auth state=', window._auth?.currentUser?.uid);
       
       if (!uid) { 
         console.warn('⚠️ loadLeads: No user ID — waiting for auth...');
         // Wait a bit for auth to settle
         await new Promise(resolve => setTimeout(resolve, 1000));
         const retryUid = window._user?.uid;
-        console.log('🔍 loadLeads: Retry after 1s — uid=', retryUid);
         if (!retryUid) {
           console.error('❌ loadLeads: Still no user after retry — auth failure');
           window._leads = [];
@@ -642,9 +638,7 @@
       }
       
       const finalUid = window._user?.uid;
-      console.log('🔍 loadLeads: Querying Firestore with uid=', finalUid);
       const snap = await getDocs(query(collection(db,'leads'), where('userId','==',finalUid)));
-      console.log('🔍 loadLeads: Got', snap.docs.length, 'docs from Firestore');
       
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
@@ -660,7 +654,6 @@
         else l._stageKey = S.NEW;
       });
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
-      console.log('📊 window._leads:', window._leads);
       
       // Update health indicator to healthy
       if (healthBadge) {
@@ -1223,35 +1216,28 @@
   async function loadPins() {
     try {
       const uid = window._user?.uid;
-      console.log('📌 loadPins: uid=', uid);
       if (!uid) { console.warn('📌 loadPins: no uid, skipping'); window._pins = []; return; }
       const snap = await getDocs(query(collection(db,'pins'), where('userId','==',uid)));
       window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
-      console.log('📌 loadPins: loaded', window._pins.length, 'pins');
     } catch(e) { console.error('📌 loadPins FAILED:', e.code, e.message, e); window._pins = []; }
   }
   window._savePin = async (data) => {
-    console.log('📌 _savePin called with:', JSON.stringify(data));
-    console.log('📌 _savePin: userId=', window._user?.uid, 'db=', !!db);
     try {
       if (data.id) {
         // Update existing pin
         const pinId = data.id;
         delete data.id;
         await updateDoc(doc(db,'pins',pinId), {...data, updatedAt:serverTimestamp()});
-        console.log('📌 Pin updated:', pinId);
         return pinId;
       }
       // Create new pin
       const pinDoc = {...data, userId:window._user?.uid, createdAt:serverTimestamp()};
-      console.log('📌 Writing pin to Firestore:', Object.keys(pinDoc));
       const r = await addDoc(collection(db,'pins'), pinDoc);
-      console.log('📌 Pin saved! ID:', r.id);
       return r.id;
     }
     catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
-  window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){} };
+  window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){ console.warn('deletePin failed:', e); showToast('Failed to delete pin','error'); } };
 
   // ── PHOTOS ─────────────────────────────────────
   window._uploadPhoto = async (leadId, file) => {
