@@ -239,16 +239,28 @@ service cloud.firestore {
 
     // ── GUIDE LEADS (public lead capture — no auth required to submit) ──
     match /guide_leads/{leadId} {
-      allow create: if true;  // Anyone can submit the form
-      allow read: if isAuth(); // Only logged-in users can read
-      allow delete: if false;  // No public deletion
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'source'])
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() < 200
+        && request.resource.data.email.size() > 3
+        && request.resource.data.email.size() < 200;
+      allow read: if isAuth();
+      allow delete: if false;
     }
 
     // ── CONTACT LEADS (homepage form — no auth required to submit) ──
     match /contact_leads/{leadId} {
-      allow create: if true;  // Anyone can submit the form
-      allow read: if isAuth(); // Only logged-in users can read
-      allow delete: if false;  // No public deletion
+      allow create: if request.resource.data.keys().hasAll(['firstName', 'phone', 'source'])
+        && request.resource.data.firstName is string
+        && request.resource.data.phone is string
+        && request.resource.data.firstName.size() > 0
+        && request.resource.data.firstName.size() < 200
+        && request.resource.data.phone.size() > 6
+        && request.resource.data.phone.size() < 30;
+      allow read: if isAuth();
+      allow delete: if false;
     }
 
     // ── DEFAULT: Deny everything else ─────────────────

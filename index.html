@@ -20,6 +20,7 @@
 <meta name="twitter:image" content="https://www.nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%231e3a6e'/><path d='M10 65 L50 20 L90 65' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/><path d='M20 62 L20 82 L80 82 L80 62' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='42' y='65' width='16' height='17' rx='2' fill='%23e8720c'/></svg>">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<link rel="preload" href="/assets/images/drone-hero-crew.jpg" as="image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
@@ -970,6 +971,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
               <label>Tell Us About Your Project</label>
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
+            <div style="position:absolute;left:-9999px;"><label>Leave blank</label><input type="text" id="fieldWebsite" tabindex="-1" autocomplete="off"></div>
             <button class="form-submit" onclick="submitForm()">Send My Free Estimate Request →</button>
             <p class="form-note">🔒 No spam, no pressure. Joe will reach out personally — usually same day.</p>
           </div>
@@ -1262,6 +1264,10 @@ async function submitForm(){
   const address = document.getElementById('fieldAddress')?.value.trim();
   const service = document.getElementById('fieldService')?.value;
   const message = document.getElementById('fieldMessage')?.value.trim();
+
+  // Honeypot — if filled, it's a bot
+  const hp = document.getElementById('fieldWebsite')?.value;
+  if(hp) { console.warn('Bot detected'); return; }
 
   if(!first || !phone){
     alert('Please enter at least your first name and phone number so Joe can reach you.');

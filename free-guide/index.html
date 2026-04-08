@@ -827,6 +827,7 @@
                             <input type="email" id="email" name="email" placeholder="john@example.com" required>
                         </div>
 
+                        <div style="position:absolute;left:-9999px;"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
                         <button type="submit">Get the Free Guide</button>
 
                         <div class="success-state" id="successState">
@@ -940,6 +941,7 @@
                             <input type="email" id="email2" name="email" placeholder="john@example.com" required>
                         </div>
 
+                        <div style="position:absolute;left:-9999px;"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
                         <button type="submit">Get the Free Guide</button>
 
                         <div class="success-state" id="successState2">
@@ -1014,6 +1016,10 @@
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+
+                // Honeypot check
+                const hp = form.querySelector('input[name="website"]');
+                if (hp && hp.value) { console.warn('Bot detected'); return; }
 
                 // Get form data
                 const nameInput = form.querySelector('input[name="name"]');
