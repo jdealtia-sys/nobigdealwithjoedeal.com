@@ -221,6 +221,12 @@ async function submitAlert() {
     alert('Please fill in your name, phone, and zip code.');
     return;
   }
+  // Clean and validate phone
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  if (cleanPhone.length < 10) {
+    alert('Please enter a valid 10-digit phone number with area code.');
+    return;
+  }
   if (!/^\d{5}$/.test(zip)) {
     alert('Please enter a valid 5-digit zip code.');
     return;
@@ -230,7 +236,7 @@ async function submitAlert() {
   btn.disabled = true;
   btn.textContent = 'Signing you up...';
 
-  const saved = await window._saveStormAlert?.({ name, phone, zip, concern });
+  const saved = await window._saveStormAlert?.({ name, phone: cleanPhone, zip, concern });
   
   document.getElementById('formState').style.display = 'none';
   document.getElementById('successState').style.display = 'block';
