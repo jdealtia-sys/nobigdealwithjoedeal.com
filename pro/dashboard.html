@@ -7171,10 +7171,18 @@ function switchScTab(tab, btn) {
       <!-- ══ TAB: APPEARANCE ══ -->
       <div class="stab-panel" id="stab-panel-appearance" style="display:none;">
 
-        <!-- All themes rendered by category in collapsible sections -->
-        <div id="te-theme-sections"></div>
+        <!-- Theme picker: filter buttons + flat grid -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Theme Engine</div><div class="panel-title">155 Themes</div></div></div>
+          <div class="panel-body">
+            <!-- Category filter buttons -->
+            <div id="te-cat-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+            <!-- Flat theme grid -->
+            <div id="te-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:8px;"></div>
+          </div>
+        </div>
 
-        <!-- Overlay + Sound toggles -->
+        <!-- Effects toggles -->
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Effects</div><div class="panel-title">Overlays & Sound</div></div></div>
           <div class="panel-body" style="display:flex;gap:16px;flex-wrap:wrap;">

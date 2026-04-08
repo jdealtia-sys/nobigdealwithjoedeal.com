@@ -2980,32 +2980,70 @@ function nbdRenderThemes() {
   const grid = document.getElementById('npm-grid');
   if (!grid) return;
   const q = (document.getElementById('npm-search')?.value || '').toLowerCase();
-  let list = [...NBD_THEMES, ..._nbd_customs];
-  if (_nbd_activeCat !== 'all') list = list.filter(t => t.cat === _nbd_activeCat);
-  if (q) list = list.filter(t => t.name.toLowerCase().includes(q));
-  if (!list.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;font-size:11px;color:#5a6478;">No themes found.</div>'; return; }
-  grid.innerHTML = '';
-  list.forEach(t => {
-    const ok = _nbdUnlocked(t.plan) || t.cat === 'custom';
-    const isAct = t.id === _nbd_activeTheme;
-    const hexLum = h => { const n=parseInt((h||'#000').replace('#',''),16); const r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255; const tl=c=>c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4); return 0.2126*tl(r)+0.7152*tl(g)+0.0722*tl(b); };
-    const textCol = hexLum(t.bg||'#000') > 0.12 ? '#1a1208' : '#e8eaf0';
-    const d = document.createElement('div');
-    d.className = 'npm-bubble' + (isAct ? ' active' : '') + (ok ? '' : ' locked');
-    d.onclick = () => { if (ok) nbdApplyTheme(t.id); else nbdToast('🔒 ' + t.plan + ' required'); };
-    d.style.cssText = `background:${t.s||'#13171d'};border-color:${t.accent};box-shadow:inset 0 0 0 1px ${t.accent}33;`;
-    if (isAct) d.style.boxShadow = `0 0 0 2.5px #fff, 0 4px 22px rgba(0,0,0,0.6)`;
-    d.innerHTML = `<div class="npm-dot" style="background:${t.accent};box-shadow:0 0 5px ${t.accent}88"></div><span class="npm-lbl" style="color:${textCol}">${t.name}</span>${t.jp?`<span class="npm-star" style="color:${t.accent}">★</span>`:''}<div class="npm-activedot"></div>${!ok?'<div class="npm-lock-overlay">🔒</div>':''}`;
-    grid.appendChild(d);
-  });
+  const TE = window.ThemeEngine;
+
+  if (TE) {
+    // ThemeEngine path: 155 themes with multi-color cards
+    const allThemes = TE.getAll();
+    const current = TE.getCurrent() || 'nbd-original';
+    let entries = Object.entries(allThemes);
+    if (_nbd_activeCat !== 'all') entries = entries.filter(([,t]) => t.category === _nbd_activeCat);
+    if (q) entries = entries.filter(([k,t]) => t.name.toLowerCase().includes(q) || k.includes(q));
+    if (!entries.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;font-size:11px;color:var(--m);">No themes found.</div>'; return; }
+    grid.innerHTML = '';
+    entries.forEach(([key, t]) => {
+      const isAct = key === current;
+      const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
+      const bg = t.colors?.bg || '#1a1a2e';
+      const accent = t.colors?.accent || '#C8541A';
+      const surface = t.colors?.surface || '#16213e';
+      const txt = t.colors?.text || '#e2e8f0';
+      const d = document.createElement('div');
+      d.className = 'npm-bubble' + (isAct ? ' active' : '') + (isLocked ? ' locked' : '');
+      d.onclick = () => { if (!isLocked) { applyTheme(key); nbdPickerClose(); } else nbdToast('🔒 Locked — earn this theme'); };
+      d.style.cssText = `background:${bg};border-color:${accent};box-shadow:inset 0 0 0 1px ${accent}33;opacity:${isLocked?'0.4':'1'};`;
+      if (isAct) d.style.boxShadow = '0 0 0 2.5px #fff, 0 4px 22px rgba(0,0,0,0.6)';
+      const dots = `<div style="display:flex;gap:3px;margin-bottom:3px;"><span style="width:8px;height:8px;border-radius:50%;background:${accent};display:block;"></span><span style="width:8px;height:8px;border-radius:50%;background:${surface};display:block;"></span>${t.colors?.accent2?`<span style="width:8px;height:8px;border-radius:50%;background:${t.colors.accent2};display:block;"></span>`:''}</div>`;
+      const overlay = (t.overlay?.type && t.overlay.type !== 'none') ? '<span style="font-size:7px;position:absolute;top:3px;right:5px;color:'+txt+'44;">✦</span>' : '';
+      d.innerHTML = `${dots}<span class="npm-lbl" style="color:${txt}">${isLocked?'🔒 ':''}${t.name}</span>${overlay}<div class="npm-activedot"></div>`;
+      grid.appendChild(d);
+    });
+  } else {
+    // Legacy path
+    let list = [...NBD_THEMES, ..._nbd_customs];
+    if (_nbd_activeCat !== 'all') list = list.filter(t => t.cat === _nbd_activeCat);
+    if (q) list = list.filter(t => t.name.toLowerCase().includes(q));
+    if (!list.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;font-size:11px;color:#5a6478;">No themes found.</div>'; return; }
+    grid.innerHTML = '';
+    list.forEach(t => {
+      const ok = _nbdUnlocked(t.plan) || t.cat === 'custom';
+      const isAct = t.id === _nbd_activeTheme;
+      const hexLum = h => { const n=parseInt((h||'#000').replace('#',''),16); const r=((n>>16)&255)/255,g=((n>>8)&255)/255,b=(n&255)/255; const tl=c=>c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4); return 0.2126*tl(r)+0.7152*tl(g)+0.0722*tl(b); };
+      const textCol = hexLum(t.bg||'#000') > 0.12 ? '#1a1208' : '#e8eaf0';
+      const d = document.createElement('div');
+      d.className = 'npm-bubble' + (isAct ? ' active' : '') + (ok ? '' : ' locked');
+      d.onclick = () => { if (ok) nbdApplyTheme(t.id); else nbdToast('🔒 ' + t.plan + ' required'); };
+      d.style.cssText = `background:${t.s||'#13171d'};border-color:${t.accent};box-shadow:inset 0 0 0 1px ${t.accent}33;`;
+      if (isAct) d.style.boxShadow = '0 0 0 2.5px #fff, 0 4px 22px rgba(0,0,0,0.6)';
+      d.innerHTML = `<div class="npm-dot" style="background:${t.accent};box-shadow:0 0 5px ${t.accent}88"></div><span class="npm-lbl" style="color:${textCol}">${t.name}</span>${t.jp?`<span class="npm-star" style="color:${t.accent}">★</span>`:''}<div class="npm-activedot"></div>${!ok?'<div class="npm-lock-overlay">🔒</div>':''}`;
+      grid.appendChild(d);
+    });
+  }
 }
 
 function nbdRenderCats() {
   const el = document.getElementById('npm-cats');
   if (!el) return;
-  const cats = ['all','standard','heroes','gaming','os','material','ambient','abstract','tactical','nature','music','region','seasonal','culture','custom'];
-  const labels = {all:'All',standard:'Standard',heroes:'Heroes',gaming:'Gaming',os:'OS/Tech',material:'Material',ambient:'Ambient',abstract:'Abstract',tactical:'Tactical',nature:'Nature',music:'Music',region:'Region',seasonal:'Seasonal',culture:'Culture',custom:'⚡ Custom'};
-  el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" onclick="nbdSetCat('${c}',this)">${labels[c]||c}</button>`).join('');
+  const TE = window.ThemeEngine;
+  if (TE) {
+    // ThemeEngine categories
+    const teCats = [{key:'all',label:'All',icon:''},...TE.getCategories()];
+    el.innerHTML = teCats.map(c => `<button class="npm-cat${_nbd_activeCat===c.key?' on':''}" onclick="nbdSetCat('${c.key}',this)">${c.icon?c.icon+' ':''}${c.label}</button>`).join('');
+  } else {
+    const cats = ['all','standard','heroes','gaming','os','material','ambient','abstract','tactical','nature','music','region','seasonal','culture','custom'];
+    const labels = {all:'All',standard:'Standard',heroes:'Heroes',gaming:'Gaming',os:'OS/Tech',material:'Material',ambient:'Ambient',abstract:'Abstract',tactical:'Tactical',nature:'Nature',music:'Music',region:'Region',seasonal:'Seasonal',culture:'Culture',custom:'⚡ Custom'};
+    el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" onclick="nbdSetCat('${c}',this)">${labels[c]||c}</button>`).join('');
+  }
 }
 
 function nbdSetCat(cat, el) {
@@ -3016,8 +3054,14 @@ function nbdSetCat(cat, el) {
 }
 
 function nbdRandom() {
-  const ok = NBD_THEMES.filter(t => _nbdUnlocked(t.plan));
-  nbdApplyTheme(ok[Math.floor(Math.random() * ok.length)].id);
+  const TE = window.ThemeEngine;
+  if (TE) {
+    const keys = Object.keys(TE.getAll()).filter(k => { const t = TE.get(k); return !t.locked || TE.isUnlocked(k); });
+    applyTheme(keys[Math.floor(Math.random() * keys.length)]);
+  } else {
+    const ok = NBD_THEMES.filter(t => _nbdUnlocked(t.plan));
+    nbdApplyTheme(ok[Math.floor(Math.random() * ok.length)].id);
+  }
 }
 
 /* ── RENDER FONTS ─────────────────────────────────────────────────── */

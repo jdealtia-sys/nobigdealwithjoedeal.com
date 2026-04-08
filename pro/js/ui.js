@@ -576,82 +576,75 @@ function switchSettingsTab(tab) {
 
   // Lazy-load appearance tab content — render theme/font grids
   if (tab === 'appearance') {
-    // === ThemeEngine: collapsible category sections ===
-    const teSections = document.getElementById('te-theme-sections');
-    if (teSections && !teSections.dataset.loaded) {
-      // Gather theme data — use ThemeEngine if loaded, otherwise fall back to legacy THEME_KEYS + CSS themes
-      const TE = window.ThemeEngine;
-      const current = (TE ? TE.getCurrent() : (document.documentElement.getAttribute('data-theme') || 'nbd-original'));
+    // === ThemeEngine: filter buttons + flat grid ===
+    const teGrid = document.getElementById('te-theme-grid');
+    const teCatBar = document.getElementById('te-cat-bar');
+    if (teGrid && teCatBar && !teGrid.dataset.loaded) {
+      window._teActiveCat = 'all';
+      window._teRenderSettingsGrid = function(cat) {
+        window._teActiveCat = cat || 'all';
+        const TE = window.ThemeEngine;
+        const current = TE ? TE.getCurrent() : (document.documentElement.getAttribute('data-theme') || 'nbd-original');
 
-      if (TE) {
-        // === ThemeEngine path: 155 themes in collapsible category sections ===
-        const cats = TE.getCategories();
-        const allThemes = TE.getAll();
-        let html = '';
-
-        cats.forEach((cat, ci) => {
-          // Get themes for this category
-          const catThemes = Object.entries(allThemes).filter(([,t]) => t.category === cat.key);
-          if (!catThemes.length) return;
-          const isFirst = ci < 2; // First 2 categories open by default
-          html += `<div class="panel" style="margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;" onclick="this.parentElement.querySelector('.te-cat-body').style.display=this.parentElement.querySelector('.te-cat-body').style.display==='none'?'grid':'none';this.querySelector('.te-chev').textContent=this.parentElement.querySelector('.te-cat-body').style.display==='none'?'▸':'▾';">
-              <span class="te-chev" style="font-size:12px;color:var(--m);width:12px;">${isFirst?'▾':'▸'}</span>
-              <span style="font-size:16px;">${cat.icon}</span>
-              <span style="font-size:13px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;">${cat.label}</span>
-              <span style="font-size:10px;color:var(--m);margin-left:auto;background:var(--s2);padding:2px 8px;border-radius:10px;">${catThemes.length}</span>
-            </div>
-            <div class="te-cat-body" style="display:${isFirst?'grid':'none'};grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;padding:0 12px 12px;">`;
-          catThemes.forEach(([key, t]) => {
-            const isActive = key === current;
-            const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
-            const bg = t.colors?.bg || '#1a1a2e';
-            const accent = t.colors?.accent || '#C8541A';
-            const surface = t.colors?.surface || '#16213e';
-            const txt = t.colors?.text || '#e2e8f0';
-            const muted = t.colors?.muted || '#6b7280';
-            html += `<div onclick="${isLocked ? '' : `window._tePreviewTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};" onmouseover="if(!${isLocked})this.style.borderColor='${accent}'" onmouseout="if(!${isActive})this.style.borderColor='rgba(255,255,255,.06)'">
-              <div style="display:flex;gap:3px;margin-bottom:4px;">
-                <span style="width:10px;height:10px;border-radius:50%;background:${accent};"></span>
-                <span style="width:10px;height:10px;border-radius:50%;background:${surface};"></span>
-                ${t.colors?.accent2 ? `<span style="width:10px;height:10px;border-radius:50%;background:${t.colors.accent2};"></span>` : ''}
-              </div>
-              <div style="font-size:10px;font-weight:700;color:${txt};font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isLocked?'🔒 ':''}${t.name}</div>
-              ${isActive ? `<div style="position:absolute;top:4px;right:4px;background:${accent};color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:6px;">✓</div>` : ''}
-              ${t.overlay?.type && t.overlay.type !== 'none' ? `<div style="position:absolute;bottom:3px;right:4px;font-size:7px;color:${muted};">✦</div>` : ''}
-            </div>`;
-          });
-          html += '</div></div>';
+        // Update active button state
+        document.querySelectorAll('.te-filter-btn').forEach(b => {
+          const isSel = b.dataset.cat === window._teActiveCat;
+          b.style.background = isSel ? 'var(--orange)' : 'var(--s2)';
+          b.style.color = isSel ? '#fff' : 'var(--m)';
         });
-        teSections.innerHTML = html;
-      } else {
-        // === Legacy fallback: use THEME_KEYS or NBD_THEMES ===
-        let legacyHTML = '<div class="panel" style="margin-bottom:16px;"><div class="panel-hdr"><div><div class="panel-label">Theme</div><div class="panel-title">Color Theme</div></div></div><div class="panel-body">';
-        if (typeof NBD_THEMES !== 'undefined') {
-          legacyHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">';
-          const activeT = window._nbd_activeTheme || current;
-          NBD_THEMES.forEach(t => {
-            const isAct = t.id === activeT;
-            legacyHTML += `<div onclick="if(typeof nbdApplyTheme==='function')nbdApplyTheme('${t.id}');else if(typeof applyTheme==='function')applyTheme('${t.id}');" style="background:${t.s||'#13171d'};border:2px solid ${isAct?t.accent:'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;transition:all .15s;">
-              <span style="width:10px;height:10px;border-radius:50%;background:${t.accent};display:inline-block;"></span>
-              <span style="font-size:10px;font-weight:700;color:#e8eaf0;font-family:'Barlow Condensed',sans-serif;">${t.name}${isAct?' ✓':''}</span>
-            </div>`;
-          });
-          legacyHTML += '</div>';
-        } else if (typeof THEME_KEYS !== 'undefined') {
-          legacyHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">';
-          THEME_KEYS.forEach(k => {
+
+        if (!TE) {
+          // Legacy: render from THEME_KEYS
+          const keys = typeof THEME_KEYS !== 'undefined' ? THEME_KEYS : [];
+          teGrid.innerHTML = keys.map(k => {
             const isAct = k === current;
-            legacyHTML += `<div onclick="applyTheme('${k}')" style="background:var(--s2);border:2px solid ${isAct?'var(--orange)':'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;">
-              <span style="font-size:10px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;text-transform:capitalize;">${k.replace(/-/g,' ')}${isAct?' ✓':''}</span>
-            </div>`;
-          });
-          legacyHTML += '</div>';
+            return `<div onclick="applyTheme('${k}')" style="background:var(--s2);border:2px solid ${isAct?'var(--orange)':'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;transition:all .15s;">
+              <div style="font-size:10px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;text-transform:capitalize;">${k.replace(/-/g,' ')}${isAct?' ✓':''}</div></div>`;
+          }).join('');
+          return;
         }
-        legacyHTML += '</div></div>';
-        teSections.innerHTML = legacyHTML;
+
+        // ThemeEngine: render themed cards
+        const allThemes = TE.getAll();
+        let entries = Object.entries(allThemes);
+        if (cat && cat !== 'all') entries = entries.filter(([,t]) => t.category === cat);
+
+        teGrid.innerHTML = entries.map(([key, t]) => {
+          const isActive = key === current;
+          const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
+          const bg = t.colors?.bg || '#1a1a2e';
+          const accent = t.colors?.accent || '#C8541A';
+          const surface = t.colors?.surface || '#16213e';
+          const txt = t.colors?.text || '#e2e8f0';
+          const muted = t.colors?.muted || '#6b7280';
+          return `<div onclick="${isLocked ? '' : `window._tePreviewTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};">
+            <div style="display:flex;gap:3px;margin-bottom:4px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:${accent};"></span>
+              <span style="width:10px;height:10px;border-radius:50%;background:${surface};"></span>
+              ${t.colors?.accent2 ? `<span style="width:10px;height:10px;border-radius:50%;background:${t.colors.accent2};"></span>` : ''}
+            </div>
+            <div style="font-size:10px;font-weight:700;color:${txt};font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isLocked?'🔒 ':''}${t.name}</div>
+            ${isActive ? `<div style="position:absolute;top:4px;right:4px;background:${accent};color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:6px;">✓</div>` : ''}
+            ${t.overlay?.type && t.overlay.type !== 'none' ? `<div style="position:absolute;bottom:3px;right:4px;font-size:7px;color:${muted};">✦</div>` : ''}
+          </div>`;
+        }).join('');
+      };
+
+      // Build filter buttons
+      const TE = window.ThemeEngine;
+      const btnStyle = 'padding:5px 10px;border-radius:14px;border:1px solid var(--br);font-size:10px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.04em;text-transform:uppercase;transition:all .15s;white-space:nowrap;';
+      let btns = `<button class="te-filter-btn" data-cat="all" onclick="window._teRenderSettingsGrid('all')" style="${btnStyle}background:var(--orange);color:#fff;">All</button>`;
+      if (TE) {
+        TE.getCategories().forEach(c => {
+          btns += `<button class="te-filter-btn" data-cat="${c.key}" onclick="window._teRenderSettingsGrid('${c.key}')" style="${btnStyle}background:var(--s2);color:var(--m);">${c.icon} ${c.label}</button>`;
+        });
       }
-      teSections.dataset.loaded = '1';
+      teCatBar.innerHTML = btns;
+
+      // Initial render: show all
+      window._teRenderSettingsGrid('all');
+      teGrid.dataset.loaded = '1';
+
       // Init achievements + builder
       if (window.ThemeAchievements?.renderAchievementPanel) window.ThemeAchievements.renderAchievementPanel('te-achievements-panel');
       if (window.ThemeBuilder?.renderBuilder) window.ThemeBuilder.renderBuilder('te-builder-panel');
