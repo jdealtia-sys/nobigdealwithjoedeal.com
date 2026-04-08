@@ -187,6 +187,14 @@ body { font-family:'Montserrat',sans-serif; background:var(--navy-deep); color:v
   <!-- RESULTS STATE -->
   <div class="results" id="resultsState">
     <div class="result-addr" id="resultAddr"></div>
+    
+    <!-- Tier Selector -->
+    <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
+      <button class="tier-tab" data-tier="good" onclick="switchTier('good')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-family:'Montserrat',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .2s;">Good · 3-Tab</button>
+      <button class="tier-tab active" data-tier="better" onclick="switchTier('better')" style="padding:8px 16px;border-radius:8px;border:1px solid var(--orange);background:rgba(232,114,12,.15);color:var(--orange);font-family:'Montserrat',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .2s;">Better · Architectural</button>
+      <button class="tier-tab" data-tier="best" onclick="switchTier('best')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-family:'Montserrat',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .2s;">Best · Designer</button>
+    </div>
+
     <div class="result-range">
       <div class="result-label">Your Ballpark Estimate</div>
       <div class="result-price" id="resultPrice">$8,500 <span>– $14,200</span></div>
@@ -390,6 +398,7 @@ RESPOND ONLY WITH THIS JSON:
 }
 
 function showResults(addr, est) {
+  _currentEstimate = est;
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('resultsState').style.display = 'block';
 
@@ -413,6 +422,31 @@ function showResults(addr, est) {
 
   // Smooth scroll to results
   document.getElementById('estimateCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+let _currentEstimate = null;
+const TIER_LABELS = { good: '3-Tab (Good)', better: 'Architectural (Better)', best: 'Designer (Best)' };
+
+function switchTier(tier) {
+  if (!_currentEstimate) return;
+  const t = _currentEstimate.tiers[tier];
+  if (!t) return;
+  
+  document.getElementById('resultPrice').innerHTML = `$${t.min.toLocaleString()} <span>– $${t.max.toLocaleString()}</span>`;
+  document.getElementById('detailTier').textContent = TIER_LABELS[tier] || tier;
+  
+  // Update tab styles
+  document.querySelectorAll('.tier-tab').forEach(btn => {
+    if (btn.dataset.tier === tier) {
+      btn.style.borderColor = 'var(--orange)';
+      btn.style.background = 'rgba(232,114,12,.15)';
+      btn.style.color = 'var(--orange)';
+    } else {
+      btn.style.borderColor = 'rgba(255,255,255,.1)';
+      btn.style.background = 'rgba(255,255,255,.04)';
+      btn.style.color = 'rgba(255,255,255,.5)';
+    }
+  });
 }
 
 function resetEstimate() {
