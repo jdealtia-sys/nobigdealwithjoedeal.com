@@ -8778,28 +8778,15 @@ For the address "${fullAddr}", search the auditor, find the parcel, and extract 
 If you cannot access the page, return your best estimate with "dataSource": "estimated" and null for unknown fields.
 RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 
-    const _piKey = getJoeKey ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
-    if (!_piKey || !_piKey.startsWith('sk-ant')) {
-      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Property Intel');
+    if (!window.callClaude) {
+      throw new Error('Claude proxy not loaded. Refresh the page and try again.');
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _piKey
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        messages: [{role: 'user', content: prompt}]
-      })
+    const data = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{role: 'user', content: prompt}]
     });
-
-    if(!resp.ok) throw new Error('API ' + resp.status);
-    const data = await resp.json();
 
     // Extract text from Anthropic response
     let rawText = data?.content?.[0]?.text || '';
@@ -10162,33 +10149,22 @@ async function handleQMFile(file) {
 }
 Return ONLY the JSON object. No other text.`;
 
-    const _qmKey = typeof getJoeKey === 'function' ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
-    if (!_qmKey || !_qmKey.startsWith('sk-ant')) {
-      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Quick Measure import');
+    if (!window.callClaude) {
+      throw new Error('Claude proxy not loaded. Refresh the page and try again.');
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _qmKey
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: prompt }
-          ]
-        }]
-      })
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
     });
 
-    const result = await resp.json();
     const raw = result?.content?.[0]?.text || '';
     const clean = raw.replace(/```json|```/g, '').trim();
     _qmData = JSON.parse(clean);

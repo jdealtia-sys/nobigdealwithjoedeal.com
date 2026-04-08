@@ -262,38 +262,26 @@ async function sendJoeMessage() {
   }));
 
   try {
-    // Use stored Anthropic key (set in Settings → Ask Joe AI)
-    const _joeApiKey = getJoeKey();
-    if (!_joeApiKey) {
-      hideJoeTyping();
-      appendJoeMessage('joe', '⚙️ To activate Joe AI, add your Anthropic API key in **Settings → Ask Joe AI**. Get a free key at console.anthropic.com — it takes 2 minutes.');
-      _joeTyping = false;
-      document.getElementById('joeSendBtn').disabled = false;
-      return;
+    // Use callClaude proxy (Cloud Function → fallback to localStorage key)
+    if (!window.callClaude) {
+      // Proxy not loaded yet — check for direct key as last resort
+      const _joeApiKey = getJoeKey();
+      if (!_joeApiKey) {
+        hideJoeTyping();
+        appendJoeMessage('joe', '⚙️ To activate Joe AI, add your Anthropic API key in **Settings → Ask Joe AI**. Get a free key at console.anthropic.com — it takes 2 minutes.');
+        _joeTyping = false;
+        document.getElementById('joeSendBtn').disabled = false;
+        return;
+      }
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _joeApiKey
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: apiMessages
-      })
+    const data = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: apiMessages
     });
 
-    if(!resp.ok) {
-      const err = await resp.json().catch(()=>({error:{message:'API error'}}));
-      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
-    }
-
-    const data = await resp.json();
     const reply = data?.content?.[0]?.text || 'Sorry, something went wrong. Try again.';
 
     hideJoeTyping();

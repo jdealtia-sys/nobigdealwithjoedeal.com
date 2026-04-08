@@ -76,33 +76,22 @@ async function handleQMFile(file) {
 }
 Return ONLY the JSON object. No other text.`;
 
-    const _qmKey = typeof getJoeKey === 'function' ? getJoeKey() : (localStorage.getItem('nbd_joe_key') || '');
-    if (!_qmKey || !_qmKey.startsWith('sk-ant')) {
-      throw new Error('Add your Anthropic API key in Settings → Ask Joe AI to use Quick Measure import');
+    if (!window.callClaude) {
+      throw new Error('Claude proxy not loaded. Refresh the page and try again.');
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _qmKey
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: prompt }
-          ]
-        }]
-      })
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
     });
 
-    const result = await resp.json();
     const raw = result?.content?.[0]?.text || '';
     const clean = raw.replace(/```json|```/g, '').trim();
     _qmData = JSON.parse(clean);
