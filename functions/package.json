@@ -3,7 +3,7 @@
   "description": "NBD Pro Cloud Functions — API proxy and security layer",
   "version": "1.0.0",
   "engines": {
-    "node": "18"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {

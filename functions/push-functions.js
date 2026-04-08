@@ -516,13 +516,13 @@ exports.sendCustomNotification = async (uid, title, body, data = {}) => {
 };
 
 module.exports = {
-  onNewLead,
-  onAppointmentReminder,
-  onFollowUpDue,
-  onClaimStageChange,
-  sendTeamNotification,
-  sendStreakNotification,
-  sendCustomNotification,
-  sendPushNotification,
-  getUserFCMTokens
+  onNewLead: exports.onNewLead,
+  onAppointmentReminder: exports.onAppointmentReminder,
+  onFollowUpDue: exports.onFollowUpDue,
+  onClaimStageChange: exports.onClaimStageChange,
+  sendTeamNotification: exports.sendTeamNotification,
+  sendStreakNotification: exports.sendStreakNotification,
+  sendCustomNotification: exports.sendCustomNotification,
+  sendPushNotification: exports.sendPushNotification,
+  getUserFCMTokens: exports.getUserFCMTokens
 };
