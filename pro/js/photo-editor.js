@@ -123,6 +123,20 @@
   /* ==========================================
      UTILITY
      ========================================== */
+  // roundRect polyfill for older browsers
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+      if (typeof r === 'number') r = [r, r, r, r];
+      const [tl, tr, br, bl] = r;
+      this.moveTo(x + tl, y);
+      this.lineTo(x + w - tr, y); this.arcTo(x + w, y, x + w, y + tr, tr);
+      this.lineTo(x + w, y + h - br); this.arcTo(x + w, y + h, x + w - br, y + h, br);
+      this.lineTo(x + bl, y + h); this.arcTo(x, y + h, x, y + h - bl, bl);
+      this.lineTo(x, y + tl); this.arcTo(x, y, x + tl, y, tl);
+      this.closePath();
+    };
+  }
+
   const uid = () => 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -213,18 +227,19 @@
 
   /* ==========================================
      COORDINATE TRANSFORMS
+     Uses the canvas wrapper's own bounding rect for accuracy.
+     The wrapper is positioned with transform-origin: 0 0 and
+     translate + scale, so its getBoundingClientRect gives us
+     the exact on-screen position and size.
      ========================================== */
   function screenToCanvas(clientX, clientY) {
-    const area = root?.querySelector('.nbd-canvas-area');
-    if (!area || !annoCanvas) return { x: 0, y: 0 };
-    const rect = area.getBoundingClientRect();
-    const areaW = rect.width, areaH = rect.height;
-    const dispW = S.imgW * S.zoom, dispH = S.imgH * S.zoom;
-    const offX = (areaW - dispW) / 2 + S.panX;
-    const offY = (areaH - dispH) / 2 + S.panY;
+    const wrapper = root?.querySelector('.nbd-canvas-wrapper');
+    if (!wrapper) return { x: 0, y: 0 };
+    const rect = wrapper.getBoundingClientRect();
+    // rect already accounts for zoom (scale) since getBoundingClientRect returns rendered size
     return {
-      x: (clientX - rect.left - offX) / S.zoom,
-      y: (clientY - rect.top - offY) / S.zoom
+      x: (clientX - rect.left) / S.zoom,
+      y: (clientY - rect.top) / S.zoom
     };
   }
 
@@ -232,12 +247,18 @@
     const wrapper = root?.querySelector('.nbd-canvas-wrapper');
     if (!wrapper) return;
     const area = root.querySelector('.nbd-canvas-area');
+    if (!area) return;
     const areaRect = area.getBoundingClientRect();
-    const dispW = S.imgW * S.zoom, dispH = S.imgH * S.zoom;
-    const tx = (areaRect.width - dispW) / 2 + S.panX;
-    const ty = (areaRect.height - dispH) / 2 + S.panY;
+    const scaledW = S.imgW * S.zoom, scaledH = S.imgH * S.zoom;
+    // Center the scaled canvas in the area, then apply pan offset
+    const tx = (areaRect.width - scaledW) / 2 + S.panX;
+    const ty = (areaRect.height - scaledH) / 2 + S.panY;
     wrapper.style.width = S.imgW + 'px';
     wrapper.style.height = S.imgH + 'px';
+    wrapper.style.transformOrigin = '0 0';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
     wrapper.style.transform = `translate(${tx}px, ${ty}px) scale(${S.zoom})`;
   }
 
@@ -538,6 +559,8 @@
      CANVAS EVENT HANDLERS
      ========================================== */
   function onPointerDown(e) {
+    // Only handle left-click or touch on the canvas area
+    if (e.button && e.button !== 0 && e.button !== 1) return;
     e.preventDefault();
     const coords = screenToCanvas(e.clientX, e.clientY);
 
@@ -597,6 +620,7 @@
   }
 
   function onPointerMove(e) {
+    if (!root) return;
     if (S.isPanning && S.dragMode === 'pan') {
       S.panX += e.clientX - S.panStartX;
       S.panY += e.clientY - S.panStartY;
@@ -641,6 +665,7 @@
   }
 
   function onPointerUp(e) {
+    if (!root) return;
     if (S.dragMode === 'pan') { S.dragMode = null; return; }
 
     // Selection drag end
@@ -679,8 +704,23 @@
 
   function onWheel(e) {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    S.zoom = clamp(S.zoom * delta, 0.15, 8);
+    const area = root?.querySelector('.nbd-canvas-area');
+    if (!area) return;
+    const areaRect = area.getBoundingClientRect();
+
+    // Mouse position relative to area center
+    const mx = e.clientX - areaRect.left - areaRect.width / 2;
+    const my = e.clientY - areaRect.top - areaRect.height / 2;
+
+    const oldZoom = S.zoom;
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    S.zoom = clamp(S.zoom * factor, 0.15, 8);
+    const ratio = S.zoom / oldZoom;
+
+    // Adjust pan so zoom centers on cursor position
+    S.panX = mx - ratio * (mx - S.panX);
+    S.panY = my - ratio * (my - S.panY);
+
     applyTransform();
     renderMinimap();
     updateZoomDisplay();
@@ -1321,13 +1361,10 @@
       thumb.addEventListener('click', () => switchPhoto(parseInt(thumb.dataset.photoIdx)));
     });
 
-    // Canvas events
+    // Canvas events — listen on the canvas area for draw/click
     const canvasArea = root.querySelector('.nbd-canvas-area');
     if (canvasArea) {
       canvasArea.addEventListener('mousedown', onPointerDown);
-      canvasArea.addEventListener('mousemove', onPointerMove);
-      canvasArea.addEventListener('mouseup', onPointerUp);
-      canvasArea.addEventListener('mouseleave', (e) => { if (isDrawing) onPointerUp(e); });
       canvasArea.addEventListener('wheel', onWheel, { passive: false });
       canvasArea.addEventListener('touchstart', onTouchStart, { passive: false });
       canvasArea.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -1341,6 +1378,13 @@
         if (hit) showContextMenu(e.clientX, e.clientY, hit);
       });
     }
+
+    // Mouse move/up on window so drags work even when cursor leaves canvas
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', (e) => {
+      onPointerUp(e);
+      if (S.dragMode === 'pan') S.dragMode = null;
+    });
 
     // Keyboard
     document.addEventListener('keydown', onKeyDown);
@@ -1419,12 +1463,19 @@
      ========================================== */
   function fitZoom() {
     const area = root?.querySelector('.nbd-canvas-area');
-    if (!area) return;
+    if (!area || !S.imgW || !S.imgH) return;
     const areaRect = area.getBoundingClientRect();
-    const scaleX = (areaRect.width - 40) / S.imgW;
-    const scaleY = (areaRect.height - 40) / S.imgH;
-    S.zoom = Math.min(scaleX, scaleY, 1);
-    S.panX = 0; S.panY = 0;
+    // If area hasn't laid out yet (zero size), retry after frame
+    if (areaRect.width < 10 || areaRect.height < 10) {
+      requestAnimationFrame(fitZoom);
+      return;
+    }
+    const pad = 30; // padding around image
+    const scaleX = (areaRect.width - pad * 2) / S.imgW;
+    const scaleY = (areaRect.height - pad * 2) / S.imgH;
+    S.zoom = Math.min(scaleX, scaleY, 1.5); // allow slight upscale for small images
+    S.panX = 0;
+    S.panY = 0;
     applyTransform();
     renderMinimap();
     updateZoomDisplay();
@@ -1632,8 +1683,14 @@
     S.selectedId = null;
     S.guidedActive = false;
     S.guidedPreset = null;
+    isDrawing = false;
+    S.dragMode = null;
+    S.isPanning = false;
+    // Clean up window-level listeners
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('keyup', onKeyUp);
+    window.removeEventListener('mousemove', onPointerMove);
+    // Note: anonymous mouseup wrapper can't be removed, but it safely no-ops when root is null
   }
 
   /* ==========================================
@@ -1685,10 +1742,12 @@
       wireEvents();
       render();
 
-      // Fit after layout settles
+      // Fit after layout settles — double rAF ensures DOM has painted
       requestAnimationFrame(() => {
-        fitZoom();
-        updateCursor();
+        requestAnimationFrame(() => {
+          fitZoom();
+          updateCursor();
+        });
       });
 
       // Load existing photo metadata from Firestore

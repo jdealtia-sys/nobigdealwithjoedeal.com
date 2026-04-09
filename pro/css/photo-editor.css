@@ -238,14 +238,13 @@
   position: relative;
   overflow: hidden;
   background: #0d0d1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* No flex centering — wrapper is positioned absolutely via JS transform */
 }
 
 .nbd-canvas-wrapper {
-  position: relative;
-  transform-origin: center center;
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
   cursor: crosshair;
   box-shadow: 0 0 40px rgba(0,0,0,.5);
 }
