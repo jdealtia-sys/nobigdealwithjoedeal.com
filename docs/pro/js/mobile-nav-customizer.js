@@ -605,6 +605,38 @@ function addCustomizeToMoreMenu() {
   moreMenu.appendChild(item);
 }
 
+function addCustomizeToSettings() {
+  const panel = document.getElementById('stab-panel-appearance');
+  if (!panel || panel.querySelector('#ncm-settings-panel')) return;
+
+  const currentTabs = loadTabs();
+  const tabLabels = currentTabs.map(id => {
+    const t = TAB_REGISTRY.find(r => r.id === id);
+    return t ? t.icon + ' ' + t.label : id;
+  }).join('  →  ');
+
+  const section = document.createElement('div');
+  section.id = 'ncm-settings-panel';
+  section.className = 'panel';
+  section.style.marginBottom = '16px';
+  section.innerHTML = `
+    <div class="panel-hdr"><div><div class="panel-label">Navigation</div><div class="panel-title">Mobile Tab Bar</div></div></div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Choose which 4 tabs appear in your bottom navigation bar.</p>
+      <div style="font-size:12px;color:var(--t);margin-bottom:14px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1px solid var(--br);">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);font-weight:700;margin-bottom:6px;font-family:'Barlow Condensed',sans-serif;">Current Layout</div>
+        ${tabLabels}
+      </div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;padding:10px 14px;" onclick="if(typeof openNavCustomizer==='function')openNavCustomizer()">
+        ⚡ Customize Tab Bar
+      </button>
+    </div>
+  `;
+
+  // Insert at the top of the appearance panel
+  panel.insertBefore(section, panel.firstChild);
+}
+
 
 // ══════════════════════════════════════════════════════════════
 //  INIT
@@ -614,6 +646,7 @@ function init() {
   injectCSS();
   renderBottomNav();
   addCustomizeToMoreMenu();
+  addCustomizeToSettings();
 
   // Background Firestore sync once auth is ready
   if (window.auth && window._onAuthStateChanged) {
