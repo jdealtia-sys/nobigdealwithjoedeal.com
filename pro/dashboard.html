@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="nbd-original">
 <head>
 <style id="theme-system">
@@ -7362,6 +7362,14 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
+        <!-- GX Effects: Glow & Animation -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">GX Effects</div><div class="panel-title">Glow & Animation</div></div></div>
+          <div class="panel-body">
+            <div id="gx-settings-panel"></div>
+          </div>
+        </div>
+
         <!-- Achievement Themes -->
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Achievements</div><div class="panel-title">Unlock Special Themes</div></div></div>
@@ -9621,6 +9629,8 @@ document.addEventListener('DOMContentLoaded', () => {
       window.ThemeEngine.init();
       if(window.ThemeOverlays) window.ThemeOverlays.init();
       if(window.ThemeSounds) window.ThemeSounds.init();
+      if(window.ThemeGX) window.ThemeGX.init({ intensity: 0.6, glow: true, animatedBg: true });
+      if(window.ThemeGXPanel) ThemeGXPanel.render('gx-settings-panel');
     }
   }, 500);
   // Boot achievements after leads load
@@ -11485,6 +11495,8 @@ function shareCalViaEmail() {
 <script defer src="js/theme-sounds.js?v=2"></script>
 <script defer src="js/theme-achievements.js?v=2"></script>
 <script defer src="js/theme-builder.js?v=2"></script>
+<script defer src="js/theme-gx.js?v=1"></script>
+<script defer src="js/theme-gx-panel.js?v=1"></script>
 <script defer src="js/offline-manager.js?v=2"></script>
 <script defer src="js/stripe-billing.js?v=2"></script>
 <script defer src="js/push-notifications.js?v=2"></script>

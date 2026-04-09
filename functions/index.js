@@ -727,3 +727,8 @@ exports.invoiceWebhook = onRequest(
     }
   }
 );
+
+
+// ── Verification Functions (SMS OTP + Lead Notifications) ──
+const verifyFunctions = require('./verify-functions');
+Object.assign(exports, verifyFunctions);
