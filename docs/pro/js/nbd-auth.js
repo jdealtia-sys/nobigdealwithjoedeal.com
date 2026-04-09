@@ -298,9 +298,9 @@ export const NBDAuth = {
     wall.innerHTML = `
       <style>
         #nbd-upgrade-wall {
-          position: fixed; inset: 0; z-index: 99999;
+          position: fixed; top:0;right:0;bottom:0;left:0; z-index: 99999;
           background: rgba(5,6,8,0.92);
-          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(12px);
           display: flex; align-items: center; justify-content: center;
           font-family: 'Barlow', 'DM Sans', -apple-system, sans-serif;
           animation: nbdWallIn .3s ease both;

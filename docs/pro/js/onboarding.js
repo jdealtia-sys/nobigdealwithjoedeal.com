@@ -143,13 +143,13 @@
     overlay.id = 'onboardingOverlay';
     overlay.style.cssText = `
       position: fixed;
-      inset: 0;
+      top:0;right:0;bottom:0;left:0;
       background: rgba(10, 12, 15, 0.92);
       z-index: 100000;
       display: flex;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(8px);
     `;
     document.body.appendChild(overlay);
     renderStep();

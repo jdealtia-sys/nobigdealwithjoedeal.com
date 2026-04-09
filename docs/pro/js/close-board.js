@@ -305,7 +305,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .schedule-section{margin-top:20px;text-align:center;}
 .schedule-input{padding:12px;background:#1e2028;border:1px solid #2a2d35;border-radius:8px;color:#e5e7eb;font-size:14px;font-family:'Barlow',sans-serif;width:100%;max-width:300px;}
 .footer{text-align:center;padding:30px 20px;font-size:11px;color:#8b8e96;border-top:1px solid #2a2d35;margin-top:30px;}
-.success-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.success-overlay{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
 .success-overlay.show{display:flex;}
 .success-icon{font-size:60px;}
 .success-text{font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;}

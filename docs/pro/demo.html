@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   border-bottom:1px solid var(--border);
 }
 .demo-hero::before{
-  content:'';position:absolute;inset:0;
+  content:'';position:absolute;top:0;right:0;bottom:0;left:0;
   background:radial-gradient(ellipse 800px 400px at 50% 0%,rgba(0,212,255,0.07) 0%,transparent 70%);
   pointer-events:none;
 }
@@ -166,7 +166,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   box-shadow:0 2px 8px rgba(0,0,0,0.3);
 }
 .tc-mockup::before{
-  content:'';position:absolute;inset:0;
+  content:'';position:absolute;top:0;right:0;bottom:0;left:0;
   background:linear-gradient(135deg,rgba(0,212,255,.03) 0%,transparent 60%);
   pointer-events:none;z-index:1;
 }
@@ -247,7 +247,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   border-top:1px solid var(--border);
 }
 .demo-cta::before{
-  content:'';position:absolute;inset:0;
+  content:'';position:absolute;top:0;right:0;bottom:0;left:0;
   background:radial-gradient(ellipse 700px 350px at 50% 100%,rgba(232,114,12,0.07) 0%,transparent 70%);
   pointer-events:none;
 }
@@ -331,7 +331,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 <body>
 
 <!-- NAV PLACEHOLDER — replaced by inject script -->
-<nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(15,29,66,0.97);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,114,12,0.25);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
+<nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(15,29,66,0.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,114,12,0.25);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
   <a href="/pro/" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
     <div style="width:32px;height:32px;background:#e8720c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:#fff;">NBD</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#f0f6fc">No Big <span style="color:#e8720c">Deal</span></div>

@@ -723,7 +723,7 @@ window._tePreviewTheme = function(key) {
   if (!document.getElementById('te-confirm-bar')) {
     const bar = document.createElement('div');
     bar.id = 'te-confirm-bar';
-    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--s);border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;backdrop-filter:blur(12px);';
+    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--s);border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);';
     bar.innerHTML = `
       <div style="font-size:13px;color:var(--t);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.04em;">PREVIEWING THEME</div>
       <div style="display:flex;gap:8px;">

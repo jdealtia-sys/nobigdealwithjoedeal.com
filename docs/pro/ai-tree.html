@@ -12,10 +12,10 @@
 [data-theme="light"]{--bg:#F5F6FA;--bg2:#ECEEF5;--surface:#FFFFFF;--surface2:#F0F2F9;--border:#DDE1EE;--border2:#C8CEDF;--text:#0D0F14;--text2:#4A5068;--text3:#8B92AA;--accent:var(--nbd-orange);--accent-dim:rgba(249,115,22,0.08);--accent-glow:rgba(249,115,22,0.18);--blue:#0284C7;--blue-dim:rgba(2,132,199,0.08);--shadow:0 4px 20px rgba(13,15,20,0.08);--shadow-lg:0 12px 48px rgba(13,15,20,0.12)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background var(--t) var(--ease),color var(--t) var(--ease);overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;transition:background var(--t) var(--ease),color var(--t) var(--ease);overflow-x:hidden}
+body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
 [data-theme="dark"] body::after{content:'';position:fixed;top:-200px;left:-100px;width:700px;height:700px;background:radial-gradient(ellipse,rgba(249,115,22,.04) 0%,transparent 65%);pointer-events:none;z-index:0}
-.app-wrap{position:relative;z-index:1;display:grid;grid-template-rows:auto auto 1fr;min-height:100vh}
+.app-wrap{position:relative;z-index:1;display:grid;grid-template-rows:auto auto 1fr;min-height:100vh;min-height:100dvh}
 
 /* TOPBAR */
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;height:58px;position:sticky;top:0;z-index:100;transition:background var(--t) var(--ease)}
@@ -37,7 +37,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .theme-toggle{width:56px;height:28px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;position:relative;transition:all var(--t) var(--ease);flex-shrink:0}
 .theme-toggle::before{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--accent);transition:transform var(--t) var(--ease);box-shadow:0 2px 6px var(--accent-glow)}
 [data-theme="light"] .theme-toggle::before{transform:translateX(28px)}
-.theme-toggle-icons{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:11px;pointer-events:none}
+.theme-toggle-icons{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:11px;pointer-events:none}
 .pro-chip{padding:4px 10px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase}
 
 /* COST BAR */
@@ -207,7 +207,7 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
 .hsc-lbl{font-size:11px;color:var(--text3);margin-top:2px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
 
 /* SEARCH */
-.sovl{position:fixed;inset:0;background:rgba(13,15,20,.75);backdrop-filter:blur(6px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
+.sovl{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(13,15,20,.75);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
 .sovl.open{display:flex;animation:fi .15s var(--ease)}
 @keyframes fi{from{opacity:0}to{opacity:1}}
 .sbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:580px;box-shadow:var(--shadow-lg);overflow:hidden;animation:dd .2s var(--ease)}
@@ -233,7 +233,7 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
 .sdiv{height:1px;background:var(--border);margin:8px 0}
 
 /* DETAIL PANEL */
-.dovl{position:fixed;inset:0;background:rgba(13,15,20,.6);backdrop-filter:blur(4px);z-index:150;display:none}
+.dovl{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(13,15,20,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:150;display:none}
 .dovl.open{display:block;animation:fi .15s var(--ease)}
 .dpanel{position:fixed;right:0;top:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--border);z-index:151;overflow-y:auto;display:none;box-shadow:var(--shadow-lg)}
 .dpanel.open{display:block;animation:sir .25s var(--ease)}
@@ -505,7 +505,7 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
 .tbl-acts{display:flex;gap:4px;justify-content:flex-end}
 
 /* ── ADD ACCOUNT MODAL ── */
-.modal-ovl{position:fixed;inset:0;background:rgba(13,15,20,.75);backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-ovl{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(13,15,20,.75);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
 .modal-ovl.open{display:flex;animation:fi .15s var(--ease)}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);width:100%;max-width:560px;box-shadow:var(--shadow-lg);overflow:hidden;animation:su .2s var(--ease)}
 .modal-hd{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
@@ -572,7 +572,7 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
   z-index: 1000;
   height: var(--nbd-nav-h);
   background: rgba(15,29,66,0.97);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--nbd-nav-border);
   display: flex;
   align-items: center;
@@ -704,7 +704,7 @@ canvas.mc{width:160px;height:48px;flex-shrink:0}
   left: 0; right: 0; bottom: 0;
   z-index: 999;
   background: rgba(8,12,24,.97);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(16px);
   flex-direction: column;
   overflow-y: auto;
 }
@@ -1569,7 +1569,7 @@ window.nbdNavToggle = nbdNavToggle;
 <div class="tcon" id="tcon"></div>
 
 <!-- API Key Config Modal -->
-<div id="keyConfigOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeKeyConfig()">
+<div id="keyConfigOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeKeyConfig()">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;max-width:440px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.3)">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px;color:var(--text);margin-bottom:4px">🔑 API KEY CONFIG</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:16px;font-family:'DM Sans',sans-serif">Enter your Anthropic API key for AI-powered comparison and 10X analysis. Without a key, the app uses a smart offline engine.</div>

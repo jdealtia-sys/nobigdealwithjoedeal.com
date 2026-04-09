@@ -229,7 +229,7 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
 .brand{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin-bottom:16px;}
 .hero h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;margin-bottom:6px;}
 .hero .addr{font-size:14px;opacity:.8;margin-bottom:24px;}
-.status-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:24px;max-width:500px;margin:0 auto;backdrop-filter:blur(8px);}
+.status-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:24px;max-width:500px;margin:0 auto;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
 .status-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.7;margin-bottom:8px;}
 .status-stage{font-size:22px;font-weight:700;margin-bottom:16px;}
 .progress-track{background:rgba(255,255,255,.15);border-radius:20px;height:12px;overflow:hidden;}

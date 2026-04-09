@@ -29,10 +29,10 @@ html{scroll-behavior:smooth}
   --white:#f0f6fc;--muted:#8b9bb4;--dim:#4a5568;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
 }
-body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden}
 
 /* ── LOCK SCREEN ── */
-#lock-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
+#lock-screen{position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
 .lock-box{width:100%;max-width:380px;padding:48px 40px;text-align:center}
 .lock-icon{font-size:40px;margin-bottom:20px;filter:drop-shadow(0 0 20px rgba(0,212,255,0.3))}
 .lock-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--white);margin-bottom:6px}
@@ -45,11 +45,11 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min
 .lock-hint{margin-top:20px;font-size:10px;color:var(--dim);letter-spacing:.5px}
 
 /* ── APP SHELL ── */
-#app{display:none;flex-direction:column;min-height:100vh}
+#app{display:none;flex-direction:column;min-height:100vh;min-height:100dvh}
 #app.unlocked{display:flex}
 
 /* ── TOPBAR ── */
-.topbar{height:56px;background:rgba(6,10,18,0.97);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+.topbar{height:56px;background:rgba(6,10,18,0.97);border-bottom:1px solid var(--border);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
 .tb-brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
 .tb-mark{width:32px;height:32px;background:var(--cyan);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#000;letter-spacing:1px;flex-shrink:0}
 .tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--white);line-height:1}
@@ -137,7 +137,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min
 .tl-card.expanded .tl-detail{display:block}
 
 /* ── ADD SESSION MODAL ── */
-.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,0.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--s);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7)}
 .modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -211,7 +211,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min
 .version-label{font-size:12px;color:var(--white);font-weight:600}
 
 /* ── SETUP WIZARD ── */
-#setup-screen{position:fixed;inset:0;z-index:500;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
+#setup-screen{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
 #setup-screen.open{display:flex}
 .setup-box{width:100%;max-width:560px}
 .setup-step{display:none}

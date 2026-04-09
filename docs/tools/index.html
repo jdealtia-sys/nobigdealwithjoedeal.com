@@ -51,13 +51,13 @@ body {
   font-family: 'Barlow', sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  min-height: 100vh;min-height: 100dvh;
   overflow-x: hidden;
 }
 body::before {
   content: '';
   position: fixed;
-  inset: 0;
+  top:0;right:0;bottom:0;left:0;
   background: radial-gradient(ellipse at 20% 10%, rgba(200,84,26,0.03), transparent 50%),
               radial-gradient(ellipse at 80% 80%, rgba(74,158,255,0.02), transparent 50%);
   pointer-events: none;
@@ -68,7 +68,7 @@ body::before {
   height: 56px;
   background: rgba(14,17,24,0.95);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: space-between;

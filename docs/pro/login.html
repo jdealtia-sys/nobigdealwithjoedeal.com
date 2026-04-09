@@ -25,7 +25,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 
 /* BRAND PANEL */
 .bp{background:var(--navy-dark);position:relative;overflow:hidden;display:flex;flex-direction:column;padding:48px 56px}
-.bp::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(255,255,255,0.018) 60px,rgba(255,255,255,0.018) 61px);pointer-events:none}
+.bp::before{content:'';position:absolute;top:0;right:0;bottom:0;left:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(255,255,255,0.018) 60px,rgba(255,255,255,0.018) 61px);pointer-events:none}
 .bp::after{content:'';position:absolute;bottom:-60px;left:-60px;width:500px;height:500px;background:radial-gradient(circle,rgba(232,114,12,0.1) 0%,transparent 65%);pointer-events:none}
 .bp-top{position:relative;z-index:1}
 .bp-logo{display:flex;align-items:center;gap:12px;text-decoration:none;margin-bottom:8px}

@@ -27,7 +27,7 @@
   // Inject modal styles once
   const style = document.createElement('style');
   style.textContent = `
-    .sa-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:sa-fade-in .15s ease;}
+    .sa-overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:sa-fade-in .15s ease;}
     @keyframes sa-fade-in{from{opacity:0}to{opacity:1}}
     .sa-box{background:var(--s2,#1c1c1e);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:14px;padding:22px;max-width:320px;width:100%;color:var(--t,#fff);font-family:-apple-system,BlinkMacSystemFont,'Barlow',sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:sa-pop .2s ease;}
     @keyframes sa-pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}

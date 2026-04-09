@@ -31,7 +31,7 @@
   --error: #ef4444;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(--white);min-height:100vh;overflow-x:hidden;}
+body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(--white);min-height:100vh;min-height:100dvh;overflow-x:hidden;}
 
 /* ── Nav ── */
 .nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px;}
@@ -69,7 +69,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 .step-subtitle{color:rgba(255,255,255,.5);font-size:.9rem;text-align:center;line-height:1.6;margin-bottom:32px;max-width:480px;margin-left:auto;margin-right:auto;}
 
 /* ── Card ── */
-.funnel-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:32px 28px;position:relative;backdrop-filter:blur(8px);}
+.funnel-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:32px 28px;position:relative;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
 .funnel-card-glow{position:absolute;top:-1px;left:20%;right:20%;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);border-radius:2px;}
 
 /* ── Input Styles ── */
@@ -117,7 +117,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 .satellite-container img{width:100%;height:auto;display:block;}
 .satellite-placeholder{text-align:center;padding:40px 20px;color:rgba(255,255,255,.4);}
 .satellite-placeholder .icon{font-size:3rem;margin-bottom:12px;}
-.satellite-address{background:rgba(0,0,0,.6);padding:10px 16px;font-size:.8rem;font-weight:600;text-align:center;border-radius:0 0 10px 10px;position:absolute;bottom:0;left:0;right:0;backdrop-filter:blur(4px);}
+.satellite-address{background:rgba(0,0,0,.6);padding:10px 16px;font-size:.8rem;font-weight:600;text-align:center;border-radius:0 0 10px 10px;position:absolute;bottom:0;left:0;right:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
 
 /* ── Ballpark Reveal ── */
 .ballpark-hero{text-align:center;padding:32px 0;}

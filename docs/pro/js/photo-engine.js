@@ -102,7 +102,7 @@
 
       .pe-modal {
         position: fixed;
-        inset: 0;
+        top:0;right:0;bottom:0;left:0;
         background: #000;
         display: flex;
         flex-direction: column;
@@ -128,7 +128,7 @@
       .pe-cam-back {
         width: 44px; height: 44px;
         background: rgba(255,255,255,.12);
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border: none; border-radius: 50%;
         color: #fff; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
@@ -146,7 +146,7 @@
       .pe-cam-tool {
         width: 44px; height: 44px;
         background: rgba(255,255,255,.12);
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border: none; border-radius: 50%;
         color: #fff; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
@@ -158,7 +158,7 @@
       .pe-preset-badge {
         padding: 4px 10px;
         background: rgba(255,255,255,.15);
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border: 1px solid rgba(255,255,255,.2);
         border-radius: 6px;
         font-size: 11px; font-weight: 700;
@@ -194,7 +194,7 @@
       .pe-cam-counter {
         width: 48px; height: 48px;
         background: rgba(255,255,255,.12);
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border-radius: 12px;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
@@ -227,7 +227,7 @@
       .pe-cam-capture:active::after { background: #fff; }
       @keyframes pe-flash { 0%{opacity:1} 100%{opacity:0} }
       .pe-cam-flash-overlay {
-        position: absolute; inset: 0;
+        position: absolute; top:0;right:0;bottom:0;left:0;
         background: #fff; opacity: 0;
         pointer-events: none; z-index: 5;
       }
@@ -804,14 +804,16 @@
       state.cameraStream = stream;
       video.srcObject = stream;
 
-      // Initialize ImageCapture API for flash
+      // Check for flash capability (Safari doesn't support ImageCapture API)
       const videoTrack = stream.getVideoTracks()[0];
-      imageCapture = new ImageCapture(videoTrack);
-
-      // Check for flash capability
-      const capabilities = videoTrack.getCapabilities();
-      if (!capabilities.torch) {
-        flashBtn.style.opacity = '0.5';
+      try {
+        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+        if (!capabilities.torch) {
+          flashBtn.style.opacity = '0.3';
+          flashBtn.disabled = true;
+        }
+      } catch(e) {
+        flashBtn.style.opacity = '0.3';
         flashBtn.disabled = true;
       }
     } catch (err) {
@@ -842,22 +844,23 @@
         video.srcObject = stream;
 
         const videoTrack = stream.getVideoTracks()[0];
-        imageCapture = new ImageCapture(videoTrack);
       } catch (err) {
         showToast('Could not switch camera', 'error');
       }
     };
 
-    // Flash toggle
+    // Flash toggle (works without ImageCapture API)
     flashBtn.onclick = async () => {
-      if (!imageCapture) return;
+      if (flashBtn.disabled) return;
       torch = !torch;
       try {
         const track = state.cameraStream.getVideoTracks()[0];
         await track.applyConstraints({ advanced: [{ torch: torch }] });
         flashBtn.classList.toggle('active', torch);
       } catch (err) {
-        showToast('Flash not available', 'warning');
+        flashBtn.disabled = true;
+        flashBtn.style.opacity = '0.3';
+        showToast('Flash not available on this device', 'warning');
       }
     };
 

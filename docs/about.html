@@ -129,7 +129,7 @@ nav {
   position: relative; overflow: hidden;
 }
 .service-hero::before {
-  content: ''; position: absolute; inset: 0;
+  content: ''; position: absolute; top:0;right:0;bottom:0;left:0;
   background: linear-gradient(135deg, rgba(232,114,12,0.12) 0%, transparent 60%);
 }
 .hero-inner { position: relative; max-width: 800px; }
@@ -345,7 +345,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 }
 
 .about-hero { background:var(--navy-dark); padding:80px 5% 70px; position:relative; overflow:hidden; }
-.about-hero::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(232,114,12,.1) 0%,transparent 60%); }
+.about-hero::before { content:''; position:absolute; top:0;right:0;bottom:0;left:0; background:linear-gradient(135deg,rgba(232,114,12,.1) 0%,transparent 60%); }
 .about-inner { position:relative; max-width:860px; }
 .about-lead { font-size:clamp(2.2rem,5vw,4rem); font-family:'Bebas Neue',sans-serif; color:#fff; line-height:1.05; margin-bottom:24px; letter-spacing:.02em; }
 .about-lead span { color:var(--orange); }
