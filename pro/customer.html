@@ -852,12 +852,9 @@ header {
   <div class="tab-content" id="photosTab">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div class="panel">
-        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;">
-          Project Photos by Phase
-          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>
-            Upload Photos
-          </button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Project Photos by Phase</div>
+          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">📤 Upload Photos</button>
         </div>
         <div id="photosByPhase">
           <div class="empty">
@@ -865,10 +862,8 @@ header {
             Loading photos...
           </div>
         </div>
-        <div class="upload-zone" onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;">
-          <div style="font-size:28px;margin-bottom:6px;">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg>
-          </div>
+        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;">
+          <div style="font-size:28px;margin-bottom:6px;">📸</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag & drop photos here</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse - JPG, PNG, HEIC up to 10MB</div>
         </div>
@@ -2014,17 +2009,17 @@ async function loadCustomerData(id) {
       document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
     }
     
-    // Load photos — overview grid + photos-by-phase tab
+    // Load photos into overview grid
     try { await loadPhotos(id); } catch (e) {
       console.error('Photos load failed:', e);
       const pl = document.getElementById('photoList');
-      if (pl) pl.innerHTML = '<div class="upload-zone" onclick="openUploadModal()" style="padding:20px;text-align:center;cursor:pointer;border:2px dashed var(--border);border-radius:10px;"><div style="font-size:24px;margin-bottom:4px;">📸</div><div style="font-size:13px;font-weight:600;">No photos yet — click to upload</div></div>';
+      if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet — click Upload above</div>';
     }
-    try {
-      if (window.loadPhotosByPhase) await window.loadPhotosByPhase(id);
-    } catch (e) {
-      console.error('Photos by phase load failed:', e);
-      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+    // Load photos by phase (Photos tab)
+    try { if (window.loadPhotosByPhase) await window.loadPhotosByPhase(id); } catch (e) {
+      console.error('Photos by phase failed:', e);
+      const pp = document.getElementById('photosByPhase');
+      if (pp) pp.innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
     }
     
     try { 
@@ -2066,7 +2061,7 @@ async function loadCustomerData(id) {
       }
     } catch (e) { console.warn('Claim workflow render failed:', e.message); }
 
-    // Load portal sub-sections individually
+    // Load portal sub-sections
     try { if (window.loadInvoices) await window.loadInvoices(id); } catch (e) { console.warn('Invoices load failed:', e.message); }
     try { if (window.loadReports) await window.loadReports(id); } catch (e) { console.warn('Reports load failed:', e.message); }
     try { if (window.loadCommunicationLog) await window.loadCommunicationLog(id); } catch (e) { console.warn('Comm log load failed:', e.message); }
@@ -3919,4 +3914,111 @@ window.loadCommunicationLog = async function(leadId) {
 
     emailSnap.forEach(doc => {
       const data = doc.data();
-      c
+      comms.push({
+        type: 'email',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.subject || 'Email',
+        preview: data.body?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    smsSnap.forEach(doc => {
+      const data = doc.data();
+      comms.push({
+        type: 'sms',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.message || 'Text Message',
+        preview: data.message?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    // Sort by date descending
+    comms.sort((a, b) => b.date - a.date);
+    comms = comms.slice(0, 20);
+
+    if (comms.length === 0) {
+      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>No messages yet</div>';
+      return;
+    }
+
+    let html = '';
+    comms.forEach(comm => {
+      const dateStr = comm.date.toLocaleDateString() + ' ' + comm.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      html += `
+        <div class="comm-item">
+          <div class="comm-header">
+            <div class="comm-type ${comm.type}">${comm.type.toUpperCase()}</div>
+            <div class="comm-status">${comm.status}</div>
+            <div class="comm-date">${dateStr}</div>
+          </div>
+          <div class="comm-subject">${comm.subject}</div>
+          ${comm.preview ? `<div class="comm-preview">${comm.preview}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    document.getElementById('communicationLog').innerHTML = html;
+  } catch (error) {
+    console.error('Communication log error:', error);
+    document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load messages</div>';
+  }
+};
+
+// ── Load all new sections when customer loads ───
+window.loadNewPortalSections = async function(leadId) {
+  try {
+    await Promise.all([
+      window.loadProjectTimeline(leadId),
+      window.loadPhotosByPhase(leadId),
+      window.loadInvoices(leadId),
+      window.loadReports(leadId),
+      window.loadSharedDocuments(leadId),
+      window.loadCommunicationLog(leadId)
+    ]);
+  } catch (error) {
+    console.error('Error loading portal sections:', error);
+  }
+};
+
+// ── Setup contact tab links ────────────────────
+window.setupContactTab = function(customerData) {
+  const phone = '(859) 420-7382';
+  const email = 'info@nobigdeal.com';
+
+  document.getElementById('contractorPhone').textContent = phone;
+  document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+};
+
+// ── Open Photo in Lightbox ─────────────────────
+window.openPhotoLightbox = function(url, description) {
+  const lightbox = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  if (lightbox && img) {
+    img.src = url;
+    if (description) img.alt = description;
+    lightbox.classList.add('active');
+  }
+};
+
+window.closeLightbox = function() {
+  const lightbox = document.getElementById('lightbox');
+  if (lightbox) lightbox.classList.remove('active');
+};
+
+console.log('✓ Customer page enhancements loaded');
+
+</script>
+<script src="js/email_system.js"></script>
+<script src="js/customer-portal.js?v=2"></script>
+<script src="js/photo-report.js?v=2"></script>
+<script src="js/review-engine.js?v=2"></script>
+<script src="js/profit-tracker.js?v=2"></script>
+<script src="js/lead-scoring.js?v=2"></script>
+<script src="js/insurance-claim.js?v=2"></script>
+<script src="js/offline-manager.js?v=2"></script>
+</body>
+</html>
