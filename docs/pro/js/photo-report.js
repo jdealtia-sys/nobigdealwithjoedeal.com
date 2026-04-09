@@ -61,26 +61,29 @@
         return aT - bT;
       });
 
-      // Split into before/after — first half = before, second half = after
-      // If photos have tags, use those instead
-      const beforePhotos = photos.filter(p => (p.tag || p.type || '').toLowerCase().includes('before'));
-      const afterPhotos = photos.filter(p => (p.tag || p.type || '').toLowerCase().includes('after'));
+      // Split into before/after using phase, tag, type, or category fields
+      const getPhase = p => (p.phase || p.tag || p.type || p.category || '').toLowerCase();
+      const beforePhotos = photos.filter(p => getPhase(p).includes('before'));
+      const duringPhotos = photos.filter(p => getPhase(p).includes('during'));
+      const afterPhotos = photos.filter(p => getPhase(p).includes('after'));
 
-      let before, after;
-      if (beforePhotos.length > 0 || afterPhotos.length > 0) {
-        before = beforePhotos.length > 0 ? beforePhotos : photos.slice(0, Math.ceil(photos.length / 2));
-        after = afterPhotos.length > 0 ? afterPhotos : photos.slice(Math.ceil(photos.length / 2));
+      let before, during, after;
+      const hasPhases = beforePhotos.length > 0 || duringPhotos.length > 0 || afterPhotos.length > 0;
+      if (hasPhases) {
+        before = beforePhotos;
+        during = duringPhotos;
+        after = afterPhotos;
       } else {
-        // No tags — split by time (older = before, newer = after)
-        const midpoint = Math.ceil(photos.length / 2);
-        before = photos.slice(0, midpoint);
-        after = photos.slice(midpoint);
+        // No phase tags at all — show all as "Project Photos" (don't guess)
+        before = photos;
+        during = [];
+        after = [];
       }
 
       const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner';
       const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      const html = buildReportHTML(lead, name, before, after, now);
+      const html = buildReportHTML(lead, name, before, during, after, now, hasPhases);
 
       // Open in new window
       const win = window.open('', '_blank');
@@ -94,7 +97,7 @@
     }
   }
 
-  function buildReportHTML(lead, name, before, after, dateStr) {
+  function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases) {
     const photoGrid = (photos) => photos.map(p => `
       <div style="break-inside:avoid;">
         <img src="${p.url}" alt="${p.name || 'Photo'}"
@@ -134,7 +137,14 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
 </style>
 </head>
 <body>
-<button class="print-btn no-print" onclick="window.print()">🖨️ Print to PDF</button>
+<div class="no-print" style="position:fixed;top:0;left:0;right:0;height:52px;background:${BRAND.navy};display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:1000;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:-apple-system,sans-serif;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onclick="window.close()" style="padding:8px 16px;background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">&#8592; Close</button>
+    <span style="color:rgba(255,255,255,.7);font-size:13px;">Photo Report</span>
+  </div>
+  <button onclick="window.print()" style="padding:8px 20px;background:${BRAND.orange};border:none;border-radius:6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Print / Save PDF</button>
+</div>
+<div style="height:52px;"></div>
 
 <div class="header">
   <h1>PROJECT DOCUMENTATION</h1>
@@ -153,23 +163,29 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
     <div><strong>Date:</strong> ${dateStr}</div>
   </div>
 
-  <div class="section">
-    <div class="section-label before-label">BEFORE</div>
-    <div class="section-title">Pre-Project Condition (${before.length} photos)</div>
+  ${before.length > 0 ? `<div class="section">
+    <div class="section-label before-label">${hasPhases ? 'BEFORE' : 'PROJECT PHOTOS'}</div>
+    <div class="section-title">${hasPhases ? 'Pre-Project Condition' : 'Documentation'} (${before.length} photos)</div>
     <div class="photo-grid">${photoGrid(before)}</div>
-  </div>
-
-  ${lead.scopeOfWork || lead.notes ? `
-  <div class="section">
-    <div class="section-title">Work Performed</div>
-    <p style="font-size:14px;color:#333;">${lead.scopeOfWork || lead.notes || ''}</p>
   </div>` : ''}
 
+  ${lead.scopeOfWork ? `
   <div class="section">
+    <div class="section-title">Work Performed</div>
+    <p style="font-size:14px;color:#333;">${lead.scopeOfWork}</p>
+  </div>` : ''}
+
+  ${during.length > 0 ? `<div class="section">
+    <div class="section-label" style="background:#fff3e0;color:#e8720c;">DURING</div>
+    <div class="section-title">Work In Progress (${during.length} photos)</div>
+    <div class="photo-grid">${photoGrid(during)}</div>
+  </div>` : ''}
+
+  ${after.length > 0 ? `<div class="section">
     <div class="section-label after-label">AFTER</div>
     <div class="section-title">Completed Project (${after.length} photos)</div>
     <div class="photo-grid">${photoGrid(after)}</div>
-  </div>
+  </div>` : ''}
 
   <div class="footer">
     <strong>${BRAND.name}</strong><br>
