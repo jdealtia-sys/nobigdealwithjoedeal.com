@@ -29,7 +29,7 @@ window.NBDDocGen = {
     colors: {
       primary: '#1e3a6e',    // Navy blue (matches website brand)
       secondary: '#1a1a2e',  // Dark navy
-      accent: '#C8541A',     // Burnt orange (accent/CTA color)
+      accent: '#e8720c',     // Brand orange (matches site brand)
       lightGray: '#f5f5f5',
       borderGray: '#ddd'
     }
@@ -87,8 +87,21 @@ window.NBDDocGen = {
       if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
       return;
     }
+    const typeName = this.DOCUMENT_TYPES[type]?.name || type;
     const win = window.open('', '_blank');
-    win.document.write(html);
+    // Inject action bar before closing </body>
+    const actionBar = `
+      <div class="doc-action-bar">
+        <div class="doc-bar-left">
+          <button class="doc-bar-btn doc-bar-close" onclick="window.close()">&#x2190; Close</button>
+          <span class="doc-bar-title">${typeName}</span>
+        </div>
+        <div class="doc-bar-right">
+          <button class="doc-bar-btn doc-bar-print" onclick="window.print()">Print / Save PDF</button>
+        </div>
+      </div>`;
+    const injected = html.replace('</body>', actionBar + '</body>');
+    win.document.write(injected);
     win.document.close();
   },
 
@@ -459,30 +472,56 @@ window.NBDDocGen = {
           margin-top: 0.05in;
         }
 
-        /* PRINT BUTTON */
-        .print-button-container {
+        /* ACTION BAR — fixed top bar with Close + Print/Save */
+        .doc-action-bar {
           position: fixed;
-          top: 20px;
-          right: 20px;
+          top: 0; left: 0; right: 0;
+          height: 56px;
+          background: ${this.COMPANY.colors.primary};
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 20px;
           z-index: 1000;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-
-        .print-button {
-          background-color: ${this.COMPANY.colors.accent};
+        .doc-action-bar .doc-bar-left {
+          display: flex; align-items: center; gap: 12px;
+        }
+        .doc-action-bar .doc-bar-right {
+          display: flex; align-items: center; gap: 10px;
+        }
+        .doc-bar-btn {
+          padding: 10px 20px;
+          border: none; border-radius: 6px;
+          font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: all 0.15s;
+          text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .doc-bar-btn:active { transform: scale(0.96); }
+        .doc-bar-close {
+          background: rgba(255,255,255,0.15);
           color: white;
-          border: none;
-          padding: 0.4in 0.6in;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: bold;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-          transition: background-color 0.2s;
+        }
+        .doc-bar-close:hover { background: rgba(255,255,255,0.25); }
+        .doc-bar-print {
+          background: ${this.COMPANY.colors.accent};
+          color: white;
+        }
+        .doc-bar-print:hover { opacity: 0.9; }
+        .doc-bar-title {
+          color: rgba(255,255,255,0.8);
+          font-size: 14px; font-weight: 600;
         }
 
-        .print-button:hover {
-          background-color: #a83f15;
+        /* Push content below action bar */
+        .document-container {
+          margin-top: 66px !important;
         }
+
+        /* Legacy print button (hidden, replaced by action bar) */
+        .print-button-container { display: none; }
 
         /* PRINT MEDIA */
         @media print {
@@ -492,8 +531,16 @@ window.NBDDocGen = {
             background: white;
           }
 
+          .doc-action-bar {
+            display: none;
+          }
+
           .print-button-container {
             display: none;
+          }
+
+          .document-container {
+            margin-top: 0 !important;
           }
 
           .document-container {
@@ -577,25 +624,7 @@ window.NBDDocGen = {
    * @returns {string} SVG string
    */
   renderNBDLogo() {
-    return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" style="height: 60px; width: auto;">
-        <!-- NBD Text -->
-        <text x="100" y="45" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle" fill="${this.COMPANY.colors.secondary}">
-          NBD
-        </text>
-        <rect x="135" y="25" width="15" height="30" fill="${this.COMPANY.colors.primary}" rx="2"/>
-
-        <!-- NO BIG DEAL -->
-        <text x="100" y="70" font-family="Arial, sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="${this.COMPANY.colors.secondary}" letter-spacing="1">
-          NO BIG DEAL
-        </text>
-
-        <!-- HOME SOLUTIONS -->
-        <text x="100" y="85" font-family="Arial, sans-serif" font-size="9" text-anchor="middle" fill="${this.COMPANY.colors.primary}">
-          HOME SOLUTIONS
-        </text>
-      </svg>
-    `;
+    return `<img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:60px;width:auto;" crossorigin="anonymous" onerror="this.style.display='none';this.parentNode.innerHTML='<div style=\\'font-size:24px;font-weight:800;color:${this.COMPANY.colors.primary}\\'>NBD</div><div style=\\'font-size:9px;font-weight:700;letter-spacing:1px;color:${this.COMPANY.colors.primary}\\'>NO BIG DEAL HOME SOLUTIONS</div>'">`;
   },
 
   /**

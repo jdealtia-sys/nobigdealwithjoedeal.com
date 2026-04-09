@@ -772,7 +772,21 @@
     if (e.touches.length === 2) {
       const d = dist(e.touches[0].clientX, e.touches[0].clientY, e.touches[1].clientX, e.touches[1].clientY);
       const scale = d / lastTouchDist;
+      const oldZoom = S.zoom;
       S.zoom = clamp(S.zoom * scale, 0.15, 8);
+      const ratio = S.zoom / oldZoom;
+
+      // Center zoom on midpoint between two fingers
+      const canvasArea = root?.querySelector('.nbd-canvas-area');
+      if (canvasArea) {
+        const rect = canvasArea.getBoundingClientRect();
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        const cx = rect.width / 2, cy = rect.height / 2;
+        S.panX = midX - ratio * (midX - S.panX);
+        S.panY = midY - ratio * (midY - S.panY);
+      }
+
       lastTouchDist = d;
       applyTransform();
       renderMinimap();
