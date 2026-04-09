@@ -732,3 +732,73 @@ exports.invoiceWebhook = onRequest(
 // ── Verification Functions (SMS OTP + Lead Notifications) ──
 const verifyFunctions = require('./verify-functions');
 Object.assign(exports, verifyFunctions);
+
+
+// ═══════════════════════════════════════════════════════════════════
+// validateAccessCode — Server-side access code validation
+// Keeps credentials out of client-side JavaScript
+// ═══════════════════════════════════════════════════════════════════
+const { onCall } = require('firebase-functions/v2/https');
+
+exports.validateAccessCode = onCall(
+  {
+    maxInstances: 10,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (request) => {
+    const { code } = request.data || {};
+
+    if (!code || typeof code !== 'string') {
+      return { success: false, error: 'Access code required' };
+    }
+
+    const normalized = code.trim().toUpperCase();
+
+    // Access code → Firebase auth credentials (server-side only)
+    const ACCESS_CODES = {
+      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!', role: 'member' },
+      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!', role: 'member' },
+      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
+      'DEMO':      { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
+      'TRYIT':     { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
+    };
+
+    const creds = ACCESS_CODES[normalized];
+    if (!creds) {
+      console.warn(`Invalid access code attempt: ${normalized}`);
+      return { success: false, error: 'Code not recognized' };
+    }
+
+    try {
+      // Look up or create the Firebase user, then generate a custom token
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(creds.email);
+      } catch (e) {
+        if (e.code === 'auth/user-not-found') {
+          userRecord = await admin.auth().createUser({
+            email: creds.email,
+            password: creds.pass,
+            displayName: creds.role === 'demo' ? 'Demo User' : 'Invited Member'
+          });
+        } else {
+          throw e;
+        }
+      }
+
+      // Generate custom token for client-side signIn
+      const customToken = await admin.auth().createCustomToken(userRecord.uid, {
+        role: creds.role,
+        accessCode: normalized
+      });
+
+      console.log(`Access code validated: ${normalized} → ${creds.email}`);
+      return { success: true, token: customToken, role: creds.role };
+
+    } catch (e) {
+      console.error('validateAccessCode error:', e);
+      return { success: false, error: 'Authentication error. Please try again.' };
+    }
+  }
+);

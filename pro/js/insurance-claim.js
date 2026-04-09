@@ -126,10 +126,10 @@
    */
   async function advanceClaimStage(leadId, notes = '') {
     try {
-      const leadRef = db.collection('leads').doc(leadId);
-      const leadSnap = await leadRef.get();
+      const leadDocRef = window.doc(window.db, 'leads', leadId);
+      const leadSnap = await window.getDoc(leadDocRef);
 
-      if (!leadSnap.exists) {
+      if (!leadSnap.exists()) {
         console.error('Lead not found:', leadId);
         return false;
       }
@@ -152,10 +152,10 @@
         completedAt: new Date()
       };
 
-      await leadRef.update({
+      await window.updateDoc(leadDocRef, {
         claimStage: nextStageId,
         claimStatus: 'in_progress',
-        claimHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry),
+        claimHistory: window.arrayUnion(historyEntry),
         [`checklist_${nextStageId}`]: []
       });
 
@@ -179,8 +179,8 @@
     }
 
     try {
-      const leadSnap = await db.collection('leads').doc(leadId).get();
-      if (!leadSnap.exists) {
+      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', leadId));
+      if (!leadSnap.exists()) {
         console.error('Lead not found:', leadId);
         return;
       }
@@ -308,8 +308,8 @@
     }
 
     try {
-      const leadSnap = await db.collection('leads').doc(leadId).get();
-      if (!leadSnap.exists) {
+      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', leadId));
+      if (!leadSnap.exists()) {
         console.error('Lead not found:', leadId);
         return;
       }
@@ -368,16 +368,16 @@
    */
   async function updateChecklistItem(leadId, stageId, item, isChecked) {
     try {
-      const leadRef = db.collection('leads').doc(leadId);
+      const leadDocRef = window.doc(window.db, 'leads', leadId);
       const fieldName = `checklist_${stageId}`;
 
       if (isChecked) {
-        await leadRef.update({
-          [fieldName]: firebase.firestore.FieldValue.arrayUnion(item)
+        await window.updateDoc(leadDocRef, {
+          [fieldName]: window.arrayUnion(item)
         });
       } else {
-        await leadRef.update({
-          [fieldName]: firebase.firestore.FieldValue.arrayRemove(item)
+        await window.updateDoc(leadDocRef, {
+          [fieldName]: window.arrayRemove(item)
         });
       }
     } catch (error) {

@@ -320,6 +320,10 @@ exports.notifyNewLead = onCall(
       <div class="label">Timeline</div>
       <div class="value">${timelineName}</div>
     </div>
+    ${requestLabel ? `<div class="field">
+      <div class="label">Request Type</div>
+      <div class="value">${requestLabel}</div>
+    </div>` : ''}
   </div>
   <a href="tel:${phone.replace(/\\D/g, '')}" class="cta">📞 Call ${name.split(' ')[0]} Now</a>
   <div class="footer">Lead from nobigdealwithjoedeal.com/estimate</div>

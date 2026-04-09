@@ -1736,7 +1736,6 @@ window.saveEstimate = async function() {
 // Must be AFTER function definitions (hoisting doesn't work for async functions in some contexts)
 window.loadDocuments = loadDocuments;
 window.loadNotes = loadNotes;
-window.loadPhotos = loadPhotos;
 window.loadEstimates = loadEstimates;
 window.loadTimeline = loadTimeline;
 window.fetchImageAsBase64 = fetchImageAsBase64;
@@ -1745,7 +1744,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1773,8 +1772,10 @@ window.doc = doc;
 window.query = query;
 window.orderBy = orderBy;
 window.where = where;
+window.limit = limit;
 window.updateDoc = updateDoc;
 window.arrayUnion = arrayUnion;
+window.arrayRemove = arrayRemove;
 window.addDoc = addDoc;
 window.collection = collection;
 window.serverTimestamp = serverTimestamp;
@@ -1996,10 +1997,10 @@ async function loadCustomerData(id) {
       document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
     }
     
-    try { 
-      await window.loadPhotos(id); 
-    } catch (e) { 
-      console.error('Photos load failed:', e); 
+    // Photos are loaded via loadPhotosByPhase in the module scope
+    // The old loadPhotos function is not compatible with modular Firebase
+    // Try to show an empty state if photos haven't loaded elsewhere
+    if (!document.getElementById('photoList').innerHTML.trim()) {
       document.getElementById('photoList').innerHTML = `
         <div class="upload-zone" onclick="openUploadModal()">
           <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
@@ -2624,13 +2625,18 @@ function updateUploadPreview() {
   const container = document.getElementById('uploadPreview');
   const uploadBtn = document.getElementById('uploadBtn');
   const uploadCount = document.getElementById('uploadCount');
-  
+
+  // Guard against null elements (modal might not be open or loaded yet)
+  if (!container || !uploadBtn || !uploadCount) {
+    return;
+  }
+
   if (window._uploadQueue.length === 0) {
     container.innerHTML = '';
     uploadBtn.style.display = 'none';
     return;
   }
-  
+
   const html = window._uploadQueue.map((item, idx) => `
     <div class="preview-item">
       <img src="${item.preview}" alt="Preview">
@@ -2644,7 +2650,7 @@ function updateUploadPreview() {
       ` : ''}
     </div>
   `).join('');
-  
+
   container.innerHTML = html;
   uploadBtn.style.display = 'block';
   uploadCount.textContent = window._uploadQueue.length;
@@ -3395,7 +3401,6 @@ window.saveEstimate = async function() {
 
 // Expose module-scope functions to window for cross-script access
 window.loadTimeline = loadTimeline;
-window.loadPhotos = loadPhotos;
 window.loadEstimates = loadEstimates;
 </script>
 

@@ -289,7 +289,7 @@ exports.onAppointmentReminder = onSchedule(
         }
       });
       
-      await Promise.all(sendPromises);
+      await Promise.allSettled(sendPromises);
       console.log('[Push] Appointment reminder check complete');
       
     } catch (err) {
@@ -364,7 +364,7 @@ exports.onFollowUpDue = onSchedule(
         });
       });
       
-      await Promise.all(sendPromises);
+      await Promise.allSettled(sendPromises);
       console.log('[Push] Follow-up reminder check complete');
       
     } catch (err) {
@@ -455,7 +455,7 @@ exports.sendTeamNotification = async (teamId, title, body, data = {}) => {
       })()
     );
     
-    return await Promise.all(sendPromises);
+    return await Promise.allSettled(sendPromises);
   } catch (err) {
     console.error('[Push] Error sending team notification:', err);
     return [];

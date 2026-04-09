@@ -313,9 +313,10 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
-  getAuth, signInWithEmailAndPassword, sendPasswordResetEmail,
+  getAuth, signInWithEmailAndPassword, signInWithCustomToken, sendPasswordResetEmail,
   setPersistence, browserLocalPersistence, browserSessionPersistence
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -329,23 +330,14 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const functions = getFunctions(app);
 
 // ─────────────────────────────────────────────────
-// ACCESS CODE MAP
-// Each code maps to a Firebase email + password
-// Add/remove codes here — they never expire unless
-// you delete the Firebase user or remove the entry
+// ACCESS CODE VALIDATION (server-side)
+// Credentials are now stored in the Cloud Function,
+// not exposed in client-side JavaScript
 // ─────────────────────────────────────────────────
-const ACCESS_CODES = {
-  'NBD-2026':  { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!' },
-  'DEAL-2026': { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!' },
-  'NBD-DEMO':  { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
-  'DEMO':      { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
-  'TRYIT':     { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!' },
-};
-// Demo account credentials (same Firebase user as DEMO code)
-const DEMO_EMAIL = 'demo@nobigdeal.pro';
-const DEMO_PASS  = 'nbd_demo_access!';
+const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
 // ─────────────────────────────────────────────────
 // TAB SWITCHING (global so onclick works)
@@ -443,17 +435,24 @@ codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') doCodeLogin(
 codeBtn.addEventListener('click', doCodeLogin);
 
 async function doCodeLogin() {
-  const raw  = codeInput.value.trim().toUpperCase();
-  const creds = ACCESS_CODES[raw];
+  const raw = codeInput.value.trim().toUpperCase();
   codeError.classList.remove('show');
   if (!raw) { codeErrorMsg.textContent = 'Please enter your access code.'; codeError.classList.add('show'); return; }
-  if (!creds) { codeErrorMsg.textContent = 'Code not recognized. Check with Joe at (859) 420-7382.'; codeError.classList.add('show'); codeInput.focus(); return; }
   setLoading(codeBtn, true);
   try {
-    await signInWithEmailAndPassword(auth, creds.email, creds.pass);
+    const result = await validateAccessCodeFn({ code: raw });
+    const data = result.data;
+    if (!data.success) {
+      codeErrorMsg.textContent = data.error || 'Code not recognized. Check with Joe at (859) 420-7382.';
+      codeError.classList.add('show');
+      codeInput.focus();
+      return;
+    }
+    // Sign in with the custom token from the server
+    await signInWithCustomToken(auth, data.token);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
-    codeErrorMsg.textContent = 'Code valid but account error. Contact Joe at (859) 420-7382.';
+    codeErrorMsg.textContent = 'Authentication error. Contact Joe at (859) 420-7382.';
     codeError.classList.add('show');
   } finally { setLoading(codeBtn, false); }
 }
@@ -471,7 +470,10 @@ async function doDemoLogin() {
   demoError.classList.remove('show');
   setLoading(demoBtn, true);
   try {
-    await signInWithEmailAndPassword(auth, DEMO_EMAIL, DEMO_PASS);
+    const result = await validateAccessCodeFn({ code: 'DEMO' });
+    const data = result.data;
+    if (!data.success) throw new Error(data.error);
+    await signInWithCustomToken(auth, data.token);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     demoErrorMsg.textContent = 'Demo account unavailable right now. Try the Access Code tab or contact Joe.';

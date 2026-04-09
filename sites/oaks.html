@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oaks Roofing & Construction | Goshen, OH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+  <script>
+    const COMPANY_CONFIG = {
+      id: 'oaks',
+      name: 'Oaks Roofing & Construction',
+      shortName: 'Oaks R&C',
+      owner: 'Scott Oaks',
+      phone: '(513) 827-5297',
+      email: 'joe@oaksrfc.com',
+      address: 'Goshen, OH',
+      tagline: 'Your Trusted Local Roofing Experts',
+      heroHeadline: 'Protecting Goshen Homes Since Day One',
+      heroSub: 'Expert roofing, siding & gutter services backed by craftsmanship you can trust.',
+      colors: {
+        primary: '#333333',
+        accent: '#e8720c',
+        accentHover: '#cf650a',
+        dark: '#1a1a1a',
+        light: '#f9f5f0',
+        text: '#333333',
+        textLight: '#ffffff'
+      },
+      services: [
+        { name: 'Roof Replacement', icon: '🏠', desc: 'Complete tear-off and replacement with premium materials and expert installation.' },
+        { name: 'Roof Repair', icon: '🔧', desc: 'Fast, reliable repairs for leaks, missing shingles, storm damage, and more.' },
+        { name: 'Siding', icon: '🏗️', desc: 'Beautiful, durable siding installation and repair to protect and transform your home.' },
+        { name: 'Gutters', icon: '🌧️', desc: 'Seamless gutter installation, repair, and gutter guard systems.' },
+        { name: 'Storm Damage', icon: '⛈️', desc: 'Emergency storm response with full insurance claim assistance.' },
+        { name: 'Inspections', icon: '🔍', desc: 'Thorough roof and exterior inspections with detailed reports.' }
+      ],
+      serviceAreas: ['Goshen', 'Milford', 'Batavia', 'Loveland', 'Amelia', 'Williamsburg', 'Bethel', 'Mt. Orab'],
+      warranty: '5-Year Labor Warranty on All Installs',
+      whyUs: [
+        { title: 'Local & Trusted', desc: 'Born and raised in Goshen. We treat every home like our own.' },
+        { title: 'Licensed & Insured', desc: 'Fully licensed, bonded, and insured for your complete peace of mind.' },
+        { title: 'Quality Materials', desc: 'We use only top-tier materials from trusted manufacturers.' },
+        { title: 'Honest Pricing', desc: 'Transparent quotes with no hidden fees or surprise charges.' }
+      ],
+      firebaseConfig: {
+        apiKey: "AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",
+        authDomain: "nobigdealwithjoedeal.firebaseapp.com",
+        projectId: "nobigdealwithjoedeal",
+        storageBucket: "nobigdealwithjoedeal.firebasestorage.app",
+        messagingSenderId: "140387052359",
+        appId: "1:140387052359:web:e95a34024e498e16e6e1a1"
+      }
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #333333;
+      --accent: #e8720c;
+      --accent-hover: #cf650a;
+      --dark: #1a1a1a;
+      --light: #f9f5f0;
+      --text: #333333;
+      --text-light: #ffffff;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.10);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.15);
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Open Sans', sans-serif; color: var(--text); line-height: 1.6; background: #fff; }
+    h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; line-height: 1.2; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+    /* NAV */
+    .site-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--dark); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 64px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+    .nav-brand { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; color: var(--accent); text-decoration: none; }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: var(--text-light); text-decoration: none; font-size: 0.95rem; font-weight: 600; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-cta { background: var(--accent); color: #fff !important; padding: 8px 20px; border-radius: 6px; font-weight: 700; transition: background 0.2s; }
+    .nav-cta:hover { background: var(--accent-hover); }
+    .mobile-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+
+    /* HERO */
+    .hero { margin-top: 64px; padding: 100px 24px 80px; background: linear-gradient(135deg, var(--dark) 0%, #2a2a2a 100%); text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(232,114,12,0.15) 0%, transparent 70%); pointer-events: none; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; color: var(--text-light); margin-bottom: 16px; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 620px; margin: 0 auto 32px; }
+    .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-block; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; text-decoration: none; transition: all 0.25s; cursor: pointer; border: none; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow); }
+    .btn-outline { border: 2px solid rgba(255,255,255,0.4); color: #fff; background: transparent; }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .trust-bar { display: flex; gap: 32px; justify-content: center; margin-top: 48px; flex-wrap: wrap; }
+    .trust-item { color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .trust-item span { font-size: 1.2rem; }
+
+    /* SECTIONS */
+    .section { padding: 80px 24px; }
+    .section-title { text-align: center; font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; margin-bottom: 12px; }
+    .section-sub { text-align: center; color: #666; max-width: 600px; margin: 0 auto 48px; font-size: 1.05rem; }
+    .bg-light { background: var(--light); }
+
+    /* SERVICES GRID */
+    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; max-width: 1200px; margin: 0 auto; }
+    .service-card { background: #fff; border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); transition: transform 0.3s, box-shadow 0.3s; border-top: 4px solid var(--accent); }
+    .service-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+    .service-icon { font-size: 2.5rem; margin-bottom: 16px; }
+    .service-card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+    .service-card p { color: #555; font-size: 0.95rem; }
+
+    /* WHY US */
+    .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto; }
+    .why-card { text-align: center; padding: 32px 24px; }
+    .why-card h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent); }
+    .why-card p { color: #555; font-size: 0.95rem; }
+
+    /* AREAS */
+    .areas-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 800px; margin: 0 auto; }
+    .area-tag { background: var(--dark); color: #fff; padding: 10px 22px; border-radius: 24px; font-weight: 600; font-size: 0.9rem; }
+
+    /* CONTACT FORM */
+    .contact-section { background: var(--dark); color: #fff; }
+    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; max-width: 1000px; margin: 0 auto; align-items: center; }
+    .contact-info h2 { font-size: 2rem; margin-bottom: 16px; }
+    .contact-info p { color: rgba(255,255,255,0.7); margin-bottom: 24px; }
+    .contact-detail { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: rgba(255,255,255,0.9); font-size: 1rem; }
+    .contact-detail span { font-size: 1.3rem; }
+    .contact-form { background: rgba(255,255,255,0.08); border-radius: var(--radius); padding: 32px; backdrop-filter: blur(8px); }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; color: rgba(255,255,255,0.8); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: #fff; font-size: 1rem; font-family: inherit; }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: rgba(255,255,255,0.4); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-submit { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .form-submit:hover { background: var(--accent-hover); }
+    .form-msg { margin-top: 12px; text-align: center; font-weight: 600; }
+    .form-msg.success { color: #4caf50; }
+    .form-msg.error { color: #f44336; }
+
+    /* FOOTER */
+    .site-footer { background: #111; color: rgba(255,255,255,0.5); text-align: center; padding: 32px 24px; font-size: 0.85rem; }
+    .site-footer a { color: var(--accent); text-decoration: none; }
+    .nbd-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 6px 14px; background: rgba(255,255,255,0.05); border-radius: 20px; font-size: 0.8rem; }
+
+    /* SCROLL ANIMATIONS */
+    .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      .nav-links { display: none; position: fixed; top: 64px; left: 0; right: 0; background: var(--dark); flex-direction: column; padding: 24px; gap: 16px; box-shadow: var(--shadow-lg); }
+      .nav-links.open { display: flex; }
+      .mobile-toggle { display: block; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .hero { padding: 72px 24px 56px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="site-nav" id="siteNav">
+    <a href="#" class="nav-brand" id="navBrand">Oaks R&amp;C</a>
+    <div class="nav-links" id="navLinks">
+      <a href="#services">Services</a>
+      <a href="#why">Why Us</a>
+      <a href="#areas">Areas</a>
+      <a href="#contact" class="nav-cta">Get Free Estimate</a>
+    </div>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">&#9776;</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <h1 id="heroHeadline">Protecting <span>Goshen</span> Homes Since Day One</h1>
+      <p id="heroSub">Expert roofing, siding &amp; gutter services backed by craftsmanship you can trust.</p>
+      <div class="hero-btns">
+        <a href="#contact" class="btn btn-accent">Get a Free Estimate</a>
+        <a href="tel:5138275297" class="btn btn-outline">Call Now</a>
+      </div>
+      <div class="trust-bar">
+        <div class="trust-item"><span>&#9989;</span> Licensed &amp; Insured</div>
+        <div class="trust-item"><span>&#9989;</span> 5-Year Warranty</div>
+        <div class="trust-item"><span>&#9989;</span> Free Inspections</div>
+        <div class="trust-item"><span>&#11088;</span> 5-Star Rated</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="section bg-light" id="services">
+    <div class="container">
+      <h2 class="section-title reveal">Our Services</h2>
+      <p class="section-sub reveal">From roof replacements to emergency storm repair, we've got you covered.</p>
+      <div class="services-grid" id="servicesGrid"></div>
+    </div>
+  </section>
+
+  <!-- WHY US -->
+  <section class="section" id="why">
+    <div class="container">
+      <h2 class="section-title reveal">Why Choose Oaks?</h2>
+      <p class="section-sub reveal">We're not just contractors — we're your neighbors.</p>
+      <div class="why-grid" id="whyGrid"></div>
+    </div>
+  </section>
+
+  <!-- SERVICE AREAS -->
+  <section class="section bg-light" id="areas">
+    <div class="container">
+      <h2 class="section-title reveal">Service Areas</h2>
+      <p class="section-sub reveal">Proudly serving Clermont County and surrounding communities.</p>
+      <div class="areas-list" id="areasList"></div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="section contact-section" id="contact">
+    <div class="container">
+      <div class="contact-grid">
+        <div class="contact-info reveal">
+          <h2>Let's Talk About Your Project</h2>
+          <p>Whether you need a full roof replacement or a quick repair, we're here to help. Get a free estimate — no pressure, no obligation.</p>
+          <div class="contact-detail"><span>&#128222;</span> <a href="tel:5138275297" style="color:inherit;text-decoration:none;" id="contactPhone">(513) 827-5297</a></div>
+          <div class="contact-detail"><span>&#128231;</span> <span id="contactEmail">joe@oaksrfc.com</span></div>
+          <div class="contact-detail"><span>&#128205;</span> <span id="contactAddress">Goshen, OH</span></div>
+          <div style="margin-top:24px;padding:16px;background:rgba(232,114,12,0.15);border-radius:8px;border-left:4px solid var(--accent);">
+            <strong style="color:var(--accent);" id="warrantyBadge">5-Year Labor Warranty on All Installs</strong>
+          </div>
+        </div>
+        <form class="contact-form reveal" id="leadForm" onsubmit="submitLead(event)">
+          <div class="form-group">
+            <label for="leadName">Your Name</label>
+            <input type="text" id="leadName" name="name" placeholder="John Smith" required>
+          </div>
+          <div class="form-group">
+            <label for="leadPhone">Phone Number</label>
+            <input type="tel" id="leadPhone" name="phone" placeholder="(555) 123-4567" required>
+          </div>
+          <div class="form-group">
+            <label for="leadEmail">Email (optional)</label>
+            <input type="email" id="leadEmail" name="email" placeholder="john@example.com">
+          </div>
+          <div class="form-group">
+            <label for="leadService">Service Needed</label>
+            <select id="leadService" name="service" required>
+              <option value="">Select a service...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="leadMessage">Tell Us More</label>
+            <textarea id="leadMessage" name="message" placeholder="Describe your project or issue..."></textarea>
+          </div>
+          <button type="submit" class="form-submit" id="submitBtn">Request Free Estimate</button>
+          <div class="form-msg" id="formMsg"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <p>&copy; <span id="footerYear">2026</span> <span id="footerCompany">Oaks Roofing &amp; Construction</span>. All rights reserved.</p>
+    <div class="nbd-badge">Powered by <a href="https://nobigdealwithjoedeal.com/pro/login.html" target="_blank">NBD Pro</a></div>
+  </footer>
+
+  <script>
+    // ── Firebase Init ──
+    firebase.initializeApp(COMPANY_CONFIG.firebaseConfig);
+    const db = firebase.firestore();
+    const functions = firebase.functions();
+
+    // ── Render from Config ──
+    function renderSite() {
+      const C = COMPANY_CONFIG;
+
+      // Nav
+      document.getElementById('navBrand').textContent = C.shortName;
+
+      // Hero
+      document.getElementById('heroHeadline').innerHTML = C.heroHeadline.replace(/(Goshen|Cincinnati|your city)/i, '<span>$1</span>');
+      document.getElementById('heroSub').textContent = C.heroSub;
+
+      // Services
+      const grid = document.getElementById('servicesGrid');
+      C.services.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'service-card reveal';
+        card.innerHTML = `<div class="service-icon">${s.icon}</div><h3>${s.name}</h3><p>${s.desc}</p>`;
+        grid.appendChild(card);
+      });
+
+      // Service dropdown
+      const sel = document.getElementById('leadService');
+      C.services.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+
+      // Why Us
+      const wg = document.getElementById('whyGrid');
+      C.whyUs.forEach(w => {
+        const card = document.createElement('div');
+        card.className = 'why-card reveal';
+        card.innerHTML = `<h3>${w.title}</h3><p>${w.desc}</p>`;
+        wg.appendChild(card);
+      });
+
+      // Areas
+      const al = document.getElementById('areasList');
+      C.serviceAreas.forEach(a => {
+        const tag = document.createElement('span');
+        tag.className = 'area-tag reveal';
+        tag.textContent = a;
+        al.appendChild(tag);
+      });
+
+      // Contact info
+      document.getElementById('contactPhone').textContent = C.phone;
+      document.getElementById('contactEmail').textContent = C.email;
+      document.getElementById('contactAddress').textContent = C.address;
+      document.getElementById('warrantyBadge').textContent = C.warranty;
+
+      // Footer
+      document.getElementById('footerYear').textContent = new Date().getFullYear();
+      document.getElementById('footerCompany').textContent = C.name;
+    }
+
+    // ── Scroll Reveal ──
+    function initReveal() {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+      }, { threshold: 0.15 });
+      document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+    }
+
+    // ── Mobile Nav ──
+    document.getElementById('mobileToggle').addEventListener('click', () => {
+      document.getElementById('navLinks').classList.toggle('open');
+    });
+    document.querySelectorAll('.nav-links a').forEach(a => {
+      a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+    });
+
+    // ── Lead Form Submission ──
+    async function submitLead(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const msg = document.getElementById('formMsg');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      msg.textContent = '';
+      msg.className = 'form-msg';
+
+      const data = {
+        name: document.getElementById('leadName').value.trim(),
+        phone: document.getElementById('leadPhone').value.trim(),
+        email: document.getElementById('leadEmail').value.trim(),
+        service: document.getElementById('leadService').value,
+        message: document.getElementById('leadMessage').value.trim(),
+        companyId: COMPANY_CONFIG.id,
+        companyName: COMPANY_CONFIG.name,
+        source: 'company-site',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      try {
+        // Save lead to Firestore
+        await db.collection('leads').add(data);
+
+        // Notify via Cloud Function
+        try {
+          const notifyFn = functions.httpsCallable('notifyNewLead');
+          await notifyFn({ name: data.name, phone: data.phone, email: data.email, service: data.service, message: data.message, companyId: data.companyId });
+        } catch (fnErr) {
+          console.warn('Notification function error (lead still saved):', fnErr);
+        }
+
+        msg.textContent = 'Thank you! We\'ll be in touch shortly.';
+        msg.className = 'form-msg success';
+        e.target.reset();
+      } catch (err) {
+        console.error('Lead submission error:', err);
+        msg.textContent = 'Something went wrong. Please call us directly.';
+        msg.className = 'form-msg error';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Request Free Estimate';
+      }
+    }
+
+    // ── Init ──
+    renderSite();
+    setTimeout(initReveal, 100);
+  </script>
+</body>
+</html>
