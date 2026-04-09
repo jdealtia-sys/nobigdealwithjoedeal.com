@@ -52,9 +52,11 @@ service cloud.firestore {
     }
 
     // ── PHOTOS ────────────────────────────────────────
-    // Photos are linked by leadId; user must own the photo
+    // Photos are shared within a lead context (team members view same lead's photos)
+    // Read: any auth user (queried by leadId, no userId filter in code)
+    // Write: only photo owner
     match /photos/{photoId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAuth();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if isAuth() && resource.data.userId == request.auth.uid;
@@ -325,11 +327,12 @@ service cloud.firestore {
     }
 
     // ── LEAD DOCUMENTS ───────────────────────────────
+    // Queried by leadId + userId in customer.html
     match /lead_documents/{docId} {
-      allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── REFERRALS ────────────────────────────────────
