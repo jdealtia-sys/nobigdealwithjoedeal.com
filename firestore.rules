@@ -15,7 +15,7 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == userId;
     }
 
-    function isCurrentUser() {
+    function isDocOwner() {
       return isAuth() && resource.data.userId == request.auth.uid;
     }
 
@@ -52,11 +52,11 @@ service cloud.firestore {
     }
 
     // ── PHOTOS ────────────────────────────────────────
-    // Photos are linked by leadId; user must own the lead OR the photo
+    // Photos are linked by leadId; user must own the photo
     match /photos/{photoId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
@@ -326,10 +326,10 @@ service cloud.firestore {
 
     // ── LEAD DOCUMENTS ───────────────────────────────
     match /lead_documents/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
-      allow delete: if isAuth();
+      allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
     }
 
     // ── REFERRALS ────────────────────────────────────

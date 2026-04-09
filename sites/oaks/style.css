@@ -533,6 +533,65 @@ section { padding: 80px 0; }
 .gallery-note { text-align: center; margin-top: 32px; padding: 20px; background: var(--gray-100); border-radius: var(--radius); }
 .gallery-note p { font-size: 0.9rem; color: var(--gray-400); margin: 0; }
 
+/* ═══ HOMEPAGE HERO ═══ */
+.home-hero {
+  padding: 80px 0 60px;
+  background: linear-gradient(135deg, var(--dark) 0%, var(--gray-900) 100%);
+  text-align: center;
+  color: var(--white);
+}
+.home-hero h1 { font-size: 2.6rem; font-weight: 900; color: var(--white); margin-bottom: 16px; max-width: 700px; margin-left: auto; margin-right: auto; }
+.home-hero h1 span { color: var(--orange); }
+.home-hero p { font-size: 1.1rem; color: var(--gray-300); max-width: 600px; margin: 0 auto 28px; }
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(232,114,12,0.12);
+  color: var(--orange);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 50px;
+  margin-bottom: 20px;
+}
+.stars { display: inline-flex; gap: 2px; color: #f5b731; }
+.hero-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+@media (max-width: 768px) {
+  .home-hero { padding: 50px 0 40px; }
+  .home-hero h1 { font-size: 1.8rem; }
+  .hero-actions { flex-direction: column; align-items: center; }
+}
+
+/* ═══ COMPETITIVE RATES STRIP ═══ */
+.rates-strip {
+  background: var(--orange);
+  color: var(--white);
+  text-align: center;
+  padding: 36px 0;
+}
+.rates-strip h2 { color: var(--white); font-size: 1.5rem; font-weight: 800; margin-bottom: 6px; }
+.rates-strip p { color: rgba(255,255,255,0.85); font-size: 0.95rem; margin: 0; }
+
+/* ═══ HOME SERVICES SECTION ═══ */
+.home-services {
+  padding: 60px 0;
+  background: var(--white);
+}
+
+/* ═══ CONTACT FORM WRAPPER ═══ */
+.contact-form {
+  background: var(--gray-100);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+
 /* ═══ GLOBAL SPACING POLISH ═══ */
 section + section { border-top: none; }
 .section-label + .section-title { margin-top: 4px; }
