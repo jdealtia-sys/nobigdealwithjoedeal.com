@@ -85,8 +85,8 @@
 <link rel="manifest" href="/pro/manifest.json">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=8" as="script">
-<link rel="preload" href="js/maps.js?v=5" as="script">
+<link rel="preload" href="js/crm.js?v=9" as="script">
+<link rel="preload" href="js/maps.js?v=6" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -10595,7 +10595,8 @@ window.applyQMData = applyQMData;
 // ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════
 
 // ══ ONBOARDING FLOW ════════════════════════════════════════════════════
-let _onbStep = 1;
+// _onbStep may also be declared in tools.js — use var to avoid duplicate let
+var _onbStep = 1;
 
 async function checkAndShowOnboarding() {
   if (!window._user) return;
@@ -11364,16 +11365,16 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<script defer src="js/property-intel.js?v=2"></script>
-<script defer src="js/warranty-cert.js?v=2"></script>
-<script defer src="js/tools.js?v=2"></script>
-<script src="js/icons.js?v=2"></script>
-<script src="js/claude-proxy.js?v=2"></script>
-<script src="js/crm.js?v=8"></script>
-<script src="js/maps.js?v=5"></script>
-<script src="js/widgets.js?v=2"></script>
-<script src="js/ui.js?v=2"></script>
-<script src="js/estimates.js?v=2"></script>
+<script defer src="js/property-intel.js?v=3"></script>
+<script defer src="js/warranty-cert.js?v=3"></script>
+<script defer src="js/tools.js?v=3"></script>
+<script src="js/icons.js?v=3"></script>
+<script src="js/claude-proxy.js?v=3"></script>
+<script src="js/crm.js?v=9"></script>
+<script src="js/maps.js?v=6"></script>
+<script src="js/widgets.js?v=3"></script>
+<script src="js/ui.js?v=3"></script>
+<script src="js/estimates.js?v=3"></script>
 <script>
 // HOTFIX: Ensure searchMap is exposed to window (cache issue workaround)
 if (typeof searchMap === 'function' && !window.searchMap) {
@@ -11451,70 +11452,70 @@ function shareCalViaEmail() {
   window.open('mailto:?subject=' + subject + '&body=' + body);
 }
 </script>
-<script src="js/ai.js?v=2"></script>
-<script src="js/tasks.js?v=2"></script>
-<script defer src="js/demo.js?v=2"></script>
-<script defer src="js/advanced_builder_selector.js?v=2"></script>
-<script defer src="js/material_catalog.js?v=2"></script>
-<script defer src="js/advanced_builder_ui.js?v=2"></script>
+<script src="js/ai.js?v=3"></script>
+<script src="js/tasks.js?v=3"></script>
+<script defer src="js/demo.js?v=3"></script>
+<script defer src="js/advanced_builder_selector.js?v=3"></script>
+<script defer src="js/material_catalog.js?v=3"></script>
+<script defer src="js/advanced_builder_ui.js?v=3"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script defer src="js/advanced_pdf_generator.js?v=2"></script>
-<script defer src="js/pricing_database_manager.js?v=2"></script>
-<script defer src="js/template_library.js?v=2"></script>
-<script defer src="js/ai_review_system.js?v=2"></script>
-<script defer src="js/email_system.js?v=2"></script>
-<script defer src="js/product-data.js?v=2"></script>
-<script defer src="js/estimate-templates.js?v=2"></script>
-<script defer src="js/daily-tracker.js?v=2"></script>
-<script defer src="js/product-library.js?v=2"></script>
-<script defer src="js/d2d-tracker.js?v=5"></script>
-<script defer src="js/sales-training.js?v=2"></script>
-<script defer src="js/storm-center.js?v=2"></script>
-<script defer src="js/close-board.js?v=2"></script>
-<script defer src="js/rep-os.js?v=2"></script>
-<script defer src="js/template-suite.js?v=2"></script>
-<script defer src="js/company-admin.js?v=2"></script>
+<script defer src="js/advanced_pdf_generator.js?v=3"></script>
+<script defer src="js/pricing_database_manager.js?v=3"></script>
+<script defer src="js/template_library.js?v=3"></script>
+<script defer src="js/ai_review_system.js?v=3"></script>
+<script defer src="js/email_system.js?v=3"></script>
+<script defer src="js/product-data.js?v=3"></script>
+<script defer src="js/estimate-templates.js?v=3"></script>
+<script defer src="js/daily-tracker.js?v=3"></script>
+<script defer src="js/product-library.js?v=3"></script>
+<script defer src="js/d2d-tracker.js?v=6"></script>
+<script defer src="js/sales-training.js?v=3"></script>
+<script defer src="js/storm-center.js?v=3"></script>
+<script defer src="js/close-board.js?v=3"></script>
+<script defer src="js/rep-os.js?v=3"></script>
+<script defer src="js/template-suite.js?v=3"></script>
+<script defer src="js/company-admin.js?v=3"></script>
 <script defer src="js/document-generator.js?v=3"></script>
 <script defer src="js/document-generator-templates.js?v=3"></script>
-<script defer src="js/customer-portal.js?v=2"></script>
-<script defer src="js/analytics-kpi.js?v=2"></script>
-<script defer src="js/onboarding.js?v=2"></script>
-<script defer src="js/photo-report.js?v=2"></script>
-<script defer src="js/review-engine.js?v=2"></script>
-<script defer src="js/storm-alerts.js?v=2"></script>
-<script defer src="js/profit-tracker.js?v=2"></script>
-<script defer src="js/crew-calendar.js?v=2"></script>
-<script defer src="js/email-drip.js?v=2"></script>
-<script defer src="js/lead-scoring.js?v=2"></script>
-<script defer src="js/material-calculator.js?v=2"></script>
-<script defer src="js/insurance-claim.js?v=2"></script>
-<script defer src="js/reporting-dashboard.js?v=2"></script>
-<script defer src="js/supplier-pricing.js?v=2"></script>
-<script defer src="js/theme-engine.js?v=2"></script>
-<script defer src="js/theme-overlays.js?v=2"></script>
-<script defer src="js/theme-sounds.js?v=2"></script>
-<script defer src="js/theme-achievements.js?v=2"></script>
-<script defer src="js/theme-builder.js?v=2"></script>
-<script defer src="js/theme-gx.js?v=1"></script>
-<script defer src="js/theme-gx-panel.js?v=1"></script>
-<script defer src="js/offline-manager.js?v=2"></script>
-<script defer src="js/stripe-billing.js?v=2"></script>
-<script defer src="js/push-notifications.js?v=2"></script>
-<script defer src="js/nbd-comms.js?v=2"></script>
+<script defer src="js/customer-portal.js?v=3"></script>
+<script defer src="js/analytics-kpi.js?v=3"></script>
+<script defer src="js/onboarding.js?v=3"></script>
+<script defer src="js/photo-report.js?v=3"></script>
+<script defer src="js/review-engine.js?v=3"></script>
+<script defer src="js/storm-alerts.js?v=3"></script>
+<script defer src="js/profit-tracker.js?v=3"></script>
+<script defer src="js/crew-calendar.js?v=3"></script>
+<script defer src="js/email-drip.js?v=3"></script>
+<script defer src="js/lead-scoring.js?v=3"></script>
+<script defer src="js/material-calculator.js?v=3"></script>
+<script defer src="js/insurance-claim.js?v=3"></script>
+<script defer src="js/reporting-dashboard.js?v=3"></script>
+<script defer src="js/supplier-pricing.js?v=3"></script>
+<script defer src="js/theme-engine.js?v=3"></script>
+<script defer src="js/theme-overlays.js?v=3"></script>
+<script defer src="js/theme-sounds.js?v=3"></script>
+<script defer src="js/theme-achievements.js?v=3"></script>
+<script defer src="js/theme-builder.js?v=3"></script>
+<script defer src="js/theme-gx.js?v=2"></script>
+<script defer src="js/theme-gx-panel.js?v=2"></script>
+<script defer src="js/offline-manager.js?v=3"></script>
+<script defer src="js/stripe-billing.js?v=3"></script>
+<script type="module" src="js/push-notifications.js?v=3"></script>
+<script defer src="js/nbd-comms.js?v=3"></script>
 <!-- Real Deal Academy -->
-<script defer src="js/academy-insurance-tree.js?v=2"></script>
-<script defer src="js/academy-retail-tree.js?v=2"></script>
-<script defer src="js/academy-courses.js?v=2"></script>
-<script defer src="js/academy-admin.js?v=2"></script>
-<script defer src="js/real-deal-academy.js?v=2"></script>
+<script defer src="js/academy-insurance-tree.js?v=3"></script>
+<script defer src="js/academy-retail-tree.js?v=3"></script>
+<script defer src="js/academy-courses.js?v=3"></script>
+<script defer src="js/academy-admin.js?v=3"></script>
+<script defer src="js/real-deal-academy.js?v=3"></script>
 <!-- Wave 3-4: Invoice Pipeline, Report Export, Performance -->
-<script defer src="js/invoice-pipeline.js?v=2"></script>
-<script defer src="js/report-export.js?v=2"></script>
-<script src="js/script-loader.js?v=2"></script>
-<script defer src="js/perf-monitor.js?v=2"></script>
+<script defer src="js/invoice-pipeline.js?v=3"></script>
+<script defer src="js/report-export.js?v=3"></script>
+<script src="js/script-loader.js?v=3"></script>
+<script defer src="js/perf-monitor.js?v=3"></script>
 <!-- Photo Engine & Inspection Reports -->
-<script defer src="js/photo-engine.js?v=2"></script>
-<script defer src="js/inspection-report-engine.js?v=2"></script>
+<script defer src="js/photo-engine.js?v=3"></script>
+<script defer src="js/inspection-report-engine.js?v=3"></script>
 <script>
   // Display subscription tier in settings
   window._displayTier = function() {

@@ -286,7 +286,8 @@ window.applyQMData = applyQMData;
 // ── Onboarding Flow ──
 
 // ══ ONBOARDING FLOW ════════════════════════════════════════════════════
-let _onbStep = 1;
+// _onbStep may already be declared inline in dashboard.html
+if (typeof _onbStep === 'undefined') { var _onbStep = 1; }
 
 async function checkAndShowOnboarding() {
   if (!window._user) return;

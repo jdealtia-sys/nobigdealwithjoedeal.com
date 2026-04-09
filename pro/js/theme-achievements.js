@@ -165,10 +165,10 @@
       try {
         // Load from Firestore userSettings
         const uid = window._user?.uid;
-        if (uid && window.db) {
-          const doc = await window.db.collection('userSettings').doc(uid).get();
-          if (doc.exists && doc.data().themeUnlocks) {
-            doc.data().themeUnlocks.forEach(key => {
+        if (uid && window.db && window.getDoc && window.doc) {
+          const snap = await window.getDoc(window.doc(window.db, 'userSettings', uid));
+          if (snap.exists() && snap.data().themeUnlocks) {
+            snap.data().themeUnlocks.forEach(key => {
               window._themeUnlocks.add(key);
             });
           }
@@ -214,8 +214,8 @@
 
       // Save to Firestore
       const uid = window._user?.uid;
-      if (uid && window.db) {
-        window.db.collection('userSettings').doc(uid).update({
+      if (uid && window.db && window.updateDoc && window.doc) {
+        window.updateDoc(window.doc(window.db, 'userSettings', uid), {
           themeUnlocks: Array.from(window._themeUnlocks)
         }).catch(err => console.warn('Failed to save unlock:', err));
       }
@@ -347,9 +347,11 @@
       }
       statsCache.featureUsage[featureName] = true;
 
-      window.db.collection('userSettings').doc(uid).update({
-        [`featureUsage.${featureName}`]: true
-      }).catch(err => console.warn('Failed to track feature usage:', err));
+      if (window.updateDoc && window.doc) {
+        window.updateDoc(window.doc(window.db, 'userSettings', uid), {
+          [`featureUsage.${featureName}`]: true
+        }).catch(err => console.warn('Failed to track feature usage:', err));
+      }
 
       this.checkAll();
     },
@@ -363,16 +365,18 @@
         const uid = window._user?.uid;
         if (!uid || !window.db) return;
 
-        window.db.collection('userSettings').doc(uid).get().then(doc => {
-          const current = (doc.data()?.midnightLogins || 0) + 1;
-          window.db.collection('userSettings').doc(uid).update({
-            midnightLogins: current,
-            lastMidnightLogin: new Date()
-          }).catch(err => console.warn('Failed to track midnight login:', err));
+        if (window.getDoc && window.doc && window.updateDoc) {
+          window.getDoc(window.doc(window.db, 'userSettings', uid)).then(snap => {
+            const current = (snap.data()?.midnightLogins || 0) + 1;
+            window.updateDoc(window.doc(window.db, 'userSettings', uid), {
+              midnightLogins: current,
+              lastMidnightLogin: new Date()
+            }).catch(err => console.warn('Failed to track midnight login:', err));
 
-          statsCache.midnightLogins = current;
-          this.checkAll();
-        });
+            statsCache.midnightLogins = current;
+            this.checkAll();
+          });
+        }
       }
     },
 
@@ -383,8 +387,8 @@
       const uid = window._user?.uid;
       if (!uid || !window.db) return;
 
-      const doc = await window.db.collection('userSettings').doc(uid).get();
-      const userData = doc.data() || {};
+      const snap = await window.getDoc(window.doc(window.db, 'userSettings', uid));
+      const userData = snap.data() || {};
       const lastLoginDate = userData.lastLoginDate;
       const today = new Date().toDateString();
 
@@ -403,7 +407,7 @@
         // If daysDiff === 0, same day, don't change streak
       }
 
-      await window.db.collection('userSettings').doc(uid).update({
+      await window.updateDoc(window.doc(window.db, 'userSettings', uid), {
         loginStreak: streak,
         lastLoginDate: today
       }).catch(err => console.warn('Failed to track login streak:', err));
@@ -446,11 +450,11 @@
 
       // Load from Firestore userSettings
       const uid = window._user?.uid;
-      if (uid && window.db) {
+      if (uid && window.db && window.getDoc && window.doc) {
         try {
-          const doc = await window.db.collection('userSettings').doc(uid).get();
-          if (doc.exists) {
-            const data = doc.data();
+          const settingsSnap = await window.getDoc(window.doc(window.db, 'userSettings', uid));
+          if (settingsSnap.exists()) {
+            const data = settingsSnap.data();
             stats.loginStreak = data.loginStreak || 0;
             stats.midnightLogins = data.midnightLogins || 0;
             stats.featureUsage = data.featureUsage || {};
@@ -459,9 +463,11 @@
           }
 
           // Count knocks from D2D collection
-          const knocksSnap = await window.db.collection('knocks')
-            .where('uid', '==', uid).get();
-          stats.totalKnocks = knocksSnap.size;
+          if (window.collection && window.query && window.where && window.getDocs) {
+            const knocksQ = window.query(window.collection(window.db, 'knocks'), window.where('uid', '==', uid));
+            const knocksSnap = await window.getDocs(knocksQ);
+            stats.totalKnocks = knocksSnap.size;
+          }
         } catch (error) {
           console.warn('Failed to gather stats from Firestore:', error);
         }
