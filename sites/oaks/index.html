@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Roofing Company Goshen, OH | Oaks Roofing & Construction</title>
-  <meta name="description" content="Trusted roofing company in Goshen, OH offering affordable roof replacement, repair, siding, gutters, and storm damage restoration.">
+  <meta name="description" content="Trusted roofing company in Goshen, OH offering affordable roof replacement, repair, siding, gutters, and storm damage restoration with a 5-year labor warranty.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -15,196 +15,234 @@
     firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
     const db = firebase.firestore();
   </script>
+  <style>
+    /* Home-specific hero with background image overlay */
+    .home-hero {
+      background: linear-gradient(135deg, var(--dark) 0%, var(--gray-900) 100%);
+      padding: 80px 0 70px; color: var(--white); position: relative; overflow: hidden;
+    }
+    .home-hero::after {
+      content: ''; position: absolute; top: 0; right: 0; width: 50%; height: 100%;
+      background: linear-gradient(135deg, transparent 30%, rgba(232,114,12,0.06) 100%);
+    }
+    .home-hero .container { position: relative; z-index: 1; }
+    .home-hero .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(232,114,12,0.15); border: 1px solid rgba(232,114,12,0.3);
+      border-radius: 50px; padding: 6px 16px; font-size: 0.8rem;
+      font-weight: 600; color: var(--orange); margin-bottom: 20px;
+    }
+    .home-hero .hero-badge .stars { color: #f5b731; font-size: 0.7rem; }
+    .home-hero h1 { font-size: 2.8rem; font-weight: 900; color: var(--white); max-width: 620px; margin-bottom: 16px; }
+    .home-hero h1 span { color: var(--orange); }
+    .home-hero > .container > p { font-size: 1.05rem; color: var(--gray-300); max-width: 520px; margin-bottom: 32px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    @media (max-width: 768px) { .home-hero { padding: 50px 0 40px; } .home-hero h1 { font-size: 2rem; } }
+
+    /* Rates strip */
+    .rates-strip { background: var(--gray-100); padding: 50px 0; text-align: center; }
+    .rates-strip h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+    .rates-strip p { color: var(--gray-400); font-size: 0.95rem; max-width: 500px; margin: 0 auto; }
+
+    /* Home services grid override for clickable cards */
+    .home-services .services-grid { margin-top: 40px; }
+    .home-services .services-grid a.service-card { text-decoration: none; color: inherit; display: block; }
+  </style>
 </head>
 <body>
   <div id="site-banner"></div>
   <div id="site-nav"></div>
 
-  <!-- Hero Section -->
-  <section class="hero home-hero">
+  <!-- ═══ HERO ═══ -->
+  <section class="home-hero">
     <div class="container">
-      <div class="hero-content">
-        <div class="hero-badge">
-          <i class="fas fa-star"></i>
-          <span>5-Star Trusted Roofing Company</span>
-        </div>
-        <h1>Trusted Roofing Company in Goshen, OH With Affordable Solutions</h1>
-        <p>We deliver quality roofing, siding, and exterior services at competitive prices. Licensed, insured, and backed by a 5-year warranty.</p>
-        <div class="hero-buttons">
-          <button class="btn btn-primary">Get Your Free Quote</button>
-          <button class="btn btn-secondary">Call (513) 827-5297</button>
-        </div>
+      <div class="hero-badge">
+        <span class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></span>
+        5-Star Rated on Google
+      </div>
+      <h1>Trusted Roofing Company in <span>Goshen, OH</span> With Affordable Solutions</h1>
+      <p>Expert roofing, siding, and gutter services backed by honest pricing, quality materials, and a 5-year labor warranty on every install.</p>
+      <div class="hero-actions">
+        <a href="contact.html" class="btn-primary"><i class="fa-solid fa-file-lines"></i> Request a Quote</a>
+        <a href="tel:5138275297" class="btn-outline"><i class="fa-solid fa-phone"></i> (513) 827-5297</a>
       </div>
     </div>
   </section>
 
-  <!-- Competitive Rates Strip -->
-  <section class="strip competitive-strip">
+  <!-- ═══ COMPETITIVE RATES STRIP ═══ -->
+  <div class="rates-strip">
     <div class="container">
       <h2>Competitive Rates Without Cutting Corners</h2>
-      <p>Our low overhead means you save. Our craftsmanship means your home gets the quality it deserves.</p>
+      <p>Quality roofing, siding, and gutter services at prices that make sense for Goshen homeowners.</p>
     </div>
-  </section>
+  </div>
 
-  <!-- Services Section -->
-  <section class="services-grid">
+  <!-- ═══ SERVICES ═══ -->
+  <section class="home-services" id="services">
     <div class="container">
-      <h2>Our Roofing & Exterior Services</h2>
-      <div class="grid grid-3">
-        <a href="/sites/oaks/services/roof-replacement.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-house"></i>
+      <span class="section-label">What We Do</span>
+      <h2 class="section-title">Roofing, Siding and Gutter Services</h2>
+      <p class="section-desc">At Oaks Roofing & Construction, we serve Goshen, OH and surrounding communities with trusted roofing, siding, gutter services, and more.</p>
+
+      <div class="services-grid">
+        <a href="services/roof-replacement.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-house-chimney"></i></div>
+          <div class="service-card-body">
+            <h3>Roof Replacement</h3>
+            <p>Full tear-off and replacement to improve your home's protection, energy efficiency, and value.</p>
+            <span class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Roof Replacement</h3>
-          <p>Full roof replacements using quality materials and expert installation to protect your home for decades.</p>
-          <span class="arrow">Learn More →</span>
         </a>
-        <a href="/sites/oaks/services/roof-repair.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-wrench"></i>
+        <a href="services/roof-repair.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+          <div class="service-card-body">
+            <h3>Roof Repair</h3>
+            <p>Fast, reliable repairs for leaks, missing shingles, storm damage, and more.</p>
+            <span class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Roof Repair</h3>
-          <p>Fast, reliable repairs for leaks, damaged shingles, flashing issues, and storm damage.</p>
-          <span class="arrow">Learn More →</span>
         </a>
-        <a href="/sites/oaks/services/siding-replacement.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-layer-group"></i>
+        <a href="services/siding-replacement.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-building"></i></div>
+          <div class="service-card-body">
+            <h3>Siding Replacement</h3>
+            <p>Beautiful, durable siding installation to protect and transform your home's exterior.</p>
+            <span class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Siding Replacement</h3>
-          <p>Modern siding options that improve curb appeal and protect your home from the elements.</p>
-          <span class="arrow">Learn More →</span>
         </a>
-        <a href="/sites/oaks/services/siding-repair.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-hammer"></i>
+        <a href="services/siding-repair.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-hammer"></i></div>
+          <div class="service-card-body">
+            <h3>Siding Repair</h3>
+            <p>Patch, repair, and restore damaged siding to keep your home protected from the elements.</p>
+            <span class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Siding Repair</h3>
-          <p>Professional repairs for damaged, rotted, or deteriorating siding to maintain your home's integrity.</p>
-          <span class="arrow">Learn More →</span>
         </a>
-        <a href="/sites/oaks/services/gutter-replacement.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-water"></i>
+        <a href="services/gutter-replacement.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-droplet"></i></div>
+          <div class="service-card-body">
+            <h3>Gutter Replacement</h3>
+            <p>Seamless gutter systems built to last and protect your foundation year-round.</p>
+            <span class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Gutter Services</h3>
-          <p>Installation, repair, and maintenance to keep water flowing away from your foundation.</p>
-          <span class="arrow">Learn More →</span>
         </a>
-        <a href="/sites/oaks/contact.html" class="service-card">
-          <div class="service-icon">
-            <i class="fas fa-cloud-bolt"></i>
+        <a href="contact.html" class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-cloud-bolt"></i></div>
+          <div class="service-card-body">
+            <h3>Storm Damage</h3>
+            <p>Emergency response with full insurance claim assistance from inspection to rebuild.</p>
+            <span class="service-link">Get Help Now <i class="fa-solid fa-arrow-right"></i></span>
           </div>
-          <h3>Storm Damage Restoration</h3>
-          <p>Emergency response and restoration for hail, wind, and weather damage to your roof and siding.</p>
-          <span class="arrow">Learn More →</span>
         </a>
       </div>
     </div>
   </section>
 
-  <!-- About Preview -->
-  <section class="about-preview">
+  <!-- ═══ ABOUT PREVIEW ═══ -->
+  <section class="section-gray">
     <div class="container">
-      <div class="about-content">
-        <h2>Who We Are</h2>
-        <p>Oaks Roofing & Construction started with a simple idea: deliver quality exterior services at prices that make sense. We began in roofing sales, learned the industry inside and out, and decided to build our own company dedicated to honest work and fair pricing.</p>
-        <p>Based in Goshen, Ohio, we've grown from a single-trade roofing company to a full-service exterior contractor. Our low overhead keeps costs down, and our hands-on approach ensures every job is done right. We're licensed, insured, and backed by a 5-year warranty.</p>
-        <p>When you choose Oaks, you're choosing a local team that stands behind its work and treats your home like our own.</p>
-        <a href="/sites/oaks/about.html" class="btn btn-secondary">Learn Our Full Story</a>
+      <div class="about-grid">
+        <div class="about-content">
+          <span class="section-label">Reliable Roofing Delivery</span>
+          <h2>About Oaks Roofing & Construction</h2>
+          <p>At Oaks Roofing & Construction, we do things differently. We offer homeowners in Goshen, Ohio, and surrounding areas fair and honest roofing services at competitive prices.</p>
+          <p>Our journey started in roofing sales. Over the years, we built a business focused on solutions homeowners can count on. What began as a single trade evolved into a full-service company.</p>
+          <p>Unlike larger companies with heavy overhead, we pass savings on to our customers and provide transparent pricing every time.</p>
+          <div class="about-stats">
+            <div class="about-stat"><div class="num">5-Yr</div><div class="label">Labor Warranty</div></div>
+            <div class="about-stat"><div class="num">100%</div><div class="label">Licensed & Insured</div></div>
+            <div class="about-stat"><div class="num">5<i class="fa-solid fa-star" style="color:#f5b731;font-size:0.8rem;margin-left:2px"></i></div><div class="label">Google Rating</div></div>
+          </div>
+          <br>
+          <a href="about.html" class="btn-primary">Learn More About Us</a>
+        </div>
+        <div class="about-image"><i class="fa-solid fa-house-chimney-crack"></i></div>
       </div>
     </div>
   </section>
 
-  <!-- 4-Step Process -->
-  <section class="process-section">
+  <!-- ═══ QUOTE REQUEST CTA ═══ -->
+  <section class="section-dark" style="padding:60px 0;text-align:center;">
     <div class="container">
-      <h2>Our Simple 4-Step Process</h2>
-      <div class="process-grid grid-4">
-        <div class="process-item">
-          <div class="process-number">1</div>
-          <h3>Inspect</h3>
-          <p>We conduct a thorough inspection of your roof, siding, or exterior. No pressure, no sales pitch—just honest assessment.</p>
-        </div>
-        <div class="process-item">
-          <div class="process-number">2</div>
-          <h3>Quote</h3>
-          <p>You get a detailed, transparent quote. We explain what needs to be done and why, with no hidden fees.</p>
-        </div>
-        <div class="process-item">
-          <div class="process-number">3</div>
-          <h3>Install</h3>
-          <p>Our licensed crew executes the work with care and professionalism. We clean up and keep you informed every step.</p>
-        </div>
-        <div class="process-item">
-          <div class="process-number">4</div>
-          <h3>Warranty</h3>
-          <p>Your project is backed by our 5-year warranty. You're protected, and we stand behind every job we do.</p>
-        </div>
+      <h2 class="section-title" style="color:var(--white);">Request a Roofing Quote From Our Local Team Today</h2>
+      <p class="section-desc mx-auto" style="color:var(--gray-300);">Get an honest assessment and transparent pricing. No pressure, no hidden fees.</p>
+      <a href="contact.html" class="btn-primary"><i class="fa-solid fa-file-lines"></i> Request a Quote</a>
+    </div>
+  </section>
+
+  <!-- ═══ WARRANTY ═══ -->
+  <section class="warranty-section">
+    <div class="container">
+      <h2>Protect Your Home With Warranties Now</h2>
+      <p>Every roof install comes backed by our 5-year labor warranty and a 30-50 year manufacturer shingle warranty.</p>
+      <div class="warranty-badges">
+        <div class="warranty-badge"><i class="fa-solid fa-shield-halved"></i><span>5-Year Labor Warranty</span></div>
+        <div class="warranty-badge"><i class="fa-solid fa-certificate"></i><span>30-50 Year Material Warranty</span></div>
+        <div class="warranty-badge"><i class="fa-solid fa-clipboard-check"></i><span>Licensed & Insured</span></div>
       </div>
     </div>
   </section>
 
-  <!-- Reviews Section -->
-  <section class="reviews-section dark-bg">
-    <div class="container">
-      <h2>What Our Customers Say</h2>
-      <div class="grid grid-3">
+  <!-- ═══ REVIEWS ═══ -->
+  <section class="section-dark">
+    <div class="container text-center">
+      <span class="section-label">Client Praise</span>
+      <h2 class="section-title">Our Home Exterior Solutions</h2>
+      <div class="reviews-grid">
         <div class="review-card">
-          <div class="stars">
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-          </div>
-          <p>"Oaks came out, gave us a fair quote, and completed our roof replacement on time and on budget. Great crew, professional work."</p>
-          <strong>— Sarah M., Goshen</strong>
-        </div>
-        <div class="review-card">
-          <div class="stars">
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-          </div>
-          <p>"After the storm hit, Oaks was there fast. They assessed the damage, worked with our insurance, and got us restored quickly."</p>
-          <strong>— James T., Batavia</strong>
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"They were upfront about everything from the start. No surprises, no pressure. The crew was professional and finished on time."</p>
+          <div class="review-author">- Mark T., Goshen</div>
         </div>
         <div class="review-card">
-          <div class="stars">
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-            <i class="fas fa-star"></i>
-          </div>
-          <p>"Needed new gutters and siding. Their price was competitive, the work quality is excellent, and they cleaned up like pros."</p>
-          <strong>— Michelle R., Milford</strong>
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"Best experience I've had with a roofing company. They showed up when they said they would and the roof looks amazing."</p>
+          <div class="review-author">- Sarah K., Milford</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"Had storm damage and they handled everything including the insurance paperwork. Fair price, quality work."</p>
+          <div class="review-author">- Dave R., Batavia</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Warranty CTA -->
-  <section class="warranty-cta orange-bg">
+  <!-- ═══ CONTACT STRIP ═══ -->
+  <section style="padding:60px 0;text-align:center;">
     <div class="container">
-      <h2>Backed by Our 5-Year Warranty</h2>
-      <p>Every roof replacement, repair, and exterior service is covered by our comprehensive warranty. Your peace of mind is our priority.</p>
-      <button class="btn btn-white">Get Your Warranty Coverage</button>
+      <span class="section-label">Get In Touch</span>
+      <h2 class="section-title">Get in Touch with Our Builders</h2>
+      <p class="section-desc mx-auto">We're here to help with any roofing, siding, or gutter project. Reach out today for a free estimate.</p>
+      <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">
+        <a href="tel:5138275297" class="btn-primary"><i class="fa-solid fa-phone"></i> (513) 827-5297</a>
+        <a href="contact.html" class="btn-outline-dark"><i class="fa-solid fa-envelope"></i> Contact Us</a>
+      </div>
     </div>
   </section>
 
-  <!-- CTA Banner -->
-  <div id="cta-1"></div>
+  <!-- ═══ QUOTE FORM ═══ -->
+  <section class="section-dark">
+    <div class="container">
+      <div style="max-width:600px;margin:0 auto;">
+        <div id="quote-form-home"></div>
+      </div>
+    </div>
+  </section>
 
-  <!-- Footer -->
+  <!-- ═══ BOTTOM CTA ═══ -->
+  <section class="section-gray" style="padding:60px 0;text-align:center;">
+    <div class="container">
+      <h2 class="section-title">Bringing Superior Home Upgrade Solutions to Goshen, OH, and Beyond</h2>
+      <p class="section-desc mx-auto">From roof replacements to gutter installations, we deliver lasting results with honest service and a focus on customer satisfaction.</p>
+      <a href="contact.html" class="btn-primary"><i class="fa-solid fa-file-lines"></i> Request a Quote</a>
+    </div>
+  </section>
+
   <div id="site-footer"></div>
 
   <script src="shared.js"></script>
   <script>
-    renderCTA('cta-1');
+    renderQuoteForm('quote-form-home', 'Request a Quote or Ask a Question', 'Fill out the form below and our team will get back to you within 24 hours.');
   </script>
 </body>
 </html>

@@ -5,10 +5,24 @@
 
 const BASE = '/sites/oaks';
 
-const LOGO_SVG = `<svg class="logo-icon" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M30 8c-8 0-18 6-18 16 0 8 6 14 13 16v12h10V40c7-2 13-8 13-16 0-10-10-16-18-16z" fill="#e8720c"/>
-  <rect x="27" y="38" width="6" height="14" rx="2" fill="#e8720c"/>
-  <path d="M22 52h16" stroke="#e8720c" stroke-width="3" stroke-linecap="round"/>
+// Real Oaks logo: house + hammer — orange version for dark backgrounds
+const LOGO_SVG = `<svg class="logo-icon" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 55 L60 20 L100 55 L100 90 L20 90 Z" fill="#e8720c"/>
+  <path d="M10 58 L60 13 L110 58" stroke="#e8720c" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="78" y="24" width="10" height="22" fill="#e8720c"/>
+  <line x1="38" y1="78" x2="78" y2="35" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M72 28 L86 42 L82 46 L68 32 Z" fill="#1a1a1a"/>
+  <path d="M86 42 L92 36 Q94 34 92 30 L89 27" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+</svg>`;
+
+// White version for light backgrounds
+const LOGO_SVG_DARK = `<svg class="logo-icon" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 55 L60 20 L100 55 L100 90 L20 90 Z" fill="#e8720c"/>
+  <path d="M10 58 L60 13 L110 58" stroke="#e8720c" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="78" y="24" width="10" height="22" fill="#e8720c"/>
+  <line x1="38" y1="78" x2="78" y2="35" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M72 28 L86 42 L82 46 L68 32 Z" fill="#ffffff"/>
+  <path d="M86 42 L92 36 Q94 34 92 30 L89 27" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" fill="none"/>
 </svg>`;
 
 // Determine active page from URL
@@ -43,7 +57,8 @@ function renderNav() {
       <div class="nav-inner">
         <a href="${BASE}/" class="nav-logo">
           ${LOGO_SVG}
-          <div class="logo-text">Oaks Roofing &<br>Construction</div>
+          <div class="logo-text">Oaks Roofing & Construction</div>
+          <div class="logo-tagline">Roofing, Siding, Gutters</div>
         </a>
         <ul class="nav-links">
           <li class="${isActive('index')}"><a href="${BASE}/">Home</a></li>
@@ -90,12 +105,9 @@ function renderFooter() {
     <footer class="site-footer">
       <div class="container">
         <div class="footer-top">
-          <svg width="50" height="50" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M30 8c-8 0-18 6-18 16 0 8 6 14 13 16v12h10V40c7-2 13-8 13-16 0-10-10-16-18-16z" fill="#e8720c"/>
-            <rect x="27" y="38" width="6" height="14" rx="2" fill="#e8720c"/>
-            <path d="M22 52h16" stroke="#e8720c" stroke-width="3" stroke-linecap="round"/>
-          </svg>
+          <div class="footer-logo">${LOGO_SVG}</div>
           <div class="footer-brand">Oaks Roofing & Construction</div>
+          <div class="footer-tagline">Roofing, Siding, Gutters</div>
           <div class="footer-contact-row">
             <div class="footer-contact-item"><i class="fa-solid fa-phone"></i> <a href="tel:5138275297">(513) 827-5297</a></div>
             <div class="footer-contact-item"><i class="fa-solid fa-location-dot"></i> Goshen, OH</div>
@@ -132,6 +144,32 @@ function renderFooter() {
       </div>
     </footer>
     <div class="powered-by">Powered by <a href="https://nobigdealwithjoedeal.com" target="_blank">NBD Pro</a></div>`;
+}
+
+// ═══ PAGE LOGO (big centered logo for inner pages) ═══
+function renderPageLogo() {
+  // Skip on home page
+  if (path.endsWith('/oaks/') || path.endsWith('/oaks/index.html') || path.endsWith('/oaks')) return;
+  // Insert after nav
+  const nav = document.getElementById('site-nav');
+  if (!nav) return;
+  const logoDiv = document.createElement('div');
+  logoDiv.innerHTML = `
+    <div class="page-logo-section">
+      <div class="container">
+        <svg class="page-logo-icon" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 55 L60 20 L100 55 L100 90 L20 90 Z" fill="#e8720c"/>
+          <path d="M10 58 L60 13 L110 58" stroke="#e8720c" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <rect x="78" y="24" width="10" height="22" fill="#e8720c"/>
+          <line x1="38" y1="78" x2="78" y2="35" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+          <path d="M72 28 L86 42 L82 46 L68 32 Z" fill="#ffffff"/>
+          <path d="M86 42 L92 36 Q94 34 92 30 L89 27" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div class="page-logo-name">Oaks Roofing & Construction</div>
+        <div class="page-logo-tagline">Roofing &bull; Siding &bull; Gutters</div>
+      </div>
+    </div>`;
+  nav.after(logoDiv.firstElementChild);
 }
 
 // ═══ QUOTE FORM (reusable) ═══
@@ -227,5 +265,6 @@ async function submitLead(e, containerId) {
 document.addEventListener('DOMContentLoaded', () => {
   renderBanner();
   renderNav();
+  renderPageLogo();
   renderFooter();
 });
