@@ -836,6 +836,31 @@
     return icons[type] || '·';
   }
 
+  async function saveTagsOnly() {
+    if (!STATE.photoId) {
+      showToast('No photo ID — save as copy first', 'error');
+      return;
+    }
+    try {
+      const metadata = {
+        damageType: STATE.damageType,
+        severity: STATE.severity,
+        location: STATE.location,
+        phase: STATE.phase,
+        notes: STATE.notes,
+        tags: STATE.customTags,
+      };
+      const docRef = window.doc(window.db, 'photos', STATE.photoId);
+      await window.updateDoc(docRef, metadata);
+      showToast('Tags saved successfully!', 'success');
+      STATE.hasUnsavedChanges = false;
+      setTimeout(() => closeEditor(), 1000);
+    } catch (error) {
+      console.error('Save tags error:', error);
+      showToast('Failed to save tags: ' + error.message, 'error');
+    }
+  }
+
   async function flattenAndSaveAs() {
     if (!canvas || !overlayCanvas) {
       showToast('Canvas not ready', 'error');
@@ -999,6 +1024,7 @@
       { action: 'undo', text: 'Undo' },
       { action: 'redo', text: 'Redo' },
       { action: 'download', text: 'Download' },
+      { action: 'save-tags', text: 'Save Tags Only' },
       { action: 'save-new', text: 'Save as Copy' },
       { action: 'save-over', text: 'Save Over' },
     ];
@@ -1017,6 +1043,11 @@
         btn.onclick = redo;
       } else if (cfg.action === 'download') {
         btn.onclick = downloadImage;
+      } else if (cfg.action === 'save-tags') {
+        btn.onclick = saveTagsOnly;
+        btn.style.background = '#22c55e';
+        btn.onmouseover = () => btn.style.background = '#16a34a';
+        btn.onmouseout = () => btn.style.background = '#22c55e';
       } else if (cfg.action === 'save-new') {
         btn.onclick = flattenAndSaveAs;
       } else if (cfg.action === 'save-over') {
