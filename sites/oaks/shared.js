@@ -44,7 +44,7 @@ function renderBanner() {
     <div class="top-banner" id="topBanner">
       <i class="fa-solid fa-gear"></i>
       Enjoy a 5-Year Labor Warranty on All Installs
-      <button class="banner-close" onclick="document.getElementById('topBanner').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+      <button type="button" class="banner-close" onclick="document.getElementById('topBanner').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
     </div>`;
 }
 
@@ -77,7 +77,7 @@ function renderNav() {
           <li class="${isActive('service-areas')}"><a href="${BASE}/service-areas.html">Service Areas</a></li>
           <li class="${isActive('contact')}"><a href="${BASE}/contact.html">Contact Us</a></li>
         </ul>
-        <button class="nav-toggle" aria-label="Open navigation menu" onclick="document.getElementById('mobileMenu').classList.toggle('open');this.setAttribute('aria-expanded',document.getElementById('mobileMenu').classList.contains('open'))">
+        <button type="button" class="nav-toggle" aria-label="Open navigation menu" onclick="document.getElementById('mobileMenu').classList.toggle('open');this.setAttribute('aria-expanded',document.getElementById('mobileMenu').classList.contains('open'))">
           <i class="fa-solid fa-bars" aria-hidden="true"></i>
         </button>
       </div>
@@ -138,7 +138,7 @@ function renderFooter() {
           </div>
         </div>
         <div class="footer-bottom">
-          &copy;2026, Oaks Roofing & Construction, All Rights Reserved. <a href="#">Privacy Policy</a>
+          &copy;2026, Oaks Roofing & Construction, All Rights Reserved.
         </div>
       </div>
     </footer>
