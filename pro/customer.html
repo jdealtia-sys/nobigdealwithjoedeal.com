@@ -665,9 +665,7 @@ header {
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Photos</div>
-          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">
-            📤 Upload
-          </button>
+          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">📤 Upload</button>
         </div>
         <div id="photoList">
           <div class="empty">
@@ -2015,12 +2013,6 @@ async function loadCustomerData(id) {
       const pl = document.getElementById('photoList');
       if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet — click Upload above</div>';
     }
-    // Load photos by phase (Photos tab)
-    try { if (window.loadPhotosByPhase) await window.loadPhotosByPhase(id); } catch (e) {
-      console.error('Photos by phase failed:', e);
-      const pp = document.getElementById('photosByPhase');
-      if (pp) pp.innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
-    }
     
     try { 
       await window.loadDocuments(id); 
@@ -2061,10 +2053,12 @@ async function loadCustomerData(id) {
       }
     } catch (e) { console.warn('Claim workflow render failed:', e.message); }
 
-    // Load portal sub-sections
-    try { if (window.loadInvoices) await window.loadInvoices(id); } catch (e) { console.warn('Invoices load failed:', e.message); }
-    try { if (window.loadReports) await window.loadReports(id); } catch (e) { console.warn('Reports load failed:', e.message); }
-    try { if (window.loadCommunicationLog) await window.loadCommunicationLog(id); } catch (e) { console.warn('Comm log load failed:', e.message); }
+    // Load new portal sections (timeline, invoices, photos by phase, reports, documents, communication log)
+    try {
+      await window.loadNewPortalSections(id);
+      // Setup contact tab
+      window.setupContactTab(lead);
+    } catch (e) { console.warn('Portal sections render failed:', e.message); }
 
   } catch (error) {
     console.error('Error loading customer data:', error);
@@ -2695,7 +2689,9 @@ window.uploadPhotos = async function() {
     // Success - reload photos and close modal
     alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
     closeUploadModal();
+    // Reload both photo sections
     if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
+    try { await loadPhotos(window._customerId); } catch(e) { console.warn('Photo grid refresh:', e); }
 
     // Reload timeline to show photo upload events
     const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
