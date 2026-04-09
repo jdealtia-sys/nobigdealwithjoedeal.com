@@ -1,6 +1,8 @@
 /**
- * NBD Pro Offline Manager v1.0
+ * NBD Pro Offline Manager v2.0
  * Client-side offline queue management and UI
+ *
+ * v2: Online bar replaced with subtle centered pill button in header
  *
  * Handles:
  * - Service worker registration
@@ -25,10 +27,8 @@
   // Initialize
   // ─────────────────────────────────────────────────────────
   async function init() {
-    // Open IndexedDB
     await initIndexedDB();
 
-    // Register service worker
     if ('serviceWorker' in navigator) {
       try {
         swRegistration = await navigator.serviceWorker.register('/pro/sw.js', {
@@ -36,26 +36,21 @@
         });
         console.log('✓ Service Worker registered');
 
-        // Listen for SW controller changes (updates)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           showUpdateNotification();
         });
 
-        // Listen for messages from SW
         navigator.serviceWorker.addEventListener('message', handleSWMessage);
       } catch (err) {
         console.warn('Service Worker registration failed:', err);
       }
     }
 
-    // Listen for online/offline events
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Create status indicator UI
     createStatusIndicator();
 
-    // Sync on page load if online
     if (isOnline) {
       flushQueue();
     }
@@ -107,7 +102,7 @@
         collection,
         docId,
         data,
-        method, // 'set', 'update', 'delete'
+        method,
         timestamp: Date.now(),
         url: `/pro/api/firestore/${collection}/${docId}`,
         status: 'pending'
@@ -121,7 +116,7 @@
       };
 
       req.onsuccess = () => {
-        showOfflineToast(`Saved offline — will sync when connected`);
+        showOfflineToast('Saved offline — will sync when connected');
         resolve(req.result);
       };
 
@@ -158,7 +153,6 @@
 
         for (const item of items) {
           try {
-            // Construct Firestore write request
             const response = await performFirestoreWrite(item);
 
             if (response.ok) {
@@ -198,7 +192,6 @@
   // Perform actual Firestore write (requires auth token)
   // ─────────────────────────────────────────────────────────
   async function performFirestoreWrite(item) {
-    // Get auth token from window (Firebase auth must be initialized)
     const token = await getAuthToken();
 
     if (!token) {
@@ -260,11 +253,9 @@
   }
 
   function getAuthToken() {
-    // If Firebase auth is loaded, get the token
     if (window._user && typeof window._user.getIdToken === 'function') {
       return window._user.getIdToken();
     }
-    // Fallback: try to get from storage (not ideal but works for offline scenarios)
     return Promise.resolve(localStorage.getItem('_firebase_token'));
   }
 
@@ -289,7 +280,6 @@
     if (msg.type === 'SW_UPDATE_AVAILABLE') {
       showUpdateNotification();
     } else if (msg.type === 'OFFLINE_SYNC_COMPLETE') {
-      // SW has synced items from queue
       if (msg.synced > 0) {
         showOfflineToast(
           `Synced ${msg.synced} offline ${msg.synced === 1 ? 'item' : 'items'}`,
@@ -300,15 +290,8 @@
   }
 
   function showUpdateNotification() {
-    const indicator = document.getElementById('nbd-offline-status');
-    if (indicator) {
-      const updateMsg = document.createElement('div');
-      updateMsg.className = 'nbd-update-msg';
-      updateMsg.innerHTML = `
-        <span>Update available</span>
-        <button onclick="window.location.reload()">Refresh</button>
-      `;
-      indicator.appendChild(updateMsg);
+    if (typeof window.showToast === 'function') {
+      window.showToast('Update available — tap to refresh', 'info');
     }
   }
 
@@ -327,143 +310,125 @@
   }
 
   // ─────────────────────────────────────────────────────────
-  // Status indicator UI
+  // Status indicator UI — SUBTLE PILL BUTTON
+  // Centered in header, matches existing button aesthetic
+  // Green when online, red when offline
   // ─────────────────────────────────────────────────────────
   function createStatusIndicator() {
-    if (document.getElementById('nbd-offline-status')) return;
+    // Remove old full-width bar if it exists
+    const oldBar = document.getElementById('nbd-offline-status');
+    if (oldBar) oldBar.remove();
 
-    const indicator = document.createElement('div');
-    indicator.id = 'nbd-offline-status';
-    indicator.className = 'nbd-offline-status online';
-    indicator.innerHTML = `
-      <div class="nbd-status-inner">
-        <span class="nbd-status-dot"></span>
-        <span class="nbd-status-text">Online</span>
-      </div>
-    `;
-
-    // Add styles if not already present
+    // Add styles
     if (!document.getElementById('nbd-offline-styles')) {
       const style = document.createElement('style');
       style.id = 'nbd-offline-styles';
       style.textContent = `
-        #nbd-offline-status {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 32px;
-          z-index: 10000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 13px;
-          font-weight: 600;
-          transition: all 0.2s ease;
-          pointer-events: none;
-          font-family: system-ui, -apple-system, sans-serif;
+        .nbd-conn-pill {
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          padding:4px 10px;
+          border-radius:20px;
+          font-size:10px;
+          font-family:'Barlow Condensed',system-ui,-apple-system,sans-serif;
+          font-weight:700;
+          letter-spacing:.06em;
+          text-transform:uppercase;
+          border:1px solid transparent;
+          cursor:default;
+          transition:all .25s ease;
+          -webkit-tap-highlight-color:transparent;
+          line-height:1;
         }
 
-        #nbd-offline-status.online {
-          background: rgba(46, 204, 138, 0.1);
-          color: #2ecc8a;
-          border-bottom: 1px solid rgba(46, 204, 138, 0.2);
+        .nbd-conn-pill.online {
+          background:rgba(16,185,129,.1);
+          border-color:rgba(16,185,129,.25);
+          color:#10b981;
         }
 
-        #nbd-offline-status.offline {
-          background: rgba(224, 82, 82, 0.1);
-          color: #e05252;
-          border-bottom: 1px solid rgba(224, 82, 82, 0.2);
+        .nbd-conn-pill.offline {
+          background:rgba(239,68,68,.1);
+          border-color:rgba(239,68,68,.3);
+          color:#ef4444;
         }
 
-        .nbd-status-inner {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+        .nbd-conn-pill.syncing {
+          background:rgba(251,191,36,.1);
+          border-color:rgba(251,191,36,.25);
+          color:#fbbf24;
         }
 
-        .nbd-status-dot {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: currentColor;
-          animation: nbd-pulse 2s infinite;
+        .nbd-conn-dot {
+          width:6px;
+          height:6px;
+          border-radius:50%;
+          background:currentColor;
+          flex-shrink:0;
         }
 
-        #nbd-offline-status.offline .nbd-status-dot {
-          animation: none;
+        .nbd-conn-pill.online .nbd-conn-dot {
+          box-shadow:0 0 6px rgba(16,185,129,.5);
         }
 
-        @keyframes nbd-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+        .nbd-conn-pill.offline .nbd-conn-dot {
+          animation:nbd-conn-pulse 1.4s ease-in-out infinite;
         }
 
-        .nbd-update-msg {
-          position: absolute;
-          top: 40px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 16px;
-          background: rgba(74, 158, 255, 0.1);
-          border: 1px solid rgba(74, 158, 255, 0.2);
-          border-radius: 8px;
-          color: #4a9eff;
-          font-size: 12px;
-          pointer-events: auto;
-          animation: slideDown 0.3s ease;
+        .nbd-conn-pill.syncing .nbd-conn-dot {
+          animation:nbd-conn-pulse 1s ease-in-out infinite;
         }
 
-        .nbd-update-msg button {
-          padding: 4px 12px;
-          background: #4a9eff;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .nbd-update-msg button:hover {
-          background: #3a8eef;
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        @keyframes nbd-conn-pulse {
+          0%,100% { opacity:1; }
+          50%     { opacity:.4; }
         }
       `;
       document.head.appendChild(style);
     }
 
-    document.body.insertBefore(indicator, document.body.firstChild);
+    // Create the pill
+    const pill = document.createElement('span');
+    pill.id = 'nbd-offline-status';
+    pill.className = 'nbd-conn-pill ' + (isOnline ? 'online' : 'offline');
+    pill.innerHTML = `<span class="nbd-conn-dot"></span><span class="nbd-conn-text">${isOnline ? 'Online' : 'Offline'}</span>`;
+
+    // Insert into header — between logo and back button / right side
+    const header = document.querySelector('header');
+    if (header) {
+      // Check if header uses flexbox with space-between (logo left, buttons right)
+      // Insert pill after the logo or first child
+      const logo = header.querySelector('.logo');
+      const hright = header.querySelector('.hright');
+
+      if (hright) {
+        // Dashboard-style header: logo | [pill] | hright
+        header.insertBefore(pill, hright);
+      } else if (logo && logo.nextSibling) {
+        // Customer-style header: logo | [pill] | back-btn
+        logo.parentNode.insertBefore(pill, logo.nextSibling);
+      } else {
+        // Fallback: append to header
+        header.appendChild(pill);
+      }
+    }
+
     updateStatusIndicator();
   }
 
   function updateStatusIndicator() {
-    const indicator = document.getElementById('nbd-offline-status');
-    if (!indicator) return;
+    const pill = document.getElementById('nbd-offline-status');
+    if (!pill) return;
+
+    const text = pill.querySelector('.nbd-conn-text');
 
     if (isOnline) {
-      indicator.classList.remove('offline');
-      indicator.classList.add('online');
-      const text = indicator.querySelector('.nbd-status-text');
+      pill.className = 'nbd-conn-pill online';
       if (text) text.textContent = 'Online';
     } else {
-      indicator.classList.remove('online');
-      indicator.classList.add('offline');
-      const text = indicator.querySelector('.nbd-status-text');
-      if (text) text.textContent = 'Offline — no internet connection';
+      pill.className = 'nbd-conn-pill offline';
+      if (text) text.textContent = 'Offline';
     }
   }
 
@@ -471,34 +436,35 @@
   // Offline toast notifications
   // ─────────────────────────────────────────────────────────
   function showOfflineToast(message, type = 'warning') {
-    // Use existing toast system if available
     if (typeof window.showToast === 'function') {
       window.showToast(message, type);
       return;
     }
 
-    // Fallback: create simple toast
     const toast = document.createElement('div');
-    toast.className = `nbd-offline-toast nbd-offline-toast-${type}`;
     toast.textContent = message;
     toast.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 12px 16px;
-      background: ${type === 'success' ? '#2ecc8a' : '#e05252'};
-      color: white;
-      border-radius: 6px;
-      font-size: 13px;
-      z-index: 9999;
-      animation: toastIn 0.3s ease;
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      padding:10px 18px; background:${type === 'success' ? '#10b981' : '#ef4444'};
+      color:white; border-radius:8px; font-size:12px; font-weight:600;
+      z-index:9999; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,.3);
+      animation:nbd-toast-in .25s ease;
     `;
 
-    document.body.appendChild(toast);
+    if (!document.getElementById('nbd-toast-anim')) {
+      const s = document.createElement('style');
+      s.id = 'nbd-toast-anim';
+      s.textContent = `
+        @keyframes nbd-toast-in { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+        @keyframes nbd-toast-out { from { opacity:1; } to { opacity:0; transform:translateX(-50%) translateY(8px); } }
+      `;
+      document.head.appendChild(s);
+    }
 
+    document.body.appendChild(toast);
     setTimeout(() => {
-      toast.style.animation = 'toastOut 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
+      toast.style.animation = 'nbd-toast-out .25s ease forwards';
+      setTimeout(() => toast.remove(), 250);
     }, 3000);
   }
 
@@ -522,7 +488,6 @@
     }
   };
 
-  // Auto-init on page load if DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
