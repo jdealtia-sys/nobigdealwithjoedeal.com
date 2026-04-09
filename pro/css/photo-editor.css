@@ -1,37 +1,36 @@
 /* ============================================
-   NBD INSPECTION EDITOR — Dark Navy Theme
-   Professional Damage Annotation & Assessment Tool
+   NBD INSPECTION EDITOR
+   Inherits theme from dashboard CSS variables
+   (--bg, --s, --s2, --s3, --orange, --ob, --og,
+    --t, --m, --br, --blue, --green, --red, --gold)
    ============================================ */
 
-:root {
-  --nbd-bg-dark: #1a1a2e;
-  --nbd-bg-panel: #16213e;
-  --nbd-bg-surface: #1e2a45;
-  --nbd-bg-hover: #243352;
-  --nbd-bg-active: #2a3d5e;
-  --nbd-accent: #c8541a;
-  --nbd-accent-light: #d97d3a;
-  --nbd-accent-glow: rgba(200, 84, 26, 0.35);
-  --nbd-text: #e8e8ec;
-  --nbd-text-dim: #8a8fa8;
-  --nbd-text-muted: #555d78;
-  --nbd-border: #2a2a4e;
-  --nbd-border-light: #333660;
-  --nbd-success: #22c55e;
-  --nbd-warning: #eab308;
-  --nbd-danger: #ef4444;
-  --nbd-info: #3b82f6;
+.nbd-editor-overlay {
+  /* Map dashboard theme vars to editor semantic vars.
+     Falls back to nbd-original defaults if vars missing. */
+  --nbd-bg-dark: var(--bg, #0A0C0F);
+  --nbd-bg-panel: var(--s, #111418);
+  --nbd-bg-surface: var(--s2, #181C22);
+  --nbd-bg-hover: var(--s3, #1E2229);
+  --nbd-bg-active: var(--s3, #1E2229);
+  --nbd-accent: var(--orange, #C8541A);
+  --nbd-accent-light: var(--ob, #E8621E);
+  --nbd-accent-glow: var(--og, rgba(200,84,26,.22));
+  --nbd-text: var(--t, #E8EAF0);
+  --nbd-text-dim: var(--m, #6B7280);
+  --nbd-text-muted: var(--m, #6B7280);
+  --nbd-border: var(--br, rgba(255,255,255,.07));
+  --nbd-border-light: var(--br, rgba(255,255,255,.07));
+  --nbd-success: var(--green, #2ECC8A);
+  --nbd-warning: var(--gold, #D4A017);
+  --nbd-danger: var(--red, #E05252);
+  --nbd-info: var(--blue, #4A9EFF);
   --nbd-radius: 6px;
   --nbd-radius-lg: 10px;
   --nbd-shadow: 0 4px 24px rgba(0,0,0,.45);
   --nbd-transition: .18s ease;
-}
 
-/* ============================================
-   MODAL OVERLAY
-   ============================================ */
-
-.nbd-editor-overlay {
+  /* Layout */
   position: fixed;
   inset: 0;
   background: var(--nbd-bg-dark);
@@ -237,7 +236,7 @@
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #0d0d1a;
+  background: var(--nbd-bg-dark);
   /* No flex centering — wrapper is positioned absolutely via JS transform */
 }
 
