@@ -81,7 +81,10 @@
     stagedPhotos: {}, // { leadId: [photoIds] }
     cameraStream: null,
     currentLeadId: null,
-    photoCache: {} // { leadId: [photoData] }
+    photoCache: {}, // { leadId: [photoData] }
+    sessionPhotoCount: 0,
+    lastThumbUrl: null,
+    uploadQueue: [] // offline-safe queue
   };
 
   // ============================================================================
@@ -92,268 +95,305 @@
     if (document.getElementById('photo-engine-styles')) return;
 
     const styles = `
-      #photo-engine-styles {
-        display: none;
-      }
+      /* ═══════════════════════════════════════════
+         NBD PRO CAMERA — Professional Inspection Tool
+         Phone-first, one-handed, tag-as-you-go
+         ═══════════════════════════════════════════ */
 
       .pe-modal {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.95);
+        inset: 0;
+        background: #000;
         display: flex;
         flex-direction: column;
         z-index: 9999;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: 'Barlow Condensed', 'Barlow', -apple-system, sans-serif;
+        color: #fff;
+        -webkit-user-select: none;
+        user-select: none;
       }
 
-      .pe-modal-header {
+      /* ── CAMERA TOP BAR ── */
+      .pe-cam-topbar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 1rem;
-        border-bottom: 1px solid var(--br);
-        color: var(--t);
+        justify-content: space-between;
+        padding: 12px 16px;
+        padding-top: max(12px, env(safe-area-inset-top));
+        background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 100%);
+        z-index: 10;
+      }
+      .pe-cam-back {
+        width: 44px; height: 44px;
+        background: rgba(255,255,255,.12);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border: none; border-radius: 50%;
+        color: #fff; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .pe-cam-back:active { transform: scale(.9); }
+      .pe-cam-back svg { width: 22px; height: 22px; }
+      .pe-cam-title {
+        font-size: 15px; font-weight: 700;
+        letter-spacing: .08em; text-transform: uppercase;
+        text-shadow: 0 1px 4px rgba(0,0,0,.5);
+      }
+      .pe-cam-tools {
+        display: flex; gap: 8px; align-items: center;
+      }
+      .pe-cam-tool {
+        width: 44px; height: 44px;
+        background: rgba(255,255,255,.12);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border: none; border-radius: 50%;
+        color: #fff; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: all .2s;
+      }
+      .pe-cam-tool:active { transform: scale(.9); }
+      .pe-cam-tool.active { background: var(--orange, #e8720c); }
+      .pe-cam-tool svg { width: 20px; height: 20px; }
+      .pe-preset-badge {
+        padding: 4px 10px;
+        background: rgba(255,255,255,.15);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 6px;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: .1em; text-transform: uppercase;
+        color: #fff; cursor: pointer;
+      }
+      .pe-preset-badge:active { opacity: .7; }
+
+      /* ── VIEWFINDER ── */
+      .pe-cam-viewfinder {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #000;
+      }
+      .pe-cam-video {
+        width: 100%; height: 100%;
+        object-fit: cover;
       }
 
+      /* ── BOTTOM CONTROLS ── */
+      .pe-cam-bottom {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        padding: 20px 24px;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+        background: linear-gradient(to top, rgba(0,0,0,.75) 0%, transparent 100%);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 10;
+      }
+      .pe-cam-counter {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,.12);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-radius: 12px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 800;
+        line-height: 1;
+      }
+      .pe-cam-counter-label {
+        font-size: 8px; font-weight: 600;
+        letter-spacing: .1em; text-transform: uppercase;
+        opacity: .6; margin-top: 2px;
+      }
+      .pe-cam-capture {
+        width: 72px; height: 72px;
+        border-radius: 50%;
+        background: transparent;
+        border: 4px solid rgba(255,255,255,.8);
+        cursor: pointer;
+        position: relative;
+        transition: all .15s;
+      }
+      .pe-cam-capture::after {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        border-radius: 50%;
+        background: var(--orange, #e8720c);
+        transition: all .15s;
+      }
+      .pe-cam-capture:active { transform: scale(.92); }
+      .pe-cam-capture:active::after { background: #fff; }
+      @keyframes pe-flash { 0%{opacity:1} 100%{opacity:0} }
+      .pe-cam-flash-overlay {
+        position: absolute; inset: 0;
+        background: #fff; opacity: 0;
+        pointer-events: none; z-index: 5;
+      }
+      .pe-cam-flash-overlay.flash {
+        animation: pe-flash .15s ease-out;
+      }
+      .pe-cam-thumb {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        border: 2px solid rgba(255,255,255,.4);
+        background: rgba(255,255,255,.08);
+        object-fit: cover;
+        cursor: pointer;
+      }
+      .pe-cam-thumb-empty {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        background: rgba(255,255,255,.06);
+        border: 2px dashed rgba(255,255,255,.15);
+      }
+
+      /* ── UPLOAD QUEUE INDICATOR ── */
+      .pe-queue-bar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: rgba(255,255,255,.1);
+        z-index: 15;
+      }
+      .pe-queue-progress {
+        height: 100%;
+        background: var(--orange, #e8720c);
+        transition: width .3s;
+        border-radius: 0 2px 2px 0;
+      }
+      .pe-queue-label {
+        position: absolute;
+        top: 6px; right: 16px;
+        font-size: 10px; font-weight: 600;
+        color: var(--orange, #e8720c);
+        letter-spacing: .06em;
+        z-index: 15;
+      }
+
+      /* ── REVIEW / TAG SCREEN ── */
+      .pe-modal-header {
+        display: flex; align-items: center;
+        padding: 14px 16px;
+        padding-top: max(14px, env(safe-area-inset-top));
+        background: var(--s, #111418);
+        border-bottom: 1px solid var(--br, rgba(255,255,255,.07));
+        gap: 12px;
+      }
+      .pe-modal-back {
+        width: 36px; height: 36px;
+        background: none; border: none;
+        color: var(--t, #E8EAF0); cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .pe-modal-back svg { width: 20px; height: 20px; }
       .pe-modal-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+        font-size: 16px; font-weight: 700;
+        letter-spacing: .04em; text-transform: uppercase;
+        color: var(--t, #E8EAF0);
+      }
+
+      .pe-preview-container {
+        flex: 1; overflow-y: auto;
+        padding: 16px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+        background: var(--bg, #0A0C0F);
+      }
+      .pe-preview-image {
+        width: 100%; max-height: 320px;
+        object-fit: contain;
+        border-radius: 12px;
+        background: var(--s, #111418);
+        margin-bottom: 20px;
+      }
+      .pe-section {
+        margin-bottom: 20px;
+      }
+      .pe-section-title {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: .12em; text-transform: uppercase;
+        color: var(--m, #6B7280);
+        margin-bottom: 10px;
+      }
+      .pe-section-title svg { width: 14px; height: 14px; opacity: .6; }
+      .pe-pill-scroll {
+        display: flex; gap: 8px;
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; padding-bottom: 4px;
+      }
+      .pe-pill-scroll::-webkit-scrollbar { display: none; }
+
+      .pe-tag-pill {
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1.5px solid rgba(255,255,255,.15);
+        background: var(--s2, #181C22);
+        color: var(--t, #E8EAF0);
+        cursor: pointer;
+        font-size: 13px; font-weight: 500;
+        white-space: nowrap;
+        transition: all .15s;
+        flex-shrink: 0;
+      }
+      .pe-tag-pill:active { transform: scale(.95); }
+      .pe-tag-pill.selected {
+        background: var(--orange, #e8720c);
+        border-color: var(--orange, #e8720c);
+        color: #fff; font-weight: 600;
+      }
+      .pe-tag-pill.cat-damage.selected { background: #EF4444; border-color: #EF4444; }
+      .pe-tag-pill.cat-location.selected { background: #3B82F6; border-color: #3B82F6; }
+      .pe-tag-pill.cat-type.selected { background: #8B5CF6; border-color: #8B5CF6; }
+
+      .pe-textarea, .pe-input {
+        width: 100%; padding: 12px 14px;
+        background: var(--s2, #181C22);
+        border: 1px solid var(--br, rgba(255,255,255,.07));
+        border-radius: 10px;
+        color: var(--t, #E8EAF0);
+        font-family: 'Barlow', sans-serif;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      .pe-textarea:focus, .pe-input:focus {
+        outline: none;
+        border-color: var(--orange, #e8720c);
+        box-shadow: 0 0 0 3px rgba(232,114,12,.12);
+      }
+      .pe-textarea { resize: none; min-height: 64px; }
+
+      .pe-button-group {
+        display: flex; gap: 10px;
+        margin-top: 24px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+      }
+      .pe-btn {
+        flex: 1;
+        padding: 14px 16px;
+        border: none; border-radius: 12px;
+        font-weight: 700; font-size: 14px;
+        letter-spacing: .04em; text-transform: uppercase;
+        cursor: pointer; transition: all .15s;
+        font-family: 'Barlow Condensed', sans-serif;
+      }
+      .pe-btn:active { transform: scale(.97); }
+      .pe-btn-primary {
+        background: var(--orange, #e8720c);
+        color: #fff;
+      }
+      .pe-btn-secondary {
+        background: var(--s2, #181C22);
+        color: var(--t, #E8EAF0);
+        border: 1px solid var(--br, rgba(255,255,255,.07));
       }
 
       .pe-close-btn {
-        background: none;
-        border: none;
-        color: var(--t);
-        cursor: pointer;
-        font-size: 1.5rem;
-        padding: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .pe-close-btn:hover {
-        color: var(--orange);
-      }
-
-      /* Camera Modal */
-      .pe-camera-container {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .pe-camera-video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background: #000;
-      }
-
-      .pe-camera-controls {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-        padding: 2rem 1rem 1rem;
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-      }
-
-      .pe-capture-btn {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: var(--orange);
-        border: 3px solid white;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-        transition: all 0.2s;
-        flex-shrink: 0;
-      }
-
-      .pe-capture-btn:active {
-        transform: scale(0.95);
-      }
-
-      .pe-icon-btn {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid white;
-        color: white;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        transition: all 0.2s;
-      }
-
-      .pe-icon-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
-      }
-
-      .pe-icon-btn.active {
-        background: var(--orange);
-      }
-
-      .pe-preset-indicator {
-        position: absolute;
-        top: 1rem;
-        left: 1rem;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        font-size: 0.9rem;
-        font-weight: 500;
-      }
-
-      /* Preview Modal */
-      .pe-preview-container {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-        padding: 1rem;
-      }
-
-      .pe-preview-image {
-        width: 100%;
-        max-height: 400px;
-        object-fit: contain;
-        border-radius: 0.5rem;
-        background: var(--s2);
-        margin-bottom: 1rem;
-      }
-
-      .pe-preview-section {
-        margin-bottom: 1.5rem;
-      }
-
-      .pe-section-label {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--m);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
-      }
-
-      .pe-input-group {
-        margin-bottom: 1rem;
-      }
-
-      .pe-input-label {
-        display: block;
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: var(--t);
-        margin-bottom: 0.5rem;
-      }
-
-      .pe-textarea,
-      .pe-input {
-        width: 100%;
-        padding: 0.75rem;
-        background: var(--s2);
-        border: 1px solid var(--br);
-        border-radius: 0.5rem;
-        color: var(--t);
-        font-family: inherit;
-        font-size: 1rem;
-        box-sizing: border-box;
-      }
-
-      .pe-textarea:focus,
-      .pe-input:focus {
-        outline: none;
-        border-color: var(--orange);
-        box-shadow: 0 0 0 2px rgba(200, 84, 26, 0.1);
-      }
-
-      .pe-textarea {
-        resize: vertical;
-        min-height: 80px;
-      }
-
-      /* Tag Picker */
-      .pe-tag-picker {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-      }
-
-      .pe-tag-pill {
-        padding: 0.5rem 0.75rem;
-        border-radius: 999px;
-        border: 2px solid;
-        background: transparent;
-        cursor: pointer;
-        font-size: 0.85rem;
-        font-weight: 500;
-        transition: all 0.2s;
-        white-space: nowrap;
-      }
-
-      .pe-tag-pill:hover {
-        opacity: 0.8;
-      }
-
-      .pe-tag-pill.selected {
-        background: currentColor;
-        color: white;
-      }
-
-      /* Action Buttons */
-      .pe-button-group {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1.5rem;
-      }
-
-      .pe-btn {
-        flex: 1;
-        padding: 0.75rem 1rem;
-        border: none;
-        border-radius: 0.5rem;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 0.95rem;
-        transition: all 0.2s;
-      }
-
-      .pe-btn-primary {
-        background: var(--orange);
-        color: white;
-      }
-
-      .pe-btn-primary:hover {
-        opacity: 0.9;
-      }
-
-      .pe-btn-secondary {
-        background: var(--s2);
-        color: var(--t);
-        border: 1px solid var(--br);
-      }
-
-      .pe-btn-secondary:hover {
-        background: var(--s);
+        background: none; border: none;
+        color: var(--t, #E8EAF0); cursor: pointer;
+        font-size: 1.5rem; padding: .5rem;
+        display: flex; align-items: center; justify-content: center;
       }
 
       /* Gallery Styles */
@@ -691,20 +731,43 @@
     modal.id = 'photo-camera-modal';
 
     modal.innerHTML = `
-      <div class="pe-modal-header">
-        <div class="pe-modal-title">Camera Capture</div>
-        <button class="pe-close-btn" onclick="this.closest('.pe-modal').remove()">X</button>
-      </div>
-      <div class="pe-camera-container">
-        <div class="pe-preset-indicator" id="preset-indicator"></div>
-        <video class="pe-camera-video" id="camera-video" playsinline autoplay></video>
-        <div class="pe-camera-controls">
-          <button class="pe-icon-btn" id="flash-btn" title="Toggle Flash">Flash</button>
-          <button class="pe-icon-btn" id="switch-camera-btn" title="Switch Camera">Switch</button>
-          <button class="pe-capture-btn" id="capture-btn" title="Capture Photo">Capture</button>
-          <button class="pe-icon-btn" id="preset-btn" title="Quality Preset">Preset</button>
+      <div class="pe-cam-viewfinder">
+        <video class="pe-cam-video" id="camera-video" playsinline autoplay muted></video>
+        <div class="pe-cam-flash-overlay" id="cam-flash"></div>
+
+        <!-- Top Bar -->
+        <div class="pe-cam-topbar">
+          <button class="pe-cam-back" id="cam-back-btn" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="pe-cam-title">NBD Camera</span>
+          <div class="pe-cam-tools">
+            <button class="pe-preset-badge" id="preset-btn">${QUALITY_PRESETS[state.currentPreset].label.toUpperCase()}</button>
+            <button class="pe-cam-tool" id="flash-btn" title="Flash">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </button>
+            <button class="pe-cam-tool" id="switch-camera-btn" title="Switch Camera">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v4h-4"/><path d="M4 17v-4h4"/><path d="M7.5 7a9 9 0 0112.6 2.5"/><path d="M16.5 17A9 9 0 013.9 14.5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="pe-cam-bottom">
+          <div class="pe-cam-counter" id="cam-counter">
+            <span id="cam-count">${state.sessionPhotoCount}</span>
+            <span class="pe-cam-counter-label">photos</span>
+          </div>
+          <button class="pe-cam-capture" id="capture-btn" title="Capture"></button>
+          <div id="cam-thumb-slot">${state.lastThumbUrl ? `<img class="pe-cam-thumb" src="${state.lastThumbUrl}" alt="Last">` : '<div class="pe-cam-thumb-empty"></div>'}</div>
         </div>
       </div>
+
+      <!-- Upload Queue Indicator -->
+      <div class="pe-queue-bar" id="queue-bar" style="display:none">
+        <div class="pe-queue-progress" id="queue-progress" style="width:0%"></div>
+      </div>
+      <div class="pe-queue-label" id="queue-label" style="display:none"></div>
     `;
 
     document.body.appendChild(modal);
@@ -714,14 +777,17 @@
     const switchCameraBtn = modal.querySelector('#switch-camera-btn');
     const flashBtn = modal.querySelector('#flash-btn');
     const presetBtn = modal.querySelector('#preset-btn');
-    const presetIndicator = modal.querySelector('#preset-indicator');
+    const backBtn = modal.querySelector('#cam-back-btn');
 
     let facingMode = 'environment';
     let imageCapture = null;
     let torch = false;
 
-    // Update preset indicator
-    presetIndicator.textContent = QUALITY_PRESETS[state.currentPreset].label;
+    // Back button closes camera
+    backBtn.onclick = () => {
+      if (state.cameraStream) state.cameraStream.getTracks().forEach(t => t.stop());
+      modal.remove();
+    };
 
     // Start camera
     try {
@@ -802,12 +868,18 @@
       const next = (current + 1) % presetKeys.length;
       state.currentPreset = presetKeys[next];
       localStorage.setItem('photoEnginePreset', state.currentPreset);
-      presetIndicator.textContent = QUALITY_PRESETS[state.currentPreset].label;
+      presetBtn.textContent = QUALITY_PRESETS[state.currentPreset].label.toUpperCase();
     };
 
     // Capture photo
     captureBtn.onclick = async () => {
       try {
+        // Flash effect
+        const flashEl = modal.querySelector('#cam-flash');
+        flashEl.classList.remove('flash');
+        void flashEl.offsetWidth; // force reflow
+        flashEl.classList.add('flash');
+
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -816,11 +888,17 @@
         const preset = QUALITY_PRESETS[state.currentPreset];
         const blob = await resizeImage(canvas, preset.maxDimension, preset.jpegQuality);
 
+        // Update thumbnail
+        const thumbUrl = URL.createObjectURL(blob);
+        state.lastThumbUrl = thumbUrl;
+        const thumbSlot = modal.querySelector('#cam-thumb-slot');
+        if (thumbSlot) thumbSlot.innerHTML = `<img class="pe-cam-thumb" src="${thumbUrl}" alt="Last">`;
+
         // Stop camera
         state.cameraStream.getTracks().forEach(t => t.stop());
         modal.remove();
 
-        // Show preview
+        // Show preview with "Save & Next" flow
         showPreview(blob, leadId);
       } catch (err) {
         showToast('Failed to capture photo', 'error');
@@ -838,90 +916,108 @@
     modal.className = 'pe-modal';
     modal.id = 'photo-preview-modal';
 
+    const QUICK_LOCATIONS = ['Front Slope', 'Back Slope', 'Left Slope', 'Right Slope', 'Ridge', 'Valley', 'Eave', 'Gutter', 'Chimney', 'Interior'];
+    const QUICK_DAMAGE = ['Hail', 'Wind', 'Impact', 'Wear', 'Leak', 'Missing Shingles', 'Lifted', 'Cracked', 'Granule Loss', 'Flashing'];
+    const QUICK_TYPE = ['Before', 'During', 'After', 'Close-Up', 'Overview', 'Measurement'];
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageData = e.target.result;
 
       modal.innerHTML = `
         <div class="pe-modal-header">
+          <button class="pe-modal-back" onclick="document.getElementById('photo-preview-modal')?.remove()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
           <div class="pe-modal-title">Review & Tag</div>
-          <button class="pe-close-btn" onclick="document.getElementById('photo-preview-modal')?.remove()">X</button>
         </div>
         <div class="pe-preview-container">
           <img class="pe-preview-image" src="${imageData}" alt="Preview" />
 
-          <div class="pe-preview-section">
-            <label class="pe-input-label">Description</label>
-            <textarea class="pe-textarea" id="photo-description" placeholder="Add notes about this photo..."></textarea>
-          </div>
-
-          <div class="pe-preview-section">
-            <label class="pe-input-label">Location</label>
-            <input class="pe-input" id="photo-location" type="text" placeholder="e.g., Front slope, Ridge, etc." />
-          </div>
-
-          <div class="pe-preview-section">
-            <label class="pe-input-label">Tags</label>
-            <div id="tag-picker-container"></div>
-          </div>
-
-          <div class="pe-preview-section">
-            <label class="pe-input-label">Quality Preset</label>
-            <div style="padding: 0.75rem; background: var(--s2); border-radius: 0.5rem; color: var(--t); font-size: 0.9rem;">
-              ${QUALITY_PRESETS[state.currentPreset].label} - ${QUALITY_PRESETS[state.currentPreset].description}
+          <div class="pe-section">
+            <div class="pe-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/></svg>
+              Location
+            </div>
+            <div class="pe-pill-scroll" id="location-pills">
+              ${QUICK_LOCATIONS.map(loc => `<button class="pe-tag-pill cat-location" data-tag="${loc.toLowerCase().replace(/ /g,'_')}" onclick="this.classList.toggle('selected')">${loc}</button>`).join('')}
             </div>
           </div>
 
+          <div class="pe-section">
+            <div class="pe-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Damage Type
+            </div>
+            <div class="pe-pill-scroll" id="damage-pills">
+              ${QUICK_DAMAGE.map(d => `<button class="pe-tag-pill cat-damage" data-tag="${d.toLowerCase().replace(/ /g,'_')}" onclick="this.classList.toggle('selected')">${d}</button>`).join('')}
+            </div>
+          </div>
+
+          <div class="pe-section">
+            <div class="pe-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              Photo Type
+            </div>
+            <div class="pe-pill-scroll" id="type-pills">
+              ${QUICK_TYPE.map(t => `<button class="pe-tag-pill cat-type" data-tag="${t.toLowerCase().replace(/ /g,'_').replace(/-/g,'_')}" onclick="this.classList.toggle('selected')">${t}</button>`).join('')}
+            </div>
+          </div>
+
+          <div class="pe-section">
+            <div class="pe-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Notes
+            </div>
+            <textarea class="pe-textarea" id="photo-description" placeholder="Optional — add notes about this photo..."></textarea>
+          </div>
+
           <div class="pe-button-group">
-            <button class="pe-btn pe-btn-secondary" onclick="document.getElementById('photo-preview-modal')?.remove()">
-              Retake
-            </button>
-            <button class="pe-btn pe-btn-primary" id="upload-btn">
-              Upload
-            </button>
+            <button class="pe-btn pe-btn-secondary" onclick="document.getElementById('photo-preview-modal')?.remove()">Retake</button>
+            <button class="pe-btn pe-btn-primary" id="save-next-btn">Save & Next</button>
           </div>
         </div>
       `;
 
       document.body.appendChild(modal);
 
-      // Render tag picker
-      const tagContainer = modal.querySelector('#tag-picker-container');
-      tagContainer.innerHTML = Object.entries(TAG_CATEGORIES).map(([catKey, catData]) => `
-        <div class="pe-tag-category">
-          <div class="pe-category-title" style="color: ${catData.color};">${catData.label}</div>
-          <div class="pe-tag-grid">
-            ${catData.tags.map(tag => `
-              <button class="pe-tag-pill"
-                      style="border-color: ${catData.color}; color: ${catData.color};"
-                      data-tag="${tag}"
-                      onclick="this.classList.toggle('selected')">
-                ${tag.replace(/_/g, ' ')}
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
-
-      // Handle upload
-      const uploadBtn = modal.querySelector('#upload-btn');
-      uploadBtn.onclick = async () => {
-        uploadBtn.disabled = true;
-        uploadBtn.textContent = 'Uploading...';
+      // Handle Save & Next
+      const saveBtn = modal.querySelector('#save-next-btn');
+      saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'SAVING...';
 
         const selectedTags = Array.from(modal.querySelectorAll('.pe-tag-pill.selected'))
           .map(el => el.dataset.tag);
         const description = modal.querySelector('#photo-description').value;
-        const location = modal.querySelector('#photo-location').value;
+
+        // Extract location from selected location pills
+        const locationTags = Array.from(modal.querySelectorAll('#location-pills .pe-tag-pill.selected'))
+          .map(el => el.textContent.trim());
+        const location = locationTags.join(', ');
 
         try {
           await uploadPhotoToFirebase(blob, leadId, selectedTags, description, location);
+          state.sessionPhotoCount++;
           modal.remove();
-          showToast('Photo uploaded successfully!', 'success');
+          showToast(`Photo ${state.sessionPhotoCount} saved`, 'success');
+
+          // Reopen camera for next photo
+          setTimeout(() => openCamera(leadId), 300);
         } catch (err) {
-          showToast('Upload failed: ' + err.message, 'error');
-          uploadBtn.disabled = false;
-          uploadBtn.textContent = 'Upload';
+          // Queue for offline upload
+          try {
+            const dataUrl = imageData;
+            state.uploadQueue.push({ dataUrl, leadId, tags: selectedTags, description, location, timestamp: Date.now() });
+            state.sessionPhotoCount++;
+            modal.remove();
+            showToast(`Photo queued (offline) — will upload when connected`, 'warning');
+            setTimeout(() => openCamera(leadId), 300);
+          } catch (queueErr) {
+            showToast('Save failed: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'SAVE & NEXT';
+          }
         }
       };
     };
