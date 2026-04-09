@@ -616,16 +616,16 @@ header {
       <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
         → Move to Next Stage
       </button>
-      <button class="btn" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.generate(leadId).then(url=>{if(url)prompt('Portal link (copied):',url)})" title="Generate shareable customer portal">
+      <button class="btn" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.generate(window._customerId).then(url=>{if(url)prompt('Portal link (copied):',url)})" title="Generate shareable customer portal">
         🔗 Share Portal
       </button>
-      <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(leadId)" title="Generate before/after photo report">
+      <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(window._customerId)" title="Generate before/after photo report">
         📸 Photo Report
       </button>
-      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(leadId)" title="Send Google review request via SMS">
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(window._customerId)" title="Send Google review request via SMS">
         ⭐ Review Request
       </button>
-      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.assignReferralCode(leadId).then(c=>{if(c)ReviewEngine.sendReferralSMS(leadId)})" title="Generate and send referral code">
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.assignReferralCode(window._customerId).then(c=>{if(c)ReviewEngine.sendReferralSMS(window._customerId)})" title="Generate and send referral code">
         🎁 Referral Code
       </button>
     </div>
@@ -666,7 +666,7 @@ header {
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Photos</div>
-          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">📤 Upload</button>
+          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">Upload</button>
         </div>
         <div id="photoList">
           <div class="empty">
@@ -851,10 +851,12 @@ header {
   <div class="tab-content" id="photosTab">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div class="panel-title" style="margin:0;">Project Photos by Phase</div>
-          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">📤 Upload Photos</button>
-          <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;margin-left:8px;">🔗 Share Gallery</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
+            <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
+          </div>
         </div>
         <div id="photosByPhase">
           <div class="empty">
@@ -863,8 +865,8 @@ header {
           </div>
         </div>
         <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;">
-          <div style="font-size:28px;margin-bottom:6px;">📸</div>
-          <div style="font-size:14px;font-weight:600;color:var(--text);">Drag & drop photos here</div>
+          <div style="font-size:28px;margin-bottom:6px;">+</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse - JPG, PNG, HEIC up to 10MB</div>
         </div>
       </div>
@@ -2012,8 +2014,8 @@ async function loadCustomerData(id) {
     // Load photos into overview grid
     try { await loadPhotos(id); } catch (e) {
       console.error('Photos load failed:', e);
-      const pl = document.getElementById('photoList');
-      if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet — click Upload above</div>';
+      var pl = document.getElementById('photoList');
+      if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">No photos yet</div></div>';
     }
     
     try { 
@@ -2226,7 +2228,7 @@ async function loadPhotos(leadId) {
     window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
     const html = window._customerPhotos.map((photo, idx) => 
-      `<div class="photo-item" onclick="if(window.NBDPhotoEditor)window.NBDPhotoEditor.open(window._customerPhotos[${idx}].url, window._customerPhotos[${idx}].id, window._customerId);else openLightbox(${idx});">
+      `<div class="photo-item" onclick="if(window.NBDPhotoEditor)window.NBDPhotoEditor.open(window._customerPhotos[${idx}].url,window._customerPhotos[${idx}].id,window._customerId);else openLightbox(${idx});">
         <img src="${photo.url}" alt="Property photo">
       </div>`
     ).join('');
@@ -2692,7 +2694,7 @@ window.uploadPhotos = async function() {
     alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
     closeUploadModal();
     if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
-    try { await loadPhotos(window._customerId); } catch(e) { console.warn('Photo grid refresh:', e); }
+    try { await loadPhotos(window._customerId); } catch(e) {}
 
     // Reload timeline to show photo upload events
     const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
