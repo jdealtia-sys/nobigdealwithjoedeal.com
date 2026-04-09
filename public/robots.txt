@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Allow: /pro/landing.html
+Allow: /pro/landing
+
+Sitemap: https://www.nobigdealwithjoedeal.com/sitemap.xml
+
+# Block private app pages
+Disallow: /tools/
+Disallow: /admin/
+Disallow: /pro/dashboard.html
+Disallow: /pro/login.html
+Disallow: /pro/register.html
+Disallow: /pro/customer.html
+Disallow: /pro/vault.html
+Disallow: /pro/codex.html
+Disallow: /pro/diagnostic.html
+Disallow: /pro/ask-joe.html
+Disallow: /pro/ai-tree.html
+Disallow: /pro/ai-tool-finder.html
+Disallow: /pro/project-codex.html
+Disallow: /pro/analytics.html
+Disallow: /pro/leaderboard.html
+Disallow: /pro/stripe-success.html
+Disallow: /pro/demo.html
+Disallow: /pro/understand.html
+Disallow: /pro/daily-success/
+Disallow: /pro/js/
+Disallow: /pro/img/

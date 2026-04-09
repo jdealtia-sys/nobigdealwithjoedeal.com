@@ -52,11 +52,9 @@ service cloud.firestore {
     }
 
     // ── PHOTOS ────────────────────────────────────────
-    // Photos are shared within a lead context (team members view same lead's photos)
-    // Read: any auth user (queried by leadId, no userId filter in code)
-    // Write: only photo owner
+    // Photos scoped to owner (userId field required on every photo doc)
     match /photos/{photoId} {
-      allow read: if isAuth();
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if isAuth() && resource.data.userId == request.auth.uid;

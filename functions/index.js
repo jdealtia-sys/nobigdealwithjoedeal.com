@@ -33,11 +33,11 @@ const STRIPE_PRICE_FOUNDATION = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
 
 // CORS origins
-const CORS_ORIGINS = ['https://nobigdealwithjoedeal.com', 'https://nobigdeal-pro.web.app', 'http://localhost:5000'];
+const CORS_ORIGINS = ['https://nobigdealwithjoedeal.com', 'https://nobigdeal-pro.web.app'];
 
 exports.claudeProxy = onRequest(
   {
-    cors: ['https://nobigdealwithjoedeal.com', 'https://nobigdeal-pro.web.app', 'http://localhost:5000'],
+    cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
     maxInstances: 10,
     timeoutSeconds: 60,
@@ -64,6 +64,19 @@ exports.claudeProxy = onRequest(
       if (!decoded.uid) {
         res.status(401).json({ error: 'Invalid token' });
         return;
+      }
+
+      // Subscription check — only paid plans can use AI proxy
+      const isDemoUser = decoded.email === 'demo@nobigdeal.pro';
+      if (!isDemoUser) {
+        const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
+        const sub = subSnap.exists ? subSnap.data() : null;
+        const plan = sub?.plan || 'free';
+        const status = sub?.status || 'inactive';
+        if (plan === 'free' || status !== 'active') {
+          res.status(403).json({ error: 'AI features require an active paid subscription.' });
+          return;
+        }
       }
 
       // Rate limiting check (simple — per-user, per-minute)
@@ -567,8 +580,6 @@ exports.setStorageCors = onRequest(
             'https://nobigdealwithjoedeal.com',
             'https://www.nobigdealwithjoedeal.com',
             'https://nobigdeal-pro.web.app',
-            'http://localhost:5000',
-            'http://localhost:3000',
           ],
           method: ['GET', 'HEAD', 'OPTIONS'],
           maxAgeSeconds: 3600,
@@ -598,8 +609,28 @@ exports.imageProxy = onRequest(
   async (req, res) => {
     if (req.method !== 'GET') { res.status(405).end(); return; }
 
+    // Verify Firebase auth token
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) {
+      res.status(401).json({ error: 'Authorization required' });
+      return;
+    }
+
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+      res.status(401).json({ error: 'Invalid token' });
+      return;
+    }
+
     const filePath = req.query.path;
-    if (!filePath || filePath.includes('..')) {
+    // Validate path: must exist, no traversal, must start with allowed prefix
+    const ALLOWED_PREFIXES = ['photos/', 'portals/', 'galleries/', 'reports/', 'docs/'];
+    const hasAllowedPrefix = ALLOWED_PREFIXES.some(p => filePath && filePath.startsWith(p));
+
+    if (!filePath || filePath.includes('..') || !hasAllowedPrefix) {
       res.status(400).json({ error: 'Invalid path' });
       return;
     }

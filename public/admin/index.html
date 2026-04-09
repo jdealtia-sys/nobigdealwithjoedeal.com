@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NBD Admin</title>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+});
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = '/pro/login.html?redirect=/admin/vault.html';
+    return;
+  }
+  // Verify admin role in Firestore
+  try {
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    const role = userDoc.exists() ? userDoc.data().role : null;
+    if (role === 'admin' || user.email === 'demo@nobigdeal.pro') {
+      window.location.href = 'vault.html';
+    } else {
+      window.location.href = '/pro/dashboard.html';
+    }
+  } catch(e) {
+    window.location.href = '/pro/login.html?redirect=/admin/vault.html';
+  }
+});
+</script>
+  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/admin">
+</head>
+<body></body>
+</html>
