@@ -294,7 +294,7 @@
       <div style="background:var(--c,#111827);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:14px;padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <h3 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--h,#fff);">📧 Email Drip Automation</h3>
-          <button onclick="window.EmailDrip.saveConfig()" style="padding:6px 16px;background:#C8541A;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">Save</button>
+          <button onclick="window.EmailDrip.saveConfig()" style="padding:6px 16px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">Save</button>
         </div>
         <div style="font-size:12px;color:var(--m,#9ca3af);margin-bottom:16px;">
           Configure automatic emails that trigger when leads move between stages.

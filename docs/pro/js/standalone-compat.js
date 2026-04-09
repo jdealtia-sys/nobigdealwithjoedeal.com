@@ -34,11 +34,11 @@
     .sa-title{font-size:17px;font-weight:600;margin-bottom:8px;line-height:1.3;}
     .sa-msg{font-size:14px;color:var(--m,#aaa);line-height:1.5;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
     .sa-input{width:100%;padding:10px 12px;border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;background:var(--s,#111);color:var(--t,#fff);font-size:15px;margin-bottom:14px;-webkit-appearance:none;outline:none;}
-    .sa-input:focus{border-color:var(--orange,#C8541A);}
+    .sa-input:focus{border-color:var(--orange,#e8720c);}
     .sa-btns{display:flex;gap:10px;justify-content:flex-end;}
     .sa-btn{padding:10px 20px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:44px;}
     .sa-btn-cancel{background:var(--s,#333);color:var(--m,#aaa);}
-    .sa-btn-ok{background:var(--orange,#C8541A);color:#fff;}
+    .sa-btn-ok{background:var(--orange,#e8720c);color:#fff;}
   `;
   document.head.appendChild(style);
 

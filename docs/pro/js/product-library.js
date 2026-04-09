@@ -17,7 +17,7 @@
 
   const TIERS = ['good', 'better', 'best'];
   const TIER_LABELS = { good: 'Good', better: 'Better', best: 'Best' };
-  const TIER_COLORS = { good: '#6b7280', better: '#3b82f6', best: '#C8541A' };
+  const TIER_COLORS = { good: '#6b7280', better: '#3b82f6', best: '#e8720c' };
 
   // ============================================================================
   // STATE
@@ -287,7 +287,7 @@
             <p style="margin:6px 0 0;font-size:13px;color:var(--m);">Materials, labor, and pricing for your estimates — ${activeCount} products across ${categoryCount} categories</p>
           </div>
           <div style="display:flex;gap:8px;">
-            <button onclick="window._productLib.addProduct()" style="padding:8px 16px;background:#C8541A;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
+            <button onclick="window._productLib.addProduct()" style="padding:8px 16px;background:#e8720c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
             <button onclick="window._productLib.exportCSV()" style="padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Export CSV</button>
             <button onclick="window._productLib.resetDefaults()" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Reset</button>
           </div>
@@ -321,7 +321,7 @@
 
           <!-- Tier Filter Buttons -->
           <div style="display:flex;gap:6px;margin-bottom:12px;">
-            <button onclick="window._productLib.setTierFilter(null)" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#C8541A' : 'var(--br)'};background:${!currentFilter.tier ? '#C8541A18' : 'var(--s)'};color:${!currentFilter.tier ? '#C8541A' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
+            <button onclick="window._productLib.setTierFilter(null)" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#e8720c' : 'var(--br)'};background:${!currentFilter.tier ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.tier ? '#e8720c' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
             ${TIERS.map(t => {
               const isActive = currentFilter.tier === t;
               return `<button onclick="window._productLib.setTierFilter('${t}')" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${isActive ? TIER_COLORS[t] : 'var(--br)'};background:${isActive ? TIER_COLORS[t]+'18' : 'var(--s)'};color:${isActive ? TIER_COLORS[t] : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">${TIER_LABELS[t]}</button>`;
@@ -330,7 +330,7 @@
 
           <!-- Category Filter Pills -->
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            <button onclick="window._productLib.setFilter(null)" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#C8541A' : 'var(--br)'};background:${!currentFilter.category ? '#C8541A18' : 'var(--s)'};color:${!currentFilter.category ? '#C8541A' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
+            <button onclick="window._productLib.setFilter(null)" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#e8720c' : 'var(--br)'};background:${!currentFilter.category ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.category ? '#e8720c' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
             ${catPills}
           </div>
         </div>
@@ -494,7 +494,7 @@
             ${p ? '<button onclick="window._productLib.deleteFromModal()" style="padding:8px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Delete</button>' : '<div></div>'}
             <div style="display:flex;gap:8px;">
               <button onclick="window._productLib.closeModal()" style="padding:8px 16px;background:var(--s2);color:var(--t);border:none;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
-              <button onclick="window._productLib.saveFromModal()" style="padding:8px 20px;background:#C8541A;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
+              <button onclick="window._productLib.saveFromModal()" style="padding:8px 20px;background:#e8720c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
             </div>
           </div>
         </div>

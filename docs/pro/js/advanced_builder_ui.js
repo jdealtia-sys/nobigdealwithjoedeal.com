@@ -42,7 +42,7 @@ window.renderAdvancedBuilder = function() {
   
   modal.innerHTML = `
     <div style="background:var(--s);border-radius:12px;max-width:1100px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
-      <div style="padding:25px;background:linear-gradient(135deg, #C8541A 0%, #a64516 100%);color:white;">
+      <div style="padding:25px;background:linear-gradient(135deg, #e8720c 0%, #a64516 100%);color:white;">
         <h2 style="margin:0;font-size:28px;">🎯 Advanced Estimate Builder</h2>
         <div style="margin-top:10px;font-size:14px;opacity:0.9;">
           Step ${window.advancedEstimate.currentStep} of 4
@@ -73,7 +73,7 @@ window.renderAdvancedStep = function(step) {
       navigation.innerHTML = `
         <div style="display:flex;justify-content:space-between;">
           <button onclick="closeAdvancedBuilder();" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;">Cancel</button>
-          <button onclick="advNextStep(1);" style="background:#C8541A;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
+          <button onclick="advNextStep(1);" style="background:#e8720c;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
         </div>
       `;
       break;
@@ -82,7 +82,7 @@ window.renderAdvancedStep = function(step) {
       navigation.innerHTML = `
         <div style="display:flex;justify-content:space-between;">
           <button onclick="advBackStep(2);" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;">← Back</button>
-          <button onclick="advNextStep(2);" style="background:#C8541A;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
+          <button onclick="advNextStep(2);" style="background:#e8720c;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
         </div>
       `;
       break;
@@ -91,7 +91,7 @@ window.renderAdvancedStep = function(step) {
       navigation.innerHTML = `
         <div style="display:flex;justify-content:space-between;">
           <button onclick="advBackStep(3);" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;">← Back</button>
-          <button onclick="advNextStep(3);" style="background:#C8541A;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
+          <button onclick="advNextStep(3);" style="background:#e8720c;color:white;border:none;padding:12px 32px;border-radius:6px;cursor:pointer;font-weight:600;">Continue →</button>
         </div>
       `;
       break;
@@ -188,16 +188,16 @@ function renderProjectSetup() {
 
       <div style="margin-top:20px;border:1px solid #fde0d0;border-radius:8px;padding:16px;background:var(--s2);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-weight:700;font-size:13px;color:#C8541A;">📎 GAF Quick Measure Import</div>
+          <div style="font-weight:700;font-size:13px;color:#e8720c;">📎 GAF Quick Measure Import</div>
           <button onclick="applyQMToAdvancedBuilder()" 
-                  style="background:#C8541A;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;"
-                  ${window._qmData ? '' : 'disabled style="background:#C8541A;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;opacity:.4;"'}>
+                  style="background:#e8720c;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;"
+                  ${window._qmData ? '' : 'disabled style="background:#e8720c;color:#fff;border:none;border-radius:5px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;opacity:.4;"'}>
             ${window._qmData ? '✓ Apply QM Data' : 'Import QM first on Step 1 of Quick Builder'}
           </button>
         </div>
         <div style="font-size:11px;color:#888;line-height:1.5;">
           ${window._qmData 
-            ? `<span style="color:#C8541A;font-weight:700;">QM data ready:</span> ${window._qmData.roofArea} sq ft · ${window._qmData.pitch} pitch · ${window._qmData.squaresAtSuggestedWaste} squares — click Apply to seed measurements and auto-add line items.`
+            ? `<span style="color:#e8720c;font-weight:700;">QM data ready:</span> ${window._qmData.roofArea} sq ft · ${window._qmData.pitch} pitch · ${window._qmData.squaresAtSuggestedWaste} squares — click Apply to seed measurements and auto-add line items.`
             : 'Upload a GAF Quick Measure PDF using the "📎 Import Quick Measure" button in the Quick Estimate builder first, then come back here to apply.'}
         </div>
       </div>
@@ -230,15 +230,15 @@ function renderTradeSelect() {
     const isSelected = window.advancedEstimate.trades.includes(trade.id);
     html += `
       <div onclick="toggleTrade('${trade.id}');" 
-           style="border:2px solid ${isSelected ? '#C8541A' : '#ddd'};
+           style="border:2px solid ${isSelected ? '#e8720c' : '#ddd'};
                   background:${isSelected ? '#fff8f5' : 'white'};
                   border-radius:8px;padding:20px;cursor:pointer;transition:all 0.2s;"
-           onmouseover="if (!this.style.borderColor.includes('C8541A')) { this.style.borderColor='#999'; }"
-           onmouseout="if (!this.style.borderColor.includes('C8541A')) { this.style.borderColor='#ddd'; }">
+           onmouseover="if (!this.style.borderColor.includes('e8720c')) { this.style.borderColor='#999'; }"
+           onmouseout="if (!this.style.borderColor.includes('e8720c')) { this.style.borderColor='#ddd'; }">
         <div style="font-size:36px;margin-bottom:10px;">${trade.icon}</div>
         <div style="font-weight:600;font-size:16px;color:var(--t);margin-bottom:5px;">${trade.name}</div>
         <div style="font-size:13px;color:var(--m);">${trade.desc}</div>
-        ${isSelected ? '<div style="margin-top:10px;color:#C8541A;font-weight:600;font-size:13px;">✓ Selected</div>' : ''}
+        ${isSelected ? '<div style="margin-top:10px;color:#e8720c;font-weight:600;font-size:13px;">✓ Selected</div>' : ''}
       </div>
     `;
   });
@@ -274,7 +274,7 @@ function renderLineItems() {
       <button onclick="openMaterialCatalog();" style="background:#8b5cf6;color:white;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:14px;">
         📦 Add from Catalog
       </button>
-      <button onclick="addCustomLineItem();" style="background:#C8541A;color:white;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:14px;">
+      <button onclick="addCustomLineItem();" style="background:#e8720c;color:white;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:14px;">
         ➕ Custom Item
       </button>
     </div>
@@ -296,7 +296,7 @@ function renderLineItems() {
       </div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #ddd;">
         <span style="font-size:20px;font-weight:700;color:var(--t);">Total:</span>
-        <span style="font-size:24px;font-weight:700;color:#C8541A;">$${window.advancedEstimate.total.toFixed(2)}</span>
+        <span style="font-size:24px;font-weight:700;color:#e8720c;">$${window.advancedEstimate.total.toFixed(2)}</span>
       </div>
     </div>
   `;
@@ -326,7 +326,7 @@ function renderLineItemsList() {
   Object.keys(sections).sort().forEach(sectionName => {
     html += `
       <div style="margin-bottom:25px;">
-        <h4 style="font-size:16px;color:#C8541A;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #C8541A;">${sectionName}</h4>
+        <h4 style="font-size:16px;color:#e8720c;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e8720c;">${sectionName}</h4>
     `;
     
     sections[sectionName].forEach(item => {
@@ -340,7 +340,7 @@ function renderLineItemsList() {
               </div>
             </div>
             <div style="text-align:right;">
-              <div style="font-size:18px;font-weight:700;color:#C8541A;margin-bottom:8px;">$${item.total.toFixed(2)}</div>
+              <div style="font-size:18px;font-weight:700;color:#e8720c;margin-bottom:8px;">$${item.total.toFixed(2)}</div>
               <div style="display:flex;gap:8px;">
                 <button onclick="editLineItem(${item.id});" style="background:#0ea5e9;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Edit</button>
                 <button onclick="deleteLineItem(${item.id});" style="background:#ef4444;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Delete</button>
@@ -398,7 +398,7 @@ window.addCustomLineItem = function() {
       
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:25px;">
         <button onclick="closeLineItemModal();" style="background:#6c757d;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Cancel</button>
-        <button onclick="saveLineItem();" style="background:#C8541A;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">Add Item</button>
+        <button onclick="saveLineItem();" style="background:#e8720c;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">Add Item</button>
       </div>
     </div>
   `;
@@ -501,7 +501,7 @@ window.editLineItem = function(itemId) {
       
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:25px;">
         <button onclick="closeLineItemModal();" style="background:#6c757d;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Cancel</button>
-        <button onclick="saveLineItem();" style="background:#C8541A;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">Save Changes</button>
+        <button onclick="saveLineItem();" style="background:#e8720c;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">Save Changes</button>
       </div>
     </div>
   `;
@@ -566,7 +566,7 @@ function renderReview() {
       <div style="margin-bottom:20px;">
         <div style="font-size:12px;color:#666;margin-bottom:4px;">TRADES</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${est.trades.map(t => `<span style="background:#C8541A;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">${t}</span>`).join('')}
+          ${est.trades.map(t => `<span style="background:#e8720c;color:white;padding:4px 12px;border-radius:4px;font-size:13px;">${t}</span>`).join('')}
         </div>
       </div>
       
@@ -576,7 +576,7 @@ function renderReview() {
           ${est.lineItems.map(item => `
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
               <span style="font-size:13px;color:#333;">${item.name} (${item.qty} ${item.unit})</span>
-              <span style="font-size:13px;font-weight:600;color:#C8541A;">$${item.total.toFixed(2)}</span>
+              <span style="font-size:13px;font-weight:600;color:#e8720c;">$${item.total.toFixed(2)}</span>
             </div>
           `).join('')}
         </div>
@@ -597,7 +597,7 @@ function renderReview() {
       </div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #ddd;">
         <span style="font-size:20px;font-weight:700;color:var(--t);">Total:</span>
-        <span style="font-size:24px;font-weight:700;color:#C8541A;">$${est.total.toFixed(2)}</span>
+        <span style="font-size:24px;font-weight:700;color:#e8720c;">$${est.total.toFixed(2)}</span>
       </div>
     </div>
   `;

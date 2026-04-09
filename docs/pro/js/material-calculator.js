@@ -465,7 +465,7 @@
 
             <!-- Calculate Button -->
             <button type="button" id="calcBtn" style="
-              background: #C8541A;
+              background: #e8720c;
               color: white;
               border: none;
               padding: 12px;
@@ -533,7 +533,7 @@
             <tr>
               <td colspan="4" style="
                 padding: 12px 10px 8px 10px;
-                color: #C8541A;
+                color: #e8720c;
                 font-weight: 600;
                 font-size: 12px;
               ">${currentCategory}</td>
@@ -568,12 +568,12 @@
               display: flex;
               justify-content: space-between;
               padding: 12px;
-              background: rgba(200, 84, 26, 0.1);
+              background: rgba(232, 114, 12, 0.1);
               border-radius: 4px;
-              border: 1px solid rgba(200, 84, 26, 0.3);
+              border: 1px solid rgba(232, 114, 12, 0.3);
             ">
-              <span style="color: #C8541A; font-weight: 600;">Estimated Total:</span>
-              <span style="color: #C8541A; font-weight: 700; font-size: 16px;">$${result.total.toFixed(2)}</span>
+              <span style="color: #e8720c; font-weight: 600;">Estimated Total:</span>
+              <span style="color: #e8720c; font-weight: 700; font-size: 16px;">$${result.total.toFixed(2)}</span>
             </div>
             <p style="
               margin-top: 12px;

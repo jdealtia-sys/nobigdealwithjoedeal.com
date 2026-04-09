@@ -274,8 +274,8 @@
             </p>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button id="sp-refresh-all" style="background: #C8541A; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Refresh All</button>
-            <button id="sp-add-product" style="background: #C8541A; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">+ Add Product</button>
+            <button id="sp-refresh-all" style="background: #e8720c; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Refresh All</button>
+            <button id="sp-add-product" style="background: #e8720c; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">+ Add Product</button>
           </div>
         </div>
 
@@ -283,7 +283,7 @@
           <div>
             <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600; text-transform: uppercase;">Supplier</label>
             <div style="display: flex; gap: 8px;">
-              <button class="sp-supplier-btn" data-supplier="all" style="background: #C8541A; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">All</button>
+              <button class="sp-supplier-btn" data-supplier="all" style="background: #e8720c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">All</button>
               <button class="sp-supplier-btn" data-supplier="abc_supply" style="background: #cc0000; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; opacity: 0.6;">ABC</button>
               <button class="sp-supplier-btn" data-supplier="lowes" style="background: #004990; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; opacity: 0.6;">Lowe's</button>
               <button class="sp-supplier-btn" data-supplier="home_depot" style="background: #f96302; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; opacity: 0.6;">Home Depot</button>
@@ -405,9 +405,9 @@
           <td style="padding: 10px; font-size: 12px;">${item.unit}</td>
           <td style="padding: 10px; font-size: 12px; ${staleColor}">${getRelativeTime(item.lastUpdated)}</td>
           <td style="padding: 10px; text-align: center;">
-            <button class="sp-edit-price" data-id="${item.id}" style="background: #C8541A; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 4px;">Edit</button>
+            <button class="sp-edit-price" data-id="${item.id}" style="background: #e8720c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 4px;">Edit</button>
             <button class="sp-view-history" data-sku="${item.sku}" style="background: #666; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 4px;">History</button>
-            <a href="${item.productUrl}" target="_blank" style="color: #C8541A; text-decoration: none; font-size: 11px; font-weight: 600;">Link</a>
+            <a href="${item.productUrl}" target="_blank" style="color: #e8720c; text-decoration: none; font-size: 11px; font-weight: 600;">Link</a>
           </td>
         </tr>
       `;
@@ -477,7 +477,7 @@
           <p><strong>Low:</strong> $${Math.min(...prices).toFixed(2)}</p>
           <p><strong>Avg:</strong> $${(prices.reduce((a, b) => a + b) / prices.length).toFixed(2)}</p>
         </div>
-        <div style="background: rgba(200, 84, 26, 0.1); padding: 10px; border-radius: 4px; font-size: 11px; font-family: monospace;">
+        <div style="background: rgba(232, 114, 12, 0.1); padding: 10px; border-radius: 4px; font-size: 11px; font-family: monospace;">
           ${history.map(h => `${new Date(h.date).toLocaleString()}: $${h.price.toFixed(2)}`).join('<br/>')}
         </div>
       </div>

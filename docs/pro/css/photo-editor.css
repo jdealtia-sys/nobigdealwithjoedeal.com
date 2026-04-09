@@ -13,9 +13,9 @@
   --nbd-bg-surface: var(--s2, #181C22);
   --nbd-bg-hover: var(--s3, #1E2229);
   --nbd-bg-active: var(--s3, #1E2229);
-  --nbd-accent: var(--orange, #C8541A);
+  --nbd-accent: var(--orange, #e8720c);
   --nbd-accent-light: var(--ob, #E8621E);
-  --nbd-accent-glow: var(--og, rgba(200,84,26,.22));
+  --nbd-accent-glow: var(--og, rgba(232,114,12,.22));
   --nbd-text: var(--t, #E8EAF0);
   --nbd-text-dim: var(--m, #6B7280);
   --nbd-text-muted: var(--m, #6B7280);

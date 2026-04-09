@@ -571,11 +571,11 @@
           <style>
             body { font-family: Barlow, sans-serif; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { border-bottom: 3px solid #C8541A; padding-bottom: 15px; margin-bottom: 20px; }
-            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: #C8541A; }
+            .header { border-bottom: 3px solid #e8720c; padding-bottom: 15px; margin-bottom: 20px; }
+            .brand { font-size: 20px; font-weight: 700; text-transform: uppercase; color: #e8720c; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             .total { text-align: right; font-weight: 700; }
-            .cta { background: #C8541A; color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+            .cta { background: #e8720c; color: #fff; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
           </style>
         </head>
         <body>
@@ -588,7 +588,7 @@
             <p>Your roofing estimate has been converted to an invoice. Please review the details below.</p>
             <table>
               <thead>
-                <tr style="border-bottom: 2px solid #C8541A;">
+                <tr style="border-bottom: 2px solid #e8720c;">
                   <th style="text-align: left; padding: 10px;">DESCRIPTION</th>
                   <th style="text-align: right; padding: 10px;">QTY</th>
                   <th style="text-align: right; padding: 10px;">PRICE</th>
@@ -597,7 +597,7 @@
               </thead>
               <tbody>
                 ${items}
-                <tr style="border-top: 2px solid #C8541A;">
+                <tr style="border-top: 2px solid #e8720c;">
                   <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700;">Total:</td>
                   <td style="text-align: right; padding: 10px; font-weight: 700; font-size: 16px;">${formatCurrency(invoice.total)}</td>
                 </tr>
@@ -630,7 +630,7 @@
         <input id="nbd-inv-est-id" type="text" placeholder="Select or enter estimate ID..." style="width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:14px;margin-top:6px;box-sizing:border-box;">
         <div style="display:flex;gap:8px;margin-top:20px;">
           <button id="nbd-inv-cancel" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">Cancel</button>
-          <button id="nbd-inv-create" style="flex:1;padding:12px;background:#C8541A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">Create Invoice</button>
+          <button id="nbd-inv-create" style="flex:1;padding:12px;background:#e8720c;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">Create Invoice</button>
         </div>
       </div>
     `;

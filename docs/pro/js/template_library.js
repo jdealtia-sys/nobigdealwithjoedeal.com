@@ -47,7 +47,7 @@ window.saveAsTemplate = function() {
           Cancel
         </button>
         <button onclick="confirmSaveTemplate();" 
-                style="background:#C8541A;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">
+                style="background:#e8720c;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">
           Save Template
         </button>
       </div>
@@ -107,7 +107,7 @@ window.loadFromTemplate = function() {
     templatesList += `
       <div onclick="applyTemplate('${tpl.id}');"
            style="border:1px solid var(--br);border-radius:8px;padding:20px;margin-bottom:15px;cursor:pointer;transition:all 0.2s;"
-           onmouseover="this.style.borderColor='#C8541A';this.style.backgroundColor='var(--s2)';"
+           onmouseover="this.style.borderColor='#e8720c';this.style.backgroundColor='var(--s2)';"
            onmouseout="this.style.borderColor='var(--br)';this.style.backgroundColor='var(--s)';">
         <div style="font-weight:600;font-size:16px;color:var(--t);margin-bottom:8px;">${tpl.name}</div>
         ${tpl.description ? `<div style="font-size:13px;color:var(--m);margin-bottom:10px;">${tpl.description}</div>` : ''}

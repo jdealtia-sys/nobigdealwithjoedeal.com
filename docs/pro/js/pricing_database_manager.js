@@ -30,7 +30,7 @@ function renderPricingDatabase() {
         </div>
         <div style="display:flex;gap:10px;">
           <button onclick="addCustomMaterial();" 
-                  style="background:#C8541A;color:white;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:600;">
+                  style="background:#e8720c;color:white;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:600;">
             ➕ Add Material
           </button>
           <button onclick="exportPricingCSV();" 
@@ -89,7 +89,7 @@ function renderPricingTableRows(searchTerm) {
       <td style="padding:15px;">${material.name}</td>
       <td style="padding:15px;color:var(--m);text-transform:capitalize;">${material.category}</td>
       <td style="padding:15px;font-weight:600;">${material.unit}</td>
-      <td style="padding:15px;text-align:right;font-weight:600;color:#C8541A;">$${material.sellPrice.toFixed(2)}</td>
+      <td style="padding:15px;text-align:right;font-weight:600;color:#e8720c;">$${material.sellPrice.toFixed(2)}</td>
       <td style="padding:15px;text-align:right;color:var(--m);">$${(material.costPrice || 0).toFixed(2)}</td>
       <td style="padding:15px;text-align:center;">
         <button onclick="editMaterialPrice('${material.id}');" 
@@ -147,7 +147,7 @@ window.editMaterialPrice = function(materialId) {
           Cancel
         </button>
         <button onclick="saveMaterialPrice('${material.id}');" 
-                style="background:#C8541A;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">
+                style="background:#e8720c;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:600;">
           Save Changes
         </button>
       </div>

@@ -21,7 +21,7 @@
     website: 'nobigdealwithjoedeal.com',
     tagline: 'No Big Deal — We\'ve Got You Covered',
     navy: '#1e3a6e',
-    orange: '#C8541A',
+    orange: '#e8720c',
     dark: '#1a1a2e'
   };
 

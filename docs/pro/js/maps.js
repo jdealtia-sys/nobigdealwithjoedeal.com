@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════
 let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={}, pinClusterGroup=null;
 const PIN_LABELS = {'not-home':'Not Home','interested':'Interested','not-interested':'Not Interested','signed':'⭐ Signed','callback':'Callback','do-not-knock':'Do Not Knock','left-material':'Left Material','follow-up':'Follow Up'};
-const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#C8541A'};
+const PIN_COLORS = {'not-home':'#9CA3AF','interested':'#2ECC8A','not-interested':'#E05252','signed':'#D4A017','callback':'#4A9EFF','do-not-knock':'#374151','left-material':'#9B6DFF','follow-up':'#e8720c'};
 
 // Stage colors for customer pins (matches kanban)
 const STAGE_COLORS = {
@@ -1400,16 +1400,16 @@ function exportDrawReport() {
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Drawing Report</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #C8541A;margin-bottom:22px;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:22px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
-  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .brand span{color:#e8720c;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
   .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
   table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
   td{padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;}tr:nth-child(even) td{background:#fafafa;}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
   .card{background:#f8f8f8;border:1px solid #eee;border-radius:7px;padding:12px;text-align:center;}
-  .card .v{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#C8541A;}
+  .card .v{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#e8720c;}
   .card .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
   .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
   .total-row td{font-weight:700;border-top:2px solid #eee;}</style></head><body>
@@ -1419,7 +1419,7 @@ function exportDrawReport() {
     <div class="card"><div class="v">${document.getElementById('cr-base').textContent}</div><div class="k">Base Area</div></div>
     <div class="card"><div class="v">${document.getElementById('cr-pitched').textContent}</div><div class="k">Pitched Area</div></div>
     <div class="card"><div class="v">${document.getElementById('cr-waste').textContent}</div><div class="k">With Waste</div></div>
-    <div class="card" style="background:#C8541A;border-color:#C8541A;"><div class="v" style="color:#fff;">${document.getElementById('cr-sq').textContent}</div><div class="k" style="color:rgba(255,255,255,.8);">Squares</div></div>
+    <div class="card" style="background:#e8720c;border-color:#e8720c;"><div class="v" style="color:#fff;">${document.getElementById('cr-sq').textContent}</div><div class="k" style="color:rgba(255,255,255,.8);">Squares</div></div>
   </div>
   <h2>Line Summary</h2>
   <table><thead><tr><th>Type</th><th>Count</th><th>Total LF</th></tr></thead><tbody>
@@ -1728,17 +1728,17 @@ function showMaterialTakeoff() {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Material Takeoff — ${addr}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:32px;max-width:850px;margin:0 auto;}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #C8541A;margin-bottom:22px;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:22px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;text-transform:uppercase;}
-  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
+  .brand span{color:#e8720c;}.badge{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:4px;}
   .addr{font-size:15px;font-weight:600;text-align:right;}.date{font-size:11px;color:#666;text-align:right;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #eee;}
   table{width:100%;border-collapse:collapse;}th{background:#0A0C0F;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;text-align:left;}
   td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}tr:nth-child(even) td{background:#fafafa;}
-  .qty{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#C8541A;}
+  .qty{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#e8720c;}
   .note{font-size:10px;color:#888;}
   .summary{background:#f8f8f8;border:1px solid #eee;border-radius:8px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;}
-  .summary .v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#C8541A;}
+  .summary .v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#e8720c;}
   .summary .k{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;}
   .warn{background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:10px 14px;font-size:11px;color:#92400E;margin-top:16px;}
   .foot{margin-top:28px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
@@ -2764,7 +2764,7 @@ function renderComparison() {
 /* ── THEME REGISTRY (100 themes) ──────────────────────────────────── */
 const NBD_THEMES = [
   // STANDARD
-  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#C8541A', bg:'#0A0C0F', s:'#13171d', jp:true},
+  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#e8720c', bg:'#0A0C0F', s:'#13171d', jp:true},
   {id:'matrix',           name:'Matrix',            cat:'standard', plan:'blueprint', accent:'#00ff41', bg:'#000300', s:'#000800'},
   {id:'neon',             name:'Neon',              cat:'standard', plan:'foundation',accent:'#ff00ff', bg:'#08000f', s:'#120018'},
   {id:'galaxy',           name:'Galaxy',            cat:'standard', plan:'foundation',accent:'#9c27b0', bg:'#06000e', s:'#0e0020'},
@@ -2995,7 +2995,7 @@ function nbdRenderThemes() {
       const isAct = key === current;
       const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
       const bg = t.colors?.bg || '#1a1a2e';
-      const accent = t.colors?.accent || '#C8541A';
+      const accent = t.colors?.accent || '#e8720c';
       const surface = t.colors?.surface || '#16213e';
       const txt = t.colors?.text || '#e2e8f0';
       const d = document.createElement('div');

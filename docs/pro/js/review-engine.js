@@ -16,7 +16,7 @@
     phone: '(859) 420-7382',
     website: 'nobigdealwithjoedeal.com',
     navy: '#1e3a6e',
-    orange: '#C8541A'
+    orange: '#e8720c'
   };
 
   // ═══════════════════════════════════════════════════════════════

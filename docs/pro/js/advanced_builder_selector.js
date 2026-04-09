@@ -17,10 +17,10 @@ window.showEstimateTypeSelector = function() {
         <!-- Quick Estimate Option -->
         <div onclick="startNewEstimateOriginal(); closeEstimateTypeSelector();"
              style="border:2px solid var(--br);border-radius:8px;padding:30px;cursor:pointer;transition:all 0.3s;"
-             onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(200,84,26,0.2)';"
+             onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(232,114,12,0.2)';"
              onmouseout="this.style.borderColor='var(--br)';this.style.transform='translateY(0)';this.style.boxShadow='none';">
           <div style="font-size:48px;margin-bottom:15px;">⚡</div>
-          <h3 style="margin:0 0 10px 0;font-size:20px;color:#C8541A;">Quick Estimate</h3>
+          <h3 style="margin:0 0 10px 0;font-size:20px;color:#e8720c;">Quick Estimate</h3>
           <p style="margin:0;color:var(--m);font-size:14px;line-height:1.5;">
             Good-Better-Best pricing wizard. Fast, simple, perfect for initial quotes.
           </p>
@@ -32,11 +32,11 @@ window.showEstimateTypeSelector = function() {
         <!-- From Template Option -->
         <div onclick="closeEstimateTypeSelector(); showEstimateTemplateSelector();"
              style="border:2px solid var(--br);border-radius:8px;padding:30px;cursor:pointer;transition:all 0.3s;position:relative;"
-             onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(200,84,26,0.2)';"
+             onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(232,114,12,0.2)';"
              onmouseout="this.style.borderColor='var(--br)';this.style.transform='translateY(0)';this.style.boxShadow='none';">
-          <div style="position:absolute;top:10px;right:10px;background:linear-gradient(135deg,#C8541A,#e8651f);color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.5px;">55 TEMPLATES</div>
+          <div style="position:absolute;top:10px;right:10px;background:linear-gradient(135deg,#e8720c,#e8651f);color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.5px;">55 TEMPLATES</div>
           <div style="font-size:48px;margin-bottom:15px;">📋</div>
-          <h3 style="margin:0 0 10px 0;font-size:20px;color:#C8541A;">From Template</h3>
+          <h3 style="margin:0 0 10px 0;font-size:20px;color:#e8720c;">From Template</h3>
           <p style="margin:0;color:var(--m);font-size:14px;line-height:1.5;">
             Pre-built job templates for common scopes. Pick, customize, and send.
           </p>
@@ -48,10 +48,10 @@ window.showEstimateTypeSelector = function() {
         <!-- Advanced Builder Option -->
         <div onclick="startAdvancedEstimate();"
              style="border:2px solid var(--br);border-radius:8px;padding:30px;cursor:pointer;transition:all 0.3s;"
-             onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(200,84,26,0.2)';"
+             onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 20px rgba(232,114,12,0.2)';"
              onmouseout="this.style.borderColor='var(--br)';this.style.transform='translateY(0)';this.style.boxShadow='none';">
           <div style="font-size:48px;margin-bottom:15px;">🎯</div>
-          <h3 style="margin:0 0 10px 0;font-size:20px;color:#C8541A;">Advanced Builder</h3>
+          <h3 style="margin:0 0 10px 0;font-size:20px;color:#e8720c;">Advanced Builder</h3>
           <p style="margin:0;color:var(--m);font-size:14px;line-height:1.5;">
             Multi-trade, line-item estimates with material catalog, templates, and AI review.
           </p>

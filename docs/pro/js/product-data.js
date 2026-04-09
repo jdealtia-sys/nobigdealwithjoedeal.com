@@ -3,7 +3,7 @@
 // Cincinnati OH Market — April 2026 Pricing
 
 window.NBD_CATEGORIES = {
-  roofing_shingles:     { label: 'Roofing — Shingles',          icon: '🏠', color: '#C8541A' },
+  roofing_shingles:     { label: 'Roofing — Shingles',          icon: '🏠', color: '#e8720c' },
   roofing_underlayment: { label: 'Roofing — Underlayment',      icon: '🛡️', color: '#d4710a' },
   roofing_flashing:     { label: 'Roofing — Flashing & Hardware', icon: '🔩', color: '#b5480f' },
   roofing_ventilation:  { label: 'Roofing — Ventilation',       icon: '💨', color: '#a03d0d' },

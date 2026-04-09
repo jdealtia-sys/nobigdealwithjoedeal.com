@@ -15,13 +15,13 @@
     email: 'info@nobigdeal.pro',
     website: 'nobigdealwithjoedeal.com',
     navy: '#1e3a6e',
-    orange: '#C8541A',
+    orange: '#e8720c',
     dark: '#1a1a2e'
   };
 
   const PHASE_COLORS = {
     'Before': '#3b82f6',
-    'During': '#C8541A',
+    'During': '#e8720c',
     'After': '#22c55e'
   };
 
@@ -114,14 +114,14 @@
     if (phases['After'].length) statsHtml += ' &middot; ' + phases['After'].length + ' After';
 
     var tagsHtml = topTags.map(function(t) {
-      return '<span style="display:inline-block;background:rgba(200,84,26,.15);color:#C8541A;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + t[0] + ' (' + t[1] + ')</span>';
+      return '<span style="display:inline-block;background:rgba(232,114,12,.15);color:#e8720c;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + t[0] + ' (' + t[1] + ')</span>';
     }).join(' ');
 
     var phaseSections = '';
     ['Before', 'During', 'After'].forEach(function(phase) {
       var list = phases[phase];
       if (list.length === 0) return;
-      var color = phase === 'Before' ? '#3b82f6' : phase === 'During' ? '#C8541A' : '#22c55e';
+      var color = phase === 'Before' ? '#3b82f6' : phase === 'During' ? '#e8720c' : '#22c55e';
 
       phaseSections += '<div style="margin-bottom:40px;">';
       phaseSections += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid ' + color + ';">';
@@ -167,15 +167,15 @@
       + '<style>'
       + '*{margin:0;padding:0;box-sizing:border-box;}'
       + 'body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;}'
-      + '.header{background:linear-gradient(135deg,#1e3a6e 0%,#0f172a 100%);padding:40px 20px;text-align:center;border-bottom:3px solid #C8541A;}'
+      + '.header{background:linear-gradient(135deg,#1e3a6e 0%,#0f172a 100%);padding:40px 20px;text-align:center;border-bottom:3px solid #e8720c;}'
       + '.header h1{font-size:28px;font-weight:700;margin:16px 0 8px;}'
       + '.header .meta{color:#94a3b8;font-size:14px;}'
-      + '.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#C8541A;color:#fff;font-weight:800;font-size:18px;border-radius:10px;}'
+      + '.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#e8720c;color:#fff;font-weight:800;font-size:18px;border-radius:10px;}'
       + '.brand-name{font-size:16px;font-weight:700;color:#fff;margin-top:8px;}'
       + '.stats{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:16px;}'
       + '.container{max-width:1100px;margin:0 auto;padding:30px 20px;}'
       + '.footer{text-align:center;padding:30px 20px;border-top:1px solid #1e293b;color:#64748b;font-size:13px;margin-top:40px;}'
-      + '.footer a{color:#C8541A;text-decoration:none;}'
+      + '.footer a{color:#e8720c;text-decoration:none;}'
       + '#lightbox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:10000;align-items:center;justify-content:center;flex-direction:column;}'
       + '#lightbox img{max-width:90vw;max-height:80vh;border-radius:8px;}'
       + '#lightbox .caption{color:#fff;margin-top:12px;font-size:14px;}'
@@ -227,7 +227,7 @@
       + '<div style="background:#16213e;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#94a3b8;word-break:break-all;">' + url + '</div>'
       + '<div style="text-align:center;margin-bottom:16px;font-size:13px;color:#64748b;">' + photoCount + ' photos shared with ' + customerName + '</div>'
       + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
-      + '<button onclick="navigator.clipboard.writeText(\'' + url.replace(/'/g, "\\'") + '\');this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy Link\';}.bind(this),2000);" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#C8541A;color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Copy Link</button>'
+      + '<button onclick="navigator.clipboard.writeText(\'' + url.replace(/'/g, "\\'") + '\');this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy Link\';}.bind(this),2000);" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#e8720c;color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Copy Link</button>'
       + (phone ? '<a href="sms:' + phone + '?body=' + smsBody + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#22c55e;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">Text</a>' : '')
       + '</div>'
       + '<div style="display:flex;gap:8px;">'

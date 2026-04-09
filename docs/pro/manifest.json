@@ -6,7 +6,7 @@
   "scope": "/pro/",
   "display": "standalone",
   "background_color": "#0A0C0F",
-  "theme_color": "#C8541A",
+  "theme_color": "#e8720c",
   "orientation": "any",
   "categories": ["business", "productivity"],
   "icons": [

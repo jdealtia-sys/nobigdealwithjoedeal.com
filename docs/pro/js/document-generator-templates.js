@@ -11,11 +11,11 @@
   const C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
     email: 'info@nobigdeal.pro', website: 'nobigdealwithjoedeal.com',
-    colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#C8541A' }
+    colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#e8720c' }
   };
   const P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
   const S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
-  const A = C.colors?.accent || '#C8541A';    // Orange — CTAs, totals, highlights
+  const A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
 
   // Register new document types
   Object.assign(DG.DOCUMENT_TYPES, {
@@ -1275,7 +1275,7 @@
         .step-row:last-child { border-bottom:none; }
         .step-bubble { width:48px; height:48px; border-radius:50%; background:${A}; color:#fff;
           display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700;
-          flex-shrink:0; box-shadow:0 2px 8px rgba(200,84,26,0.3); }
+          flex-shrink:0; box-shadow:0 2px 8px rgba(232,114,12,0.3); }
         .step-content h3 { margin:0 0 6px; font-size:16px; color:${S}; font-family:'Helvetica Neue',Arial,sans-serif; }
         .step-content p { margin:0; font-size:14px; color:#555; line-height:1.6; }
         .faq-item { margin-bottom:16px; }

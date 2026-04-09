@@ -265,23 +265,23 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height:100vh;}
-.hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid #C8541A;}
+.hero{background:linear-gradient(135deg,#1a1d23 0%,#0d0f14 100%);padding:40px 20px 30px;text-align:center;border-bottom:2px solid #e8720c;}
 .logo{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:.04em;}
-.logo span{color:#C8541A;}
+.logo span{color:#e8720c;}
 .addr{font-size:14px;color:#8b8e96;margin-top:8px;}
 .customer{font-size:18px;font-weight:600;margin-top:12px;}
 .rep-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;padding:12px 20px;background:#1e2028;border-radius:10px;max-width:400px;margin-left:auto;margin-right:auto;}
 .rep-name{font-size:13px;font-weight:600;}
 .rep-contact{font-size:11px;color:#8b8e96;}
 .container{max-width:600px;margin:0 auto;padding:20px;}
-.section-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#C8541A;margin:24px 0 12px;}
+.section-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#e8720c;margin:24px 0 12px;}
 .tier-cards{display:flex;flex-direction:column;gap:12px;}
 .tier{background:#1e2028;border:2px solid #2a2d35;border-radius:14px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
-.tier:hover{border-color:#C8541A40;}
-.tier.selected{border-color:#C8541A;box-shadow:0 0 20px rgba(200,84,26,.2);}
-.tier.recommended::before{content:'RECOMMENDED';position:absolute;top:10px;right:-28px;background:#C8541A;color:white;font-size:9px;font-weight:700;padding:2px 30px;transform:rotate(45deg);letter-spacing:.08em;}
+.tier:hover{border-color:#e8720c40;}
+.tier.selected{border-color:#e8720c;box-shadow:0 0 20px rgba(232,114,12,.2);}
+.tier.recommended::before{content:'RECOMMENDED';position:absolute;top:10px;right:-28px;background:#e8720c;color:white;font-size:9px;font-weight:700;padding:2px 30px;transform:rotate(45deg);letter-spacing:.08em;}
 .tier-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
-.tier-price{font-size:28px;font-weight:700;color:#C8541A;margin:8px 0;}
+.tier-price{font-size:28px;font-weight:700;color:#e8720c;margin:8px 0;}
 .tier-monthly{font-size:12px;color:#8b8e96;}
 .tier-desc{font-size:13px;color:#8b8e96;margin-top:8px;line-height:1.5;}
 .tier-items{margin-top:12px;border-top:1px solid #2a2d35;padding-top:10px;}
@@ -299,7 +299,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .sign-canvas-wrap{background:#fff;border-radius:10px;margin:12px auto;max-width:400px;height:120px;position:relative;}
 .sign-canvas{width:100%;height:100%;border-radius:10px;cursor:crosshair;}
 .sign-clear{position:absolute;top:4px;right:8px;background:none;border:none;color:#999;font-size:11px;cursor:pointer;}
-.sign-btn{padding:16px 40px;background:#C8541A;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:all .2s;}
+.sign-btn{padding:16px 40px;background:#e8720c;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:12px;transition:all .2s;}
 .sign-btn:hover{filter:brightness(1.15);}
 .sign-btn:disabled{opacity:.4;cursor:not-allowed;}
 .schedule-section{margin-top:20px;text-align:center;}
@@ -310,7 +310,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .success-icon{font-size:60px;}
 .success-text{font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;}
 .success-sub{font-size:13px;color:#8b8e96;max-width:300px;text-align:center;}
-.warranty-badge{display:inline-block;background:linear-gradient(135deg,#C8541A,#ff8c42);color:white;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;margin-top:12px;}
+.warranty-badge{display:inline-block;background:linear-gradient(135deg,#e8720c,#ff8c42);color:white;padding:8px 20px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;margin-top:12px;}
 @media(max-width:500px){.tier-price{font-size:22px;}.tier-name{font-size:17px;}}
 </style>
 </head><body>
@@ -602,7 +602,7 @@ function submitDeal() {
 
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button onclick="window.CloseBoard.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#C8541A)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button onclick="window.CloseBoard.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
     };
 
     const active = dealRooms.filter(d => d.status !== DEAL_STATUS.EXPIRED);
@@ -616,7 +616,7 @@ function submitDeal() {
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">📋 CLOSE BOARD</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Shareable deal rooms — one link to close</div>
           </div>
-          <button onclick="window.CloseBoard.createNew()" style="padding:8px 16px;background:var(--orange,#C8541A);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button onclick="window.CloseBoard.createNew()" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             + NEW DEAL
           </button>
         </div>
@@ -691,7 +691,7 @@ function submitDeal() {
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
             <button onclick="window.CloseBoard.preview('${d.id}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
             <button onclick="window.CloseBoard.sendSMS('${d.id}')" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
-            <button onclick="window.CloseBoard.sendEmail('${d.id}')" style="padding:5px 10px;background:var(--orange,#C8541A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
+            <button onclick="window.CloseBoard.sendEmail('${d.id}')" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
             <button onclick="window.CloseBoard.copyLink('${d.id}')" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
           </div>
         </div>
@@ -753,7 +753,7 @@ function submitDeal() {
           </div>
         </div>
 
-        <button onclick="window.CloseBoard.submitCreate()" style="width:100%;padding:14px;background:var(--orange,#C8541A);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
+        <button onclick="window.CloseBoard.submitCreate()" style="width:100%;padding:14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
           CREATE DEAL ROOM
         </button>
       </div>

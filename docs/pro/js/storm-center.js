@@ -659,7 +659,7 @@
             ${alert.hailSize ? `<div style="margin-top:4px;font-size:12px;">🧊 ${alert.hailSize}" hail</div>` : ''}
             ${alert.windSpeed ? `<div style="margin-top:2px;font-size:12px;">💨 ${alert.windSpeed} mph</div>` : ''}
             <div style="margin-top:6px;font-size:11px;">Damage probability: <strong>${Math.round(alert.damageProb * 100)}%</strong></div>
-            <button onclick="window.StormCenter.createZone('${alert.id}')" style="margin-top:8px;padding:6px 12px;background:#C8541A;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Create Storm Zone</button>
+            <button onclick="window.StormCenter.createZone('${alert.id}')" style="margin-top:8px;padding:6px 12px;background:#e8720c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Create Storm Zone</button>
           </div>
         `);
       }
@@ -669,7 +669,7 @@
     stormZones.forEach(zone => {
       if (zone.polygon) {
         const color = zone.status === 'completed' ? '#2ECC8A' :
-                      zone.status === 'canvassing' ? '#C8541A' : '#ff6d00';
+                      zone.status === 'canvassing' ? '#e8720c' : '#ff6d00';
         const poly = L.polygon(zone.polygon, {
           color,
           fillColor: color,
@@ -684,7 +684,7 @@
             <div style="font-size:11px;">Est. roofs: ${zone.estimatedRoofs} · Knocks: ${zone.knockCount}</div>
             <div style="margin-top:6px;display:flex;gap:6px;">
               <button onclick="window.StormCenter.openZone('${zone.id}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">View</button>
-              <button onclick="window.StormCenter.pushToD2D('${zone.id}')" style="padding:5px 10px;background:#C8541A;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
+              <button onclick="window.StormCenter.pushToD2D('${zone.id}')" style="padding:5px 10px;background:#e8720c;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
             </div>
           </div>
         `);
@@ -709,7 +709,7 @@
 
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button onclick="window.StormCenter.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#C8541A)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button onclick="window.StormCenter.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
     };
 
     // Stats bar
@@ -728,7 +728,7 @@
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">⛈️ STORM CENTER</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Weather intelligence → Revenue pipeline</div>
           </div>
-          <button onclick="window.StormCenter.refresh()" style="padding:8px 16px;background:var(--orange,#C8541A);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button onclick="window.StormCenter.refresh()" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             ${isLoading ? '⏳ Loading...' : '🔄 Refresh Alerts'}
           </button>
         </div>
@@ -828,7 +828,7 @@
               <div style="text-align:right;flex-shrink:0;">
                 <div style="font-size:10px;color:var(--m);">${timeAgo(a.sent)}</div>
                 <div style="font-size:10px;color:var(--m);margin-top:2px;">Expires ${fmtDate(a.expires)}</div>
-                <button onclick="window.StormCenter.createZone('${a.id}')" style="margin-top:8px;padding:6px 14px;background:var(--orange,#C8541A);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;">
+                <button onclick="window.StormCenter.createZone('${a.id}')" style="margin-top:8px;padding:6px 14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;">
                   CREATE ZONE
                 </button>
               </div>
@@ -861,7 +861,7 @@
                   <div style="font-size:14px;font-weight:700;color:var(--t);">🌩️ ${esc(z.name)}</div>
                   <div style="font-size:11px;color:var(--m);margin-top:3px;">Created ${timeAgo(z.createdAt)}</div>
                   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#C8541A' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#C8541A' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${z.status}</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${z.status}</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🏠 ${z.estimatedRoofs} roofs</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🚪 ${z.knockCount} knocks</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--green)20;color:var(--green);font-weight:600;">${rev.revenueFormatted} pipeline</span>
@@ -869,7 +869,7 @@
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                   <button onclick="event.stopPropagation();window.StormCenter.generatePlan('${z.id}')" style="padding:5px 12px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📋 Plan</button>
-                  <button onclick="event.stopPropagation();window.StormCenter.pushToD2D('${z.id}')" style="padding:5px 12px;background:var(--orange,#C8541A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
+                  <button onclick="event.stopPropagation();window.StormCenter.pushToD2D('${z.id}')" style="padding:5px 12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
                 </div>
               </div>
             </div>
@@ -956,7 +956,7 @@
             <div style="font-size:11px;color:var(--m);">📅 Est. completion: <strong style="color:var(--t);">${plan.daysToComplete} day${plan.daysToComplete > 1 ? 's' : ''}</strong></div>
           </div>
 
-          <button onclick="window.StormCenter.pushToD2D('${z.id}')" style="width:100%;margin-top:12px;padding:12px;background:var(--orange,#C8541A);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button onclick="window.StormCenter.pushToD2D('${z.id}')" style="width:100%;margin-top:12px;padding:12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             🚪 START KNOCKING THIS ZONE
           </button>
         </div>

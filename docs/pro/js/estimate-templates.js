@@ -276,7 +276,7 @@ window.showEstimateTemplateSelector = function() {
 
   const cards = templates.map(t => {
     const itemCount = t.items.length;
-    const diffColors = {Standard:'#3b82f6',Premium:'#C8541A',Complex:'#8b5cf6',Repair:'#f59e0b',Budget:'#10b981','Add-On':'#06b6d4',Emergency:'#ef4444'};
+    const diffColors = {Standard:'#3b82f6',Premium:'#e8720c',Complex:'#8b5cf6',Repair:'#f59e0b',Budget:'#10b981','Add-On':'#06b6d4',Emergency:'#ef4444'};
     const dc = diffColors[t.difficulty] || '#6b7280';
     return `<div class="tpl-card" data-cat="${t.category}" onclick="loadEstimateTemplate('${t.id}')" style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;cursor:pointer;transition:all .15s;" onmouseenter="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseleave="this.style.borderColor='var(--br)';this.style.transform='none'">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">

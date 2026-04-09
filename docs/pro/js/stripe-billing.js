@@ -154,19 +154,19 @@
     Object.entries(PLANS).forEach(([key, plan]) => {
       const isHighlight = key === highlight;
       const price = showAnnual ? plan.priceAnnual : plan.price;
-      const border = isHighlight ? 'border:2px solid var(--orange,#C8541A);' : 'border:1px solid var(--br,rgba(255,255,255,.1));';
-      const badge = isHighlight ? '<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--orange,#C8541A);color:#fff;padding:4px 14px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Most Popular</div>' : '';
+      const border = isHighlight ? 'border:2px solid var(--orange,#e8720c);' : 'border:1px solid var(--br,rgba(255,255,255,.1));';
+      const badge = isHighlight ? '<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--orange,#e8720c);color:#fff;padding:4px 14px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Most Popular</div>' : '';
 
       html += `
         <div style="flex:1;min-width:280px;max-width:360px;background:var(--s,#111);${border}border-radius:14px;padding:32px 24px;position:relative;text-align:center;">
           ${badge}
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--t,#fff);margin-bottom:4px;">${plan.name}</div>
-          <div style="font-size:36px;font-weight:800;color:${isHighlight ? 'var(--orange,#C8541A)' : 'var(--t,#fff)'};margin-bottom:4px;">${price}</div>
+          <div style="font-size:36px;font-weight:800;color:${isHighlight ? 'var(--orange,#e8720c)' : 'var(--t,#fff)'};margin-bottom:4px;">${price}</div>
           <div style="font-size:13px;color:var(--m,#888);margin-bottom:20px;">${plan.tagline}</div>
           <ul style="text-align:left;list-style:none;margin-bottom:24px;">
             ${plan.features.map(f => `<li style="padding:6px 0;font-size:13px;color:var(--t,#ddd);display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--green,#2ECC8A);flex-shrink:0;">✓</span>${f}</li>`).join('')}
           </ul>
-          <button onclick="window.StripeBilling.checkout('${key}')" style="width:100%;padding:14px;background:${isHighlight ? 'var(--orange,#C8541A)' : 'var(--s2,#222)'};color:#fff;border:${isHighlight ? 'none' : '1px solid var(--br,rgba(255,255,255,.15))'};border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif;letter-spacing:.5px;transition:all .2s;-webkit-tap-highlight-color:transparent;">
+          <button onclick="window.StripeBilling.checkout('${key}')" style="width:100%;padding:14px;background:${isHighlight ? 'var(--orange,#e8720c)' : 'var(--s2,#222)'};color:#fff;border:${isHighlight ? 'none' : '1px solid var(--br,rgba(255,255,255,.15))'};border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif;letter-spacing:.5px;transition:all .2s;-webkit-tap-highlight-color:transparent;">
             Get ${plan.name} →
           </button>
         </div>

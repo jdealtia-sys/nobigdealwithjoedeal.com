@@ -174,7 +174,7 @@
         
         <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
           <div style="color: #6b7280; margin-bottom: 4px;">Page Load Time</div>
-          <div style="font-weight: 700; color: #C8541A; font-size: 16px;">${pageLoadTime.toFixed(0)}ms</div>
+          <div style="font-weight: 700; color: #e8720c; font-size: 16px;">${pageLoadTime.toFixed(0)}ms</div>
         </div>
 
         <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">

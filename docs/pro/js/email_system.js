@@ -133,7 +133,7 @@ window.openEmailModal = function(options = {}) {
   
   modal.innerHTML = `
     <div class="modal-content" style="max-width:700px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;background:var(--s);border-radius:12px;">
-      <div class="modal-header" style="padding:25px;background:linear-gradient(135deg, #C8541A 0%, #a64516 100%);color:white;">
+      <div class="modal-header" style="padding:25px;background:linear-gradient(135deg, #e8720c 0%, #a64516 100%);color:white;">
         <h3 style="margin:0;font-size:22px;">📧 Send Email</h3>
         <button onclick="closeEmailModal()" style="position:absolute;top:20px;right:20px;background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;">&times;</button>
       </div>

@@ -121,21 +121,21 @@ function renderCatalogItems(searchTerm) {
   let html = '';
   Object.keys(sections).sort().forEach(sectionName => {
     html += `<div style="margin-bottom:25px;">
-      <h3 style="font-size:16px;color:#C8541A;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #C8541A;">${sectionName}</h3>
+      <h3 style="font-size:16px;color:#e8720c;margin:0 0 12px 0;padding-bottom:6px;border-bottom:2px solid #e8720c;">${sectionName}</h3>
       <div style="display:grid;gap:10px;">`;
     
     sections[sectionName].forEach(item => {
       html += `
         <div onclick="addMaterialFromCatalog('${item.id}');"
              style="border:1px solid var(--br);border-radius:6px;padding:15px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
-             onmouseover="this.style.borderColor='#C8541A';this.style.backgroundColor='var(--s2)';"
+             onmouseover="this.style.borderColor='#e8720c';this.style.backgroundColor='var(--s2)';"
              onmouseout="this.style.borderColor='var(--br)';this.style.backgroundColor='var(--s)';">
           <div>
             <div style="font-weight:600;color:var(--t);margin-bottom:4px;">${item.name}</div>
             <div style="font-size:12px;color:var(--m);">Unit: ${item.unit}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:18px;font-weight:700;color:#C8541A;">$${item.sellPrice.toFixed(2)}</div>
+            <div style="font-size:18px;font-weight:700;color:#e8720c;">$${item.sellPrice.toFixed(2)}</div>
             <div style="font-size:11px;color:var(--m);">per ${item.unit}</div>
           </div>
         </div>

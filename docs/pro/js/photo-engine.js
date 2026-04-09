@@ -447,7 +447,7 @@
 
       .pe-gallery-item.selected {
         border-color: var(--orange);
-        box-shadow: 0 0 0 3px rgba(200, 84, 26, 0.2);
+        box-shadow: 0 0 0 3px rgba(232, 114, 12, 0.2);
       }
 
       .pe-gallery-thumbnail {
@@ -481,7 +481,7 @@
         font-size: 0.65rem;
         padding: 0.2rem 0.4rem;
         border-radius: 0.25rem;
-        background: rgba(200, 84, 26, 0.8);
+        background: rgba(232, 114, 12, 0.8);
         color: white;
         white-space: nowrap;
         overflow: hidden;

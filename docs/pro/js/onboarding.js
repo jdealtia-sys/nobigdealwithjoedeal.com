@@ -36,7 +36,7 @@
     company: '',
     phone: '',
     serviceArea: '',
-    brandColor: '#C8541A',
+    brandColor: '#e8720c',
     leadAdded: false,
     cameraAvailable: false,
     notificationsRequested: false,
@@ -54,7 +54,7 @@
   ];
 
   const BRAND_COLORS = [
-    { name: 'Orange', hex: '#C8541A' },
+    { name: 'Orange', hex: '#e8720c' },
     { name: 'Blue', hex: '#2563EB' },
     { name: 'Green', hex: '#10B981' },
     { name: 'Purple', hex: '#8B5CF6' },
@@ -132,7 +132,7 @@
       company: '',
       phone: '',
       serviceArea: '',
-      brandColor: '#C8541A',
+      brandColor: '#e8720c',
       leadAdded: false,
       cameraAvailable: false,
       notificationsRequested: false,
@@ -170,7 +170,7 @@
         left: 0;
         height: 4px;
         width: ${progressPercent}%;
-        background: #C8541A;
+        background: #e8720c;
         border-radius: 20px;
         transition: width 0.3s ease;
       "></div>
@@ -182,7 +182,7 @@
         width: ${i === currentStep ? '28px' : '10px'};
         height: 10px;
         border-radius: 5px;
-        background: ${i === currentStep ? '#C8541A' : 'rgba(255, 255, 255, 0.15)'};
+        background: ${i === currentStep ? '#e8720c' : 'rgba(255, 255, 255, 0.15)'};
         transition: all 0.3s;
         cursor: pointer;
       " onclick="window._obGoToStep(${i})"></div>
@@ -392,7 +392,7 @@
         <button onclick="window._obSaveProfile()" class="obBtn" style="
           width: 100%;
           padding: 14px;
-          background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+          background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
           color: white;
           border: none;
           border-radius: 12px;
@@ -557,7 +557,7 @@
           <button onclick="window._obSaveLead()" class="obBtn" style="
             flex: 2;
             padding: 14px;
-            background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+            background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -643,8 +643,8 @@
         </div>
 
         <div style="
-          background: linear-gradient(135deg, rgba(200, 84, 26, 0.15) 0%, rgba(200, 84, 26, 0.08) 100%);
-          border: 1px solid rgba(200, 84, 26, 0.2);
+          background: linear-gradient(135deg, rgba(232, 114, 12, 0.15) 0%, rgba(232, 114, 12, 0.08) 100%);
+          border: 1px solid rgba(232, 114, 12, 0.2);
           border-radius: 12px;
           padding: 16px;
           margin-top: 12px;
@@ -671,7 +671,7 @@
           <button onclick="window._obSaveTerritory()" class="obBtn" style="
             flex: 2;
             padding: 14px;
-            background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+            background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -736,7 +736,7 @@
           <button onclick="window._obNext()" class="obBtn" style="
             flex: 1;
             padding: 14px;
-            background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+            background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -827,7 +827,7 @@
           <button onclick="window._obSaveNotifications()" class="obBtn" style="
             flex: 2;
             padding: 14px;
-            background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+            background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -853,8 +853,8 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 8px;">
           ${courses.map(course => `
             <div style="
-              background: linear-gradient(135deg, rgba(200, 84, 26, 0.2) 0%, rgba(200, 84, 26, 0.1) 100%);
-              border: 1px solid rgba(200, 84, 26, 0.2);
+              background: linear-gradient(135deg, rgba(232, 114, 12, 0.2) 0%, rgba(232, 114, 12, 0.1) 100%);
+              border: 1px solid rgba(232, 114, 12, 0.2);
               border-radius: 12px;
               padding: 20px;
               text-align: center;
@@ -908,7 +908,7 @@
           <button onclick="window._obNext()" class="obBtn" style="
             flex: 1;
             padding: 14px;
-            background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+            background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -943,8 +943,8 @@
     return `
       <div style="display: flex; flex-direction: column; gap: 20px;">
         <div style="
-          background: linear-gradient(135deg, rgba(200, 84, 26, 0.2) 0%, rgba(200, 84, 26, 0.1) 100%);
-          border: 1px solid rgba(200, 84, 26, 0.2);
+          background: linear-gradient(135deg, rgba(232, 114, 12, 0.2) 0%, rgba(232, 114, 12, 0.1) 100%);
+          border: 1px solid rgba(232, 114, 12, 0.2);
           border-radius: 12px;
           padding: 24px;
           text-align: center;
@@ -953,7 +953,7 @@
           <div style="
             font-size: 48px;
             font-weight: 800;
-            color: #C8541A;
+            color: #e8720c;
             font-family: 'Barlow Condensed', sans-serif;
             letter-spacing: -0.02em;
             margin-bottom: 8px;
@@ -989,7 +989,7 @@
         <button onclick="window._obLaunchDashboard()" class="obBtn" style="
           width: 100%;
           padding: 16px;
-          background: linear-gradient(135deg, #C8541A 0%, #a13d14 100%);
+          background: linear-gradient(135deg, #e8720c 0%, #a13d14 100%);
           color: white;
           border: none;
           border-radius: 12px;
@@ -1139,7 +1139,7 @@
       slider.style.left = '3px';
     } else {
       input.checked = true;
-      toggle.style.background = 'rgba(200, 84, 26, 0.5)';
+      toggle.style.background = 'rgba(232, 114, 12, 0.5)';
       slider.style.left = '25px';
     }
   };

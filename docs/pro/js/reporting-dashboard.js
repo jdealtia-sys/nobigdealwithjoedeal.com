@@ -14,7 +14,7 @@
     COLORS: {
       bg: 'var(--s, #1a1a2e)',
       border: 'var(--br, rgba(255,255,255,.08))',
-      accent: '#C8541A',
+      accent: '#e8720c',
       text: 'var(--m, #9ca3af)',
       header: 'var(--h, #fff)',
       success: '#16a34a',
@@ -270,7 +270,7 @@
         bar.style.cssText = `
           width: 100%;
           height: ${height}px;
-          background: linear-gradient(180deg, ${this.COLORS.accent}, rgba(200,84,26,0.3));
+          background: linear-gradient(180deg, ${this.COLORS.accent}, rgba(232,114,12,0.3));
           border-radius: 4px 4px 0 0;
           transition: all 0.3s ease;
         `;
@@ -402,7 +402,7 @@
         barFill.style.cssText = `
           width: ${percentage}%;
           height: 100%;
-          background: linear-gradient(90deg, ${this.COLORS.accent}, rgba(200,84,26,0.6));
+          background: linear-gradient(90deg, ${this.COLORS.accent}, rgba(232,114,12,0.6));
           transition: width 0.3s ease;
         `;
 

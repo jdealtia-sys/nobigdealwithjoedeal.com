@@ -800,7 +800,27 @@ function calculateBallpark() {
     },
     'roof-repair': {
       asphalt: { min: 350, max: 2500 },
-      metal: { min: 500, max: 350 {
+      metal: { min: 500, max: 3500 },
+      flat: { min: 300, max: 2000 }
+    },
+    'siding': {
+      vinyl: { min: 8000, max: 16000 },
+      fiber_cement: { min: 12000, max: 24000 },
+      wood: { min: 10000, max: 20000 }
+    },
+    'gutters': {
+      aluminum: { min: 1200, max: 3000 },
+      seamless: { min: 1500, max: 4000 }
+    },
+    'storm-damage': {
+      asphalt: { min: 8500, max: 15000 },
+      metal: { min: 18000, max: 32000 },
+      flat: { min: 10000, max: 18000 }
+    }
+  };
+
+// Phone number formatting
+document.getElementById('phoneNumber')?.addEventListener('input', function() {
   let val = this.value.replace(/\D/g, '');
   if (val.length > 10) val = val.slice(0, 10);
   if (val.length >= 7) {

@@ -12,7 +12,7 @@ const DT_CONFIG_KEY = 'nbd_daily_config';
 
 // ── Default KPIs ──────────────────────────────────────────────────────
 const DEFAULT_KPIS = [
-  { key: 'doors',    label: 'Doors Knocked',   icon: '🚪', target: 60,   color: '#C8541A' },
+  { key: 'doors',    label: 'Doors Knocked',   icon: '🚪', target: 60,   color: '#e8720c' },
   { key: 'contacts', label: 'Contacts Made',   icon: '🤝', target: 20,   color: '#3b82f6' },
   { key: 'appts',    label: 'Appts Set',       icon: '📋', target: 5,    color: '#8b5cf6' },
   { key: 'closes',   label: 'Closes',          icon: '🏆', target: 1,    color: '#10b981' },
@@ -172,7 +172,7 @@ function renderDailyTracker() {
 
   // Score label
   const scoreLabel = allFloorsCleared ? 'PERFECT DAY' : floorPct >= 67 ? 'SOLID' : floorPct >= 34 ? 'GRINDING' : 'START PUSHING';
-  const scoreColor = allFloorsCleared ? '#10b981' : floorPct >= 67 ? '#f59e0b' : '#C8541A';
+  const scoreColor = allFloorsCleared ? '#10b981' : floorPct >= 67 ? '#f59e0b' : '#e8720c';
 
   container.innerHTML = `
     <!-- Header Bar -->
@@ -426,7 +426,7 @@ function openConfig() {
       <!-- Save -->
       <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;border-top:1px solid var(--br);">
         <button onclick="document.getElementById('dtConfigModal').remove()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;color:var(--m);font-size:13px;">Cancel</button>
-        <button onclick="window._dailyTracker._saveConfig()" style="padding:10px 24px;background:#C8541A;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Save Settings</button>
+        <button onclick="window._dailyTracker._saveConfig()" style="padding:10px 24px;background:#e8720c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Save Settings</button>
       </div>
     </div>
   `;

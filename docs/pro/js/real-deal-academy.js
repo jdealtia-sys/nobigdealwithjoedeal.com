@@ -103,7 +103,7 @@
           --rda-light: #E8EAF0;
           --rda-muted: #6B7280;
           --rda-border: rgba(255,255,255,.07);
-          --rda-orange: #C8541A;
+          --rda-orange: #e8720c;
           --rda-green: #10b981;
           --rda-red: #ef4444;
         }
@@ -242,7 +242,7 @@
         }
 
         .rda-phase-header {
-          background: linear-gradient(135deg, rgba(200, 84, 26, 0.1), rgba(200, 84, 26, 0.05));
+          background: linear-gradient(135deg, rgba(232, 114, 12, 0.1), rgba(232, 114, 12, 0.05));
           border-left: 4px solid var(--rda-orange);
           padding: 15px 20px;
           margin: 30px 0 20px 0;
@@ -283,7 +283,7 @@
         .rda-node-card:hover {
           border-color: var(--rda-orange);
           transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(200, 84, 26, 0.15);
+          box-shadow: 0 8px 24px rgba(232, 114, 12, 0.15);
         }
 
         .rda-node-card.completed {
@@ -375,11 +375,11 @@
         .rda-course-card:hover {
           border-color: var(--rda-orange);
           transform: translateY(-4px);
-          box-shadow: 0 12px 32px rgba(200, 84, 26, 0.2);
+          box-shadow: 0 12px 32px rgba(232, 114, 12, 0.2);
         }
 
         .rda-course-card-header {
-          background: linear-gradient(135deg, rgba(200, 84, 26, 0.2), rgba(200, 84, 26, 0.1));
+          background: linear-gradient(135deg, rgba(232, 114, 12, 0.2), rgba(232, 114, 12, 0.1));
           padding: 24px;
           text-align: center;
           position: relative;
@@ -575,7 +575,7 @@
         }
 
         .rda-collapsible-header:hover {
-          background: rgba(200,84,26,0.1);
+          background: rgba(232,114,12,0.1);
         }
 
         .rda-collapsible-arrow {
@@ -619,7 +619,7 @@
         .rda-button:hover {
           background: #e0421a;
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(200, 84, 26, 0.4);
+          box-shadow: 0 4px 12px rgba(232, 114, 12, 0.4);
         }
 
         .rda-button-secondary {
@@ -629,7 +629,7 @@
         }
 
         .rda-button-secondary:hover {
-          background: rgba(200, 84, 26, 0.1);
+          background: rgba(232, 114, 12, 0.1);
         }
 
         .rda-button-small {
@@ -691,7 +691,7 @@
 
         .rda-quiz-option:hover {
           border-color: var(--rda-orange);
-          background: rgba(200,84,26,0.05);
+          background: rgba(232,114,12,0.05);
         }
 
         .rda-quiz-option input[type="radio"] {
@@ -758,7 +758,7 @@
         }
 
         .rda-lesson-header {
-          background: linear-gradient(135deg, rgba(200, 84, 26, 0.15), rgba(200, 84, 26, 0.05));
+          background: linear-gradient(135deg, rgba(232, 114, 12, 0.15), rgba(232, 114, 12, 0.05));
           padding: 24px;
           border-radius: 8px;
           margin-bottom: 24px;

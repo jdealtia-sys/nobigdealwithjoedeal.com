@@ -10,7 +10,7 @@
     interested:     { label: 'Interested',              color: '#EAB308', icon: '👍', short: 'INT',  autoFollowUp: 3 },
     appointment:    { label: 'Appointment Set',         color: '#2ECC8A', icon: '📅', short: 'APT',  autoFollowUp: null },
     come_back:      { label: 'Come Back Later',         color: '#4A9EFF', icon: '🔄', short: 'CBL',  autoFollowUp: null },
-    storm_damage:   { label: 'Storm Damage Noted',      color: '#C8541A', icon: '⛈️', short: 'DMG', autoFollowUp: 1 },
+    storm_damage:   { label: 'Storm Damage Noted',      color: '#e8720c', icon: '⛈️', short: 'DMG', autoFollowUp: 1 },
     ins_has_claim:  { label: 'Insurance - Has Claim',   color: '#9B6DFF', icon: '📋', short: 'CLM',  autoFollowUp: 2 },
     ins_needs_file: { label: 'Insurance - Needs Filing', color: '#D946EF', icon: '📝', short: 'FIL', autoFollowUp: 1 },
     ins_denied:     { label: 'Insurance - Denied',      color: '#78350F', icon: '❌', short: 'DEN',  autoFollowUp: 3 },
@@ -1156,7 +1156,7 @@
 
       const reknockBtn = document.createElement('button');
       reknockBtn.textContent = 'Re-Knock';
-      reknockBtn.style.cssText = 'margin-top:8px;margin-left:4px;padding:4px 8px;background:var(--orange, #C8541A);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      reknockBtn.style.cssText = 'margin-top:8px;margin-left:4px;padding:4px 8px;background:var(--orange, #e8720c);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
       reknockBtn.addEventListener('click', function(ev) { ev.stopPropagation(); window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
       reknockBtn.addEventListener('touchend', function(ev) { ev.stopPropagation(); ev.preventDefault(); window.D2D.openQuickKnock({address:knock.address, lat:knock.lat, lng:knock.lng}); });
 
@@ -1852,7 +1852,7 @@
             <div class="d2d-metric-lbl">Conv</div>
           </div>
           <div class="d2d-metric-card">
-            <div class="d2d-metric-val" style="color:var(--orange, #C8541A);">${revenue.revenuePerDoor > 0 ? '$' + revenue.revenuePerDoor : '—'}</div>
+            <div class="d2d-metric-val" style="color:var(--orange, #e8720c);">${revenue.revenuePerDoor > 0 ? '$' + revenue.revenuePerDoor : '—'}</div>
             <div class="d2d-metric-lbl">Rev/Door</div>
           </div>
           <div class="d2d-metric-card">
@@ -1879,7 +1879,7 @@
             <div class="d2d-funnel-count">${funnel.estimates}</div>
             <div class="d2d-funnel-label">Ests</div>
           </div>
-          <div class="d2d-funnel-step" style="flex:${funnel.closed / maxFunnelVal};background:#C8541A;">
+          <div class="d2d-funnel-step" style="flex:${funnel.closed / maxFunnelVal};background:#e8720c;">
             <div class="d2d-funnel-count">${funnel.closed}</div>
             <div class="d2d-funnel-label">Closed</div>
           </div>
@@ -1936,7 +1936,7 @@
                     <div class="d2d-knock-addr">${esc(knock.address)}</div>
                     <div class="d2d-knock-meta">
                       <span>${formatTime(knock.createdAt)}</span>
-                      <span class="d2d-knock-attempt ${dispo?.color === '#C8541A' ? 'warning' : ''}" style="background:${dispo?.color || '#ccc'};">Knock #${attempts}/${MAX_ATTEMPTS}</span>
+                      <span class="d2d-knock-attempt ${dispo?.color === '#e8720c' ? 'warning' : ''}" style="background:${dispo?.color || '#ccc'};">Knock #${attempts}/${MAX_ATTEMPTS}</span>
                       ${knock.insCarrier ? `<span>🏢 ${esc(knock.insCarrier)}</span>` : ''}
                     </div>
                   </div>

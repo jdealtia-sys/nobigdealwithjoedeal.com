@@ -215,14 +215,14 @@
               <div style="font-size:10px;color:var(--m,#9ca3af);">GROSS MARGIN</div>
             </div>
             <div>
-              <div style="font-size:18px;font-weight:800;color:#C8541A;">$${formatPT(pl.totalCost)}</div>
+              <div style="font-size:18px;font-weight:800;color:#e8720c;">$${formatPT(pl.totalCost)}</div>
               <div style="font-size:10px;color:var(--m,#9ca3af);">TOTAL COST</div>
             </div>
           </div>
         </div>` : '<div style="color:var(--m,#9ca3af);font-size:12px;text-align:center;padding:12px;">Set a Job Value on this lead to see margin calculations</div>'}
 
         <button onclick="window.ProfitTracker.save('${leadId}')"
-          style="width:100%;padding:10px;background:#C8541A;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">
+          style="width:100%;padding:10px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">
           Save Costs
         </button>
       </div>

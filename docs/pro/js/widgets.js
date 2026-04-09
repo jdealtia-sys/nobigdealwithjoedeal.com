@@ -412,7 +412,7 @@ const WIDGETS = [
       leads.forEach(l => { const dt = l.damageType || l.damage || 'Unknown'; types[dt] = (types[dt]||0)+1; });
       const entries = Object.entries(types).sort((a,b) => b[1]-a[1]);
       const total = leads.length || 1;
-      const colors = ['#C8541A','#4A9EFF','#22C55E','#A855F7','#EAB308','#EC4899','#06B6D4'];
+      const colors = ['#e8720c','#4A9EFF','#22C55E','#A855F7','#EAB308','#EC4899','#06B6D4'];
       el.innerHTML = entries.slice(0,5).map(([ name, count], i) => {
         const pct = (count/total*100).toFixed(0);
         return `<div style="margin-bottom:6px;">

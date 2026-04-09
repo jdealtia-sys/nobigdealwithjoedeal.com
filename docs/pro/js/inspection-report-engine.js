@@ -24,7 +24,7 @@
     website: 'nobigdealwithjoedeal.com',
     colors: {
       navy: '#1e3a6e',
-      orange: '#C8541A'
+      orange: '#e8720c'
     }
   };
 

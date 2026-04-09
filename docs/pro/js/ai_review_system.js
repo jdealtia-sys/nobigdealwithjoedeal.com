@@ -113,7 +113,7 @@ function showAIReviewResults(suggestions) {
         </div>
         <div style="text-align:right;">
           <button onclick="closeAIReviewModal();" 
-                  style="background:#C8541A;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-weight:600;">
+                  style="background:#e8720c;color:white;border:none;padding:12px 24px;border-radius:6px;cursor:pointer;font-weight:600;">
             Got It
           </button>
         </div>

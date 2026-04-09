@@ -421,7 +421,7 @@
 
     // Greeting + Quote
     html += `
-      <div style="background:linear-gradient(135deg,#C8541A20,var(--s2));border:1px solid #C8541A40;border-radius:12px;padding:16px;margin-bottom:14px;">
+      <div style="background:linear-gradient(135deg,#e8720c20,var(--s2));border:1px solid #e8720c40;border-radius:12px;padding:16px;margin-bottom:14px;">
         <div style="font-size:18px;font-weight:700;color:var(--t);">${esc(b.greeting)} 👋</div>
         <div style="font-size:12px;color:var(--m);margin-top:6px;font-style:italic;line-height:1.5;">"${esc(b.motivationalQuote.text)}"</div>
         <div style="font-size:10px;color:var(--orange);margin-top:4px;">— ${esc(b.motivationalQuote.author)}</div>
@@ -583,7 +583,7 @@
           <div style="font-size:60px;margin-bottom:16px;">🧠</div>
           <div style="font-size:24px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);">REP OS</div>
           <div style="font-size:14px;color:var(--m);margin-top:6px;max-width:320px;margin-left:auto;margin-right:auto;line-height:1.5;">Your AI-powered daily briefing. Weather, follow-ups, coaching, and optimized route — all in one view.</div>
-          <button onclick="window.RepOS.generate()" style="margin-top:20px;padding:14px 28px;background:var(--orange,#C8541A);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button onclick="window.RepOS.generate()" style="margin-top:20px;padding:14px 28px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             ⚡ GENERATE TODAY'S BRIEFING
           </button>
         </div>

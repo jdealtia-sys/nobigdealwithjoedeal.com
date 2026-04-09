@@ -22,7 +22,7 @@
     objection:  { label: 'Objection Handling',  icon: '🛡️', color: '#8B5CF6' },
     closing:    { label: 'Closing',            icon: '🎯', color: '#10B981' },
     rapport:    { label: 'Rapport Building',    icon: '🤝', color: '#EC4899' },
-    authority:  { label: 'Authority',          icon: '👔', color: '#C8541A' }
+    authority:  { label: 'Authority',          icon: '👔', color: '#e8720c' }
   };
 
   const STAR_THRESHOLDS = [0, 20, 40, 60, 80]; // score % for 1-5 stars

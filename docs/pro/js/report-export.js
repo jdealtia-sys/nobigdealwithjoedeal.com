@@ -16,7 +16,7 @@
 
   // Color scheme and branding
   const BRAND = {
-    orange: '#C8541A',
+    orange: '#e8720c',
     navy: '#1e3a6e',
     white: '#ffffff',
     darkText: '#1f2937',

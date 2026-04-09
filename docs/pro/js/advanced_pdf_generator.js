@@ -18,7 +18,7 @@ window.exportAdvancedEstimatePDF = function(type) {
   let yPos = 20;
   
   // ─────── HEADER (NBD Branding) ───────
-  doc.setFillColor(200, 84, 26); // NBD Orange
+  doc.setFillColor(232, 114, 12); // NBD Orange
   doc.rect(0, 0, pageWidth, 35, 'F');
   
   doc.setTextColor(255, 255, 255);
@@ -42,7 +42,7 @@ window.exportAdvancedEstimatePDF = function(type) {
   doc.setTextColor(0, 0, 0);
   doc.setFillColor(249, 249, 249);
   doc.rect(15, yPos, pageWidth - 30, 35, 'F');
-  doc.setDrawColor(200, 84, 26);
+  doc.setDrawColor(232, 114, 12);
   doc.setLineWidth(0.5);
   doc.rect(15, yPos, pageWidth - 30, 35, 'S');
   
@@ -187,7 +187,7 @@ function renderDetailedPDF(doc, est, yPos) {
       yPos = 20;
     }
     
-    doc.setFillColor(200, 84, 26);
+    doc.setFillColor(232, 114, 12);
     doc.rect(15, yPos - 5, pageWidth - 30, 8, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
@@ -356,7 +356,7 @@ function renderTotalSection(doc, est, yPos, pageWidth, pageHeight) {
   // Totals box
   doc.setFillColor(249, 249, 249);
   doc.rect(pageWidth - 90, yPos, 75, 35, 'F');
-  doc.setDrawColor(200, 84, 26);
+  doc.setDrawColor(232, 114, 12);
   doc.setLineWidth(0.5);
   doc.rect(pageWidth - 90, yPos, 75, 35, 'S');
   
@@ -371,7 +371,7 @@ function renderTotalSection(doc, est, yPos, pageWidth, pageHeight) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('TOTAL:', pageWidth - 85, yPos + 28);
-  doc.setTextColor(200, 84, 26);
+  doc.setTextColor(232, 114, 12);
   doc.text(`$${est.total.toFixed(2)}`, pageWidth - 20, yPos + 28, { align: 'right' });
   doc.setTextColor(0, 0, 0);
   

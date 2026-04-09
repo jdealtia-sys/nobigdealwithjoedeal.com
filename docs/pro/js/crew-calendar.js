@@ -10,13 +10,13 @@
 (function() {
   'use strict';
 
-  const BRAND = { navy: '#1e3a6e', orange: '#C8541A' };
+  const BRAND = { navy: '#1e3a6e', orange: '#e8720c' };
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   // Crew colors for visual differentiation
   const CREW_COLORS = [
-    '#3b82f6','#16a34a','#C8541A','#9b6dff','#eab308',
+    '#3b82f6','#16a34a','#e8720c','#9b6dff','#eab308',
     '#ec4899','#14b8a6','#f97316','#6366f1','#ef4444'
   ];
 
@@ -129,10 +129,10 @@
 
       html += `
         <div onclick="window.CrewCalendar.showDay(${currentYear},${currentMonth},${d})"
-             style="min-height:90px;padding:6px;border-bottom:1px solid var(--br,rgba(255,255,255,.04));border-right:1px solid var(--br,rgba(255,255,255,.04));cursor:pointer;transition:background .15s;${isToday ? `background:rgba(200,84,26,.08);` : isWeekend ? `background:var(--s,rgba(255,255,255,.01));` : ''}"
-             onmouseenter="this.style.background='rgba(255,255,255,.04)'" onmouseleave="this.style.background='${isToday ? 'rgba(200,84,26,.08)' : isWeekend ? 'var(--s,rgba(255,255,255,.01))' : ''}'">
+             style="min-height:90px;padding:6px;border-bottom:1px solid var(--br,rgba(255,255,255,.04));border-right:1px solid var(--br,rgba(255,255,255,.04));cursor:pointer;transition:background .15s;${isToday ? `background:rgba(232,114,12,.08);` : isWeekend ? `background:var(--s,rgba(255,255,255,.01));` : ''}"
+             onmouseenter="this.style.background='rgba(255,255,255,.04)'" onmouseleave="this.style.background='${isToday ? 'rgba(232,114,12,.08)' : isWeekend ? 'var(--s,rgba(255,255,255,.01))' : ''}'">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:13px;font-weight:${isToday ? '800' : '500'};color:${isToday ? '#C8541A' : 'var(--h,#fff)'};">${d}</span>
+            <span style="font-size:13px;font-weight:${isToday ? '800' : '500'};color:${isToday ? '#e8720c' : 'var(--h,#fff)'};">${d}</span>
             ${dayJobs.length > 0 ? `<span style="font-size:10px;background:${BRAND.navy};color:#fff;padding:1px 6px;border-radius:10px;">${dayJobs.length}</span>` : ''}
           </div>
           ${dayJobs.slice(0, 3).map(j => `

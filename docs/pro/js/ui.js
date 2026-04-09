@@ -264,7 +264,7 @@ function scrollToColumn(columnIndex) {
     // Flash highlight
     column.style.transition = 'background 0.3s';
     const originalBg = column.style.background;
-    column.style.background = 'rgba(200,84,26,0.1)';
+    column.style.background = 'rgba(232,114,12,0.1)';
     setTimeout(() => {
       column.style.background = originalBg;
     }, 600);
@@ -613,7 +613,7 @@ function switchSettingsTab(tab) {
           const isActive = key === current;
           const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
           const bg = t.colors?.bg || '#1a1a2e';
-          const accent = t.colors?.accent || '#C8541A';
+          const accent = t.colors?.accent || '#e8720c';
           const surface = t.colors?.surface || '#16213e';
           const txt = t.colors?.text || '#e2e8f0';
           const muted = t.colors?.muted || '#6b7280';

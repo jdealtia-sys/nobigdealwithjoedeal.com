@@ -660,7 +660,7 @@ canvas{max-width:100%;display:block;}
 .npm-fonts { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .npm-font-card { background: #0e1218; border: 1.5px solid #1e2530; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: .2s; }
 .npm-font-card:hover { border-color: var(--orange, #e8720c); background: #12181e; }
-.npm-font-card.active { border-color: var(--orange, #e8720c); box-shadow: 0 0 0 1px rgba(200,84,26,.2); }
+.npm-font-card.active { border-color: var(--orange, #e8720c); box-shadow: 0 0 0 1px rgba(232,114,12,.2); }
 .npm-font-head { font-size: 9px; color: var(--orange, #e8720c); letter-spacing: .5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
 .npm-font-check { width: 8px; height: 8px; border-radius: 50%; background: var(--orange, #e8720c); display: none; }
 .npm-font-card.active .npm-font-check { display: block; }
@@ -2350,7 +2350,7 @@ initTheme();loadPages();renderTabs();renderDash();markSaved();checkOnboardBanner
 /* ── THEME REGISTRY (100 themes) ──────────────────────────────────── */
 const NBD_THEMES = [
   // STANDARD
-  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#C8541A', bg:'#0A0C0F', s:'#13171d', jp:true},
+  {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#e8720c', bg:'#0A0C0F', s:'#13171d', jp:true},
   {id:'matrix',           name:'Matrix',            cat:'standard', plan:'blueprint', accent:'#00ff41', bg:'#000300', s:'#000800'},
   {id:'neon',             name:'Neon',              cat:'standard', plan:'foundation',accent:'#ff00ff', bg:'#08000f', s:'#120018'},
   {id:'galaxy',           name:'Galaxy',            cat:'standard', plan:'foundation',accent:'#9c27b0', bg:'#06000e', s:'#0e0020'},
@@ -2741,7 +2741,7 @@ if(localStorage.getItem('nbd-welcome-seen')){
           <div class="npm-custom-row">
             <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#C8541A" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
           </div>
