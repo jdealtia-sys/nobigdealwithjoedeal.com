@@ -538,6 +538,91 @@ exports.getSubscriptionStatus = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// STORAGE CORS + IMAGE PROXY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * One-time function to set CORS on the Firebase Storage bucket.
+ * Call once via: POST /setStorageCors with Authorization header
+ */
+exports.setStorageCors = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    maxInstances: 1,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    // Verify Firebase auth token
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) { res.status(401).json({ error: 'Missing auth token' }); return; }
+
+    try {
+      await admin.auth().verifyIdToken(idToken);
+      const bucket = admin.storage().bucket();
+      await bucket.setCorsConfiguration([
+        {
+          origin: [
+            'https://nobigdealwithjoedeal.com',
+            'https://www.nobigdealwithjoedeal.com',
+            'https://nobigdeal-pro.web.app',
+            'http://localhost:5000',
+            'http://localhost:3000',
+          ],
+          method: ['GET', 'HEAD', 'OPTIONS'],
+          maxAgeSeconds: 3600,
+          responseHeader: ['Content-Type', 'Authorization', 'Content-Length', 'User-Agent'],
+        },
+      ]);
+      console.log('Storage CORS configuration updated successfully');
+      res.json({ success: true, message: 'CORS configuration applied to storage bucket' });
+    } catch (e) {
+      console.error('setCors error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
+
+/**
+ * Image proxy — bypasses CORS for loading photos into the editor canvas.
+ * GET /imageProxy?path=photos/filename.jpg
+ */
+exports.imageProxy = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    maxInstances: 20,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'GET') { res.status(405).end(); return; }
+
+    const filePath = req.query.path;
+    if (!filePath || filePath.includes('..')) {
+      res.status(400).json({ error: 'Invalid path' });
+      return;
+    }
+
+    try {
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(filePath);
+      const [exists] = await file.exists();
+      if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
+
+      const [metadata] = await file.getMetadata();
+      res.set('Content-Type', metadata.contentType || 'image/png');
+      res.set('Cache-Control', 'public, max-age=3600');
+
+      file.createReadStream().pipe(res);
+    } catch (e) {
+      console.error('imageProxy error:', e);
+      res.status(500).json({ error: 'Failed to proxy image' });
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // PUSH NOTIFICATION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
 const pushFunctions = require('./push-functions');

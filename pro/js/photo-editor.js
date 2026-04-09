@@ -1574,11 +1574,24 @@
         }
       };
 
-      // Try fetch+blob first to bypass CORS, fall back to direct load
-      const loadViaFetch = async (url) => {
+      // Extract storage path from Firebase Storage URL for proxy fallback
+      const getStoragePath = (url) => {
         try {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+          const match = url.match(/\/o\/([^?]+)/);
+          if (match) return decodeURIComponent(match[1]);
+        } catch (e) {}
+        return null;
+      };
+
+      // Strategy 1: Try Cloud Function image proxy (bypasses CORS entirely)
+      const loadViaProxy = async (url) => {
+        const storagePath = getStoragePath(url);
+        if (!storagePath) { loadDirect(url); return; }
+
+        const proxyUrl = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/imageProxy?path=' + encodeURIComponent(storagePath);
+        try {
+          const response = await fetch(proxyUrl);
+          if (!response.ok) throw new Error('Proxy returned ' + response.status);
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
           STATE.originalImage.onload = () => {
@@ -1591,17 +1604,18 @@
           };
           STATE.originalImage.src = blobUrl;
         } catch (e) {
-          console.warn('Fetch load failed, trying direct:', e.message);
+          console.warn('Proxy load failed, trying direct:', e.message);
           loadDirect(url);
         }
       };
 
+      // Strategy 2: Direct load with crossOrigin (works if CORS is configured)
       const loadDirect = (url) => {
         STATE.originalImage = new Image();
         STATE.originalImage.crossOrigin = 'anonymous';
         STATE.originalImage.onload = onImageReady;
         STATE.originalImage.onerror = () => {
-          // Last resort: load without crossOrigin (canvas becomes tainted but at least displays)
+          // Strategy 3: Load without crossOrigin (canvas tainted but image displays)
           console.warn('CORS load failed, loading without crossOrigin (canvas will be tainted)');
           STATE.originalImage = new Image();
           STATE.originalImage.onload = onImageReady;
@@ -1614,7 +1628,7 @@
         STATE.originalImage.src = url;
       };
 
-      loadViaFetch(photoUrl);
+      loadViaProxy(photoUrl);
     } catch (error) {
       console.error('Editor open error:', error);
       showToast('Error opening editor: ' + error.message, 'error');
