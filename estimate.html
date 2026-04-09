@@ -984,17 +984,22 @@ async function submitAndGetEstimate() {
 
   window._saveLead(leadData);
 
-  // Notify Joe
+  // Notify Joe (await so we know if it fails)
   if (window._notifyJoe) {
-    window._notifyJoe({
-      name: funnelData.firstName + ' ' + funnelData.lastName,
-      phone: funnelData.phone,
-      email: funnelData.email,
-      address: funnelData.address,
-      service: funnelData.service,
-      timeline: funnelData.timeline,
-      verified: _otpVerified
-    });
+    try {
+      await window._notifyJoe({
+        name: funnelData.firstName + ' ' + funnelData.lastName,
+        phone: funnelData.phone,
+        email: funnelData.email,
+        address: funnelData.address,
+        service: funnelData.service,
+        timeline: funnelData.timeline,
+        verified: _otpVerified
+      });
+      console.log('Joe notified successfully');
+    } catch(notifyErr) {
+      console.error('Joe notification failed:', notifyErr);
+    }
   }
 
   // Get AI estimate
@@ -1103,197 +1108,6 @@ function showResults(est) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-var TIER_LABELS = { good: '3-Tab (Good)', better: 'Architectural (Better)', best: 'Designer (Best)' };
-
-function switchTier(tier) {
-  var est = funnelData.estimate;
-  if (!est || !est.tiers || !est.tiers[tier]) return;
-
-  var t = est.tiers[tier];
-  document.getElementById('resultPrice').innerHTML = '$' + t.min.toLocaleString() + ' <span>&#8211; $' + t.max.toLocaleString() + '</span>';
-  documen    inputs[0].focus();
-  }
-}
-
-/* ── Form Validation ── */
-function checkSubmitReady() {
-  const fn = document.getElementById('firstName').value.trim();
-  const ln = document.getElementById('lastName').value.trim();
-  const phone = document.getElementById('phoneNumber').value.replace(/\D/g, '');
-  const email = document.getElementById('emailAddress').value.trim();
-  const consent = document.getElementById('tcpaConsent').checked;
-  const verified = _otpVerified || !CONFIG.OTP_ENABLED;
-
-  document.getElementById('btnSubmit').disabled = !(fn && ln && phone.length === 10 && email.includes('@') && consent && verified);
-}
-
-// Attach validation listeners
-['firstName', 'lastName', 'phoneNumber', 'emailAddress'].forEach(function(id) {
-  document.getElementById(id).addEventListener('input', checkSubmitReady);
-});
-document.getElementById('tcpaConsent').addEventListener('change', checkSubmitReady);
-
-/* ── Submit & Get Estimate ── */
-async function submitAndGetEstimate() {
-  const btn = document.getElementById('btnSubmit');
-  btn.disabled = true;
-  btn.textContent = 'Processing...';
-
-  funnelData.firstName = document.getElementById('firstName').value.trim();
-  funnelData.lastName = document.getElementById('lastName').value.trim();
-  funnelData.phone = document.getElementById('phoneNumber').value.trim();
-  funnelData.email = document.getElementById('emailAddress').value.trim();
-  // Show loading
-  document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
-  document.getElementById('stepLoading').classList.add('active');
-  updateProgress(5);
-
-  // Animate loading steps
-  var lsSteps = ['ls1', 'ls2', 'ls3', 'ls4'];
-  for (var i = 0; i < lsSteps.length; i++) {
-    (function(idx) {
-      setTimeout(function() {
-        document.getElementById(lsSteps[idx]).classList.add('active');
-        if (idx > 0) {
-          document.getElementById(lsSteps[idx - 1]).classList.remove('active');
-          document.getElementById(lsSteps[idx - 1]).classList.add('done');
-        }
-      }, idx * 900);
-    })(i);
-  }
-
-  // Save lead to Firestore
-  var leadData = {
-    address: funnelData.address,
-    lat: funnelData.lat,
-    lon: funnelData.lon,
-    service: funnelData.service,
-    roofType: funnelData.roofType,
-    timeline: funnelData.timeline,
-    firstName: funnelData.firstName,
-    lastName: funnelData.lastName,
-    phone: funnelData.phone,
-    email: funnelData.email,    phoneVerified: _otpVerified,
-    ballpark: funnelData.ballpark
-  };
-
-  window._saveLead(leadData);
-
-  // Notify Joe
-  if (window._notifyJoe) {
-    window._notifyJoe({
-      name: funnelData.firstName + ' ' + funnelData.lastName,
-      phone: funnelData.phone,
-      email: funnelData.email,
-      address: funnelData.address,
-      service: funnelData.service,
-      timeline: funnelData.timeline,
-      verified: _otpVerified
-    });
-  }
-
-  // Get AI estimate
-  try {
-    var serviceLabel = {
-      'roof-replacement': 'roof replacement',
-      'roof-repair': 'roof repair',
-      'siding': 'siding installation',
-      'gutters': 'gutter installation',
-      'storm-damage': 'storm damage inspection and repair'
-    }[funnelData.service] || funnelData.service;
-
-    var materialLabel = {
-      asphalt: 'asphalt shingles',
-      metal: 'metal roofing',      flat: 'flat/low-slope roofing'
-    }[funnelData.roofType] || 'asphalt shingles';
-
-    var prompt = 'You are Joe Deal, owner of No Big Deal Home Solutions, a roofing contractor in Greater Cincinnati, OH. A verified homeowner wants a detailed estimate.\n\n' +
-      'Address: ' + funnelData.address + '\n' +
-      'Service: ' + serviceLabel + '\n' +
-      'Material preference: ' + materialLabel + '\n' +
-      'Timeline: ' + funnelData.timeline + '\n' +
-      'Name: ' + funnelData.firstName + '\n\n' +
-      'Based on this address and typical homes in this area, provide a JSON response with:\n' +
-      '1. Estimate the roof area in square feet\n' +
-      '2. Calculate squares (roof sqft / 100)\n' +
-      '3. Price ranges for 3 tiers: Good (3-tab), Better (architectural), Best (designer)\n' +
-      '4. Estimate the year built if possible\n' +
-      '5. A 2-3 sentence personalized "Joe\'s take" addressing ' + funnelData.firstName + ' by name\n\n' +
-      'Use 2026 Cincinnati-area rates:\n' +
-      '- Good (3-tab): $320-$380/square installed\n' +
-      '- Better (architectural): $420-$520/square installed\n' +
-      '- Best (designer/premium): $580-$750/square installed\n\n' +
-      'RESPOND ONLY WITH THIS JSON:\n' +
-      '{"roofSqft":number,"squares":number,"yearBuilt":number_or_null,"tiers":{"good":{"min":number,"max":number},"better":{"min":number,"max":number},"best":{"min":number,"max":number}},"joesTake":"string"}';
-
-    var resp = await fetch(CONFIG.PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    var data = await resp.json();
-    var raw = (data && data.content && data.content[0] && data.content[0].text) || '';
-    var clean = raw.replace(/```json|```/g, '').trim();
-    var est = JSON.parse(clean);
-    funnelData.estimate = est;
-
-    setTimeout(function() { showResults(est); }, 800);
-
-  } catch(err) {
-    console.error('Estimate error:', err);
-    // Fallback estimate
-    var fb = {
-      roofSqft: 1800, squares: 18, yearBuilt: null,
-      tiers: {
-        good: { min: 5760, max: 6840 },
-        better: { min: 7560, max: 9360 },
-        best: { min: 10440, max: 13500 }
-      },
-      joesTake: funnelData.firstName + ", I couldn't pull the exact details for this address right now, but for a typical Cincinnati-area home, you're looking at the ranges shown above. I'd love to come take a look in person and give you real numbers \u2014 free, no obligation."
-    };
-    funnelData.estimate = fb;
-    setTimeout(function() { showResults(fb); }, 1500);
-  }
-}
-
-/* ── Show Results ── */
-function showResults(est) {
-  document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
-  document.getElementById('stepResults').classList.add('active');
-  // Personalized header
-  document.getElementById('resultName').textContent = funnelData.firstName + "'s";
-  document.getElementById('resultAddr').textContent = funnelData.address;
-
-  // Default to "better" tier
-  switchTier('better');
-
-  // Details
-  document.getElementById('detailSize').textContent = est.roofSqft ? '~' + est.roofSqft.toLocaleString() + ' sq ft' : '&#8212;';
-  document.getElementById('detailYear').textContent = est.yearBuilt || 'Unknown';
-  document.getElementById('detailSquares').textContent = est.squares ? '~' + est.squares : '&#8212;';
-
-  // Joe's take
-  document.getElementById('joesText').textContent = est.joesTake || 'Give Joe a call for the full picture.';
-
-  // Update lead with estimate data
-  if (window._saveLead) {
-    window._saveLead({
-      address: funnelData.address,
-      email: funnelData.email,
-      phone: funnelData.phone,
-      firstName: funnelData.firstName,
-      lastName: funnelData.lastName,
-      estimateData: est,
-      type: 'estimate_result'
-    });
-  }
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
 var TIER_LABELS = { good: '3-Tab (Good)', better: 'Architectural (Better)', best: 'Designer (Best)' };
 
 function switchTier(tier) {
