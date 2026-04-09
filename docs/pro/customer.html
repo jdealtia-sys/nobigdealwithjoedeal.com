@@ -2354,9 +2354,9 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId))
+      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
     );
-    
+
     if (photoSnap.empty) {
       document.getElementById('photoList').innerHTML = `
         <div class="upload-zone" onclick="openUploadModal()">
@@ -4014,7 +4014,7 @@ function renderPhotoGrid() {
 window.loadPhotosByPhase = async function(leadId) {
   try {
     const photosRef = window.collection(window.db, 'photos');
-    const q = window.query(photosRef, window.where('leadId', '==', leadId));
+    const q = window.query(photosRef, window.where('leadId', '==', leadId), window.where('userId', '==', window.auth.currentUser?.uid));
     const snap = await window.getDocs(q);
 
     if (snap.empty) {

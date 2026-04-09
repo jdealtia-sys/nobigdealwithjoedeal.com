@@ -46,7 +46,7 @@
       const address = lead.address || '';
 
       const photosSnap = await window.getDocs(
-        window.query(window.collection(window.db, 'photos'), window.where('leadId', '==', leadId))
+        window.query(window.collection(window.db, 'photos'), window.where('leadId', '==', leadId), window.where('userId', '==', window.auth.currentUser?.uid))
       );
 
       if (photosSnap.empty) {

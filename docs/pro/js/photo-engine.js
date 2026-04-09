@@ -1173,6 +1173,7 @@
     const q = query(
       collection(window._db, 'photos'),
       where('leadId', '==', leadId),
+      where('userId', '==', window._auth?.currentUser?.uid),
       orderBy('capturedAt', 'desc')
     );
 
