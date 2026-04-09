@@ -320,6 +320,29 @@ function renderBottomNav() {
     tabIds.forEach(id => window.MOBILE_NAV_TABS.push(id));
   }
 
+  // Override mobileNav() so active-state logic uses the custom tab list
+  // (the original uses const MOBILE_NAV_TABS which we can't modify)
+  window.mobileNav = function(view) {
+    if (typeof window.goTo === 'function') window.goTo(view);
+    const customTabs = loadTabs();
+    customTabs.forEach(t => {
+      const el = document.getElementById('mni-' + t);
+      if (el) el.classList.toggle('active', t === view);
+    });
+    // If navigating to a view not in the bar, deactivate all bar tabs
+    if (!customTabs.includes(view)) {
+      customTabs.forEach(t => {
+        const el = document.getElementById('mni-' + t);
+        if (el) el.classList.remove('active');
+      });
+    }
+    // Deactivate MORE button unless it was tapped
+    const moreBtn = document.getElementById('mni-more');
+    if (moreBtn) moreBtn.classList.remove('active');
+    // Close any open map sidebars
+    document.querySelectorAll('.map-sidebar.open').forEach(s => s.classList.remove('open'));
+  };
+
   setActiveTab();
 }
 
