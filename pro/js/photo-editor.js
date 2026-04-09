@@ -1,1645 +1,1738 @@
 /**
- * ROOFING CRM - PHOTO EDITOR MODULE
- * Enhanced Damage Annotation Tool for Insurance Claims
+ * NBD INSPECTION EDITOR v2.0
+ * Professional Damage Annotation & Assessment Tool
  *
  * Public API:
- * - window.NBDPhotoEditor.open(photoUrl, photoId, leadId, photoData)
- * - window.NBDPhotoEditor.close()
+ *   window.NBDPhotoEditor.open(photoUrl, photoId, leadId, photoData, allPhotos?)
+ *   window.NBDPhotoEditor.close()
  */
-
-(function() {
+(function () {
   'use strict';
 
-  const CONFIG = {
-    MAX_CANVAS_WIDTH: 1200,
-    MAX_CANVAS_HEIGHT: 800,
-    DEFAULT_LINE_WIDTH: 2,
-    DEFAULT_OPACITY: 100,
-    DEFAULT_COLOR: '#ff0000',
+  /* ==========================================
+     CONSTANTS & CONFIG
+     ========================================== */
+  const PROXY_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/imageProxy';
 
-    TOOLS: {
-      SELECT: 'select', PEN: 'pen', LINE: 'line', ARROW: 'arrow', RECT: 'rect', CIRCLE: 'circle',
-      TEXT: 'text', ERASER: 'eraser', HAIL: 'hail', WIND: 'wind', LEAK: 'leak', SHINGLE: 'shingle',
-      CALLOUT: 'callout', MEASURE: 'measure', AREA: 'area', CROP: 'crop',
-    },
-
-    ANNOTATION_TYPES: {
-      PEN: 'pen', LINE: 'line', ARROW: 'arrow', RECT: 'rect', CIRCLE: 'circle', TEXT: 'text',
-      HAIL: 'hail', WIND: 'wind', LEAK: 'leak', SHINGLE: 'shingle', CALLOUT: 'callout',
-      MEASURE: 'measure', AREA: 'area',
-    },
-
-    COLOR_PALETTE: ['#ff0000', '#ff6600', '#ffcc00', '#00cc00', '#0088ff', '#cc00ff', '#ffffff', '#000000'],
-
-    DAMAGE_TYPES: [
-      'Hail', 'Wind', 'Leak', 'Missing Shingle', 'Cracked Tile',
-      'Flashing Damage', 'Gutter Damage', 'Soffit/Fascia', 'Tree Damage',
-      'Algae/Moss', 'Ice Dam', 'Ponding Water', 'Other'
-    ],
-
-    SEVERITY_LEVELS: {
-      'minor': { label: 'Minor', color: '#ffcc00' },
-      'moderate': { label: 'Moderate', color: '#ff6600' },
-      'severe': { label: 'Severe', color: '#ff0000' },
-    },
-
-    ROOF_LOCATIONS: [
-      'Ridge', 'Hip', 'Valley', 'Field/Slope', 'Edge/Drip', 'Flashing',
-      'Vent/Pipe Boot', 'Chimney', 'Skylight', 'Gutter', 'Downspout',
-      'Soffit', 'Fascia', 'Dormer', 'Flat Section'
-    ],
-
-    PHASES: ['Before', 'During', 'After'],
+  const TOOLS = {
+    SELECT: 'select', PEN: 'pen', LINE: 'line', ARROW: 'arrow',
+    RECT: 'rect', CIRCLE: 'circle', TEXT: 'text', CALLOUT: 'callout',
+    ERASER: 'eraser', STAMP: 'stamp', MEASURE: 'measure',
   };
 
-  const STATE = {
-    currentTool: CONFIG.TOOLS.PEN,
-    currentColor: CONFIG.DEFAULT_COLOR,
-    currentLineWidth: CONFIG.DEFAULT_LINE_WIDTH,
-    currentOpacity: CONFIG.DEFAULT_OPACITY,
+  const STAMP_LIBRARY = [
+    { id: 'hail', icon: '⬤', label: 'Hail Hit', color: '#ef4444' },
+    { id: 'wind_lift', icon: '⤴', label: 'Wind Lift', color: '#f97316' },
+    { id: 'wind_crease', icon: '〰', label: 'Wind Crease', color: '#f97316' },
+    { id: 'missing_shingle', icon: '▢', label: 'Missing Shingle', color: '#eab308' },
+    { id: 'cracked', icon: '⚡', label: 'Cracked', color: '#eab308' },
+    { id: 'exposed_nail', icon: '📌', label: 'Exposed Nail', color: '#a855f7' },
+    { id: 'lifted_flash', icon: '⇧', label: 'Lifted Flashing', color: '#ec4899' },
+    { id: 'granule_loss', icon: '◌', label: 'Granule Loss', color: '#f59e0b' },
+    { id: 'bruise', icon: '◉', label: 'Bruise', color: '#dc2626' },
+    { id: 'ice_dam', icon: '❄', label: 'Ice Dam', color: '#38bdf8' },
+    { id: 'leak', icon: '💧', label: 'Leak/Water', color: '#3b82f6' },
+    { id: 'mold', icon: '🟢', label: 'Mold', color: '#22c55e' },
+    { id: 'rot', icon: '🟤', label: 'Rot', color: '#92400e' },
+    { id: 'sagging', icon: '⌒', label: 'Sagging', color: '#78716c' },
+    { id: 'rust', icon: '🔶', label: 'Rust', color: '#ea580c' },
+    { id: 'gutter', icon: '⌓', label: 'Gutter Damage', color: '#6366f1' },
+    { id: 'fascia', icon: '▬', label: 'Fascia Damage', color: '#8b5cf6' },
+    { id: 'skylight', icon: '◇', label: 'Skylight Issue', color: '#06b6d4' },
+    { id: 'chimney', icon: '⌂', label: 'Chimney', color: '#b91c1c' },
+    { id: 'vent', icon: '◎', label: 'Vent Damage', color: '#64748b' },
+  ];
+
+  const DAMAGE_TYPES = [
+    'Hail', 'Wind', 'Leak', 'Missing Shingle', 'Cracked Tile',
+    'Flashing Damage', 'Gutter Damage', 'Soffit/Fascia', 'Tree Damage',
+    'Algae/Moss', 'Ice Dam', 'Ponding Water', 'Other'
+  ];
+  const SEVERITY_LEVELS = { minor: { label: 'Minor', color: '#eab308' }, moderate: { label: 'Moderate', color: '#f97316' }, severe: { label: 'Severe', color: '#ef4444' } };
+  const ROOF_LOCATIONS = ['Ridge', 'Hip', 'Valley', 'Field/Slope', 'Edge/Drip', 'Flashing', 'Vent/Pipe Boot', 'Chimney', 'Skylight', 'Gutter', 'Downspout', 'Soffit', 'Fascia', 'Dormer', 'Flat Section'];
+  const PHASES = ['Before', 'During', 'After'];
+  const COLOR_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff', '#000000'];
+
+  const GUIDED_PRESETS = {
+    general: { label: 'General Inspection', items: ['Overall roof condition', 'Ridge line/caps', 'Valleys', 'Field/slope area', 'Flashing points', 'Vents & pipe boots', 'Gutters & downspouts', 'Soffit & fascia', 'Chimney & skylight'] },
+    hail: { label: 'Hail Damage', items: ['Soft metal dents (gutters, vents, AC)', 'Shingle bruising', 'Granule displacement', 'Cracked shingles', 'Collateral damage (fence, deck, siding)', 'Measure hail diameter'] },
+    wind: { label: 'Wind Damage', items: ['Missing shingles', 'Lifted/creased shingles', 'Exposed nails/underlayment', 'Ridge cap damage', 'Flashing displacement', 'Debris impact'] },
+    water: { label: 'Water/Leak', items: ['Entry point on roof', 'Interior water stains', 'Attic moisture/mold', 'Flashing condition', 'Valley wear', 'Ice dam evidence'] },
+  };
+
+  /* ==========================================
+     STATE
+     ========================================== */
+  const S = {
+    tool: TOOLS.PEN,
+    color: '#ef4444',
+    lineWidth: 3,
+    opacity: 100,
     fillShapes: false,
-    calloutNumber: 1,
+    stampId: 'hail',
+    calloutNum: 1,
+    autoNumber: true,
 
-    photoUrl: null,
-    photoId: null,
-    leadId: null,
-    userId: null,
-    photoData: null,
+    // Image / doc
+    photoUrl: null, photoId: null, leadId: null, userId: null, photoData: null,
 
-    damageType: '',
-    severity: '',
-    location: '',
-    phase: 'Before',
-    notes: '',
-    customTags: [],
+    // Tags
+    damageType: '', severity: '', location: '', phase: 'Before', notes: '', tags: [],
 
-    selectedAnnotationId: null,
+    // View
+    zoom: 1, panX: 0, panY: 0,
+    isPanning: false, panStartX: 0, panStartY: 0,
 
-    brightness: 0,
-    contrast: 0,
-    rotation: 0,
-    zoom: 1,
-    zoomFit: true,
+    // Selection
+    selectedId: null, hoverAnnoId: null,
+    dragMode: null, // 'move' | 'resize-tl' | 'resize-br' etc.
+    dragStartX: 0, dragStartY: 0,
+    dragOrigAnno: null,
 
-    cropActive: false,
-    cropRect: null,
-
+    // Canvas
+    imgW: 0, imgH: 0,
     originalImage: null,
+    brightness: 0, contrast: 0,
 
-    hasUnsavedChanges: false,
+    // Multi-photo
+    allPhotos: [],
+    currentPhotoIndex: 0,
+    stripCollapsed: true,
+
+    // Guided
+    guidedActive: false,
+    guidedPreset: null,
+    guidedChecked: [],
+
+    hasUnsaved: false,
   };
 
-  let modal = null;
-  let canvas = null;
-  let overlayCanvas = null;
-  let ctx = null;
-  let overlayCtx = null;
+  let root = null;          // .nbd-editor-overlay
+  let mainCanvas = null;    // bottom canvas (image)
+  let annoCanvas = null;    // overlay canvas (annotations)
+  let mCtx = null;
+  let aCtx = null;
   let annotations = [];
   let undoStack = [];
   let redoStack = [];
   let isDrawing = false;
-  let startX = 0;
-  let startY = 0;
-  let currentPoints = [];
+  let drawStart = { x: 0, y: 0 };
+  let drawPoints = [];
+  let animFrame = null;
 
-  function generateId() {
-    return 'photo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  /* ==========================================
+     UTILITY
+     ========================================== */
+  const uid = () => 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const dist = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+  function toast(msg, type = 'info') {
+    const t = document.createElement('div');
+    t.className = 'nbd-toast ' + type;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2400);
   }
 
-  function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.textContent = message;
-    toast.style.position = 'fixed';
-    toast.style.top = '20px';
-    toast.style.right = '20px';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = '4px';
-    toast.style.fontSize = '14px';
-    toast.style.zIndex = '10000';
-    toast.style.maxWidth = '400px';
-    toast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-
-    if (type === 'error') {
-      toast.style.backgroundColor = '#ff4444';
-      toast.style.color = 'white';
-    } else if (type === 'success') {
-      toast.style.backgroundColor = '#44ff44';
-      toast.style.color = '#000';
-    } else {
-      toast.style.backgroundColor = '#444';
-      toast.style.color = '#fff';
-    }
-
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2500);
-  }
-
-  function saveState() {
-    undoStack.push({
-      annotations: JSON.parse(JSON.stringify(annotations)),
-      brightness: STATE.brightness,
-      contrast: STATE.contrast,
-    });
+  /* ==========================================
+     UNDO / REDO
+     ========================================== */
+  function pushUndo() {
+    undoStack.push(JSON.parse(JSON.stringify(annotations)));
+    if (undoStack.length > 60) undoStack.shift();
     redoStack = [];
-    STATE.hasUnsavedChanges = true;
-    updateUndoRedoButtons();
+    S.hasUnsaved = true;
+    refreshUndoButtons();
   }
-
   function undo() {
-    if (undoStack.length === 0) return;
-    redoStack.push({
-      annotations: JSON.parse(JSON.stringify(annotations)),
-      brightness: STATE.brightness,
-      contrast: STATE.contrast,
-    });
-    const previousState = undoStack.pop();
-    annotations = previousState.annotations;
-    STATE.brightness = previousState.brightness;
-    STATE.contrast = previousState.contrast;
-    redraw();
-    updateUndoRedoButtons();
+    if (!undoStack.length) return;
+    redoStack.push(JSON.parse(JSON.stringify(annotations)));
+    annotations = undoStack.pop();
+    S.selectedId = null;
+    renderAnnotations();
+    refreshUndoButtons();
+    refreshAnnList();
   }
-
   function redo() {
-    if (redoStack.length === 0) return;
-    undoStack.push({
-      annotations: JSON.parse(JSON.stringify(annotations)),
-      brightness: STATE.brightness,
-      contrast: STATE.contrast,
+    if (!redoStack.length) return;
+    undoStack.push(JSON.parse(JSON.stringify(annotations)));
+    annotations = redoStack.pop();
+    S.selectedId = null;
+    renderAnnotations();
+    refreshUndoButtons();
+    refreshAnnList();
+  }
+  function refreshUndoButtons() {
+    const u = root?.querySelector('[data-act="undo"]');
+    const r = root?.querySelector('[data-act="redo"]');
+    if (u) u.disabled = !undoStack.length;
+    if (r) r.disabled = !redoStack.length;
+  }
+
+  /* ==========================================
+     IMAGE LOADING (proxy → CORS → tainted)
+     ========================================== */
+  function getStoragePath(url) {
+    try { const m = url.match(/\/o\/([^?]+)/); if (m) return decodeURIComponent(m[1]); } catch (e) { }
+    return null;
+  }
+
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const tryProxy = async () => {
+        const path = getStoragePath(url);
+        if (!path) { tryDirect(); return; }
+        try {
+          const resp = await fetch(PROXY_URL + '?path=' + encodeURIComponent(path));
+          if (!resp.ok) throw new Error(resp.status);
+          const blob = await resp.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => { URL.revokeObjectURL(blobUrl); resolve(img); };
+          img.onerror = () => { URL.revokeObjectURL(blobUrl); tryDirect(); };
+          img.src = blobUrl;
+        } catch (e) { tryDirect(); }
+      };
+      const tryDirect = () => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => {
+          const img2 = new Image();
+          img2.onload = () => resolve(img2);
+          img2.onerror = () => reject(new Error('Failed to load image'));
+          img2.src = url;
+        };
+        img.src = url;
+      };
+      tryProxy();
     });
-    const nextState = redoStack.pop();
-    annotations = nextState.annotations;
-    STATE.brightness = nextState.brightness;
-    STATE.contrast = nextState.contrast;
-    redraw();
-    updateUndoRedoButtons();
   }
 
-  function updateUndoRedoButtons() {
-    const undoBtn = modal?.querySelector('[data-action="undo"]');
-    const redoBtn = modal?.querySelector('[data-action="redo"]');
-    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
-    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+  /* ==========================================
+     COORDINATE TRANSFORMS
+     ========================================== */
+  function screenToCanvas(clientX, clientY) {
+    const area = root?.querySelector('.nbd-canvas-area');
+    if (!area || !annoCanvas) return { x: 0, y: 0 };
+    const rect = area.getBoundingClientRect();
+    const areaW = rect.width, areaH = rect.height;
+    const dispW = S.imgW * S.zoom, dispH = S.imgH * S.zoom;
+    const offX = (areaW - dispW) / 2 + S.panX;
+    const offY = (areaH - dispH) / 2 + S.panY;
+    return {
+      x: (clientX - rect.left - offX) / S.zoom,
+      y: (clientY - rect.top - offY) / S.zoom
+    };
   }
 
-  function initializeCanvases(wrapper, width, height) {
-    canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.display = 'block';
-    canvas.style.cursor = 'crosshair';
-
-    overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = width;
-    overlayCanvas.height = height;
-    overlayCanvas.style.position = 'absolute';
-    overlayCanvas.style.top = '0';
-    overlayCanvas.style.left = '0';
-    overlayCanvas.style.display = 'block';
-    overlayCanvas.style.cursor = 'crosshair';
-    overlayCanvas.tabIndex = 0;
-
-    const container = document.createElement('div');
-    container.style.position = 'relative';
-    container.style.display = 'inline-block';
-    container.style.margin = '0 auto';
-    container.style.border = '1px solid #ddd';
-
-    container.appendChild(canvas);
-    container.appendChild(overlayCanvas);
-    wrapper.appendChild(container);
-
-    ctx = canvas.getContext('2d', { willReadFrequently: true });
-    overlayCtx = overlayCanvas.getContext('2d');
-
-    setupCanvasEventHandlers();
+  function applyTransform() {
+    const wrapper = root?.querySelector('.nbd-canvas-wrapper');
+    if (!wrapper) return;
+    const area = root.querySelector('.nbd-canvas-area');
+    const areaRect = area.getBoundingClientRect();
+    const dispW = S.imgW * S.zoom, dispH = S.imgH * S.zoom;
+    const tx = (areaRect.width - dispW) / 2 + S.panX;
+    const ty = (areaRect.height - dispH) / 2 + S.panY;
+    wrapper.style.width = S.imgW + 'px';
+    wrapper.style.height = S.imgH + 'px';
+    wrapper.style.transform = `translate(${tx}px, ${ty}px) scale(${S.zoom})`;
   }
 
-  function setupCanvasEventHandlers() {
-    overlayCanvas.addEventListener('mousedown', handleCanvasMouseDown);
-    overlayCanvas.addEventListener('mousemove', handleCanvasMouseMove);
-    overlayCanvas.addEventListener('mouseup', handleCanvasMouseUp);
-    overlayCanvas.addEventListener('mouseleave', handleCanvasMouseLeave);
-    overlayCanvas.addEventListener('wheel', handleCanvasWheel, false);
+  /* ==========================================
+     DRAWING PRIMITIVES
+     ========================================== */
+  function drawAnno(ctx, a, preview) {
+    ctx.save();
+    ctx.globalAlpha = (a.opacity ?? 100) / 100;
+    const c = a.color || S.color;
+    const lw = a.lineWidth || S.lineWidth;
 
-    overlayCanvas.addEventListener('touchstart', handleCanvasTouchStart);
-    overlayCanvas.addEventListener('touchmove', handleCanvasTouchMove);
-    overlayCanvas.addEventListener('touchend', handleCanvasTouchEnd);
-  }
-
-  function getCanvasCoords(e) {
-    const rect = overlayCanvas.getBoundingClientRect();
-    const scaleX = overlayCanvas.width / rect.width;
-    const scaleY = overlayCanvas.height / rect.height;
-
-    let x, y;
-    if (e.touches) {
-      x = (e.touches[0].clientX - rect.left) * scaleX;
-      y = (e.touches[0].clientY - rect.top) * scaleY;
-    } else {
-      x = (e.clientX - rect.left) * scaleX;
-      y = (e.clientY - rect.top) * scaleY;
-    }
-    return { x, y };
-  }
-
-  function handleCanvasMouseDown(e) {
-    if (STATE.currentTool === CONFIG.TOOLS.SELECT) return;
-    const coords = getCanvasCoords(e);
-    startX = coords.x;
-    startY = coords.y;
-    currentPoints = [{ x: startX, y: startY }];
-    isDrawing = true;
-    if (STATE.currentTool === CONFIG.TOOLS.PEN || STATE.currentTool === CONFIG.TOOLS.ERASER) {
-      saveState();
-    }
-  }
-
-  function handleCanvasMouseMove(e) {
-    if (!isDrawing) return;
-    const coords = getCanvasCoords(e);
-
-    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
-      currentPoints.push({ x: coords.x, y: coords.y });
-      redraw();
-      drawPenStroke(currentPoints);
-    } else if (STATE.currentTool === CONFIG.TOOLS.ERASER) {
-      currentPoints.push({ x: coords.x, y: coords.y });
-      redraw();
-      drawEraser(currentPoints);
-    } else if (STATE.currentTool === CONFIG.TOOLS.LINE) {
-      redraw();
-      drawLine(startX, startY, coords.x, coords.y);
-    } else if (STATE.currentTool === CONFIG.TOOLS.ARROW) {
-      redraw();
-      drawArrow(startX, startY, coords.x, coords.y);
-    } else if (STATE.currentTool === CONFIG.TOOLS.RECT) {
-      redraw();
-      drawRect(startX, startY, coords.x, coords.y);
-    } else if (STATE.currentTool === CONFIG.TOOLS.CIRCLE) {
-      redraw();
-      drawCircle(startX, startY, coords.x, coords.y);
-    } else if (STATE.currentTool === CONFIG.TOOLS.MEASURE) {
-      redraw();
-      drawMeasureLine(startX, startY, coords.x, coords.y);
-    } else if (STATE.currentTool === CONFIG.TOOLS.AREA) {
-      redraw();
-      drawAreaOutline(startX, startY, coords.x, coords.y);
-    }
-  }
-
-  function handleCanvasMouseUp(e) {
-    if (!isDrawing) return;
-    const coords = getCanvasCoords(e);
-    isDrawing = false;
-
-    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.PEN,
-        points: currentPoints,
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.ERASER) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.TEXT,
-        isEraser: true,
-        points: currentPoints,
-        lineWidth: STATE.currentLineWidth,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.LINE) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.LINE,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.ARROW) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.ARROW,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.RECT) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.RECT,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-        fill: STATE.fillShapes,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.CIRCLE) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.CIRCLE,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-        fill: STATE.fillShapes,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.HAIL) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.HAIL,
-        x: coords.x, y: coords.y,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.WIND) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.WIND,
-        x: coords.x, y: coords.y,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.LEAK) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.LEAK,
-        x: coords.x, y: coords.y,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.SHINGLE) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.SHINGLE,
-        x: coords.x, y: coords.y,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.CALLOUT) {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.CALLOUT,
-        x: coords.x, y: coords.y,
-        number: STATE.calloutNumber,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      STATE.calloutNumber++;
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.MEASURE) {
-      const distance = Math.sqrt(Math.pow(coords.x - startX, 2) + Math.pow(coords.y - startY, 2));
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.MEASURE,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        distance: distance.toFixed(0),
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.AREA) {
-      const width = Math.abs(coords.x - startX);
-      const height = Math.abs(coords.y - startY);
-      const area = width * height;
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.AREA,
-        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
-        width: width.toFixed(0),
-        height: height.toFixed(0),
-        area: area.toFixed(0),
-        color: STATE.currentColor,
-        lineWidth: STATE.currentLineWidth,
-        opacity: STATE.currentOpacity,
-      });
-      saveState();
-    } else if (STATE.currentTool === CONFIG.TOOLS.TEXT) {
-      const text = prompt('Enter text:');
-      if (text) {
-        annotations.push({
-          id: generateId(),
-          type: CONFIG.ANNOTATION_TYPES.TEXT,
-          x: coords.x, y: coords.y,
-          text: text,
-          color: STATE.currentColor,
-          fontSize: 16,
-          opacity: STATE.currentOpacity,
+    switch (a.type) {
+      case 'pen': {
+        if (!a.points || a.points.length < 2) break;
+        ctx.strokeStyle = c; ctx.lineWidth = lw;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.points[0].x, a.points[0].y);
+        for (let i = 1; i < a.points.length; i++) ctx.lineTo(a.points[i].x, a.points[i].y);
+        ctx.stroke();
+        break;
+      }
+      case 'line': {
+        ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke();
+        break;
+      }
+      case 'arrow': {
+        ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke();
+        const angle = Math.atan2(a.y2 - a.y1, a.x2 - a.x1);
+        const hl = Math.max(14, lw * 4);
+        ctx.beginPath();
+        ctx.moveTo(a.x2, a.y2);
+        ctx.lineTo(a.x2 - hl * Math.cos(angle - Math.PI / 6), a.y2 - hl * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(a.x2 - hl * Math.cos(angle + Math.PI / 6), a.y2 - hl * Math.sin(angle + Math.PI / 6));
+        ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'rect': {
+        const x = Math.min(a.x1, a.x2), y = Math.min(a.y1, a.y2);
+        const w = Math.abs(a.x2 - a.x1), h = Math.abs(a.y2 - a.y1);
+        ctx.strokeStyle = c; ctx.lineWidth = lw;
+        if (a.fill) { ctx.fillStyle = c; ctx.globalAlpha *= 0.3; ctx.fillRect(x, y, w, h); ctx.globalAlpha = (a.opacity ?? 100) / 100; }
+        ctx.strokeRect(x, y, w, h);
+        break;
+      }
+      case 'circle': {
+        const cx = (a.x1 + a.x2) / 2, cy = (a.y1 + a.y2) / 2;
+        const rx = Math.abs(a.x2 - a.x1) / 2, ry = Math.abs(a.y2 - a.y1) / 2;
+        ctx.strokeStyle = c; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx || 1, ry || 1, 0, 0, Math.PI * 2);
+        if (a.fill) { ctx.fillStyle = c; ctx.globalAlpha *= 0.3; ctx.fill(); ctx.globalAlpha = (a.opacity ?? 100) / 100; }
+        ctx.stroke();
+        break;
+      }
+      case 'text': {
+        const fs = a.fontSize || 18;
+        ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = c;
+        ctx.textBaseline = 'top';
+        // Background pill
+        const met = ctx.measureText(a.text || '');
+        const pad = 5;
+        ctx.fillStyle = 'rgba(0,0,0,.55)';
+        ctx.beginPath();
+        const bx = a.x - pad, by = a.y - pad, bw = met.width + pad * 2, bh = fs + pad * 2;
+        ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 4) : ctx.rect(bx, by, bw, bh);
+        ctx.fill();
+        ctx.fillStyle = c;
+        ctx.fillText(a.text || '', a.x, a.y);
+        break;
+      }
+      case 'callout': {
+        const size = 18;
+        // Leader line
+        if (a.leaderX != null && a.leaderY != null) {
+          ctx.strokeStyle = c; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(a.leaderX, a.leaderY); ctx.stroke();
+        }
+        // Circle
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(a.x, a.y, size, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(a.number ?? ''), a.x, a.y);
+        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+        // Label below
+        if (a.label) {
+          ctx.font = '600 12px Inter, system-ui, sans-serif';
+          const tw = ctx.measureText(a.label).width;
+          ctx.fillStyle = 'rgba(0,0,0,.65)';
+          ctx.beginPath();
+          const lx = a.x - tw / 2 - 4, ly = a.y + size + 4;
+          ctx.roundRect ? ctx.roundRect(lx, ly, tw + 8, 18, 3) : ctx.rect(lx, ly, tw + 8, 18);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.fillText(a.label, a.x, a.y + size + 17);
+          ctx.textAlign = 'start';
+        }
+        break;
+      }
+      case 'stamp': {
+        const stamp = STAMP_LIBRARY.find(s => s.id === a.stampId) || STAMP_LIBRARY[0];
+        const sz = 32;
+        // Outer ring
+        ctx.strokeStyle = stamp.color; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(a.x, a.y, sz / 2, 0, Math.PI * 2); ctx.stroke();
+        // Icon
+        ctx.font = `${sz * 0.55}px serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = stamp.color;
+        ctx.fillText(stamp.icon, a.x, a.y);
+        // Label
+        ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+        const tw = ctx.measureText(stamp.label).width;
+        ctx.fillStyle = 'rgba(0,0,0,.7)';
+        const lx = a.x - tw / 2 - 3, ly = a.y + sz / 2 + 3;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(lx, ly, tw + 6, 14, 3) : ctx.rect(lx, ly, tw + 6, 14);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(stamp.label, a.x, a.y + sz / 2 + 13);
+        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+        // Number badge
+        if (a.number) {
+          ctx.fillStyle = stamp.color;
+          ctx.beginPath(); ctx.arc(a.x + sz / 2 - 2, a.y - sz / 2 + 2, 9, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(a.number), a.x + sz / 2 - 2, a.y - sz / 2 + 2);
+          ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+        }
+        break;
+      }
+      case 'measure': {
+        ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke();
+        ctx.setLineDash([]);
+        // End caps
+        [{ x: a.x1, y: a.y1 }, { x: a.x2, y: a.y2 }].forEach(p => {
+          ctx.fillStyle = '#ffcc00';
+          ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
         });
-        saveState();
-        redraw();
+        const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
+        const d = dist(a.x1, a.y1, a.x2, a.y2).toFixed(0) + 'px';
+        ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(0,0,0,.7)';
+        const tw = ctx.measureText(d).width;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(mx - tw / 2 - 4, my - 18, tw + 8, 18, 3) : ctx.rect(mx - tw / 2 - 4, my - 18, tw + 8, 18);
+        ctx.fill();
+        ctx.fillStyle = '#ffcc00';
+        ctx.textAlign = 'center'; ctx.fillText(d, mx, my - 5);
+        ctx.textAlign = 'start';
+        break;
+      }
+      case 'eraser': {
+        // Eraser strokes are drawn during render by compositing
+        if (!a.points || a.points.length < 2) break;
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.lineWidth = a.lineWidth || 20;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.points[0].x, a.points[0].y);
+        for (let i = 1; i < a.points.length; i++) ctx.lineTo(a.points[i].x, a.points[i].y);
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        break;
       }
     }
 
-    currentPoints = [];
-    redraw();
-    updateAnnotationsList();
+    ctx.restore();
+
+    // Selection outline
+    if (!preview && S.selectedId === a.id) {
+      drawSelectionOutline(ctx, a);
+    }
   }
 
-  function handleCanvasMouseLeave() {
+  function getAnnoBounds(a) {
+    switch (a.type) {
+      case 'pen': case 'eraser': {
+        if (!a.points || !a.points.length) return { x: 0, y: 0, w: 0, h: 0 };
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        a.points.forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
+        return { x: minX - 5, y: minY - 5, w: maxX - minX + 10, h: maxY - minY + 10 };
+      }
+      case 'line': case 'arrow': case 'measure':
+        return { x: Math.min(a.x1, a.x2) - 5, y: Math.min(a.y1, a.y2) - 5, w: Math.abs(a.x2 - a.x1) + 10, h: Math.abs(a.y2 - a.y1) + 10 };
+      case 'rect': case 'circle':
+        return { x: Math.min(a.x1, a.x2) - 5, y: Math.min(a.y1, a.y2) - 5, w: Math.abs(a.x2 - a.x1) + 10, h: Math.abs(a.y2 - a.y1) + 10 };
+      case 'text':
+        return { x: a.x - 5, y: a.y - 5, w: 200, h: (a.fontSize || 18) + 15 };
+      case 'callout':
+        return { x: a.x - 22, y: a.y - 22, w: 44, h: 60 };
+      case 'stamp':
+        return { x: a.x - 22, y: a.y - 22, w: 44, h: 60 };
+      default:
+        return { x: 0, y: 0, w: 0, h: 0 };
+    }
+  }
+
+  function drawSelectionOutline(ctx, a) {
+    const b = getAnnoBounds(a);
+    ctx.save();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.setLineDash([]);
+    // Corner handles
+    const hs = 7;
+    [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach(([hx, hy]) => {
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
+      ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+      ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs);
+    });
+    ctx.restore();
+  }
+
+  function hitTestAnno(x, y) {
+    // Iterate reverse (top-most first)
+    for (let i = annotations.length - 1; i >= 0; i--) {
+      const a = annotations[i];
+      const b = getAnnoBounds(a);
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return a;
+    }
+    return null;
+  }
+
+  /* ==========================================
+     RENDER
+     ========================================== */
+  function renderImage() {
+    if (!mCtx || !mainCanvas || !S.originalImage) return;
+    mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+    mCtx.drawImage(S.originalImage, 0, 0, S.imgW, S.imgH);
+    if (S.brightness !== 0 || S.contrast !== 0) {
+      const imgData = mCtx.getImageData(0, 0, S.imgW, S.imgH);
+      const d = imgData.data;
+      const cf = S.contrast / 100 + 1;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = clamp((d[i] - 128) * cf + 128 + S.brightness, 0, 255);
+        d[i + 1] = clamp((d[i + 1] - 128) * cf + 128 + S.brightness, 0, 255);
+        d[i + 2] = clamp((d[i + 2] - 128) * cf + 128 + S.brightness, 0, 255);
+      }
+      mCtx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  function renderAnnotations() {
+    if (!aCtx || !annoCanvas) return;
+    aCtx.clearRect(0, 0, annoCanvas.width, annoCanvas.height);
+    annotations.forEach(a => drawAnno(aCtx, a));
+  }
+
+  function render() {
+    renderAnnotations();
+    applyTransform();
+    renderMinimap();
+  }
+
+  /* ==========================================
+     MINIMAP
+     ========================================== */
+  function renderMinimap() {
+    const mc = root?.querySelector('.nbd-minimap canvas');
+    if (!mc || !mainCanvas) return;
+    const mmCtx = mc.getContext('2d');
+    mc.width = mc.offsetWidth * (window.devicePixelRatio || 1);
+    mc.height = mc.offsetHeight * (window.devicePixelRatio || 1);
+    mmCtx.clearRect(0, 0, mc.width, mc.height);
+    mmCtx.drawImage(mainCanvas, 0, 0, mc.width, mc.height);
+    mmCtx.drawImage(annoCanvas, 0, 0, mc.width, mc.height);
+
+    // Viewport rect
+    const area = root.querySelector('.nbd-canvas-area');
+    if (!area) return;
+    const areaRect = area.getBoundingClientRect();
+    const viewW = areaRect.width / S.zoom, viewH = areaRect.height / S.zoom;
+    const dispW = S.imgW * S.zoom, dispH = S.imgH * S.zoom;
+    const offX = (areaRect.width - dispW) / 2 + S.panX;
+    const offY = (areaRect.height - dispH) / 2 + S.panY;
+    const vx = -offX / S.zoom, vy = -offY / S.zoom;
+    const scaleX = mc.width / S.imgW, scaleY = mc.height / S.imgH;
+    mmCtx.strokeStyle = '#c8541a'; mmCtx.lineWidth = 2;
+    mmCtx.strokeRect(vx * scaleX, vy * scaleY, viewW * scaleX, viewH * scaleY);
+  }
+
+  /* ==========================================
+     CANVAS EVENT HANDLERS
+     ========================================== */
+  function onPointerDown(e) {
+    e.preventDefault();
+    const coords = screenToCanvas(e.clientX, e.clientY);
+
+    // Middle mouse = pan
+    if (e.button === 1) { startPan(e); return; }
+    // Space + click = pan (handled via keydown flag)
+    if (S.isPanning) { startPan(e); return; }
+
+    if (S.tool === TOOLS.SELECT) {
+      const hit = hitTestAnno(coords.x, coords.y);
+      if (hit) {
+        S.selectedId = hit.id;
+        S.dragMode = 'move';
+        S.dragStartX = coords.x; S.dragStartY = coords.y;
+        S.dragOrigAnno = JSON.parse(JSON.stringify(hit));
+        render();
+        refreshAnnList();
+      } else {
+        S.selectedId = null;
+        render();
+        refreshAnnList();
+      }
+      return;
+    }
+
+    if (S.tool === TOOLS.TEXT) {
+      promptText(coords.x, coords.y);
+      return;
+    }
+
+    if (S.tool === TOOLS.CALLOUT) {
+      const label = prompt('Callout label (optional):') || '';
+      const num = S.autoNumber ? S.calloutNum++ : '';
+      pushUndo();
+      annotations.push({ id: uid(), type: 'callout', x: coords.x, y: coords.y, number: num, label, color: S.color, opacity: S.opacity });
+      render();
+      refreshAnnList();
+      return;
+    }
+
+    if (S.tool === TOOLS.STAMP) {
+      pushUndo();
+      const num = S.autoNumber ? S.calloutNum++ : null;
+      annotations.push({ id: uid(), type: 'stamp', x: coords.x, y: coords.y, stampId: S.stampId, number: num, opacity: S.opacity });
+      render();
+      refreshAnnList();
+      return;
+    }
+
+    isDrawing = true;
+    drawStart = { x: coords.x, y: coords.y };
+    drawPoints = [{ x: coords.x, y: coords.y }];
+
+    if (S.tool === TOOLS.PEN || S.tool === TOOLS.ERASER) {
+      pushUndo();
+    }
+  }
+
+  function onPointerMove(e) {
+    if (S.isPanning && S.dragMode === 'pan') {
+      S.panX += e.clientX - S.panStartX;
+      S.panY += e.clientY - S.panStartY;
+      S.panStartX = e.clientX;
+      S.panStartY = e.clientY;
+      applyTransform();
+      renderMinimap();
+      return;
+    }
+
+    const coords = screenToCanvas(e.clientX, e.clientY);
+
+    // Selection drag
+    if (S.tool === TOOLS.SELECT && S.dragMode === 'move' && S.selectedId) {
+      const a = annotations.find(a => a.id === S.selectedId);
+      if (!a || !S.dragOrigAnno) return;
+      const dx = coords.x - S.dragStartX, dy = coords.y - S.dragStartY;
+      moveAnno(a, S.dragOrigAnno, dx, dy);
+      render();
+      return;
+    }
+
+    if (!isDrawing) return;
+
+    if (S.tool === TOOLS.PEN || S.tool === TOOLS.ERASER) {
+      drawPoints.push({ x: coords.x, y: coords.y });
+      renderAnnotations();
+      // Draw live stroke
+      const preview = {
+        type: S.tool === TOOLS.ERASER ? 'eraser' : 'pen',
+        points: drawPoints,
+        color: S.color,
+        lineWidth: S.tool === TOOLS.ERASER ? Math.max(S.lineWidth * 3, 15) : S.lineWidth,
+        opacity: S.opacity
+      };
+      drawAnno(aCtx, preview, true);
+    } else {
+      renderAnnotations();
+      const preview = buildShapePreview(coords);
+      if (preview) drawAnno(aCtx, preview, true);
+    }
+  }
+
+  function onPointerUp(e) {
+    if (S.dragMode === 'pan') { S.dragMode = null; return; }
+
+    // Selection drag end
+    if (S.tool === TOOLS.SELECT && S.dragMode === 'move') {
+      if (S.dragOrigAnno) pushUndo();
+      S.dragMode = null;
+      S.dragOrigAnno = null;
+      return;
+    }
+
+    if (!isDrawing) return;
     isDrawing = false;
-    currentPoints = [];
+    const coords = screenToCanvas(e.clientX, e.clientY);
+
+    if (S.tool === TOOLS.PEN) {
+      annotations.push({ id: uid(), type: 'pen', points: [...drawPoints], color: S.color, lineWidth: S.lineWidth, opacity: S.opacity });
+      // pushUndo already called on down
+    } else if (S.tool === TOOLS.ERASER) {
+      annotations.push({ id: uid(), type: 'eraser', points: [...drawPoints], lineWidth: Math.max(S.lineWidth * 3, 15) });
+    } else {
+      pushUndo();
+      const shape = buildShapePreview(coords);
+      if (shape) { shape.id = uid(); annotations.push(shape); }
+    }
+
+    drawPoints = [];
+    render();
+    refreshAnnList();
   }
 
-  function handleCanvasTouchStart(e) {
-    e.preventDefault();
-    handleCanvasMouseDown(e);
+  function startPan(e) {
+    S.dragMode = 'pan';
+    S.panStartX = e.clientX;
+    S.panStartY = e.clientY;
   }
 
-  function handleCanvasTouchMove(e) {
-    e.preventDefault();
-    handleCanvasMouseMove(e);
-  }
-
-  function handleCanvasTouchEnd(e) {
-    e.preventDefault();
-    handleCanvasMouseUp(e);
-  }
-
-  function handleCanvasWheel(e) {
+  function onWheel(e) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    STATE.zoom *= delta;
-    STATE.zoom = Math.max(0.1, Math.min(STATE.zoom, 3));
-    STATE.zoomFit = false;
-    applyZoom();
+    S.zoom = clamp(S.zoom * delta, 0.15, 8);
+    applyTransform();
+    renderMinimap();
+    updateZoomDisplay();
   }
 
-  function redraw() {
-    if (!canvas || !overlayCanvas || !ctx || !overlayCtx) return;
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    annotations.forEach(ann => drawAnnotation(ann));
+  function buildShapePreview(coords) {
+    const t = S.tool;
+    const base = { color: S.color, lineWidth: S.lineWidth, opacity: S.opacity };
+    if (t === TOOLS.LINE) return { ...base, type: 'line', x1: drawStart.x, y1: drawStart.y, x2: coords.x, y2: coords.y };
+    if (t === TOOLS.ARROW) return { ...base, type: 'arrow', x1: drawStart.x, y1: drawStart.y, x2: coords.x, y2: coords.y };
+    if (t === TOOLS.RECT) return { ...base, type: 'rect', x1: drawStart.x, y1: drawStart.y, x2: coords.x, y2: coords.y, fill: S.fillShapes };
+    if (t === TOOLS.CIRCLE) return { ...base, type: 'circle', x1: drawStart.x, y1: drawStart.y, x2: coords.x, y2: coords.y, fill: S.fillShapes };
+    if (t === TOOLS.MEASURE) return { ...base, type: 'measure', x1: drawStart.x, y1: drawStart.y, x2: coords.x, y2: coords.y };
+    return null;
   }
 
-  function drawAnnotation(ann) {
-    if (!overlayCtx) return;
-    overlayCtx.globalAlpha = (ann.opacity || 100) / 100;
-
-    switch (ann.type) {
-      case CONFIG.ANNOTATION_TYPES.PEN:
-        drawPenStroke(ann.points || [], ann.color, ann.lineWidth, ann.opacity);
-        break;
-      case CONFIG.ANNOTATION_TYPES.LINE:
-        drawLine(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth);
-        break;
-      case CONFIG.ANNOTATION_TYPES.ARROW:
-        drawArrow(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth);
-        break;
-      case CONFIG.ANNOTATION_TYPES.RECT:
-        drawRect(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth, ann.fill);
-        break;
-      case CONFIG.ANNOTATION_TYPES.CIRCLE:
-        drawCircle(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth, ann.fill);
-        break;
-      case CONFIG.ANNOTATION_TYPES.TEXT:
-        if (!ann.isEraser) {
-          drawText(ann.x, ann.y, ann.text, ann.color, ann.fontSize);
-        }
-        break;
-      case CONFIG.ANNOTATION_TYPES.HAIL:
-        drawHailIcon(ann.x, ann.y, ann.color);
-        break;
-      case CONFIG.ANNOTATION_TYPES.WIND:
-        drawWindIcon(ann.x, ann.y, ann.color);
-        break;
-      case CONFIG.ANNOTATION_TYPES.LEAK:
-        drawLeakIcon(ann.x, ann.y, ann.color);
-        break;
-      case CONFIG.ANNOTATION_TYPES.SHINGLE:
-        drawShingleIcon(ann.x, ann.y, ann.color);
-        break;
-      case CONFIG.ANNOTATION_TYPES.CALLOUT:
-        drawCallout(ann.x, ann.y, ann.number, ann.color);
-        break;
-      case CONFIG.ANNOTATION_TYPES.MEASURE:
-        drawMeasureLine(ann.x1, ann.y1, ann.x2, ann.y2, ann.distance);
-        break;
-      case CONFIG.ANNOTATION_TYPES.AREA:
-        drawAreaOutline(ann.x1, ann.y1, ann.x2, ann.y2, ann.width, ann.height, ann.area);
-        break;
-    }
-    overlayCtx.globalAlpha = 1;
+  function moveAnno(a, orig, dx, dy) {
+    if (a.x != null) { a.x = orig.x + dx; a.y = orig.y + dy; }
+    if (a.x1 != null) { a.x1 = orig.x1 + dx; a.y1 = orig.y1 + dy; a.x2 = orig.x2 + dx; a.y2 = orig.y2 + dy; }
+    if (a.points) { a.points = orig.points.map(p => ({ x: p.x + dx, y: p.y + dy })); }
+    if (a.leaderX != null) { a.leaderX = orig.leaderX + dx; a.leaderY = orig.leaderY + dy; }
   }
 
-  function drawPenStroke(points, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, opacity = STATE.currentOpacity) {
-    if (points.length < 2) return;
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = lineWidth;
-    overlayCtx.lineCap = 'round';
-    overlayCtx.lineJoin = 'round';
-    overlayCtx.globalAlpha = (opacity || 100) / 100;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      overlayCtx.lineTo(points[i].x, points[i].y);
-    }
-    overlayCtx.stroke();
-    overlayCtx.globalAlpha = 1;
+  function promptText(x, y) {
+    const text = prompt('Enter text:');
+    if (!text) return;
+    pushUndo();
+    annotations.push({ id: uid(), type: 'text', x, y, text, color: S.color, fontSize: 18, opacity: S.opacity });
+    render();
+    refreshAnnList();
   }
 
-  function drawEraser(points, lineWidth = 15) {
-    overlayCtx.clearRect(points[0].x - lineWidth / 2, points[0].y - lineWidth / 2, lineWidth, lineWidth);
-    for (let i = 1; i < points.length; i++) {
-      overlayCtx.clearRect(points[i].x - lineWidth / 2, points[i].y - lineWidth / 2, lineWidth, lineWidth);
-    }
-  }
+  /* ==========================================
+     TOUCH SUPPORT
+     ========================================== */
+  let lastTouchDist = 0;
 
-  function drawLine(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth) {
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = lineWidth;
-    overlayCtx.lineCap = 'round';
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x1, y1);
-    overlayCtx.lineTo(x2, y2);
-    overlayCtx.stroke();
-  }
-
-  function drawArrow(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth) {
-    const headlen = 15;
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    overlayCtx.strokeStyle = color;
-    overlayCtx.fillStyle = color;
-    overlayCtx.lineWidth = lineWidth;
-    overlayCtx.lineCap = 'round';
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x1, y1);
-    overlayCtx.lineTo(x2, y2);
-    overlayCtx.stroke();
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x2, y2);
-    overlayCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-    overlayCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-    overlayCtx.closePath();
-    overlayCtx.fill();
-  }
-
-  function drawRect(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, fill = false) {
-    const x = Math.min(x1, x2);
-    const y = Math.min(y1, y2);
-    const width = Math.abs(x2 - x1);
-    const height = Math.abs(y2 - y1);
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = lineWidth;
-    if (fill) {
-      overlayCtx.fillStyle = color;
-      overlayCtx.fillRect(x, y, width, height);
-    }
-    overlayCtx.strokeRect(x, y, width, height);
-  }
-
-  function drawCircle(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, fill = false) {
-    const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = lineWidth;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x1, y1, radius, 0, 2 * Math.PI);
-    if (fill) {
-      overlayCtx.fillStyle = color;
-      overlayCtx.fill();
-    }
-    overlayCtx.stroke();
-  }
-
-  function drawText(x, y, text, color = STATE.currentColor, fontSize = 16) {
-    overlayCtx.fillStyle = color;
-    overlayCtx.font = `${fontSize}px Arial`;
-    overlayCtx.fillText(text, x, y);
-  }
-
-  function drawHailIcon(x, y, color = '#ff0000') {
-    overlayCtx.fillStyle = color;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, 8, 0, 2 * Math.PI);
-    overlayCtx.fill();
-    overlayCtx.strokeStyle = '#fff';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.stroke();
-  }
-
-  function drawWindIcon(x, y, color = '#ff6600') {
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = 2;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, 8, 0.5 * Math.PI, 1.5 * Math.PI);
-    overlayCtx.stroke();
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x + 8, y);
-    overlayCtx.lineTo(x + 4, y - 4);
-    overlayCtx.lineTo(x + 4, y + 4);
-    overlayCtx.closePath();
-    overlayCtx.fill();
-  }
-
-  function drawLeakIcon(x, y, color = '#0088ff') {
-    overlayCtx.fillStyle = color;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x, y - 8);
-    overlayCtx.bezierCurveTo(x - 4, y - 4, x - 4, y + 4, x, y + 8);
-    overlayCtx.bezierCurveTo(x + 4, y + 4, x + 4, y - 4, x, y - 8);
-    overlayCtx.closePath();
-    overlayCtx.fill();
-  }
-
-  function drawShingleIcon(x, y, color = '#ffcc00') {
-    overlayCtx.fillStyle = color;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x - 6, y - 6);
-    overlayCtx.lineTo(x + 6, y - 6);
-    overlayCtx.lineTo(x + 2, y + 6);
-    overlayCtx.lineTo(x - 2, y + 6);
-    overlayCtx.closePath();
-    overlayCtx.fill();
-    overlayCtx.strokeStyle = '#000';
-    overlayCtx.lineWidth = 1;
-    overlayCtx.stroke();
-  }
-
-  function drawCallout(x, y, number, color = '#ff0000') {
-    const size = 20;
-    overlayCtx.fillStyle = color;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, size, 0, 2 * Math.PI);
-    overlayCtx.fill();
-    overlayCtx.fillStyle = '#fff';
-    overlayCtx.font = 'bold 14px Arial';
-    overlayCtx.textAlign = 'center';
-    overlayCtx.textBaseline = 'middle';
-    overlayCtx.fillText(number.toString(), x, y);
-  }
-
-  function drawMeasureLine(x1, y1, x2, y2, distance) {
-    overlayCtx.strokeStyle = '#ff0000';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(x1, y1);
-    overlayCtx.lineTo(x2, y2);
-    overlayCtx.stroke();
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
-    overlayCtx.fillStyle = '#ff0000';
-    overlayCtx.font = 'bold 12px Arial';
-    overlayCtx.fillText(distance ? distance + 'px' : Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)).toFixed(0) + 'px', midX, midY - 10);
-  }
-
-  function drawAreaOutline(x1, y1, x2, y2, width, height, area) {
-    const x = Math.min(x1, x2);
-    const y = Math.min(y1, y2);
-    const w = Math.abs(x2 - x1);
-    const h = Math.abs(y2 - y1);
-    overlayCtx.strokeStyle = '#ff0000';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.setLineDash([5, 5]);
-    overlayCtx.strokeRect(x, y, w, h);
-    overlayCtx.setLineDash([]);
-    if (area) {
-      overlayCtx.fillStyle = '#ff0000';
-      overlayCtx.font = 'bold 12px Arial';
-      overlayCtx.fillText(area + 'px²', x + 5, y + 15);
-    }
-  }
-
-  function applyBrightness(value) {
-    STATE.brightness = value;
-    redrawCanvasWithAdjustments();
-  }
-
-  function applyContrast(value) {
-    STATE.contrast = value;
-    redrawCanvasWithAdjustments();
-  }
-
-  function redrawCanvasWithAdjustments() {
-    if (!STATE.originalImage || !ctx || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(STATE.originalImage, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const brightness = STATE.brightness;
-      const contrast = STATE.contrast / 100 + 1;
-      data[i] = Math.max(0, Math.min(255, (data[i] - 128) * contrast + 128 + brightness));
-      data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * contrast + 128 + brightness));
-      data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * contrast + 128 + brightness));
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  function applyZoom() {
-    if (!overlayCanvas) return;
-    const wrapper = overlayCanvas.parentNode;
-    if (STATE.zoomFit) {
-      wrapper.style.transform = 'scale(1)';
-    } else {
-      wrapper.style.transform = `scale(${STATE.zoom})`;
-    }
-  }
-
-  function fitZoom() {
-    STATE.zoom = 1;
-    STATE.zoomFit = true;
-    applyZoom();
-  }
-
-  function setZoom(level) {
-    STATE.zoom = level / 100;
-    STATE.zoomFit = false;
-    applyZoom();
-  }
-
-  function addCustomTag(tag) {
-    if (tag && !STATE.customTags.includes(tag)) {
-      STATE.customTags.push(tag);
-      updateCustomTagsDisplay();
-    }
-  }
-
-  function removeCustomTag(tag) {
-    STATE.customTags = STATE.customTags.filter(t => t !== tag);
-    updateCustomTagsDisplay();
-  }
-
-  function updateCustomTagsDisplay() {
-    const container = modal?.querySelector('.nbd-custom-tags');
-    if (!container) return;
-    container.innerHTML = STATE.customTags.map(tag => `
-      <div style="display: inline-flex; align-items: center; gap: 5px; background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
-        <span>${tag}</span>
-        <button class="nbd-tag-remove" data-tag="${tag}" style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0 2px;">×</button>
-      </div>
-    `).join('');
-    container.querySelectorAll('.nbd-tag-remove').forEach(btn => {
-      btn.onclick = () => removeCustomTag(btn.dataset.tag);
-    });
-  }
-
-  function updateAnnotationsList() {
-    const container = modal?.querySelector('.nbd-annotations-list');
-    if (!container) return;
-    if (annotations.length === 0) {
-      container.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">No annotations</div>';
+  function onTouchStart(e) {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      lastTouchDist = dist(e.touches[0].clientX, e.touches[0].clientY, e.touches[1].clientX, e.touches[1].clientY);
       return;
     }
-    container.innerHTML = annotations.map(ann => {
-      const icon = getAnnotationIcon(ann.type);
-      return `
-        <div class="nbd-annotation-item" data-id="${ann.id}" style="padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 12px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 16px;">${icon}</span>
-            <span>${ann.type}</span>
-          </div>
-          <button class="nbd-ann-delete" data-id="${ann.id}" style="background: none; border: none; color: red; cursor: pointer; font-weight: bold;">×</button>
-        </div>
-      `;
-    }).join('');
-    container.querySelectorAll('.nbd-annotation-item').forEach(item => {
-      item.onclick = () => {
-        STATE.selectedAnnotationId = item.dataset.id;
-        container.querySelectorAll('.nbd-annotation-item').forEach(i => i.style.background = 'transparent');
-        item.style.background = '#f0f0f0';
-      };
-    });
-    container.querySelectorAll('.nbd-ann-delete').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        annotations = annotations.filter(a => a.id !== btn.dataset.id);
-        saveState();
-        redraw();
-        updateAnnotationsList();
-      };
-    });
+    const fake = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, button: 0, preventDefault: () => {} };
+    onPointerDown(fake);
   }
-
-  function getAnnotationIcon(type) {
-    const icons = {
-      'pen': '✏️', 'line': '−', 'arrow': '→', 'rect': '▭', 'circle': '●', 'text': 'A',
-      'hail': '●', 'wind': '〰', 'leak': '💧', 'shingle': '◼', 'callout': '①',
-      'measure': '📏', 'area': '▢',
-    };
-    return icons[type] || '·';
-  }
-
-  async function saveTagsOnly() {
-    if (!STATE.photoId) {
-      showToast('No photo ID — save as copy first', 'error');
+  function onTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const d = dist(e.touches[0].clientX, e.touches[0].clientY, e.touches[1].clientX, e.touches[1].clientY);
+      const scale = d / lastTouchDist;
+      S.zoom = clamp(S.zoom * scale, 0.15, 8);
+      lastTouchDist = d;
+      applyTransform();
+      renderMinimap();
+      updateZoomDisplay();
       return;
     }
-    try {
-      const metadata = {
-        damageType: STATE.damageType,
-        severity: STATE.severity,
-        location: STATE.location,
-        phase: STATE.phase,
-        notes: STATE.notes,
-        tags: STATE.customTags,
-      };
-      const docRef = window.doc(window.db, 'photos', STATE.photoId);
-      await window.updateDoc(docRef, metadata);
-      showToast('Tags saved successfully!', 'success');
-      STATE.hasUnsavedChanges = false;
-      setTimeout(() => closeEditor(), 1000);
-    } catch (error) {
-      console.error('Save tags error:', error);
-      showToast('Failed to save tags: ' + error.message, 'error');
+    const fake = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    onPointerMove(fake);
+  }
+  function onTouchEnd(e) {
+    e.preventDefault();
+    const fake = { clientX: 0, clientY: 0 };
+    if (e.changedTouches && e.changedTouches.length) {
+      fake.clientX = e.changedTouches[0].clientX;
+      fake.clientY = e.changedTouches[0].clientY;
     }
+    onPointerUp(fake);
   }
 
-  async function flattenAndSaveAs() {
-    if (!canvas || !overlayCanvas) {
-      showToast('Canvas not ready', 'error');
-      return;
+  /* ==========================================
+     KEYBOARD SHORTCUTS
+     ========================================== */
+  let spaceHeld = false;
+
+  function onKeyDown(e) {
+    if (!root) return;
+    // Don't intercept when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    if (e.key === ' ') { e.preventDefault(); spaceHeld = true; S.isPanning = true; return; }
+    if (e.key === 'Escape') { if (S.guidedActive) { S.guidedActive = false; refreshGuided(); } else { closeWithPrompt(); } return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); return; }
+
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); return; }
+      if (e.key === 's') { e.preventDefault(); flattenAndSaveOver(); return; }
     }
-    try {
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = canvas.width;
-      finalCanvas.height = canvas.height;
-      const finalCtx = finalCanvas.getContext('2d');
-      finalCtx.drawImage(canvas, 0, 0);
-      finalCtx.drawImage(overlayCanvas, 0, 0);
-      finalCanvas.toBlob(async (blob) => {
-        if (!blob) {
-          showToast('Failed to create image', 'error');
-          return;
-        }
-        await uploadAndSaveAnnotated(blob, false);
-      }, 'image/jpeg', 0.95);
-    } catch (error) {
-      console.error('Flatten error:', error);
-      showToast('Save failed: ' + error.message, 'error');
-    }
-  }
 
-  async function flattenAndSaveOver() {
-    if (!canvas || !overlayCanvas) {
-      showToast('Canvas not ready', 'error');
-      return;
-    }
-    if (!STATE.photoId) {
-      showToast('Photo ID missing', 'error');
-      return;
-    }
-    try {
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = canvas.width;
-      finalCanvas.height = canvas.height;
-      const finalCtx = finalCanvas.getContext('2d');
-      finalCtx.drawImage(canvas, 0, 0);
-      finalCtx.drawImage(overlayCanvas, 0, 0);
-      finalCanvas.toBlob(async (blob) => {
-        if (!blob) {
-          showToast('Failed to create image', 'error');
-          return;
-        }
-        await uploadAndSaveAnnotated(blob, true);
-      }, 'image/jpeg', 0.95);
-    } catch (error) {
-      console.error('Save over error:', error);
-      showToast('Save failed: ' + error.message, 'error');
-    }
-  }
-
-  async function downloadImage() {
-    if (!canvas || !overlayCanvas) {
-      showToast('Canvas not ready', 'error');
-      return;
-    }
-    try {
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = canvas.width;
-      finalCanvas.height = canvas.height;
-      const finalCtx = finalCanvas.getContext('2d');
-      finalCtx.drawImage(canvas, 0, 0);
-      finalCtx.drawImage(overlayCanvas, 0, 0);
-      finalCanvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `annotated_${STATE.photoId || 'photo'}_${Date.now()}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 'image/jpeg', 0.95);
-    } catch (error) {
-      console.error('Download error:', error);
-      showToast('Download failed: ' + error.message, 'error');
-    }
-  }
-
-  async function uploadAndSaveAnnotated(blob, saveOver = false) {
-    try {
-      const fileName = saveOver ? `photo_${STATE.photoId}.jpg` : `photo_${generateId()}.jpg`;
-      const filePath = `photos/${fileName}`;
-
-      const storageRef = window.ref(window.storage, filePath);
-      await window.uploadBytes(storageRef, blob);
-      const downloadUrl = await window.getDownloadURL(storageRef);
-
-      const metadata = {
-        damageType: STATE.damageType,
-        severity: STATE.severity,
-        location: STATE.location,
-        phase: STATE.phase,
-        notes: STATE.notes,
-        tags: STATE.customTags,
-        isAnnotated: true,
-        annotatedAt: window.serverTimestamp(),
-      };
-
-      if (saveOver && STATE.photoId) {
-        const docRef = window.doc(window.db, 'photos', STATE.photoId);
-        await window.updateDoc(docRef, {
-          url: downloadUrl,
-          ...metadata,
-        });
-      } else {
-        const photoRef = window.collection(window.db, 'photos');
-        await window.addDoc(photoRef, {
-          url: downloadUrl,
-          originalPhotoId: STATE.photoId,
-          leadId: STATE.leadId,
-          userId: STATE.userId,
-          ...metadata,
-        });
-      }
-
-      STATE.hasUnsavedChanges = false;
-      showToast('Photo saved successfully', 'success');
-      setTimeout(() => {
-        closeEditor();
-      }, 1500);
-    } catch (error) {
-      console.error('Upload error:', error);
-      showToast('Upload failed: ' + error.message, 'error');
-    }
-  }
-
-  function createTopToolbar() {
-    const toolbar = document.createElement('div');
-    toolbar.style.cssText = `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 15px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ddd;
-      gap: 10px;
-    `;
-
-    const left = document.createElement('div');
-    left.style.display = 'flex';
-    left.style.gap = '5px';
-
-    const backBtn = document.createElement('button');
-    backBtn.textContent = '← Back';
-    backBtn.style.cssText = 'padding: 8px 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;';
-    backBtn.onclick = () => closeEditorWithPrompt();
-    left.appendChild(backBtn);
-
-    const center = document.createElement('div');
-    center.textContent = 'Photo Editor';
-    center.style.cssText = 'flex: 1; text-align: center; font-weight: bold; font-size: 16px;';
-
-    const right = document.createElement('div');
-    right.style.cssText = 'display: flex; gap: 5px;';
-
-    const btnConfig = [
-      { action: 'undo', text: 'Undo' },
-      { action: 'redo', text: 'Redo' },
-      { action: 'download', text: 'Download' },
-      { action: 'save-tags', text: 'Save Tags Only' },
-      { action: 'save-new', text: 'Save as Copy' },
-      { action: 'save-over', text: 'Save Over' },
-    ];
-
-    btnConfig.forEach(cfg => {
-      const btn = document.createElement('button');
-      btn.dataset.action = cfg.action;
-      btn.textContent = cfg.text;
-      btn.style.cssText = 'padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;';
-      btn.onmouseover = () => btn.style.background = '#0056b3';
-      btn.onmouseout = () => btn.style.background = '#007bff';
-
-      if (cfg.action === 'undo') {
-        btn.onclick = undo;
-      } else if (cfg.action === 'redo') {
-        btn.onclick = redo;
-      } else if (cfg.action === 'download') {
-        btn.onclick = downloadImage;
-      } else if (cfg.action === 'save-tags') {
-        btn.onclick = saveTagsOnly;
-        btn.style.background = '#22c55e';
-        btn.onmouseover = () => btn.style.background = '#16a34a';
-        btn.onmouseout = () => btn.style.background = '#22c55e';
-      } else if (cfg.action === 'save-new') {
-        btn.onclick = flattenAndSaveAs;
-      } else if (cfg.action === 'save-over') {
-        btn.onclick = flattenAndSaveOver;
-      }
-
-      right.appendChild(btn);
-    });
-
-    toolbar.appendChild(left);
-    toolbar.appendChild(center);
-    toolbar.appendChild(right);
-
-    return toolbar;
-  }
-
-  function createLeftToolbar() {
-    const toolbar = document.createElement('div');
-    toolbar.style.cssText = `
-      width: 70px;
-      background: #f5f5f5;
-      border-right: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      padding: 10px 5px;
-      gap: 5px;
-      overflow-y: auto;
-    `;
-
-    const tools = [
-      { name: 'pen', label: 'Pen', key: 'P' },
-      { name: 'line', label: 'Line', key: 'L' },
-      { name: 'arrow', label: 'Arrow', key: 'A' },
-      { name: 'rect', label: 'Rectangle', key: 'R' },
-      { name: 'circle', label: 'Circle', key: 'C' },
-      { name: 'text', label: 'Text', key: 'T' },
-      { name: 'eraser', label: 'Eraser', key: 'E' },
-      { name: 'hail', label: 'Hail', key: 'H' },
-      { name: 'wind', label: 'Wind', key: 'W' },
-      { name: 'leak', label: 'Leak', key: '1' },
-      { name: 'shingle', label: 'Shingle', key: '2' },
-      { name: 'callout', label: 'Callout', key: 'Q' },
-      { name: 'measure', label: 'Measure', key: 'M' },
-      { name: 'area', label: 'Area', key: '3' },
-    ];
-
-    tools.forEach(tool => {
-      const btn = document.createElement('button');
-      btn.dataset.tool = tool.name;
-      btn.textContent = tool.label.charAt(0);
-      btn.title = `${tool.label} (${tool.key})`;
-      btn.style.cssText = `
-        padding: 8px;
-        background: ${STATE.currentTool === tool.name ? '#007bff' : '#fff'};
-        color: ${STATE.currentTool === tool.name ? '#fff' : '#000'};
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: bold;
-      `;
-
-      btn.onclick = () => {
-        STATE.currentTool = tool.name;
-        toolbar.querySelectorAll('button').forEach(b => {
-          b.style.background = '#fff';
-          b.style.color = '#000';
-        });
-        btn.style.background = '#007bff';
-        btn.style.color = '#fff';
-      };
-
-      toolbar.appendChild(btn);
-    });
-
-    return toolbar;
-  }
-
-  function createRightSidebar() {
-    const sidebar = document.createElement('div');
-    sidebar.style.cssText = `
-      width: 280px;
-      background: #f5f5f5;
-      border-left: 1px solid #ddd;
-      overflow-y: auto;
-      padding: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      font-size: 13px;
-    `;
-
-    const addSection = (title, content) => {
-      const section = document.createElement('div');
-      section.innerHTML = `<div style="font-weight: bold; margin-bottom: 8px;">${title}</div>`;
-      section.appendChild(content);
-      sidebar.appendChild(section);
+    const map = {
+      v: TOOLS.SELECT, p: TOOLS.PEN, l: TOOLS.LINE, a: TOOLS.ARROW,
+      r: TOOLS.RECT, c: TOOLS.CIRCLE, t: TOOLS.TEXT, e: TOOLS.ERASER,
+      s: TOOLS.STAMP, q: TOOLS.CALLOUT, m: TOOLS.MEASURE,
     };
-
-    const damageSelect = document.createElement('select');
-    damageSelect.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;';
-    damageSelect.innerHTML = `<option value="">Select type</option>` + CONFIG.DAMAGE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
-    damageSelect.value = STATE.damageType;
-    damageSelect.onchange = () => { STATE.damageType = damageSelect.value; };
-    addSection('Damage Type', damageSelect);
-
-    const severityDiv = document.createElement('div');
-    Object.entries(CONFIG.SEVERITY_LEVELS).forEach(([key, val]) => {
-      const label = document.createElement('label');
-      label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer;';
-      label.innerHTML = `
-        <input type="radio" name="severity" value="${key}" ${STATE.severity === key ? 'checked' : ''}>
-        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: ${val.color};"></span>
-        ${val.label}
-      `;
-      label.querySelector('input').onchange = () => { STATE.severity = key; };
-      severityDiv.appendChild(label);
-    });
-    addSection('Severity', severityDiv);
-
-    const locationSelect = document.createElement('select');
-    locationSelect.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;';
-    locationSelect.innerHTML = `<option value="">Select location</option>` + CONFIG.ROOF_LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
-    locationSelect.value = STATE.location;
-    locationSelect.onchange = () => { STATE.location = locationSelect.value; };
-    addSection('Location', locationSelect);
-
-    const phaseDiv = document.createElement('div');
-    phaseDiv.style.cssText = 'display: flex; gap: 5px;';
-    CONFIG.PHASES.forEach(p => {
-      const btn = document.createElement('button');
-      btn.textContent = p;
-      btn.style.cssText = `
-        flex: 1;
-        padding: 6px;
-        background: ${STATE.phase === p ? '#007bff' : '#fff'};
-        color: ${STATE.phase === p ? '#fff' : '#000'};
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-      `;
-      btn.onclick = () => {
-        STATE.phase = p;
-        phaseDiv.querySelectorAll('button').forEach(b => {
-          b.style.background = '#fff';
-          b.style.color = '#000';
-        });
-        btn.style.background = '#007bff';
-        btn.style.color = '#fff';
-      };
-      phaseDiv.appendChild(btn);
-    });
-    addSection('Phase', phaseDiv);
-
-    const tagsInputDiv = document.createElement('div');
-    const tagInput = document.createElement('input');
-    tagInput.type = 'text';
-    tagInput.placeholder = 'Add tag (Enter)';
-    tagInput.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; box-sizing: border-box;';
-    tagInput.onkeypress = (e) => {
-      if (e.key === 'Enter' && tagInput.value.trim()) {
-        addCustomTag(tagInput.value.trim());
-        tagInput.value = '';
-      }
-    };
-    tagsInputDiv.appendChild(tagInput);
-    const tagsContainer = document.createElement('div');
-    tagsContainer.className = 'nbd-custom-tags';
-    tagsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 5px;';
-    tagsInputDiv.appendChild(tagsContainer);
-    addSection('Custom Tags', tagsInputDiv);
-
-    const notesTA = document.createElement('textarea');
-    notesTA.placeholder = 'Additional details...';
-    notesTA.value = STATE.notes;
-    notesTA.style.cssText = 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; box-sizing: border-box;';
-    notesTA.oninput = () => { STATE.notes = notesTA.value; };
-    addSection('Notes', notesTA);
-
-    const annList = document.createElement('div');
-    annList.className = 'nbd-annotations-list';
-    annList.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto;';
-    addSection('Annotations', annList);
-
-    return sidebar;
+    if (map[e.key.toLowerCase()] && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      setTool(map[e.key.toLowerCase()]);
+    }
   }
 
-  function createBottomToolbar() {
-    const toolbar = document.createElement('div');
-    toolbar.style.cssText = `
-      display: flex;
-      flex-wrap: wrap;
-      padding: 12px 15px;
-      background: #f5f5f5;
-      border-top: 1px solid #ddd;
-      gap: 15px;
-      align-items: center;
-      font-size: 12px;
-    `;
-
-    const colorGroup = document.createElement('div');
-    colorGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-    colorGroup.innerHTML = '<span style="font-weight: bold;">Color:</span>';
-    CONFIG.COLOR_PALETTE.forEach(color => {
-      const swatch = document.createElement('div');
-      swatch.style.cssText = `
-        width: 24px;
-        height: 24px;
-        background: ${color};
-        border: ${STATE.currentColor === color ? '3px solid #000' : '1px solid #ddd'};
-        border-radius: 3px;
-        cursor: pointer;
-      `;
-      swatch.onclick = () => {
-        STATE.currentColor = color;
-        toolbar.querySelectorAll('[data-color-swatch]').forEach(s => s.style.border = '1px solid #ddd');
-        swatch.style.border = '3px solid #000';
-      };
-      swatch.dataset.colorSwatch = color;
-      colorGroup.appendChild(swatch);
-    });
-    toolbar.appendChild(colorGroup);
-
-    const widthGroup = document.createElement('div');
-    widthGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-    widthGroup.innerHTML = '<span style="font-weight: bold;">Width:</span>';
-    const widthSlider = document.createElement('input');
-    widthSlider.type = 'range';
-    widthSlider.min = '1';
-    widthSlider.max = '10';
-    widthSlider.value = STATE.currentLineWidth;
-    widthSlider.style.cssText = 'width: 60px;';
-    const widthValue = document.createElement('span');
-    widthValue.textContent = STATE.currentLineWidth + 'px';
-    widthSlider.oninput = () => {
-      STATE.currentLineWidth = parseInt(widthSlider.value);
-      widthValue.textContent = widthSlider.value + 'px';
-    };
-    widthGroup.appendChild(widthSlider);
-    widthGroup.appendChild(widthValue);
-    toolbar.appendChild(widthGroup);
-
-    const opacityGroup = document.createElement('div');
-    opacityGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-    opacityGroup.innerHTML = '<span style="font-weight: bold;">Opacity:</span>';
-    const opacitySlider = document.createElement('input');
-    opacitySlider.type = 'range';
-    opacitySlider.min = '0';
-    opacitySlider.max = '100';
-    opacitySlider.value = STATE.currentOpacity;
-    opacitySlider.style.cssText = 'width: 60px;';
-    const opacityValue = document.createElement('span');
-    opacityValue.textContent = STATE.currentOpacity + '%';
-    opacitySlider.oninput = () => {
-      STATE.currentOpacity = parseInt(opacitySlider.value);
-      opacityValue.textContent = opacitySlider.value + '%';
-    };
-    opacityGroup.appendChild(opacitySlider);
-    opacityGroup.appendChild(opacityValue);
-    toolbar.appendChild(opacityGroup);
-
-    const fillGroup = document.createElement('div');
-    fillGroup.style.cssText = 'display: flex; gap: 5px; align-items: center;';
-    const fillCheckbox = document.createElement('input');
-    fillCheckbox.type = 'checkbox';
-    fillCheckbox.checked = STATE.fillShapes;
-    fillCheckbox.onchange = () => { STATE.fillShapes = fillCheckbox.checked; };
-    fillGroup.appendChild(fillCheckbox);
-    fillGroup.innerHTML += '<span>Fill</span>';
-    toolbar.appendChild(fillGroup);
-
-    const brightGroup = document.createElement('div');
-    brightGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-    brightGroup.innerHTML = '<span style="font-weight: bold;">Brightness:</span>';
-    const brightSlider = document.createElement('input');
-    brightSlider.type = 'range';
-    brightSlider.min = '-100';
-    brightSlider.max = '100';
-    brightSlider.value = '0';
-    brightSlider.style.cssText = 'width: 60px;';
-    const brightValue = document.createElement('span');
-    brightValue.textContent = '0';
-    brightSlider.oninput = () => {
-      applyBrightness(parseInt(brightSlider.value));
-      brightValue.textContent = brightSlider.value;
-    };
-    brightGroup.appendChild(brightSlider);
-    brightGroup.appendChild(brightValue);
-    toolbar.appendChild(brightGroup);
-
-    const contrastGroup = document.createElement('div');
-    contrastGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-    contrastGroup.innerHTML = '<span style="font-weight: bold;">Contrast:</span>';
-    const contrastSlider = document.createElement('input');
-    contrastSlider.type = 'range';
-    contrastSlider.min = '-100';
-    contrastSlider.max = '100';
-    contrastSlider.value = '0';
-    contrastSlider.style.cssText = 'width: 60px;';
-    const contrastValue = document.createElement('span');
-    contrastValue.textContent = '0';
-    contrastSlider.oninput = () => {
-      applyContrast(parseInt(contrastSlider.value));
-      contrastValue.textContent = contrastSlider.value;
-    };
-    contrastGroup.appendChild(contrastSlider);
-    contrastGroup.appendChild(contrastValue);
-    toolbar.appendChild(contrastGroup);
-
-    const zoomGroup = document.createElement('div');
-    zoomGroup.style.cssText = 'display: flex; gap: 5px; align-items: center;';
-    zoomGroup.innerHTML = '<span style="font-weight: bold;">Zoom:</span>';
-    ['Fit', '50%', '100%', '200%'].forEach((label, idx) => {
-      const btn = document.createElement('button');
-      btn.textContent = label;
-      btn.style.cssText = 'padding: 4px 8px; background: #fff; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; font-size: 11px;';
-      btn.onclick = () => {
-        if (idx === 0) fitZoom();
-        else setZoom(parseInt(label));
-      };
-      zoomGroup.appendChild(btn);
-    });
-    toolbar.appendChild(zoomGroup);
-
-    return toolbar;
+  function onKeyUp(e) {
+    if (e.key === ' ') { spaceHeld = false; S.isPanning = false; }
   }
 
-  function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      if (!modal) return;
-
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          undo();
-        } else if ((e.key === 'z' && e.shiftKey) || (e.key === 'y')) {
-          e.preventDefault();
-          redo();
-        }
-      }
-
-      const toolMap = {
-        'p': CONFIG.TOOLS.PEN,
-        'l': CONFIG.TOOLS.LINE,
-        'a': CONFIG.TOOLS.ARROW,
-        'r': CONFIG.TOOLS.RECT,
-        'c': CONFIG.TOOLS.CIRCLE,
-        't': CONFIG.TOOLS.TEXT,
-        'e': CONFIG.TOOLS.ERASER,
-        'h': CONFIG.TOOLS.HAIL,
-        'w': CONFIG.TOOLS.WIND,
-        '1': CONFIG.TOOLS.LEAK,
-        '2': CONFIG.TOOLS.SHINGLE,
-        'q': CONFIG.TOOLS.CALLOUT,
-        'm': CONFIG.TOOLS.MEASURE,
-        '3': CONFIG.TOOLS.AREA,
-      };
-
-      if (toolMap[e.key.toLowerCase()]) {
-        e.preventDefault();
-        STATE.currentTool = toolMap[e.key.toLowerCase()];
-        updateToolButtons();
-      }
-    });
+  /* ==========================================
+     TOOL MANAGEMENT
+     ========================================== */
+  function setTool(tool) {
+    S.tool = tool;
+    S.selectedId = null;
+    updateToolButtons();
+    updateCursor();
+    render();
   }
 
   function updateToolButtons() {
-    const buttons = modal?.querySelectorAll('[data-tool]');
-    if (!buttons) return;
-    buttons.forEach(btn => {
-      if (btn.dataset.tool === STATE.currentTool) {
-        btn.style.background = '#007bff';
-        btn.style.color = '#fff';
-      } else {
-        btn.style.background = '#fff';
-        btn.style.color = '#000';
-      }
+    if (!root) return;
+    root.querySelectorAll('.nbd-tool-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tool === S.tool);
     });
   }
 
-  function closeEditorWithPrompt() {
-    if (STATE.hasUnsavedChanges) {
-      if (confirm('You have unsaved changes. Are you sure you want to close?')) {
-        closeEditor();
+  function updateCursor() {
+    const wrapper = root?.querySelector('.nbd-canvas-wrapper');
+    if (!wrapper) return;
+    const map = {
+      [TOOLS.SELECT]: 'default', [TOOLS.PEN]: 'crosshair', [TOOLS.LINE]: 'crosshair',
+      [TOOLS.ARROW]: 'crosshair', [TOOLS.RECT]: 'crosshair', [TOOLS.CIRCLE]: 'crosshair',
+      [TOOLS.TEXT]: 'text', [TOOLS.ERASER]: 'cell', [TOOLS.STAMP]: 'copy',
+      [TOOLS.CALLOUT]: 'crosshair', [TOOLS.MEASURE]: 'crosshair',
+    };
+    wrapper.style.cursor = S.isPanning ? 'grab' : (map[S.tool] || 'crosshair');
+  }
+
+  function deleteSelected() {
+    if (!S.selectedId) return;
+    pushUndo();
+    annotations = annotations.filter(a => a.id !== S.selectedId);
+    S.selectedId = null;
+    render();
+    refreshAnnList();
+  }
+
+  function updateZoomDisplay() {
+    const el = root?.querySelector('.nbd-zoom-val');
+    if (el) el.textContent = Math.round(S.zoom * 100) + '%';
+  }
+
+  /* ==========================================
+     SAVE WORKFLOWS
+     ========================================== */
+  async function saveTagsOnly() {
+    if (!S.photoId) { toast('No photo ID', 'error'); return; }
+    try {
+      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags };
+      await window.updateDoc(window.doc(window.db, 'photos', S.photoId), meta);
+      toast('Tags saved!', 'success');
+      S.hasUnsaved = false;
+    } catch (err) { toast('Save failed: ' + err.message, 'error'); }
+  }
+
+  function flattenCanvas() {
+    const fc = document.createElement('canvas');
+    fc.width = S.imgW; fc.height = S.imgH;
+    const fCtx = fc.getContext('2d');
+    fCtx.drawImage(mainCanvas, 0, 0);
+    fCtx.drawImage(annoCanvas, 0, 0);
+    return fc;
+  }
+
+  async function flattenAndSaveAs() {
+    try {
+      const fc = flattenCanvas();
+      fc.toBlob(async blob => {
+        if (!blob) { toast('Failed to create image', 'error'); return; }
+        await uploadBlob(blob, false);
+      }, 'image/jpeg', 0.95);
+    } catch (err) { toast('Save failed: ' + err.message, 'error'); }
+  }
+
+  async function flattenAndSaveOver() {
+    if (!S.photoId) { toast('No photo ID', 'error'); return; }
+    try {
+      const fc = flattenCanvas();
+      fc.toBlob(async blob => {
+        if (!blob) { toast('Failed to create image', 'error'); return; }
+        await uploadBlob(blob, true);
+      }, 'image/jpeg', 0.95);
+    } catch (err) { toast('Save failed: ' + err.message, 'error'); }
+  }
+
+  function downloadLocal() {
+    try {
+      const fc = flattenCanvas();
+      fc.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `inspection_${S.photoId || 'photo'}_${Date.now()}.jpg`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('Downloaded!', 'success');
+      }, 'image/jpeg', 0.95);
+    } catch (err) { toast('Download failed: ' + err.message, 'error'); }
+  }
+
+  async function uploadBlob(blob, overwrite) {
+    try {
+      const fileName = overwrite ? `photo_${S.photoId}.jpg` : `photo_${uid()}.jpg`;
+      const storageRef = window.ref(window.storage, 'photos/' + fileName);
+      await window.uploadBytes(storageRef, blob);
+      const url = await window.getDownloadURL(storageRef);
+      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp() };
+      if (overwrite && S.photoId) {
+        await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, ...meta });
+      } else {
+        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: S.userId, ...meta });
       }
-    } else {
-      closeEditor();
+      S.hasUnsaved = false;
+      toast('Saved!', 'success');
+    } catch (err) { toast('Upload failed: ' + err.message, 'error'); }
+  }
+
+  /* ==========================================
+     BUILD UI
+     ========================================== */
+  function buildEditor() {
+    root = document.createElement('div');
+    root.className = 'nbd-editor-overlay';
+    root.innerHTML = `
+      <!-- TOP BAR -->
+      <div class="nbd-topbar">
+        <div class="nbd-topbar-left">
+          <button class="nbd-btn" data-act="back" title="Back (Esc)">
+            <svg class="nbd-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            Back
+          </button>
+        </div>
+        <div class="nbd-topbar-center">
+          <span class="nbd-topbar-title">Inspection Editor</span>
+        </div>
+        <div class="nbd-topbar-right">
+          <button class="nbd-icon-btn" data-act="undo" title="Undo (Ctrl+Z)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h13a4 4 0 010 8H9"/><path d="M7 6L3 10l4 4"/></svg>
+          </button>
+          <button class="nbd-icon-btn" data-act="redo" title="Redo (Ctrl+Y)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10H8a4 4 0 000 8h7"/><path d="M17 6l4 4-4 4"/></svg>
+          </button>
+          <div style="width:1px;height:24px;background:var(--nbd-border)"></div>
+          <button class="nbd-btn" data-act="download" title="Download Local">
+            <svg class="nbd-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+          </button>
+          <button class="nbd-btn" data-act="save-tags">Save Tags</button>
+          <button class="nbd-btn" data-act="save-copy">Save Copy</button>
+          <button class="nbd-btn primary" data-act="save-over">
+            <svg class="nbd-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save
+          </button>
+          <div style="width:1px;height:24px;background:var(--nbd-border)"></div>
+          <button class="nbd-icon-btn" data-act="guided" title="Guided Inspection">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          </button>
+          <button class="nbd-icon-btn" data-act="toggle-panel" title="Toggle Panel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- BODY -->
+      <div class="nbd-editor-body">
+        <!-- LEFT TOOLBAR -->
+        <div class="nbd-toolbar" id="nbd-toolbar">
+          ${buildToolbarHTML()}
+        </div>
+
+        <!-- CANVAS AREA -->
+        <div class="nbd-canvas-area">
+          <div class="nbd-canvas-wrapper"></div>
+          <div class="nbd-minimap"><canvas></canvas></div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="nbd-panel" id="nbd-panel">
+          <div class="nbd-panel-scroll">
+            ${buildPanelHTML()}
+          </div>
+        </div>
+      </div>
+
+      <!-- PROPERTY BAR -->
+      <div class="nbd-propbar">
+        ${buildPropbarHTML()}
+      </div>
+
+      <!-- PHOTO STRIP -->
+      <div class="nbd-photostrip ${S.allPhotos.length < 2 ? 'collapsed' : ''}" id="nbd-photostrip">
+        ${buildPhotoStripHTML()}
+      </div>
+    `;
+
+    document.body.appendChild(root);
+  }
+
+  function buildToolbarHTML() {
+    const groups = [
+      { label: 'Select', tools: [{ id: TOOLS.SELECT, icon: svgPointer, label: 'Select', key: 'V' }] },
+      { label: 'Draw', tools: [
+        { id: TOOLS.PEN, icon: svgPen, label: 'Pen', key: 'P' },
+        { id: TOOLS.ERASER, icon: svgEraser, label: 'Eraser', key: 'E' },
+      ]},
+      { label: 'Shape', tools: [
+        { id: TOOLS.LINE, icon: svgLine, label: 'Line', key: 'L' },
+        { id: TOOLS.ARROW, icon: svgArrow, label: 'Arrow', key: 'A' },
+        { id: TOOLS.RECT, icon: svgRect, label: 'Rect', key: 'R' },
+        { id: TOOLS.CIRCLE, icon: svgCircle, label: 'Circle', key: 'C' },
+      ]},
+      { label: 'Annotate', tools: [
+        { id: TOOLS.TEXT, icon: svgText, label: 'Text', key: 'T' },
+        { id: TOOLS.CALLOUT, icon: svgCallout, label: 'Callout', key: 'Q' },
+        { id: TOOLS.MEASURE, icon: svgMeasure, label: 'Measure', key: 'M' },
+      ]},
+      { label: 'Stamps', tools: [
+        { id: TOOLS.STAMP, icon: svgStamp, label: 'Stamp', key: 'S', hasSubmenu: true },
+      ]},
+    ];
+
+    let html = '';
+    groups.forEach((g, gi) => {
+      if (gi > 0) html += '<div class="nbd-tool-sep"></div>';
+      g.tools.forEach(t => {
+        html += `<button class="nbd-tool-btn ${S.tool === t.id ? 'active' : ''}" data-tool="${t.id}" title="${t.label} (${t.key})">
+          ${t.icon}
+          <span style="font-size:9px">${t.label}</span>
+          <span class="nbd-tool-key">${t.key}</span>
+        </button>`;
+      });
+    });
+
+    // Stamp flyout
+    html += `<div class="nbd-stamp-flyout" id="nbd-stamp-flyout">
+      ${STAMP_LIBRARY.map(s => `<div class="nbd-stamp-item ${S.stampId === s.id ? 'active' : ''}" data-stamp="${s.id}" title="${s.label}">
+        <span style="font-size:18px">${s.icon}</span>
+        <span>${s.label.split(' ')[0]}</span>
+      </div>`).join('')}
+    </div>`;
+
+    return html;
+  }
+
+  function buildPanelHTML() {
+    return `
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Damage Type</div>
+        <select class="nbd-select" data-field="damageType">
+          <option value="">Select type...</option>
+          ${DAMAGE_TYPES.map(d => `<option value="${d}" ${S.damageType === d ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Severity</div>
+        <div class="nbd-severity-group">
+          ${Object.entries(SEVERITY_LEVELS).map(([k, v]) => `<div class="nbd-severity-pill ${S.severity === k ? 'active' : ''}" data-sev="${k}">${v.label}</div>`).join('')}
+        </div>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Location</div>
+        <select class="nbd-select" data-field="location">
+          <option value="">Select location...</option>
+          ${ROOF_LOCATIONS.map(l => `<option value="${l}" ${S.location === l ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Phase</div>
+        <div class="nbd-phase-tabs">
+          ${PHASES.map(p => `<div class="nbd-phase-tab ${S.phase === p ? 'active' : ''}" data-phase="${p}">${p}</div>`).join('')}
+        </div>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Tags</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input class="nbd-input" id="nbd-tag-input" placeholder="Add tag + Enter" style="flex:1">
+        </div>
+        <div id="nbd-tags-wrap" style="display:flex;flex-wrap:wrap;gap:4px">${S.tags.map(t => `<span class="nbd-tag">${esc(t)}<button class="nbd-tag-remove" data-tag="${esc(t)}">&times;</button></span>`).join('')}</div>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Notes</div>
+        <textarea class="nbd-textarea" id="nbd-notes" placeholder="Inspection notes...">${esc(S.notes)}</textarea>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Annotations (${annotations.length})</div>
+        <div id="nbd-ann-list">${buildAnnListHTML()}</div>
+      </div>
+      <div class="nbd-panel-section">
+        <div class="nbd-panel-label">Image Adjust</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--nbd-text-dim);min-width:58px">Brightness</span>
+            <input type="range" class="nbd-slider" min="-100" max="100" value="${S.brightness}" data-adjust="brightness" style="flex:1">
+            <span class="nbd-slider-val" data-adjust-val="brightness">${S.brightness}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--nbd-text-dim);min-width:58px">Contrast</span>
+            <input type="range" class="nbd-slider" min="-100" max="100" value="${S.contrast}" data-adjust="contrast" style="flex:1">
+            <span class="nbd-slider-val" data-adjust-val="contrast">${S.contrast}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildAnnListHTML() {
+    if (!annotations.length) return '<div style="padding:8px;text-align:center;color:var(--nbd-text-muted);font-size:11px">No annotations yet</div>';
+    return annotations.map((a, i) => {
+      const icon = getAnnoIcon(a);
+      const label = a.type === 'stamp' ? (STAMP_LIBRARY.find(s => s.id === a.stampId)?.label || a.type) : a.type;
+      return `<div class="nbd-ann-item ${S.selectedId === a.id ? 'selected' : ''}" data-ann-id="${a.id}">
+        <span class="nbd-ann-item-icon">${icon}</span>
+        <span class="nbd-ann-item-label">${label}${a.number ? ' #' + a.number : ''}${a.text ? ': ' + esc(a.text.substring(0, 20)) : ''}</span>
+        <span class="nbd-ann-item-num">${i + 1}</span>
+        <button class="nbd-ann-item-delete" data-del-id="${a.id}" title="Delete">&times;</button>
+      </div>`;
+    }).join('');
+  }
+
+  function getAnnoIcon(a) {
+    const map = { pen: '✏️', line: '—', arrow: '→', rect: '▭', circle: '⬭', text: 'A', callout: '①', stamp: '⊛', measure: '📏', eraser: '⌫' };
+    return map[a.type] || '·';
+  }
+
+  function buildPropbarHTML() {
+    return `
+      <div class="nbd-prop-group">
+        <span class="nbd-prop-label">Color</span>
+        ${COLOR_PALETTE.map(c => `<div class="nbd-swatch ${S.color === c ? 'active' : ''}" data-color="${c}" style="background:${c}"></div>`).join('')}
+        <div class="nbd-color-picker-wrap">
+          <div class="nbd-color-picker-btn" id="nbd-custom-color" style="background:${S.color}"></div>
+          <input type="color" class="nbd-color-native" id="nbd-color-input" value="${S.color}">
+        </div>
+      </div>
+      <div class="nbd-prop-sep"></div>
+      <div class="nbd-prop-group">
+        <span class="nbd-prop-label">Width</span>
+        <input type="range" class="nbd-slider" min="1" max="12" value="${S.lineWidth}" data-prop="lineWidth">
+        <span class="nbd-slider-val" data-prop-val="lineWidth">${S.lineWidth}px</span>
+      </div>
+      <div class="nbd-prop-sep"></div>
+      <div class="nbd-prop-group">
+        <span class="nbd-prop-label">Opacity</span>
+        <input type="range" class="nbd-slider" min="10" max="100" value="${S.opacity}" data-prop="opacity">
+        <span class="nbd-slider-val" data-prop-val="opacity">${S.opacity}%</span>
+      </div>
+      <div class="nbd-prop-sep"></div>
+      <div class="nbd-prop-group">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--nbd-text-dim)">
+          <input type="checkbox" id="nbd-fill" ${S.fillShapes ? 'checked' : ''}> Fill
+        </label>
+      </div>
+      <div class="nbd-prop-sep"></div>
+      <div class="nbd-prop-group">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--nbd-text-dim)">
+          <input type="checkbox" id="nbd-autonum" ${S.autoNumber ? 'checked' : ''}> Auto #
+        </label>
+      </div>
+      <div class="nbd-prop-sep"></div>
+      <div class="nbd-prop-group">
+        <span class="nbd-prop-label">Zoom</span>
+        <button class="nbd-icon-btn" data-act="zoom-out" style="width:26px;height:26px" title="Zoom Out">−</button>
+        <span class="nbd-zoom-val" style="font-size:11px;min-width:38px;text-align:center;color:var(--nbd-text-dim)">${Math.round(S.zoom * 100)}%</span>
+        <button class="nbd-icon-btn" data-act="zoom-in" style="width:26px;height:26px" title="Zoom In">+</button>
+        <button class="nbd-icon-btn" data-act="zoom-fit" style="width:26px;height:26px" title="Fit">⊡</button>
+      </div>
+    `;
+  }
+
+  function buildPhotoStripHTML() {
+    if (!S.allPhotos || S.allPhotos.length < 2) return '';
+    return S.allPhotos.map((p, i) => {
+      const url = typeof p === 'string' ? p : (p.url || p.thumbUrl || '');
+      return `<img class="nbd-strip-thumb ${i === S.currentPhotoIndex ? 'active' : ''}" src="${url}" data-photo-idx="${i}" alt="Photo ${i + 1}">`;
+    }).join('');
+  }
+
+  /* ==========================================
+     WIRE UP EVENTS
+     ========================================== */
+  function wireEvents() {
+    if (!root) return;
+
+    // Top bar buttons
+    root.querySelectorAll('[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const act = btn.dataset.act;
+        if (act === 'back') closeWithPrompt();
+        else if (act === 'undo') undo();
+        else if (act === 'redo') redo();
+        else if (act === 'download') downloadLocal();
+        else if (act === 'save-tags') saveTagsOnly();
+        else if (act === 'save-copy') flattenAndSaveAs();
+        else if (act === 'save-over') flattenAndSaveOver();
+        else if (act === 'guided') toggleGuided();
+        else if (act === 'toggle-panel') togglePanel();
+        else if (act === 'zoom-in') { S.zoom = clamp(S.zoom * 1.2, 0.15, 8); applyTransform(); renderMinimap(); updateZoomDisplay(); }
+        else if (act === 'zoom-out') { S.zoom = clamp(S.zoom / 1.2, 0.15, 8); applyTransform(); renderMinimap(); updateZoomDisplay(); }
+        else if (act === 'zoom-fit') { fitZoom(); }
+      });
+    });
+
+    // Tool buttons
+    root.querySelectorAll('.nbd-tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tool = btn.dataset.tool;
+        if (tool === TOOLS.STAMP) {
+          const flyout = root.querySelector('#nbd-stamp-flyout');
+          if (flyout) flyout.classList.toggle('open');
+        }
+        setTool(tool);
+      });
+    });
+
+    // Stamp items
+    root.querySelectorAll('.nbd-stamp-item').forEach(item => {
+      item.addEventListener('click', () => {
+        S.stampId = item.dataset.stamp;
+        root.querySelectorAll('.nbd-stamp-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        setTool(TOOLS.STAMP);
+        const flyout = root.querySelector('#nbd-stamp-flyout');
+        if (flyout) flyout.classList.remove('open');
+      });
+    });
+
+    // Close stamp flyout on outside click
+    document.addEventListener('click', (e) => {
+      const flyout = root?.querySelector('#nbd-stamp-flyout');
+      if (flyout && flyout.classList.contains('open') && !e.target.closest('.nbd-stamp-flyout') && !e.target.closest('[data-tool="stamp"]')) {
+        flyout.classList.remove('open');
+      }
+    });
+
+    // Color swatches
+    root.querySelectorAll('.nbd-swatch').forEach(sw => {
+      sw.addEventListener('click', () => {
+        S.color = sw.dataset.color;
+        root.querySelectorAll('.nbd-swatch').forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        root.querySelector('#nbd-custom-color').style.background = S.color;
+      });
+    });
+
+    // Custom color picker
+    const colorBtn = root.querySelector('#nbd-custom-color');
+    const colorInput = root.querySelector('#nbd-color-input');
+    if (colorBtn && colorInput) {
+      colorBtn.addEventListener('click', () => colorInput.click());
+      colorInput.addEventListener('input', () => {
+        S.color = colorInput.value;
+        colorBtn.style.background = S.color;
+        root.querySelectorAll('.nbd-swatch').forEach(s => s.classList.remove('active'));
+      });
     }
+
+    // Property sliders
+    root.querySelectorAll('[data-prop]').forEach(slider => {
+      slider.addEventListener('input', () => {
+        const prop = slider.dataset.prop;
+        S[prop] = parseInt(slider.value);
+        const valEl = root.querySelector(`[data-prop-val="${prop}"]`);
+        if (valEl) valEl.textContent = prop === 'opacity' ? S[prop] + '%' : S[prop] + 'px';
+      });
+    });
+
+    // Fill & auto-number checkboxes
+    const fillCb = root.querySelector('#nbd-fill');
+    if (fillCb) fillCb.addEventListener('change', () => { S.fillShapes = fillCb.checked; });
+    const autoNumCb = root.querySelector('#nbd-autonum');
+    if (autoNumCb) autoNumCb.addEventListener('change', () => { S.autoNumber = autoNumCb.checked; });
+
+    // Panel fields
+    root.querySelectorAll('[data-field]').forEach(el => {
+      el.addEventListener('change', () => { S[el.dataset.field] = el.value; S.hasUnsaved = true; });
+    });
+
+    // Severity pills
+    root.querySelectorAll('.nbd-severity-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        S.severity = pill.dataset.sev;
+        root.querySelectorAll('.nbd-severity-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        S.hasUnsaved = true;
+      });
+    });
+
+    // Phase tabs
+    root.querySelectorAll('.nbd-phase-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        S.phase = tab.dataset.phase;
+        root.querySelectorAll('.nbd-phase-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        S.hasUnsaved = true;
+      });
+    });
+
+    // Tags
+    const tagInput = root.querySelector('#nbd-tag-input');
+    if (tagInput) {
+      tagInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && tagInput.value.trim()) {
+          addTag(tagInput.value.trim());
+          tagInput.value = '';
+        }
+      });
+    }
+
+    // Notes
+    const notesTA = root.querySelector('#nbd-notes');
+    if (notesTA) notesTA.addEventListener('input', () => { S.notes = notesTA.value; S.hasUnsaved = true; });
+
+    // Image adjustments
+    root.querySelectorAll('[data-adjust]').forEach(slider => {
+      slider.addEventListener('input', () => {
+        const field = slider.dataset.adjust;
+        S[field] = parseInt(slider.value);
+        const valEl = root.querySelector(`[data-adjust-val="${field}"]`);
+        if (valEl) valEl.textContent = S[field];
+        renderImage();
+        render();
+      });
+    });
+
+    // Annotation list events (delegated)
+    wireAnnListEvents();
+
+    // Photo strip
+    root.querySelectorAll('.nbd-strip-thumb').forEach(thumb => {
+      thumb.addEventListener('click', () => switchPhoto(parseInt(thumb.dataset.photoIdx)));
+    });
+
+    // Canvas events
+    const canvasArea = root.querySelector('.nbd-canvas-area');
+    if (canvasArea) {
+      canvasArea.addEventListener('mousedown', onPointerDown);
+      canvasArea.addEventListener('mousemove', onPointerMove);
+      canvasArea.addEventListener('mouseup', onPointerUp);
+      canvasArea.addEventListener('mouseleave', (e) => { if (isDrawing) onPointerUp(e); });
+      canvasArea.addEventListener('wheel', onWheel, { passive: false });
+      canvasArea.addEventListener('touchstart', onTouchStart, { passive: false });
+      canvasArea.addEventListener('touchmove', onTouchMove, { passive: false });
+      canvasArea.addEventListener('touchend', onTouchEnd, { passive: false });
+
+      // Context menu on right-click
+      canvasArea.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const coords = screenToCanvas(e.clientX, e.clientY);
+        const hit = hitTestAnno(coords.x, coords.y);
+        if (hit) showContextMenu(e.clientX, e.clientY, hit);
+      });
+    }
+
+    // Keyboard
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+  }
+
+  function wireAnnListEvents() {
+    root?.querySelectorAll('.nbd-ann-item').forEach(item => {
+      item.addEventListener('click', () => {
+        S.selectedId = item.dataset.annId;
+        S.tool = TOOLS.SELECT;
+        updateToolButtons();
+        render();
+        refreshAnnList();
+      });
+    });
+    root?.querySelectorAll('.nbd-ann-item-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pushUndo();
+        annotations = annotations.filter(a => a.id !== btn.dataset.delId);
+        if (S.selectedId === btn.dataset.delId) S.selectedId = null;
+        render();
+        refreshAnnList();
+      });
+    });
+  }
+
+  function refreshAnnList() {
+    const container = root?.querySelector('#nbd-ann-list');
+    if (!container) return;
+    container.innerHTML = buildAnnListHTML();
+    wireAnnListEvents();
+    // Update count
+    const countLabel = root?.querySelector('.nbd-panel-label');
+    // Not critical, just nice to have
+  }
+
+  function addTag(tag) {
+    if (!tag || S.tags.includes(tag)) return;
+    S.tags.push(tag);
+    S.hasUnsaved = true;
+    refreshTags();
+  }
+
+  function removeTag(tag) {
+    S.tags = S.tags.filter(t => t !== tag);
+    S.hasUnsaved = true;
+    refreshTags();
+  }
+
+  function refreshTags() {
+    const wrap = root?.querySelector('#nbd-tags-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = S.tags.map(t => `<span class="nbd-tag">${esc(t)}<button class="nbd-tag-remove" data-tag="${esc(t)}">&times;</button></span>`).join('');
+    wrap.querySelectorAll('.nbd-tag-remove').forEach(btn => {
+      btn.addEventListener('click', () => removeTag(btn.dataset.tag));
+    });
+  }
+
+  /* ==========================================
+     PANEL TOGGLE
+     ========================================== */
+  function togglePanel() {
+    const panel = root?.querySelector('#nbd-panel');
+    if (!panel) return;
+    if (window.innerWidth <= 768) {
+      panel.classList.toggle('open');
+    } else {
+      panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    }
+  }
+
+  /* ==========================================
+     ZOOM
+     ========================================== */
+  function fitZoom() {
+    const area = root?.querySelector('.nbd-canvas-area');
+    if (!area) return;
+    const areaRect = area.getBoundingClientRect();
+    const scaleX = (areaRect.width - 40) / S.imgW;
+    const scaleY = (areaRect.height - 40) / S.imgH;
+    S.zoom = Math.min(scaleX, scaleY, 1);
+    S.panX = 0; S.panY = 0;
+    applyTransform();
+    renderMinimap();
+    updateZoomDisplay();
+  }
+
+  /* ==========================================
+     CONTEXT MENU
+     ========================================== */
+  function showContextMenu(cx, cy, anno) {
+    closeContextMenu();
+    const menu = document.createElement('div');
+    menu.className = 'nbd-context-menu';
+    menu.style.left = cx + 'px';
+    menu.style.top = cy + 'px';
+    menu.innerHTML = `
+      <div class="nbd-context-item" data-ctx="select">Select</div>
+      <div class="nbd-context-item" data-ctx="duplicate">Duplicate</div>
+      <div class="nbd-context-item" data-ctx="bring-front">Bring to Front</div>
+      <div class="nbd-context-item" data-ctx="send-back">Send to Back</div>
+      <div class="nbd-context-item danger" data-ctx="delete">Delete</div>
+    `;
+    document.body.appendChild(menu);
+
+    menu.querySelectorAll('.nbd-context-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const act = item.dataset.ctx;
+        if (act === 'select') { S.selectedId = anno.id; S.tool = TOOLS.SELECT; updateToolButtons(); render(); refreshAnnList(); }
+        else if (act === 'duplicate') { pushUndo(); const dup = JSON.parse(JSON.stringify(anno)); dup.id = uid(); if (dup.x != null) { dup.x += 20; dup.y += 20; } if (dup.x1 != null) { dup.x1 += 20; dup.y1 += 20; dup.x2 += 20; dup.y2 += 20; } annotations.push(dup); render(); refreshAnnList(); }
+        else if (act === 'bring-front') { pushUndo(); annotations = annotations.filter(a => a.id !== anno.id); annotations.push(anno); render(); refreshAnnList(); }
+        else if (act === 'send-back') { pushUndo(); annotations = annotations.filter(a => a.id !== anno.id); annotations.unshift(anno); render(); refreshAnnList(); }
+        else if (act === 'delete') { pushUndo(); annotations = annotations.filter(a => a.id !== anno.id); if (S.selectedId === anno.id) S.selectedId = null; render(); refreshAnnList(); }
+        closeContextMenu();
+      });
+    });
+
+    setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 10);
+  }
+
+  function closeContextMenu() {
+    document.querySelectorAll('.nbd-context-menu').forEach(m => m.remove());
+  }
+
+  /* ==========================================
+     GUIDED INSPECTION
+     ========================================== */
+  function toggleGuided() {
+    S.guidedActive = !S.guidedActive;
+    refreshGuided();
+  }
+
+  function refreshGuided() {
+    let overlay = root?.querySelector('.nbd-guided-overlay');
+    if (!S.guidedActive) { if (overlay) overlay.remove(); return; }
+
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'nbd-guided-overlay';
+      root.querySelector('.nbd-canvas-area')?.appendChild(overlay);
+    }
+
+    if (!S.guidedPreset) {
+      // Show preset picker
+      overlay.innerHTML = `<div class="nbd-guided-card">
+        <h3>Guided Inspection</h3>
+        <p>Choose an inspection type to get a step-by-step checklist.</p>
+        ${Object.entries(GUIDED_PRESETS).map(([k, v]) => `<button class="nbd-btn" data-preset="${k}" style="width:100%;margin-bottom:8px;justify-content:flex-start">${v.label}</button>`).join('')}
+        <button class="nbd-btn" data-preset="cancel" style="width:100%;margin-top:4px">Cancel</button>
+      </div>`;
+      overlay.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.dataset.preset === 'cancel') { S.guidedActive = false; refreshGuided(); return; }
+          S.guidedPreset = btn.dataset.preset;
+          S.guidedChecked = [];
+          refreshGuided();
+        });
+      });
+      return;
+    }
+
+    const preset = GUIDED_PRESETS[S.guidedPreset];
+    if (!preset) return;
+
+    overlay.innerHTML = `<div class="nbd-guided-card" style="max-width:440px">
+      <h3>${preset.label}</h3>
+      <p>Check off each item as you annotate it. Click an item to toggle.</p>
+      ${preset.items.map((item, i) => `<div class="nbd-checklist-item ${S.guidedChecked.includes(i) ? 'done' : ''}" data-check="${i}">
+        <div class="nbd-checklist-check">${S.guidedChecked.includes(i) ? '✓' : ''}</div>
+        <span>${item}</span>
+      </div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="nbd-btn" data-guide-act="minimize" style="flex:1">Minimize</button>
+        <button class="nbd-btn primary" data-guide-act="done" style="flex:1">Done</button>
+      </div>
+    </div>`;
+
+    overlay.querySelectorAll('.nbd-checklist-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = parseInt(item.dataset.check);
+        if (S.guidedChecked.includes(idx)) S.guidedChecked = S.guidedChecked.filter(i => i !== idx);
+        else S.guidedChecked.push(idx);
+        refreshGuided();
+      });
+    });
+
+    overlay.querySelector('[data-guide-act="minimize"]')?.addEventListener('click', () => {
+      S.guidedActive = false;
+      refreshGuided();
+      // Could show a small floating badge instead — keeping it simple for now
+    });
+    overlay.querySelector('[data-guide-act="done"]')?.addEventListener('click', () => {
+      S.guidedActive = false;
+      S.guidedPreset = null;
+      S.guidedChecked = [];
+      refreshGuided();
+    });
+  }
+
+  /* ==========================================
+     MULTI-PHOTO
+     ========================================== */
+  async function switchPhoto(idx) {
+    if (idx === S.currentPhotoIndex || idx < 0 || idx >= S.allPhotos.length) return;
+    // TODO: prompt save if unsaved
+    S.currentPhotoIndex = idx;
+    const photo = S.allPhotos[idx];
+    const url = typeof photo === 'string' ? photo : (photo.url || '');
+    try {
+      S.originalImage = await loadImage(url);
+      S.imgW = S.originalImage.width;
+      S.imgH = S.originalImage.height;
+      if (S.imgW > 1600) { const ratio = S.imgH / S.imgW; S.imgW = 1600; S.imgH = S.imgW * ratio; }
+      if (S.imgH > 1000) { const ratio = S.imgW / S.imgH; S.imgH = 1000; S.imgW = S.imgH * ratio; }
+      S.imgW = Math.round(S.imgW);
+      S.imgH = Math.round(S.imgH);
+      initCanvases();
+      renderImage();
+      annotations = [];
+      undoStack = [];
+      redoStack = [];
+      render();
+      fitZoom();
+      refreshAnnList();
+      // Update strip active
+      root?.querySelectorAll('.nbd-strip-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+    } catch (err) { toast('Failed to load photo', 'error'); }
+  }
+
+  /* ==========================================
+     CANVAS INIT
+     ========================================== */
+  function initCanvases() {
+    const wrapper = root?.querySelector('.nbd-canvas-wrapper');
+    if (!wrapper) return;
+    wrapper.innerHTML = '';
+    wrapper.style.width = S.imgW + 'px';
+    wrapper.style.height = S.imgH + 'px';
+
+    mainCanvas = document.createElement('canvas');
+    mainCanvas.width = S.imgW; mainCanvas.height = S.imgH;
+    mainCanvas.style.cssText = 'position:absolute;top:0;left:0';
+
+    annoCanvas = document.createElement('canvas');
+    annoCanvas.width = S.imgW; annoCanvas.height = S.imgH;
+    annoCanvas.style.cssText = 'position:absolute;top:0;left:0';
+
+    wrapper.appendChild(mainCanvas);
+    wrapper.appendChild(annoCanvas);
+
+    mCtx = mainCanvas.getContext('2d', { willReadFrequently: true });
+    aCtx = annoCanvas.getContext('2d');
+  }
+
+  /* ==========================================
+     SVG ICONS (inline for zero dependencies)
+     ========================================== */
+  const svgPointer = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>`;
+  const svgPen = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>`;
+  const svgLine = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>`;
+  const svgArrow = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+  const svgRect = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+  const svgCircle = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+  const svgText = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9.5" y1="20" x2="14.5" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`;
+  const svgCallout = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">1</text></svg>`;
+  const svgEraser = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8L14.8 1.4c.8-.8 2-.8 2.8 0l5 5c.8.8.8 2 0 2.8L11 20"/><path d="M18 13L11 6"/></svg>`;
+  const svgStamp = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21h14"/><path d="M5 21V11l3-3h8l3 3v10"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const svgMeasure = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.3 15.3a2.4 2.4 0 010 3.4l-2.6 2.6a2.4 2.4 0 01-3.4 0L2.7 8.7a2.4 2.4 0 010-3.4l2.6-2.6a2.4 2.4 0 013.4 0z"/><path d="M14.5 12.5l2-2"/><path d="M11.5 9.5l2-2"/><path d="M8.5 6.5l2-2"/><path d="M17.5 15.5l2-2"/></svg>`;
+
+  /* ==========================================
+     CLOSE
+     ========================================== */
+  function closeWithPrompt() {
+    if (S.hasUnsaved) {
+      if (!confirm('You have unsaved changes. Close anyway?')) return;
+    }
+    closeEditor();
   }
 
   function closeEditor() {
-    if (modal) {
-      modal.remove();
-      modal = null;
-    }
-    canvas = null;
-    overlayCanvas = null;
-    ctx = null;
-    overlayCtx = null;
+    if (root) root.remove();
+    root = null;
+    mainCanvas = null; annoCanvas = null;
+    mCtx = null; aCtx = null;
     annotations = [];
-    undoStack = [];
-    redoStack = [];
-    STATE.selectedAnnotationId = null;
+    undoStack = []; redoStack = [];
+    S.selectedId = null;
+    S.guidedActive = false;
+    S.guidedPreset = null;
+    document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('keyup', onKeyUp);
   }
 
-  async function loadPhotoData(photoId) {
-    if (!photoId) return;
-    try {
-      const docRef = window.doc(window.db, 'photos', photoId);
-      const docSnap = await window.getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        STATE.damageType = data.damageType || '';
-        STATE.severity = data.severity || '';
-        STATE.location = data.location || '';
-        STATE.phase = data.phase || 'Before';
-        STATE.notes = data.notes || '';
-        STATE.customTags = data.tags || [];
-        updateRightSidebar();
-      }
-    } catch (error) {
-      console.error('Error loading photo data:', error);
-    }
-  }
+  /* ==========================================
+     PUBLIC API: OPEN
+     ========================================== */
+  async function openEditor(photoUrl, photoId, leadId, photoData, allPhotos) {
+    closeEditor(); // Clean up any previous instance
 
-  function updateRightSidebar() {
-    if (!modal) return;
-    const sidebar = modal.querySelector('[style*="border-left"]');
-    if (!sidebar) return;
-    const selects = sidebar.querySelectorAll('select');
-    if (selects[0]) selects[0].value = STATE.damageType;
-    if (selects[1]) selects[1].value = STATE.location;
-    const severityRadios = sidebar.querySelectorAll('input[name="severity"]');
-    severityRadios.forEach(radio => radio.checked = radio.value === STATE.severity);
-    const notesTA = sidebar.querySelector('textarea');
-    if (notesTA) notesTA.value = STATE.notes;
-    updateCustomTagsDisplay();
-  }
-
-  async function openEditor(photoUrl, photoId, leadId, photoData) {
-    STATE.photoUrl = photoUrl;
-    STATE.photoId = photoId;
-    STATE.leadId = leadId;
-    STATE.photoData = photoData;
-    STATE.userId = window.auth?.currentUser?.uid || '';
-    STATE.calloutNumber = 1;
-    STATE.hasUnsavedChanges = false;
+    S.photoUrl = photoUrl;
+    S.photoId = photoId;
+    S.leadId = leadId;
+    S.userId = window.auth?.currentUser?.uid || '';
+    S.photoData = photoData;
+    S.calloutNum = 1;
+    S.hasUnsaved = false;
+    S.zoom = 1; S.panX = 0; S.panY = 0;
+    S.brightness = 0; S.contrast = 0;
+    S.selectedId = null;
+    S.allPhotos = allPhotos || [];
+    S.currentPhotoIndex = 0;
     annotations = [];
     undoStack = [];
     redoStack = [];
 
     if (photoData) {
-      STATE.damageType = photoData.damageType || '';
-      STATE.severity = photoData.severity || '';
-      STATE.location = photoData.location || '';
-      STATE.phase = photoData.phase || 'Before';
-      STATE.notes = photoData.notes || '';
-      STATE.customTags = photoData.tags || [];
-    } else if (photoId) {
-      await loadPhotoData(photoId);
+      S.damageType = photoData.damageType || '';
+      S.severity = photoData.severity || '';
+      S.location = photoData.location || '';
+      S.phase = photoData.phase || 'Before';
+      S.notes = photoData.notes || '';
+      S.tags = photoData.tags || [];
+    } else {
+      S.damageType = ''; S.severity = ''; S.location = ''; S.phase = 'Before'; S.notes = ''; S.tags = [];
     }
 
-    modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-    `;
-
-    document.body.appendChild(modal);
-
-    const topPlaceholder = document.createElement('div');
-    const containerPlaceholder = document.createElement('div');
-    containerPlaceholder.style.cssText = 'flex: 1; display: flex; overflow: hidden;';
-    const canvasPlaceholder = document.createElement('div');
-    canvasPlaceholder.style.cssText = 'flex: 1; display: flex; justify-content: center; align-items: center; background: #e0e0e0; position: relative; overflow: auto;';
-    const bottomPlaceholder = document.createElement('div');
-
-    modal.appendChild(topPlaceholder);
-    modal.appendChild(containerPlaceholder);
-    modal.appendChild(bottomPlaceholder);
-
     try {
-      STATE.originalImage = new Image();
+      S.originalImage = await loadImage(photoUrl);
+      S.imgW = S.originalImage.width;
+      S.imgH = S.originalImage.height;
+      // Cap canvas size for performance
+      if (S.imgW > 1600) { const ratio = S.imgH / S.imgW; S.imgW = 1600; S.imgH = Math.round(S.imgW * ratio); }
+      if (S.imgH > 1000) { const ratio = S.imgW / S.imgH; S.imgH = 1000; S.imgW = Math.round(S.imgH * ratio); }
+      S.imgW = Math.round(S.imgW);
+      S.imgH = Math.round(S.imgH);
 
-      const onImageReady = () => {
-        let width = STATE.originalImage.width;
-        let height = STATE.originalImage.height;
-        const aspectRatio = width / height;
-        if (width > CONFIG.MAX_CANVAS_WIDTH) {
-          width = CONFIG.MAX_CANVAS_WIDTH;
-          height = width / aspectRatio;
-        }
-        if (height > CONFIG.MAX_CANVAS_HEIGHT) {
-          height = CONFIG.MAX_CANVAS_HEIGHT;
-          width = height * aspectRatio;
-        }
+      buildEditor();
+      initCanvases();
+      renderImage();
+      wireEvents();
+      render();
 
-        canvasPlaceholder.innerHTML = '';
-        initializeCanvases(canvasPlaceholder, width, height);
-        ctx.drawImage(STATE.originalImage, 0, 0, width, height);
+      // Fit after layout settles
+      requestAnimationFrame(() => {
+        fitZoom();
+        updateCursor();
+      });
 
-        topPlaceholder.parentNode.replaceChild(createTopToolbar(), topPlaceholder);
-        const leftSidebar = createLeftToolbar();
-        const rightSidebar = createRightSidebar();
-        containerPlaceholder.appendChild(leftSidebar);
-        containerPlaceholder.appendChild(canvasPlaceholder);
-        containerPlaceholder.appendChild(rightSidebar);
-        bottomPlaceholder.parentNode.replaceChild(createBottomToolbar(), bottomPlaceholder);
-
-        updateUndoRedoButtons();
-        updateAnnotationsList();
-        setupKeyboardShortcuts();
-
-        if (overlayCanvas) {
-          overlayCanvas.focus();
-        }
-      };
-
-      // Extract storage path from Firebase Storage URL for proxy fallback
-      const getStoragePath = (url) => {
+      // Load existing photo metadata from Firestore
+      if (photoId && !photoData) {
         try {
-          const match = url.match(/\/o\/([^?]+)/);
-          if (match) return decodeURIComponent(match[1]);
-        } catch (e) {}
-        return null;
-      };
+          const docSnap = await window.getDoc(window.doc(window.db, 'photos', photoId));
+          if (docSnap.exists()) {
+            const d = docSnap.data();
+            S.damageType = d.damageType || ''; S.severity = d.severity || '';
+            S.location = d.location || ''; S.phase = d.phase || 'Before';
+            S.notes = d.notes || ''; S.tags = d.tags || [];
+            // Refresh panel fields
+            refreshPanelFields();
+          }
+        } catch (e) { console.warn('Could not load photo metadata:', e); }
+      }
 
-      // Strategy 1: Try Cloud Function image proxy (bypasses CORS entirely)
-      const loadViaProxy = async (url) => {
-        const storagePath = getStoragePath(url);
-        if (!storagePath) { loadDirect(url); return; }
-
-        const proxyUrl = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/imageProxy?path=' + encodeURIComponent(storagePath);
-        try {
-          const response = await fetch(proxyUrl);
-          if (!response.ok) throw new Error('Proxy returned ' + response.status);
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          STATE.originalImage.onload = () => {
-            URL.revokeObjectURL(blobUrl);
-            onImageReady();
-          };
-          STATE.originalImage.onerror = () => {
-            URL.revokeObjectURL(blobUrl);
-            loadDirect(url);
-          };
-          STATE.originalImage.src = blobUrl;
-        } catch (e) {
-          console.warn('Proxy load failed, trying direct:', e.message);
-          loadDirect(url);
-        }
-      };
-
-      // Strategy 2: Direct load with crossOrigin (works if CORS is configured)
-      const loadDirect = (url) => {
-        STATE.originalImage = new Image();
-        STATE.originalImage.crossOrigin = 'anonymous';
-        STATE.originalImage.onload = onImageReady;
-        STATE.originalImage.onerror = () => {
-          // Strategy 3: Load without crossOrigin (canvas tainted but image displays)
-          console.warn('CORS load failed, loading without crossOrigin (canvas will be tainted)');
-          STATE.originalImage = new Image();
-          STATE.originalImage.onload = onImageReady;
-          STATE.originalImage.onerror = () => {
-            showToast('Failed to load image', 'error');
-            closeEditor();
-          };
-          STATE.originalImage.src = url;
-        };
-        STATE.originalImage.src = url;
-      };
-
-      loadViaProxy(photoUrl);
-    } catch (error) {
-      console.error('Editor open error:', error);
-      showToast('Error opening editor: ' + error.message, 'error');
+    } catch (err) {
+      console.error('Editor open error:', err);
+      toast('Failed to open editor: ' + err.message, 'error');
       closeEditor();
     }
   }
 
+  function refreshPanelFields() {
+    if (!root) return;
+    const dmgSel = root.querySelector('[data-field="damageType"]');
+    if (dmgSel) dmgSel.value = S.damageType;
+    const locSel = root.querySelector('[data-field="location"]');
+    if (locSel) locSel.value = S.location;
+    root.querySelectorAll('.nbd-severity-pill').forEach(p => p.classList.toggle('active', p.dataset.sev === S.severity));
+    root.querySelectorAll('.nbd-phase-tab').forEach(t => t.classList.toggle('active', t.dataset.phase === S.phase));
+    const notesTA = root.querySelector('#nbd-notes');
+    if (notesTA) notesTA.value = S.notes;
+    refreshTags();
+  }
+
+  /* ==========================================
+     EXPOSE PUBLIC API
+     ========================================== */
   window.NBDPhotoEditor = {
     open: openEditor,
     close: closeEditor,
   };
 
-  console.log('Photo Editor module loaded. Use: window.NBDPhotoEditor.open(photoUrl, photoId, leadId, photoData)');
+  console.log('NBD Inspection Editor v2.0 loaded');
 })();
