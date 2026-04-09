@@ -591,6 +591,9 @@ header {
       <div class="meta-item">
         <span class="stage-badge" id="customerStage">New</span>
       </div>
+      <div class="meta-item" id="customerIdBadge" style="display:none;">
+        <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(200,84,26,.12);color:#C8541A;padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
+      </div>
       <div class="meta-item">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
       </div>
@@ -1869,7 +1872,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1960,6 +1963,33 @@ async function loadCustomerData(id) {
     // CRITICAL: Populate window._leads so external modules can find this lead
     window._leads = [lead];
     window._currentLead = lead;
+
+    // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
+    if (!lead.customerId) {
+      try {
+        const counterRef = doc(db, 'counters', 'customerIds');
+        const newId = await runTransaction(db, async (transaction) => {
+          const counterSnap = await transaction.get(counterRef);
+          let nextNum = 1;
+          if (counterSnap.exists()) {
+            nextNum = (counterSnap.data().next || 0) + 1;
+          }
+          transaction.set(counterRef, { next: nextNum }, { merge: true });
+          return 'NBD-' + String(nextNum).padStart(4, '0');
+        });
+        await updateDoc(doc(db, 'leads', id), { customerId: newId });
+        lead.customerId = newId;
+        console.log('✓ Assigned customer ID:', newId);
+      } catch (cidErr) {
+        console.warn('Could not assign customer ID:', cidErr);
+      }
+    }
+
+    // Display customer ID badge
+    if (lead.customerId) {
+      document.getElementById('customerIdDisplay').textContent = lead.customerId;
+      document.getElementById('customerIdBadge').style.display = '';
+    }
 
     // Populate header
     const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
@@ -3980,16 +4010,6 @@ function renderPhotoGrid() {
 
   document.getElementById('photosByPhase').innerHTML = html;
 }
-
-window.openPhotoInEditor = function(idx) {
-  var photo = (window._allPhotos || [])[idx];
-  if (!photo) return;
-  if (window.NBDPhotoEditor) {
-    window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId, photo);
-  } else {
-    openPhotoLightbox(photo.url, photo.description || '');
-  }
-};
 
 window.loadPhotosByPhase = async function(leadId) {
   try {
