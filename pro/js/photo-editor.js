@@ -1,84 +1,58 @@
 /**
  * ROOFING CRM - PHOTO EDITOR MODULE
- * Damage Annotation Tool for Insurance Claims
+ * Enhanced Damage Annotation Tool for Insurance Claims
  *
  * Public API:
- * - window.NBDPhotoEditor.open(photoUrl, photoId, leadId)
+ * - window.NBDPhotoEditor.open(photoUrl, photoId, leadId, photoData)
  * - window.NBDPhotoEditor.close()
  */
 
 (function() {
   'use strict';
 
-  // ============================================
-  // STATE & CONFIG
-  // ============================================
-
   const CONFIG = {
-    // Canvas defaults
     MAX_CANVAS_WIDTH: 1200,
     MAX_CANVAS_HEIGHT: 800,
     DEFAULT_LINE_WIDTH: 2,
     DEFAULT_OPACITY: 100,
     DEFAULT_COLOR: '#ff0000',
 
-    // Tool types
     TOOLS: {
-      SELECT: 'select',
-      PEN: 'pen',
-      LINE: 'line',
-      ARROW: 'arrow',
-      RECT: 'rect',
-      CIRCLE: 'circle',
-      TEXT: 'text',
-      ERASER: 'eraser',
-      HAIL: 'hail',
-      WIND: 'wind',
-      LEAK: 'leak',
-      SHINGLE: 'shingle',
-      CALLOUT: 'callout',
-      MEASURE: 'measure',
-      AREA: 'area',
-      CROP: 'crop',
+      SELECT: 'select', PEN: 'pen', LINE: 'line', ARROW: 'arrow', RECT: 'rect', CIRCLE: 'circle',
+      TEXT: 'text', ERASER: 'eraser', HAIL: 'hail', WIND: 'wind', LEAK: 'leak', SHINGLE: 'shingle',
+      CALLOUT: 'callout', MEASURE: 'measure', AREA: 'area', CROP: 'crop',
     },
 
-    // Annotation types
     ANNOTATION_TYPES: {
-      PEN: 'pen',
-      LINE: 'line',
-      ARROW: 'arrow',
-      RECT: 'rect',
-      CIRCLE: 'circle',
-      TEXT: 'text',
-      HAIL: 'hail',
-      WIND: 'wind',
-      LEAK: 'leak',
-      SHINGLE: 'shingle',
-      CALLOUT: 'callout',
-      MEASURE: 'measure',
-      AREA: 'area',
+      PEN: 'pen', LINE: 'line', ARROW: 'arrow', RECT: 'rect', CIRCLE: 'circle', TEXT: 'text',
+      HAIL: 'hail', WIND: 'wind', LEAK: 'leak', SHINGLE: 'shingle', CALLOUT: 'callout',
+      MEASURE: 'measure', AREA: 'area',
     },
 
-    // Color palette
     COLOR_PALETTE: ['#ff0000', '#ff6600', '#ffcc00', '#00cc00', '#0088ff', '#cc00ff', '#ffffff', '#000000'],
 
-    // Image adjustments limits
-    ADJUST_LIMITS: {
-      brightness: { min: -100, max: 100, step: 1 },
-      contrast: { min: -100, max: 100, step: 1 },
-      rotation: { min: 0, max: 360, step: 1 },
+    DAMAGE_TYPES: [
+      'Hail', 'Wind', 'Leak', 'Missing Shingle', 'Cracked Tile',
+      'Flashing Damage', 'Gutter Damage', 'Soffit/Fascia', 'Tree Damage',
+      'Algae/Moss', 'Ice Dam', 'Ponding Water', 'Other'
+    ],
+
+    SEVERITY_LEVELS: {
+      'minor': { label: 'Minor', color: '#ffcc00' },
+      'moderate': { label: 'Moderate', color: '#ff6600' },
+      'severe': { label: 'Severe', color: '#ff0000' },
     },
 
-    // Severity colors
-    SEVERITY_COLORS: {
-      'minor': '#ffcc00',
-      'moderate': '#ff6600',
-      'severe': '#ff0000',
-    },
+    ROOF_LOCATIONS: [
+      'Ridge', 'Hip', 'Valley', 'Field/Slope', 'Edge/Drip', 'Flashing',
+      'Vent/Pipe Boot', 'Chimney', 'Skylight', 'Gutter', 'Downspout',
+      'Soffit', 'Fascia', 'Dormer', 'Flat Section'
+    ],
+
+    PHASES: ['Before', 'During', 'After'],
   };
 
   const STATE = {
-    // Current state
     currentTool: CONFIG.TOOLS.PEN,
     currentColor: CONFIG.DEFAULT_COLOR,
     currentLineWidth: CONFIG.DEFAULT_LINE_WIDTH,
@@ -86,497 +60,86 @@
     fillShapes: false,
     calloutNumber: 1,
 
-    // Selection state
+    photoUrl: null,
+    photoId: null,
+    leadId: null,
+    userId: null,
+    photoData: null,
+
+    damageType: '',
+    severity: '',
+    location: '',
+    phase: 'Before',
+    notes: '',
+    customTags: [],
+
     selectedAnnotationId: null,
 
-    // Image adjustments
     brightness: 0,
     contrast: 0,
     rotation: 0,
     zoom: 1,
     zoomFit: true,
 
-    // Crop state
     cropActive: false,
     cropRect: null,
 
-    // File info
-    photoUrl: null,
-    photoId: null,
-    leadId: null,
     originalImage: null,
-    image: null,
 
-    // Unsaved changes
     hasUnsavedChanges: false,
-
-    // Drawing state
-    isDrawing: false,
-    drawStartX: 0,
-    drawStartY: 0,
-
-    // Text input dialog
-    textInputActive: false,
   };
 
-  // Undo/Redo stacks
+  let modal = null;
+  let canvas = null;
+  let overlayCanvas = null;
+  let ctx = null;
+  let overlayCtx = null;
+  let annotations = [];
   let undoStack = [];
   let redoStack = [];
-  let annotations = [];
-
-  // Canvas elements
-  let modal;
-  let canvas;
-  let ctx;
-  let overlayCanvas;
-  let overlayCtx;
-  let canvasContainer;
-
-  // ============================================
-  // UTILITY FUNCTIONS
-  // ============================================
+  let isDrawing = false;
+  let startX = 0;
+  let startY = 0;
+  let currentPoints = [];
 
   function generateId() {
-    return Math.random().toString(36).substr(2, 9);
+    return 'photo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
-  function showToast(message, type = 'success') {
-    const container = document.querySelector('.nbd-toast-container') || createToastContainer();
+  function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `nbd-toast ${type}`;
     toast.textContent = message;
-    container.appendChild(toast);
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '4px';
+    toast.style.fontSize = '14px';
+    toast.style.zIndex = '10000';
+    toast.style.maxWidth = '400px';
+    toast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
 
-    setTimeout(() => {
-      toast.style.animation = 'slideIn 0.3s ease reverse';
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
-  }
-
-  function createToastContainer() {
-    const container = document.createElement('div');
-    container.className = 'nbd-toast-container';
-    document.body.appendChild(container);
-    return container;
-  }
-
-  function showDialog(title, content, buttons = []) {
-    const overlay = document.createElement('div');
-    overlay.className = 'nbd-dialog-overlay';
-
-    const dialog = document.createElement('div');
-    dialog.className = 'nbd-dialog';
-
-    dialog.innerHTML = `
-      <div class="nbd-dialog-title">${title}</div>
-      <div class="nbd-dialog-content">${content}</div>
-      <div class="nbd-dialog-buttons"></div>
-    `;
-
-    const buttonsContainer = dialog.querySelector('.nbd-dialog-buttons');
-    buttons.forEach(btn => {
-      const button = document.createElement('button');
-      button.className = `nbd-dialog-btn ${btn.class || ''}`;
-      button.textContent = btn.text;
-      button.onclick = () => {
-        btn.onClick();
-        overlay.remove();
-      };
-      buttonsContainer.appendChild(button);
-    });
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    overlay.onclick = (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    };
-  }
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function distance(x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  function drawArrowHead(ctx, fromX, fromY, toX, toY, size = 15) {
-    const angle = Math.atan2(toY - fromY, toX - fromX);
-
-    // Left arrow point
-    ctx.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6));
-    ctx.lineTo(toX, toY);
-
-    // Right arrow point
-    ctx.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6));
-  }
-
-  // ============================================
-  // CANVAS MANAGEMENT
-  // ============================================
-
-  function initializeCanvases(containerElement, imageWidth, imageHeight) {
-    canvasContainer = containerElement;
-    canvasContainer.innerHTML = '';
-
-    // Main canvas for image
-    canvas = document.createElement('canvas');
-    canvas.width = imageWidth;
-    canvas.height = imageHeight;
-    canvas.className = 'nbd-canvas';
-    ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    // Overlay canvas for annotations
-    overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = imageWidth;
-    overlayCanvas.height = imageHeight;
-    overlayCanvas.className = 'nbd-canvas';
-    overlayCtx = overlayCanvas.getContext('2d', { willReadFrequently: true });
-
-    // Container for layering
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'relative';
-    wrapper.style.display = 'inline-block';
-
-    wrapper.appendChild(canvas);
-    wrapper.appendChild(overlayCanvas);
-
-    // Overlay on top for interaction
-    overlayCanvas.style.position = 'absolute';
-    overlayCanvas.style.top = '0';
-    overlayCanvas.style.left = '0';
-    overlayCanvas.style.cursor = 'crosshair';
-
-    canvasContainer.appendChild(wrapper);
-    setupCanvasEventListeners();
-    redrawAll();
-  }
-
-  function redrawAll() {
-    if (!ctx || !overlayCtx) return;
-
-    // Clear overlay
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-    // Redraw all annotations
-    annotations.forEach(annotation => {
-      drawAnnotation(overlayCtx, annotation);
-    });
-
-    // Highlight selected annotation
-    if (STATE.selectedAnnotationId) {
-      const selected = annotations.find(a => a.id === STATE.selectedAnnotationId);
-      if (selected) {
-        drawSelectionBox(overlayCtx, selected);
-      }
-    }
-
-    // Draw crop overlay if active
-    if (STATE.cropActive && STATE.cropRect) {
-      drawCropOverlay();
-    }
-  }
-
-  function drawAnnotation(context, annotation) {
-    if (!annotation) return;
-
-    context.globalAlpha = annotation.opacity !== undefined ? annotation.opacity / 100 : 1;
-    context.strokeStyle = annotation.color || STATE.currentColor;
-    context.fillStyle = annotation.color || STATE.currentColor;
-    context.lineWidth = annotation.width || STATE.currentLineWidth;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-
-    switch (annotation.type) {
-      case CONFIG.ANNOTATION_TYPES.PEN:
-        drawPenAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.LINE:
-        drawLineAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.ARROW:
-        drawArrowAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.RECT:
-        drawRectAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.CIRCLE:
-        drawCircleAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.TEXT:
-        drawTextAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.HAIL:
-        drawHailAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.WIND:
-        drawWindAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.LEAK:
-        drawLeakAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.SHINGLE:
-        drawShingleAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.CALLOUT:
-        drawCalloutAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.MEASURE:
-        drawMeasureAnnotation(context, annotation);
-        break;
-      case CONFIG.ANNOTATION_TYPES.AREA:
-        drawAreaAnnotation(context, annotation);
-        break;
-    }
-
-    context.globalAlpha = 1;
-  }
-
-  function drawPenAnnotation(context, annotation) {
-    if (!annotation.points || annotation.points.length < 2) return;
-    context.beginPath();
-    context.moveTo(annotation.points[0].x, annotation.points[0].y);
-    annotation.points.forEach(point => {
-      context.lineTo(point.x, point.y);
-    });
-    context.stroke();
-  }
-
-  function drawLineAnnotation(context, annotation) {
-    context.beginPath();
-    context.moveTo(annotation.x1, annotation.y1);
-    context.lineTo(annotation.x2, annotation.y2);
-    context.stroke();
-  }
-
-  function drawArrowAnnotation(context, annotation) {
-    const headlen = 15;
-    const angle = Math.atan2(annotation.y2 - annotation.y1, annotation.x2 - annotation.x1);
-
-    // Draw line
-    context.beginPath();
-    context.moveTo(annotation.x1, annotation.y1);
-    context.lineTo(annotation.x2, annotation.y2);
-    context.stroke();
-
-    // Draw arrowhead
-    context.beginPath();
-    context.moveTo(annotation.x2, annotation.y2);
-    context.lineTo(annotation.x2 - headlen * Math.cos(angle - Math.PI / 6), annotation.y2 - headlen * Math.sin(angle - Math.PI / 6));
-    context.moveTo(annotation.x2, annotation.y2);
-    context.lineTo(annotation.x2 - headlen * Math.cos(angle + Math.PI / 6), annotation.y2 - headlen * Math.sin(angle + Math.PI / 6));
-    context.stroke();
-  }
-
-  function drawRectAnnotation(context, annotation) {
-    const w = annotation.x2 - annotation.x1;
-    const h = annotation.y2 - annotation.y1;
-
-    if (annotation.filled) {
-      context.fillRect(annotation.x1, annotation.y1, w, h);
+    if (type === 'error') {
+      toast.style.backgroundColor = '#ff4444';
+      toast.style.color = 'white';
+    } else if (type === 'success') {
+      toast.style.backgroundColor = '#44ff44';
+      toast.style.color = '#000';
     } else {
-      context.strokeRect(annotation.x1, annotation.y1, w, h);
-    }
-  }
-
-  function drawCircleAnnotation(context, annotation) {
-    const radius = distance(annotation.cx, annotation.cy, annotation.x2, annotation.y2);
-    context.beginPath();
-    context.arc(annotation.cx, annotation.cy, radius, 0, Math.PI * 2);
-
-    if (annotation.filled) {
-      context.fill();
-    } else {
-      context.stroke();
-    }
-  }
-
-  function drawTextAnnotation(context, annotation) {
-    context.fillStyle = annotation.color || '#ffffff';
-    context.font = `${annotation.fontSize || 16}px Arial`;
-    context.fillText(annotation.text, annotation.x, annotation.y);
-  }
-
-  function drawHailAnnotation(context, annotation) {
-    const size = 20;
-    context.beginPath();
-    context.arc(annotation.x, annotation.y, size, 0, Math.PI * 2);
-    context.stroke();
-
-    context.fillStyle = annotation.color;
-    context.font = 'bold 14px Arial';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText('H', annotation.x, annotation.y);
-  }
-
-  function drawWindAnnotation(context, annotation) {
-    const size = 40;
-    const angle = annotation.angle || 0;
-
-    context.save();
-    context.translate(annotation.x, annotation.y);
-    context.rotate(angle);
-
-    // Arrow
-    context.beginPath();
-    context.moveTo(0, 0);
-    context.lineTo(size, 0);
-    context.stroke();
-
-    // Arrowhead
-    context.beginPath();
-    context.moveTo(size, 0);
-    context.lineTo(size - 10, -8);
-    context.moveTo(size, 0);
-    context.lineTo(size - 10, 8);
-    context.stroke();
-
-    // Label
-    context.fillStyle = annotation.color;
-    context.font = 'bold 11px Arial';
-    context.textAlign = 'center';
-    context.fillText('WIND', 0, -15);
-
-    context.restore();
-  }
-
-  function drawLeakAnnotation(context, annotation) {
-    const size = 15;
-    // Droplet shape
-    context.beginPath();
-    context.arc(annotation.x, annotation.y - size / 2, size / 2, 0, Math.PI, true);
-    context.lineTo(annotation.x, annotation.y + size);
-    context.closePath();
-    context.fill();
-  }
-
-  function drawShingleAnnotation(context, annotation) {
-    const size = 20;
-    // Square
-    context.strokeRect(annotation.x - size / 2, annotation.y - size / 2, size, size);
-
-    // X
-    context.beginPath();
-    context.moveTo(annotation.x - size / 2, annotation.y - size / 2);
-    context.lineTo(annotation.x + size / 2, annotation.y + size / 2);
-    context.moveTo(annotation.x + size / 2, annotation.y - size / 2);
-    context.lineTo(annotation.x - size / 2, annotation.y + size / 2);
-    context.stroke();
-  }
-
-  function drawCalloutAnnotation(context, annotation) {
-    const size = 24;
-    // Circle
-    context.beginPath();
-    context.arc(annotation.x, annotation.y, size / 2, 0, Math.PI * 2);
-    context.fill();
-
-    // Number
-    context.fillStyle = '#000000';
-    context.font = 'bold 16px Arial';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(annotation.number, annotation.x, annotation.y);
-  }
-
-  function drawMeasureAnnotation(context, annotation) {
-    context.beginPath();
-    context.moveTo(annotation.x1, annotation.y1);
-    context.lineTo(annotation.x2, annotation.y2);
-    context.stroke();
-
-    // Dimension text
-    const midX = (annotation.x1 + annotation.x2) / 2;
-    const midY = (annotation.y1 + annotation.y2) / 2;
-    context.fillStyle = annotation.color;
-    context.font = 'bold 12px Arial';
-    context.textAlign = 'center';
-    context.fillText(annotation.dimension, midX, midY - 10);
-  }
-
-  function drawAreaAnnotation(context, annotation) {
-    const w = annotation.x2 - annotation.x1;
-    const h = annotation.y2 - annotation.y1;
-    context.strokeRect(annotation.x1, annotation.y1, w, h);
-
-    // Area text
-    const cx = annotation.x1 + w / 2;
-    const cy = annotation.y1 + h / 2;
-    context.fillStyle = annotation.color;
-    context.font = 'bold 12px Arial';
-    context.textAlign = 'center';
-    context.fillText(annotation.area, cx, cy);
-  }
-
-  function drawSelectionBox(context, annotation) {
-    context.strokeStyle = '#00ff00';
-    context.lineWidth = 2;
-    context.setLineDash([4, 4]);
-
-    if (annotation.type === CONFIG.ANNOTATION_TYPES.CIRCLE) {
-      const radius = distance(annotation.cx, annotation.cy, annotation.x2, annotation.y2);
-      context.beginPath();
-      context.arc(annotation.cx, annotation.cy, radius, 0, Math.PI * 2);
-      context.stroke();
-    } else if (annotation.type === CONFIG.ANNOTATION_TYPES.TEXT) {
-      context.strokeRect(annotation.x - 5, annotation.y - 20, 50, 30);
-    } else {
-      const bounds = getAnnotationBounds(annotation);
-      context.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
+      toast.style.backgroundColor = '#444';
+      toast.style.color = '#fff';
     }
 
-    context.setLineDash([]);
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
   }
-
-  function getAnnotationBounds(annotation) {
-    let minX, minY, maxX, maxY;
-
-    if (annotation.type === CONFIG.ANNOTATION_TYPES.PEN && annotation.points) {
-      minX = Math.min(...annotation.points.map(p => p.x));
-      maxX = Math.max(...annotation.points.map(p => p.x));
-      minY = Math.min(...annotation.points.map(p => p.y));
-      maxY = Math.max(...annotation.points.map(p => p.y));
-    } else if (annotation.type === CONFIG.ANNOTATION_TYPES.CIRCLE) {
-      const radius = distance(annotation.cx, annotation.cy, annotation.x2, annotation.y2);
-      minX = annotation.cx - radius;
-      minY = annotation.cy - radius;
-      maxX = annotation.cx + radius;
-      maxY = annotation.cy + radius;
-    } else {
-      minX = Math.min(annotation.x1 || annotation.x || annotation.cx || 0, annotation.x2 || annotation.x || annotation.cx || 0);
-      maxX = Math.max(annotation.x1 || annotation.x || annotation.cx || 0, annotation.x2 || annotation.x || annotation.cx || 0);
-      minY = Math.min(annotation.y1 || annotation.y || annotation.cy || 0, annotation.y2 || annotation.y || annotation.cy || 0);
-      maxY = Math.max(annotation.y1 || annotation.y || annotation.cy || 0, annotation.y2 || annotation.y || annotation.cy || 0);
-    }
-
-    return { x: minX, y: minY, w: maxX - minX + 10, h: maxY - minY + 10 };
-  }
-
-  function drawCropOverlay() {
-    if (!STATE.cropRect) return;
-
-    const rect = STATE.cropRect;
-    overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    overlayCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-    overlayCtx.clearRect(rect.x, rect.y, rect.w, rect.h);
-    overlayCtx.strokeStyle = '#00ff00';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-  }
-
-  // ============================================
-  // UNDO / REDO
-  // ============================================
 
   function saveState() {
-    undoStack.push(JSON.stringify(annotations));
+    undoStack.push({
+      annotations: JSON.parse(JSON.stringify(annotations)),
+      brightness: STATE.brightness,
+      contrast: STATE.contrast,
+    });
     redoStack = [];
     STATE.hasUnsavedChanges = true;
     updateUndoRedoButtons();
@@ -584,42 +147,84 @@
 
   function undo() {
     if (undoStack.length === 0) return;
-    redoStack.push(JSON.stringify(annotations));
-    annotations = JSON.parse(undoStack.pop());
-    STATE.selectedAnnotationId = null;
-    redrawAll();
+    redoStack.push({
+      annotations: JSON.parse(JSON.stringify(annotations)),
+      brightness: STATE.brightness,
+      contrast: STATE.contrast,
+    });
+    const previousState = undoStack.pop();
+    annotations = previousState.annotations;
+    STATE.brightness = previousState.brightness;
+    STATE.contrast = previousState.contrast;
+    redraw();
     updateUndoRedoButtons();
   }
 
   function redo() {
     if (redoStack.length === 0) return;
-    undoStack.push(JSON.stringify(annotations));
-    annotations = JSON.parse(redoStack.pop());
-    STATE.selectedAnnotationId = null;
-    redrawAll();
+    undoStack.push({
+      annotations: JSON.parse(JSON.stringify(annotations)),
+      brightness: STATE.brightness,
+      contrast: STATE.contrast,
+    });
+    const nextState = redoStack.pop();
+    annotations = nextState.annotations;
+    STATE.brightness = nextState.brightness;
+    STATE.contrast = nextState.contrast;
+    redraw();
     updateUndoRedoButtons();
   }
 
   function updateUndoRedoButtons() {
-    const undoBtn = document.querySelector('[data-action="undo"]');
-    const redoBtn = document.querySelector('[data-action="redo"]');
-    if (undoBtn) undoBtn.classList.toggle('disabled', undoStack.length === 0);
-    if (redoBtn) redoBtn.classList.toggle('disabled', redoStack.length === 0);
+    const undoBtn = modal?.querySelector('[data-action="undo"]');
+    const redoBtn = modal?.querySelector('[data-action="redo"]');
+    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
   }
 
-  // ============================================
-  // CANVAS EVENT LISTENERS
-  // ============================================
+  function initializeCanvases(wrapper, width, height) {
+    canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.display = 'block';
+    canvas.style.cursor = 'crosshair';
 
-  function setupCanvasEventListeners() {
+    overlayCanvas = document.createElement('canvas');
+    overlayCanvas.width = width;
+    overlayCanvas.height = height;
+    overlayCanvas.style.position = 'absolute';
+    overlayCanvas.style.top = '0';
+    overlayCanvas.style.left = '0';
+    overlayCanvas.style.display = 'block';
+    overlayCanvas.style.cursor = 'crosshair';
+    overlayCanvas.tabIndex = 0;
+
+    const container = document.createElement('div');
+    container.style.position = 'relative';
+    container.style.display = 'inline-block';
+    container.style.margin = '0 auto';
+    container.style.border = '1px solid #ddd';
+
+    container.appendChild(canvas);
+    container.appendChild(overlayCanvas);
+    wrapper.appendChild(container);
+
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+    overlayCtx = overlayCanvas.getContext('2d');
+
+    setupCanvasEventHandlers();
+  }
+
+  function setupCanvasEventHandlers() {
     overlayCanvas.addEventListener('mousedown', handleCanvasMouseDown);
     overlayCanvas.addEventListener('mousemove', handleCanvasMouseMove);
     overlayCanvas.addEventListener('mouseup', handleCanvasMouseUp);
     overlayCanvas.addEventListener('mouseleave', handleCanvasMouseLeave);
-    overlayCanvas.addEventListener('wheel', handleCanvasWheel, { passive: false });
-    overlayCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    overlayCanvas.addEventListener('wheel', handleCanvasWheel, false);
 
-    // Touch support for tablets
     overlayCanvas.addEventListener('touchstart', handleCanvasTouchStart);
     overlayCanvas.addEventListener('touchmove', handleCanvasTouchMove);
     overlayCanvas.addEventListener('touchend', handleCanvasTouchEnd);
@@ -629,621 +234,527 @@
     const rect = overlayCanvas.getBoundingClientRect();
     const scaleX = overlayCanvas.width / rect.width;
     const scaleY = overlayCanvas.height / rect.height;
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
-  }
 
-  function getTouchCoords(touch) {
-    const rect = overlayCanvas.getBoundingClientRect();
-    const scaleX = overlayCanvas.width / rect.width;
-    const scaleY = overlayCanvas.height / rect.height;
-    return {
-      x: (touch.clientX - rect.left) * scaleX,
-      y: (touch.clientY - rect.top) * scaleY,
-    };
+    let x, y;
+    if (e.touches) {
+      x = (e.touches[0].clientX - rect.left) * scaleX;
+      y = (e.touches[0].clientY - rect.top) * scaleY;
+    } else {
+      x = (e.clientX - rect.left) * scaleX;
+      y = (e.clientY - rect.top) * scaleY;
+    }
+    return { x, y };
   }
 
   function handleCanvasMouseDown(e) {
-    if (STATE.textInputActive) return;
-
+    if (STATE.currentTool === CONFIG.TOOLS.SELECT) return;
     const coords = getCanvasCoords(e);
-    STATE.drawStartX = coords.x;
-    STATE.drawStartY = coords.y;
-    STATE.isDrawing = true;
-
-    switch (STATE.currentTool) {
-      case CONFIG.TOOLS.SELECT:
-        handleSelectMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.PEN:
-        handlePenMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.LINE:
-        handleLineMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.ARROW:
-        handleArrowMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.RECT:
-        handleRectMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.CIRCLE:
-        handleCircleMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.TEXT:
-        handleTextMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.ERASER:
-        handleEraserMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.HAIL:
-        handleHailMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.WIND:
-        handleWindMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.LEAK:
-        handleLeakMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.SHINGLE:
-        handleShingleMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.CALLOUT:
-        handleCalloutMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.MEASURE:
-        handleMeasureMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.AREA:
-        handleAreaMouseDown(coords);
-        break;
-      case CONFIG.TOOLS.CROP:
-        handleCropMouseDown(coords);
-        break;
+    startX = coords.x;
+    startY = coords.y;
+    currentPoints = [{ x: startX, y: startY }];
+    isDrawing = true;
+    if (STATE.currentTool === CONFIG.TOOLS.PEN || STATE.currentTool === CONFIG.TOOLS.ERASER) {
+      saveState();
     }
   }
 
   function handleCanvasMouseMove(e) {
-    if (!STATE.isDrawing) return;
-
+    if (!isDrawing) return;
     const coords = getCanvasCoords(e);
 
-    switch (STATE.currentTool) {
-      case CONFIG.TOOLS.PEN:
-        handlePenMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.LINE:
-        handleLineMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.ARROW:
-        handleArrowMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.RECT:
-        handleRectMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.CIRCLE:
-        handleCircleMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.ERASER:
-        handleEraserMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.MEASURE:
-        handleMeasureMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.AREA:
-        handleAreaMouseMove(coords);
-        break;
-      case CONFIG.TOOLS.CROP:
-        handleCropMouseMove(coords);
-        break;
+    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
+      currentPoints.push({ x: coords.x, y: coords.y });
+      redraw();
+      drawPenStroke(currentPoints);
+    } else if (STATE.currentTool === CONFIG.TOOLS.ERASER) {
+      currentPoints.push({ x: coords.x, y: coords.y });
+      redraw();
+      drawEraser(currentPoints);
+    } else if (STATE.currentTool === CONFIG.TOOLS.LINE) {
+      redraw();
+      drawLine(startX, startY, coords.x, coords.y);
+    } else if (STATE.currentTool === CONFIG.TOOLS.ARROW) {
+      redraw();
+      drawArrow(startX, startY, coords.x, coords.y);
+    } else if (STATE.currentTool === CONFIG.TOOLS.RECT) {
+      redraw();
+      drawRect(startX, startY, coords.x, coords.y);
+    } else if (STATE.currentTool === CONFIG.TOOLS.CIRCLE) {
+      redraw();
+      drawCircle(startX, startY, coords.x, coords.y);
+    } else if (STATE.currentTool === CONFIG.TOOLS.MEASURE) {
+      redraw();
+      drawMeasureLine(startX, startY, coords.x, coords.y);
+    } else if (STATE.currentTool === CONFIG.TOOLS.AREA) {
+      redraw();
+      drawAreaOutline(startX, startY, coords.x, coords.y);
     }
   }
 
   function handleCanvasMouseUp(e) {
+    if (!isDrawing) return;
     const coords = getCanvasCoords(e);
+    isDrawing = false;
 
-    switch (STATE.currentTool) {
-      case CONFIG.TOOLS.LINE:
-      case CONFIG.TOOLS.ARROW:
-      case CONFIG.TOOLS.RECT:
-      case CONFIG.TOOLS.CIRCLE:
-      case CONFIG.TOOLS.MEASURE:
-      case CONFIG.TOOLS.AREA:
-        STATE.isDrawing = false;
+    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.PEN,
+        points: currentPoints,
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.ERASER) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.TEXT,
+        isEraser: true,
+        points: currentPoints,
+        lineWidth: STATE.currentLineWidth,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.LINE) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.LINE,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.ARROW) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.ARROW,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.RECT) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.RECT,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+        fill: STATE.fillShapes,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.CIRCLE) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.CIRCLE,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+        fill: STATE.fillShapes,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.HAIL) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.HAIL,
+        x: coords.x, y: coords.y,
+        color: STATE.currentColor,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.WIND) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.WIND,
+        x: coords.x, y: coords.y,
+        color: STATE.currentColor,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.LEAK) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.LEAK,
+        x: coords.x, y: coords.y,
+        color: STATE.currentColor,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.SHINGLE) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.SHINGLE,
+        x: coords.x, y: coords.y,
+        color: STATE.currentColor,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.CALLOUT) {
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.CALLOUT,
+        x: coords.x, y: coords.y,
+        number: STATE.calloutNumber,
+        color: STATE.currentColor,
+        opacity: STATE.currentOpacity,
+      });
+      STATE.calloutNumber++;
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.MEASURE) {
+      const distance = Math.sqrt(Math.pow(coords.x - startX, 2) + Math.pow(coords.y - startY, 2));
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.MEASURE,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        distance: distance.toFixed(0),
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.AREA) {
+      const width = Math.abs(coords.x - startX);
+      const height = Math.abs(coords.y - startY);
+      const area = width * height;
+      annotations.push({
+        id: generateId(),
+        type: CONFIG.ANNOTATION_TYPES.AREA,
+        x1: startX, y1: startY, x2: coords.x, y2: coords.y,
+        width: width.toFixed(0),
+        height: height.toFixed(0),
+        area: area.toFixed(0),
+        color: STATE.currentColor,
+        lineWidth: STATE.currentLineWidth,
+        opacity: STATE.currentOpacity,
+      });
+      saveState();
+    } else if (STATE.currentTool === CONFIG.TOOLS.TEXT) {
+      const text = prompt('Enter text:');
+      if (text) {
+        annotations.push({
+          id: generateId(),
+          type: CONFIG.ANNOTATION_TYPES.TEXT,
+          x: coords.x, y: coords.y,
+          text: text,
+          color: STATE.currentColor,
+          fontSize: 16,
+          opacity: STATE.currentOpacity,
+        });
         saveState();
-        break;
-      case CONFIG.TOOLS.CROP:
-        STATE.isDrawing = false;
-        break;
+        redraw();
+      }
     }
+
+    currentPoints = [];
+    redraw();
+    updateAnnotationsList();
   }
 
-  function handleCanvasMouseLeave(e) {
-    STATE.isDrawing = false;
+  function handleCanvasMouseLeave() {
+    isDrawing = false;
+    currentPoints = [];
+  }
+
+  function handleCanvasTouchStart(e) {
+    e.preventDefault();
+    handleCanvasMouseDown(e);
+  }
+
+  function handleCanvasTouchMove(e) {
+    e.preventDefault();
+    handleCanvasMouseMove(e);
+  }
+
+  function handleCanvasTouchEnd(e) {
+    e.preventDefault();
+    handleCanvasMouseUp(e);
   }
 
   function handleCanvasWheel(e) {
     e.preventDefault();
-    if (STATE.currentTool === CONFIG.TOOLS.CROP) return;
-
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    STATE.zoom = clamp(STATE.zoom * delta, 0.1, 5);
+    STATE.zoom *= delta;
+    STATE.zoom = Math.max(0.1, Math.min(STATE.zoom, 3));
     STATE.zoomFit = false;
-
     applyZoom();
   }
 
-  function handleCanvasTouchStart(e) {
-    const touch = e.touches[0];
-    const coords = getTouchCoords(touch);
-    STATE.drawStartX = coords.x;
-    STATE.drawStartY = coords.y;
-    STATE.isDrawing = true;
-
-    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
-      handlePenMouseDown(coords);
-    }
+  function redraw() {
+    if (!canvas || !overlayCanvas || !ctx || !overlayCtx) return;
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    annotations.forEach(ann => drawAnnotation(ann));
   }
 
-  function handleCanvasTouchMove(e) {
-    if (!STATE.isDrawing) return;
-    const touch = e.touches[0];
-    const coords = getTouchCoords(touch);
+  function drawAnnotation(ann) {
+    if (!overlayCtx) return;
+    overlayCtx.globalAlpha = (ann.opacity || 100) / 100;
 
-    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
-      handlePenMouseMove(coords);
-    }
-  }
-
-  function handleCanvasTouchEnd(e) {
-    STATE.isDrawing = false;
-    if (STATE.currentTool === CONFIG.TOOLS.PEN) {
-      saveState();
-    }
-  }
-
-  // Tool handlers
-  function handleSelectMouseDown(coords) {
-    STATE.selectedAnnotationId = null;
-    for (let i = annotations.length - 1; i >= 0; i--) {
-      const ann = annotations[i];
-      if (annotationContainsPoint(ann, coords)) {
-        STATE.selectedAnnotationId = ann.id;
+    switch (ann.type) {
+      case CONFIG.ANNOTATION_TYPES.PEN:
+        drawPenStroke(ann.points || [], ann.color, ann.lineWidth, ann.opacity);
         break;
-      }
-    }
-    redrawAll();
-  }
-
-  function annotationContainsPoint(ann, point) {
-    const bounds = getAnnotationBounds(ann);
-    return point.x >= bounds.x && point.x <= bounds.x + bounds.w &&
-           point.y >= bounds.y && point.y <= bounds.y + bounds.h;
-  }
-
-  function handlePenMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.PEN,
-      points: [{ x: coords.x, y: coords.y }],
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-  }
-
-  function handlePenMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.PEN) {
-      last.points.push({ x: coords.x, y: coords.y });
-      redrawAll();
-    }
-  }
-
-  function handleLineMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.LINE,
-      x1: coords.x,
-      y1: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-  }
-
-  function handleLineMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.LINE) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
-    }
-  }
-
-  function handleArrowMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.ARROW,
-      x1: coords.x,
-      y1: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-  }
-
-  function handleArrowMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.ARROW) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
-    }
-  }
-
-  function handleRectMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.RECT,
-      x1: coords.x,
-      y1: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-      filled: STATE.fillShapes,
-    });
-  }
-
-  function handleRectMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.RECT) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
-    }
-  }
-
-  function handleCircleMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.CIRCLE,
-      cx: coords.x,
-      cy: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-      filled: STATE.fillShapes,
-    });
-  }
-
-  function handleCircleMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.CIRCLE) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
-    }
-  }
-
-  function handleTextMouseDown(coords) {
-    STATE.textInputActive = true;
-    showTextInputDialog((text, fontSize) => {
-      annotations.push({
-        id: generateId(),
-        type: CONFIG.ANNOTATION_TYPES.TEXT,
-        x: coords.x,
-        y: coords.y,
-        text: text,
-        fontSize: fontSize || 16,
-        color: STATE.currentColor,
-        opacity: STATE.currentOpacity,
-      });
-      STATE.textInputActive = false;
-      saveState();
-      redrawAll();
-    });
-  }
-
-  function handleEraserMouseDown(coords) {
-    saveState();
-    // Find annotation at this point and remove it
-    for (let i = annotations.length - 1; i >= 0; i--) {
-      if (annotationContainsPoint(annotations[i], coords)) {
-        annotations.splice(i, 1);
+      case CONFIG.ANNOTATION_TYPES.LINE:
+        drawLine(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth);
         break;
-      }
-    }
-    redrawAll();
-  }
-
-  function handleEraserMouseMove(coords) {
-    for (let i = annotations.length - 1; i >= 0; i--) {
-      if (annotationContainsPoint(annotations[i], coords)) {
-        annotations.splice(i, 1);
-        redrawAll();
+      case CONFIG.ANNOTATION_TYPES.ARROW:
+        drawArrow(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth);
         break;
-      }
+      case CONFIG.ANNOTATION_TYPES.RECT:
+        drawRect(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth, ann.fill);
+        break;
+      case CONFIG.ANNOTATION_TYPES.CIRCLE:
+        drawCircle(ann.x1, ann.y1, ann.x2, ann.y2, ann.color, ann.lineWidth, ann.fill);
+        break;
+      case CONFIG.ANNOTATION_TYPES.TEXT:
+        if (!ann.isEraser) {
+          drawText(ann.x, ann.y, ann.text, ann.color, ann.fontSize);
+        }
+        break;
+      case CONFIG.ANNOTATION_TYPES.HAIL:
+        drawHailIcon(ann.x, ann.y, ann.color);
+        break;
+      case CONFIG.ANNOTATION_TYPES.WIND:
+        drawWindIcon(ann.x, ann.y, ann.color);
+        break;
+      case CONFIG.ANNOTATION_TYPES.LEAK:
+        drawLeakIcon(ann.x, ann.y, ann.color);
+        break;
+      case CONFIG.ANNOTATION_TYPES.SHINGLE:
+        drawShingleIcon(ann.x, ann.y, ann.color);
+        break;
+      case CONFIG.ANNOTATION_TYPES.CALLOUT:
+        drawCallout(ann.x, ann.y, ann.number, ann.color);
+        break;
+      case CONFIG.ANNOTATION_TYPES.MEASURE:
+        drawMeasureLine(ann.x1, ann.y1, ann.x2, ann.y2, ann.distance);
+        break;
+      case CONFIG.ANNOTATION_TYPES.AREA:
+        drawAreaOutline(ann.x1, ann.y1, ann.x2, ann.y2, ann.width, ann.height, ann.area);
+        break;
+    }
+    overlayCtx.globalAlpha = 1;
+  }
+
+  function drawPenStroke(points, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, opacity = STATE.currentOpacity) {
+    if (points.length < 2) return;
+    overlayCtx.strokeStyle = color;
+    overlayCtx.lineWidth = lineWidth;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.lineJoin = 'round';
+    overlayCtx.globalAlpha = (opacity || 100) / 100;
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      overlayCtx.lineTo(points[i].x, points[i].y);
+    }
+    overlayCtx.stroke();
+    overlayCtx.globalAlpha = 1;
+  }
+
+  function drawEraser(points, lineWidth = 15) {
+    overlayCtx.clearRect(points[0].x - lineWidth / 2, points[0].y - lineWidth / 2, lineWidth, lineWidth);
+    for (let i = 1; i < points.length; i++) {
+      overlayCtx.clearRect(points[i].x - lineWidth / 2, points[i].y - lineWidth / 2, lineWidth, lineWidth);
     }
   }
 
-  function handleHailMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.HAIL,
-      x: coords.x,
-      y: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-    redrawAll();
+  function drawLine(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth) {
+    overlayCtx.strokeStyle = color;
+    overlayCtx.lineWidth = lineWidth;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x1, y1);
+    overlayCtx.lineTo(x2, y2);
+    overlayCtx.stroke();
   }
 
-  function handleWindMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.WIND,
-      x: coords.x,
-      y: coords.y,
-      angle: 0,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-    redrawAll();
+  function drawArrow(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth) {
+    const headlen = 15;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    overlayCtx.strokeStyle = color;
+    overlayCtx.fillStyle = color;
+    overlayCtx.lineWidth = lineWidth;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x1, y1);
+    overlayCtx.lineTo(x2, y2);
+    overlayCtx.stroke();
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x2, y2);
+    overlayCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    overlayCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    overlayCtx.closePath();
+    overlayCtx.fill();
   }
 
-  function handleLeakMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.LEAK,
-      x: coords.x,
-      y: coords.y,
-      color: STATE.currentColor,
-      opacity: STATE.currentOpacity,
-    });
-    redrawAll();
+  function drawRect(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, fill = false) {
+    const x = Math.min(x1, x2);
+    const y = Math.min(y1, y2);
+    const width = Math.abs(x2 - x1);
+    const height = Math.abs(y2 - y1);
+    overlayCtx.strokeStyle = color;
+    overlayCtx.lineWidth = lineWidth;
+    if (fill) {
+      overlayCtx.fillStyle = color;
+      overlayCtx.fillRect(x, y, width, height);
+    }
+    overlayCtx.strokeRect(x, y, width, height);
   }
 
-  function handleShingleMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.SHINGLE,
-      x: coords.x,
-      y: coords.y,
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-    redrawAll();
+  function drawCircle(x1, y1, x2, y2, color = STATE.currentColor, lineWidth = STATE.currentLineWidth, fill = false) {
+    const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    overlayCtx.strokeStyle = color;
+    overlayCtx.lineWidth = lineWidth;
+    overlayCtx.beginPath();
+    overlayCtx.arc(x1, y1, radius, 0, 2 * Math.PI);
+    if (fill) {
+      overlayCtx.fillStyle = color;
+      overlayCtx.fill();
+    }
+    overlayCtx.stroke();
   }
 
-  function handleCalloutMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.CALLOUT,
-      x: coords.x,
-      y: coords.y,
-      number: STATE.calloutNumber,
-      color: STATE.currentColor,
-      opacity: STATE.currentOpacity,
-    });
-    STATE.calloutNumber++;
-    redrawAll();
+  function drawText(x, y, text, color = STATE.currentColor, fontSize = 16) {
+    overlayCtx.fillStyle = color;
+    overlayCtx.font = `${fontSize}px Arial`;
+    overlayCtx.fillText(text, x, y);
   }
 
-  function handleMeasureMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.MEASURE,
-      x1: coords.x,
-      y1: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      dimension: '0 ft',
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
+  function drawHailIcon(x, y, color = '#ff0000') {
+    overlayCtx.fillStyle = color;
+    overlayCtx.beginPath();
+    overlayCtx.arc(x, y, 8, 0, 2 * Math.PI);
+    overlayCtx.fill();
+    overlayCtx.strokeStyle = '#fff';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.stroke();
   }
 
-  function handleMeasureMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.MEASURE) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
+  function drawWindIcon(x, y, color = '#ff6600') {
+    overlayCtx.strokeStyle = color;
+    overlayCtx.lineWidth = 2;
+    overlayCtx.beginPath();
+    overlayCtx.arc(x, y, 8, 0.5 * Math.PI, 1.5 * Math.PI);
+    overlayCtx.stroke();
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x + 8, y);
+    overlayCtx.lineTo(x + 4, y - 4);
+    overlayCtx.lineTo(x + 4, y + 4);
+    overlayCtx.closePath();
+    overlayCtx.fill();
+  }
+
+  function drawLeakIcon(x, y, color = '#0088ff') {
+    overlayCtx.fillStyle = color;
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x, y - 8);
+    overlayCtx.bezierCurveTo(x - 4, y - 4, x - 4, y + 4, x, y + 8);
+    overlayCtx.bezierCurveTo(x + 4, y + 4, x + 4, y - 4, x, y - 8);
+    overlayCtx.closePath();
+    overlayCtx.fill();
+  }
+
+  function drawShingleIcon(x, y, color = '#ffcc00') {
+    overlayCtx.fillStyle = color;
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x - 6, y - 6);
+    overlayCtx.lineTo(x + 6, y - 6);
+    overlayCtx.lineTo(x + 2, y + 6);
+    overlayCtx.lineTo(x - 2, y + 6);
+    overlayCtx.closePath();
+    overlayCtx.fill();
+    overlayCtx.strokeStyle = '#000';
+    overlayCtx.lineWidth = 1;
+    overlayCtx.stroke();
+  }
+
+  function drawCallout(x, y, number, color = '#ff0000') {
+    const size = 20;
+    overlayCtx.fillStyle = color;
+    overlayCtx.beginPath();
+    overlayCtx.arc(x, y, size, 0, 2 * Math.PI);
+    overlayCtx.fill();
+    overlayCtx.fillStyle = '#fff';
+    overlayCtx.font = 'bold 14px Arial';
+    overlayCtx.textAlign = 'center';
+    overlayCtx.textBaseline = 'middle';
+    overlayCtx.fillText(number.toString(), x, y);
+  }
+
+  function drawMeasureLine(x1, y1, x2, y2, distance) {
+    overlayCtx.strokeStyle = '#ff0000';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x1, y1);
+    overlayCtx.lineTo(x2, y2);
+    overlayCtx.stroke();
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    overlayCtx.fillStyle = '#ff0000';
+    overlayCtx.font = 'bold 12px Arial';
+    overlayCtx.fillText(distance ? distance + 'px' : Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)).toFixed(0) + 'px', midX, midY - 10);
+  }
+
+  function drawAreaOutline(x1, y1, x2, y2, width, height, area) {
+    const x = Math.min(x1, x2);
+    const y = Math.min(y1, y2);
+    const w = Math.abs(x2 - x1);
+    const h = Math.abs(y2 - y1);
+    overlayCtx.strokeStyle = '#ff0000';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.setLineDash([5, 5]);
+    overlayCtx.strokeRect(x, y, w, h);
+    overlayCtx.setLineDash([]);
+    if (area) {
+      overlayCtx.fillStyle = '#ff0000';
+      overlayCtx.font = 'bold 12px Arial';
+      overlayCtx.fillText(area + 'px²', x + 5, y + 15);
     }
   }
-
-  function handleAreaMouseDown(coords) {
-    saveState();
-    annotations.push({
-      id: generateId(),
-      type: CONFIG.ANNOTATION_TYPES.AREA,
-      x1: coords.x,
-      y1: coords.y,
-      x2: coords.x,
-      y2: coords.y,
-      area: '0 sq ft',
-      color: STATE.currentColor,
-      width: STATE.currentLineWidth,
-      opacity: STATE.currentOpacity,
-    });
-  }
-
-  function handleAreaMouseMove(coords) {
-    if (annotations.length === 0) return;
-    const last = annotations[annotations.length - 1];
-    if (last.type === CONFIG.ANNOTATION_TYPES.AREA) {
-      last.x2 = coords.x;
-      last.y2 = coords.y;
-      redrawAll();
-    }
-  }
-
-  function handleCropMouseDown(coords) {
-    STATE.cropRect = {
-      x: coords.x,
-      y: coords.y,
-      w: 0,
-      h: 0,
-    };
-    redrawAll();
-  }
-
-  function handleCropMouseMove(coords) {
-    if (!STATE.cropRect) return;
-    STATE.cropRect.w = coords.x - STATE.cropRect.x;
-    STATE.cropRect.h = coords.y - STATE.cropRect.y;
-    redrawAll();
-  }
-
-  // ============================================
-  // TEXT INPUT DIALOG
-  // ============================================
-
-  function showTextInputDialog(callback) {
-    const dialog = document.createElement('div');
-    dialog.className = 'nbd-text-input-dialog active';
-    dialog.innerHTML = `
-      <div class="nbd-text-input-box">
-        <div class="nbd-text-input-box-title">Add Text</div>
-        <input type="text" class="nbd-text-input-field" placeholder="Enter text">
-        <label style="font-size: 11px; color: #b0b0b0; margin-top: 8px;">Font Size:</label>
-        <input type="number" class="nbd-text-input-field" min="8" max="48" value="16">
-        <div class="nbd-text-input-buttons">
-          <button class="cancel">Cancel</button>
-          <button class="confirm">Add Text</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-
-    const textInput = dialog.querySelector('input[type="text"]');
-    const sizeInput = dialog.querySelector('input[type="number"]');
-    const cancelBtn = dialog.querySelector('.cancel');
-    const confirmBtn = dialog.querySelector('.confirm');
-
-    textInput.focus();
-
-    const close = () => {
-      dialog.remove();
-      STATE.textInputActive = false;
-    };
-
-    cancelBtn.onclick = close;
-    confirmBtn.onclick = () => {
-      if (textInput.value.trim()) {
-        callback(textInput.value, parseInt(sizeInput.value) || 16);
-      }
-      close();
-    };
-
-    textInput.onkeypress = (e) => {
-      if (e.key === 'Enter') {
-        confirmBtn.click();
-      } else if (e.key === 'Escape') {
-        close();
-      }
-    };
-
-    dialog.onclick = (e) => {
-      if (e.target === dialog) close();
-    };
-  }
-
-  // ============================================
-  // IMAGE ADJUSTMENTS
-  // ============================================
 
   function applyBrightness(value) {
     STATE.brightness = value;
-    applyImageAdjustments();
+    redrawCanvasWithAdjustments();
   }
 
   function applyContrast(value) {
     STATE.contrast = value;
-    applyImageAdjustments();
+    redrawCanvasWithAdjustments();
   }
 
-  function applyRotation(value) {
-    STATE.rotation = value % 360;
-    applyImageAdjustments();
+  function redrawCanvasWithAdjustments() {
+    if (!STATE.originalImage || !ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(STATE.originalImage, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = STATE.brightness;
+      const contrast = STATE.contrast / 100 + 1;
+      data[i] = Math.max(0, Math.min(255, (data[i] - 128) * contrast + 128 + brightness));
+      data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * contrast + 128 + brightness));
+      data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * contrast + 128 + brightness));
+    }
+    ctx.putImageData(imageData, 0, 0);
   }
 
   function applyZoom() {
-    if (!canvasContainer) return;
-    canvasContainer.style.transform = `scale(${STATE.zoom})`;
-    canvasContainer.style.transformOrigin = 'center center';
-  }
-
-  function applyImageAdjustments() {
-    if (!ctx || !STATE.originalImage) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-
-    // Apply brightness and contrast
-    ctx.filter = `brightness(${100 + STATE.brightness}%) contrast(${100 + STATE.contrast}%)`;
-
-    // Apply rotation
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    ctx.translate(centerX, centerY);
-    ctx.rotate((STATE.rotation * Math.PI) / 180);
-    ctx.translate(-centerX, -centerY);
-
-    ctx.drawImage(STATE.originalImage, 0, 0);
-    ctx.restore();
-
-    redrawAll();
-  }
-
-  function resetImage() {
-    STATE.brightness = 0;
-    STATE.contrast = 0;
-    STATE.rotation = 0;
-    STATE.zoom = 1;
-    STATE.zoomFit = true;
-    applyImageAdjustments();
-    applyZoom();
-    updateImageAdjustmentSliders();
+    if (!overlayCanvas) return;
+    const wrapper = overlayCanvas.parentNode;
+    if (STATE.zoomFit) {
+      wrapper.style.transform = 'scale(1)';
+    } else {
+      wrapper.style.transform = `scale(${STATE.zoom})`;
+    }
   }
 
   function fitZoom() {
-    STATE.zoomFit = true;
     STATE.zoom = 1;
+    STATE.zoomFit = true;
     applyZoom();
   }
 
@@ -1253,46 +764,95 @@
     applyZoom();
   }
 
-  function updateImageAdjustmentSliders() {
-    const brightnessSlider = document.querySelector('input[data-adjustment="brightness"]');
-    const contrastSlider = document.querySelector('input[data-adjustment="contrast"]');
-    const rotationSlider = document.querySelector('input[data-adjustment="rotation"]');
-
-    if (brightnessSlider) brightnessSlider.value = STATE.brightness;
-    if (contrastSlider) contrastSlider.value = STATE.contrast;
-    if (rotationSlider) rotationSlider.value = STATE.rotation;
+  function addCustomTag(tag) {
+    if (tag && !STATE.customTags.includes(tag)) {
+      STATE.customTags.push(tag);
+      updateCustomTagsDisplay();
+    }
   }
 
-  // ============================================
-  // SAVE & EXPORT
-  // ============================================
+  function removeCustomTag(tag) {
+    STATE.customTags = STATE.customTags.filter(t => t !== tag);
+    updateCustomTagsDisplay();
+  }
+
+  function updateCustomTagsDisplay() {
+    const container = modal?.querySelector('.nbd-custom-tags');
+    if (!container) return;
+    container.innerHTML = STATE.customTags.map(tag => `
+      <div style="display: inline-flex; align-items: center; gap: 5px; background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+        <span>${tag}</span>
+        <button class="nbd-tag-remove" data-tag="${tag}" style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0 2px;">×</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('.nbd-tag-remove').forEach(btn => {
+      btn.onclick = () => removeCustomTag(btn.dataset.tag);
+    });
+  }
+
+  function updateAnnotationsList() {
+    const container = modal?.querySelector('.nbd-annotations-list');
+    if (!container) return;
+    if (annotations.length === 0) {
+      container.innerHTML = '<div style="padding: 10px; text-align: center; color: #999; font-size: 12px;">No annotations</div>';
+      return;
+    }
+    container.innerHTML = annotations.map(ann => {
+      const icon = getAnnotationIcon(ann.type);
+      return `
+        <div class="nbd-annotation-item" data-id="${ann.id}" style="padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">${icon}</span>
+            <span>${ann.type}</span>
+          </div>
+          <button class="nbd-ann-delete" data-id="${ann.id}" style="background: none; border: none; color: red; cursor: pointer; font-weight: bold;">×</button>
+        </div>
+      `;
+    }).join('');
+    container.querySelectorAll('.nbd-annotation-item').forEach(item => {
+      item.onclick = () => {
+        STATE.selectedAnnotationId = item.dataset.id;
+        container.querySelectorAll('.nbd-annotation-item').forEach(i => i.style.background = 'transparent');
+        item.style.background = '#f0f0f0';
+      };
+    });
+    container.querySelectorAll('.nbd-ann-delete').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        annotations = annotations.filter(a => a.id !== btn.dataset.id);
+        saveState();
+        redraw();
+        updateAnnotationsList();
+      };
+    });
+  }
+
+  function getAnnotationIcon(type) {
+    const icons = {
+      'pen': '✏️', 'line': '−', 'arrow': '→', 'rect': '▭', 'circle': '●', 'text': 'A',
+      'hail': '●', 'wind': '〰', 'leak': '💧', 'shingle': '◼', 'callout': '①',
+      'measure': '📏', 'area': '▢',
+    };
+    return icons[type] || '·';
+  }
 
   async function flattenAndSaveAs() {
     if (!canvas || !overlayCanvas) {
       showToast('Canvas not ready', 'error');
       return;
     }
-
     try {
-      // Flatten: create final canvas with image + annotations
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = canvas.width;
       finalCanvas.height = canvas.height;
       const finalCtx = finalCanvas.getContext('2d');
-
-      // Draw base image
       finalCtx.drawImage(canvas, 0, 0);
-
-      // Draw all annotations
       finalCtx.drawImage(overlayCanvas, 0, 0);
-
-      // Convert to JPEG
       finalCanvas.toBlob(async (blob) => {
         if (!blob) {
           showToast('Failed to create image', 'error');
           return;
         }
-
         await uploadAndSaveAnnotated(blob, false);
       }, 'image/jpeg', 0.95);
     } catch (error) {
@@ -1306,27 +866,22 @@
       showToast('Canvas not ready', 'error');
       return;
     }
-
     if (!STATE.photoId) {
       showToast('Photo ID missing', 'error');
       return;
     }
-
     try {
       const finalCanvas = document.createElement('canvas');
       finalCanvas.width = canvas.width;
       finalCanvas.height = canvas.height;
       const finalCtx = finalCanvas.getContext('2d');
-
       finalCtx.drawImage(canvas, 0, 0);
       finalCtx.drawImage(overlayCanvas, 0, 0);
-
       finalCanvas.toBlob(async (blob) => {
         if (!blob) {
           showToast('Failed to create image', 'error');
           return;
         }
-
         await uploadAndSaveAnnotated(blob, true);
       }, 'image/jpeg', 0.95);
     } catch (error) {
@@ -1335,60 +890,73 @@
     }
   }
 
+  async function downloadImage() {
+    if (!canvas || !overlayCanvas) {
+      showToast('Canvas not ready', 'error');
+      return;
+    }
+    try {
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = canvas.width;
+      finalCanvas.height = canvas.height;
+      const finalCtx = finalCanvas.getContext('2d');
+      finalCtx.drawImage(canvas, 0, 0);
+      finalCtx.drawImage(overlayCanvas, 0, 0);
+      finalCanvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `annotated_${STATE.photoId || 'photo'}_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/jpeg', 0.95);
+    } catch (error) {
+      console.error('Download error:', error);
+      showToast('Download failed: ' + error.message, 'error');
+    }
+  }
+
   async function uploadAndSaveAnnotated(blob, saveOver = false) {
     try {
       const fileName = saveOver ? `photo_${STATE.photoId}.jpg` : `photo_${generateId()}.jpg`;
-      const filePath = `leads/${STATE.leadId}/photos/${fileName}`;
+      const filePath = `photos/${fileName}`;
 
-      // Upload to Firebase Storage
       const storageRef = window.ref(window.storage, filePath);
       await window.uploadBytes(storageRef, blob);
       const downloadUrl = await window.getDownloadURL(storageRef);
 
-      // Update/Create Firestore document
+      const metadata = {
+        damageType: STATE.damageType,
+        severity: STATE.severity,
+        location: STATE.location,
+        phase: STATE.phase,
+        notes: STATE.notes,
+        tags: STATE.customTags,
+        isAnnotated: true,
+        annotatedAt: window.serverTimestamp(),
+      };
+
       if (saveOver && STATE.photoId) {
-        // Update existing
-        const docRef = window.doc(window.db, 'leads', STATE.leadId, 'photos', STATE.photoId);
+        const docRef = window.doc(window.db, 'photos', STATE.photoId);
         await window.updateDoc(docRef, {
           url: downloadUrl,
-          isAnnotated: true,
-          annotatedAt: window.serverTimestamp(),
-          annotations: annotations.map(a => ({
-            ...a,
-            points: undefined, // Don't store point arrays to save space
-          })),
-          metadata: {
-            damageType: document.querySelector('select[name="damageType"]')?.value || '',
-            severity: document.querySelector('input[name="severity"]:checked')?.value || '',
-            location: document.querySelector('select[name="location"]')?.value || '',
-            notes: document.querySelector('textarea[name="notes"]')?.value || '',
-          },
+          ...metadata,
         });
       } else {
-        // Create new annotated copy
-        const photoRef = window.collection(window.db, 'leads', STATE.leadId, 'photos');
+        const photoRef = window.collection(window.db, 'photos');
         await window.addDoc(photoRef, {
           url: downloadUrl,
-          isAnnotated: true,
-          annotatedAt: window.serverTimestamp(),
           originalPhotoId: STATE.photoId,
-          annotations: annotations.map(a => ({
-            ...a,
-            points: undefined,
-          })),
-          metadata: {
-            damageType: document.querySelector('select[name="damageType"]')?.value || '',
-            severity: document.querySelector('input[name="severity"]:checked')?.value || '',
-            location: document.querySelector('select[name="location"]')?.value || '',
-            notes: document.querySelector('textarea[name="notes"]')?.value || '',
-          },
+          leadId: STATE.leadId,
+          userId: STATE.userId,
+          ...metadata,
         });
       }
 
       STATE.hasUnsavedChanges = false;
-      showToast(`Photo saved successfully`, 'success');
-
-      // Auto-close after success
+      showToast('Photo saved successfully', 'success');
       setTimeout(() => {
         closeEditor();
       }, 1500);
@@ -1398,427 +966,443 @@
     }
   }
 
-  // ============================================
-  // TOOLBAR SETUP
-  // ============================================
-
   function createTopToolbar() {
     const toolbar = document.createElement('div');
-    toolbar.className = 'nbd-top-toolbar';
-    toolbar.innerHTML = `
-      <div class="nbd-toolbar-left">
-        <button class="nbd-btn nbd-back-btn" data-action="back">
-          <svg class="nbd-back-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-          Back
-        </button>
-      </div>
-      <div class="nbd-toolbar-center">Photo Editor</div>
-      <div class="nbd-toolbar-right">
-        <button class="nbd-btn" data-action="undo" title="Ctrl+Z">Undo</button>
-        <button class="nbd-btn" data-action="redo" title="Ctrl+Shift+Z">Redo</button>
-        <button class="nbd-btn" data-action="save-new">Save as New Copy</button>
-        <button class="nbd-btn" data-action="save-over">Save Over Original</button>
-      </div>
+    toolbar.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+      gap: 10px;
     `;
 
-    toolbar.querySelector('[data-action="back"]').onclick = () => closeEditorWithPrompt();
-    toolbar.querySelector('[data-action="undo"]').onclick = () => undo();
-    toolbar.querySelector('[data-action="redo"]').onclick = () => redo();
-    toolbar.querySelector('[data-action="save-new"]').onclick = () => flattenAndSaveAs();
-    toolbar.querySelector('[data-action="save-over"]').onclick = () => flattenAndSaveOver();
+    const left = document.createElement('div');
+    left.style.display = 'flex';
+    left.style.gap = '5px';
+
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '← Back';
+    backBtn.style.cssText = 'padding: 8px 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;';
+    backBtn.onclick = () => closeEditorWithPrompt();
+    left.appendChild(backBtn);
+
+    const center = document.createElement('div');
+    center.textContent = 'Photo Editor';
+    center.style.cssText = 'flex: 1; text-align: center; font-weight: bold; font-size: 16px;';
+
+    const right = document.createElement('div');
+    right.style.cssText = 'display: flex; gap: 5px;';
+
+    const btnConfig = [
+      { action: 'undo', text: 'Undo' },
+      { action: 'redo', text: 'Redo' },
+      { action: 'download', text: 'Download' },
+      { action: 'save-new', text: 'Save as Copy' },
+      { action: 'save-over', text: 'Save Over' },
+    ];
+
+    btnConfig.forEach(cfg => {
+      const btn = document.createElement('button');
+      btn.dataset.action = cfg.action;
+      btn.textContent = cfg.text;
+      btn.style.cssText = 'padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;';
+      btn.onmouseover = () => btn.style.background = '#0056b3';
+      btn.onmouseout = () => btn.style.background = '#007bff';
+
+      if (cfg.action === 'undo') {
+        btn.onclick = undo;
+      } else if (cfg.action === 'redo') {
+        btn.onclick = redo;
+      } else if (cfg.action === 'download') {
+        btn.onclick = downloadImage;
+      } else if (cfg.action === 'save-new') {
+        btn.onclick = flattenAndSaveAs;
+      } else if (cfg.action === 'save-over') {
+        btn.onclick = flattenAndSaveOver;
+      }
+
+      right.appendChild(btn);
+    });
+
+    toolbar.appendChild(left);
+    toolbar.appendChild(center);
+    toolbar.appendChild(right);
 
     return toolbar;
   }
 
   function createLeftToolbar() {
     const toolbar = document.createElement('div');
-    toolbar.className = 'nbd-left-toolbar';
-
-    // Selection & Drawing Tools
-    const drawingTools = document.createElement('div');
-    drawingTools.className = 'nbd-tool-group';
-    drawingTools.innerHTML = `
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.SELECT ? 'active' : ''}" data-tool="select" title="V">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/></svg>
-        <div class="nbd-tool-tooltip">Select (V)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.PEN ? 'active' : ''}" data-tool="pen" title="P">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.25V21h3.75L17.81 9.94M9.06 9.06l7.07-7.07a2.828 2.828 0 014 4l-7.07 7.07"/></svg>
-        <div class="nbd-tool-tooltip">Pen (P)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.LINE ? 'active' : ''}" data-tool="line" title="L">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
-        <div class="nbd-tool-tooltip">Line (L)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.ARROW ? 'active' : ''}" data-tool="arrow" title="A">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h12M17 9l3 3-3 3"/></svg>
-        <div class="nbd-tool-tooltip">Arrow (A)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.RECT ? 'active' : ''}" data-tool="rect" title="R">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16"/></svg>
-        <div class="nbd-tool-tooltip">Rectangle (R)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.CIRCLE ? 'active' : ''}" data-tool="circle" title="C">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>
-        <div class="nbd-tool-tooltip">Circle (C)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.TEXT ? 'active' : ''}" data-tool="text" title="T">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M6 15h12"/></svg>
-        <div class="nbd-tool-tooltip">Text (T)</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.ERASER ? 'active' : ''}" data-tool="eraser" title="E">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 19h18L12 4 3 19z"/></svg>
-        <div class="nbd-tool-tooltip">Eraser (E)</div>
-      </button>
+    toolbar.style.cssText = `
+      width: 70px;
+      background: #f5f5f5;
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 5px;
+      gap: 5px;
+      overflow-y: auto;
     `;
 
-    // Roofing Tools
-    const roofingTools = document.createElement('div');
-    roofingTools.className = 'nbd-tool-group';
-    roofingTools.innerHTML = `
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.HAIL ? 'active' : ''}" data-tool="hail">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><text x="12" y="14" text-anchor="middle" font-size="10">H</text></svg>
-        <div class="nbd-tool-tooltip">Hail</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.WIND ? 'active' : ''}" data-tool="wind">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h12M17 9l3 3-3 3"/></svg>
-        <div class="nbd-tool-tooltip">Wind</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.LEAK ? 'active' : ''}" data-tool="leak">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-1 0-2 1-2 2v4c0 1 1 2 2 2s2-1 2-2V4c0-1-1-2-2-2z"/></svg>
-        <div class="nbd-tool-tooltip">Leak</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.SHINGLE ? 'active' : ''}" data-tool="shingle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-        <div class="nbd-tool-tooltip">Missing Shingle</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.CALLOUT ? 'active' : ''}" data-tool="callout">
-        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
-        <div class="nbd-tool-tooltip">Callout Number</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.MEASURE ? 'active' : ''}" data-tool="measure">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="9" x2="5" y2="15"/><line x1="19" y1="9" x2="19" y2="15"/></svg>
-        <div class="nbd-tool-tooltip">Measurement</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.AREA ? 'active' : ''}" data-tool="area">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16"/></svg>
-        <div class="nbd-tool-tooltip">Area</div>
-      </button>
-      <button class="nbd-tool-btn ${STATE.currentTool === CONFIG.TOOLS.CROP ? 'active' : ''}" data-tool="crop">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h5v2H6zM13 4h5v2h-5zM4 6v5H2V6zM22 6v5h-2V6zM6 18h5v2H6zM13 18h5v2h-5zM4 13v5H2v-5zM22 13v5h-2v-5z"/></svg>
-        <div class="nbd-tool-tooltip">Crop</div>
-      </button>
-    `;
+    const tools = [
+      { name: 'pen', label: 'Pen', key: 'P' },
+      { name: 'line', label: 'Line', key: 'L' },
+      { name: 'arrow', label: 'Arrow', key: 'A' },
+      { name: 'rect', label: 'Rectangle', key: 'R' },
+      { name: 'circle', label: 'Circle', key: 'C' },
+      { name: 'text', label: 'Text', key: 'T' },
+      { name: 'eraser', label: 'Eraser', key: 'E' },
+      { name: 'hail', label: 'Hail', key: 'H' },
+      { name: 'wind', label: 'Wind', key: 'W' },
+      { name: 'leak', label: 'Leak', key: '1' },
+      { name: 'shingle', label: 'Shingle', key: '2' },
+      { name: 'callout', label: 'Callout', key: 'Q' },
+      { name: 'measure', label: 'Measure', key: 'M' },
+      { name: 'area', label: 'Area', key: '3' },
+    ];
 
-    toolbar.appendChild(drawingTools);
-    toolbar.appendChild(roofingTools);
+    tools.forEach(tool => {
+      const btn = document.createElement('button');
+      btn.dataset.tool = tool.name;
+      btn.textContent = tool.label.charAt(0);
+      btn.title = `${tool.label} (${tool.key})`;
+      btn.style.cssText = `
+        padding: 8px;
+        background: ${STATE.currentTool === tool.name ? '#007bff' : '#fff'};
+        color: ${STATE.currentTool === tool.name ? '#fff' : '#000'};
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      `;
 
-    // Tool click handlers
-    toolbar.querySelectorAll('[data-tool]').forEach(btn => {
-      btn.onclick = (e) => {
-        selectTool(btn.dataset.tool);
-        toolbar.querySelectorAll('.nbd-tool-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+      btn.onclick = () => {
+        STATE.currentTool = tool.name;
+        toolbar.querySelectorAll('button').forEach(b => {
+          b.style.background = '#fff';
+          b.style.color = '#000';
+        });
+        btn.style.background = '#007bff';
+        btn.style.color = '#fff';
       };
+
+      toolbar.appendChild(btn);
     });
 
     return toolbar;
   }
 
-  function selectTool(toolName) {
-    STATE.currentTool = toolName;
-    STATE.selectedAnnotationId = null;
-
-    const toolMap = {
-      'select': CONFIG.TOOLS.SELECT,
-      'pen': CONFIG.TOOLS.PEN,
-      'line': CONFIG.TOOLS.LINE,
-      'arrow': CONFIG.TOOLS.ARROW,
-      'rect': CONFIG.TOOLS.RECT,
-      'circle': CONFIG.TOOLS.CIRCLE,
-      'text': CONFIG.TOOLS.TEXT,
-      'eraser': CONFIG.TOOLS.ERASER,
-      'hail': CONFIG.TOOLS.HAIL,
-      'wind': CONFIG.TOOLS.WIND,
-      'leak': CONFIG.TOOLS.LEAK,
-      'shingle': CONFIG.TOOLS.SHINGLE,
-      'callout': CONFIG.TOOLS.CALLOUT,
-      'measure': CONFIG.TOOLS.MEASURE,
-      'area': CONFIG.TOOLS.AREA,
-      'crop': CONFIG.TOOLS.CROP,
-    };
-
-    STATE.currentTool = toolMap[toolName] || CONFIG.TOOLS.PEN;
-    if (STATE.currentTool === CONFIG.TOOLS.CROP) {
-      STATE.cropActive = true;
-    } else {
-      STATE.cropActive = false;
-    }
-    redrawAll();
-  }
-
   function createRightSidebar() {
     const sidebar = document.createElement('div');
-    sidebar.className = 'nbd-right-sidebar';
-    sidebar.innerHTML = `
-      <div class="nbd-sidebar-section">
-        <div class="nbd-sidebar-label">Damage Type</div>
-        <select class="nbd-select" name="damageType">
-          <option value="">Select type</option>
-          <option value="hail">Hail</option>
-          <option value="wind">Wind</option>
-          <option value="leak">Leak</option>
-          <option value="shingle">Missing Shingle</option>
-          <option value="cracked">Cracked Tile</option>
-          <option value="flashing">Flashing Damage</option>
-          <option value="gutter">Gutter Damage</option>
-          <option value="soffit">Soffit/Fascia</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <div class="nbd-sidebar-section">
-        <div class="nbd-sidebar-label">Severity</div>
-        <div class="nbd-radio-group">
-          <label class="nbd-radio-option">
-            <input type="radio" name="severity" value="minor">
-            <span class="nbd-radio-label">Minor</span>
-          </label>
-          <label class="nbd-radio-option">
-            <input type="radio" name="severity" value="moderate">
-            <span class="nbd-radio-label">Moderate</span>
-          </label>
-          <label class="nbd-radio-option">
-            <input type="radio" name="severity" value="severe">
-            <span class="nbd-radio-label">Severe</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="nbd-sidebar-section">
-        <div class="nbd-sidebar-label">Location</div>
-        <select class="nbd-select" name="location">
-          <option value="">Select location</option>
-          <option value="ridge">Ridge</option>
-          <option value="hip">Hip</option>
-          <option value="valley">Valley</option>
-          <option value="field">Field</option>
-          <option value="edge">Edge</option>
-          <option value="flashing">Flashing</option>
-          <option value="vent">Vent</option>
-          <option value="chimney">Chimney</option>
-          <option value="skylight">Skylight</option>
-          <option value="gutter">Gutter</option>
-        </select>
-      </div>
-
-      <div class="nbd-sidebar-section">
-        <div class="nbd-sidebar-label">Notes</div>
-        <textarea class="nbd-textarea" name="notes" placeholder="Additional details..."></textarea>
-      </div>
+    sidebar.style.cssText = `
+      width: 280px;
+      background: #f5f5f5;
+      border-left: 1px solid #ddd;
+      overflow-y: auto;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      font-size: 13px;
     `;
+
+    const addSection = (title, content) => {
+      const section = document.createElement('div');
+      section.innerHTML = `<div style="font-weight: bold; margin-bottom: 8px;">${title}</div>`;
+      section.appendChild(content);
+      sidebar.appendChild(section);
+    };
+
+    const damageSelect = document.createElement('select');
+    damageSelect.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;';
+    damageSelect.innerHTML = `<option value="">Select type</option>` + CONFIG.DAMAGE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+    damageSelect.value = STATE.damageType;
+    damageSelect.onchange = () => { STATE.damageType = damageSelect.value; };
+    addSection('Damage Type', damageSelect);
+
+    const severityDiv = document.createElement('div');
+    Object.entries(CONFIG.SEVERITY_LEVELS).forEach(([key, val]) => {
+      const label = document.createElement('label');
+      label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer;';
+      label.innerHTML = `
+        <input type="radio" name="severity" value="${key}" ${STATE.severity === key ? 'checked' : ''}>
+        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: ${val.color};"></span>
+        ${val.label}
+      `;
+      label.querySelector('input').onchange = () => { STATE.severity = key; };
+      severityDiv.appendChild(label);
+    });
+    addSection('Severity', severityDiv);
+
+    const locationSelect = document.createElement('select');
+    locationSelect.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;';
+    locationSelect.innerHTML = `<option value="">Select location</option>` + CONFIG.ROOF_LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
+    locationSelect.value = STATE.location;
+    locationSelect.onchange = () => { STATE.location = locationSelect.value; };
+    addSection('Location', locationSelect);
+
+    const phaseDiv = document.createElement('div');
+    phaseDiv.style.cssText = 'display: flex; gap: 5px;';
+    CONFIG.PHASES.forEach(p => {
+      const btn = document.createElement('button');
+      btn.textContent = p;
+      btn.style.cssText = `
+        flex: 1;
+        padding: 6px;
+        background: ${STATE.phase === p ? '#007bff' : '#fff'};
+        color: ${STATE.phase === p ? '#fff' : '#000'};
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      `;
+      btn.onclick = () => {
+        STATE.phase = p;
+        phaseDiv.querySelectorAll('button').forEach(b => {
+          b.style.background = '#fff';
+          b.style.color = '#000';
+        });
+        btn.style.background = '#007bff';
+        btn.style.color = '#fff';
+      };
+      phaseDiv.appendChild(btn);
+    });
+    addSection('Phase', phaseDiv);
+
+    const tagsInputDiv = document.createElement('div');
+    const tagInput = document.createElement('input');
+    tagInput.type = 'text';
+    tagInput.placeholder = 'Add tag (Enter)';
+    tagInput.style.cssText = 'width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; box-sizing: border-box;';
+    tagInput.onkeypress = (e) => {
+      if (e.key === 'Enter' && tagInput.value.trim()) {
+        addCustomTag(tagInput.value.trim());
+        tagInput.value = '';
+      }
+    };
+    tagsInputDiv.appendChild(tagInput);
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'nbd-custom-tags';
+    tagsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 5px;';
+    tagsInputDiv.appendChild(tagsContainer);
+    addSection('Custom Tags', tagsInputDiv);
+
+    const notesTA = document.createElement('textarea');
+    notesTA.placeholder = 'Additional details...';
+    notesTA.value = STATE.notes;
+    notesTA.style.cssText = 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; box-sizing: border-box;';
+    notesTA.oninput = () => { STATE.notes = notesTA.value; };
+    addSection('Notes', notesTA);
+
+    const annList = document.createElement('div');
+    annList.className = 'nbd-annotations-list';
+    annList.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto;';
+    addSection('Annotations', annList);
 
     return sidebar;
   }
 
   function createBottomToolbar() {
     const toolbar = document.createElement('div');
-    toolbar.className = 'nbd-bottom-toolbar';
-    toolbar.innerHTML = `
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Color</span>
-        <div class="nbd-color-palette">
-          ${CONFIG.COLOR_PALETTE.map((color, i) => `
-            <div class="nbd-color-swatch ${color === STATE.currentColor ? 'active' : ''}"
-                 data-color="${color}" style="background-color: ${color}"></div>
-          `).join('')}
-          <div class="nbd-color-input-wrapper">
-            <input type="color" class="nbd-color-input" value="${STATE.currentColor}">
-          </div>
-        </div>
-      </div>
-
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Width</span>
-        <div class="nbd-slider-wrapper">
-          <input type="range" class="nbd-slider" min="1" max="10" value="${STATE.currentLineWidth}" data-control="lineWidth">
-          <span class="nbd-slider-value">${STATE.currentLineWidth}px</span>
-        </div>
-      </div>
-
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Opacity</span>
-        <div class="nbd-slider-wrapper">
-          <input type="range" class="nbd-slider" min="0" max="100" value="${STATE.currentOpacity}" data-control="opacity">
-          <span class="nbd-slider-value">${STATE.currentOpacity}%</span>
-        </div>
-      </div>
-
-      <div class="nbd-control-group">
-        <label class="nbd-checkbox-wrapper">
-          <input type="checkbox" ${STATE.fillShapes ? 'checked' : ''} data-control="fill">
-          <span class="nbd-checkbox-label">Fill</span>
-        </label>
-      </div>
-
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Brightness</span>
-        <div class="nbd-slider-wrapper">
-          <input type="range" class="nbd-slider" min="-100" max="100" value="0" data-adjustment="brightness">
-          <span class="nbd-slider-value">0</span>
-        </div>
-      </div>
-
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Contrast</span>
-        <div class="nbd-slider-wrapper">
-          <input type="range" class="nbd-slider" min="-100" max="100" value="0" data-adjustment="contrast">
-          <span class="nbd-slider-value">0</span>
-        </div>
-      </div>
-
-      <div class="nbd-control-group">
-        <span class="nbd-control-label">Zoom</span>
-        <button class="nbd-btn" data-action="zoom-fit" style="padding: 6px 10px;">Fit</button>
-        <button class="nbd-btn" data-action="zoom-50" style="padding: 6px 10px;">50%</button>
-        <button class="nbd-btn" data-action="zoom-100" style="padding: 6px 10px;">100%</button>
-        <button class="nbd-btn" data-action="zoom-200" style="padding: 6px 10px;">200%</button>
-      </div>
+    toolbar.style.cssText = `
+      display: flex;
+      flex-wrap: wrap;
+      padding: 12px 15px;
+      background: #f5f5f5;
+      border-top: 1px solid #ddd;
+      gap: 15px;
+      align-items: center;
+      font-size: 12px;
     `;
 
-    // Color palette handlers
-    toolbar.querySelectorAll('.nbd-color-swatch').forEach(swatch => {
+    const colorGroup = document.createElement('div');
+    colorGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    colorGroup.innerHTML = '<span style="font-weight: bold;">Color:</span>';
+    CONFIG.COLOR_PALETTE.forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.style.cssText = `
+        width: 24px;
+        height: 24px;
+        background: ${color};
+        border: ${STATE.currentColor === color ? '3px solid #000' : '1px solid #ddd'};
+        border-radius: 3px;
+        cursor: pointer;
+      `;
       swatch.onclick = () => {
-        STATE.currentColor = swatch.dataset.color;
-        toolbar.querySelectorAll('.nbd-color-swatch').forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
+        STATE.currentColor = color;
+        toolbar.querySelectorAll('[data-color-swatch]').forEach(s => s.style.border = '1px solid #ddd');
+        swatch.style.border = '3px solid #000';
       };
+      swatch.dataset.colorSwatch = color;
+      colorGroup.appendChild(swatch);
     });
+    toolbar.appendChild(colorGroup);
 
-    // Color input handler
-    const colorInput = toolbar.querySelector('.nbd-color-input');
-    colorInput.onchange = () => {
-      STATE.currentColor = colorInput.value;
-      toolbar.querySelectorAll('.nbd-color-swatch').forEach(s => s.classList.remove('active'));
+    const widthGroup = document.createElement('div');
+    widthGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    widthGroup.innerHTML = '<span style="font-weight: bold;">Width:</span>';
+    const widthSlider = document.createElement('input');
+    widthSlider.type = 'range';
+    widthSlider.min = '1';
+    widthSlider.max = '10';
+    widthSlider.value = STATE.currentLineWidth;
+    widthSlider.style.cssText = 'width: 60px;';
+    const widthValue = document.createElement('span');
+    widthValue.textContent = STATE.currentLineWidth + 'px';
+    widthSlider.oninput = () => {
+      STATE.currentLineWidth = parseInt(widthSlider.value);
+      widthValue.textContent = widthSlider.value + 'px';
     };
+    widthGroup.appendChild(widthSlider);
+    widthGroup.appendChild(widthValue);
+    toolbar.appendChild(widthGroup);
 
-    // Line width handler
-    toolbar.querySelector('[data-control="lineWidth"]').oninput = (e) => {
-      STATE.currentLineWidth = parseInt(e.target.value);
-      e.target.nextElementSibling.textContent = STATE.currentLineWidth + 'px';
+    const opacityGroup = document.createElement('div');
+    opacityGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    opacityGroup.innerHTML = '<span style="font-weight: bold;">Opacity:</span>';
+    const opacitySlider = document.createElement('input');
+    opacitySlider.type = 'range';
+    opacitySlider.min = '0';
+    opacitySlider.max = '100';
+    opacitySlider.value = STATE.currentOpacity;
+    opacitySlider.style.cssText = 'width: 60px;';
+    const opacityValue = document.createElement('span');
+    opacityValue.textContent = STATE.currentOpacity + '%';
+    opacitySlider.oninput = () => {
+      STATE.currentOpacity = parseInt(opacitySlider.value);
+      opacityValue.textContent = opacitySlider.value + '%';
     };
+    opacityGroup.appendChild(opacitySlider);
+    opacityGroup.appendChild(opacityValue);
+    toolbar.appendChild(opacityGroup);
 
-    // Opacity handler
-    toolbar.querySelector('[data-control="opacity"]').oninput = (e) => {
-      STATE.currentOpacity = parseInt(e.target.value);
-      e.target.nextElementSibling.textContent = STATE.currentOpacity + '%';
+    const fillGroup = document.createElement('div');
+    fillGroup.style.cssText = 'display: flex; gap: 5px; align-items: center;';
+    const fillCheckbox = document.createElement('input');
+    fillCheckbox.type = 'checkbox';
+    fillCheckbox.checked = STATE.fillShapes;
+    fillCheckbox.onchange = () => { STATE.fillShapes = fillCheckbox.checked; };
+    fillGroup.appendChild(fillCheckbox);
+    fillGroup.innerHTML += '<span>Fill</span>';
+    toolbar.appendChild(fillGroup);
+
+    const brightGroup = document.createElement('div');
+    brightGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    brightGroup.innerHTML = '<span style="font-weight: bold;">Brightness:</span>';
+    const brightSlider = document.createElement('input');
+    brightSlider.type = 'range';
+    brightSlider.min = '-100';
+    brightSlider.max = '100';
+    brightSlider.value = '0';
+    brightSlider.style.cssText = 'width: 60px;';
+    const brightValue = document.createElement('span');
+    brightValue.textContent = '0';
+    brightSlider.oninput = () => {
+      applyBrightness(parseInt(brightSlider.value));
+      brightValue.textContent = brightSlider.value;
     };
+    brightGroup.appendChild(brightSlider);
+    brightGroup.appendChild(brightValue);
+    toolbar.appendChild(brightGroup);
 
-    // Fill handler
-    toolbar.querySelector('[data-control="fill"]').onchange = (e) => {
-      STATE.fillShapes = e.target.checked;
+    const contrastGroup = document.createElement('div');
+    contrastGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    contrastGroup.innerHTML = '<span style="font-weight: bold;">Contrast:</span>';
+    const contrastSlider = document.createElement('input');
+    contrastSlider.type = 'range';
+    contrastSlider.min = '-100';
+    contrastSlider.max = '100';
+    contrastSlider.value = '0';
+    contrastSlider.style.cssText = 'width: 60px;';
+    const contrastValue = document.createElement('span');
+    contrastValue.textContent = '0';
+    contrastSlider.oninput = () => {
+      applyContrast(parseInt(contrastSlider.value));
+      contrastValue.textContent = contrastSlider.value;
     };
+    contrastGroup.appendChild(contrastSlider);
+    contrastGroup.appendChild(contrastValue);
+    toolbar.appendChild(contrastGroup);
 
-    // Image adjustment handlers
-    toolbar.querySelector('[data-adjustment="brightness"]').oninput = (e) => {
-      applyBrightness(parseInt(e.target.value));
-      e.target.nextElementSibling.textContent = parseInt(e.target.value);
-    };
-
-    toolbar.querySelector('[data-adjustment="contrast"]').oninput = (e) => {
-      applyContrast(parseInt(e.target.value));
-      e.target.nextElementSibling.textContent = parseInt(e.target.value);
-    };
-
-    // Zoom handlers
-    toolbar.querySelector('[data-action="zoom-fit"]').onclick = fitZoom;
-    toolbar.querySelector('[data-action="zoom-50"]').onclick = () => setZoom(50);
-    toolbar.querySelector('[data-action="zoom-100"]').onclick = () => setZoom(100);
-    toolbar.querySelector('[data-action="zoom-200"]').onclick = () => setZoom(200);
+    const zoomGroup = document.createElement('div');
+    zoomGroup.style.cssText = 'display: flex; gap: 5px; align-items: center;';
+    zoomGroup.innerHTML = '<span style="font-weight: bold;">Zoom:</span>';
+    ['Fit', '50%', '100%', '200%'].forEach((label, idx) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = 'padding: 4px 8px; background: #fff; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; font-size: 11px;';
+      btn.onclick = () => {
+        if (idx === 0) fitZoom();
+        else setZoom(parseInt(label));
+      };
+      zoomGroup.appendChild(btn);
+    });
+    toolbar.appendChild(zoomGroup);
 
     return toolbar;
   }
 
-  // ============================================
-  // KEYBOARD SHORTCUTS
-  // ============================================
-
   function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      if (!modal || modal.classList.contains('hidden')) return;
+      if (!modal) return;
 
-      if (e.ctrlKey && e.shiftKey && e.key === 'Z') {
-        e.preventDefault();
-        redo();
-      } else if (e.ctrlKey && e.key === 'z') {
-        e.preventDefault();
-        undo();
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (STATE.selectedAnnotationId) {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
-          annotations = annotations.filter(a => a.id !== STATE.selectedAnnotationId);
-          STATE.selectedAnnotationId = null;
-          saveState();
-          redrawAll();
+          undo();
+        } else if ((e.key === 'z' && e.shiftKey) || (e.key === 'y')) {
+          e.preventDefault();
+          redo();
         }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        if (STATE.textInputActive) {
-          STATE.textInputActive = false;
-          document.querySelector('.nbd-text-input-dialog')?.remove();
-        } else {
-          closeEditorWithPrompt();
-        }
-      } else {
-        const toolMap = {
-          'v': 'select',
-          'p': 'pen',
-          'l': 'line',
-          'a': 'arrow',
-          'r': 'rect',
-          'c': 'circle',
-          't': 'text',
-          'e': 'eraser',
-        };
+      }
 
-        if (toolMap[e.key.toLowerCase()]) {
-          selectTool(toolMap[e.key.toLowerCase()]);
-          const btns = document.querySelectorAll('.nbd-tool-btn');
-          btns.forEach(b => b.classList.remove('active'));
-          const tool = CONFIG.TOOLS[toolMap[e.key.toLowerCase()].toUpperCase()];
-          btns.forEach(b => {
-            if (b.dataset.tool === toolMap[e.key.toLowerCase()]) {
-              b.classList.add('active');
-            }
-          });
-        }
+      const toolMap = {
+        'p': CONFIG.TOOLS.PEN,
+        'l': CONFIG.TOOLS.LINE,
+        'a': CONFIG.TOOLS.ARROW,
+        'r': CONFIG.TOOLS.RECT,
+        'c': CONFIG.TOOLS.CIRCLE,
+        't': CONFIG.TOOLS.TEXT,
+        'e': CONFIG.TOOLS.ERASER,
+        'h': CONFIG.TOOLS.HAIL,
+        'w': CONFIG.TOOLS.WIND,
+        '1': CONFIG.TOOLS.LEAK,
+        '2': CONFIG.TOOLS.SHINGLE,
+        'q': CONFIG.TOOLS.CALLOUT,
+        'm': CONFIG.TOOLS.MEASURE,
+        '3': CONFIG.TOOLS.AREA,
+      };
+
+      if (toolMap[e.key.toLowerCase()]) {
+        e.preventDefault();
+        STATE.currentTool = toolMap[e.key.toLowerCase()];
+        updateToolButtons();
       }
     });
   }
 
-  // ============================================
-  // MAIN EDITOR FUNCTIONS
-  // ============================================
+  function updateToolButtons() {
+    const buttons = modal?.querySelectorAll('[data-tool]');
+    if (!buttons) return;
+    buttons.forEach(btn => {
+      if (btn.dataset.tool === STATE.currentTool) {
+        btn.style.background = '#007bff';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.background = '#fff';
+        btn.style.color = '#000';
+      }
+    });
+  }
 
   function closeEditorWithPrompt() {
     if (STATE.hasUnsavedChanges) {
-      showDialog(
-        'Discard Changes?',
-        'You have unsaved annotations. Are you sure you want to close?',
-        [
-          {
-            text: 'Keep Editing',
-            onClick: () => {},
-          },
-          {
-            text: 'Discard',
-            class: 'primary',
-            onClick: closeEditor,
-          },
-        ]
-      );
+      if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+        closeEditor();
+      }
     } else {
       closeEditor();
     }
@@ -1826,46 +1410,109 @@
 
   function closeEditor() {
     if (modal) {
-      modal.classList.add('hidden');
+      modal.remove();
+      modal = null;
     }
+    canvas = null;
+    overlayCanvas = null;
+    ctx = null;
+    overlayCtx = null;
+    annotations = [];
     undoStack = [];
     redoStack = [];
-    annotations = [];
-    STATE.hasUnsavedChanges = false;
+    STATE.selectedAnnotationId = null;
   }
 
-  async function openEditor(photoUrl, photoId, leadId) {
+  async function loadPhotoData(photoId) {
+    if (!photoId) return;
+    try {
+      const docRef = window.doc(window.db, 'photos', photoId);
+      const docSnap = await window.getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        STATE.damageType = data.damageType || '';
+        STATE.severity = data.severity || '';
+        STATE.location = data.location || '';
+        STATE.phase = data.phase || 'Before';
+        STATE.notes = data.notes || '';
+        STATE.customTags = data.tags || [];
+        updateRightSidebar();
+      }
+    } catch (error) {
+      console.error('Error loading photo data:', error);
+    }
+  }
+
+  function updateRightSidebar() {
+    if (!modal) return;
+    const sidebar = modal.querySelector('[style*="border-left"]');
+    if (!sidebar) return;
+    const selects = sidebar.querySelectorAll('select');
+    if (selects[0]) selects[0].value = STATE.damageType;
+    if (selects[1]) selects[1].value = STATE.location;
+    const severityRadios = sidebar.querySelectorAll('input[name="severity"]');
+    severityRadios.forEach(radio => radio.checked = radio.value === STATE.severity);
+    const notesTA = sidebar.querySelector('textarea');
+    if (notesTA) notesTA.value = STATE.notes;
+    updateCustomTagsDisplay();
+  }
+
+  async function openEditor(photoUrl, photoId, leadId, photoData) {
     STATE.photoUrl = photoUrl;
     STATE.photoId = photoId;
     STATE.leadId = leadId;
+    STATE.photoData = photoData;
+    STATE.userId = window.auth?.currentUser?.uid || '';
     STATE.calloutNumber = 1;
+    STATE.hasUnsavedChanges = false;
+    annotations = [];
+    undoStack = [];
+    redoStack = [];
 
-    // Create modal structure
+    if (photoData) {
+      STATE.damageType = photoData.damageType || '';
+      STATE.severity = photoData.severity || '';
+      STATE.location = photoData.location || '';
+      STATE.phase = photoData.phase || 'Before';
+      STATE.notes = photoData.notes || '';
+      STATE.customTags = photoData.tags || [];
+    } else if (photoId) {
+      await loadPhotoData(photoId);
+    }
+
     modal = document.createElement('div');
-    modal.className = 'nbd-editor-modal';
-    modal.innerHTML = `
-      <div class="nbd-top-toolbar-placeholder"></div>
-      <div class="nbd-editor-container">
-        <div class="nbd-left-toolbar-placeholder"></div>
-        <div class="nbd-canvas-wrapper">
-          <div class="nbd-spinner"></div>
-        </div>
-        <div class="nbd-right-sidebar-placeholder"></div>
-      </div>
-      <div class="nbd-bottom-toolbar-placeholder"></div>
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
     `;
 
     document.body.appendChild(modal);
 
-    // Load image
+    const topPlaceholder = document.createElement('div');
+    const containerPlaceholder = document.createElement('div');
+    containerPlaceholder.style.cssText = 'flex: 1; display: flex; overflow: hidden;';
+    const canvasPlaceholder = document.createElement('div');
+    canvasPlaceholder.style.cssText = 'flex: 1; display: flex; justify-content: center; align-items: center; background: #e0e0e0; position: relative; overflow: auto;';
+    const bottomPlaceholder = document.createElement('div');
+
+    modal.appendChild(topPlaceholder);
+    modal.appendChild(containerPlaceholder);
+    modal.appendChild(bottomPlaceholder);
+
     try {
       STATE.originalImage = new Image();
       STATE.originalImage.crossOrigin = 'anonymous';
+
       STATE.originalImage.onload = () => {
-        // Size canvas appropriately
         let width = STATE.originalImage.width;
         let height = STATE.originalImage.height;
-
         const aspectRatio = width / height;
         if (width > CONFIG.MAX_CANVAS_WIDTH) {
           width = CONFIG.MAX_CANVAS_WIDTH;
@@ -1876,30 +1523,25 @@
           width = height * aspectRatio;
         }
 
-        const canvasWrapper = modal.querySelector('.nbd-canvas-wrapper');
-        canvasWrapper.innerHTML = '';
-
-        initializeCanvases(canvasWrapper, width, height);
+        canvasPlaceholder.innerHTML = '';
+        initializeCanvases(canvasPlaceholder, width, height);
         ctx.drawImage(STATE.originalImage, 0, 0, width, height);
 
-        // Setup toolbars
-        const topPlaceholder = modal.querySelector('.nbd-top-toolbar-placeholder');
         topPlaceholder.parentNode.replaceChild(createTopToolbar(), topPlaceholder);
-
-        const leftPlaceholder = modal.querySelector('.nbd-left-toolbar-placeholder');
-        leftPlaceholder.parentNode.replaceChild(createLeftToolbar(), leftPlaceholder);
-
-        const rightPlaceholder = modal.querySelector('.nbd-right-sidebar-placeholder');
-        rightPlaceholder.parentNode.replaceChild(createRightSidebar(), rightPlaceholder);
-
-        const bottomPlaceholder = modal.querySelector('.nbd-bottom-toolbar-placeholder');
+        const leftSidebar = createLeftToolbar();
+        const rightSidebar = createRightSidebar();
+        containerPlaceholder.appendChild(leftSidebar);
+        containerPlaceholder.appendChild(canvasPlaceholder);
+        containerPlaceholder.appendChild(rightSidebar);
         bottomPlaceholder.parentNode.replaceChild(createBottomToolbar(), bottomPlaceholder);
 
         updateUndoRedoButtons();
+        updateAnnotationsList();
         setupKeyboardShortcuts();
 
-        // Focus canvas
-        overlayCanvas.focus();
+        if (overlayCanvas) {
+          overlayCanvas.focus();
+        }
       };
 
       STATE.originalImage.onerror = () => {
@@ -1915,14 +1557,10 @@
     }
   }
 
-  // ============================================
-  // PUBLIC API
-  // ============================================
-
   window.NBDPhotoEditor = {
     open: openEditor,
     close: closeEditor,
   };
 
-  console.log('Photo Editor module loaded. Use: window.NBDPhotoEditor.open(photoUrl, photoId, leadId)');
+  console.log('Photo Editor module loaded. Use: window.NBDPhotoEditor.open(photoUrl, photoId, leadId, photoData)');
 })();

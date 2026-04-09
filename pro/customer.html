@@ -852,19 +852,30 @@ header {
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-          <div class="panel-title" style="margin:0;">Project Photos by Phase</div>
+          <div class="panel-title" style="margin:0;">Project Photos</div>
           <div style="display:flex;gap:8px;">
             <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
             <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
           </div>
         </div>
-        <div id="photosByPhase">
-          <div class="empty">
-            <div class="empty-icon">📸</div>
-            Loading photos...
-          </div>
+
+        <!-- Stats Bar -->
+        <div id="photoStatsBar" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--s2);border-radius:8px;flex-wrap:wrap;gap:12px;align-items:center;font-size:12px;"></div>
+
+        <!-- Filter Bar -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+          <button class="btn photo-filter-btn active" onclick="filterPhotos('all',this)" style="font-size:11px;padding:5px 12px;">All</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('Before',this)" style="font-size:11px;padding:5px 12px;border-color:#3b82f6;color:#3b82f6;">Before</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('During',this)" style="font-size:11px;padding:5px 12px;border-color:#C8541A;color:#C8541A;">During</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:#22c55e;color:#22c55e;">After</button>
+          <span style="width:1px;height:20px;background:var(--br);margin:0 4px;"></span>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('annotated',this)" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
         </div>
-        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;">
+
+        <div id="photosByPhase">
+          <div class="empty"><div class="empty-icon">&#128248;</div>Loading photos...</div>
+        </div>
+        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='#C8541A'" onmouseout="this.style.borderColor=''">
           <div style="font-size:28px;margin-bottom:6px;">+</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse - JPG, PNG, HEIC up to 10MB</div>
@@ -2663,6 +2674,8 @@ function updateUploadPreview() {
   container.innerHTML = html;
   uploadBtn.style.display = 'block';
   uploadCount.textContent = window._uploadQueue.length;
+  var _metaSec = document.getElementById('uploadMetaSection');
+  if (_metaSec) _metaSec.style.display = window._uploadQueue.length > 0 ? '' : 'none';
 }
 
 window.removeFromQueue = function(index) {
@@ -2745,8 +2758,11 @@ async function uploadSinglePhoto(item, index) {
             type: file.type,
             date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
-            phase: 'During',
-            category: 'Property'
+            phase: window._uploadPhase || 'During',
+            category: 'Property',
+            damageType: document.getElementById('uploadDamageType')?.value || '',
+            severity: window._uploadSeverity || '',
+            location: document.getElementById('uploadLocation')?.value || ''
           });
           
           resolve();
@@ -3767,6 +3783,113 @@ window.loadInvoices = async function(leadId) {
 };
 
 // ── Photos by Phase ─────────────────────────────
+window._allPhotos = [];
+window._uploadPhase = 'During';
+window._uploadSeverity = '';
+window._photoFilter = 'all';
+
+window.selectUploadPhase = function(phase, btn) {
+  window._uploadPhase = phase;
+  document.querySelectorAll('#uploadPhaseButtons button').forEach(function(b) {
+    b.className = 'btn';
+    b.removeAttribute('data-selected');
+  });
+  btn.className = 'btn btn-orange';
+  btn.setAttribute('data-selected', 'true');
+};
+
+window.selectUploadSeverity = function(sev, btn) {
+  if (window._uploadSeverity === sev) {
+    window._uploadSeverity = '';
+    btn.style.background = '';
+    btn.style.color = btn.style.borderColor;
+    return;
+  }
+  window._uploadSeverity = sev;
+  var btns = btn.parentElement.querySelectorAll('.btn');
+  btns.forEach(function(b) { b.style.background = ''; b.style.color = b.style.borderColor; });
+  btn.style.background = btn.style.borderColor;
+  btn.style.color = '#fff';
+};
+
+window.filterPhotos = function(filter, btn) {
+  document.querySelectorAll('.photo-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  window._photoFilter = filter;
+  renderPhotoGrid();
+};
+
+function renderPhotoGrid() {
+  var photos = window._allPhotos || [];
+  var filter = window._photoFilter || 'all';
+  
+  var filtered = photos;
+  if (filter === 'Before' || filter === 'During' || filter === 'After') {
+    filtered = photos.filter(function(p){ return p.phase === filter; });
+  } else if (filter === 'annotated') {
+    filtered = photos.filter(function(p){ return p.isAnnotated; });
+  }
+  
+  if (filtered.length === 0) {
+    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>' + (photos.length ? 'No photos match this filter' : 'No photos yet') + '</div>';
+    return;
+  }
+
+  var phases = { 'Before': [], 'During': [], 'After': [] };
+  filtered.forEach(function(p) {
+    var ph = phases[p.phase] ? p.phase : 'During';
+    phases[ph].push(p);
+  });
+
+  var phaseColors = { 'Before': '#3b82f6', 'During': '#C8541A', 'After': '#22c55e' };
+  var html = '';
+  
+  ['Before', 'During', 'After'].forEach(function(phase) {
+    var list = phases[phase];
+    if (list.length === 0) return;
+    var color = phaseColors[phase];
+
+    html += '<div class="photo-phase" style="margin-bottom:20px;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
+    html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
+    html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + phase + ' Phase</div>';
+    html += '<span style="font-size:12px;color:var(--muted);">(' + list.length + ')</span>';
+    html += '</div>';
+    html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
+
+    list.forEach(function(photo) {
+      var badges = '';
+      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(200,84,26,.2);color:#C8541A;">' + photo.damageType + '</span>';
+      if (photo.severity) {
+        var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
+        badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + photo.severity + '</span>';
+      }
+      if (photo.isAnnotated) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
+
+      var globalIdx = (window._allPhotos || []).indexOf(photo);
+
+      html += '<div class="photo-item" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);transition:transform .2s;" onclick="openPhotoInEditor(' + globalIdx + ')" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'\'">';
+      html += '<img src="' + photo.url + '" alt="Photo" style="width:100%;height:100%;object-fit:cover;">';
+      if (badges) html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:flex;flex-wrap:wrap;gap:2px;">' + badges + '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  document.getElementById('photosByPhase').innerHTML = html;
+}
+
+window.openPhotoInEditor = function(idx) {
+  var photo = (window._allPhotos || [])[idx];
+  if (!photo) return;
+  if (window.NBDPhotoEditor) {
+    window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId, photo);
+  } else {
+    openPhotoLightbox(photo.url, photo.description || '');
+  }
+};
+
 window.loadPhotosByPhase = async function(leadId) {
   try {
     const photosRef = window.collection(window.db, 'photos');
@@ -3774,43 +3897,59 @@ window.loadPhotosByPhase = async function(leadId) {
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
-      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+      window._allPhotos = [];
+      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>No photos yet</div>';
+      updatePhotoStats();
       return;
     }
 
-    // Group photos by phase
-    const phases = { 'Before': [], 'During': [], 'After': [] };
-    snap.forEach(doc => {
-      const photo = doc.data();
-      const phase = photo.phase || 'During';
-      if (phases[phase]) phases[phase].push({id: doc.id, ...photo});
-    });
-
-    let html = '';
-    Object.entries(phases).forEach(([phase, photos]) => {
-      if (photos.length === 0) return;
-
-      html += `<div class="photo-phase">
-        <div class="photo-phase-title">${phase} Phase (${photos.length})</div>
-        <div class="photo-grid-phase">`;
-
-      photos.forEach(photo => {
-        html += `
-          <div class="photo-item" onclick="openPhotoLightbox('${photo.url}', '${(photo.description || '').replace(/'/g, "\\'")}')">
-            <img src="${photo.url}" alt="${photo.description || 'Photo'}" style="width:100%;height:100%;object-fit:cover;">
-          </div>
-        `;
+    window._allPhotos = [];
+    snap.forEach(function(doc) {
+      var d = doc.data();
+      window._allPhotos.push({
+        id: doc.id,
+        url: d.url,
+        phase: d.phase || 'During',
+        category: d.category || 'Property',
+        description: d.description || d.notes || '',
+        filename: d.filename || '',
+        damageType: d.damageType || '',
+        severity: d.severity || '',
+        location: d.location || '',
+        tags: d.tags || [],
+        isAnnotated: d.isAnnotated || false,
+        date: d.date,
+        uploadedAt: d.uploadedAt
       });
-
-      html += `</div></div>`;
     });
 
-    document.getElementById('photosByPhase').innerHTML = html || '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
+    updatePhotoStats();
+    renderPhotoGrid();
   } catch (error) {
     console.error('Photos load error:', error);
-    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load photos</div>';
+    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
   }
 };
+
+function updatePhotoStats() {
+  var bar = document.getElementById('photoStatsBar');
+  if (!bar) return;
+  var photos = window._allPhotos || [];
+  if (photos.length === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  
+  var before = photos.filter(function(p){return p.phase==='Before';}).length;
+  var during = photos.filter(function(p){return p.phase==='During';}).length;
+  var after = photos.filter(function(p){return p.phase==='After';}).length;
+  var annotated = photos.filter(function(p){return p.isAnnotated;}).length;
+  
+  var html = '<span style="font-weight:700;color:var(--text);">' + photos.length + ' Photos</span>';
+  if (before) html += '<span style="color:#3b82f6;">&#9679; ' + before + ' Before</span>';
+  if (during) html += '<span style="color:#C8541A;">&#9679; ' + during + ' During</span>';
+  if (after) html += '<span style="color:#22c55e;">&#9679; ' + after + ' After</span>';
+  if (annotated) html += '<span style="color:#a855f7;">&#9679; ' + annotated + ' Annotated</span>';
+  bar.innerHTML = html;
+}
 
 // ── Reports ────────────────────────────────────
 window.loadReports = async function(leadId) {
@@ -4021,7 +4160,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/lead-scoring.js?v=2"></script>
 <script src="js/insurance-claim.js?v=2"></script>
 <script src="js/offline-manager.js?v=2"></script>
-<script src="js/share-gallery.js?v=1"></script>
-<script src="js/photo-editor.js?v=1"></script>
+<script src="js/share-gallery.js?v=2"></script>
+<script src="js/photo-editor.js?v=2"></script>
 </body>
 </html>
