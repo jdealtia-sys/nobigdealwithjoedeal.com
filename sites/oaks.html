@@ -3,405 +3,964 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Oaks Roofing & Construction | Goshen, OH</title>
+  <title>Roofing Company Goshen, OH | Oaks Roofing & Construction</title>
+  <meta name="description" content="Trusted roofing company in Goshen, OH. Oaks Roofing & Construction offers roof replacement, repair, siding, and gutter services with a 5-year labor warranty.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+
   <script>
-    const COMPANY_CONFIG = {
-      id: 'oaks',
-      name: 'Oaks Roofing & Construction',
-      shortName: 'Oaks R&C',
-      owner: 'Scott Oaks',
-      phone: '(513) 827-5297',
-      email: 'joe@oaksrfc.com',
-      address: 'Goshen, OH',
-      tagline: 'Your Trusted Local Roofing Experts',
-      heroHeadline: 'Protecting Goshen Homes Since Day One',
-      heroSub: 'Expert roofing, siding & gutter services backed by craftsmanship you can trust.',
-      colors: {
-        primary: '#333333',
-        accent: '#e8720c',
-        accentHover: '#cf650a',
-        dark: '#1a1a1a',
-        light: '#f9f5f0',
-        text: '#333333',
-        textLight: '#ffffff'
-      },
-      services: [
-        { name: 'Roof Replacement', icon: '🏠', desc: 'Complete tear-off and replacement with premium materials and expert installation.' },
-        { name: 'Roof Repair', icon: '🔧', desc: 'Fast, reliable repairs for leaks, missing shingles, storm damage, and more.' },
-        { name: 'Siding', icon: '🏗️', desc: 'Beautiful, durable siding installation and repair to protect and transform your home.' },
-        { name: 'Gutters', icon: '🌧️', desc: 'Seamless gutter installation, repair, and gutter guard systems.' },
-        { name: 'Storm Damage', icon: '⛈️', desc: 'Emergency storm response with full insurance claim assistance.' },
-        { name: 'Inspections', icon: '🔍', desc: 'Thorough roof and exterior inspections with detailed reports.' }
-      ],
-      serviceAreas: ['Goshen', 'Milford', 'Batavia', 'Loveland', 'Amelia', 'Williamsburg', 'Bethel', 'Mt. Orab'],
-      warranty: '5-Year Labor Warranty on All Installs',
-      whyUs: [
-        { title: 'Local & Trusted', desc: 'Born and raised in Goshen. We treat every home like our own.' },
-        { title: 'Licensed & Insured', desc: 'Fully licensed, bonded, and insured for your complete peace of mind.' },
-        { title: 'Quality Materials', desc: 'We use only top-tier materials from trusted manufacturers.' },
-        { title: 'Honest Pricing', desc: 'Transparent quotes with no hidden fees or surprise charges.' }
-      ],
-      firebaseConfig: {
-        apiKey: "AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",
-        authDomain: "nobigdealwithjoedeal.firebaseapp.com",
-        projectId: "nobigdealwithjoedeal",
-        storageBucket: "nobigdealwithjoedeal.firebasestorage.app",
-        messagingSenderId: "140387052359",
-        appId: "1:140387052359:web:e95a34024e498e16e6e1a1"
-      }
-    };
+    firebase.initializeApp({
+      apiKey: "AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",
+      authDomain: "nobigdealwithjoedeal.firebaseapp.com",
+      projectId: "nobigdealwithjoedeal",
+      storageBucket: "nobigdealwithjoedeal.firebasestorage.app",
+      messagingSenderId: "140387052359",
+      appId: "1:140387052359:web:e95a34024e498e16e6e1a1"
+    });
+    const db = firebase.firestore();
   </script>
+
   <style>
+    /* ═══════════════════════════════════════════════════
+       RESET & BASE
+       ═══════════════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --primary: #333333;
-      --accent: #e8720c;
-      --accent-hover: #cf650a;
+      --orange: #e8720c;
+      --orange-hover: #d4670b;
+      --orange-light: rgba(232,114,12,0.12);
       --dark: #1a1a1a;
-      --light: #f9f5f0;
-      --text: #333333;
-      --text-light: #ffffff;
-      --radius: 12px;
-      --shadow: 0 4px 24px rgba(0,0,0,0.10);
-      --shadow-lg: 0 12px 40px rgba(0,0,0,0.15);
+      --darker: #111111;
+      --gray-900: #222222;
+      --gray-800: #2a2a2a;
+      --gray-700: #333333;
+      --gray-400: #999999;
+      --gray-300: #bbbbbb;
+      --gray-200: #dddddd;
+      --gray-100: #f5f5f5;
+      --white: #ffffff;
+      --font-heading: 'Montserrat', sans-serif;
+      --font-body: 'Open Sans', sans-serif;
+      --radius: 8px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+      --nav-height: 72px;
     }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Open Sans', sans-serif; color: var(--text); line-height: 1.6; background: #fff; }
-    h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; line-height: 1.2; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    body { font-family: var(--font-body); color: var(--gray-700); line-height: 1.7; background: var(--white); }
+    h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); line-height: 1.25; color: var(--dark); }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; display: block; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 
-    /* NAV */
-    .site-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--dark); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 64px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
-    .nav-brand { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; color: var(--accent); text-decoration: none; }
-    .nav-links { display: flex; gap: 24px; align-items: center; }
-    .nav-links a { color: var(--text-light); text-decoration: none; font-size: 0.95rem; font-weight: 600; transition: color 0.2s; }
-    .nav-links a:hover { color: var(--accent); }
-    .nav-cta { background: var(--accent); color: #fff !important; padding: 8px 20px; border-radius: 6px; font-weight: 700; transition: background 0.2s; }
-    .nav-cta:hover { background: var(--accent-hover); }
-    .mobile-toggle { display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
-
-    /* HERO */
-    .hero { margin-top: 64px; padding: 100px 24px 80px; background: linear-gradient(135deg, var(--dark) 0%, #2a2a2a 100%); text-align: center; position: relative; overflow: hidden; }
-    .hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(232,114,12,0.15) 0%, transparent 70%); pointer-events: none; }
-    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; color: var(--text-light); margin-bottom: 16px; }
-    .hero h1 span { color: var(--accent); }
-    .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.8); max-width: 620px; margin: 0 auto 32px; }
-    .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-    .btn { display: inline-block; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; text-decoration: none; transition: all 0.25s; cursor: pointer; border: none; }
-    .btn-accent { background: var(--accent); color: #fff; }
-    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: var(--shadow); }
-    .btn-outline { border: 2px solid rgba(255,255,255,0.4); color: #fff; background: transparent; }
-    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-    .trust-bar { display: flex; gap: 32px; justify-content: center; margin-top: 48px; flex-wrap: wrap; }
-    .trust-item { color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .trust-item span { font-size: 1.2rem; }
-
-    /* SECTIONS */
-    .section { padding: 80px 24px; }
-    .section-title { text-align: center; font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; margin-bottom: 12px; }
-    .section-sub { text-align: center; color: #666; max-width: 600px; margin: 0 auto 48px; font-size: 1.05rem; }
-    .bg-light { background: var(--light); }
-
-    /* SERVICES GRID */
-    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; max-width: 1200px; margin: 0 auto; }
-    .service-card { background: #fff; border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); transition: transform 0.3s, box-shadow 0.3s; border-top: 4px solid var(--accent); }
-    .service-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
-    .service-icon { font-size: 2.5rem; margin-bottom: 16px; }
-    .service-card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
-    .service-card p { color: #555; font-size: 0.95rem; }
-
-    /* WHY US */
-    .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto; }
-    .why-card { text-align: center; padding: 32px 24px; }
-    .why-card h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent); }
-    .why-card p { color: #555; font-size: 0.95rem; }
-
-    /* AREAS */
-    .areas-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 800px; margin: 0 auto; }
-    .area-tag { background: var(--dark); color: #fff; padding: 10px 22px; border-radius: 24px; font-weight: 600; font-size: 0.9rem; }
-
-    /* CONTACT FORM */
-    .contact-section { background: var(--dark); color: #fff; }
-    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; max-width: 1000px; margin: 0 auto; align-items: center; }
-    .contact-info h2 { font-size: 2rem; margin-bottom: 16px; }
-    .contact-info p { color: rgba(255,255,255,0.7); margin-bottom: 24px; }
-    .contact-detail { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: rgba(255,255,255,0.9); font-size: 1rem; }
-    .contact-detail span { font-size: 1.3rem; }
-    .contact-form { background: rgba(255,255,255,0.08); border-radius: var(--radius); padding: 32px; backdrop-filter: blur(8px); }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; color: rgba(255,255,255,0.8); }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: #fff; font-size: 1rem; font-family: inherit; }
-    .form-group input::placeholder, .form-group textarea::placeholder { color: rgba(255,255,255,0.4); }
-    .form-group textarea { resize: vertical; min-height: 80px; }
-    .form-submit { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .form-submit:hover { background: var(--accent-hover); }
-    .form-msg { margin-top: 12px; text-align: center; font-weight: 600; }
-    .form-msg.success { color: #4caf50; }
-    .form-msg.error { color: #f44336; }
-
-    /* FOOTER */
-    .site-footer { background: #111; color: rgba(255,255,255,0.5); text-align: center; padding: 32px 24px; font-size: 0.85rem; }
-    .site-footer a { color: var(--accent); text-decoration: none; }
-    .nbd-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 6px 14px; background: rgba(255,255,255,0.05); border-radius: 20px; font-size: 0.8rem; }
-
-    /* SCROLL ANIMATIONS */
-    .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-
-    /* MOBILE */
-    @media (max-width: 768px) {
-      .nav-links { display: none; position: fixed; top: 64px; left: 0; right: 0; background: var(--dark); flex-direction: column; padding: 24px; gap: 16px; box-shadow: var(--shadow-lg); }
-      .nav-links.open { display: flex; }
-      .mobile-toggle { display: block; }
-      .contact-grid { grid-template-columns: 1fr; }
-      .hero { padding: 72px 24px 56px; }
+    /* ═══════════════════════════════════════════════════
+       TOP WARRANTY BANNER
+       ═══════════════════════════════════════════════════ */
+    .top-banner {
+      background: var(--orange);
+      color: var(--white);
+      text-align: center;
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-heading);
+      position: relative;
+      z-index: 1001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
+    .top-banner i { font-size: 0.9rem; }
+    .banner-close {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--white);
+      cursor: pointer;
+      font-size: 1rem;
+      opacity: 0.8;
+    }
+    .banner-close:hover { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════ */
+    .site-nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: var(--dark);
+      height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      text-decoration: none;
+    }
+    .logo-icon { width: 36px; height: 36px; }
+    .logo-text {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 0.65rem;
+      color: var(--white);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .nav-links { display: flex; list-style: none; gap: 0; }
+    .nav-links li { position: relative; }
+    .nav-links a {
+      display: block;
+      padding: 8px 18px;
+      color: var(--white);
+      font-family: var(--font-heading);
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--orange); }
+    .nav-links .active > a { color: var(--orange); }
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: var(--dark);
+      min-width: 220px;
+      border-top: 3px solid var(--orange);
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+    .dropdown-menu a { padding: 12px 20px; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .dropdown-menu a:hover { background: rgba(232,114,12,0.1); }
+    .has-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-arrow { font-size: 0.6rem; margin-left: 4px; }
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--orange);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: var(--nav-height);
+      left: 0; right: 0; bottom: 0;
+      background: var(--dark);
+      z-index: 999;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .mobile-menu.open { display: block; }
+    .mobile-menu a {
+      display: block;
+      padding: 14px 20px;
+      color: var(--white);
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .mobile-menu a:hover { color: var(--orange); }
+    .mobile-menu .sub-link { padding-left: 40px; font-size: 0.9rem; color: var(--gray-300); }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-toggle { display: block; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       HERO
+       ═══════════════════════════════════════════════════ */
+    .hero {
+      background: linear-gradient(135deg, var(--dark) 0%, var(--gray-900) 100%);
+      padding: 80px 0 60px;
+      color: var(--white);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(135deg, transparent 30%, rgba(232,114,12,0.05) 100%);
+    }
+    .hero .container { position: relative; z-index: 1; }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(232,114,12,0.15);
+      border: 1px solid rgba(232,114,12,0.3);
+      border-radius: 50px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--orange);
+      margin-bottom: 20px;
+    }
+    .hero-stars { color: #f5b731; font-size: 0.75rem; }
+    .hero h1 { font-size: 2.8rem; font-weight: 900; color: var(--white); max-width: 600px; margin-bottom: 16px; }
+    .hero h1 span { color: var(--orange); }
+    .hero p { font-size: 1.05rem; color: var(--gray-300); max-width: 500px; margin-bottom: 32px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--orange); color: var(--white);
+      padding: 14px 28px; border-radius: var(--radius);
+      font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;
+      border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary:hover { background: var(--orange-hover); transform: translateY(-1px); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--white);
+      padding: 14px 28px; border-radius: var(--radius);
+      font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;
+      border: 2px solid rgba(255,255,255,0.2); cursor: pointer; transition: all 0.2s;
+    }
+    .btn-outline:hover { border-color: var(--orange); color: var(--orange); }
+
+    @media (max-width: 768px) {
+      .hero { padding: 60px 0 40px; }
+      .hero h1 { font-size: 2rem; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       SECTION COMMON
+       ═══════════════════════════════════════════════════ */
+    section { padding: 80px 0; }
+    .section-dark { background: var(--dark); color: var(--white); }
+    .section-dark h2, .section-dark h3 { color: var(--white); }
+    .section-gray { background: var(--gray-100); }
+    .section-label {
+      display: inline-block;
+      font-family: var(--font-heading); font-size: 0.75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 2px; color: var(--orange); margin-bottom: 12px;
+    }
+    .section-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 16px; }
+    .section-desc { font-size: 1rem; color: var(--gray-400); max-width: 600px; margin-bottom: 40px; }
+    .section-dark .section-desc { color: var(--gray-300); }
+    .text-center { text-align: center; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+
+    @media (max-width: 768px) {
+      section { padding: 50px 0; }
+      .section-title { font-size: 1.7rem; }
+    }
+
+    /* RATES STRIP */
+    .rates-strip { background: var(--gray-100); padding: 50px 0; text-align: center; }
+    .rates-strip h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+    .rates-strip p { color: var(--gray-400); font-size: 0.95rem; }
+
+    /* ═══════════════════════════════════════════════════
+       SERVICES
+       ═══════════════════════════════════════════════════ */
+    .services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+    .service-card {
+      background: var(--white); border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--shadow); transition: all 0.3s;
+    }
+    .service-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .service-card-img {
+      height: 200px; background: var(--gray-700); position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .service-card-img i { font-size: 3rem; color: var(--orange); opacity: 0.7; }
+    .service-card-body { padding: 24px; }
+    .service-card-body h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; }
+    .service-card-body p { font-size: 0.9rem; color: var(--gray-400); margin-bottom: 16px; }
+    .service-link { display: inline-flex; align-items: center; gap: 6px; color: var(--orange); font-weight: 600; font-size: 0.85rem; }
+    .service-link:hover { gap: 10px; }
+
+    @media (max-width: 768px) { .services-grid { grid-template-columns: 1fr; } }
+
+    /* ═══════════════════════════════════════════════════
+       ABOUT
+       ═══════════════════════════════════════════════════ */
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+    .about-content h2 { font-size: 2rem; font-weight: 800; margin-bottom: 20px; }
+    .about-content p { margin-bottom: 16px; color: var(--gray-700); font-size: 0.95rem; }
+    .about-image {
+      border-radius: var(--radius); overflow: hidden; background: var(--gray-700);
+      height: 380px; display: flex; align-items: center; justify-content: center;
+    }
+    .about-image i { font-size: 5rem; color: var(--orange); opacity: 0.3; }
+    .about-stats { display: flex; gap: 30px; margin-top: 24px; }
+    .about-stat { text-align: center; }
+    .about-stat .num { font-family: var(--font-heading); font-size: 2rem; font-weight: 900; color: var(--orange); }
+    .about-stat .label { font-size: 0.8rem; color: var(--gray-400); }
+
+    @media (max-width: 768px) {
+      .about-grid { grid-template-columns: 1fr; gap: 30px; }
+      .about-image { height: 250px; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       REVIEWS
+       ═══════════════════════════════════════════════════ */
+    .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+    .review-card { background: var(--gray-800); border-radius: var(--radius); padding: 28px; }
+    .review-stars { color: #f5b731; margin-bottom: 12px; font-size: 0.9rem; }
+    .review-text { color: var(--gray-300); font-size: 0.9rem; font-style: italic; margin-bottom: 16px; }
+    .review-author { font-weight: 700; font-size: 0.85rem; color: var(--white); }
+
+    @media (max-width: 768px) { .reviews-grid { grid-template-columns: 1fr; } }
+
+    /* ═══════════════════════════════════════════════════
+       WARRANTY
+       ═══════════════════════════════════════════════════ */
+    .warranty-section {
+      background: linear-gradient(135deg, var(--orange) 0%, var(--orange-hover) 100%);
+      padding: 60px 0; color: var(--white); text-align: center;
+    }
+    .warranty-section h2 { color: var(--white); font-size: 2rem; margin-bottom: 12px; }
+    .warranty-section p { color: rgba(255,255,255,0.9); max-width: 600px; margin: 0 auto 30px; }
+    .warranty-badges { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+    .warranty-badge { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .warranty-badge i { font-size: 2.5rem; }
+    .warranty-badge span { font-weight: 700; font-size: 0.9rem; }
+
+    /* ═══════════════════════════════════════════════════
+       SERVICE AREAS
+       ═══════════════════════════════════════════════════ */
+    .areas-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 30px; }
+    .area-tag {
+      background: var(--gray-100); padding: 12px 20px; border-radius: var(--radius);
+      font-weight: 600; font-size: 0.9rem; text-align: center;
+      transition: all 0.2s; border: 1px solid transparent;
+    }
+    .area-tag:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
+
+    @media (max-width: 768px) { .areas-list { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ═══════════════════════════════════════════════════
+       PROCESS
+       ═══════════════════════════════════════════════════ */
+    .process-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; margin-top: 40px; }
+    .process-step { text-align: center; }
+    .step-num {
+      width: 56px; height: 56px; border-radius: 50%; background: var(--orange); color: var(--white);
+      font-family: var(--font-heading); font-weight: 900; font-size: 1.4rem;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+    }
+    .process-step h3 { font-size: 1rem; margin-bottom: 8px; }
+    .process-step p { font-size: 0.85rem; color: var(--gray-400); }
+
+    @media (max-width: 768px) { .process-steps { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ═══════════════════════════════════════════════════
+       GALLERY
+       ═══════════════════════════════════════════════════ */
+    .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 40px; }
+    .gallery-item {
+      border-radius: var(--radius); overflow: hidden; background: var(--gray-700);
+      aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center;
+      position: relative; cursor: pointer; transition: transform 0.3s;
+    }
+    .gallery-item:hover { transform: scale(1.02); }
+    .gallery-item i { font-size: 2.5rem; color: var(--orange); opacity: 0.3; }
+    .gallery-item .overlay {
+      position: absolute; inset: 0; background: rgba(232,114,12,0.8);
+      display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s;
+    }
+    .gallery-item:hover .overlay { opacity: 1; }
+    .gallery-item .overlay i { color: var(--white); opacity: 1; font-size: 1.5rem; }
+
+    @media (max-width: 768px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ═══════════════════════════════════════════════════
+       CONTACT / QUOTE FORM
+       ═══════════════════════════════════════════════════ */
+    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+    .contact-info-block {
+      background: var(--gray-800); border-radius: var(--radius); padding: 32px; margin-bottom: 20px;
+    }
+    .contact-info-block h3 { color: var(--white); font-size: 1rem; margin-bottom: 4px; }
+    .contact-info-block p { color: var(--gray-300); font-size: 0.9rem; }
+    .contact-info-block .icon-circle {
+      width: 44px; height: 44px; border-radius: 50%; background: var(--orange);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+    }
+    .contact-info-block .icon-circle i { color: var(--white); font-size: 1.1rem; }
+    .contact-info-block a { color: var(--orange); font-weight: 600; }
+    .quote-form {
+      background: var(--gray-800); border-radius: var(--radius); padding: 36px; box-shadow: var(--shadow-lg);
+    }
+    .quote-form h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; color: var(--white); }
+    .quote-form .form-desc { color: var(--gray-300); font-size: 0.9rem; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--gray-400); margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 12px 16px; border: 1px solid var(--gray-700); border-radius: 6px;
+      font-family: var(--font-body); font-size: 0.9rem; background: var(--gray-900); color: var(--white); transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--orange); }
+    .form-group textarea { height: 100px; resize: vertical; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-submit {
+      width: 100%; padding: 14px; background: var(--orange); color: var(--white); border: none; border-radius: 6px;
+      font-family: var(--font-heading); font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; margin-top: 8px;
+    }
+    .form-submit:hover { background: var(--orange-hover); }
+    .form-success { display: none; text-align: center; padding: 30px; color: #22c55e; font-weight: 600; }
+
+    @media (max-width: 768px) {
+      .contact-grid { grid-template-columns: 1fr; gap: 30px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    /* CTA BANNER */
+    .cta-banner { background: var(--dark); padding: 60px 0; text-align: center; color: var(--white); }
+    .cta-banner h2 { color: var(--white); font-size: 2rem; margin-bottom: 12px; }
+    .cta-banner p { color: var(--gray-300); margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .cta-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+
+    /* ═══════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════ */
+    .site-footer { background: var(--darker); color: var(--gray-300); padding: 50px 0 0; }
+    .footer-top {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      padding-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 30px;
+    }
+    .footer-brand {
+      font-family: var(--font-heading); font-weight: 800; font-size: 0.7rem;
+      color: var(--white); letter-spacing: 2px; text-transform: uppercase; text-align: center;
+    }
+    .footer-contact-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
+    .footer-contact-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+    .footer-contact-item i { color: var(--orange); }
+    .footer-contact-item a { color: var(--gray-300); }
+    .footer-contact-item a:hover { color: var(--orange); }
+    .footer-google { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+    .footer-google .g-icon {
+      width: 24px; height: 24px; background: var(--white); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; color: var(--dark);
+    }
+    .review-btn {
+      display: inline-block; padding: 10px 24px; border: 2px solid var(--gray-400); border-radius: 6px;
+      color: var(--white); font-weight: 600; font-size: 0.85rem; transition: all 0.2s; margin-top: 12px;
+    }
+    .review-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .footer-columns {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+      max-width: 500px; margin: 0 auto; padding-bottom: 30px;
+    }
+    .footer-col h4 {
+      color: var(--white); font-size: 0.85rem; font-weight: 700; margin-bottom: 16px;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 10px; }
+    .footer-col a { color: var(--gray-300); font-size: 0.85rem; transition: color 0.2s; }
+    .footer-col a:hover { color: var(--orange); }
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.06); padding: 20px 0;
+      text-align: center; font-size: 0.75rem; color: var(--gray-400);
+    }
+    .footer-bottom a { color: var(--gray-400); }
+    .footer-bottom a:hover { color: var(--orange); }
+
+    @media (max-width: 768px) { .footer-columns { grid-template-columns: 1fr; text-align: center; } }
+
+    /* POWERED BY */
+    .powered-by { text-align: center; padding: 12px; background: var(--dark); font-size: 0.7rem; color: var(--gray-400); }
+    .powered-by a { color: var(--orange); font-weight: 600; }
+
+    /* MAP */
+    .map-embed { width: 100%; height: 300px; border-radius: var(--radius); overflow: hidden; margin-top: 30px; border: none; }
+
+    /* Scroll offset */
+    [id] { scroll-margin-top: 80px; }
   </style>
 </head>
 <body>
 
-  <!-- NAV -->
-  <nav class="site-nav" id="siteNav">
-    <a href="#" class="nav-brand" id="navBrand">Oaks R&amp;C</a>
-    <div class="nav-links" id="navLinks">
-      <a href="#services">Services</a>
-      <a href="#why">Why Us</a>
-      <a href="#areas">Areas</a>
-      <a href="#contact" class="nav-cta">Get Free Estimate</a>
+  <!-- ═══ TOP WARRANTY BANNER ═══ -->
+  <div class="top-banner" id="topBanner">
+    <i class="fa-solid fa-gear"></i>
+    Enjoy a 5-Year Labor Warranty on All Installs
+    <button class="banner-close" onclick="document.getElementById('topBanner').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
+  <!-- ═══ NAVIGATION ═══ -->
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <svg class="logo-icon" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 8c-8 0-18 6-18 16 0 8 6 14 13 16v12h10V40c7-2 13-8 13-16 0-10-10-16-18-16z" fill="#e8720c"/>
+          <rect x="27" y="38" width="6" height="14" rx="2" fill="#e8720c"/>
+          <path d="M22 52h16" stroke="#e8720c" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <div class="logo-text">Oaks Roofing &<br>Construction</div>
+      </a>
+
+      <ul class="nav-links">
+        <li class="active"><a href="#home">Home</a></li>
+        <li><a href="#about">About</a></li>
+        <li class="has-dropdown">
+          <a href="#services">Services <i class="fa-solid fa-chevron-down dropdown-arrow"></i></a>
+          <div class="dropdown-menu">
+            <a href="#svc-roof-replacement">Roof Replacement</a>
+            <a href="#svc-roof-repair">Roof Repair</a>
+            <a href="#svc-siding-replacement">Siding Replacement</a>
+            <a href="#svc-siding-repair">Siding Repair</a>
+            <a href="#svc-gutters">Gutter Replacement</a>
+          </div>
+        </li>
+        <li><a href="#gallery">Our Work</a></li>
+        <li><a href="#areas">Service Areas</a></li>
+        <li><a href="#contact">Contact Us</a></li>
+      </ul>
+
+      <button class="nav-toggle" onclick="document.getElementById('mobileMenu').classList.toggle('open')">
+        <i class="fa-solid fa-bars"></i>
+      </button>
     </div>
-    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">&#9776;</button>
   </nav>
 
-  <!-- HERO -->
-  <section class="hero" id="hero">
+  <!-- Mobile menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#home" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="#about" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="#services" onclick="this.parentElement.classList.remove('open')">Services</a>
+    <a href="#svc-roof-replacement" class="sub-link" onclick="this.parentElement.classList.remove('open')">Roof Replacement</a>
+    <a href="#svc-roof-repair" class="sub-link" onclick="this.parentElement.classList.remove('open')">Roof Repair</a>
+    <a href="#svc-siding-replacement" class="sub-link" onclick="this.parentElement.classList.remove('open')">Siding Replacement</a>
+    <a href="#svc-siding-repair" class="sub-link" onclick="this.parentElement.classList.remove('open')">Siding Repair</a>
+    <a href="#svc-gutters" class="sub-link" onclick="this.parentElement.classList.remove('open')">Gutter Replacement</a>
+    <a href="#gallery" onclick="this.parentElement.classList.remove('open')">Our Work</a>
+    <a href="#areas" onclick="this.parentElement.classList.remove('open')">Service Areas</a>
+    <a href="#contact" onclick="this.parentElement.classList.remove('open')">Contact Us</a>
+  </div>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero" id="home">
     <div class="container">
-      <h1 id="heroHeadline">Protecting <span>Goshen</span> Homes Since Day One</h1>
-      <p id="heroSub">Expert roofing, siding &amp; gutter services backed by craftsmanship you can trust.</p>
-      <div class="hero-btns">
-        <a href="#contact" class="btn btn-accent">Get a Free Estimate</a>
-        <a href="tel:5138275297" class="btn btn-outline">Call Now</a>
+      <div class="hero-badge">
+        <span class="hero-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></span>
+        5-Star Rated on Google
       </div>
-      <div class="trust-bar">
-        <div class="trust-item"><span>&#9989;</span> Licensed &amp; Insured</div>
-        <div class="trust-item"><span>&#9989;</span> 5-Year Warranty</div>
-        <div class="trust-item"><span>&#9989;</span> Free Inspections</div>
-        <div class="trust-item"><span>&#11088;</span> 5-Star Rated</div>
+      <h1>Trusted Roofing Company in <span>Goshen, OH</span> With Affordable Solutions</h1>
+      <p>Expert roofing, siding, and gutter services backed by honest pricing, quality materials, and a 5-year labor warranty on every install.</p>
+      <div class="hero-actions">
+        <a href="#contact" class="btn-primary"><i class="fa-solid fa-file-lines"></i> Request a Quote</a>
+        <a href="tel:5138275297" class="btn-outline"><i class="fa-solid fa-phone"></i> (513) 827-5297</a>
       </div>
     </div>
   </section>
 
-  <!-- SERVICES -->
-  <section class="section bg-light" id="services">
+  <!-- ═══ COMPETITIVE RATES ═══ -->
+  <div class="rates-strip">
     <div class="container">
-      <h2 class="section-title reveal">Our Services</h2>
-      <p class="section-sub reveal">From roof replacements to emergency storm repair, we've got you covered.</p>
-      <div class="services-grid" id="servicesGrid"></div>
+      <h2>Competitive Rates Without Cutting Corners</h2>
+      <p>Quality roofing, siding, and gutter services at prices that make sense for Goshen homeowners.</p>
     </div>
-  </section>
+  </div>
 
-  <!-- WHY US -->
-  <section class="section" id="why">
+  <!-- ═══ SERVICES ═══ -->
+  <section id="services">
     <div class="container">
-      <h2 class="section-title reveal">Why Choose Oaks?</h2>
-      <p class="section-sub reveal">We're not just contractors — we're your neighbors.</p>
-      <div class="why-grid" id="whyGrid"></div>
-    </div>
-  </section>
+      <span class="section-label">What We Do</span>
+      <h2 class="section-title">Roofing, Siding and Gutter Services</h2>
+      <p class="section-desc">At Oaks Roofing & Construction, we work hard to serve Goshen, OH and surrounding communities with trusted roofing, siding, gutter services, and more.</p>
 
-  <!-- SERVICE AREAS -->
-  <section class="section bg-light" id="areas">
-    <div class="container">
-      <h2 class="section-title reveal">Service Areas</h2>
-      <p class="section-sub reveal">Proudly serving Clermont County and surrounding communities.</p>
-      <div class="areas-list" id="areasList"></div>
-    </div>
-  </section>
-
-  <!-- CONTACT -->
-  <section class="section contact-section" id="contact">
-    <div class="container">
-      <div class="contact-grid">
-        <div class="contact-info reveal">
-          <h2>Let's Talk About Your Project</h2>
-          <p>Whether you need a full roof replacement or a quick repair, we're here to help. Get a free estimate — no pressure, no obligation.</p>
-          <div class="contact-detail"><span>&#128222;</span> <a href="tel:5138275297" style="color:inherit;text-decoration:none;" id="contactPhone">(513) 827-5297</a></div>
-          <div class="contact-detail"><span>&#128231;</span> <span id="contactEmail">joe@oaksrfc.com</span></div>
-          <div class="contact-detail"><span>&#128205;</span> <span id="contactAddress">Goshen, OH</span></div>
-          <div style="margin-top:24px;padding:16px;background:rgba(232,114,12,0.15);border-radius:8px;border-left:4px solid var(--accent);">
-            <strong style="color:var(--accent);" id="warrantyBadge">5-Year Labor Warranty on All Installs</strong>
+      <div class="services-grid">
+        <div class="service-card" id="svc-roof-replacement">
+          <div class="service-card-img"><i class="fa-solid fa-house-chimney"></i></div>
+          <div class="service-card-body">
+            <h3>Roof Replacement</h3>
+            <p>Full tear-off and replacement designed to improve your home's protection, energy efficiency, and value. We offer multiple roofing options for every budget.</p>
+            <a href="#svc-roof-replacement" class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></a>
           </div>
         </div>
-        <form class="contact-form reveal" id="leadForm" onsubmit="submitLead(event)">
-          <div class="form-group">
-            <label for="leadName">Your Name</label>
-            <input type="text" id="leadName" name="name" placeholder="John Smith" required>
+        <div class="service-card" id="svc-roof-repair">
+          <div class="service-card-img"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+          <div class="service-card-body">
+            <h3>Roof Repair</h3>
+            <p>Fast, reliable repairs for leaks, missing shingles, storm damage, and more. We service all roof types and offer free inspections.</p>
+            <a href="#svc-roof-repair" class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></a>
           </div>
-          <div class="form-group">
-            <label for="leadPhone">Phone Number</label>
-            <input type="tel" id="leadPhone" name="phone" placeholder="(555) 123-4567" required>
+        </div>
+        <div class="service-card" id="svc-siding-replacement">
+          <div class="service-card-img"><i class="fa-solid fa-building"></i></div>
+          <div class="service-card-body">
+            <h3>Siding Replacement</h3>
+            <p>Beautiful, durable siding installation to protect and transform your home's exterior. Vinyl, fiber cement, and more.</p>
+            <a href="#svc-siding-replacement" class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></a>
           </div>
-          <div class="form-group">
-            <label for="leadEmail">Email (optional)</label>
-            <input type="email" id="leadEmail" name="email" placeholder="john@example.com">
+        </div>
+        <div class="service-card" id="svc-siding-repair">
+          <div class="service-card-img"><i class="fa-solid fa-hammer"></i></div>
+          <div class="service-card-body">
+            <h3>Siding Repair</h3>
+            <p>Patch, repair, and restore damaged siding to keep your home protected from the elements without a full replacement.</p>
+            <a href="#svc-siding-repair" class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></a>
           </div>
-          <div class="form-group">
-            <label for="leadService">Service Needed</label>
-            <select id="leadService" name="service" required>
-              <option value="">Select a service...</option>
-            </select>
+        </div>
+        <div class="service-card" id="svc-gutters">
+          <div class="service-card-img"><i class="fa-solid fa-droplet"></i></div>
+          <div class="service-card-body">
+            <h3>Gutter Replacement</h3>
+            <p>Seamless gutter systems built to last. We install 5-inch and 6-inch gutters to match your home and protect your foundation.</p>
+            <a href="#svc-gutters" class="service-link">Learn More <i class="fa-solid fa-arrow-right"></i></a>
           </div>
-          <div class="form-group">
-            <label for="leadMessage">Tell Us More</label>
-            <textarea id="leadMessage" name="message" placeholder="Describe your project or issue..."></textarea>
+        </div>
+        <div class="service-card">
+          <div class="service-card-img"><i class="fa-solid fa-cloud-bolt"></i></div>
+          <div class="service-card-body">
+            <h3>Storm Damage</h3>
+            <p>Emergency storm response with full insurance claim assistance. We help you navigate every step from inspection to rebuild.</p>
+            <a href="#contact" class="service-link">Get Help Now <i class="fa-solid fa-arrow-right"></i></a>
           </div>
-          <button type="submit" class="form-submit" id="submitBtn">Request Free Estimate</button>
-          <div class="form-msg" id="formMsg"></div>
-        </form>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- FOOTER -->
+  <!-- ═══ ABOUT ═══ -->
+  <section class="section-gray" id="about">
+    <div class="container">
+      <div class="about-grid">
+        <div class="about-content">
+          <span class="section-label">Who We Are</span>
+          <h2>About Oaks Roofing & Construction</h2>
+          <p>Our journey started in roofing sales, and over the years, we built a business focused on roofing and siding solutions that homeowners can count on. What began as a single trade evolved into a full-service roofing company with the ability to offer both repair and replacement at competitive prices.</p>
+          <p>Unlike larger companies with heavy overhead, we're able to pass savings on to our customers and provide fair, transparent pricing. Based in Goshen, OH, we take pride in serving local homeowners with a level of care and attention others often overlook.</p>
+          <p>We believe in fixing what can be fixed. That mindset, paired with our trade skills and hands-on service, gives our customers reliable results every time. Our team handles everything from full roof replacements and storm damage repairs to siding installation and gutter replacement.</p>
+          <div class="about-stats">
+            <div class="about-stat">
+              <div class="num">5-Yr</div>
+              <div class="label">Labor Warranty</div>
+            </div>
+            <div class="about-stat">
+              <div class="num">100%</div>
+              <div class="label">Licensed & Insured</div>
+            </div>
+            <div class="about-stat">
+              <div class="num">5<i class="fa-solid fa-star" style="color:#f5b731;font-size:0.8rem;margin-left:2px"></i></div>
+              <div class="label">Google Rating</div>
+            </div>
+          </div>
+          <br>
+          <a href="tel:5138275297" class="btn-primary"><i class="fa-solid fa-phone"></i> Call Our Team</a>
+        </div>
+        <div class="about-image">
+          <i class="fa-solid fa-house-chimney-crack"></i>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PROCESS ═══ -->
+  <section>
+    <div class="container text-center">
+      <span class="section-label">How It Works</span>
+      <h2 class="section-title">Why Homeowners Trust Our Process</h2>
+      <p class="section-desc mx-auto">A full roof replacement is about assessing and improving every layer of protection. From the tear-off phase, we remove all damaged or worn components before laying new felt underlayment.</p>
+      <div class="process-steps">
+        <div class="process-step">
+          <div class="step-num">1</div>
+          <h3>Free Inspection</h3>
+          <p>We assess all damaged or worn components and provide a detailed condition report.</p>
+        </div>
+        <div class="process-step">
+          <div class="step-num">2</div>
+          <h3>Honest Quote</h3>
+          <p>Transparent pricing with no hidden fees. We walk you through every line item.</p>
+        </div>
+        <div class="process-step">
+          <div class="step-num">3</div>
+          <h3>Expert Install</h3>
+          <p>Professional installation by our experienced crew, keeping your property clean during and after.</p>
+        </div>
+        <div class="process-step">
+          <div class="step-num">4</div>
+          <h3>Warranty Backed</h3>
+          <p>Every install backed by our 5-year labor warranty plus manufacturer material warranty.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ TESTIMONIALS ═══ -->
+  <section class="section-dark" id="reviews">
+    <div class="container text-center">
+      <span class="section-label">Client Praise</span>
+      <h2 class="section-title">Our Home Exterior Solutions</h2>
+      <p class="section-desc mx-auto">See why Goshen homeowners trust Oaks Roofing & Construction for their roofing, siding, and gutter needs.</p>
+      <div class="reviews-grid">
+        <div class="review-card">
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"They were upfront about everything from the start. No surprises, no pressure. The crew was professional and finished on time. Highly recommend."</p>
+          <div class="review-author">- Mark T., Goshen</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"Best experience I've had with a roofing company. They showed up when they said they would and the roof looks amazing. Great local company."</p>
+          <div class="review-author">- Sarah K., Milford</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+          <p class="review-text">"Had storm damage and they handled everything including the insurance paperwork. Fair price, quality work, and they stood behind their warranty."</p>
+          <div class="review-author">- Dave R., Batavia</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ WARRANTY CTA ═══ -->
+  <section class="warranty-section">
+    <div class="container">
+      <h2>Protect Your Home With Warranties Now</h2>
+      <p>Every roof install comes with our 5-year labor warranty and a 30-50 year manufacturer shingle warranty when you choose us.</p>
+      <div class="warranty-badges">
+        <div class="warranty-badge"><i class="fa-solid fa-shield-halved"></i><span>5-Year Labor Warranty</span></div>
+        <div class="warranty-badge"><i class="fa-solid fa-certificate"></i><span>30-50 Year Material Warranty</span></div>
+        <div class="warranty-badge"><i class="fa-solid fa-clipboard-check"></i><span>Licensed & Insured</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ GALLERY ═══ -->
+  <section class="section-gray" id="gallery">
+    <div class="container text-center">
+      <span class="section-label">Our Work</span>
+      <h2 class="section-title">The New Look, Our Home Exterior Projects</h2>
+      <p class="section-desc mx-auto">Take a look at our recent roofing, siding, and gutter replacement projects. Our gallery highlights the quality, care, and attention we bring to every job.</p>
+      <div class="gallery-grid">
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+        <div class="gallery-item"><i class="fa-solid fa-image"></i><div class="overlay"><i class="fa-solid fa-expand"></i></div></div>
+      </div>
+      <p style="margin-top:20px;color:var(--gray-400);font-size:0.85rem;"><i class="fa-solid fa-camera"></i> Project photos coming soon</p>
+    </div>
+  </section>
+
+  <!-- ═══ SERVICE AREAS ═══ -->
+  <section id="areas">
+    <div class="container text-center">
+      <span class="section-label">Where We Work</span>
+      <h2 class="section-title">Quality Home Exterior Services in Goshen, OH, and Beyond</h2>
+      <p class="section-desc mx-auto">Our team at Oaks Roofing & Construction proudly serves Goshen, OH, and surrounding communities with trusted roofing, siding, gutter services, and more.</p>
+      <div class="areas-list">
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Goshen</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Milford</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Batavia</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Loveland</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Fayetteville</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Blanchester</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Williamsburg</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Bethel</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Amelia</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Mt. Orab</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> New Richmond</div>
+        <div class="area-tag"><i class="fa-solid fa-location-dot" style="color:var(--orange);margin-right:6px"></i> Georgetown</div>
+      </div>
+      <iframe class="map-embed" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d49524.49!2d-84.18!3d39.23!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8841b3f7b3e3f0c5%3A0x8dfe7e8df35be1b0!2sGoshen%2C%20OH!5e0!3m2!1sen!2sus!4v1700000000000" allowfullscreen="" loading="lazy"></iframe>
+    </div>
+  </section>
+
+  <!-- ═══ CONTACT / QUOTE FORM ═══ -->
+  <section class="section-dark" id="contact">
+    <div class="container">
+      <div class="contact-grid">
+        <div>
+          <span class="section-label">Get In Touch</span>
+          <h2 class="section-title">Connect with Us for Roofing and Exterior Help</h2>
+          <div class="contact-info-block">
+            <div class="icon-circle"><i class="fa-solid fa-location-dot"></i></div>
+            <h3>Headquarters</h3>
+            <p>Here to support your project needs.</p>
+            <p style="color:var(--white);font-weight:600;margin-top:4px;">Goshen, OH</p>
+          </div>
+          <div class="contact-info-block">
+            <div class="icon-circle"><i class="fa-solid fa-phone"></i></div>
+            <h3>Phone</h3>
+            <p>Call now for fast roofing assistance.</p>
+            <a href="tel:5138275297" style="margin-top:4px;display:block;">(513) 827-5297</a>
+          </div>
+          <div class="contact-info-block">
+            <div class="icon-circle"><i class="fa-solid fa-clock"></i></div>
+            <h3>Hours</h3>
+            <p>Mon - Sat: 7:00 AM - 4:00 PM</p>
+            <p>Sun: 7:00 AM - 8:00 PM</p>
+          </div>
+        </div>
+        <div class="quote-form" id="quoteForm">
+          <h3>Request a Quote Today</h3>
+          <p class="form-desc">Fill out the form to ask a question or request service. We're committed to providing reliable roofing and exterior solutions with a focus on customer satisfaction.</p>
+          <form id="leadForm" onsubmit="return submitForm(event)">
+            <div class="form-row">
+              <div class="form-group"><label>First Name</label><input type="text" id="firstName" placeholder="John" required></div>
+              <div class="form-group"><label>Last Name</label><input type="text" id="lastName" placeholder="Smith"></div>
+            </div>
+            <div class="form-group"><label>Email</label><input type="email" id="email" placeholder="john@smith.com" required></div>
+            <div class="form-group"><label>Phone Number</label><input type="tel" id="phone" placeholder="(123) 456-7890"></div>
+            <div class="form-group"><label>Zip Code</label><input type="text" id="zip" placeholder="12345"></div>
+            <div class="form-group">
+              <label>Service</label>
+              <select id="service">
+                <option value="">--Please choose an option--</option>
+                <option>Roof Replacement</option>
+                <option>Roof Repair</option>
+                <option>Siding Replacement</option>
+                <option>Siding Repair</option>
+                <option>Gutter Replacement</option>
+                <option>Storm Damage</option>
+                <option>Inspection</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Message</label><textarea id="message" placeholder="Tell us how we can help"></textarea></div>
+            <button type="submit" class="form-submit">Send Message</button>
+          </form>
+          <div class="form-success" id="formSuccess">
+            <i class="fa-solid fa-circle-check" style="font-size:2rem;color:#22c55e;margin-bottom:12px;display:block;"></i>
+            Thank you! We'll be in touch soon.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CTA BANNER ═══ -->
+  <div class="cta-banner">
+    <div class="container">
+      <h2>Reach Out to Schedule Your Service Today</h2>
+      <p>We're here to deliver lasting results with honest service and a focus on customer satisfaction.</p>
+      <div class="cta-actions">
+        <a href="tel:5138275297" class="btn-primary"><i class="fa-solid fa-phone"></i> (513) 827-5297</a>
+        <a href="#contact" class="btn-outline"><i class="fa-solid fa-file-lines"></i> Request a Quote</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FOOTER ═══ -->
   <footer class="site-footer">
-    <p>&copy; <span id="footerYear">2026</span> <span id="footerCompany">Oaks Roofing &amp; Construction</span>. All rights reserved.</p>
-    <div class="nbd-badge">Powered by <a href="https://nobigdealwithjoedeal.com/pro/login.html" target="_blank">NBD Pro</a></div>
+    <div class="container">
+      <div class="footer-top">
+        <svg width="50" height="50" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 8c-8 0-18 6-18 16 0 8 6 14 13 16v12h10V40c7-2 13-8 13-16 0-10-10-16-18-16z" fill="#e8720c"/>
+          <rect x="27" y="38" width="6" height="14" rx="2" fill="#e8720c"/>
+          <path d="M22 52h16" stroke="#e8720c" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <div class="footer-brand">Oaks Roofing & Construction</div>
+        <div class="footer-contact-row">
+          <div class="footer-contact-item"><i class="fa-solid fa-phone"></i> <a href="tel:5138275297">(513) 827-5297</a></div>
+          <div class="footer-contact-item"><i class="fa-solid fa-location-dot"></i> Goshen, OH</div>
+        </div>
+        <div class="footer-google"><span class="g-icon">G</span></div>
+        <a href="#" class="review-btn">Leave Us a Review</a>
+      </div>
+      <div class="footer-columns">
+        <div class="footer-col">
+          <h4>Services</h4>
+          <ul>
+            <li><a href="#svc-roof-replacement">Roof Replacement</a></li>
+            <li><a href="#svc-roof-repair">Roof Repair</a></li>
+            <li><a href="#svc-siding-replacement">Siding Replacement</a></li>
+            <li><a href="#svc-siding-repair">Siding Repair</a></li>
+            <li><a href="#svc-gutters">Gutter Replacement</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">Who We Are</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#areas">Service Areas</a></li>
+            <li><a href="#gallery">Our Work</a></li>
+            <li><a href="#contact">Contact Us</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy;2026, Oaks Roofing & Construction, All Rights Reserved. <a href="#">Privacy Policy</a>
+      </div>
+    </div>
   </footer>
+  <div class="powered-by">Powered by <a href="https://nobigdealwithjoedeal.com" target="_blank">NBD Pro</a></div>
 
+  <!-- ═══ FORM SCRIPT ═══ -->
   <script>
-    // ── Firebase Init ──
-    firebase.initializeApp(COMPANY_CONFIG.firebaseConfig);
-    const db = firebase.firestore();
-    const functions = firebase.functions();
-
-    // ── Render from Config ──
-    function renderSite() {
-      const C = COMPANY_CONFIG;
-
-      // Nav
-      document.getElementById('navBrand').textContent = C.shortName;
-
-      // Hero
-      document.getElementById('heroHeadline').innerHTML = C.heroHeadline.replace(/(Goshen|Cincinnati|your city)/i, '<span>$1</span>');
-      document.getElementById('heroSub').textContent = C.heroSub;
-
-      // Services
-      const grid = document.getElementById('servicesGrid');
-      C.services.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'service-card reveal';
-        card.innerHTML = `<div class="service-icon">${s.icon}</div><h3>${s.name}</h3><p>${s.desc}</p>`;
-        grid.appendChild(card);
-      });
-
-      // Service dropdown
-      const sel = document.getElementById('leadService');
-      C.services.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.name;
-        opt.textContent = s.name;
-        sel.appendChild(opt);
-      });
-
-      // Why Us
-      const wg = document.getElementById('whyGrid');
-      C.whyUs.forEach(w => {
-        const card = document.createElement('div');
-        card.className = 'why-card reveal';
-        card.innerHTML = `<h3>${w.title}</h3><p>${w.desc}</p>`;
-        wg.appendChild(card);
-      });
-
-      // Areas
-      const al = document.getElementById('areasList');
-      C.serviceAreas.forEach(a => {
-        const tag = document.createElement('span');
-        tag.className = 'area-tag reveal';
-        tag.textContent = a;
-        al.appendChild(tag);
-      });
-
-      // Contact info
-      document.getElementById('contactPhone').textContent = C.phone;
-      document.getElementById('contactEmail').textContent = C.email;
-      document.getElementById('contactAddress').textContent = C.address;
-      document.getElementById('warrantyBadge').textContent = C.warranty;
-
-      // Footer
-      document.getElementById('footerYear').textContent = new Date().getFullYear();
-      document.getElementById('footerCompany').textContent = C.name;
-    }
-
-    // ── Scroll Reveal ──
-    function initReveal() {
-      const obs = new IntersectionObserver((entries) => {
-        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-      }, { threshold: 0.15 });
-      document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
-    }
-
-    // ── Mobile Nav ──
-    document.getElementById('mobileToggle').addEventListener('click', () => {
-      document.getElementById('navLinks').classList.toggle('open');
-    });
-    document.querySelectorAll('.nav-links a').forEach(a => {
-      a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
-    });
-
-    // ── Lead Form Submission ──
-    async function submitLead(e) {
+    async function submitForm(e) {
       e.preventDefault();
-      const btn = document.getElementById('submitBtn');
-      const msg = document.getElementById('formMsg');
-      btn.disabled = true;
-      btn.textContent = 'Sending...';
-      msg.textContent = '';
-      msg.className = 'form-msg';
-
       const data = {
-        name: document.getElementById('leadName').value.trim(),
-        phone: document.getElementById('leadPhone').value.trim(),
-        email: document.getElementById('leadEmail').value.trim(),
-        service: document.getElementById('leadService').value,
-        message: document.getElementById('leadMessage').value.trim(),
-        companyId: COMPANY_CONFIG.id,
-        companyName: COMPANY_CONFIG.name,
-        source: 'company-site',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        zip: document.getElementById('zip').value,
+        service: document.getElementById('service').value,
+        message: document.getElementById('message').value,
+        companyId: 'oaks',
+        companyName: 'Oaks Roofing & Construction',
+        source: 'website',
+        page: window.location.pathname,
+        createdAt: new Date(),
+        status: 'new'
       };
-
       try {
-        // Save lead to Firestore
+        const btn = document.querySelector('.form-submit');
+        btn.textContent = 'Sending...';
+        btn.disabled = true;
         await db.collection('leads').add(data);
-
-        // Notify via Cloud Function
-        try {
-          const notifyFn = functions.httpsCallable('notifyNewLead');
-          await notifyFn({ name: data.name, phone: data.phone, email: data.email, service: data.service, message: data.message, companyId: data.companyId });
-        } catch (fnErr) {
-          console.warn('Notification function error (lead still saved):', fnErr);
-        }
-
-        msg.textContent = 'Thank you! We\'ll be in touch shortly.';
-        msg.className = 'form-msg success';
-        e.target.reset();
+        document.getElementById('leadForm').style.display = 'none';
+        document.getElementById('formSuccess').style.display = 'block';
       } catch (err) {
-        console.error('Lead submission error:', err);
-        msg.textContent = 'Something went wrong. Please call us directly.';
-        msg.className = 'form-msg error';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Request Free Estimate';
+        console.error('Form error:', err);
+        alert('Something went wrong. Please call us at (513) 827-5297.');
       }
     }
 
-    // ── Init ──
-    renderSite();
-    setTimeout(initReveal, 100);
+    // Active nav highlight on scroll
+    const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section[id]');
+      let current = '';
+      sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 100) current = s.getAttribute('id');
+      });
+      navLinks.forEach(l => {
+        l.parentElement.classList.remove('active');
+        if (l.getAttribute('href') === '#' + current) l.parentElement.classList.add('active');
+      });
+    });
   </script>
 </body>
 </html>
