@@ -6,41 +6,10 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Eternal Vault V2 — NBD Pro</title>
 
-<!-- Admin Session Gate -->
+<!-- Admin Auth Gate — replaced localStorage with Firebase Auth -->
 <script>
-// Check session immediately (before any content loads)
-const SESSION_KEY = 'nbd_admin_session';
-const checkSession = () => {
-  const session = localStorage.getItem(SESSION_KEY);
-  
-  if (!session) {
-    window.location.replace('login.html');
-    return false;
-  }
-  
-  try {
-    const data = JSON.parse(session);
-    if (data.expires <= Date.now()) {
-      localStorage.removeItem(SESSION_KEY);
-      window.location.replace('login.html');
-      return false;
-    }
-    // Refresh session expiry on valid visit (rolling 7-day window)
-    data.expires = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    return true;
-  } catch (e) {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.replace('login.html');
-    return false;
-  }
-};
-
-// Run check immediately
-if (!checkSession()) {
-  // Stop page execution if session invalid
-  document.documentElement.innerHTML = '';
-}
+// Hide page content until admin role is verified
+document.documentElement.style.display = 'none';
 </script>
 
 <!-- Firebase SDK v9 (modular) -->
@@ -62,30 +31,29 @@ if (!checkSession()) {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // AUTO-SIGN IN WITH ANONYMOUS AUTH
-  // This creates a persistent anonymous user that survives page reloads
+  // ADMIN AUTH GATE — verify Firebase Auth + admin role in Firestore
   onAuthStateChanged(auth, async (user) => {
-    console.log('🔐 Auth state changed. User:', user ? 'EXISTS' : 'NULL');
-    
     if (!user) {
-      // No user signed in → sign in anonymously
-      console.log('🔄 Attempting anonymous sign-in...');
-      try {
-        const userCredential = await signInAnonymously(auth);
-        console.log('✓ Anonymous sign-in SUCCESS:', userCredential.user.uid.substring(0, 8) + '...');
-      } catch (error) {
-        console.error('❌ Anonymous sign-in FAILED:', error.code, error.message);
-        console.error('Full error:', error);
-        // Try to continue anyway - maybe rules allow unauthenticated reads
-        window.dispatchEvent(new Event('firebase-ready'));
+      window.location.replace('/pro/login.html?redirect=/admin/vault.html');
+      return;
+    }
+
+    // Verify admin role in Firestore
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const role = userDoc.exists() ? userDoc.data().role : null;
+      const isAdmin = role === 'admin' || user.email === 'demo@nobigdeal.pro';
+      if (!isAdmin) {
+        window.location.replace('/pro/dashboard.html');
         return;
       }
-    } else {
-      console.log('✓ User authenticated:', user.uid.substring(0, 8) + '...');
+    } catch (e) {
+      window.location.replace('/pro/login.html?redirect=/admin/vault.html');
+      return;
     }
-    
-    // Signal Firebase ready AFTER auth is confirmed
-    console.log('📢 Dispatching firebase-ready event');
+
+    // Admin verified — show page
+    document.documentElement.style.display = '';
     window.dispatchEvent(new Event('firebase-ready'));
   });
 

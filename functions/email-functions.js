@@ -23,7 +23,6 @@ const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://nobigdeal-pro.web.app',
-  'http://localhost:5000'
 ];
 
 // ═══════════════════════════════════════════════════════════════

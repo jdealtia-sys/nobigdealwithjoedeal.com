@@ -25,7 +25,6 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://nobigdeal-pro.web.app',
-  'http://localhost:5000'
 ];
 
 // ═══════════════════════════════════════════════════════════════

@@ -533,8 +533,6 @@ exports.getSubscriptionStatus = onRequest(
       res.json({
         status: data.status,
         plan: data.plan,
-        stripeCustomerId: data.stripeCustomerId,
-        stripeSubscriptionId: data.stripeSubscriptionId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });
@@ -871,13 +869,13 @@ exports.validateAccessCode = onCall(
 
     const normalized = code.trim().toUpperCase();
 
-    // Access code → Firebase auth credentials (server-side only)
+    // Access code → Firebase user mapping (no passwords stored)
     const ACCESS_CODES = {
-      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!', role: 'member' },
-      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro',  pass: 'nbd_invite_2026!', role: 'member' },
-      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
-      'DEMO':      { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
-      'TRYIT':     { email: 'demo@nobigdeal.pro',          pass: 'nbd_demo_access!', role: 'demo' },
+      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro', role: 'member' },
+      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro', role: 'member' },
+      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',        role: 'demo' },
+      'DEMO':      { email: 'demo@nobigdeal.pro',        role: 'demo' },
+      'TRYIT':     { email: 'demo@nobigdeal.pro',        role: 'demo' },
     };
 
     const creds = ACCESS_CODES[normalized];
@@ -893,9 +891,10 @@ exports.validateAccessCode = onCall(
         userRecord = await admin.auth().getUserByEmail(creds.email);
       } catch (e) {
         if (e.code === 'auth/user-not-found') {
+          const crypto = require('crypto');
           userRecord = await admin.auth().createUser({
             email: creds.email,
-            password: creds.pass,
+            password: crypto.randomBytes(32).toString('hex'),
             displayName: creds.role === 'demo' ? 'Demo User' : 'Invited Member'
           });
         } else {
