@@ -573,6 +573,7 @@ header {
 
 </style>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/customer">
+<link rel="stylesheet" href="css/photo-editor.css">
 </head>
 <body>
 
@@ -2224,7 +2225,7 @@ async function loadPhotos(leadId) {
     window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
     const html = window._customerPhotos.map((photo, idx) => 
-      `<div class="photo-item" onclick="openLightbox(${idx})">
+      `<div class="photo-item" onclick="if(window.NBDPhotoEditor)window.NBDPhotoEditor.open(window._customerPhotos[${idx}].url, window._customerPhotos[${idx}].id, window._customerId);else openLightbox(${idx});">
         <img src="${photo.url}" alt="Property photo">
       </div>`
     ).join('');
@@ -4017,5 +4018,6 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/lead-scoring.js?v=2"></script>
 <script src="js/insurance-claim.js?v=2"></script>
 <script src="js/offline-manager.js?v=2"></script>
+<script src="js/photo-editor.js?v=1"></script>
 </body>
 </html>
