@@ -88,7 +88,7 @@
       });
 
       // 7. Show share options
-      showShareDialog(shareUrl, customerName, lead.phone, lead.email);
+      showShareDialog(shareUrl, customerName, lead.phone, lead.email, photos.length);
 
       return shareUrl;
     } catch (error) {
@@ -393,7 +393,7 @@
   /**
    * Show share dialog with SMS, Email, and Copy Link options
    */
-  function showShareDialog(url, customerName, phone, email) {
+  function showShareDialog(url, customerName, phone, email, photoCount) {
     const existingDialog = document.getElementById('nbd-share-dialog');
     if (existingDialog) existingDialog.remove();
 
@@ -408,7 +408,7 @@
     dialog.innerHTML = `
       <div style="background:#1a1a2e;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#fff;margin-bottom:4px;">Gallery Ready to Share</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px;">${photos ? photos.length : ''} photos for ${customerName}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px;">${photoCount || ''} photos for ${customerName}</div>
 
         <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:12px;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
           <input type="text" value="${url}" readonly style="flex:1;background:none;border:none;color:#fff;font-size:12px;outline:none;font-family:monospace;" id="nbd-share-url">
