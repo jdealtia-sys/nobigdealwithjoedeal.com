@@ -379,7 +379,7 @@
     document.getElementById('settingsName').value     = user.displayName || '';
     document.getElementById('settingsEmail').value    = user.email || '';
     // Seed demo data first if this is the demo account, then load normally
-    await maybeSeedDemoData(user).catch(()=>{});
+    if(typeof maybeSeedDemoData==='function') await maybeSeedDemoData(user).catch(()=>{});
     // Build dynamic kanban columns before loading leads
     const savedView = localStorage.getItem('nbd_kanban_view') || 'insurance';
     if (typeof window.buildKanbanColumns === 'function') {
@@ -10727,67 +10727,67 @@ if(typeof estNext==='function'){window.estNext=estNext;}
 if(typeof estBack==='function'){window.estBack=estBack;}
 if(typeof selectTier==='function'){window.selectTier=selectTier;}
 // Map functions - exposed by maps.js after it loads (line 8217)
-window.searchMap = searchMap;
-window.selectPin = selectPin;
-window.deletePin = deletePin;
-window.clearAllPins = clearAllPins;
-window.damagNearMe = spyglassGoToLocation;
-window.damageNearMePhotos = damageNearMePhotos;
-window.toggleMapSidebar = toggleMapSidebar;
-window.spyglassSearch = spyglassSearch;
-window.spyglassGoToLocation = spyglassGoToLocation;
-window.fabToggle = fabToggle;
-window.quickStormCheck = quickStormCheck;
-window.updatePinStats = updatePinStats;
-window.startZoneDraw = startZoneDraw;
-window.cancelZoneDraw = cancelZoneDraw;
-window.saveZone = saveZone;
-window.deleteZone = deleteZone;
-window.selectZoneColor = selectZoneColor;
-window.loadSampleData = loadSampleData;
-window.handleCardClick = handleCardClick; // Exposed by crm.js
+if(typeof searchMap!=='undefined') window.searchMap = searchMap;
+if(typeof selectPin!=='undefined') window.selectPin = selectPin;
+if(typeof deletePin!=='undefined') window.deletePin = deletePin;
+if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
+if(typeof spyglassGoToLocation!=='undefined') window.damagNearMe = spyglassGoToLocation;
+if(typeof damageNearMePhotos!=='undefined') window.damageNearMePhotos = damageNearMePhotos;
+if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
+if(typeof spyglassSearch!=='undefined') window.spyglassSearch = spyglassSearch;
+if(typeof spyglassGoToLocation!=='undefined') window.spyglassGoToLocation = spyglassGoToLocation;
+if(typeof fabToggle!=='undefined') window.fabToggle = fabToggle;
+if(typeof quickStormCheck!=='undefined') window.quickStormCheck = quickStormCheck;
+if(typeof updatePinStats!=='undefined') window.updatePinStats = updatePinStats;
+if(typeof startZoneDraw!=='undefined') window.startZoneDraw = startZoneDraw;
+if(typeof cancelZoneDraw!=='undefined') window.cancelZoneDraw = cancelZoneDraw;
+if(typeof saveZone!=='undefined') window.saveZone = saveZone;
+if(typeof deleteZone!=='undefined') window.deleteZone = deleteZone;
+if(typeof selectZoneColor!=='undefined') window.selectZoneColor = selectZoneColor;
+if(typeof loadSampleData!=='undefined') window.loadSampleData = loadSampleData;
+if(typeof handleCardClick!=='undefined') window.handleCardClick = handleCardClick; // Exposed by crm.js
 // Map Overlay System
-window.toggleOverlay = toggleOverlay;
+if(typeof toggleOverlay!=='undefined') window.toggleOverlay = toggleOverlay;
 // ══════════════════════════════════════════════════════════════════
 // FORWARD REFERENCES REMOVED - Functions exposed by their own modules
 // All assignments below moved to crm.js, maps.js, etc.
 // ══════════════════════════════════════════════════════════════════
 // Delete confirm - in crm.js
-window.cancelDeleteConfirm = cancelDeleteConfirm;
-window.confirmDeleteLead = confirmDeleteLead;
+if(typeof cancelDeleteConfirm!=='undefined') window.cancelDeleteConfirm = cancelDeleteConfirm;
+if(typeof confirmDeleteLead!=='undefined') window.confirmDeleteLead = confirmDeleteLead;
 // Deleted drawer - in crm.js
-window.openDeletedDrawer = openDeletedDrawer;
-window.closeDeletedDrawer = closeDeletedDrawer;
-window.restoreDeletedLead = restoreDeletedLead;
-window.permanentDeleteLead = permanentDeleteLead;
+if(typeof openDeletedDrawer!=='undefined') window.openDeletedDrawer = openDeletedDrawer;
+if(typeof closeDeletedDrawer!=='undefined') window.closeDeletedDrawer = closeDeletedDrawer;
+if(typeof restoreDeletedLead!=='undefined') window.restoreDeletedLead = restoreDeletedLead;
+if(typeof permanentDeleteLead!=='undefined') window.permanentDeleteLead = permanentDeleteLead;
 // Pin popup actions - in maps.js
-window.goToLeadFromPin = goToLeadFromPin;
-window.deleteLeadFromPin = deleteLeadFromPin;
-window.makeLeadFromPin = makeLeadFromPin;
-window.deletePinOnly = deletePinOnly;
-window.dropPinByAddress = dropPinByAddress;
-window.drop = drop;
-window.openPinConfirm = openPinConfirm;
-window.cancelPinConfirm = cancelPinConfirm;
-window.commitPin = commitPin;
+if(typeof goToLeadFromPin!=='undefined') window.goToLeadFromPin = goToLeadFromPin;
+if(typeof deleteLeadFromPin!=='undefined') window.deleteLeadFromPin = deleteLeadFromPin;
+if(typeof makeLeadFromPin!=='undefined') window.makeLeadFromPin = makeLeadFromPin;
+if(typeof deletePinOnly!=='undefined') window.deletePinOnly = deletePinOnly;
+if(typeof dropPinByAddress!=='undefined') window.dropPinByAddress = dropPinByAddress;
+if(typeof drop!=='undefined') window.drop = drop;
+if(typeof openPinConfirm!=='undefined') window.openPinConfirm = openPinConfirm;
+if(typeof cancelPinConfirm!=='undefined') window.cancelPinConfirm = cancelPinConfirm;
+if(typeof commitPin!=='undefined') window.commitPin = commitPin;
 // Autocomplete - in dashboard.html below
-window.selectAcItem = selectAcItem;
-window.hideAcDrop = hideAcDrop;
+if(typeof selectAcItem!=='undefined') window.selectAcItem = selectAcItem;
+if(typeof hideAcDrop!=='undefined') window.hideAcDrop = hideAcDrop;
 // Make Lead from Map - in maps.js
-window.makeLeadFromSearch = makeLeadFromSearch;
-window.fetchPropertyIntel = fetchPropertyIntel;
-window.pullIntelForModal = pullIntelForModal;
+if(typeof makeLeadFromSearch!=='undefined') window.makeLeadFromSearch = makeLeadFromSearch;
+if(typeof fetchPropertyIntel!=='undefined') window.fetchPropertyIntel = fetchPropertyIntel;
+if(typeof pullIntelForModal!=='undefined') window.pullIntelForModal = pullIntelForModal;
 // Storm - in maps.js
-window.loadStorm = loadStorm;
+if(typeof loadStorm!=='undefined') window.loadStorm = loadStorm;
 // Drawing tool - in maps.js
-window.searchDraw = searchDraw;
-window.selLT = selLT;
-window.toggleDraw = toggleDraw;
-window.clearDraw = clearDraw;
-window.undoLine = undoLine;
-window.deleteLine = deleteLine;
-window.exportDrawReport = exportDrawReport;
-window.importToEstimate = importToEstimate;
+if(typeof searchDraw!=='undefined') window.searchDraw = searchDraw;
+if(typeof selLT!=='undefined') window.selLT = selLT;
+if(typeof toggleDraw!=='undefined') window.toggleDraw = toggleDraw;
+if(typeof clearDraw!=='undefined') window.clearDraw = clearDraw;
+if(typeof undoLine!=='undefined') window.undoLine = undoLine;
+if(typeof deleteLine!=='undefined') window.deleteLine = deleteLine;
+if(typeof exportDrawReport!=='undefined') window.exportDrawReport = exportDrawReport;
+if(typeof importToEstimate!=='undefined') window.importToEstimate = importToEstimate;
 // ══════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════
@@ -10796,67 +10796,67 @@ window.importToEstimate = importToEstimate;
 // added AFTER function definitions later in this file
 // ══════════════════════════════════════════════════════════════════
 // Drawing tool functions - in maps.js
-window.setDrawMode = setDrawMode;
-window.perimChooseType = perimChooseType;
-window.selectLine = selectLine;
-window.deselectLine = deselectLine;
-window.retypeLine = retypeLine;
-window.erToggleSegment = erToggleSegment;
+if(typeof setDrawMode!=='undefined') window.setDrawMode = setDrawMode;
+if(typeof perimChooseType!=='undefined') window.perimChooseType = perimChooseType;
+if(typeof selectLine!=='undefined') window.selectLine = selectLine;
+if(typeof deselectLine!=='undefined') window.deselectLine = deselectLine;
+if(typeof retypeLine!=='undefined') window.retypeLine = retypeLine;
+if(typeof erToggleSegment!=='undefined') window.erToggleSegment = erToggleSegment;
 // Photos - defined later in this file
-window.openPhotoFor = openPhotoFor;
-window.closePhotoModal = closePhotoModal;
-window.uploadPhotos = uploadPhotos;
-window.renderPhotoLeads = renderPhotoLeads;
-window.renderPhotoGrid = renderPhotoGrid;
+if(typeof openPhotoFor!=='undefined') window.openPhotoFor = openPhotoFor;
+if(typeof closePhotoModal!=='undefined') window.closePhotoModal = closePhotoModal;
+if(typeof uploadPhotos!=='undefined') window.uploadPhotos = uploadPhotos;
+if(typeof renderPhotoLeads!=='undefined') window.renderPhotoLeads = renderPhotoLeads;
+if(typeof renderPhotoGrid!=='undefined') window.renderPhotoGrid = renderPhotoGrid;
 // Documents - defined later in this file
-window.openUploadDoc = openUploadDoc;
-window.closeUploadDoc = closeUploadDoc;
-window.saveDocUpload = saveDocUpload;
-window.openDocTemplate = openDocTemplate;
-window.printDoc = printDoc;
-window.closeDocViewer = closeDocViewer;
+if(typeof openUploadDoc!=='undefined') window.openUploadDoc = openUploadDoc;
+if(typeof closeUploadDoc!=='undefined') window.closeUploadDoc = closeUploadDoc;
+if(typeof saveDocUpload!=='undefined') window.saveDocUpload = saveDocUpload;
+if(typeof openDocTemplate!=='undefined') window.openDocTemplate = openDocTemplate;
+if(typeof printDoc!=='undefined') window.printDoc = printDoc;
+if(typeof closeDocViewer!=='undefined') window.closeDocViewer = closeDocViewer;
 // Ask Joe AI - in ai.js
-window.sendJoeMessage = sendJoeMessage;
-window.joeQuick = joeQuick;
-window.saveJoeKey = saveJoeKey;
-window.clearJoeKey = clearJoeKey;
+if(typeof sendJoeMessage!=='undefined') window.sendJoeMessage = sendJoeMessage;
+if(typeof joeQuick!=='undefined') window.joeQuick = joeQuick;
+if(typeof saveJoeKey!=='undefined') window.saveJoeKey = saveJoeKey;
+if(typeof clearJoeKey!=='undefined') window.clearJoeKey = clearJoeKey;
 // Misc - defined later in this file
-window.openTips = openTips;
-window.closeTips = closeTips;
-window.applyTheme = applyTheme;
-window.goToWithTheme = goToWithTheme;
-window.showToast = showToast;
+if(typeof openTips!=='undefined') window.openTips = openTips;
+if(typeof closeTips!=='undefined') window.closeTips = closeTips;
+if(typeof applyTheme!=='undefined') window.applyTheme = applyTheme;
+if(typeof goToWithTheme!=='undefined') window.goToWithTheme = goToWithTheme;
+if(typeof showToast!=='undefined') window.showToast = showToast;
 // Daily settings - defined later in this file
-window.dsAddFloor = dsAddFloor;
-window.dsRemoveFloor = dsRemoveFloor;
-window.dsSaveConfig = dsSaveConfig;
-window.dsResetDefaults = dsResetDefaults;
+if(typeof dsAddFloor!=='undefined') window.dsAddFloor = dsAddFloor;
+if(typeof dsRemoveFloor!=='undefined') window.dsRemoveFloor = dsRemoveFloor;
+if(typeof dsSaveConfig!=='undefined') window.dsSaveConfig = dsSaveConfig;
+if(typeof dsResetDefaults!=='undefined') window.dsResetDefaults = dsResetDefaults;
 // NBD Unified Appearance Picker - in maps.js or dashboard
-window.nbdPickerOpen = nbdPickerOpen;
-window.nbdPickerClose = nbdPickerClose;
-window.nbdPickerTab = nbdPickerTab;
-window.nbdHowtoOpen = nbdHowtoOpen;
-window.nbdHowtoClose = nbdHowtoClose;
-window.nbdApplyTheme = nbdApplyTheme;
-window.nbdApplyFont = nbdApplyFont;
-window.nbdRandom = nbdRandom;
-window.nbdSaveCustom = nbdSaveCustom;
-window.nbdSetCat = nbdSetCat;
+if(typeof nbdPickerOpen!=='undefined') window.nbdPickerOpen = nbdPickerOpen;
+if(typeof nbdPickerClose!=='undefined') window.nbdPickerClose = nbdPickerClose;
+if(typeof nbdPickerTab!=='undefined') window.nbdPickerTab = nbdPickerTab;
+if(typeof nbdHowtoOpen!=='undefined') window.nbdHowtoOpen = nbdHowtoOpen;
+if(typeof nbdHowtoClose!=='undefined') window.nbdHowtoClose = nbdHowtoClose;
+if(typeof nbdApplyTheme!=='undefined') window.nbdApplyTheme = nbdApplyTheme;
+if(typeof nbdApplyFont!=='undefined') window.nbdApplyFont = nbdApplyFont;
+if(typeof nbdRandom!=='undefined') window.nbdRandom = nbdRandom;
+if(typeof nbdSaveCustom!=='undefined') window.nbdSaveCustom = nbdSaveCustom;
+if(typeof nbdSetCat!=='undefined') window.nbdSetCat = nbdSetCat;
 // Navigation - defined later in this file
-window.toggleNavSection = toggleNavSection;
-window.toggleSettingsSection = toggleSettingsSection;
+if(typeof toggleNavSection!=='undefined') window.toggleNavSection = toggleNavSection;
+if(typeof toggleSettingsSection!=='undefined') window.toggleSettingsSection = toggleSettingsSection;
 // CRM Search - already in crm.js
-window.clearCrmSearch = clearCrmSearch;
+if(typeof clearCrmSearch!=='undefined') window.clearCrmSearch = clearCrmSearch;
 // Property Intel - defined later in this file
-window.executePullPropertyIntel = executePullPropertyIntel;
-window.confirmPropertyIntelPull = confirmPropertyIntelPull;
-window.closePropertyIntelModal = closePropertyIntelModal;
-window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
+if(typeof executePullPropertyIntel!=='undefined') window.executePullPropertyIntel = executePullPropertyIntel;
+if(typeof confirmPropertyIntelPull!=='undefined') window.confirmPropertyIntelPull = confirmPropertyIntelPull;
+if(typeof closePropertyIntelModal!=='undefined') window.closePropertyIntelModal = closePropertyIntelModal;
+if(typeof closePropertyIntelConfirmModal!=='undefined') window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
 // Notifications - defined later in this file
-window.markAllNotificationsRead = markAllNotificationsRead;
-window.markNotificationRead = markNotificationRead;
-window.dsPickTheme = dsPickTheme;
-window.renderLeaderboard = renderLeaderboard;
+if(typeof markAllNotificationsRead!=='undefined') window.markAllNotificationsRead = markAllNotificationsRead;
+if(typeof markNotificationRead!=='undefined') window.markNotificationRead = markNotificationRead;
+if(typeof dsPickTheme!=='undefined') window.dsPickTheme = dsPickTheme;
+if(typeof renderLeaderboard!=='undefined') window.renderLeaderboard = renderLeaderboard;
 // ══════════════════════════════════════════════════════════════════
 
 function toggleMapSidebar(id) {
@@ -11369,6 +11369,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=3"></script>
 <script defer src="js/tools.js?v=3"></script>
+<script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
 <script src="js/claude-proxy.js?v=3"></script>
 <script src="js/crm.js?v=9"></script>

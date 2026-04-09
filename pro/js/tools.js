@@ -308,11 +308,14 @@ async function checkAndShowOnboarding() {
 
       // Personalize greeting
       const firstName = (name || '').split(' ')[0] || 'there';
-      document.getElementById('onbGreeting').textContent = `Hey ${firstName}, let's get you set up.`;
+      const greetEl = document.getElementById('onbGreeting');
+      if (greetEl) greetEl.textContent = `Hey ${firstName}, let's get you set up.`;
 
       const modal = document.getElementById('onboardingModal');
+      if (!modal) return;
       modal.style.display = 'flex';
-      setTimeout(() => document.getElementById('onbCompany').focus(), 200);
+      const onbCo = document.getElementById('onbCompany');
+      if (onbCo) setTimeout(() => onbCo.focus(), 200);
 
       // Wire autocomplete for Step 2 address
       setTimeout(() => initAddressAutocomplete('onbAddr'), 300);
