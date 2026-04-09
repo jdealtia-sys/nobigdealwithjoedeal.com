@@ -1,0 +1,4571 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0C0F">
+<link rel="icon" href="/pro/img/nbd-icon-192.png">
+<link rel="manifest" href="/pro/manifest.json">
+<title>Customer Details — NBD Pro</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="js/standalone-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style id="theme-system">
+/* Theme system matches dashboard.html */
+[data-theme="nbd-original"] { --orange:#C8541A; --ob:#E8621E; --og:rgba(200,84,26,.22); --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229; --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280; --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017; --paper:#1E2229; --ink:#E8EAF0; --rule:rgba(255,255,255,.09); }
+
+/* EMPTY STATES */
+.empty {
+  text-align:center;
+  padding:40px 20px;
+  color:var(--m);
+}
+.empty-icon {
+  font-size:48px;
+  opacity:.4;
+  margin-bottom:8px;
+}
+/* Add more themes as needed - for now just using default */
+</style>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { 
+  font-family:'Barlow',sans-serif; background:var(--bg); color:var(--t); 
+  min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
+}
+
+/* HEADER */
+header {
+  background:rgba(10,12,15,.97); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--br); display:flex; align-items:center;
+  justify-content:space-between; padding:0 18px; height:52px;
+}
+.logo { font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.logo span { color:var(--orange); }
+.back-btn {
+  display:flex; align-items:center; gap:8px; padding:6px 12px;
+  background:var(--s2); border:1px solid var(--br); border-radius:6px;
+  color:var(--t); text-decoration:none; font-size:12px;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  transition:all .15s;
+}
+.back-btn:hover { background:var(--s3); border-color:var(--orange); }
+
+/* MAIN LAYOUT */
+.container {
+  max-width:1200px; width:100%; margin:0 auto; padding:20px;
+  flex:1;
+}
+
+/* CUSTOMER HEADER */
+.customer-header {
+  background:var(--s); border:1px solid var(--br); border-radius:10px;
+  padding:24px; margin-bottom:20px;
+}
+.customer-name {
+  font-family:'Barlow Condensed',sans-serif; font-size:28px;
+  font-weight:700; margin-bottom:8px;
+}
+.customer-meta {
+  display:flex; gap:16px; align-items:center; margin-bottom:16px;
+  flex-wrap:wrap;
+}
+.meta-item {
+  display:flex; align-items:center; gap:6px;
+  font-size:13px; color:var(--m);
+}
+.stage-badge {
+  padding:4px 12px; background:var(--s2); border:1px solid var(--br);
+  border-radius:12px; font-size:11px; font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+}
+.stage-badge.stage-new, .stage-badge.stage-new-lead { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
+.stage-badge.stage-contacted { background:#1a2440; color:#60a5fa; border-color:#2563eb; }
+.stage-badge.stage-inspected, .stage-badge.stage-inspection { background:#1a2e4a; color:#4A9EFF; border-color:#2d5a8e; }
+.stage-badge.stage-claim-filed { background:#221a3a; color:#a78bfa; border-color:#7c3aed; }
+.stage-badge.stage-adjuster-meeting-scheduled { background:#2a1a3a; color:#c084fc; border-color:#a855f7; }
+.stage-badge.stage-adjuster-inspection-done { background:#251a38; color:#a78bfa; border-color:#8b5cf6; }
+.stage-badge.stage-scope-received { background:#2a2010; color:#fbbf24; border-color:#d97706; }
+.stage-badge.stage-estimate-submitted, .stage-badge.stage-estimate, .stage-badge.stage-estimate-sent { background:#2a2414; color:#D4A017; border-color:#6b5010; }
+.stage-badge.stage-supplement-requested { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
+.stage-badge.stage-supplement-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-estimate-sent-cash { background:#2a2414; color:#D4A017; border-color:#6b5010; }
+.stage-badge.stage-negotiating { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
+.stage-badge.stage-prequal-sent { background:#0a2a2a; color:#22d3ee; border-color:#0891b2; }
+.stage-badge.stage-loan-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-contract-signed, .stage-badge.stage-approved { background:#0f2a1a; color:#22C55E; border-color:#16a34a; }
+.stage-badge.stage-job-created { background:#0a1e3a; color:#38bdf8; border-color:#0369a1; }
+.stage-badge.stage-permit-pulled { background:#1a1a3a; color:#818cf8; border-color:#4338ca; }
+.stage-badge.stage-materials-ordered { background:#2a1e10; color:#fbbf24; border-color:#b45309; }
+.stage-badge.stage-materials-delivered { background:#2a2010; color:#facc15; border-color:#a16207; }
+.stage-badge.stage-crew-scheduled { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
+.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:#22C55E; border-color:#166534; }
+.stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:#22c55e; }
+.stage-badge.stage-final-photos { background:#0a2a20; color:#6ee7b7; border-color:#10b981; }
+.stage-badge.stage-deductible-collected { background:#0a2a28; color:#5eead4; border-color:#14b8a6; }
+.stage-badge.stage-final-payment { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
+.stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
+.stage-badge.stage-lost { background:#2a1414; color:#E05252; border-color:#7f1d1d; }
+.quick-actions {
+  display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
+}
+.btn {
+  padding:8px 16px; background:var(--s2); border:1px solid var(--br);
+  border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  transition:all .15s; color:var(--t); text-decoration:none;
+}
+.btn:hover { background:var(--s3); border-color:var(--orange); }
+.btn-orange { background:var(--orange); border-color:var(--orange); color:#fff; }
+.btn-orange:hover { background:var(--ob); }
+
+/* GRID LAYOUT */
+.content-grid {
+  display:grid; grid-template-columns:2fr 1fr; gap:20px;
+}
+@media (max-width:900px) {
+  .content-grid { grid-template-columns:1fr; }
+  .info-grid { grid-template-columns:1fr; }
+  .quick-actions { flex-direction:column; }
+  .quick-actions .btn { width:100%; justify-content:center; }
+}
+@media (max-width:640px) {
+  html { -webkit-text-size-adjust:100%; }
+  body { -webkit-overflow-scrolling:touch; overflow-x:hidden; }
+  * { -webkit-tap-highlight-color:transparent; }
+  .container { padding:12px; }
+  header { padding:8px 12px; }
+  header .back-btn { font-size:13px; padding:8px 10px; }
+  .quick-actions .btn { min-height:48px; font-size:13px; padding:12px 16px; display:flex; align-items:center; gap:8px; }
+  .panel { padding:14px; margin-bottom:14px; border-radius:10px; }
+  .panel-title { font-size:15px; }
+  .meta-item { font-size:12px; }
+  .info-value { font-size:13px; word-break:break-word; }
+  .photo-grid { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; }
+  .modal-content { max-width:calc(100vw - 24px)!important; margin:12px; border-radius:14px; max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  input, select, textarea { font-size:16px!important; } /* prevent iOS zoom */
+  a, button { touch-action:manipulation; }
+}
+@media (max-width:400px) {
+  .container { padding:8px; }
+  .quick-actions { gap:6px; }
+  .quick-actions .btn { font-size:12px; padding:10px 12px; }
+  .panel { padding:12px; }
+  .photo-grid { grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); }
+}
+
+/* PANEL */
+.panel {
+  background:var(--s); border:1px solid var(--br); border-radius:10px;
+  padding:18px; margin-bottom:20px;
+}
+.panel-title {
+  font-family:'Barlow Condensed',sans-serif; font-size:14px;
+  font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  margin-bottom:12px; color:var(--orange);
+}
+
+/* INFO GRID */
+.info-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+}
+.info-item {
+  display:flex; flex-direction:column; gap:4px;
+}
+.info-label {
+  font-size:11px; color:var(--m); font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.info-value {
+  font-size:14px; color:var(--t);
+}
+
+/* TIMELINE */
+.timeline-item {
+  display:flex; gap:12px; padding:12px 0;
+  border-bottom:1px solid var(--br);
+}
+.timeline-item:last-child { border-bottom:none; }
+.timeline-icon {
+  width:32px; height:32px; background:var(--s2); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; flex-shrink:0;
+}
+.timeline-content { flex:1; }
+.timeline-title {
+  font-size:13px; font-weight:600; margin-bottom:4px;
+}
+.timeline-desc {
+  font-size:12px; color:var(--m); margin-bottom:4px;
+}
+.timeline-time {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+
+/* PHOTOS */
+.photo-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  gap:8px;
+}
+.photo-item {
+  aspect-ratio:1; border-radius:8px; overflow:hidden;
+  cursor:pointer; background:var(--s2); position:relative;
+  transition:all .2s;
+}
+.photo-item:hover { transform:scale(1.05); box-shadow:0 4px 12px rgba(0,0,0,.3); }
+.photo-item img {
+  width:100%; height:100%; object-fit:cover;
+}
+
+/* UPLOAD ZONE */
+.upload-zone {
+  border:2px dashed var(--br); border-radius:10px;
+  padding:40px 20px; text-align:center; cursor:pointer;
+  transition:all .2s; background:var(--s2);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color:var(--orange); background:var(--og);
+}
+.upload-icon {
+  font-size:48px; margin-bottom:12px; opacity:.6;
+}
+.upload-text {
+  font-size:14px; color:var(--m); margin-bottom:8px;
+}
+.upload-hint {
+  font-size:11px; color:var(--m); opacity:.7;
+}
+
+/* UPLOAD PREVIEW */
+.upload-preview {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
+  gap:8px; margin-top:12px;
+}
+.preview-item {
+  position:relative; aspect-ratio:1; border-radius:8px;
+  overflow:hidden; background:var(--s2);
+}
+.preview-item img {
+  width:100%; height:100%; object-fit:cover;
+}
+.preview-remove {
+  position:absolute; top:4px; right:4px;
+  width:24px; height:24px; border-radius:50%;
+  background:var(--red); color:#fff; border:none;
+  cursor:pointer; display:flex; align-items:center;
+  justify-content:center; font-size:16px; line-height:1;
+  opacity:.9; transition:opacity .2s;
+}
+.preview-remove:hover { opacity:1; }
+.preview-progress {
+  position:absolute; bottom:0; left:0; right:0;
+  height:4px; background:var(--s3);
+}
+.preview-progress-bar {
+  height:100%; background:var(--orange); transition:width .3s;
+}
+
+/* LIGHTBOX */
+.lightbox {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,.95); display:none; align-items:center;
+  justify-content:center; z-index:9999;
+}
+.lightbox.active { display:flex; }
+.lightbox-img {
+  max-width:90%; max-height:90%; object-fit:contain;
+}
+.lightbox-close, .lightbox-nav {
+  position:absolute; background:rgba(255,255,255,.1);
+  border:none; color:#fff; cursor:pointer;
+  width:48px; height:48px; border-radius:50%;
+  font-size:32px; display:flex; align-items:center;
+  justify-content:center; transition:all .2s;
+}
+.lightbox-close { top:20px; right:20px; }
+.lightbox-close:hover, .lightbox-nav:hover {
+  background:rgba(255,255,255,.2);
+}
+.lightbox-prev { left:20px; }
+.lightbox-next { right:20px; }
+
+/* EMPTY STATE */
+.empty {
+  text-align:center; padding:40px 20px; color:var(--m);
+}
+.empty-icon {
+  font-size:48px; margin-bottom:12px; opacity:.5;
+}
+
+/* ESTIMATE ITEM */
+.estimate-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.estimate-item:last-child { border-bottom:none; }
+.estimate-title {
+  font-size:13px; font-weight:600;
+}
+.estimate-amount {
+  font-size:14px; color:var(--orange); font-weight:700;
+}
+
+/* MODAL */
+.modal {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,.7); display:none; align-items:center;
+  justify-content:center; z-index:9998; padding:20px;
+}
+.modal.active { display:flex; }
+.modal-content {
+  background:var(--s); border:1px solid var(--br); border-radius:10px;
+  max-width:500px; width:100%; max-height:90vh; overflow-y:auto;
+  padding:24px;
+}
+.modal-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--br);
+}
+.modal-title {
+  font-family:'Barlow Condensed',sans-serif; font-size:20px;
+  font-weight:700;
+}
+.modal-close {
+  background:none; border:none; color:var(--m); cursor:pointer;
+  font-size:28px; line-height:1; padding:0; width:32px; height:32px;
+}
+.modal-close:hover { color:var(--t); }
+
+/* TAB NAVIGATION */
+.tab-bar {
+  display:flex; flex:0 0 auto;
+  background:var(--s); border-bottom:1px solid var(--br);
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+.tab {
+  padding:16px 20px; border:none; background:none;
+  font-size:13px; font-weight:600; cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  color:var(--m); text-transform:uppercase;
+  border-bottom:2px solid transparent; white-space:nowrap;
+  transition:all .15s;
+}
+.tab:hover { color:var(--t); }
+.tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+
+/* CONTENT SECTIONS */
+.tab-content {
+  display:none;
+}
+.tab-content.active {
+  display:block;
+}
+
+/* TIMELINE VISUAL */
+.timeline-vertical {
+  position:relative; padding:20px 0;
+}
+.timeline-vertical::before {
+  content:''; position:absolute; left:15px; top:0;
+  bottom:0; width:2px; background:var(--br);
+}
+.milestone {
+  display:flex; gap:16px; margin-bottom:24px;
+  position:relative; padding-left:60px;
+}
+.milestone-dot {
+  position:absolute; left:0; top:4px;
+  width:32px; height:32px; border-radius:50%;
+  background:var(--s2); border:2px solid var(--br);
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; z-index:1;
+  transition:all .3s;
+}
+.milestone.active .milestone-dot {
+  background:var(--orange); border-color:var(--orange);
+  box-shadow:0 0 0 8px rgba(200,84,26,.2);
+  animation:pulse-ring 2s ease-in-out infinite;
+}
+.milestone.completed .milestone-dot {
+  background:var(--green); border-color:var(--green);
+}
+.milestone.pending .milestone-dot {
+  opacity:.4;
+}
+.milestone-content { flex:1; }
+.milestone-title {
+  font-size:14px; font-weight:600;
+  margin-bottom:4px; color:var(--t);
+}
+.milestone.pending .milestone-title {
+  color:var(--m);
+}
+.milestone-date {
+  font-size:12px; color:var(--m); margin-bottom:4px;
+  font-family:'DM Mono',monospace;
+}
+.milestone-desc {
+  font-size:12px; color:var(--m); line-height:1.4;
+}
+@keyframes pulse-ring {
+  0% { box-shadow:0 0 0 0 rgba(200,84,26,.4); }
+  70% { box-shadow:0 0 0 12px rgba(200,84,26,0); }
+  100% { box-shadow:0 0 0 0 rgba(200,84,26,0); }
+}
+
+/* INVOICE & PAYMENTS */
+.invoice-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.invoice-item:last-child { border-bottom:none; }
+.invoice-left { flex:1; }
+.invoice-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.invoice-desc {
+  font-size:13px; font-weight:600; margin-bottom:4px;
+}
+.invoice-right {
+  display:flex; gap:12px; align-items:center; flex-shrink:0;
+}
+.invoice-amount {
+  font-size:14px; font-weight:700; color:var(--orange);
+  min-width:80px; text-align:right;
+}
+.invoice-status {
+  font-size:10px; font-weight:600; padding:4px 8px;
+  border-radius:4px; text-transform:uppercase;
+  background:var(--s2); color:var(--m);
+}
+.invoice-status.paid { background:#0f2a1a; color:var(--green); }
+.invoice-status.sent { background:#1a2440; color:var(--blue); }
+.invoice-status.draft { background:var(--s2); color:var(--m); }
+.invoice-status.overdue { background:#2a1414; color:var(--red); }
+
+.payment-summary {
+  display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  padding:12px 0; border-top:1px solid var(--br);
+  margin-top:12px;
+}
+.summary-item {
+  display:flex; flex-direction:column; gap:4px;
+}
+.summary-label {
+  font-size:11px; color:var(--m); font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.summary-value {
+  font-size:16px; font-weight:700; color:var(--orange);
+}
+
+/* PHOTO GALLERY PHASES */
+.photo-phase {
+  margin-bottom:24px;
+}
+.photo-phase-title {
+  font-size:12px; font-weight:600; color:var(--m);
+  text-transform:uppercase; letter-spacing:.06em;
+  margin-bottom:8px; font-family:'Barlow Condensed',sans-serif;
+}
+.photo-grid-phase {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
+  gap:8px;
+}
+
+/* DOCUMENT & REPORT ITEMS */
+.doc-item {
+  display:flex; gap:12px; align-items:center;
+  padding:12px; background:var(--s2); border-radius:8px;
+  margin-bottom:8px; transition:all .15s;
+}
+.doc-item:hover { background:var(--s3); border-color:var(--orange); }
+.doc-icon {
+  font-size:24px; flex-shrink:0;
+}
+.doc-content { flex:1; }
+.doc-type {
+  font-size:11px; color:var(--m); font-weight:600;
+  text-transform:uppercase; letter-spacing:.06em;
+}
+.doc-name {
+  font-size:13px; font-weight:600; margin-bottom:2px;
+}
+.doc-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.doc-actions {
+  display:flex; gap:6px; flex-shrink:0;
+}
+.doc-btn {
+  padding:6px 10px; background:var(--orange); color:#fff;
+  border:none; border-radius:4px; font-size:11px;
+  font-weight:600; cursor:pointer; transition:all .15s;
+}
+.doc-btn:hover { background:var(--ob); }
+
+/* COMMUNICATION LOG */
+.comm-item {
+  padding:12px 0; border-bottom:1px solid var(--br);
+}
+.comm-item:last-child { border-bottom:none; }
+.comm-header {
+  display:flex; gap:8px; align-items:center; margin-bottom:6px;
+}
+.comm-type {
+  font-size:10px; font-weight:700; padding:3px 8px;
+  border-radius:4px; background:var(--s2); color:var(--m);
+  text-transform:uppercase; flex-shrink:0;
+}
+.comm-type.email { background:rgba(74,158,255,.2); color:var(--blue); }
+.comm-type.sms { background:rgba(46,204,138,.2); color:var(--green); }
+.comm-status {
+  font-size:10px; color:var(--m); flex-shrink:0;
+}
+.comm-date {
+  font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
+}
+.comm-subject {
+  font-size:13px; font-weight:600; margin-bottom:4px;
+}
+.comm-preview {
+  font-size:12px; color:var(--m); line-height:1.4;
+}
+
+/* HEADER UPGRADES */
+.company-banner {
+  display:flex; gap:16px; align-items:center;
+  padding:12px; background:var(--s2); border-radius:8px;
+  margin-bottom:12px;
+}
+.company-logo {
+  width:48px; height:48px; background:var(--orange);
+  border-radius:8px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700;
+  font-size:14px; flex-shrink:0;
+}
+.company-info { flex:1; }
+.company-name {
+  font-size:13px; font-weight:600; margin-bottom:2px;
+}
+.company-contact {
+  font-size:11px; color:var(--m);
+}
+
+/* QUICK CONTACT BAR */
+.quick-contact {
+  display:flex; gap:6px; margin-top:8px;
+}
+.quick-contact-btn {
+  flex:1; padding:8px 12px; background:var(--orange);
+  color:#fff; border:none; border-radius:6px;
+  font-size:11px; font-weight:600; cursor:pointer;
+  transition:all .15s; display:flex; align-items:center;
+  justify-content:center; gap:4px;
+}
+.quick-contact-btn:hover { background:var(--ob); }
+
+</style>
+  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/customer">
+<link rel="stylesheet" href="css/photo-editor.css?v=3">
+</head>
+<body>
+
+<header>
+  <div class="logo">NBD <span>PRO</span></div>
+  <a href="dashboard.html" class="back-btn">
+    ← Back to Dashboard
+  </a>
+</header>
+
+<div class="container">
+  <div class="customer-header">
+    <div class="customer-name" id="customerName">Loading...</div>
+    <div class="customer-meta">
+      <div class="meta-item">
+        <span class="stage-badge" id="customerStage">New</span>
+      </div>
+      <div class="meta-item" id="customerIdBadge" style="display:none;">
+        <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(200,84,26,.12);color:#C8541A;padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
+      </div>
+      <div class="meta-item">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
+      </div>
+      <div class="meta-item">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> <span id="customerPhone">—</span>
+      </div>
+      <div class="meta-item">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> <span id="customerEmail">—</span>
+      </div>
+      <div class="meta-item" id="lastUpdated"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2.5"/></svg> Loading...</div>
+    </div>
+    
+    <div class="quick-actions">
+      <a class="btn" id="callLink" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
+      <a class="btn" id="smsBookingLink" href="sms:" style="display:none;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Book Inspection</a>
+      <a class="btn" id="emailLink" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
+      <button class="btn" onclick="copyBookingLink()" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
+        📋 Copy Booking Link
+      </button>
+      <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
+        📄 Export PDF
+      </button>
+      <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
+        → Move to Next Stage
+      </button>
+      <button class="btn" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.generate(window._customerId).then(url=>{if(url)prompt('Portal link (copied):',url)})" title="Generate shareable customer portal">
+        🔗 Share Portal
+      </button>
+      <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(window._customerId)" title="Generate before/after photo report">
+        📸 Photo Report
+      </button>
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(window._customerId)" title="Send Google review request via SMS">
+        ⭐ Review Request
+      </button>
+      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.assignReferralCode(window._customerId).then(c=>{if(c)ReviewEngine.sendReferralSMS(window._customerId)})" title="Generate and send referral code">
+        🎁 Referral Code
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB NAVIGATION -->
+  <div class="tab-bar active" id="tabBar">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('timeline')">Timeline</button>
+    <button class="tab" onclick="switchTab('photos')">Photos</button>
+    <button class="tab" onclick="switchTab('documents')">Documents</button>
+    <button class="tab" onclick="switchTab('contact')">Contact</button>
+  </div>
+
+  <div class="tab-content active" id="overviewTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+    <div class="content-grid">
+    
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- TIMELINE -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+          <div class="panel-title" style="margin:0;">Timeline & Tasks</div>
+          <button class="btn btn-orange" onclick="openTaskModal()" style="font-size:11px;padding:6px 12px;">
+            ✅ Add Task
+          </button>
+        </div>
+        <div id="timelineList">
+          <div class="empty">
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>
+            Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- PHOTOS -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Photos</div>
+          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">Upload</button>
+        </div>
+        <div id="photoList">
+          <div class="empty">
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
+            Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTS -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Documents</div>
+          <button class="btn btn-orange" onclick="openDocUploadModal()" style="font-size:11px;padding:6px 12px;">
+            📤 Upload
+          </button>
+        </div>
+        <div id="docList">
+          <div class="empty">
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+            No documents yet
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <!-- CUSTOMER INFO -->
+      <div class="panel">
+        <div class="panel-title">Customer Info</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Job Value</div>
+            <div class="info-value" id="infoJobValue">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Damage Type</div>
+            <div class="info-value" id="infoDamageType">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Source</div>
+            <div class="info-value" id="infoSource">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Insurance Carrier</div>
+            <div class="info-value" id="infoCarrier">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Claim Status</div>
+            <div class="info-value" id="infoClaimStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Follow Up</div>
+            <div class="info-value" id="infoFollowUp">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Job Type</div>
+            <div class="info-value" id="infoJobType">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSURANCE DETAILS (shown when job type is insurance) -->
+      <div class="panel" id="insurancePanel" style="display:none;">
+        <div class="panel-title">Insurance Claim Details</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Claim Number</div>
+            <div class="info-value" id="infoClaimNumber">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Claim Filed By</div>
+            <div class="info-value" id="infoClaimFiledBy">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Estimate Amount</div>
+            <div class="info-value" id="infoEstimateAmount">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Supplement Status</div>
+            <div class="info-value" id="infoSupplementStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Deductible / Owed by HO</div>
+            <div class="info-value" id="infoDeductible">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Scope of Work</div>
+            <div class="info-value" id="infoScopeOfWork">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FINANCE DETAILS (shown when job type is finance) -->
+      <div class="panel" id="financePanel" style="display:none;">
+        <div class="panel-title">Financing Details</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Finance Company</div>
+            <div class="info-value" id="infoFinanceCompany">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Loan Amount</div>
+            <div class="info-value" id="infoLoanAmount">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Loan Status</div>
+            <div class="info-value" id="infoLoanStatus">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Pre-Qual Link</div>
+            <div class="info-value" id="infoPreQualLink">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEAD SCORE -->
+      <div id="leadScoringPanel" style="margin-bottom:16px;"></div>
+
+      <!-- INSURANCE CLAIM WORKFLOW -->
+      <div id="insuranceClaimWorkflow" style="margin-bottom:16px;"></div>
+
+      <!-- JOB COSTS & PROFIT -->
+      <div id="profitPanel" style="margin-bottom:16px;"></div>
+
+      <!-- ESTIMATES -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Estimates</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
+            <button class="btn btn-orange" onclick="window.location.href='/pro/dashboard.html?lead='+window._customerId" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
+          </div>
+        </div>
+        <div id="estimateList">
+          <div class="empty">
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
+            No estimates yet
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Notes</div>
+          <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:11px;padding:6px 12px;">
+            ✏️ Add Note
+          </button>
+        </div>
+        <div id="notesList" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="empty">
+            <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
+            No notes yet
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE TAB -->
+  <div class="tab-content" id="timelineTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <!-- PROJECT TIMELINE PANEL -->
+      <div class="panel">
+        <div class="panel-title">Project Milestones</div>
+        <div id="projectTimeline" class="timeline-vertical">
+          <div class="empty">
+            <div class="empty-icon">📅</div>
+            Loading timeline...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHOTOS TAB -->
+  <div class="tab-content" id="photosTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="panel-title" style="margin:0;">Project Photos</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
+            <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
+          </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div id="photoStatsBar" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--s2);border-radius:8px;flex-wrap:wrap;gap:12px;align-items:center;font-size:12px;"></div>
+
+        <!-- Filter Bar -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+          <button class="btn photo-filter-btn active" onclick="filterPhotos('all',this)" style="font-size:11px;padding:5px 12px;">All</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('Before',this)" style="font-size:11px;padding:5px 12px;border-color:#3b82f6;color:#3b82f6;">Before</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('During',this)" style="font-size:11px;padding:5px 12px;border-color:#C8541A;color:#C8541A;">During</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:#22c55e;color:#22c55e;">After</button>
+          <span style="width:1px;height:20px;background:var(--br);margin:0 4px;"></span>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('annotated',this)" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
+        </div>
+
+        <div id="photosByPhase">
+          <div class="empty"><div class="empty-icon">&#128248;</div>Loading photos...</div>
+        </div>
+        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='#C8541A'" onmouseout="this.style.borderColor=''">
+          <div style="font-size:28px;margin-bottom:6px;">+</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse - JPG, PNG, HEIC up to 10MB</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENTS TAB -->
+  <div class="tab-content" id="documentsTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+
+      <!-- DOCUMENT GENERATOR -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <div class="panel-title" style="margin:0;">Generate Documents</div>
+          <div style="font-size:11px;color:var(--muted);">Auto-filled with customer data</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="docTemplateGrid">
+          <div class="doc-template-card" onclick="generateCustomerDoc('proposal')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128196;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Proposal / Estimate</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Branded estimate with scope & pricing</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('contract')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128221;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Roofing Contract</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Full contract with terms & signatures</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('work_authorization')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#9989;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Work Authorization</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Permission to proceed form</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('scope_of_work')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128203;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Scope of Work</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Detailed project scope breakdown</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionHomeowner')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128270;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Inspection Report</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Homeowner-friendly inspection report</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionInsurance')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#127970;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Insurance Report</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Adjuster-ready inspection report</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('supplement_request')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128200;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Supplement Request</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Additional scope supplement for insurance</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('warranty_certificate')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128737;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Warranty Certificate</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Branded warranty with tier details</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('certificate_of_completion')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#127942;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Certificate of Completion</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Final sign-off & completion record</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('invoice')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128176;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Invoice</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Professional payment invoice</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('change_order')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128260;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Change Order</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Scope or price modification form</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('before_after_report')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128247;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Before & After Report</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Visual transformation with photos</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('financing_options')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#128179;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Financing Options</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Payment plan options for customer</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('company_intro')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#127969;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Company Introduction</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">About us packet for new prospects</div>
+          </div>
+          <div class="doc-template-card" onclick="generateCustomerDoc('referral_card')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#C8541A';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+            <div style="font-size:20px;margin-bottom:6px;">&#127873;</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Referral Card</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Shareable referral with incentives</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div>
+          <!-- INVOICES & PAYMENTS -->
+          <div class="panel">
+            <div class="panel-title">Invoices & Payments</div>
+            <div id="invoiceList">
+              <div class="empty">
+                <div class="empty-icon">&#128176;</div>
+                Loading invoices...
+              </div>
+            </div>
+          </div>
+
+          <!-- REPORTS -->
+          <div class="panel">
+            <div class="panel-title">Inspection Reports</div>
+            <div id="reportList">
+              <div class="empty">
+                <div class="empty-icon">&#128203;</div>
+                No reports yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- DOCUMENTS -->
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div class="panel-title" style="margin:0;">Shared Documents</div>
+              <button class="btn btn-orange" onclick="openDocUploadModal()" style="font-size:11px;padding:6px 12px;">Upload</button>
+            </div>
+            <div id="sharedDocList">
+              <div class="empty">
+                <div class="empty-icon">&#128196;</div>
+                No documents shared yet
+              </div>
+            </div>
+          </div>
+
+          <!-- GENERATED DOCS -->
+          <div class="panel">
+            <div class="panel-title">Generated Documents</div>
+            <div id="generatedDocList">
+              <div class="empty">
+                <div class="empty-icon">&#128206;</div>
+                Generate a document above to see it here
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT TAB -->
+  <div class="tab-content" id="contactTab">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="content-grid">
+        <div>
+          <!-- CONTRACTOR INFO & QUICK CONTACT -->
+          <div class="panel">
+            <div class="company-banner">
+              <div class="company-logo">NBD</div>
+              <div class="company-info">
+                <div class="company-name">No Big Deal Home Solutions</div>
+                <div class="company-contact" id="contractorPhone">(859) 420-7382</div>
+              </div>
+            </div>
+            <div class="quick-contact">
+              <a class="quick-contact-btn" id="contactCallBtn" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
+              <a class="quick-contact-btn" id="contactTextBtn" href="sms:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Text</a>
+              <a class="quick-contact-btn" id="contactEmailBtn" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- COMMUNICATION LOG -->
+          <div class="panel">
+            <div class="panel-title">Recent Communications</div>
+            <div id="communicationLog">
+              <div class="empty">
+                <div class="empty-icon">💬</div>
+                No messages yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <button class="lightbox-nav lightbox-prev" onclick="prevPhoto()">‹</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Photo">
+  <button class="lightbox-nav lightbox-next" onclick="nextPhoto()">›</button>
+</div>
+
+<!-- PHOTO UPLOAD MODAL -->
+<div class="modal" id="uploadModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Upload Photos</div>
+      <button class="modal-close" onclick="closeUploadModal()">×</button>
+    </div>
+    
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
+    
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
+      <div class="upload-text">Click to browse or drag photos here</div>
+      <div class="upload-hint">Supports: JPG, PNG, HEIC • Max 10MB per file</div>
+    </div>
+    
+    <div class="upload-preview" id="uploadPreview"></div>
+    
+    <div style="margin-top:20px; display:flex; gap:8px;">
+      <button class="btn btn-orange" id="uploadBtn" onclick="uploadPhotos()" style="flex:1; display:none;">
+        📤 Upload <span id="uploadCount">0</span> Photos
+      </button>
+      <button class="btn" onclick="closeUploadModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  
+<!-- DOCUMENT UPLOAD MODAL -->
+<div id="docUploadModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:600px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📄 Upload Documents
+    </h3>
+    
+    <div class="upload-zone" id="docDropZone" style="margin-bottom:16px;">
+      <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+      <div class="upload-text">Click or drag documents here</div>
+      <div class="upload-hint">Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</div>
+      <input type="file" id="docFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display:none;">
+    </div>
+    
+    <div id="docUploadPreview" class="upload-preview"></div>
+    
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-orange" id="uploadDocBtn" onclick="uploadDocuments()" style="flex:1;display:none;">
+        📤 Upload <span id="uploadDocCount">0</span> Document(s)
+      </button>
+      <button class="btn" onclick="closeDocUploadModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTES MODAL -->
+<div id="notesModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:600px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📝 Add Note
+    </h3>
+    
+    <textarea id="noteText" placeholder="Enter your note..." style="
+      width:100%;
+      min-height:120px;
+      padding:12px;
+      background:var(--s2);
+      border:1px solid var(--br);
+      border-radius:6px;
+      color:var(--t);
+      font-family:'Barlow',sans-serif;
+      font-size:14px;
+      resize:vertical;
+      margin-bottom:16px;
+    "></textarea>
+    
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-orange" onclick="saveNote()" style="flex:1;">
+        💾 Save Note
+      </button>
+      <button class="btn" onclick="closeNotesModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ESTIMATE MODAL -->
+<div id="estimateModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:700px;">
+    <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
+      📋 Create Estimate
+    </h3>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">ESTIMATE TYPE</label>
+        <select id="estimateType" style="
+          width:100%;
+          padding:8px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          color:var(--t);
+          font-family:'Barlow',sans-serif;
+        ">
+          <option value="Good">Good</option>
+          <option value="Better">Better</option>
+          <option value="Best">Best</option>
+        </select>
+      </div>
+      
+      <div>
+        <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">ESTIMATE AMOUNT</label>
+        <input type="number" id="estimateAmount" placeholder="0.00" style="
+          width:100%;
+          padding:8px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          color:var(--t);
+          font-family:'Barlow',sans-serif;
+        ">
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;color:var(--m);font-weight:600;display:block;margin-bottom:4px;">DESCRIPTION / NOTES</label>
+      <textarea id="estimateNotes" placeholder="Optional estimate notes..." style="
+        width:100%;
+        min-height:80px;
+        padding:8px;
+        background:var(--s2);
+        border:1px solid var(--br);
+        border-radius:6px;
+        color:var(--t);
+        font-family:'Barlow',sans-serif;
+        font-size:13px;
+        resize:vertical;
+      "></textarea>
+    </div>
+    
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-orange" onclick="saveEstimate()" style="flex:1;">
+        💾 Save Estimate
+      </button>
+      <button class="btn" onclick="closeEstimateModal()" style="flex:1;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/icons.js"></script>
+<script>
+
+// ============================================
+// PHOTO REPORT GENERATOR
+// ============================================
+
+window.generatePhotoReport = async function() {
+  if (!window._customerPhotos || window._customerPhotos.length === 0) {
+    alert('No photos to generate report from');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    // Get customer data
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (!leadSnap.exists()) {
+      alert('Customer not found');
+      return;
+    }
+    const lead = leadSnap.data();
+    
+    // Show loading state
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    
+    // Initialize jsPDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // NBD Branding Header
+    doc.setFillColor(200, 84, 26); // NBD orange #C8541A
+    doc.rect(0, 0, 210, 35, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('NO BIG DEAL', 15, 15);
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('HOME SOLUTIONS', 15, 22);
+    doc.text('Insurance Restoration Specialists', 15, 28);
+    
+    // Report title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROPERTY PHOTO REPORT', 105, 20, { align: 'center' });
+    
+    // Property details box
+    doc.setFillColor(248, 249, 250);
+    doc.rect(10, 40, 190, 25, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';
+    const address = lead.address || 'Address not provided';
+    const reportDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    
+    doc.text(`Customer: ${customerName}`, 15, 48);
+    doc.text(`Property: ${address}`, 15, 54);
+    doc.text(`Report Date: ${reportDate}`, 15, 60);
+    doc.text(`Total Photos: ${window._customerPhotos.length}`, 150, 48);
+    
+    if (lead.damageType) {
+      doc.text(`Damage Type: ${lead.damageType}`, 150, 54);
+    }
+    
+    // Photos section
+    let yPos = 75;
+    let pageCount = 1;
+    let photoCount = 0;
+    
+    for (let photo of window._customerPhotos) {
+      photoCount++;
+      
+      // Check if we need a new page (leave room for photo + caption)
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 20;
+        pageCount++;
+      }
+      
+      // Photo title
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(200, 84, 26);
+      doc.text(`Photo ${photoCount}`, 15, yPos);
+      yPos += 6;
+      
+      // Photo metadata
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      
+      const uploadDate = photo.uploadedAt?.toDate ? 
+        photo.uploadedAt.toDate().toLocaleDateString() : 'Unknown date';
+      const category = photo.category || 'Property';
+      
+      doc.text(`${category} • ${uploadDate} • ${photo.filename}`, 15, yPos);
+      yPos += 8;
+      
+      // Fetch and embed the image
+      try {
+        const imgData = await fetchImageAsBase64(photo.url);
+        
+        // Add image (fit to width 180mm, max height 100mm)
+        const maxWidth = 180;
+        const maxHeight = 100;
+        
+        // Add the image
+        doc.addImage(imgData, 'JPEG', 15, yPos, maxWidth, maxHeight);
+        yPos += maxHeight + 10;
+        
+        // Optional: Add notes if they exist
+        if (photo.notes) {
+          doc.setFontSize(9);
+          doc.setTextColor(50, 50, 50);
+          doc.text(`Notes: ${photo.notes}`, 15, yPos);
+          yPos += 6;
+        }
+        
+        yPos += 5; // Spacing between photos
+        
+      } catch (imgError) {
+        console.error('Error loading image:', imgError);
+        doc.setTextColor(200, 0, 0);
+        doc.text('[Image could not be loaded]', 15, yPos);
+        yPos += 15;
+      }
+    }
+    
+    // Footer on last page
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No Big Deal Home Solutions | Greater Cincinnati Area', 105, 285, { align: 'center' });
+    doc.text('www.nobigdealwithjoedeal.com', 105, 290, { align: 'center' });
+    
+    // Generate filename
+    const safeCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `NBD_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
+    
+    // Get PDF as blob for potential email attachment
+    const pdfBlob = doc.output('blob');
+    
+    // Reset button
+    btn.disabled = false;
+    btn.textContent = originalText;
+    
+    // Ask user: Download or Email?
+    const action = confirm(`✅ Photo report generated!\n\n${window._customerPhotos.length} photos included | ${pageCount} pages\n\nClick OK to EMAIL the report\nClick Cancel to DOWNLOAD only`);
+    
+    if (action) {
+      // Email the report
+      if (typeof emailPhotoReport === 'function') {
+        emailPhotoReport(pdfBlob, window._customerId);
+      } else {
+        alert('Email system not loaded. Downloading instead.');
+        doc.save(filename);
+      }
+    } else {
+      // Download the PDF
+      doc.save(filename);
+    }
+    
+  } catch (error) {
+    console.error('Report generation error:', error);
+    alert('Failed to generate report. Please try again.');
+    
+    // Reset button
+    if (event.target) {
+      event.target.disabled = false;
+      event.target.textContent = 'Generate Report';
+    }
+  }
+};
+
+// Helper: Fetch image as base64 (handles CORS)
+async function fetchImageAsBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      
+      const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+      resolve(dataURL);
+    };
+    
+    img.onerror = function() {
+      reject(new Error('Failed to load image'));
+    };
+    
+    // Firebase Storage URLs need proper CORS handling
+    // Add timestamp to bypass cache if needed
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  });
+}
+
+
+
+// ============================================
+// DOCUMENT UPLOAD SYSTEM
+// ============================================
+
+window._docUploadQueue = [];
+
+window.openDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'flex';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+window.closeDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'none';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+// Document drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('docDropZone');
+  const fileInput = document.getElementById('docFileInput');
+  
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files);
+      addDocumentsToQueue(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      addDocumentsToQueue(files);
+    });
+  }
+});
+
+function addDocumentsToQueue(files) {
+  files.forEach(file => {
+    window._docUploadQueue.push({
+      file: file,
+      uploading: false,
+      progress: 0
+    });
+  });
+  updateDocUploadPreview();
+}
+
+function updateDocUploadPreview() {
+  const preview = document.getElementById('docUploadPreview');
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  const countSpan = document.getElementById('uploadDocCount');
+  
+  if (window._docUploadQueue.length === 0) {
+    preview.innerHTML = '';
+    uploadBtn.style.display = 'none';
+    return;
+  }
+  
+  uploadBtn.style.display = 'inline-flex';
+  countSpan.textContent = window._docUploadQueue.length;
+  
+  preview.innerHTML = window._docUploadQueue.map((item, idx) => {
+    const fileType = item.file.name.split('.').pop().toUpperCase();
+    return `
+      <div class="preview-item" style="aspect-ratio:auto;padding:12px;display:flex;align-items:center;gap:8px;">
+        <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+        <div style="flex:1;overflow:hidden;">
+          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${item.file.name}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${fileType} • ${(item.file.size / 1024).toFixed(1)}KB
+          </div>
+        </div>
+        ${item.uploading ? 
+          `<div style="font-size:10px;color:var(--blue);">${Math.round(item.progress)}%</div>` :
+          `<button onclick="removeDocFromQueue(${idx})" class="preview-remove">×</button>`
+        }
+      </div>
+    `;
+  }).join('');
+}
+
+window.removeDocFromQueue = function(index) {
+  window._docUploadQueue.splice(index, 1);
+  updateDocUploadPreview();
+};
+
+window.uploadDocuments = async function() {
+  if (window._docUploadQueue.length === 0) return;
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('uploadDocBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+  
+  try {
+    for (let i = 0; i < window._docUploadQueue.length; i++) {
+      const item = window._docUploadQueue[i];
+      item.uploading = true;
+      updateDocUploadPreview();
+      
+      await uploadSingleDocument(item, i);
+    }
+    
+    alert(`Successfully uploaded ${window._docUploadQueue.length} document(s)!`);
+    closeDocUploadModal();
+    await loadDocuments(window._customerId);
+    
+  } catch (error) {
+    console.error('Document upload error:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload Documents';
+  }
+};
+
+async function uploadSingleDocument(item, index) {
+  const file = item.file;
+  const timestamp = Date.now();
+  const filename = `${window._customerId}_${timestamp}_${file.name}`;
+  const storageRef = window.ref(window.storage, `documents/${filename}`);
+  
+  const uploadTask = window.uploadBytesResumable(storageRef, file);
+  
+  return new Promise((resolve, reject) => {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        window._docUploadQueue[index].progress = progress;
+        updateDocUploadPreview();
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
+          
+          await window.addDoc(window.collection(window.db, 'documents'), {
+            leadId: window._customerId,
+            userId: window.auth.currentUser.uid,
+            url: downloadURL,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: window.serverTimestamp(),
+            category: 'General'
+          });
+          
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+async function loadDocuments(leadId) {
+  try {
+    const docSnap = await getDocs(
+      query(collection(db, 'documents'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('uploadedAt', 'desc'))
+    );
+    
+    if (docSnap.empty) {
+      document.getElementById('docList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+          No documents yet
+        </div>`;
+      return;
+    }
+
+    window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const html = window._customerDocs.map(doc => {
+      const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
+      const fileType = doc.filename.split('.').pop().toUpperCase();
+      
+      return `
+        <div class="document-item" style="
+          display:flex;
+          align-items:center;
+          gap:12px;
+          padding:12px;
+          background:var(--s2);
+          border:1px solid var(--br);
+          border-radius:6px;
+          margin-bottom:8px;
+          cursor:pointer;
+          transition:all .2s;
+        " onclick="window.open('${doc.url}', '_blank')">
+          <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${doc.filename}
+            </div>
+            <div style="font-size:11px;color:var(--m);">
+              ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
+            </div>
+          </div>
+          <div style="opacity:.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M4 10h12M12 6l4 4-4 4"/></svg></div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('docList').innerHTML = html;
+    
+    // Add hover effect
+    document.querySelectorAll('.document-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--s3)';
+        item.style.borderColor = 'var(--orange)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'var(--s2)';
+        item.style.borderColor = 'var(--br)';
+      });
+    });
+  } catch (e) {
+    console.error('Error loading documents:', e);
+    document.getElementById('docList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+        No documents yet
+      </div>`;
+  }
+}
+
+// ============================================
+// NOTES SYSTEM
+// ============================================
+
+window.openNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'flex';
+  document.getElementById('noteText').value = '';
+  document.getElementById('noteText').focus();
+};
+
+window.closeNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'none';
+};
+
+window.saveNote = async function() {
+  const noteText = document.getElementById('noteText').value.trim();
+  
+  if (!noteText) {
+    alert('Please enter a note');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: window._customerId,
+      userId: window.auth.currentUser.uid,
+      text: noteText,
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeNotesModal();
+    await loadNotes(window._customerId);
+    
+    // Reload timeline to show new note
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving note:', error);
+    alert('Failed to save note. Please try again.');
+  }
+};
+
+async function loadNotes(leadId) {
+  try {
+    const noteSnap = await getDocs(
+      query(collection(db, 'notes'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid), orderBy('createdAt', 'desc'))
+    );
+    
+    if (noteSnap.empty) {
+      document.getElementById('notesList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
+        <div style="margin-bottom:10px;">No notes yet</div>
+        <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg> Add First Note</button>
+      </div>
+    `;
+      return;
+    }
+
+    const html = noteSnap.docs.map(d => {
+      const note = d.data();
+      const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
+      const timeAgo = getTimeAgo(createdDate);
+      
+      return `
+        <div style="
+          padding:12px;
+          background:var(--s2);
+          border-left:3px solid var(--orange);
+          border-radius:4px;
+        ">
+          <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">
+            ${note.text}
+          </div>
+          <div style="font-size:10px;color:var(--m);">
+            ${note.createdBy} • ${timeAgo}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('notesList').innerHTML = html;
+  } catch (e) {
+    console.error('Error loading notes:', e);
+  }
+}
+
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// ============================================
+// ESTIMATE SYSTEM
+// ============================================
+
+window.openEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'flex';
+  document.getElementById('estimateAmount').value = '';
+  document.getElementById('estimateNotes').value = '';
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'none';
+};
+
+window.saveEstimate = async function() {
+  const type = document.getElementById('estimateType').value;
+  const amount = parseFloat(document.getElementById('estimateAmount').value);
+  const notes = document.getElementById('estimateNotes').value.trim();
+  
+  if (!amount || amount <= 0) {
+    alert('Please enter a valid estimate amount');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'estimates'), {
+      leadId: window._customerId,
+      type: type,
+      amount: amount,
+      notes: notes,
+      status: 'Draft',
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    alert('Estimate created successfully!');
+    closeEstimateModal();
+    if (window.loadEstimates) await window.loadEstimates(window._customerId);
+
+    // Reload timeline
+    const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap2.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving estimate:', error);
+    alert('Failed to save estimate. Please try again.');
+  }
+};
+
+
+
+// Expose loader functions defined in THIS script block to window scope
+// NOTE: loadEstimates and loadTimeline are in the module script — exposed there
+window.loadDocuments = loadDocuments;
+window.loadNotes = loadNotes;
+window.fetchImageAsBase64 = fetchImageAsBase64;
+
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// Make them globally accessible
+// Expose Firebase to window scope for cross-boundary access
+window.db = db;
+window.auth = auth;
+window.storage = storage;
+window.getDoc = getDoc;
+window.getDocs = getDocs;
+window.doc = doc;
+window.query = query;
+window.orderBy = orderBy;
+window.where = where;
+window.limit = limit;
+window.updateDoc = updateDoc;
+window.arrayUnion = arrayUnion;
+window.arrayRemove = arrayRemove;
+window.addDoc = addDoc;
+    window.deleteDoc = deleteDoc;
+window.collection = collection;
+window.serverTimestamp = serverTimestamp;
+window.ref = ref;
+window.uploadBytesResumable = uploadBytesResumable;
+window.uploadBytes = uploadBytes;
+window.getDownloadURL = getDownloadURL;
+
+// Initialize globals needed by external modules (customer-portal, photo-report, review-engine, profit-tracker)
+window._user = null;  // Set in onAuthStateChanged
+window._leads = [];   // Populated with current customer data
+
+// Auth guard
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = '/pro/login.html';
+    return;
+  }
+
+  // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
+  window._user = user;
+
+  // Get customer ID from URL
+  const params = new URLSearchParams(window.location.search);
+  const customerId = params.get('id');
+
+  if (!customerId) return;
+
+  try {
+    await loadCustomerData(customerId);
+    document.documentElement.style.opacity = '1';
+  } catch (error) {
+    console.error('Critical error:', error);
+    document.documentElement.style.opacity = '1';
+    showError('Something went wrong', 'Unable to load customer data. Please try again.');
+  }
+});
+
+async function loadCustomerData(id) {
+  try {
+    // CRITICAL: Set global customerId FIRST so all sub-loaders have it
+    window._customerId = id;
+    
+    // Track recently viewed
+    trackRecentlyViewed(id);
+    
+    // Load customer (lead) data
+    const leadSnap = await getDoc(doc(db, 'leads', id));
+    if (!leadSnap.exists()) {
+      showError('Customer not found', 'The customer you\'re looking for doesn\'t exist or has been deleted.');
+      return;
+    }
+
+    const lead = { id: leadSnap.id, ...leadSnap.data() };
+
+    // CRITICAL: Populate window._leads so external modules can find this lead
+    window._leads = [lead];
+    window._currentLead = lead;
+
+    // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
+    if (!lead.customerId) {
+      try {
+        const counterRef = doc(db, 'counters', 'customerIds');
+        const newId = await runTransaction(db, async (transaction) => {
+          const counterSnap = await transaction.get(counterRef);
+          let nextNum = 1;
+          if (counterSnap.exists()) {
+            nextNum = (counterSnap.data().next || 0) + 1;
+          }
+          transaction.set(counterRef, { next: nextNum }, { merge: true });
+          return 'NBD-' + String(nextNum).padStart(4, '0');
+        });
+        await updateDoc(doc(db, 'leads', id), { customerId: newId });
+        lead.customerId = newId;
+        console.log('✓ Assigned customer ID:', newId);
+      } catch (cidErr) {
+        console.warn('Could not assign customer ID:', cidErr);
+      }
+    }
+
+    // Display customer ID badge
+    if (lead.customerId) {
+      document.getElementById('customerIdDisplay').textContent = lead.customerId;
+      document.getElementById('customerIdBadge').style.display = '';
+    }
+
+    // Populate header
+    const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown Customer';
+    document.getElementById('customerName').textContent = name;
+    
+    const stageBadge = document.getElementById('customerStage');
+    const stage = lead.stage || 'new';
+    // Display-friendly label for new stage keys
+    const STAGE_LABELS = {
+      'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
+      'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
+      'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
+      'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
+      'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
+      'estimate_sent_cash': 'Est. Sent (Cash)', 'negotiating': 'Negotiating',
+      'prequal_sent': 'Pre-Qual Sent', 'loan_approved': 'Loan Approved',
+      'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
+      'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
+      'install_in_progress': 'Installing', 'install_complete': 'Install Done',
+      'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
+      'final_payment': 'Final Payment', 'closed': 'Closed', 'lost': 'Lost'
+    };
+    stageBadge.textContent = STAGE_LABELS[stage] || stage;
+    stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
+    
+    document.getElementById('customerAddress').textContent = lead.address || '—';
+    document.getElementById('customerPhone').textContent = lead.phone || '—';
+    document.getElementById('customerEmail').textContent = lead.email || '—';
+    
+    // Last updated indicator
+    const updatedAt = lead.updatedAt?.toDate ? lead.updatedAt.toDate() : 
+                      lead.createdAt?.toDate ? lead.createdAt.toDate() : null;
+    if (updatedAt) {
+      const elapsed = Date.now() - updatedAt.getTime();
+      const hours = Math.floor(elapsed / (1000 * 60 * 60));
+      const days = Math.floor(hours / 24);
+      let timeAgo = '';
+      if (days > 0) timeAgo = `Updated ${days}d ago`;
+      else if (hours > 0) timeAgo = `Updated ${hours}h ago`;
+      else timeAgo = 'Updated recently';
+      document.getElementById('lastUpdated').innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2.5"/></svg> ' + timeAgo;
+    }
+    
+    // Contact links
+    if (lead.phone) {
+      document.getElementById('callLink').href = `tel:${lead.phone.replace(/\D/g, '')}`;
+    }
+    if (lead.email) {
+      document.getElementById('emailLink').href = `mailto:${lead.email}`;
+    }
+
+    // Booking link buttons — show for early-stage leads
+    const earlyStages = ['new','contacted','inspected'];
+    if (earlyStages.includes(stage)) {
+      const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+      const calUser = calSettings.username || 'nobigdeal';
+      const calSlug = calSettings.eventSlug || 'roof-inspection';
+      const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+      const custName = (lead.firstName || '').trim();
+
+      // SMS booking link
+      const smsBtn = document.getElementById('smsBookingLink');
+      if (smsBtn && lead.phone) {
+        const cleanPhone = lead.phone.replace(/\D/g, '');
+        const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+        smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
+        smsBtn.style.display = '';
+      }
+
+      // Copy booking link button
+      const copyBtn = document.getElementById('copyBookingBtn');
+      if (copyBtn) copyBtn.style.display = '';
+
+      // Store booking URL for copy function
+      window._bookingUrl = bookingUrl;
+      window._bookingCustomerName = custName;
+    }
+
+    // Populate info
+    document.getElementById('infoJobValue').textContent = 
+      lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
+    document.getElementById('infoDamageType').textContent = lead.damageType || '—';
+    document.getElementById('infoSource').textContent = lead.source || '—';
+    document.getElementById('infoCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || '—';
+    document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
+    document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
+
+    // Job type
+    const jobType = lead.jobType || '';
+    const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance' };
+    document.getElementById('infoJobType').textContent = jobTypeLabels[jobType] || jobType || '—';
+
+    // Insurance panel
+    const isInsurance = jobType === 'insurance' || lead.insCarrier || lead.insuranceCarrier || lead.claimNumber;
+    if (isInsurance) {
+      document.getElementById('insurancePanel').style.display = 'block';
+      document.getElementById('infoClaimNumber').textContent = lead.claimNumber || '—';
+      document.getElementById('infoClaimFiledBy').textContent = lead.claimFiledBy || '—';
+      document.getElementById('infoEstimateAmount').textContent = lead.estimateAmount ? '$' + parseFloat(lead.estimateAmount).toLocaleString() : '—';
+      document.getElementById('infoSupplementStatus').textContent = lead.supplementStatus || '—';
+      document.getElementById('infoDeductible').textContent = lead.deductibleOrOwedByHO ? '$' + parseFloat(lead.deductibleOrOwedByHO).toLocaleString() : '—';
+      document.getElementById('infoScopeOfWork').textContent = lead.scopeOfWork || '—';
+    }
+
+    // Finance panel
+    const isFinance = jobType === 'finance' || lead.loanAmount || lead.softPullStatus;
+    if (isFinance) {
+      document.getElementById('financePanel').style.display = 'block';
+      document.getElementById('infoFinanceCompany').textContent = lead.financeCompany || '—';
+      document.getElementById('infoLoanAmount').textContent = lead.loanAmount ? '$' + parseFloat(lead.loanAmount).toLocaleString() : '—';
+      document.getElementById('infoLoanStatus').textContent = lead.loanStatus || lead.softPullStatus || '—';
+      const preQualLink = lead.preQualLink;
+      if (preQualLink) {
+        document.getElementById('infoPreQualLink').innerHTML = `<a href="${preQualLink}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
+      }
+    }
+
+    // Notes now loaded from separate collection via loadNotes()
+
+    // Stage progression button — uses full insurance pipeline
+    const insurancePipeline = [
+      'new', 'contacted', 'inspected', 'claim_filed',
+      'adjuster_meeting_scheduled', 'adjuster_inspection_done',
+      'scope_received', 'estimate_submitted',
+      'supplement_requested', 'supplement_approved',
+      'contract_signed',
+      'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
+      'crew_scheduled', 'install_in_progress', 'install_complete',
+      'final_photos', 'deductible_collected', 'final_payment', 'closed'
+    ];
+    const NEXT_LABELS = {
+      'new': 'Contacted', 'contacted': 'Inspected', 'inspected': 'Claim Filed',
+      'claim_filed': 'Adjuster Meeting', 'adjuster_meeting_scheduled': 'Adjuster Done',
+      'adjuster_inspection_done': 'Scope Received', 'scope_received': 'Estimate Sent',
+      'estimate_submitted': 'Supplement', 'supplement_requested': 'Supp. Approved',
+      'supplement_approved': 'Contract Signed', 'contract_signed': 'Job Created',
+      'job_created': 'Permit', 'permit_pulled': 'Materials Ordered',
+      'materials_ordered': 'Materials Here', 'materials_delivered': 'Crew Scheduled',
+      'crew_scheduled': 'Installing', 'install_in_progress': 'Install Done',
+      'install_complete': 'Final Photos', 'final_photos': 'Deductible',
+      'deductible_collected': 'Final Payment', 'final_payment': 'Closed',
+      // Legacy compat
+      'New': 'Contacted', 'Inspected': 'Claim Filed', 'Estimate Sent': 'Contract Signed',
+      'Approved': 'Job Created', 'In Progress': 'Install Done'
+    };
+
+    window._currentStage = lead.stage || 'new';
+
+    const nextLabel = NEXT_LABELS[lead.stage];
+    if (nextLabel) {
+      const btn = document.getElementById('stageProgressBtn');
+      btn.style.display = 'inline-flex';
+      btn.innerHTML = `→ Move to ${nextLabel}`;
+    }
+
+    // Load related data with individual error handling
+    try { 
+      await window.loadTimeline(id, lead); 
+    } catch (e) { 
+      console.error('Timeline load failed:', e); 
+      document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
+    }
+    
+    // Load photos into overview grid
+    try { await loadPhotos(id); } catch (e) {
+      console.error('Photos load failed:', e);
+      var pl = document.getElementById('photoList');
+      if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">No photos yet</div></div>';
+    }
+    
+    try { 
+      await window.loadDocuments(id); 
+    } catch (e) { 
+      console.error('Documents load failed:', e); 
+      document.getElementById('documentList').innerHTML = `
+        <div class="upload-zone" onclick="openDocUploadModal()">
+          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
+          <div class="upload-text">Click to upload documents</div>
+          <div class="upload-hint">Drag & drop PDFs, contracts, or images</div>
+        </div>`;
+    }
+    
+    try { await window.loadEstimates(id); } 
+    catch (e) { console.error('Estimates load failed:', e); }
+    
+    try { await window.loadNotes(id); }
+    catch (e) { console.error('Notes load failed:', e); }
+
+    // Render Profit Tracker cost panel (external module)
+    try {
+      if (window.ProfitTracker?.renderCostPanel) {
+        window.ProfitTracker.renderCostPanel('profitPanel', id);
+      }
+    } catch (e) { console.warn('Profit panel render failed:', e.message); }
+
+    // Render Lead Scoring panel
+    try {
+      if (window.LeadScoring?.renderScorePanel) {
+        window.LeadScoring.renderScorePanel('leadScoringPanel', id);
+      }
+    } catch (e) { console.warn('Lead scoring render failed:', e.message); }
+
+    // Render Insurance Claim Workflow
+    try {
+      if (window.InsuranceClaim?.renderClaimWorkflow) {
+        window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow', id);
+      }
+    } catch (e) { console.warn('Claim workflow render failed:', e.message); }
+
+    // Load new portal sections (timeline, invoices, photos by phase, reports, documents, communication log)
+    try {
+      await window.loadNewPortalSections(id);
+      // Setup contact tab
+      window.setupContactTab(lead);
+    } catch (e) { console.warn('Portal sections render failed:', e.message); }
+
+  } catch (error) {
+    console.error('Error loading customer data:', error);
+    showError('Load Error', 'Could not load customer data');
+  }
+}
+
+// Recently viewed tracking
+function trackRecentlyViewed(leadId) {
+  try {
+    let recent = JSON.parse(localStorage.getItem('nbd_recent_views') || '[]');
+    recent = recent.filter(id => id !== leadId);
+    recent.unshift(leadId);
+    recent = recent.slice(0, 10);
+    localStorage.setItem('nbd_recent_views', JSON.stringify(recent));
+  } catch (e) {
+    console.log('Could not track recent view');
+  }
+}
+
+async function loadTimeline(leadId, lead) {
+  const timeline = [];
+
+  // Load stage history
+  if(lead.stageHistory && Array.isArray(lead.stageHistory)){
+    lead.stageHistory.forEach(h => {
+      timeline.push({
+        time: h.timestamp ? new Date(h.timestamp) : new Date(),
+        icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
+        title: `Stage: ${h.from} → ${h.to}`,
+        desc: h.user || 'System'
+      });
+    });
+  }
+
+
+  // Lead created event
+  if (lead.createdAt) {
+    timeline.push({
+      time: lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
+      icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="4"/><circle cx="10" cy="10" r="1"/></svg>',
+      title: 'Lead created',
+      desc: `Source: ${lead.source || 'Unknown'}`
+    });
+  }
+
+  // Load tasks
+  try {
+    const taskSnap = await getDocs(
+      query(collection(db, 'tasks'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+    );
+    taskSnap.docs.forEach(d => {
+      const task = d.data();
+      timeline.push({
+        time: task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt || Date.now()),
+        icon: task.done ? '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg>' : '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
+        title: task.title || 'Task',
+        desc: task.dueDate || '',
+        isTask: true,
+        taskId: d.id,
+        taskDone: task.done || false
+      });
+    });
+  } catch (e) {
+    console.log('No tasks found for timeline');
+  }
+
+  // Load estimates
+  try {
+    const estSnap = await getDocs(
+      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+    );
+    estSnap.docs.forEach(d => {
+      const est = d.data();
+      if (est.createdAt) {
+        timeline.push({
+          time: est.createdAt?.toDate ? est.createdAt.toDate() : new Date(est.createdAt),
+          icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg>',
+          title: 'Estimate created',
+          desc: est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'
+        });
+      }
+    });
+  } catch (e) {
+    console.log('No estimates found for timeline');
+  }
+
+  // Load photos for timeline
+  try {
+    const photoSnap = await getDocs(
+      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+    );
+    photoSnap.docs.forEach(d => {
+      const photo = d.data();
+      if (photo.uploadedAt) {
+        timeline.push({
+          time: photo.uploadedAt?.toDate ? photo.uploadedAt.toDate() : new Date(photo.uploadedAt),
+          icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg>',
+          title: 'Photo uploaded',
+          desc: photo.category || 'Property photo'
+        });
+      }
+    });
+  } catch (e) {
+    console.log('No photos found for timeline');
+  }
+
+  // Sort by time (newest first)
+  timeline.sort((a, b) => b.time - a.time);
+
+  // Render
+  const html = timeline.map(item => {
+    if (item.isTask) {
+      return `
+        <div class="timeline-item" style="cursor:pointer;" onclick="toggleTask('${item.taskId}', ${!item.taskDone})">
+          <div class="timeline-icon">${item.icon}</div>
+          <div class="timeline-content">
+            <div class="timeline-title" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" ${item.taskDone ? 'checked' : ''} 
+                style="width:16px;height:16px;cursor:pointer;" 
+                onclick="event.stopPropagation();toggleTask('${item.taskId}', !this.checked)">
+              <span style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.title}</span>
+            </div>
+            <div class="timeline-desc" style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.desc}</div>
+            <div class="timeline-time">${item.time.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="timeline-item">
+          <div class="timeline-icon">${item.icon}</div>
+          <div class="timeline-content">
+            <div class="timeline-title">${item.title}</div>
+            <div class="timeline-desc">${item.desc}</div>
+            <div class="timeline-time">${item.time.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    }
+  }).join('');
+
+  document.getElementById('timelineList').innerHTML = html || 
+    '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
+}
+
+async function loadPhotos(leadId) {
+  try {
+    const photoSnap = await getDocs(
+      query(collection(db, 'photos'), where('leadId', '==', leadId))
+    );
+    
+    if (photoSnap.empty) {
+      document.getElementById('photoList').innerHTML = `
+        <div class="upload-zone" onclick="openUploadModal()">
+          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
+          <div class="upload-text">No photos yet</div>
+          <div class="upload-hint">Click to upload your first photo</div>
+        </div>`;
+      return;
+    }
+
+    window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const html = window._customerPhotos.map((photo, idx) => 
+      `<div class="photo-item" onclick="if(window.NBDPhotoEditor)window.NBDPhotoEditor.open(window._customerPhotos[${idx}].url,window._customerPhotos[${idx}].id,window._customerId);else openLightbox(${idx});">
+        <img src="${photo.url}" alt="Property photo">
+      </div>`
+    ).join('');
+
+    document.getElementById('photoList').innerHTML = `
+      <div class="photo-grid">${html}</div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-orange" style="flex:1;" onclick="openUploadModal()">
+          📤 Upload More
+        </button>
+        <button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" onclick="generatePhotoReport()">
+          📋 Generate Report
+        </button>
+      </div>
+    `;
+  } catch (e) {
+    console.error('Error loading photos:', e);
+    document.getElementById('photoList').innerHTML = `
+      <div class="upload-zone" onclick="openUploadModal()">
+        <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
+        <div class="upload-text">Click to upload photos</div>
+      </div>`;
+  }
+}
+
+
+
+async function loadEstimates(leadId) {
+  try {
+    const estSnap = await getDocs(
+      query(collection(db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+    );
+    
+    if (estSnap.empty) {
+      document.getElementById('estimateList').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>
+          No estimates yet
+        </div>`;
+      return;
+    }
+
+    // Store estimates globally — filter soft-deleted records
+    window._customerEstimates = estSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !e.deleted);
+    
+    if (!window._customerEstimates.length) {
+      document.getElementById('estimateList').innerHTML = `
+        <div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div>No estimates yet</div>`;
+      return;
+    }
+
+    const html = window._customerEstimates.map(est => {
+      const tier = est.tier || est.tierName || '';
+      const tierColor = tier==='best'?'#22C55E':tier==='better'?'#9B6DFF':'#C8541A';
+      const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${tier}</span>` : '';
+      return `
+        <div class="estimate-item" onclick="openEstimateModal('${est.id}')" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
+          <div>
+            <div class="estimate-title" style="display:flex;align-items:center;">${est.title || 'Estimate'}${tierLabel}</div>
+            <div style="font-size:11px;color:var(--m);margin-top:2px;">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
+            <button onclick="event.stopPropagation();exportCustomerEstimate('${est.id}')" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
+            <button onclick="event.stopPropagation();generateCertFromEstimate('${est.id}')" style="background:transparent;border:1px solid rgba(200,84,26,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:#C8541A;cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('estimateList').innerHTML = html;
+    
+    // Add hover effect via CSS
+    document.querySelectorAll('.estimate-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--s2)';
+        item.style.borderLeft = '3px solid var(--orange)';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = '';
+        item.style.borderLeft = '';
+      });
+    });
+  } catch (e) {
+    console.error('Error loading estimates:', e);
+  }
+}
+
+// ── GENERATE WARRANTY CERT FROM CUSTOMER ESTIMATE ─────────────────────────
+window.generateCertFromEstimate = function(estId) {
+  const est = (window._customerEstimates || []).find(e => e.id === estId);
+  const lead = window._lead || {};
+  if (!est) { alert('Estimate not found'); return; }
+
+  // Map tier to cert tier
+  const tierMap = { best: 'elite', better: 'preferred', good: 'standard' };
+  const certTier = tierMap[est.tier] || 'standard';
+
+  // Open warranty cert wizard pre-filled
+  const w = window.open('/pro/dashboard.html#docs', '_blank');
+  // Pass data via sessionStorage for pickup
+  try {
+    sessionStorage.setItem('_pendingCert', JSON.stringify({
+      owner: `${lead.firstName||''} ${lead.lastName||''}`.trim() || est.owner || '',
+      addr: lead.address || est.addr || '',
+      tier: certTier,
+      work: est.tier === 'best' ? 'Full roof replacement — GAF Timberline UHDZ'
+          : est.tier === 'better' ? 'Roof replacement — GAF Timberline HDZ'
+          : 'Roof replacement — GAF Timberline'
+    }));
+  } catch(e) {}
+  showToast('Opening certificate wizard in dashboard...', 'success');
+};
+// ── END CERT FUNCTION ─────────────────────────────────────────────────────
+
+// ── EXPORT ESTIMATE FROM CUSTOMER PAGE ────────────────────────────────────
+window.exportCustomerEstimate = function(estId) {
+  const est = (window._customerEstimates || []).find(e => e.id === estId);
+  if (!est) { alert('Estimate not found'); return; }
+  const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Estimate — ${est.addr||est.address||''}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #C8541A;margin-bottom:26px;}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+  .brand span{color:#C8541A;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#C8541A;border:1px solid #C8541A;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+  .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
+  .est-date{font-size:12px;color:#666;}
+  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C8541A;margin-top:10px;}
+  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#C8541A;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid #C8541A;}
+  .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
+  .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
+  .mf .v{font-size:18px;font-weight:700;color:#111;}
+  table{width:100%;border-collapse:collapse;}thead tr{border-bottom:2px solid #111;}
+  th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
+  td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
+  .code{color:#C8541A;font-weight:700;font-family:'Barlow Condensed',sans-serif;}
+  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8541A;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
+  .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+  @page{margin:1.8cm 2cm;size:letter;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  </style></head><body>
+  <div class="hdr">
+    <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
+    <div class="est-hdr">
+      <div class="est-type">Roofing Estimate</div>
+      <div class="est-date">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+      <div class="est-date">${est.addr||est.address||''}</div>
+      <div class="est-total-lbl">Estimate Total</div>
+      <div class="est-total-val">${fmt(est.grandTotal||est.amount||0)}</div>
+    </div>
+  </div>
+  <h2>Measurements</h2>
+  <div class="meas-grid">
+    <div class="mf"><label>Squares</label><div class="v">${est.sq||'—'}</div></div>
+    <div class="mf"><label>Roof SqFt</label><div class="v">${est.raw||'—'}</div></div>
+    <div class="mf"><label>Pitch</label><div class="v">${est.pitch||est.pl||'—'}</div></div>
+    <div class="mf"><label>Ridge LF</label><div class="v">${est.ridge||'—'}</div></div>
+    <div class="mf"><label>Eave LF</label><div class="v">${est.eave||'—'}</div></div>
+    <div class="mf"><label>Hip LF</label><div class="v">${est.hip||'—'}</div></div>
+  </div>
+  <h2>Package — ${est.tierName||tierNames[est.tier]||est.tier||'Standard'}</h2>
+  <table><thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+  <tbody>
+    ${(est.rows||[]).map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td>${fmt(r.total)}</td></tr>`).join('')}
+    <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
+  </tbody></table>
+  <div class="footer">
+    <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
+    <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
+  </div>
+  <script>window.print();<\/script></body></html>`;
+  const w = window.open('','_blank'); w.document.write(html); w.document.close();
+};
+// ── END EXPORT ─────────────────────────────────────────────────────────────
+
+// Lightbox functionality
+window._customerPhotos = [];
+window._lightboxIndex = 0;
+
+window.openLightbox = function(index) {
+  window._lightboxIndex = index;
+  const photo = window._customerPhotos[index];
+  document.getElementById('lightboxImg').src = photo.url;
+  document.getElementById('lightbox').classList.add('active');
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.body.style.overflow = '';
+};
+
+window.nextPhoto = function() {
+  window._lightboxIndex = (window._lightboxIndex + 1) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+};
+
+window.prevPhoto = function() {
+  window._lightboxIndex = (window._lightboxIndex - 1 + window._customerPhotos.length) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+};
+
+// Keyboard navigation for lightbox
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('lightbox').classList.contains('active')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowRight') nextPhoto();
+  if (e.key === 'ArrowLeft') prevPhoto();
+});
+
+// Stage progression — uses full insurance pipeline by default
+window.progressStage = async function() {
+  // Full insurance pipeline progression (most common path)
+  const insurancePipeline = [
+    'new', 'contacted', 'inspected', 'claim_filed',
+    'adjuster_meeting_scheduled', 'adjuster_inspection_done',
+    'scope_received', 'estimate_submitted',
+    'supplement_requested', 'supplement_approved',
+    'contract_signed',
+    'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
+    'crew_scheduled', 'install_in_progress', 'install_complete',
+    'final_photos', 'deductible_collected', 'final_payment', 'closed'
+  ];
+
+  // Legacy stage mapping for backward compat
+  const legacyMap = {
+    'New': 'contacted', 'Inspection': 'inspected', 'Inspected': 'claim_filed',
+    'Estimate': 'contract_signed', 'Estimate Sent': 'contract_signed',
+    'Approved': 'job_created', 'In Progress': 'install_complete', 'Complete': 'closed'
+  };
+
+  const current = window._currentStage || 'new';
+  let nextStage;
+
+  // Try new pipeline first
+  const idx = insurancePipeline.indexOf(current);
+  if (idx >= 0 && idx < insurancePipeline.length - 1) {
+    nextStage = insurancePipeline[idx + 1];
+  } else if (legacyMap[current]) {
+    nextStage = legacyMap[current];
+  }
+
+  if (!nextStage) return;
+
+  // Get display label for confirmation
+  const STAGE_LABELS = {
+    'new': 'New Lead', 'contacted': 'Contacted', 'inspected': 'Inspected',
+    'claim_filed': 'Claim Filed', 'adjuster_meeting_scheduled': 'Adjuster Meeting',
+    'adjuster_inspection_done': 'Adjuster Done', 'scope_received': 'Scope Received',
+    'estimate_submitted': 'Estimate Sent', 'supplement_requested': 'Supplement',
+    'supplement_approved': 'Supp. Approved', 'contract_signed': 'Contract Signed',
+    'job_created': 'Job Created', 'permit_pulled': 'Permit', 'materials_ordered': 'Materials Ordered',
+    'materials_delivered': 'Materials Here', 'crew_scheduled': 'Crew Scheduled',
+    'install_in_progress': 'Installing', 'install_complete': 'Install Done',
+    'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
+    'final_payment': 'Final Payment', 'closed': 'Closed'
+  };
+
+  const label = STAGE_LABELS[nextStage] || nextStage;
+  if (!confirm(`Move customer to "${label}" stage?`)) return;
+
+  try {
+    const oldStage = current;
+    const historyEvent = {
+      from: oldStage,
+      to: nextStage,
+      timestamp: new Date().toISOString(),
+      user: window.auth?.currentUser?.email || 'unknown'
+    };
+
+    await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
+      stage: nextStage,
+      updatedAt: window.serverTimestamp(),
+      stageHistory: window.arrayUnion(historyEvent)
+    });
+
+    // Reload page to reflect changes
+    window.location.reload();
+  } catch (e) {
+    console.error('Error updating stage:', e);
+    alert('Failed to update stage. Please try again.');
+  }
+};
+
+// Task toggle
+window.toggleTask = async function(taskId, newDoneState) {
+  try {
+    await updateDoc(doc(db, 'tasks', taskId), {
+      done: newDoneState,
+      completedAt: newDoneState ? serverTimestamp() : null,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Reload timeline
+    await loadTimeline(window._customerId, { createdAt: new Date() });
+  } catch (e) {
+    console.error('Error toggling task:', e);
+  }
+};
+
+// Error display
+function showError(title, message) {
+  const container = document.querySelector('.container');
+  container.innerHTML = `
+    <div style="text-align:center; padding:60px 20px;">
+      <div style="font-size:64px; margin-bottom:20px;">⚠️</div>
+      <div style="font-size:24px; font-weight:700; margin-bottom:12px;">${title}</div>
+      <div style="color:var(--m); margin-bottom:24px;">${message}</div>
+      <a href="dashboard.html" class="btn btn-orange">← Back to Dashboard</a>
+    </div>
+  `;
+}
+
+// ============================================
+// PHOTO UPLOAD SYSTEM
+// ============================================
+
+window._uploadQueue = [];
+
+window.openUploadModal = function() {
+  document.getElementById('uploadModal').classList.add('active');
+  window._uploadQueue = [];
+  updateUploadPreview();
+};
+
+window.closeUploadModal = function() {
+  document.getElementById('uploadModal').classList.remove('active');
+  window._uploadQueue = [];
+  updateUploadPreview();
+};
+
+// Drag and drop handlers - Initialize after DOM loads
+function initPhotoUploadHandlers() {
+  const uploadZone = document.getElementById('uploadZone');
+  if (!uploadZone) return;
+
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+  });
+
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    addFilesToQueue(files);
+  });
+}
+
+// Call initialization when modal is opened
+const originalOpenUploadModal = window.openUploadModal;
+window.openUploadModal = function() {
+  originalOpenUploadModal();
+  initPhotoUploadHandlers();
+};
+
+window.handleFileSelect = function(event) {
+  const files = Array.from(event.target.files);
+  addFilesToQueue(files);
+  event.target.value = ''; // Reset input
+};
+
+function addFilesToQueue(files) {
+  files.forEach(file => {
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`File ${file.name} is too large. Max size is 10MB.`);
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert(`File ${file.name} is not an image.`);
+      return;
+    }
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      window._uploadQueue.push({
+        file: file,
+        preview: e.target.result,
+        progress: 0,
+        uploading: false
+      });
+      updateUploadPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function updateUploadPreview() {
+  const container = document.getElementById('uploadPreview');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadCount = document.getElementById('uploadCount');
+
+  // Guard against null elements (modal might not be open or loaded yet)
+  if (!container || !uploadBtn || !uploadCount) {
+    return;
+  }
+
+  if (window._uploadQueue.length === 0) {
+    container.innerHTML = '';
+    uploadBtn.style.display = 'none';
+    return;
+  }
+
+  const html = window._uploadQueue.map((item, idx) => `
+    <div class="preview-item">
+      <img src="${item.preview}" alt="Preview">
+      ${!item.uploading ? `
+        <button class="preview-remove" onclick="removeFromQueue(${idx})">×</button>
+      ` : ''}
+      ${item.uploading ? `
+        <div class="preview-progress">
+          <div class="preview-progress-bar" style="width:${item.progress}%"></div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  container.innerHTML = html;
+  uploadBtn.style.display = 'block';
+  uploadCount.textContent = window._uploadQueue.length;
+  var _metaSec = document.getElementById('uploadMetaSection');
+  if (_metaSec) _metaSec.style.display = window._uploadQueue.length > 0 ? '' : 'none';
+}
+
+window.removeFromQueue = function(index) {
+  window._uploadQueue.splice(index, 1);
+  updateUploadPreview();
+};
+
+window.uploadPhotos = async function() {
+  if (window._uploadQueue.length === 0) return;
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  const uploadBtn = document.getElementById('uploadBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Uploading...';
+  
+  try {
+    for (let i = 0; i < window._uploadQueue.length; i++) {
+      const item = window._uploadQueue[i];
+      item.uploading = true;
+      updateUploadPreview();
+      
+      await uploadSinglePhoto(item, i);
+    }
+    
+    // Success - reload photos and close modal
+    alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
+    closeUploadModal();
+    if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
+    try { await loadPhotos(window._customerId); } catch(e) {}
+
+    // Reload timeline to show photo upload events
+    const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap3.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap3.data());
+    }
+    
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('Upload failed. Please try again.');
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '📤 Upload Photos';
+  }
+};
+
+async function uploadSinglePhoto(item, index) {
+  const file = item.file;
+  const timestamp = Date.now();
+  const filename = `${window._customerId}_${timestamp}_${file.name}`;
+  const storageRef = window.ref(window.storage, `photos/${filename}`);
+  
+  const uploadTask = window.uploadBytesResumable(storageRef, file);
+  
+  return new Promise((resolve, reject) => {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        // Progress tracking
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        window._uploadQueue[index].progress = progress;
+        updateUploadPreview();
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        // Upload complete - get download URL and save to Firestore
+        try {
+          const downloadURL = await window.getDownloadURL(uploadTask.snapshot.ref);
+          
+          await window.addDoc(window.collection(window.db, 'photos'), {
+            leadId: window._customerId,
+            userId: window.auth.currentUser.uid,
+            url: downloadURL,
+            filename: file.name,
+            size: file.size,
+            type: file.type,
+            date: window.serverTimestamp(),
+            uploadedAt: window.serverTimestamp(),
+            phase: window._uploadPhase || 'During',
+            category: 'Property',
+            damageType: document.getElementById('uploadDamageType')?.value || '',
+            severity: window._uploadSeverity || '',
+            location: document.getElementById('uploadLocation')?.value || ''
+          });
+          
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+
+// ============================================
+// ESTIMATE DETAIL MODAL
+// ============================================
+
+window._currentEstimateId = null;
+
+window.openEstimateModal = function(estimateId) {
+  const estimate = (window._customerEstimates || []).find(e => e.id === estimateId);
+  if (!estimate) {
+    alert('Estimate not found');
+    return;
+  }
+  
+  window._currentEstimateId = estimateId;
+  
+  // Parse line items if they exist
+  let lineItemsHTML = '';
+  if (estimate.lineItems && Array.isArray(estimate.lineItems) && estimate.lineItems.length > 0) {
+    lineItemsHTML = `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;color:var(--m);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;">Line Items</div>
+        <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;overflow:hidden;">
+          ${estimate.lineItems.map(item => `
+            <div style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--br);">
+              <div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:2px;">${item.description || item.name || 'Item'}</div>
+                ${item.quantity ? `<div style="font-size:11px;color:var(--m);">Qty: ${item.quantity} ${item.unit || ''}</div>` : ''}
+              </div>
+              <div style="font-size:14px;font-weight:700;color:var(--orange);">
+                ${item.amount ? `$${parseFloat(item.amount).toLocaleString()}` : '—'}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // Build pricing breakdown
+  const subtotal = parseFloat(estimate.subtotal || estimate.amount || 0);
+  const tax = parseFloat(estimate.tax || 0);
+  const total = parseFloat(estimate.total || estimate.amount || 0);
+  
+  const pricingHTML = `
+    <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:13px;color:var(--m);">Subtotal</div>
+        <div style="font-size:14px;font-weight:600;">$${subtotal.toLocaleString()}</div>
+      </div>
+      ${tax > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:13px;color:var(--m);">Tax</div>
+          <div style="font-size:14px;font-weight:600;">$${tax.toLocaleString()}</div>
+        </div>
+      ` : ''}
+      <div style="border-top:1px solid var(--br);margin:12px 0;"></div>
+      <div style="display:flex;justify-content:space-between;">
+        <div style="font-size:15px;font-weight:700;">Total</div>
+        <div style="font-size:18px;font-weight:700;color:var(--orange);">$${total.toLocaleString()}</div>
+      </div>
+    </div>
+  `;
+  
+  // Estimate metadata
+  const createdDate = estimate.createdAt?.toDate ? estimate.createdAt.toDate().toLocaleDateString() : '—';
+  const status = estimate.status || 'Draft';
+  const statusColor = {
+    'Draft': 'var(--m)',
+    'Sent': 'var(--blue)',
+    'Approved': 'var(--green)',
+    'Rejected': 'var(--red)'
+  }[status] || 'var(--m)';
+  
+  const metadataHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Title</div>
+        <div style="font-size:14px;font-weight:600;">${estimate.title || 'Untitled Estimate'}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Status</div>
+        <div style="font-size:13px;font-weight:600;color:${statusColor};">${status}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Created</div>
+        <div style="font-size:13px;">${createdDate}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Estimate #</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;">${estimate.id.substring(0,8).toUpperCase()}</div>
+      </div>
+    </div>
+  `;
+  
+  // Notes
+  const notesHTML = estimate.notes ? `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:600;color:var(--m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Notes</div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:12px;font-size:13px;line-height:1.6;color:var(--m);">
+        ${estimate.notes}
+      </div>
+    </div>
+  ` : '';
+  
+  // Assemble modal content
+  document.getElementById('estimateModalContent').innerHTML = metadataHTML + lineItemsHTML + notesHTML + pricingHTML;
+  
+  // Wire up action buttons
+  document.getElementById('editEstimateBtn').onclick = () => {
+    // Navigate to dashboard estimate builder with this lead pre-loaded
+    window.location.href = `/pro/dashboard.html?edit=${window._customerId}&est=${estimateId}`;
+  };
+  
+  document.getElementById('deleteEstimateBtn').onclick = async () => {
+    if (!confirm('Archive this estimate? It will be hidden but never permanently deleted.')) return;
+    
+    try {
+      // SOFT DELETE — never use deleteDoc on estimates (standing rule: never lose a job)
+      await updateDoc(doc(db, 'estimates', estimateId), {
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
+      closeEstimateModal();
+      await loadEstimates(window._customerId);
+      
+      // Reload timeline
+      const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+      if (leadSnap.exists()) {
+        await loadTimeline(window._customerId, leadSnap.data());
+      }
+    } catch (error) {
+      console.error('Archive error:', error);
+      alert('Failed to archive estimate.');
+    }
+  };
+  
+  // Show modal
+  document.getElementById('estimateModal').classList.add('active');
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').classList.remove('active');
+  window._currentEstimateId = null;
+};
+
+
+// ============================================
+// EXPORT ESTIMATE AS PDF
+// ============================================
+window.exportCustomerEstimate = async function(estimateId) {
+  if (!estimateId || !window._customerEstimates) {
+    if (typeof showToast === 'function') showToast('Estimate not found', 'error');
+    return;
+  }
+  const est = window._customerEstimates.find(e => e.id === estimateId);
+  if (!est) { if (typeof showToast === 'function') showToast('Estimate not found', 'error'); return; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'letter');
+    const pw = pdf.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    pdf.setFillColor(30, 58, 110);
+    pdf.rect(0, 0, pw, 28, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.text('No Big Deal Home Solutions', 14, 14);
+    pdf.setFontSize(9);
+    pdf.text('ESTIMATE', 14, 22);
+    pdf.setFontSize(9);
+    pdf.text(new Date().toLocaleDateString(), pw - 14, 14, { align: 'right' });
+    y = 38;
+
+    // Customer info
+    const lead = window._currentLead || {};
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFontSize(11);
+    pdf.text(`Customer: ${(lead.firstName || '') + ' ' + (lead.lastName || '')}`.trim(), 14, y); y += 6;
+    if (lead.address) { pdf.text(`Address: ${lead.address}`, 14, y); y += 6; }
+    if (lead.phone) { pdf.text(`Phone: ${lead.phone}`, 14, y); y += 6; }
+    y += 4;
+
+    // Estimate details
+    pdf.setFontSize(13);
+    pdf.setTextColor(200, 84, 26);
+    pdf.text(est.title || 'Estimate', 14, y); y += 8;
+    const tier = est.tier || est.tierName || '';
+    if (tier) { pdf.setFontSize(9); pdf.setTextColor(100,100,100); pdf.text(`Tier: ${tier.toUpperCase()}`, 14, y); y += 6; }
+
+    // Line items
+    if (est.lineItems && est.lineItems.length > 0) {
+      pdf.setFontSize(9);
+      pdf.setTextColor(100,100,100);
+      pdf.text('DESCRIPTION', 14, y);
+      pdf.text('QTY', 120, y);
+      pdf.text('PRICE', 150, y);
+      pdf.text('TOTAL', 180, y);
+      y += 2;
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(14, y, pw - 14, y);
+      y += 5;
+
+      pdf.setTextColor(30, 30, 30);
+      est.lineItems.forEach(item => {
+        if (y > 250) { pdf.addPage(); y = 20; }
+        pdf.text((item.description || item.name || '—').substring(0, 40), 14, y);
+        pdf.text(String(item.qty || item.quantity || 1), 125, y);
+        pdf.text('$' + (parseFloat(item.unitPrice || item.price || 0)).toFixed(2), 148, y);
+        pdf.text('$' + (parseFloat(item.total || item.lineTotal || 0)).toFixed(2), 178, y);
+        y += 6;
+      });
+      y += 4;
+      pdf.line(14, y, pw - 14, y); y += 6;
+    }
+
+    // Totals
+    pdf.setFontSize(12);
+    pdf.setTextColor(30, 58, 110);
+    const total = est.grandTotal || est.total || est.amount || 0;
+    pdf.text(`Total: $${parseFloat(total).toLocaleString()}`, pw - 14, y, { align: 'right' });
+
+    // Notes
+    if (est.notes) {
+      y += 12;
+      pdf.setFontSize(9);
+      pdf.setTextColor(100,100,100);
+      pdf.text('Notes:', 14, y); y += 5;
+      pdf.setTextColor(60,60,60);
+      const noteLines = pdf.splitTextToSize(est.notes, pw - 28);
+      pdf.text(noteLines, 14, y);
+    }
+
+    const custName = ((lead.firstName || '') + '_' + (lead.lastName || '')).trim().replace(/\s+/g, '_') || 'customer';
+    pdf.save(`NBD_Estimate_${custName}_${estimateId.slice(0,6)}.pdf`);
+    if (typeof showToast === 'function') showToast('Estimate PDF exported', 'ok');
+  } catch (e) {
+    console.error('Estimate export failed:', e);
+    if (typeof showToast === 'function') showToast('Export failed — ' + e.message, 'error');
+  }
+};
+
+// ============================================
+// GENERATE WARRANTY CERTIFICATE FROM ESTIMATE
+// ============================================
+window.generateCertFromEstimate = async function(estimateId) {
+  if (!estimateId || !window._customerEstimates) {
+    if (typeof showToast === 'function') showToast('Estimate not found', 'error');
+    return;
+  }
+  const est = window._customerEstimates.find(e => e.id === estimateId);
+  if (!est) { if (typeof showToast === 'function') showToast('Estimate not found', 'error'); return; }
+
+  const lead = window._currentLead || {};
+  const custName = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Customer';
+  const installDate = lead.scheduledDate || new Date().toISOString().split('T')[0];
+  const warrantyYears = 5;
+  const expiryDate = new Date(installDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warranty Certificate — ${custName}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Georgia',serif;background:#f8f6f1;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;}
+  .cert{background:#fff;border:3px double #1e3a6e;padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
+  .cert::before{content:'';position:absolute;inset:8px;border:1px solid #d4a017;pointer-events:none;}
+  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:#1e3a6e;letter-spacing:3px;margin-bottom:4px;}
+  .logo-sub{font-size:11px;color:#C8541A;letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
+  h1{font-size:32px;color:#1e3a6e;margin-bottom:6px;letter-spacing:2px;}
+  .seal{font-size:14px;color:#666;margin-bottom:30px;letter-spacing:1px;}
+  .details{text-align:left;margin:24px 0;padding:20px;background:#fafaf8;border:1px solid #e8e4d8;border-radius:4px;}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;}
+  .row:last-child{border:none;}
+  .label{color:#888;font-size:13px;}
+  .value{color:#1e3a6e;font-weight:bold;font-size:14px;}
+  .footer{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end;}
+  .sig{text-align:center;}
+  .sig-line{width:180px;border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:11px;color:#888;}
+  .print-btn{margin-top:24px;padding:12px 32px;background:#1e3a6e;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double #1e3a6e;}}
+</style></head><body>
+<div class="cert">
+  <div class="logo">NBD</div>
+  <div class="logo-sub">No Big Deal Home Solutions</div>
+  <h1>WARRANTY CERTIFICATE</h1>
+  <div class="seal">Certificate of Workmanship Warranty</div>
+  <div class="details">
+    <div class="row"><span class="label">Customer</span><span class="value">${custName}</span></div>
+    <div class="row"><span class="label">Property</span><span class="value">${lead.address || '—'}</span></div>
+    <div class="row"><span class="label">Work Performed</span><span class="value">${est.title || 'Roofing Installation'}</span></div>
+    <div class="row"><span class="label">Completion Date</span><span class="value">${new Date(installDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    <div class="row"><span class="label">Warranty Period</span><span class="value">${warrantyYears} Years</span></div>
+    <div class="row"><span class="label">Warranty Expires</span><span class="value">${expiryDate.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    <div class="row"><span class="label">Certificate #</span><span class="value">NBD-${estimateId.slice(0,8).toUpperCase()}</span></div>
+  </div>
+  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the period specified above.</p>
+  <div class="footer">
+    <div class="sig"><div class="sig-line">Joe Deal, Owner</div></div>
+    <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Print Certificate</button>
+</div></body></html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    if (typeof showToast === 'function') showToast('Warranty certificate generated', 'ok');
+  } else {
+    if (typeof showToast === 'function') showToast('Pop-up blocked — allow pop-ups to generate certificates', 'error');
+  }
+};
+
+// ============================================
+// CUSTOMER PDF EXPORT
+// ============================================
+
+window.exportCustomerPDF = async function() {
+  if (!window._customerId) {
+    alert('Customer data not loaded');
+    return;
+  }
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Get customer data from DOM
+    const customerName = document.getElementById('customerName')?.textContent || 'Customer';
+    const customerAddress = document.getElementById('customerAddress')?.textContent || '';
+    const customerPhone = document.getElementById('customerPhone')?.textContent || '';
+    const customerEmail = document.getElementById('customerEmail')?.textContent || '';
+    const customerStage = document.getElementById('customerStage')?.textContent || '';
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(200, 84, 26); // NBD orange
+    doc.text('Customer Report', 20, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated ${new Date().toLocaleDateString()}`, 20, 27);
+    
+    // Customer Info Section
+    let y = 40;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(customerName, 20, y);
+    
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Stage: ${customerStage}`, 20, y);
+    
+    y += 6;
+    if (customerAddress && customerAddress !== '—') {
+      doc.text(`📍 ${customerAddress}`, 20, y);
+      y += 6;
+    }
+    if (customerPhone && customerPhone !== '—') {
+      doc.text(`📞 ${customerPhone}`, 20, y);
+      y += 6;
+    }
+    if (customerEmail && customerEmail !== '—') {
+      doc.text(`✉️ ${customerEmail}`, 20, y);
+      y += 6;
+    }
+    
+    // Timeline Section
+    y += 10;
+    doc.setFontSize(12);
+    doc.setTextColor(200, 84, 26);
+    doc.text('Timeline', 20, y);
+    
+    y += 8;
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const timelineItems = document.querySelectorAll('#timelineList .timeline-item');
+    let itemCount = 0;
+    timelineItems.forEach(item => {
+      if (itemCount >= 10) return; // Limit to 10 items
+      if (y > 270) return; // Page limit
+      
+      const title = item.querySelector('.timeline-title')?.textContent?.trim() || '';
+      const desc = item.querySelector('.timeline-desc')?.textContent?.trim() || '';
+      const time = item.querySelector('.timeline-time')?.textContent?.trim() || '';
+      
+      doc.setTextColor(0, 0, 0);
+      doc.text(`• ${title}`, 22, y);
+      y += 5;
+      
+      if (desc) {
+        doc.setTextColor(100, 100, 100);
+        doc.text(`  ${desc}`, 24, y);
+        y += 5;
+      }
+      
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(8);
+      doc.text(`  ${time}`, 24, y);
+      y += 7;
+      doc.setFontSize(9);
+      
+      itemCount++;
+    });
+    
+    // Estimates Section (if space available)
+    if (y < 220 && window._customerEstimates && window._customerEstimates.length > 0) {
+      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(200, 84, 26);
+      doc.text('Estimates', 20, y);
+      
+      y += 8;
+      doc.setFontSize(9);
+      
+      window._customerEstimates.forEach(est => {
+        if (y > 270) return;
+        
+        const title = est.title || 'Estimate';
+        const amount = est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft';
+        const date = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
+        
+        doc.setTextColor(0, 0, 0);
+        doc.text(`• ${title}`, 22, y);
+        
+        doc.setTextColor(200, 84, 26);
+        doc.text(amount, 150, y);
+        
+        y += 5;
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text(`  ${date}`, 24, y);
+        y += 7;
+        doc.setFontSize(9);
+      });
+    }
+    
+    // Notes Section (if space available and notes exist)
+    const notes = document.getElementById('customerNotes')?.textContent?.trim();
+    if (y < 240 && notes && notes !== 'No notes') {
+      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(200, 84, 26);
+      doc.text('Notes', 20, y);
+      
+      y += 8;
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      
+      // Wrap text
+      const splitNotes = doc.splitTextToSize(notes, 170);
+      splitNotes.forEach(line => {
+        if (y > 280) return;
+        doc.text(line, 20, y);
+        y += 5;
+      });
+    }
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('No Big Deal Home Solutions — Professional CRM', 20, 285);
+    
+    // Save PDF
+    const fileName = `${customerName.replace(/[^a-z0-9]/gi, '_')}_report_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(fileName);
+    
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert('Failed to generate PDF. Please try again.');
+  }
+};
+
+
+
+// ============================================
+// PHOTO REPORT GENERATOR
+// ============================================
+
+
+// ============================================
+// DOCUMENT UPLOAD SYSTEM
+// ============================================
+
+window._docUploadQueue = [];
+
+window.openDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'flex';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+window.closeDocUploadModal = function() {
+  document.getElementById('docUploadModal').style.display = 'none';
+  window._docUploadQueue = [];
+  updateDocUploadPreview();
+};
+
+// Document drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('docDropZone');
+  const fileInput = document.getElementById('docFileInput');
+  
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files);
+      addDocumentsToQueue(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      addDocumentsToQueue(files);
+    });
+  }
+});
+
+
+
+// ============================================
+// NOTES SYSTEM
+// ============================================
+
+
+window.closeNotesModal = function() {
+  document.getElementById('notesModal').style.display = 'none';
+};
+
+window.saveNote = async function() {
+  const noteText = document.getElementById('noteText').value.trim();
+  
+  if (!noteText) {
+    alert('Please enter a note');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: window._customerId,
+      userId: window.auth.currentUser.uid,
+      text: noteText,
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeNotesModal();
+    await loadNotes(window._customerId);
+    
+    // Reload timeline to show new note
+    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving note:', error);
+    alert('Failed to save note. Please try again.');
+  }
+};
+
+
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// ============================================
+// ESTIMATE SYSTEM
+// ============================================
+
+window.openEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'flex';
+  document.getElementById('estimateAmount').value = '';
+  document.getElementById('estimateNotes').value = '';
+};
+
+window.closeEstimateModal = function() {
+  document.getElementById('estimateModal').style.display = 'none';
+};
+
+window.saveEstimate = async function() {
+  const type = document.getElementById('estimateType').value;
+  const amount = parseFloat(document.getElementById('estimateAmount').value);
+  const notes = document.getElementById('estimateNotes').value.trim();
+  
+  if (!amount || amount <= 0) {
+    alert('Please enter a valid estimate amount');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'estimates'), {
+      leadId: window._customerId,
+      type: type,
+      amount: amount,
+      notes: notes,
+      status: 'Draft',
+      createdAt: window.serverTimestamp(),
+      createdBy: auth.currentUser?.email || 'Unknown'
+    });
+    
+    alert('Estimate created successfully!');
+    closeEstimateModal();
+    if (window.loadEstimates) await window.loadEstimates(window._customerId);
+
+    // Reload timeline
+    const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap2.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
+    }
+    
+  } catch (error) {
+    console.error('Error saving estimate:', error);
+    alert('Failed to save estimate. Please try again.');
+  }
+};
+
+
+
+// Expose module-scope functions to window for cross-script access
+window.loadTimeline = loadTimeline;
+window.loadEstimates = loadEstimates;
+</script>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOMER PAGE ENHANCEMENTS - Task Management & Improved UX
+// ═══════════════════════════════════════════════════════════════════════
+
+// Task Modal HTML (to be injected)
+const taskModalHTML = `
+<div id="taskModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">Add Task</h3>
+      <button onclick="closeTaskModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Task Title *</label>
+        <input type="text" id="taskTitle" placeholder="e.g., Schedule roof inspection" 
+               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Due Date</label>
+        <input type="date" id="taskDueDate" 
+               style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Priority</label>
+        <select id="taskPriority" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Notes (Optional)</label>
+        <textarea id="taskNotes" rows="3" placeholder="Additional details..." 
+                  style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeTaskModal()" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+        Cancel
+      </button>
+      <button onclick="saveTask()" class="btn btn-orange">
+        Add Task
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+// Inject task modal on page load
+window.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('taskModal')) {
+    document.body.insertAdjacentHTML('beforeend', taskModalHTML);
+  }
+});
+
+// Task Management Functions
+window.openTaskModal = function() {
+  document.getElementById('taskModal').style.display = 'flex';
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskDueDate').value = '';
+  document.getElementById('taskPriority').value = 'medium';
+  document.getElementById('taskNotes').value = '';
+  document.getElementById('taskTitle').focus();
+};
+
+window.closeTaskModal = function() {
+  document.getElementById('taskModal').style.display = 'none';
+};
+
+window.saveTask = async function() {
+  const title = document.getElementById('taskTitle').value.trim();
+  const dueDate = document.getElementById('taskDueDate').value;
+  const priority = document.getElementById('taskPriority').value;
+  const notes = document.getElementById('taskNotes').value.trim();
+  
+  if (!title) {
+    alert('Please enter a task title');
+    return;
+  }
+  
+  if (!window._customerId) {
+    alert('Customer ID not found');
+    return;
+  }
+  
+  try {
+    await window.addDoc(window.collection(window.db, 'tasks'), {
+      leadId: window._customerId,
+      title: title,
+      dueDate: dueDate || null,
+      priority: priority,
+      notes: notes || '',
+      done: false,
+      createdAt: window.serverTimestamp(),
+      createdBy: window.auth.currentUser?.email || 'Unknown'
+    });
+    
+    closeTaskModal();
+    
+    // Reload timeline to show new task
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap.exists()) {
+      await loadTimeline(window._customerId, leadSnap.data());
+    }
+    
+    // Show success feedback
+    showToast('✓ Task added successfully', 'success');
+    
+  } catch (error) {
+    console.error('Error saving task:', error);
+    alert('Failed to save task. Please try again.');
+  }
+};
+
+// Toggle task completion
+window.toggleTask = async function(taskId, newDoneState) {
+  try {
+    await window.updateDoc(window.doc(window.db, 'tasks', taskId), {
+      done: newDoneState,
+      completedAt: newDoneState ? window.serverTimestamp() : null
+    });
+    
+    // Reload timeline
+    if (window._customerId) {
+      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+      if (leadSnap.exists()) {
+        await loadTimeline(window._customerId, leadSnap.data());
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error toggling task:', error);
+  }
+};
+
+// Toast notification system
+window.showToast = function(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;
+    top:80px;
+    right:20px;
+    background:${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#0ea5e9'};
+    color:white;
+    padding:15px 20px;
+    border-radius:8px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    z-index:10000;
+    font-size:14px;
+    font-weight:500;
+    animation:slideIn 0.3s ease-out;
+    pointer-events:auto;
+  `;
+  toast.textContent = message;
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-in';
+    toast.style.pointerEvents = 'none';
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 300);
+  }, 3000);
+};
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+// ── Booking Link Copy ─────────────────────────────
+window.copyBookingLink = function() {
+  const url = window._bookingUrl;
+  if (!url) { showToast('No booking link configured', 'error'); return; }
+  const name = window._bookingCustomerName;
+  const text = `Hey${name ? ' ' + name : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${url}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBookingBtn');
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Booking Link', 2000); }
+    showToast('Booking message copied to clipboard!', 'success');
+  }).catch(() => showToast('Failed to copy', 'error'));
+};
+
+// ── Tab Navigation ─────────────────────────────
+window.switchTab = function(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+
+  // Deactivate all tab buttons
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // Show selected tab
+  const selectedTab = document.getElementById(tabName + 'Tab');
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+
+  // Activate selected tab button
+  event.target.classList.add('active');
+};
+
+// ── Project Timeline (Milestones) ──────────────────
+window.loadProjectTimeline = async function(leadId) {
+  try {
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', leadId));
+    if (!leadSnap.exists()) return;
+
+    const lead = leadSnap.data();
+    const currentStage = lead.stage || 'new';
+
+    // Define milestone stages with descriptions
+    const milestones = [
+      { stage: 'new', label: 'Lead Created', icon: '📌', desc: 'New lead in system' },
+      { stage: 'contacted', label: 'Contacted', icon: '📞', desc: 'Customer contacted' },
+      { stage: 'inspected', label: 'Inspection Completed', icon: '✓', desc: 'Roof inspection done' },
+      { stage: 'claim_filed', label: 'Claim Filed', icon: '📋', desc: 'Insurance claim submitted' },
+      { stage: 'adjuster_meeting_scheduled', label: 'Adjuster Meeting', icon: '📅', desc: 'Meeting scheduled' },
+      { stage: 'adjuster_inspection_done', label: 'Adjuster Inspection', icon: '✓', desc: 'Adjuster completed review' },
+      { stage: 'scope_received', label: 'Scope Received', icon: '📄', desc: 'Scope of work received' },
+      { stage: 'estimate_submitted', label: 'Estimate Approved', icon: '💰', desc: 'Estimate sent to customer' },
+      { stage: 'supplement_requested', label: 'Supplement Requested', icon: '⚙️', desc: 'Additional work requested' },
+      { stage: 'supplement_approved', label: 'Supplement Approved', icon: '✓', desc: 'Supplement approved' },
+      { stage: 'contract_signed', label: 'Contract Signed', icon: '✍️', desc: 'Customer signed contract' },
+      { stage: 'job_created', label: 'Job Created', icon: '🎯', desc: 'Job scheduled' },
+      { stage: 'permit_pulled', label: 'Permit Pulled', icon: '🔐', desc: 'Building permit obtained' },
+      { stage: 'materials_ordered', label: 'Materials Ordered', icon: '📦', desc: 'Materials ordered' },
+      { stage: 'materials_delivered', label: 'Materials Delivered', icon: '🚚', desc: 'Materials on site' },
+      { stage: 'crew_scheduled', label: 'Crew Scheduled', icon: '👥', desc: 'Crew scheduled' },
+      { stage: 'install_in_progress', label: 'Installation In Progress', icon: '🔨', desc: 'Work in progress' },
+      { stage: 'install_complete', label: 'Installation Complete', icon: '✓', desc: 'Installation finished' },
+      { stage: 'final_photos', label: 'Final Photos', icon: '📸', desc: 'Final photos taken' },
+      { stage: 'deductible_collected', label: 'Deductible Collected', icon: '💳', desc: 'Payment collected' },
+      { stage: 'final_payment', label: 'Final Payment', icon: '✓', desc: 'Project paid in full' },
+      { stage: 'closed', label: 'Warranty Registered', icon: '✅', desc: 'Project complete' }
+    ];
+
+    // Find current stage index
+    const currentIndex = milestones.findIndex(m => m.stage === currentStage);
+
+    let html = '';
+    milestones.forEach((milestone, index) => {
+      const isCompleted = index < currentIndex;
+      const isActive = index === currentIndex;
+      const isPending = index > currentIndex;
+
+      const stateClass = isCompleted ? 'completed' : isActive ? 'active' : 'pending';
+      const date = lead.stageHistory?.[milestone.stage]?.date;
+      const dateStr = date ? new Date(date.seconds ? date.seconds * 1000 : date).toLocaleDateString() : '';
+
+      html += `
+        <div class="milestone ${stateClass}">
+          <div class="milestone-dot">${milestone.icon}</div>
+          <div class="milestone-content">
+            <div class="milestone-title">${milestone.label}</div>
+            ${dateStr ? `<div class="milestone-date">${dateStr}</div>` : ''}
+            <div class="milestone-desc">${milestone.desc}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('projectTimeline').innerHTML = html;
+  } catch (error) {
+    console.error('Timeline load error:', error);
+    document.getElementById('projectTimeline').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load timeline</div>';
+  }
+};
+
+// ── Invoices & Payments ─────────────────────────
+window.loadInvoices = async function(leadId) {
+  try {
+    const invoicesRef = window.collection(window.db, 'invoices');
+    const q = window.query(invoicesRef, window.where('leadId', '==', leadId), window.where('createdBy', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">💰</div>No invoices yet</div>';
+      return;
+    }
+
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let html = '';
+
+    snap.forEach(doc => {
+      const inv = doc.data();
+      const amount = parseFloat(inv.amount || 0);
+      const isPaid = inv.status === 'paid';
+
+      totalAmount += amount;
+      if (isPaid) totalPaid += amount;
+
+      const date = inv.date?.toDate ? inv.date.toDate() : new Date(inv.date);
+      html += `
+        <div class="invoice-item">
+          <div class="invoice-left">
+            <div class="invoice-date">${date.toLocaleDateString()}</div>
+            <div class="invoice-desc">${inv.description || 'Invoice'}</div>
+          </div>
+          <div class="invoice-right">
+            <div class="invoice-amount">$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+            <div class="invoice-status ${inv.status}">${inv.status || 'draft'}</div>
+            ${inv.status !== 'paid' && inv.paymentUrl ? `
+              <a href="${inv.paymentUrl}" target="_blank" rel="noopener noreferrer" class="doc-btn">Pay</a>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="payment-summary">
+        <div class="summary-item">
+          <div class="summary-label">Total Owed</div>
+          <div class="summary-value">$${(totalAmount - totalPaid).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Paid</div>
+          <div class="summary-value">$${totalPaid.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('invoiceList').innerHTML = html;
+  } catch (error) {
+    console.error('Invoice load error:', error);
+    document.getElementById('invoiceList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load invoices</div>';
+  }
+};
+
+// ── Photos by Phase ─────────────────────────────
+window._allPhotos = [];
+window._uploadPhase = 'During';
+window._uploadSeverity = '';
+window._photoFilter = 'all';
+
+window.selectUploadPhase = function(phase, btn) {
+  window._uploadPhase = phase;
+  document.querySelectorAll('#uploadPhaseButtons button').forEach(function(b) {
+    b.className = 'btn';
+    b.removeAttribute('data-selected');
+  });
+  btn.className = 'btn btn-orange';
+  btn.setAttribute('data-selected', 'true');
+};
+
+window.selectUploadSeverity = function(sev, btn) {
+  if (window._uploadSeverity === sev) {
+    window._uploadSeverity = '';
+    btn.style.background = '';
+    btn.style.color = btn.style.borderColor;
+    return;
+  }
+  window._uploadSeverity = sev;
+  var btns = btn.parentElement.querySelectorAll('.btn');
+  btns.forEach(function(b) { b.style.background = ''; b.style.color = b.style.borderColor; });
+  btn.style.background = btn.style.borderColor;
+  btn.style.color = '#fff';
+};
+
+window.filterPhotos = function(filter, btn) {
+  document.querySelectorAll('.photo-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  window._photoFilter = filter;
+  renderPhotoGrid();
+};
+
+function renderPhotoGrid() {
+  var photos = window._allPhotos || [];
+  var filter = window._photoFilter || 'all';
+  
+  var filtered = photos;
+  if (filter === 'Before' || filter === 'During' || filter === 'After') {
+    filtered = photos.filter(function(p){ return p.phase === filter; });
+  } else if (filter === 'annotated') {
+    filtered = photos.filter(function(p){ return p.isAnnotated; });
+  }
+  
+  if (filtered.length === 0) {
+    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>' + (photos.length ? 'No photos match this filter' : 'No photos yet') + '</div>';
+    return;
+  }
+
+  var phases = { 'Before': [], 'During': [], 'After': [] };
+  filtered.forEach(function(p) {
+    var ph = phases[p.phase] ? p.phase : 'During';
+    phases[ph].push(p);
+  });
+
+  var phaseColors = { 'Before': '#3b82f6', 'During': '#C8541A', 'After': '#22c55e' };
+  var html = '';
+  
+  ['Before', 'During', 'After'].forEach(function(phase) {
+    var list = phases[phase];
+    if (list.length === 0) return;
+    var color = phaseColors[phase];
+
+    html += '<div class="photo-phase" style="margin-bottom:20px;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
+    html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
+    html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + phase + ' Phase</div>';
+    html += '<span style="font-size:12px;color:var(--muted);">(' + list.length + ')</span>';
+    html += '</div>';
+    html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
+
+    list.forEach(function(photo) {
+      var badges = '';
+      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(200,84,26,.2);color:#C8541A;">' + photo.damageType + '</span>';
+      if (photo.severity) {
+        var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
+        badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + photo.severity + '</span>';
+      }
+      if (photo.isAnnotated) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
+
+      var globalIdx = (window._allPhotos || []).indexOf(photo);
+
+      html += '<div class="photo-item" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);transition:transform .2s;" onclick="showPhotoActions(' + globalIdx + ', event)" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'\'">';
+      html += '<img src="' + photo.url + '" alt="Photo" style="width:100%;height:100%;object-fit:cover;">';
+      if (badges) html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:flex;flex-wrap:wrap;gap:2px;">' + badges + '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  document.getElementById('photosByPhase').innerHTML = html;
+}
+
+window.loadPhotosByPhase = async function(leadId) {
+  try {
+    const photosRef = window.collection(window.db, 'photos');
+    const q = window.query(photosRef, window.where('leadId', '==', leadId));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      window._allPhotos = [];
+      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>No photos yet</div>';
+      updatePhotoStats();
+      return;
+    }
+
+    window._allPhotos = [];
+    snap.forEach(function(doc) {
+      var d = doc.data();
+      window._allPhotos.push({
+        id: doc.id,
+        url: d.url,
+        phase: d.phase || 'During',
+        category: d.category || 'Property',
+        description: d.description || d.notes || '',
+        filename: d.filename || '',
+        damageType: d.damageType || '',
+        severity: d.severity || '',
+        location: d.location || '',
+        tags: d.tags || [],
+        isAnnotated: d.isAnnotated || false,
+        date: d.date,
+        uploadedAt: d.uploadedAt
+      });
+    });
+
+    updatePhotoStats();
+    renderPhotoGrid();
+  } catch (error) {
+    console.error('Photos load error:', error);
+    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
+  }
+};
+
+function updatePhotoStats() {
+  var bar = document.getElementById('photoStatsBar');
+  if (!bar) return;
+  var photos = window._allPhotos || [];
+  if (photos.length === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  
+  var before = photos.filter(function(p){return p.phase==='Before';}).length;
+  var during = photos.filter(function(p){return p.phase==='During';}).length;
+  var after = photos.filter(function(p){return p.phase==='After';}).length;
+  var annotated = photos.filter(function(p){return p.isAnnotated;}).length;
+  
+  var html = '<span style="font-weight:700;color:var(--text);">' + photos.length + ' Photos</span>';
+  if (before) html += '<span style="color:#3b82f6;">&#9679; ' + before + ' Before</span>';
+  if (during) html += '<span style="color:#C8541A;">&#9679; ' + during + ' During</span>';
+  if (after) html += '<span style="color:#22c55e;">&#9679; ' + after + ' After</span>';
+  if (annotated) html += '<span style="color:#a855f7;">&#9679; ' + annotated + ' Annotated</span>';
+  bar.innerHTML = html;
+}
+
+// ── Reports ────────────────────────────────────
+window.loadReports = async function(leadId) {
+  try {
+    const reportsRef = window.collection(window.db, 'reports');
+    const q = window.query(reportsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('reportList').innerHTML = '<div class="empty"><div class="empty-icon">📋</div>No reports yet</div>';
+      return;
+    }
+
+    let html = '';
+    snap.forEach(doc => {
+      const report = doc.data();
+      const date = report.date?.toDate ? report.date.toDate() : new Date(report.date);
+      const icon = report.type === 'inspection' ? '📋' : report.type === 'damage' ? '⚠️' : '✓';
+
+      html += `
+        <div class="doc-item">
+          <div class="doc-icon">${icon}</div>
+          <div class="doc-content">
+            <div class="doc-type">${report.type || 'Report'}</div>
+            <div class="doc-name">${report.title || report.type || 'Report'}</div>
+            <div class="doc-date">${date.toLocaleDateString()}</div>
+          </div>
+          <div class="doc-actions">
+            <button class="doc-btn" onclick="window.open('${report.htmlUrl || '#'}', '_blank')">View</button>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('reportList').innerHTML = html;
+  } catch (error) {
+    console.error('Reports load error:', error);
+    document.getElementById('reportList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load reports</div>';
+  }
+};
+
+// ── Shared Documents ───────────────────────────
+window.loadSharedDocuments = async function(leadId) {
+  try {
+    const docsRef = window.collection(window.db, 'lead_documents');
+    const q = window.query(docsRef, window.where('leadId', '==', leadId), window.where('userId', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'));
+    const snap = await window.getDocs(q);
+
+    if (snap.empty) {
+      document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No shared documents</div>';
+      return;
+    }
+
+    let html = '';
+    snap.forEach(doc => {
+      const docData = doc.data();
+      const date = docData.date?.toDate ? docData.date.toDate() : new Date(docData.date);
+      const icons = {
+        'estimate': '💰',
+        'contract': '📝',
+        'warranty': '✅',
+        'insurance': '📋'
+      };
+      const icon = icons[docData.type] || '📄';
+
+      html += `
+        <div class="doc-item">
+          <div class="doc-icon">${icon}</div>
+          <div class="doc-content">
+            <div class="doc-type">${docData.type || 'Document'}</div>
+            <div class="doc-name">${docData.name || 'Document'}</div>
+            <div class="doc-date">${date.toLocaleDateString()}</div>
+          </div>
+          <div class="doc-actions">
+            <a href="${docData.url}" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('sharedDocList').innerHTML = html;
+  } catch (error) {
+    console.error('Documents load error:', error);
+    document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load documents</div>';
+  }
+};
+
+// ── Communication Log ──────────────────────────
+window.loadCommunicationLog = async function(leadId) {
+  try {
+    // Load emails and SMS
+    const emailRef = window.collection(window.db, 'email_log');
+    const smsRef = window.collection(window.db, 'sms_log');
+
+    const emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
+    const smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.where('uid', '==', window.auth?.currentUser?.uid), window.orderBy('date', 'desc'), window.limit(20));
+
+    const emailSnap = await window.getDocs(emailQ);
+    const smsSnap = await window.getDocs(smsQ);
+
+    let comms = [];
+
+    emailSnap.forEach(doc => {
+      const data = doc.data();
+      comms.push({
+        type: 'email',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.subject || 'Email',
+        preview: data.body?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    smsSnap.forEach(doc => {
+      const data = doc.data();
+      comms.push({
+        type: 'sms',
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        subject: data.message || 'Text Message',
+        preview: data.message?.substring(0, 100) || '',
+        status: data.status || 'sent'
+      });
+    });
+
+    // Sort by date descending
+    comms.sort((a, b) => b.date - a.date);
+    comms = comms.slice(0, 20);
+
+    if (comms.length === 0) {
+      document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">💬</div>No messages yet</div>';
+      return;
+    }
+
+    let html = '';
+    comms.forEach(comm => {
+      const dateStr = comm.date.toLocaleDateString() + ' ' + comm.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      html += `
+        <div class="comm-item">
+          <div class="comm-header">
+            <div class="comm-type ${comm.type}">${comm.type.toUpperCase()}</div>
+            <div class="comm-status">${comm.status}</div>
+            <div class="comm-date">${dateStr}</div>
+          </div>
+          <div class="comm-subject">${comm.subject}</div>
+          ${comm.preview ? `<div class="comm-preview">${comm.preview}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    document.getElementById('communicationLog').innerHTML = html;
+  } catch (error) {
+    console.error('Communication log error:', error);
+    document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load messages</div>';
+  }
+};
+
+// ── Photo Quick Actions (Edit Tags, Delete, Phase) ──────
+window._quickEditPhotoId = null;
+
+window.openPhotoInEditor = function(idx) {
+  var photo = (window._allPhotos || [])[idx];
+  if (!photo) return;
+  if (window.NBDPhotoEditor) {
+    window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId, photo);
+  } else {
+    openPhotoLightbox(photo.url, photo.description || '');
+  }
+};
+
+window.showPhotoActions = function(idx, event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  var photo = (window._allPhotos || [])[idx];
+  if (!photo) return;
+  window._quickEditPhotoId = photo.id;
+  window._quickEditPhotoIdx = idx;
+  
+  // Remove existing popup
+  var existing = document.getElementById('photoActionPopup');
+  if (existing) existing.remove();
+  
+  var popup = document.createElement('div');
+  popup.id = 'photoActionPopup';
+  popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+  popup.onclick = function(e) { if (e.target === popup) popup.remove(); };
+  
+  var phaseColors = { 'Before': '#3b82f6', 'During': '#C8541A', 'After': '#22c55e' };
+  var sevColors = { 'minor': '#eab308', 'moderate': '#f97316', 'severe': '#ef4444' };
+  
+  var card = document.createElement('div');
+  card.style.cssText = 'background:var(--bg,#0f172a);border:1px solid var(--br,#2a2a4e);border-radius:16px;padding:24px;max-width:420px;width:90%;color:var(--text,#fff);font-family:system-ui,sans-serif;';
+  
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<img src="' + photo.url + '" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
+    '<div style="font-size:16px;font-weight:700;">Edit Photo</div></div>' +
+    '<button onclick="document.getElementById(\'photoActionPopup\').remove()" style="background:none;border:none;color:var(--muted,#999);font-size:22px;cursor:pointer;">&times;</button></div>' +
+    
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Phase</label>' +
+    '<div style="display:flex;gap:4px;" id="qePhaseButtons">' +
+    ['Before','During','After'].map(function(p) {
+      var active = photo.phase === p;
+      var c = phaseColors[p];
+      return '<button onclick="quickSetPhase(\'' + p + '\',this)" style="flex:1;padding:8px;font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';' + 
+        (active ? 'background:' + c + ';color:#fff;' : 'background:transparent;color:' + c + ';') + '">' + p + '</button>';
+    }).join('') +
+    '</div></div>' +
+    
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Damage Type</label>' +
+    '<select id="qeDamageType" onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<option value="">None</option>' +
+    ['Hail','Wind','Leak','Missing Shingle','Cracked Tile','Flashing','Gutter','Soffit/Fascia','Tree Damage','Other'].map(function(t) {
+      return '<option value="' + t + '"' + (photo.damageType === t ? ' selected' : '') + '>' + t + '</option>';
+    }).join('') +
+    '</select></div>' +
+    
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Severity</label>' +
+    '<div style="display:flex;gap:4px;" id="qeSeverityButtons">' +
+    ['minor','moderate','severe'].map(function(s) {
+      var active = photo.severity === s;
+      var c = sevColors[s];
+      return '<button onclick="quickSetSeverity(\'' + s + '\',this)" style="flex:1;padding:7px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';text-transform:capitalize;' +
+        (active ? 'background:' + c + ';color:#fff;' : 'background:transparent;color:' + c + ';') + '">' + s + '</button>';
+    }).join('') +
+    '</div></div>' +
+    
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Location</label>' +
+    '<select id="qeLocation" onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<option value="">None</option>' +
+    ['Ridge','Hip','Valley','Field','Edge','Flashing','Vent','Chimney','Skylight','Gutter','Soffit','Fascia'].map(function(l) {
+      return '<option value="' + l + '"' + (photo.location === l ? ' selected' : '') + '>' + l + '</option>';
+    }).join('') +
+    '</select></div>' +
+    
+    '<div style="margin-bottom:20px;">' +
+    '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Description</label>' +
+    '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;box-sizing:border-box;">' +
+    '</div>' +
+    
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="openPhotoInEditor(' + idx + ');document.getElementById(\'photoActionPopup\').remove();" style="flex:2;padding:10px;background:#C8541A;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
+    '<button onclick="deletePhoto(\'' + photo.id + '\')" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
+    '</div>';
+  
+  popup.appendChild(card);
+  document.body.appendChild(popup);
+};
+
+window.quickSetPhase = function(phase, btn) {
+  var photo = (window._allPhotos || [])[window._quickEditPhotoIdx];
+  if (!photo) return;
+  photo.phase = phase;
+  
+  var phaseColors = { 'Before': '#3b82f6', 'During': '#C8541A', 'After': '#22c55e' };
+  document.querySelectorAll('#qePhaseButtons button').forEach(function(b) {
+    b.style.background = 'transparent';
+    b.style.color = b.style.borderColor;
+  });
+  btn.style.background = phaseColors[phase] || '#C8541A';
+  btn.style.color = '#fff';
+  
+  quickSaveMeta();
+};
+
+window.quickSetSeverity = function(sev, btn) {
+  var photo = (window._allPhotos || [])[window._quickEditPhotoIdx];
+  if (!photo) return;
+  
+  if (photo.severity === sev) {
+    photo.severity = '';
+    btn.style.background = 'transparent';
+    btn.style.color = btn.style.borderColor;
+  } else {
+    photo.severity = sev;
+    var sevColors = { 'minor': '#eab308', 'moderate': '#f97316', 'severe': '#ef4444' };
+    document.querySelectorAll('#qeSeverityButtons button').forEach(function(b) {
+      b.style.background = 'transparent';
+      b.style.color = b.style.borderColor;
+    });
+    btn.style.background = sevColors[sev] || '#f97316';
+    btn.style.color = '#fff';
+  }
+  
+  quickSaveMeta();
+};
+
+window.quickSaveMeta = async function() {
+  var photo = (window._allPhotos || [])[window._quickEditPhotoIdx];
+  if (!photo || !photo.id) return;
+  
+  try {
+    var updates = {
+      phase: photo.phase || 'During',
+      damageType: document.getElementById('qeDamageType')?.value || '',
+      severity: photo.severity || '',
+      location: document.getElementById('qeLocation')?.value || '',
+      description: document.getElementById('qeDescription')?.value || ''
+    };
+    
+    // Update local data
+    Object.assign(photo, updates);
+    
+    // Save to Firestore
+    await window.updateDoc(window.doc(window.db, 'photos', photo.id), updates);
+    
+    // Refresh the grid
+    updatePhotoStats();
+    renderPhotoGrid();
+    
+    if (window.showToast) window.showToast('Photo updated', 'success');
+  } catch (error) {
+    console.error('Error saving photo metadata:', error);
+    if (window.showToast) window.showToast('Failed to save: ' + error.message, 'error');
+  }
+};
+
+window.deletePhoto = async function(photoId) {
+  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  
+  try {
+    await window.deleteDoc(window.doc(window.db, 'photos', photoId));
+    
+    // Remove from local array
+    window._allPhotos = (window._allPhotos || []).filter(function(p) { return p.id !== photoId; });
+    
+    // Close popup
+    var popup = document.getElementById('photoActionPopup');
+    if (popup) popup.remove();
+    
+    // Refresh
+    updatePhotoStats();
+    renderPhotoGrid();
+    
+    // Also refresh overview photos
+    try { await loadPhotos(window._customerId); } catch(e) {}
+    
+    if (window.showToast) window.showToast('Photo deleted', 'success');
+  } catch (error) {
+    console.error('Error deleting photo:', error);
+    if (window.showToast) window.showToast('Failed to delete: ' + error.message, 'error');
+  }
+};
+
+// ── Document Generator Integration ─────────────
+window.generateCustomerDoc = function(type) {
+  if (!window.NBDDocGen) {
+    alert('Document generator not loaded. Please refresh the page.');
+    return;
+  }
+  
+  // Get customer data from the loaded lead
+  var data = {};
+  try {
+    var nameEl = document.querySelector('.customer-name');
+    var name = nameEl ? nameEl.textContent.trim() : '';
+    data.homeownerName = name;
+    data.customerName = name;
+    
+    // Try to get address from overview fields
+    var fields = document.querySelectorAll('.field-value');
+    fields.forEach(function(el) {
+      var label = el.previousElementSibling;
+      if (!label) return;
+      var labelText = label.textContent.toLowerCase().trim();
+      var val = el.textContent.trim();
+      if (labelText.includes('address') || labelText.includes('street')) data.address = val;
+      if (labelText.includes('phone')) data.phone = val;
+      if (labelText.includes('email')) data.customerEmail = val;
+      if (labelText.includes('damage')) data.damageType = val;
+      if (labelText.includes('insurance') && labelText.includes('company')) data.insuranceCompany = val;
+      if (labelText.includes('claim')) data.claimNumber = val;
+    });
+    
+    // Get estimate data if available
+    if (window._customerEstimates && window._customerEstimates.length > 0) {
+      var est = window._customerEstimates[0];
+      data.totalPrice = est.grandTotal ? '$' + parseFloat(est.grandTotal).toLocaleString() : '';
+      data.estimateAmount = data.totalPrice;
+      data.warrantyTier = est.tier || est.tierName || 'better';
+      data.projectDescription = est.title || est.description || '';
+    }
+    
+    // Get photo URLs if available for before/after
+    if (window._allPhotos && window._allPhotos.length > 0) {
+      var beforePhotos = window._allPhotos.filter(function(p){ return p.phase === 'Before'; });
+      var afterPhotos = window._allPhotos.filter(function(p){ return p.phase === 'After'; });
+      if (beforePhotos.length) data.beforePhotoUrl = beforePhotos[0].url;
+      if (afterPhotos.length) data.afterPhotoUrl = afterPhotos[0].url;
+      data.photoCount = window._allPhotos.length;
+    }
+
+    data.date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    data.leadId = window._customerId;
+    
+  } catch(e) {
+    console.warn('Could not auto-fill all document data:', e);
+  }
+  
+  // Generate the document
+  window.NBDDocGen.generate(type, data);
+  
+  // Log to generated docs list
+  logGeneratedDoc(type, data);
+};
+
+function logGeneratedDoc(type, data) {
+  var typeName = (window.NBDDocGen.DOCUMENT_TYPES[type] || {}).name || type;
+  var listEl = document.getElementById('generatedDocList');
+  if (!listEl) return;
+  
+  // Remove empty state
+  var empty = listEl.querySelector('.empty');
+  if (empty) listEl.innerHTML = '';
+  
+  var item = document.createElement('div');
+  item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--br);';
+  item.innerHTML = '<div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--text);">' + typeName + '</div>' +
+    '<div style="font-size:11px;color:var(--muted);">' + (data.homeownerName || 'Customer') + ' &middot; ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</div>' +
+    '</div>' +
+    '<button class="btn" onclick="generateCustomerDoc(\'' + type + '\')" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
+  
+  listEl.insertBefore(item, listEl.firstChild);
+}
+
+window.openDocUploadModal = function() {
+  var modal = document.getElementById('docUploadModal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeDocUploadModal = function() {
+  var modal = document.getElementById('docUploadModal');
+  if (modal) modal.style.display = 'none';
+};
+
+// ── Load all new sections when customer loads ───
+window.loadNewPortalSections = async function(leadId) {
+  try {
+    await Promise.all([
+      window.loadProjectTimeline(leadId),
+      window.loadPhotosByPhase(leadId),
+      window.loadInvoices(leadId),
+      window.loadReports(leadId),
+      window.loadSharedDocuments(leadId),
+      window.loadCommunicationLog(leadId)
+    ]);
+  } catch (error) {
+    console.error('Error loading portal sections:', error);
+  }
+};
+
+// ── Setup contact tab links ────────────────────
+window.setupContactTab = function(customerData) {
+  const phone = '(859) 420-7382';
+  const email = 'info@nobigdeal.com';
+
+  document.getElementById('contractorPhone').textContent = phone;
+  document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
+  document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+};
+
+// ── Open Photo in Lightbox ─────────────────────
+window.openPhotoLightbox = function(url, description) {
+  const lightbox = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  if (lightbox && img) {
+    img.src = url;
+    if (description) img.alt = description;
+    lightbox.classList.add('active');
+  }
+};
+
+window.closeLightbox = function() {
+  const lightbox = document.getElementById('lightbox');
+  if (lightbox) lightbox.classList.remove('active');
+};
+
+console.log('✓ Customer page enhancements loaded');
+
+</script>
+<script src="js/email_system.js"></script>
+<script src="js/customer-portal.js?v=2"></script>
+<script src="js/photo-report.js?v=2"></script>
+<script src="js/review-engine.js?v=2"></script>
+<script src="js/profit-tracker.js?v=2"></script>
+<script src="js/lead-scoring.js?v=2"></script>
+<script src="js/insurance-claim.js?v=2"></script>
+<script src="js/offline-manager.js?v=2"></script>
+<script src="js/share-gallery.js?v=2"></script>
+<script src="js/photo-editor.js?v=3"></script>
+<script src="js/document-generator.js?v=2"></script>
+<script src="js/document-generator-templates.js?v=2"></script>
+</body>
+</html>
