@@ -1,4 +1,4 @@
-/**
+﻿/**
  * NBD — Estimate Funnel Verification & Lead Notification Functions
  * ═══════════════════════════════════════════════════════════════════
  *
@@ -247,7 +247,7 @@ exports.notifyNewLead = onCall(
 
     try {
       // ── SMS to Joe ──
-      const smsBody = `${urgencyFlag}NEW LEAD 🏠\n` +
+      let smsBody = `${urgencyFlag}NEW LEAD 🏠\n` +
         `${name} — ${serviceName}\n` +
         `📞 ${phone} ${verifiedBadge}\n` +
         `📍 ${address || 'No address'}\n` +
