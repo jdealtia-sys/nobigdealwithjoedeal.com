@@ -854,6 +854,7 @@ header {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Project Photos by Phase</div>
           <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">📤 Upload Photos</button>
+          <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;margin-left:8px;">🔗 Share Gallery</button>
         </div>
         <div id="photosByPhase">
           <div class="empty">
@@ -4018,6 +4019,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/lead-scoring.js?v=2"></script>
 <script src="js/insurance-claim.js?v=2"></script>
 <script src="js/offline-manager.js?v=2"></script>
+<script src="js/share-gallery.js?v=1"></script>
 <script src="js/photo-editor.js?v=1"></script>
 </body>
 </html>

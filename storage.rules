@@ -7,8 +7,8 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // ── PHOTOS (dashboard upload path) ────────────────
-    // Path: photos/{leadId}/{filename}
-    match /photos/{leadId}/{allPaths=**} {
+    // Path: photos/{filename}
+    match /photos/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.resource.size < 15 * 1024 * 1024  // 15 MB limit
@@ -21,6 +21,61 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.resource.size < 25 * 1024 * 1024;  // 25 MB limit
+    }
+
+    // ── CUSTOMER PORTALS (shareable HTML pages) ──────
+    // Path: portals/{userId}/{leadId}.html
+    // Read: public (shared via link with customers)
+    // Write: authenticated users only
+    match /portals/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024;  // 5 MB limit
+    }
+
+    // ── DEAL ROOMS (shareable pricing/agreement pages) ─
+    // Path: deal_rooms/{userId}/{dealId}.html
+    // Read: public (shared via link with customers)
+    // Write: authenticated users only
+    match /deal_rooms/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // ── SHARED GALLERIES (shareable photo galleries) ──
+    // Path: galleries/{userId}/{leadId}.html
+    // Read: public (shared via link with customers)
+    // Write: authenticated users only
+    match /galleries/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // ── SHARED REPORTS (shareable report pages) ───────
+    // Path: reports/{userId}/{filename}
+    // Read: public (shared via link with customers/adjusters)
+    // Write: authenticated users only
+    match /reports/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // ── SHARED DOCUMENTS (shareable doc pages) ────────
+    // Path: shared_docs/{userId}/{filename}
+    // Read: public (shared via link)
+    // Write: authenticated users only
+    match /shared_docs/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 25 * 1024 * 1024;
     }
 
     // ── DEFAULT: Deny everything else ────────────────
