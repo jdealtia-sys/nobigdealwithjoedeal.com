@@ -2208,7 +2208,7 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId), orderBy('date', 'asc'))
+      query(collection(db, 'photos'), where('leadId', '==', leadId))
     );
     
     if (photoSnap.empty) {
@@ -2689,7 +2689,6 @@ window.uploadPhotos = async function() {
     // Success - reload photos and close modal
     alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
     closeUploadModal();
-    // Reload both photo sections
     if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
     try { await loadPhotos(window._customerId); } catch(e) { console.warn('Photo grid refresh:', e); }
 
@@ -2740,7 +2739,9 @@ async function uploadSinglePhoto(item, index) {
             filename: file.name,
             size: file.size,
             type: file.type,
+            date: window.serverTimestamp(),
             uploadedAt: window.serverTimestamp(),
+            phase: 'During',
             category: 'Property'
           });
           
@@ -3765,7 +3766,7 @@ window.loadInvoices = async function(leadId) {
 window.loadPhotosByPhase = async function(leadId) {
   try {
     const photosRef = window.collection(window.db, 'photos');
-    const q = window.query(photosRef, window.where('leadId', '==', leadId), window.orderBy('date', 'asc'));
+    const q = window.query(photosRef, window.where('leadId', '==', leadId));
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
