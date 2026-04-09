@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Areas | Oaks Roofing & Construction</title>
+  <meta name="description" content="Oaks Roofing & Construction serves Goshen, OH and 11+ surrounding communities with roofing, siding, and exterior services.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <div id="site-banner"></div>
+  <div id="site-nav"></div>
+
+  <!-- Breadcrumb -->
+  <section class="breadcrumb-section">
+    <div class="container">
+      <nav class="breadcrumb">
+        <a href="/sites/oaks/">Home</a>
+        <span>/</span>
+        <span>Service Areas</span>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Page Hero -->
+  <section class="hero inner-hero">
+    <div class="container">
+      <h1>Quality Home Exterior Services in Goshen, OH, and Beyond</h1>
+      <p>We proudly serve Goshen and surrounding communities with professional roofing, siding, and exterior solutions.</p>
+    </div>
+  </section>
+
+  <!-- Service Areas Grid -->
+  <section class="service-areas">
+    <div class="container">
+      <h2>Areas We Serve</h2>
+      <div class="areas-grid grid-4">
+        <div class="area-card">
+          <h3>Goshen</h3>
+          <p>Our home base and primary service area with fast response times.</p>
+        </div>
+        <div class="area-card">
+          <h3>Milford</h3>
+          <p>Trusted roofing and exterior services for Milford homeowners.</p>
+        </div>
+        <div class="area-card">
+          <h3>Batavia</h3>
+          <p>Professional roofing, siding, and repair throughout Batavia.</p>
+        </div>
+        <div class="area-card">
+          <h3>Loveland</h3>
+          <p>Quality exterior services and storm damage restoration in Loveland.</p>
+        </div>
+        <div class="area-card">
+          <h3>Fayetteville</h3>
+          <p>Local expertise in roofing and home exterior upgrades.</p>
+        </div>
+        <div class="area-card">
+          <h3>Blanchester</h3>
+          <p>Serving Blanchester with reliable roofing and siding solutions.</p>
+        </div>
+        <div class="area-card">
+          <h3>Williamsburg</h3>
+          <p>Professional roof repair and replacement in Williamsburg.</p>
+        </div>
+        <div class="area-card">
+          <h3>Bethel</h3>
+          <p>Expert exterior services and gutter installation in Bethel.</p>
+        </div>
+        <div class="area-card">
+          <h3>Amelia</h3>
+          <p>Quality roofing and siding work throughout Amelia.</p>
+        </div>
+        <div class="area-card">
+          <h3>Mt. Orab</h3>
+          <p>Licensed roofing and storm damage services in Mt. Orab.</p>
+        </div>
+        <div class="area-card">
+          <h3>New Richmond</h3>
+          <p>Trusted contractor for exterior home improvements in New Richmond.</p>
+        </div>
+        <div class="area-card">
+          <h3>Georgetown</h3>
+          <p>Professional roofing, siding, and repair services in Georgetown.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Google Maps -->
+  <section class="map-section">
+    <div class="container">
+      <h2>Our Service Territory</h2>
+      <div class="map-embed">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d197456.58474647567!2d-84.45!3d39.45!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8841f5e8e8e8e8ed%3A0x0!2sGoshen%20Ohio%20Service%20Area!5e0!3m2!1sen!2sus!4v1234567890" width="100%" height="500" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Info -->
+  <section class="contact-info-section">
+    <div class="container">
+      <h2>Get in Touch</h2>
+      <div class="contact-grid grid-3">
+        <div class="contact-block">
+          <h3><i class="fas fa-map-marker-alt"></i> Headquarters</h3>
+          <p>Goshen, Ohio</p>
+          <p>Our home base with full service operations</p>
+        </div>
+        <div class="contact-block">
+          <h3><i class="fas fa-phone"></i> Phone</h3>
+          <p>(513) 827-5297</p>
+          <p>Call for quotes, repairs, or emergency response</p>
+        </div>
+        <div class="contact-block">
+          <h3><i class="fas fa-clock"></i> Hours</h3>
+          <p>Monday—Saturday: 7:00 AM—4:00 PM</p>
+          <p>Sunday: 7:00 AM—8:00 PM</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quote Form -->
+  <section class="quote-form-section">
+    <div class="container">
+      <div id="quote-form-1"></div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div id="site-footer"></div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderQuoteForm('quote-form-1', 'Request Service in Your Area', 'Fill out the form below to get a free quote for roofing, siding, gutters, or any exterior service.');
+  </script>
+</body>
+</html>

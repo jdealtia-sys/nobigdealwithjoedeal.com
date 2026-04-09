@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery | Oaks Roofing & Construction</title>
+  <meta name="description" content="View our completed roofing, siding, and exterior projects across Goshen, OH and surrounding areas.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <div id="site-banner"></div>
+  <div id="site-nav"></div>
+
+  <!-- Breadcrumb -->
+  <section class="breadcrumb-section">
+    <div class="container">
+      <nav class="breadcrumb">
+        <a href="/sites/oaks/">Home</a>
+        <span>/</span>
+        <span>Our Work</span>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Page Hero -->
+  <section class="hero inner-hero">
+    <div class="container">
+      <h1>The New Look, Our Home Exterior Projects</h1>
+      <p>See the quality of work we deliver for homes throughout Goshen and beyond.</p>
+    </div>
+  </section>
+
+  <!-- Gallery Description -->
+  <section class="gallery-intro">
+    <div class="container">
+      <h2>Our Completed Projects</h2>
+      <p>From full roof replacements to siding upgrades and gutter installations, we take pride in every job we complete. Each project showcases our commitment to quality workmanship and customer satisfaction. Explore our gallery to see the transformations we've made for homeowners in the region.</p>
+    </div>
+  </section>
+
+  <!-- Gallery Grid -->
+  <section class="gallery-section">
+    <div class="container">
+      <div class="gallery-grid">
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Roof Replacement Project</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Siding Replacement</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Gutter Installation</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Storm Damage Restoration</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Complete Exterior Renovation</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Roof Repair Project</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Siding & Gutter Combo</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Residential Roofing</span>
+          </div>
+        </div>
+        <div class="gallery-item">
+          <div class="gallery-placeholder">
+            <i class="fas fa-image"></i>
+            <span>Home Exterior Upgrade</span>
+          </div>
+        </div>
+      </div>
+      <div class="gallery-note">
+        <p><em>Project photos coming soon. Contact us to see recent completed work and discuss your own project.</em></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Banner -->
+  <div id="cta-1"></div>
+
+  <!-- Footer -->
+  <div id="site-footer"></div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderCTA('cta-1');
+  </script>
+</body>
+</html>

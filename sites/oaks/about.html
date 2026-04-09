@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About | Oaks Roofing & Construction</title>
+  <meta name="description" content="Learn about Oaks Roofing & Construction—our story, values, and commitment to quality exterior services in Goshen, OH.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <div id="site-banner"></div>
+  <div id="site-nav"></div>
+
+  <!-- Breadcrumb -->
+  <section class="breadcrumb-section">
+    <div class="container">
+      <nav class="breadcrumb">
+        <a href="/sites/oaks/">Home</a>
+        <span>/</span>
+        <span>Who We Are</span>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Page Hero -->
+  <section class="hero inner-hero">
+    <div class="container">
+      <h1>Who We Are</h1>
+      <p>A local roofing and exterior company built on honesty, quality, and fair pricing.</p>
+    </div>
+  </section>
+
+  <!-- About Content -->
+  <section class="about-content">
+    <div class="container">
+      <h2>Our Story</h2>
+      <p>Oaks Roofing & Construction started with a simple insight: we could build something better. Our founders spent years in roofing sales, learning the industry from every angle—the good practices, the shortcuts, and the way things should be done.</p>
+      <p>We decided to start our own company focused on one principle: deliver quality work at prices that make sense. By keeping overhead low and staying hands-on, we pass savings directly to our customers without compromising on craftsmanship.</p>
+      <p>What began as a single-trade roofing operation has grown into a full-service home exterior contractor. Today, we offer roof replacement and repair, siding installation and repair, gutter services, and storm damage restoration—all backed by our 5-year warranty.</p>
+      
+      <h2>Why Choose Oaks?</h2>
+      <p><strong>Local & Community-Focused:</strong> We're based right here in Goshen, Ohio, and we treat your home like our own.</p>
+      <p><strong>Licensed & Insured:</strong> Full credentials for your protection and peace of mind.</p>
+      <p><strong>Transparent Pricing:</strong> No hidden fees, no pressure sales. You get honest quotes and know exactly what you're paying for.</p>
+      <p><strong>5-Year Warranty:</strong> Every job—roof replacement, siding, gutters, or repairs—is covered by our comprehensive warranty.</p>
+      <p><strong>Expert Team:</strong> Skilled craftspeople who take pride in their work and keep your property clean and protected.</p>
+      <p><strong>Storm Response:</strong> When severe weather strikes, we're ready with emergency assessment and restoration services.</p>
+
+      <h2>Our Commitment</h2>
+      <p>We believe quality doesn't have to be expensive. By running lean and smart, we've built a business that can offer competitive rates while maintaining standards that make us proud. Every shingle, every sheet of siding, every gutter is installed with the same care we'd want on our own homes.</p>
+      <p>When you work with Oaks, you're choosing a partner who listens, communicates, and delivers.</p>
+
+      <!-- Stats Row -->
+      <div class="stats-row">
+        <div class="stat-item">
+          <h3>5-Year Warranty</h3>
+          <p>All projects covered by our comprehensive warranty</p>
+        </div>
+        <div class="stat-item">
+          <h3>Licensed & Insured</h3>
+          <p>Full credentials and protection for your peace of mind</p>
+        </div>
+        <div class="stat-item">
+          <h3>5-Star Rating</h3>
+          <p>Trusted by homeowners across the region</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section orange-bg">
+    <div class="container">
+      <h2>Ready to Work With Us?</h2>
+      <p>Contact our team today for a free, no-obligation quote on your roofing, siding, or exterior project.</p>
+      <button class="btn btn-white">Call Our Team: (513) 827-5297</button>
+    </div>
+  </section>
+
+  <!-- Google Maps -->
+  <section class="map-section">
+    <div class="container">
+      <h2>Located in Goshen, Ohio</h2>
+      <p>Serving Goshen and surrounding areas with fast, professional service.</p>
+      <div class="map-embed">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3083.5971869639537!2d-84.3158!3d39.3614!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8841f5e8e8e8e8ed%3A0x0!2sGoshen%2C%20OH!5e0!3m2!1sen!2sus!4v1234567890" width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quote Form -->
+  <section class="quote-form-section">
+    <div class="container">
+      <div id="quote-form-1"></div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div id="site-footer"></div>
+
+  <script src="shared.js"></script>
+  <script>
+    renderQuoteForm('quote-form-1', 'Request a Quote Today', 'Tell us about your project and get a free estimate from our team.');
+  </script>
+</body>
+</html>
