@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -45,7 +45,7 @@ html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 
 /* ── ANNOUNCEMENT BAR ── */
-.ann-bar{background:var(--orange);color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.ann-bar{background:var(--orange);color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -74,7 +74,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .nav-cta:hover{background:var(--orange-light)!important}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#ffffff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark);z-index:999;border-top:2px solid var(--orange);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark);z-index:999;border-top:2px solid var(--orange);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
 .mobile-nav.open{display:block}
 .mobile-nav a{display:block;padding:14px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.85rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);transition:color .2s,background .2s}
 .mobile-nav a:hover{color:var(--orange);background:rgba(255,255,255,.04)}
@@ -421,10 +421,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
 
-<!-- STORM ALERT BANNER -->
-<div id="stormBanner" style="display:none;background:linear-gradient(90deg,#b91c1c,#dc2626);color:white;text-align:center;padding:12px 20px;font-size:.82rem;font-weight:700;letter-spacing:.04em;cursor:pointer" onclick="window.location.href='tel:8594207382'">
-  <span id="stormBannerText"></span>
-</div>
+<!-- Storm messages now in unified ann-bar -->
 
 <!-- NAV --><!-- NAV -->
 <nav id="mainNav">
