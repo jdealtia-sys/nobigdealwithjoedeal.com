@@ -1716,12 +1716,12 @@ window.saveEstimate = async function() {
     
     alert('Estimate created successfully!');
     closeEstimateModal();
-    await loadEstimates(window._customerId);
-    
+    if (window.loadEstimates) await window.loadEstimates(window._customerId);
+
     // Reload timeline
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
+    const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap2.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
     }
     
   } catch (error) {
@@ -1732,12 +1732,10 @@ window.saveEstimate = async function() {
 
 
 
-// CRITICAL: Expose loader functions to window scope for ES6 module access
-// Must be AFTER function definitions (hoisting doesn't work for async functions in some contexts)
+// Expose loader functions defined in THIS script block to window scope
+// NOTE: loadEstimates and loadTimeline are in the module script — exposed there
 window.loadDocuments = loadDocuments;
 window.loadNotes = loadNotes;
-window.loadEstimates = loadEstimates;
-window.loadTimeline = loadTimeline;
 window.fetchImageAsBase64 = fetchImageAsBase64;
 
 </script>
@@ -2684,12 +2682,12 @@ window.uploadPhotos = async function() {
     // Success - reload photos and close modal
     alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
     closeUploadModal();
-    await loadPhotos(window._customerId);
-    
+    if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
+
     // Reload timeline to show photo upload events
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
+    const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap3.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap3.data());
     }
     
   } catch (error) {
@@ -3383,12 +3381,12 @@ window.saveEstimate = async function() {
     
     alert('Estimate created successfully!');
     closeEstimateModal();
-    await loadEstimates(window._customerId);
-    
+    if (window.loadEstimates) await window.loadEstimates(window._customerId);
+
     // Reload timeline
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
+    const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    if (leadSnap2.exists()) {
+      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
     }
     
   } catch (error) {

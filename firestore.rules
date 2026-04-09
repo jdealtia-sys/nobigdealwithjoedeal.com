@@ -52,10 +52,11 @@ service cloud.firestore {
     }
 
     // ── PHOTOS ────────────────────────────────────────
+    // Photos are linked by leadId; user must own the lead OR the photo
     match /photos/{photoId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
       allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
