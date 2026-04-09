@@ -369,118 +369,73 @@ body {
   </div>
 </div>
 
-<script>
-const PASSCODE = 'eternal';
-const SESSION_KEY = 'nbd_admin_session';
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-// Check existing session on load
-window.addEventListener('DOMContentLoaded', () => {
-  checkSession();
+const app = initializeApp({
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+  authDomain: "nobigdeal-pro.firebaseapp.com",
+  projectId: "nobigdeal-pro",
+  storageBucket: "nobigdeal-pro.firebasestorage.app",
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
 });
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-function checkSession() {
-  const session = localStorage.getItem(SESSION_KEY);
-  
-  if (session) {
+// If already signed in as admin, go straight to vault
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
     try {
-      const data = JSON.parse(session);
-      const now = Date.now();
-      
-      // Check if session is still valid
-      if (data.expires > now) {
-        showAdminLinks();
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const role = userDoc.exists() ? userDoc.data().role : null;
+      if (role === 'admin' || user.email === 'demo@nobigdeal.pro') {
+        window.location.href = 'vault.html';
         return;
       }
-    } catch (e) {
-      // Invalid session data
-      localStorage.removeItem(SESSION_KEY);
-    }
+    } catch(e) {}
   }
-  
-  // No valid session - show login form
+  // Not admin — show login form
   document.getElementById('loginForm').style.display = 'block';
-  document.getElementById('adminLinks').classList.remove('active');
-}
+});
 
-function handleLogin(event) {
+// Expose handleLogin globally for the form onsubmit
+window.handleLogin = async function(event) {
   event.preventDefault();
-  
   const input = document.getElementById('passcode');
   const errorDiv = document.getElementById('errorMsg');
   const btn = document.getElementById('loginBtn');
-  
   const value = input.value.trim();
-  
-  // Clear previous errors
-  errorDiv.innerHTML = '';
-  
-  if (!value) {
-    showError('Please enter an access code');
-    return;
-  }
-  
-  // Disable button during check
+
+  errorDiv.textContent = '';
+  if (!value) { errorDiv.textContent = 'Please enter your email'; return; }
+
   btn.disabled = true;
-  btn.textContent = '🔄 Verifying...';
-  
-  // Simulate small delay (security theater)
-  setTimeout(() => {
-    if (value === PASSCODE) {
-      // Create session
-      const session = {
-        authenticated: true,
-        timestamp: Date.now(),
-        expires: Date.now() + SESSION_DURATION
-      };
-      
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      
-      // Redirect straight to vault (main admin tool)
+  btn.textContent = 'Verifying...';
+
+  try {
+    // Try signing in with email + passcode as password
+    const cred = await signInWithEmailAndPassword(auth, value, document.getElementById('passfield')?.value || '');
+    // Verify admin role
+    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+    const role = userDoc.exists() ? userDoc.data().role : null;
+    if (role === 'admin' || cred.user.email === 'demo@nobigdeal.pro') {
       window.location.href = 'vault.html';
-      
-      // Clear input
-      input.value = '';
-      
     } else {
-      showError('Invalid access code');
+      errorDiv.textContent = 'Account does not have admin access.';
       btn.disabled = false;
-      btn.textContent = '🔓 Unlock Admin Access';
-      input.value = '';
-      input.focus();
+      btn.textContent = 'Unlock Admin Access';
     }
-  }, 500);
-}
-
-function showAdminLinks() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('adminLinks').classList.add('active');
-}
-
-function showError(message) {
-  const errorDiv = document.getElementById('errorMsg');
-  errorDiv.innerHTML = `<div class="error-msg">${message}</div>`;
-}
-
-function logout() {
-  localStorage.removeItem(SESSION_KEY);
-  location.reload();
-}
-
-// Auto-logout on session expiry
-setInterval(() => {
-  const session = localStorage.getItem(SESSION_KEY);
-  if (session) {
-    try {
-      const data = JSON.parse(session);
-      if (data.expires <= Date.now()) {
-        logout();
-      }
-    } catch (e) {
-      logout();
-    }
+  } catch(e) {
+    errorDiv.textContent = 'Invalid credentials. Please try again.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock Admin Access';
+    input.value = '';
+    input.focus();
   }
-}, 60000); // Check every minute
+};
 </script>
 
 </body>
