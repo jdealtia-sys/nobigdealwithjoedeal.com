@@ -297,11 +297,11 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "leadId",
+          "fieldPath": "createdBy",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdBy",
+          "fieldPath": "leadId",
           "order": "ASCENDING"
         },
         {

@@ -6,6 +6,7 @@ Allow: /pro/landing
 Sitemap: https://www.nobigdealwithjoedeal.com/sitemap.xml
 
 # Block private app pages
+Disallow: /tools/
 Disallow: /admin/
 Disallow: /pro/dashboard.html
 Disallow: /pro/login.html

@@ -77,8 +77,8 @@ function renderNav() {
           <li class="${isActive('service-areas')}"><a href="${BASE}/service-areas.html">Service Areas</a></li>
           <li class="${isActive('contact')}"><a href="${BASE}/contact.html">Contact Us</a></li>
         </ul>
-        <button class="nav-toggle" onclick="document.getElementById('mobileMenu').classList.toggle('open')">
-          <i class="fa-solid fa-bars"></i>
+        <button class="nav-toggle" aria-label="Open navigation menu" onclick="document.getElementById('mobileMenu').classList.toggle('open');this.setAttribute('aria-expanded',document.getElementById('mobileMenu').classList.contains('open'))">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
         </button>
       </div>
     </nav>
@@ -112,8 +112,7 @@ function renderFooter() {
             <div class="footer-contact-item"><i class="fa-solid fa-phone"></i> <a href="tel:5138275297">(513) 827-5297</a></div>
             <div class="footer-contact-item"><i class="fa-solid fa-location-dot"></i> Goshen, OH</div>
           </div>
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px"><span class="g-icon">G</span></div>
-          <a href="#" class="review-btn">Leave Us a Review</a>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px"><span class="g-icon">G</span> <span style="font-size:0.85rem;color:var(--gray-300)">5-Star Rated</span></div>
         </div>
         <div class="footer-columns">
           <div class="footer-col">
