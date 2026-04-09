@@ -1539,9 +1539,8 @@
 
     try {
       STATE.originalImage = new Image();
-      STATE.originalImage.crossOrigin = 'anonymous';
 
-      STATE.originalImage.onload = () => {
+      const onImageReady = () => {
         let width = STATE.originalImage.width;
         let height = STATE.originalImage.height;
         const aspectRatio = width / height;
@@ -1575,12 +1574,47 @@
         }
       };
 
-      STATE.originalImage.onerror = () => {
-        showToast('Failed to load image', 'error');
-        closeEditor();
+      // Try fetch+blob first to bypass CORS, fall back to direct load
+      const loadViaFetch = async (url) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          STATE.originalImage.onload = () => {
+            URL.revokeObjectURL(blobUrl);
+            onImageReady();
+          };
+          STATE.originalImage.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
+            loadDirect(url);
+          };
+          STATE.originalImage.src = blobUrl;
+        } catch (e) {
+          console.warn('Fetch load failed, trying direct:', e.message);
+          loadDirect(url);
+        }
       };
 
-      STATE.originalImage.src = photoUrl;
+      const loadDirect = (url) => {
+        STATE.originalImage = new Image();
+        STATE.originalImage.crossOrigin = 'anonymous';
+        STATE.originalImage.onload = onImageReady;
+        STATE.originalImage.onerror = () => {
+          // Last resort: load without crossOrigin (canvas becomes tainted but at least displays)
+          console.warn('CORS load failed, loading without crossOrigin (canvas will be tainted)');
+          STATE.originalImage = new Image();
+          STATE.originalImage.onload = onImageReady;
+          STATE.originalImage.onerror = () => {
+            showToast('Failed to load image', 'error');
+            closeEditor();
+          };
+          STATE.originalImage.src = url;
+        };
+        STATE.originalImage.src = url;
+      };
+
+      loadViaFetch(photoUrl);
     } catch (error) {
       console.error('Editor open error:', error);
       showToast('Error opening editor: ' + error.message, 'error');
