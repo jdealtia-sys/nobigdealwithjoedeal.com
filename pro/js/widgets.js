@@ -154,7 +154,9 @@ const WIDGETS = [
         <div style="font-size:9px;color:var(--m);margin-top:4px;text-align:center;">Live NEXRAD radar • Updates every 10 min</div>`;
       setTimeout(() => {
         if(!window.L) return;
+        if(window._wRadarMap){try{window._wRadarMap.remove();}catch(e){}}
         const map = L.map('w-radar-map',{zoomControl:false,attributionControl:false}).setView([39.07,-84.17],7);
+        window._wRadarMap = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10}).addTo(map);
         L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{opacity:.6,maxZoom:10}).addTo(map);
       }, 100);
@@ -472,10 +474,12 @@ const WIDGETS = [
         <button class="w-mini-btn" style="width:100%;margin-top:6px;" onclick="goTo('map')">Open Full Map →</button>`;
       setTimeout(() => {
         if(!window.L) return;
+        if(window._wMiniHeat){try{window._wMiniHeat.remove();}catch(e){}}
         const leads = window._leads || [];
         const pts = leads.filter(l=>l.lat&&l.lng).map(l=>[l.lat,l.lng]);
         const center = pts.length ? [pts.reduce((s,p)=>s+p[0],0)/pts.length, pts.reduce((s,p)=>s+p[1],0)/pts.length] : [39.07,-84.17];
         const map = L.map('w-mini-heat',{zoomControl:false,attributionControl:false}).setView(center, pts.length>0?11:7);
+        window._wMiniHeat = map;
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
         if(pts.length && window.L.heatLayer) L.heatLayer(pts,{radius:20,blur:15,maxZoom:15}).addTo(map);
       }, 100);

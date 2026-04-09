@@ -464,7 +464,7 @@
 
           // Count knocks from D2D collection
           if (window.collection && window.query && window.where && window.getDocs) {
-            const knocksQ = window.query(window.collection(window.db, 'knocks'), window.where('uid', '==', uid));
+            const knocksQ = window.query(window.collection(window.db, 'knocks'), window.where('userId', '==', uid));
             const knocksSnap = await window.getDocs(knocksQ);
             stats.totalKnocks = knocksSnap.size;
           }

@@ -162,6 +162,11 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
+    // ── DAILY TRACKER (dashboard widget) ─────────────
+    match /dailyTracker/{docId} {
+      allow read, write: if isAuth();
+    }
+
     // ── D2D KNOCKS (door-to-door tracking) ─────────────
     match /knocks/{knockId} {
       allow read: if isAuth() && resource.data.userId == request.auth.uid;
