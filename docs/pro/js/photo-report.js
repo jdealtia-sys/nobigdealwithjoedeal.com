@@ -25,8 +25,9 @@
    * @param {string} leadId
    */
   async function generatePhotoReport(leadId) {
+    leadId = leadId || window._customerId || window._cardDetailLeadId;
     if (!leadId || !window._user) {
-      if (typeof showToast === 'function') showToast('Must be logged in', 'error');
+      if (typeof showToast === 'function') showToast(!window._user ? 'Must be logged in' : 'No customer selected', 'error');
       return;
     }
 
