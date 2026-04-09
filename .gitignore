@@ -1,0 +1,13 @@
+# Dependencies — don't commit, rebuild in CI
+functions/node_modules/
+docs/pro/js/node_modules/
+
+# OS artifacts
+.DS_Store
+.fuse_hidden*
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.production
