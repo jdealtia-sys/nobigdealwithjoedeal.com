@@ -663,7 +663,12 @@ header {
 
       <!-- PHOTOS -->
       <div class="panel">
-        <div class="panel-title">Photos</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="panel-title" style="margin:0;">Photos</div>
+          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">
+            📤 Upload
+          </button>
+        </div>
         <div id="photoList">
           <div class="empty">
             <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
@@ -2009,11 +2014,16 @@ async function loadCustomerData(id) {
       document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
     }
     
-    // Load photos by phase
+    // Load photos — overview grid + photos-by-phase tab
+    try { await loadPhotos(id); } catch (e) {
+      console.error('Photos load failed:', e);
+      const pl = document.getElementById('photoList');
+      if (pl) pl.innerHTML = '<div class="upload-zone" onclick="openUploadModal()" style="padding:20px;text-align:center;cursor:pointer;border:2px dashed var(--border);border-radius:10px;"><div style="font-size:24px;margin-bottom:4px;">📸</div><div style="font-size:13px;font-weight:600;">No photos yet — click to upload</div></div>';
+    }
     try {
       if (window.loadPhotosByPhase) await window.loadPhotosByPhase(id);
     } catch (e) {
-      console.error('Photos load failed:', e);
+      console.error('Photos by phase load failed:', e);
       document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">📸</div>No photos yet</div>';
     }
     
@@ -2209,7 +2219,7 @@ async function loadTimeline(leadId, lead) {
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+      query(collection(db, 'photos'), where('leadId', '==', leadId), orderBy('date', 'asc'))
     );
     
     if (photoSnap.empty) {
