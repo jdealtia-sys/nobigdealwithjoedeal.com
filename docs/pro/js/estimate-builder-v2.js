@@ -214,9 +214,10 @@
       cost: 4.50, labor: 0
     },
     'nails-lumanail': {
-      code: 'RFG-NAIL', name: 'LUMANAIL Ring-Shank Fasteners',
+      code: 'RFG-NAIL-LUMA', name: 'LumaNails Ring-Shank Fasteners',
       category: 'fasteners', unit: 'SQ',
-      cost: 12.00, labor: 0
+      cost: 7.50, labor: 0,
+      packaging: { unit: 'Box', coverage: 10, costPerBox: 75 }
     },
 
     // ── LABOR-ONLY LINES ──
