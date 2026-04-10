@@ -6571,7 +6571,13 @@ function switchScTab(tab, btn) {
           <div class="page-title">Estimates</div>
           <div class="page-sub">All roofing estimates</div>
         </div>
-        <button class="btn btn-orange" onclick="startNewEstimate()">＋ New Estimate</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="startNewEstimate()" title="Classic 4-step builder">＋ Classic</button>
+          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="New V2 builder with 270 line items, live labor catalog, and 3 output formats">
+            ✨ V2 Builder
+            <span style="font-size:8px;background:#fff;color:#e8720c;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.1em;">BETA</span>
+          </button>
+        </div>
       </div>
       <div id="estListWrap"><div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div></div>
     </div>
@@ -11242,6 +11248,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-catalog-xactimate.js?v=1"></script>
 <script defer src="js/estimate-logic-engine.js?v=1"></script>
 <script defer src="js/estimate-finalization.js?v=1"></script>
+<script defer src="js/estimate-v2-ui.js?v=1"></script>
 <script defer src="js/product-library.js?v=1"></script>
 <script defer src="js/theme-engine.js?v=1"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
