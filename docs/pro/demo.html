@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="nbd-original">
 <head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +11,7 @@
 <title>NBD Pro — Live Tool Demo</title>
 <meta name="description" content="See every NBD Pro tool in action. AI-powered contractor tools built for roofing, restoration, and sales operators.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -46,7 +48,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 .demo-eyebrow span{width:6px;height:6px;background:var(--orange);border-radius:50%;display:inline-block;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
 .demo-hero h1{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Barlow Condensed',sans-serif;
   font-size:clamp(48px,6vw,80px);
   letter-spacing:2px;line-height:.95;
   margin-bottom:20px;
@@ -80,7 +82,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   margin-bottom:12px;
 }
 .demo-section-title{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Barlow Condensed',sans-serif;
   font-size:clamp(36px,4vw,52px);
   letter-spacing:2px;margin-bottom:8px;
 }
@@ -119,7 +121,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   margin-bottom:8px;text-transform:uppercase;
 }
 .tc-title{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Barlow Condensed',sans-serif;
   font-size:clamp(32px,3.5vw,46px);
   letter-spacing:1.5px;line-height:.95;
   margin-bottom:16px;
@@ -190,7 +192,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   border:1px solid rgba(255,255,255,.05);
 }
 .mock-stat-label{font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
-.mock-stat-val{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1}
+.mock-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;line-height:1}
 .mock-item{
   background:var(--s2);border-radius:6px;padding:10px 12px;
   border:1px solid rgba(255,255,255,.05);
@@ -226,7 +228,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 .mock-grade-badge{
   display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;border-radius:8px;
-  font-family:'Bebas Neue',sans-serif;font-size:24px;
+  font-family:'Barlow Condensed',sans-serif;font-size:24px;
   flex-shrink:0;
 }
 .mock-result-row{display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:6px;padding:10px 12px;border:1px solid rgba(255,255,255,.05)}
@@ -253,7 +255,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   pointer-events:none;
 }
 .demo-cta h2{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Barlow Condensed',sans-serif;
   font-size:clamp(40px,5vw,64px);
   letter-spacing:2px;line-height:.95;
   margin-bottom:16px;position:relative;z-index:1;
@@ -273,13 +275,13 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 .btn-orange-lg:hover{background:var(--orange-d);transform:translateY(-1px)}
 .btn-infused{
   padding:16px 36px;
-  background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(139,92,246,.12));
-  border:1px solid rgba(0,212,255,.35);
-  color:var(--cyan);border-radius:4px;font-weight:800;font-size:13px;
+  background:rgba(232,114,12,.1);
+  border:1px solid rgba(232,114,12,.35);
+  color:var(--orange);border-radius:4px;font-weight:800;font-size:13px;
   letter-spacing:1.5px;text-transform:uppercase;
   text-decoration:none;transition:.2s;
 }
-.btn-infused:hover{background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(139,92,246,.2));transform:translateY(-1px)}
+.btn-infused:hover{background:rgba(232,114,12,.2);transform:translateY(-1px)}
 .demo-cta-note{font-size:11px;color:var(--dimmed);margin-top:16px;position:relative;z-index:1}
 
 /* FOOTER */
@@ -289,7 +291,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   display:flex;align-items:center;justify-content:space-between;
   flex-wrap:wrap;gap:16px;
 }
-.demo-footer-brand{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
+.demo-footer-brand{font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:2px}
 .demo-footer-brand span{color:var(--orange)}
 .demo-footer-links{display:flex;gap:24px;flex-wrap:wrap}
 .demo-footer-links a{font-size:11px;color:var(--muted);text-decoration:none;transition:.15s}
@@ -319,7 +321,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   margin-top:-32px;
 }
 .ds-stat{background:var(--s);padding:28px 24px;text-align:center}
-.ds-stat-val{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,3vw,40px);letter-spacing:1px;line-height:1}
+.ds-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,3vw,40px);letter-spacing:1px;line-height:1}
 .ds-stat-label{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px}
 
 /* SCROLL ANIMATIONS */
@@ -332,10 +334,10 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 <body>
 
 <!-- NAV PLACEHOLDER — replaced by inject script -->
-<nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(15,29,66,0.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,114,12,0.25);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
+<nav id="nbd-pro-nav" style="position:sticky;top:0;z-index:1000;height:52px;background:rgba(10,12,15,0.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;padding:0 20px;gap:12px;font-family:'DM Mono',monospace;">
   <a href="/pro/" style="display:flex;align-items:center;gap:9px;text-decoration:none;">
-    <div style="width:32px;height:32px;background:#e8720c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:#fff;">NBD</div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#f0f6fc">No Big <span style="color:#e8720c">Deal</span></div>
+    <div style="width:32px;height:32px;background:#e8720c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;color:#fff;">NBD</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:2px;color:#f0f6fc">No Big <span style="color:#e8720c">Deal</span></div>
   </a>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
     <a href="/pro/" style="font-size:10px;color:#8b9bb4;text-decoration:none;letter-spacing:1px">← Pro Home</a>
@@ -357,7 +359,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 <!-- STATS -->
 <div style="padding:0 48px">
   <div class="demo-stats reveal">
-    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--cyan)">6</div><div class="ds-stat-label">Pro Tools</div></div>
+    <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">6</div><div class="ds-stat-label">Pro Tools</div></div>
     <div class="ds-stat"><div class="ds-stat-val" style="color:var(--orange)">100+</div><div class="ds-stat-label">Themes</div></div>
     <div class="ds-stat"><div class="ds-stat-val" style="color:#3fb950">45+</div><div class="ds-stat-label">AI Tools Mapped</div></div>
     <div class="ds-stat"><div class="ds-stat-val" style="color:#d29922">$0</div><div class="ds-stat-label">To Start</div></div>
@@ -486,16 +488,16 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
       </div>
       <div class="mock-body">
         <div class="mock-row">
-          <div class="mock-stat"><div class="mock-stat-label">Tools</div><div class="mock-stat-val" style="color:#00d4ff">9</div></div>
+          <div class="mock-stat"><div class="mock-stat-label">Tools</div><div class="mock-stat-val" style="color:#e8720c">9</div></div>
           <div class="mock-stat"><div class="mock-stat-label">Stack Score</div><div class="mock-stat-val" style="color:#3fb950">B+</div></div>
           <div class="mock-stat"><div class="mock-stat-label">Monthly</div><div class="mock-stat-val" style="color:#d29922">$487</div></div>
         </div>
-        <div class="mock-tree-node"><div class="mock-tree-icon">🌳</div><div><div style="font-size:10px;font-weight:600">JobNimbus CRM</div><div style="font-size:8px;color:#8b9bb4">Score: 72% · Worth keeping</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#3fb950">B</div></div>
+        <div class="mock-tree-node"><div class="mock-tree-icon">🌳</div><div><div style="font-size:10px;font-weight:600">JobNimbus CRM</div><div style="font-size:8px;color:#8b9bb4">Score: 72% · Worth keeping</div></div><div style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#3fb950">B</div></div>
         <div class="mock-tree-line"></div>
-        <div class="mock-tree-node" style="margin-left:20px"><div class="mock-tree-icon">⚠️</div><div><div style="font-size:10px;font-weight:600">Zapier Automation</div><div style="font-size:8px;color:#8b9bb4">Score: 31% · Overlap detected</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#f85149">D</div></div>
+        <div class="mock-tree-node" style="margin-left:20px"><div class="mock-tree-icon">⚠️</div><div><div style="font-size:10px;font-weight:600">Zapier Automation</div><div style="font-size:8px;color:#8b9bb4">Score: 31% · Overlap detected</div></div><div style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#f85149">D</div></div>
         <div class="mock-tree-line"></div>
-        <div class="mock-tree-node"><div class="mock-tree-icon">✅</div><div><div style="font-size:10px;font-weight:600">CompanyCam</div><div style="font-size:8px;color:#8b9bb4">Score: 88% · High ROI</div></div><div style="margin-left:auto;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#00d4ff">A</div></div>
-        <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:#00d4ff;letter-spacing:.5px">⚡ AI: Cancel Zapier. Save $49/mo. JobNimbus does the same thing.</div>
+        <div class="mock-tree-node"><div class="mock-tree-icon">✅</div><div><div style="font-size:10px;font-weight:600">CompanyCam</div><div style="font-size:8px;color:#8b9bb4">Score: 88% · High ROI</div></div><div style="margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#e8720c">A</div></div>
+        <div style="background:rgba(232,114,12,.06);border:1px solid rgba(232,114,12,.15);border-radius:6px;padding:9px 12px;font-size:9px;color:#e8720c;letter-spacing:.5px">⚡ AI: Cancel Zapier. Save $49/mo. JobNimbus does the same thing.</div>
       </div>
     </div>
   </div>
@@ -529,7 +531,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <div class="mock-input">Use case: Generating follow-up emails after inspections</div>
         <div class="mock-input">Budget: $20–50/month · Daily use</div>
         <div class="mock-result-row">
-          <div class="mock-grade-badge" style="background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.25)">A</div>
+          <div class="mock-grade-badge" style="background:rgba(232,114,12,.12);color:#e8720c;border:1px solid rgba(232,114,12,.25)">A</div>
           <div><div class="mock-result-text">Claude by Anthropic</div><div class="mock-result-sub">Best match · 94% relevance</div></div>
           <div style="margin-left:auto;font-size:9px;color:#3fb950;font-weight:700">$20/mo</div>
         </div>
