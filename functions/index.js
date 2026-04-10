@@ -848,6 +848,24 @@ exports.invoiceWebhook = onRequest(
 const verifyFunctions = require('./verify-functions');
 Object.assign(exports, verifyFunctions);
 
+// ═══════════════════════════════════════════════════════════════════
+// seedDemoData — One-time trigger to populate demo account with sample data
+// Call: POST https://us-central1-nobigdeal-pro.cloudfunctions.net/seedDemoData
+// ═══════════════════════════════════════════════════════════════════
+exports.seedDemoData = onRequest(
+  { cors: CORS_ORIGINS, maxInstances: 1, timeoutSeconds: 60, memory: '512MiB' },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+    try {
+      const { seed } = require('./seed-demo');
+      await seed();
+      res.json({ success: true, message: 'Demo data seeded successfully' });
+    } catch (e) {
+      console.error('Seed error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
 
 // ═══════════════════════════════════════════════════════════════════
 // validateAccessCode — Server-side access code validation
