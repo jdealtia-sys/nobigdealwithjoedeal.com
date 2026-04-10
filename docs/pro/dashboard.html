@@ -1,4 +1,5 @@
 ﻿<!DOCTYPE html>
+<!-- NBD-BUILD-20260410-DEPLOY-TEST-XYZ789 -->
 <html lang="en" data-theme="nbd-original">
 <head>
 <style id="theme-system">
@@ -73,6 +74,13 @@
 :root[data-theme="copper"] { --orange:#b87333;--ob:#d8934e;--og:rgba(184,115,51,.28);--bg:#0c0800;--s:#1a1200;--s2:#281e00;--s3:#362a00;--br:rgba(184,115,51,.1);--t:#f8ecd8;--m:#a08058;--blue:#b87333;--green:#8bc34a;--purple:#9c8a4a;--red:#c0392b;--gold:#b87333;--paper:#281e00;--ink:#f8ecd8;--rule:rgba(184,115,51,.12); }
 :root[data-theme="sakura"] { --orange:#e8346c;--ob:#ff5080;--og:rgba(232,52,108,.2);--bg:#fff0f4;--s:#ffe8f0;--s2:#ffd8e8;--s3:#ffc8e0;--br:rgba(232,52,108,.08);--t:#2a0818;--m:#a04868;--blue:#e91e63;--green:#4caf50;--purple:#9c27b0;--red:#e8346c;--gold:#ffd600;--paper:#ffd8e8;--ink:#2a0818;--rule:rgba(232,52,108,.1); }
 /* ════ END v5 THEMES ════ */
+
+/* ── Trial Banners ── */
+#trial-banner{display:flex;align-items:center;gap:12px;padding:8px 16px;font-size:12px;font-weight:500;z-index:99998;justify-content:center;flex-wrap:wrap;}
+#trial-banner span{flex:1;min-width:200px;text-align:center;}
+.trial-warning{background:rgba(232,114,12,.12);color:var(--orange);border-bottom:1px solid rgba(232,114,12,.2);}
+.trial-urgent{background:rgba(224,82,82,.15);color:var(--red);border-bottom:1px solid rgba(224,82,82,.25);}
+.trial-expired{background:rgba(224,82,82,.2);color:#fca5a5;border-bottom:1px solid rgba(224,82,82,.3);}
 </style>
 
 <meta charset="UTF-8">
@@ -83,6 +91,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0A0C0F">
 <link rel="manifest" href="/pro/manifest.json">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm.js?v=9" as="script">
@@ -115,6 +124,27 @@
     requiredPlan: 'foundation',
     onReady: (user) => {
       console.log('NBDAuth gate passed — plan:', NBDAuth.userPlan);
+      // ── Trial countdown banner ──
+      if (NBDAuth.isTrialUser && !NBDAuth.isTrialExpired) {
+        const days = NBDAuth.trialDaysLeft;
+        if (days <= 7) {
+          const urgency = days <= 2 ? 'trial-urgent' : 'trial-warning';
+          const msg = days <= 2
+            ? `⚠️ Your Pro trial ends in ${days} day${days===1?'':'s'}! Your data is safe — upgrade now to keep all features.`
+            : `Your Pro trial has ${days} days left. Upgrade to $79/mo to keep full access.`;
+          const banner = document.createElement('div');
+          banner.id = 'trial-banner';
+          banner.className = urgency;
+          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:#fff;background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+          document.body.prepend(banner);
+        }
+      } else if (NBDAuth.isTrialExpired) {
+        const banner = document.createElement('div');
+        banner.id = 'trial-banner';
+        banner.className = 'trial-expired';
+        banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the free Lite plan (25 leads). Upgrade to unlock everything.</span><a href="/pro/register.html?plan=pro" style="color:#fff;background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Go Pro — $79/mo →</a>`;
+        document.body.prepend(banner);
+      }
     }
   });
 </script>
@@ -464,7 +494,8 @@
           }
           if (typeof viewEstimate === 'function') viewEstimate(estParam);
         } else {
-          startNewEstimateOriginal();
+          if (typeof startNewEstimateOriginal === 'function') startNewEstimateOriginal();
+          else if (typeof startNewEstimate === 'function') startNewEstimate();
           // Pre-fill address from lead if leadParam provided
           if (leadParam && window._leads) {
             const lead = window._leads.find(l => l.id === leadParam);
@@ -5933,6 +5964,13 @@ function switchScTab(tab, btn) {
 
   <!-- TIER 4: SYSTEM (Always Visible) -->
   <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
+
+  <div class="nav-section-label" style="margin-top:8px;"><span>AI TOOLS</span> <span class="nav-arrow" style="color:var(--orange);">▼</span></div>
+  <div class="ni" onclick="window.location.href='/pro/ai-tree.html'"><span class="ni-icon">🌳</span>AI Usability Tree</div>
+  <div class="ni" onclick="window.location.href='/pro/ai-tool-finder.html'"><span class="ni-icon">🧭</span>AI Selection Codex</div>
+  <div class="ni" onclick="window.location.href='/pro/understand.html'"><span class="ni-icon">🧠</span>Understanding Tool</div>
+  <div class="ni" onclick="window.location.href='/pro/project-codex.html'"><span class="ni-icon">📓</span>Project Codex</div>
+
   <div class="ni" onclick="window.location.href='/pro/analytics.html'" id="nav-analytics"><span class="ni-icon">💰</span>API Analytics</div>
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   
@@ -6483,16 +6521,16 @@ function switchScTab(tab, btn) {
             <div id="qmImportNote" style="display:none;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.3);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#e8720c;">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
             <div class="est-meas-grid">
               <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
-            <input type="text" id="estAddr" placeholder="1115 Klondyke Rd..." autocomplete="off">
+            <input type="text" id="estAddr" placeholder="Property address" autocomplete="off">
             <div class="ac-drop" id="ac-estAddr" style="display:none;"></div>
           </div></div>
-              <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="CHEN, WEI & LI"></div>
-              <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="592-3895-3895-00"></div>
-              <div class="meas-field"><label>Year Built</label><input type="text" id="estYear" placeholder="2000"></div>
-              <div class="meas-field"><label>Raw SqFt</label><input type="number" id="estRawSqft" placeholder="2811" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Ridge LF</label><input type="number" id="estRidge" placeholder="48" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Eave LF</label><input type="number" id="estEave" placeholder="147" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Hip LF</label><input type="number" id="estHip" placeholder="99" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="Homeowner name"></div>
+              <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="Parcel number"></div>
+              <div class="meas-field"><label>Year Built</label><input type="text" id="estYear" placeholder="Year"></div>
+              <div class="meas-field"><label>Raw SqFt</label><input type="number" id="estRawSqft" placeholder="e.g. 2800" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Ridge LF</label><input type="number" id="estRidge" placeholder="0" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Eave LF</label><input type="number" id="estEave" placeholder="0" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Hip LF</label><input type="number" id="estHip" placeholder="0" oninput="updateEstCalc()"></div>
               <div class="meas-field"><label>Pipe Boots (qty)</label><input type="number" id="estPipes" placeholder="4" value="4" oninput="updateEstCalc()"></div>
             </div>
           </div>
@@ -6813,8 +6851,16 @@ function switchScTab(tab, btn) {
           <div class="empty"><div class="empty-icon">📸</div>Select a property above, then capture or upload photos.</div>
         </div>
       </div>
-      <!-- Inspection report builder container -->
-      <div id="inspectionBuilderContainer" style="padding:0 16px;"></div>
+      <!-- Inspection report builder container (inline for photos view) -->
+      <div id="inspectionBuilderContainerInline" style="padding:0 16px;"></div>
+    </div>
+  </div>
+
+  <!-- ══ INSPECTION REPORT BUILDER OVERLAY (works from any view) ══ -->
+  <div id="inspectionBuilderOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9990;background:var(--bg,#0A0C0F);overflow-y:auto;">
+    <div style="max-width:900px;margin:0 auto;padding:20px;">
+      <button onclick="document.getElementById('inspectionBuilderOverlay').style.display='none';document.getElementById('inspectionBuilderContainer').innerHTML='';" style="position:fixed;top:16px;right:20px;z-index:9991;background:var(--s2);border:1px solid var(--br);color:var(--t);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✕ Close Builder</button>
+      <div id="inspectionBuilderContainer" style="padding:16px 0;"></div>
     </div>
   </div>
 
@@ -8276,7 +8322,16 @@ function updateBreadcrumb(routeName, params = {}) {
 }
 
 // Navigate to a view and update URL hash
+// Pro-only views — Lite users see upgrade prompt instead
+const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy'];
+
 function goTo(name, params = {}) {
+  // ── Lite tier gate: block Pro-only views ──
+  if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
+    showToast('Upgrade to Pro to access this feature — $79/mo', 'error');
+    return;
+  }
+
   // Update URL hash (without triggering hashchange event)
   if (!params.skipHash) {
     const hash = params.id ? `#/${name}/${params.id}` : `#/${name}`;
@@ -8367,6 +8422,83 @@ window.addEventListener('hashchange', () => {
 });
 
 // Initialize route on page load
+// ══════════════════════════════════════════════
+// ══ CAL.COM SCHEDULING FUNCTIONS ════════════
+// ══════════════════════════════════════════════
+
+function loadCalSettings() {
+  try {
+    const saved = localStorage.getItem('nbd_cal_settings');
+    if (saved) {
+      const s = JSON.parse(saved);
+      const uEl = document.getElementById('calUsername');
+      const eEl = document.getElementById('calEventSlug');
+      const urlEl = document.getElementById('calBookingUrl');
+      if (uEl && s.username) uEl.value = s.username;
+      if (eEl && s.eventSlug) eEl.value = s.eventSlug;
+      if (urlEl && s.username && s.eventSlug) {
+        urlEl.value = 'https://cal.com/' + s.username + '/' + s.eventSlug;
+      }
+      updateCalEmbed();
+    }
+  } catch (e) { /* first load, no settings yet */ }
+}
+
+function saveCalSettings() {
+  const username = (document.getElementById('calUsername')?.value || '').trim();
+  const eventSlug = (document.getElementById('calEventSlug')?.value || '').trim();
+  if (!username) { showToast('Enter your Cal.com username', 'error'); return; }
+  if (!eventSlug) { showToast('Enter your event type slug', 'error'); return; }
+  const settings = { username, eventSlug };
+  localStorage.setItem('nbd_cal_settings', JSON.stringify(settings));
+  const urlEl = document.getElementById('calBookingUrl');
+  if (urlEl) urlEl.value = 'https://cal.com/' + username + '/' + eventSlug;
+  updateCalEmbed();
+  showToast('Cal.com settings saved');
+}
+
+function updateCalEmbed() {
+  const username = (document.getElementById('calUsername')?.value || '').trim();
+  const eventSlug = (document.getElementById('calEventSlug')?.value || '').trim();
+  const embed = document.getElementById('calEmbed');
+  const placeholder = document.getElementById('calPlaceholder');
+  if (!username || !eventSlug) {
+    if (embed) embed.innerHTML = '';
+    if (placeholder) placeholder.style.display = '';
+    return;
+  }
+  if (placeholder) placeholder.style.display = 'none';
+  if (embed) {
+    const src = 'https://cal.com/' + username + '/' + eventSlug + '?embed=true&theme=dark';
+    embed.innerHTML = '<iframe src="' + src + '" style="width:100%;min-height:500px;border:none;border-radius:0 0 10px 10px;" loading="lazy"></iframe>';
+  }
+  const urlEl = document.getElementById('calBookingUrl');
+  if (urlEl) urlEl.value = 'https://cal.com/' + username + '/' + eventSlug;
+}
+
+function copyCalLink() {
+  const urlEl = document.getElementById('calBookingUrl');
+  if (!urlEl) return;
+  navigator.clipboard.writeText(urlEl.value).then(() => showToast('Booking link copied!')).catch(() => {
+    urlEl.select(); document.execCommand('copy'); showToast('Booking link copied!');
+  });
+}
+
+function shareCalViaSMS() {
+  const url = document.getElementById('calBookingUrl')?.value || '';
+  if (!url) { showToast('Set up your booking link first', 'error'); return; }
+  const msg = encodeURIComponent('Schedule your free roof inspection here: ' + url);
+  window.open('sms:?body=' + msg);
+}
+
+function shareCalViaEmail() {
+  const url = document.getElementById('calBookingUrl')?.value || '';
+  if (!url) { showToast('Set up your booking link first', 'error'); return; }
+  const subject = encodeURIComponent('Schedule Your Free Roof Inspection');
+  const body = encodeURIComponent('Hi,\n\nYou can schedule your free roof inspection at a time that works for you:\n\n' + url + '\n\nLooking forward to helping you!\n\n- No Big Deal Exteriors');
+  window.open('mailto:?subject=' + subject + '&body=' + body);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const hash = window.location.hash.slice(1);
   if (hash && hash !== '/') {
@@ -10607,8 +10739,10 @@ function exportLeadsCSV() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `NBD-Leads-${new Date().toISOString().split('T')[0]}.csv`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   showToast(`✓ Exported ${leads.length} leads to CSV`, 'success');
 }
 window.exportLeadsCSV = exportLeadsCSV;
@@ -11372,7 +11506,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading...','error')}">
         💰 Invoice
       </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){closeCardDetailModal();InspectionReportEngine.openBuilder('inspectionBuilderContainer',window._cardDetailLeadId)}else{showToast('Report engine loading...','error')}">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){closeCardDetailModal();document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',window._cardDetailLeadId)}else{showToast('Report engine loading...','error')}">
         📋 Report
       </button>
     </div>
@@ -11392,9 +11526,12 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- jsPDF for advanced PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=3"></script>
-<script defer src="js/tools.js?v=3"></script>
+<script defer src="js/tools.js?v=4"></script>
 <script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
 <script src="js/claude-proxy.js?v=3"></script>
@@ -11407,6 +11544,18 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/widgets.js?v=3"></script>
 <script src="js/ui.js?v=3"></script>
 <script src="js/estimates.js?v=3"></script>
+<script src="js/ai.js?v=3"></script>
+<script defer src="js/review-engine.js?v=1"></script>
+<script defer src="js/share-gallery.js?v=1"></script>
+<script defer src="js/analytics-kpi.js?v=1"></script>
+<script defer src="js/lead-scoring.js?v=1"></script>
+<script defer src="js/sales-training.js?v=1"></script>
+<script defer src="js/real-deal-academy.js?v=1"></script>
+<script defer src="js/d2d-tracker.js?v=1"></script>
+<script defer src="js/storm-center.js?v=1"></script>
+<script defer src="js/close-board.js?v=1"></script>
+<script defer src="js/rep-os.js?v=1"></script>
+<script defer src="js/product-library.js?v=1"></script>
 <script>
 // HOTFIX:
 // END HOTFIX

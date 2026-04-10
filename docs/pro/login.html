@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="nbd-original">
+<html lang="en" data-theme="nbd-original" data-theme="nbd-original">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
-<link rel="icon" href="/pro/img/nbd-icon-192.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
 <script src="js/standalone-compat.js"></script>
 <title>NBD Pro — Member Login</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -20,7 +22,7 @@
   --orange-light:#f59240;--white:#fff;--text-muted:#7a8ba8;
   --dark-bg:#0d1117;--dark-card:#161b22;
 }
-html,body{height:100%;font-family:'Montserrat',sans-serif;overflow:hidden}
+html,body{height:100%;font-family:'Barlow',sans-serif;overflow:hidden}
 body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-columns:1fr 500px}
 
 /* BRAND PANEL */
@@ -53,7 +55,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 
 /* TABS */
 .access-tabs{display:flex;gap:4px;background:rgba(0,0,0,0.25);border-radius:8px;padding:4px;margin-bottom:28px;position:relative;z-index:1}
-.tab-btn{flex:1;padding:9px;border:none;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;background:transparent;color:var(--text-muted)}
+.tab-btn{flex:1;padding:9px;border:none;border-radius:6px;font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;background:transparent;color:var(--text-muted)}
 .tab-btn.active{background:var(--orange);color:#fff}
 .tab-btn:not(.active):hover{color:var(--white)}
 
@@ -68,7 +70,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 .view-sub a{color:var(--orange);text-decoration:none}
 .fg{margin-bottom:16px;position:relative}
 .fl{display:block;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px}
-.fi{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:13px 16px;font-size:14px;font-family:'Montserrat',sans-serif;color:var(--white);outline:none;transition:border-color .2s,background .2s}
+.fi{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:13px 16px;font-size:14px;font-family:'Barlow',sans-serif;color:var(--white);outline:none;transition:border-color .2s,background .2s}
 .fi:focus{border-color:var(--orange);background:rgba(232,114,12,0.04)}
 .fi::placeholder{color:rgba(255,255,255,0.2)}
 .fi.has-icon{padding-right:44px}
@@ -77,15 +79,15 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 .form-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px}
 .remember{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none}
 .remember input{accent-color:var(--orange);width:14px;height:14px;cursor:pointer}
-.forgot{font-size:12px;color:var(--orange);background:none;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;padding:0}
+.forgot{font-size:12px;color:var(--orange);background:none;border:none;cursor:pointer;font-family:'Barlow',sans-serif;padding:0}
 .forgot:hover{text-decoration:underline}
 
 /* BUTTONS */
-.btn-main{width:100%;background:var(--orange);color:#fff;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:background .2s,transform .15s;font-family:'Montserrat',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;position:relative;z-index:1}
+.btn-main{width:100%;background:var(--orange);color:#fff;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:background .2s,transform .15s;font-family:'Barlow',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;position:relative;z-index:1}
 .btn-main:hover:not(:disabled){background:var(--orange-dark)}
 .btn-main:active:not(:disabled){transform:scale(.99)}
 .btn-main:disabled{opacity:.6;cursor:not-allowed}
-.btn-demo{width:100%;background:rgba(63,185,80,0.12);color:#3fb950;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:1px solid rgba(63,185,80,0.3);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1}
+.btn-demo{width:100%;background:rgba(63,185,80,0.12);color:#3fb950;padding:15px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;border:1px solid rgba(63,185,80,0.3);cursor:pointer;transition:all .2s;font-family:'Barlow',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1}
 .btn-demo:hover:not(:disabled){background:rgba(63,185,80,0.2);border-color:rgba(63,185,80,0.5)}
 .btn-demo:disabled{opacity:.6;cursor:not-allowed}
 .demo-dot{width:8px;height:8px;background:#3fb950;border-radius:50%;animation:pulse-g 1.5s infinite;flex-shrink:0}
@@ -125,7 +127,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 .reset-view{display:none}
 .reset-view.active{display:block}
 .main-view.hidden{display:none}
-.back-btn{background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:'Montserrat',sans-serif;display:inline-flex;align-items:center;gap:6px;padding:0;margin-top:12px;transition:color .2s}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:'Barlow',sans-serif;display:inline-flex;align-items:center;gap:6px;padding:0;margin-top:12px;transition:color .2s}
 .back-btn:hover{color:var(--white)}
 
 @media(max-width:900px){
@@ -449,8 +451,8 @@ async function doCodeLogin() {
       codeInput.focus();
       return;
     }
-    // Sign in with the custom token from the server
-    await signInWithCustomToken(auth, data.token);
+    // Sign in with email/password returned by the server
+    await signInWithEmailAndPassword(auth, data.email, data.password);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     codeErrorMsg.textContent = 'Authentication error. Contact Joe at (859) 420-7382.';
@@ -474,7 +476,7 @@ async function doDemoLogin() {
     const result = await validateAccessCodeFn({ code: 'DEMO' });
     const data = result.data;
     if (!data.success) throw new Error(data.error);
-    await signInWithCustomToken(auth, data.token);
+    await signInWithEmailAndPassword(auth, data.email, data.password);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     demoErrorMsg.textContent = 'Demo account unavailable right now. Try the Access Code tab or contact Joe.';

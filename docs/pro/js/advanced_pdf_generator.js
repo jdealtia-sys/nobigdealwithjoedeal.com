@@ -4,13 +4,18 @@
 
 window.exportAdvancedEstimatePDF = function(type) {
   const est = window.advancedEstimate;
-  
-  if (!est.lineItems || est.lineItems.length === 0) {
+
+  if (!est || !est.lineItems || est.lineItems.length === 0) {
     if(typeof showToast==='function') showToast('No line items to export','error'); else alert('No line items to export');
     return;
   }
-  
-  // Create jsPDF instance
+
+  // Create jsPDF instance (UMD build exposes window.jspdf)
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    if(typeof showToast==='function') showToast('PDF library loading — try again in a moment','warning'); else alert('PDF library still loading.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

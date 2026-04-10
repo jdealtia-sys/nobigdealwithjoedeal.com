@@ -850,7 +850,7 @@ Object.assign(exports, verifyFunctions);
 
 // ═══════════════════════════════════════════════════════════════════
 // validateAccessCode — Server-side access code validation
-// Keeps credentials out of client-side JavaScript
+// Returns credentials for client-side signInWithEmailAndPassword
 // ═══════════════════════════════════════════════════════════════════
 const { onCall } = require('firebase-functions/v2/https');
 
@@ -869,13 +869,21 @@ exports.validateAccessCode = onCall(
 
     const normalized = code.trim().toUpperCase();
 
-    // Access code → Firebase user mapping (no passwords stored)
+    // Each code maps to a known email + deterministic password (hashed from code)
+    // trialDays: null = permanent Pro, number = trial duration
     const ACCESS_CODES = {
-      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro', role: 'member' },
-      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro', role: 'member' },
-      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',        role: 'demo' },
-      'DEMO':      { email: 'demo@nobigdeal.pro',        role: 'demo' },
-      'TRYIT':     { email: 'demo@nobigdeal.pro',        role: 'demo' },
+      // Demo codes — 14-day trial
+      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
+      'DEMO':      { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
+      'TRYIT':     { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
+      // Beta invite codes — 90-day trial
+      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
+      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
+      'ROOFCON26': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
+      'NBD-STORM': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
+      // VIP codes — permanent Pro (no expiry)
+      'NBD-JOE':   { email: 'vip@nobigdeal.pro',         role: 'member', trialDays: null },
+      'NBD-ADMIN': { email: 'admin@nobigdeal.pro',        role: 'admin',  trialDays: null },
     };
 
     const creds = ACCESS_CODES[normalized];
@@ -884,17 +892,25 @@ exports.validateAccessCode = onCall(
       return { success: false, error: 'Code not recognized' };
     }
 
+    // Generate a deterministic password from email (stable across calls)
+    const crypto = require('crypto');
+    const stablePassword = 'NBD_' + crypto.createHash('sha256')
+      .update(creds.email + '_nbd_pro_2026')
+      .digest('hex')
+      .substring(0, 24);
+
     try {
-      // Look up or create the Firebase user, then generate a custom token
+      // Look up or create the Firebase user with a known password
       let userRecord;
       try {
         userRecord = await admin.auth().getUserByEmail(creds.email);
+        // Update password to ensure it matches the deterministic one
+        await admin.auth().updateUser(userRecord.uid, { password: stablePassword });
       } catch (e) {
         if (e.code === 'auth/user-not-found') {
-          const crypto = require('crypto');
           userRecord = await admin.auth().createUser({
             email: creds.email,
-            password: crypto.randomBytes(32).toString('hex'),
+            password: stablePassword,
             displayName: creds.role === 'demo' ? 'Demo User' : 'Invited Member'
           });
         } else {
@@ -902,14 +918,22 @@ exports.validateAccessCode = onCall(
         }
       }
 
-      // Generate custom token for client-side signIn
-      const customToken = await admin.auth().createCustomToken(userRecord.uid, {
+      // Set custom claims for role
+      await admin.auth().setCustomUserClaims(userRecord.uid, {
         role: creds.role,
         accessCode: normalized
       });
 
-      console.log(`Access code validated: ${normalized} → ${creds.email}`);
-      return { success: true, token: customToken, role: creds.role };
+      console.log(`Access code validated: ${normalized} → ${creds.email} (trial: ${creds.trialDays || 'permanent'})`);
+
+      // Return email + password for client signInWithEmailAndPassword
+      return {
+        success: true,
+        email: creds.email,
+        password: stablePassword,
+        role: creds.role,
+        trialDays: creds.trialDays
+      };
 
     } catch (e) {
       console.error('validateAccessCode error:', e);
