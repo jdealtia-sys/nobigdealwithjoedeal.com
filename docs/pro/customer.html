@@ -2136,6 +2136,50 @@ async function loadCustomerData(id) {
       document.getElementById('emailLink').href = `mailto:${lead.email}`;
     }
 
+    // ── Communication auto-logging: wire quick-action buttons ──
+    // Header Call button
+    const callBtn = document.getElementById('callLink');
+    if (callBtn) {
+      callBtn.onclick = () => {
+        logCommunication(id, 'call', `Called ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
+      };
+    }
+    // Header Email button
+    const emailBtn = document.getElementById('emailLink');
+    if (emailBtn) {
+      emailBtn.onclick = () => {
+        logCommunication(id, 'email', `Opened email to ${lead.firstName || lead.name || 'customer'} (${lead.email || ''})`.trim());
+      };
+    }
+    // Header SMS booking button
+    const smsBooking = document.getElementById('smsBookingLink');
+    if (smsBooking) {
+      smsBooking.addEventListener('click', () => {
+        logCommunication(id, 'sms', 'Sent booking link via SMS');
+      });
+    }
+    // Sidebar Call button
+    const sideCall = document.getElementById('contactCallBtn');
+    if (sideCall) {
+      sideCall.onclick = () => {
+        logCommunication(id, 'call', `Called ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
+      };
+    }
+    // Sidebar Text button
+    const sideText = document.getElementById('contactTextBtn');
+    if (sideText) {
+      sideText.onclick = () => {
+        logCommunication(id, 'sms', `Texted ${lead.firstName || lead.name || 'customer'} at ${lead.phone || ''}`.trim());
+      };
+    }
+    // Sidebar Email button
+    const sideEmail = document.getElementById('contactEmailBtn');
+    if (sideEmail) {
+      sideEmail.onclick = () => {
+        logCommunication(id, 'email', `Opened email to ${lead.firstName || lead.name || 'customer'} (${lead.email || ''})`.trim());
+      };
+    }
+
     // Booking link buttons — show for early-stage leads
     const earlyStages = ['new','contacted','inspected'];
     if (earlyStages.includes(stage)) {
@@ -2336,6 +2380,43 @@ function trackRecentlyViewed(leadId) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Communication auto-logging
+// Creates a `communications` Firestore entry when the user calls,
+// emails, or texts the customer from the customer page.
+// ─────────────────────────────────────────────────────────────
+async function logCommunication(leadId, type, content, extra = {}) {
+  if (!leadId || !auth.currentUser) return null;
+  try {
+    const ref = await addDoc(collection(db, 'communications'), {
+      leadId,
+      userId: auth.currentUser.uid,
+      type,                          // 'call' | 'email' | 'sms'
+      direction: extra.direction || 'outbound',
+      content: content || '',
+      timestamp: serverTimestamp(),
+      source: 'customer_page'
+    });
+    // Refresh timeline so the user sees the new entry right away
+    if (window._customerId === leadId && window._leadDoc) {
+      try { await loadTimeline(leadId, window._leadDoc); } catch(e){}
+    }
+    // Update lastContactedAt on the lead for follow-up logic
+    try {
+      await updateDoc(doc(db, 'leads', leadId), {
+        lastContactedAt: serverTimestamp(),
+        lastContactType: type
+      });
+    } catch(e){}
+    return ref.id;
+  } catch (err) {
+    console.warn('Failed to log communication:', err);
+    return null;
+  }
+}
+// Expose globally so inline handlers can use it
+window.logCommunication = logCommunication;
+
 async function loadTimeline(leadId, lead) {
   const timeline = [];
 
@@ -2426,6 +2507,32 @@ async function loadTimeline(leadId, lead) {
     });
   } catch (e) {
     console.log('No photos found for timeline');
+  }
+
+  // Load communications log (call/email/SMS entries from the quick-action buttons)
+  try {
+    const commSnap = await getDocs(
+      query(collection(db, 'communications'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+    );
+    const COMM_ICONS = {
+      call:  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg>',
+      email: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg>',
+      sms:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h14v9h-4l-3 3-3-3H3V5z"/></svg>'
+    };
+    const COMM_LABELS = { call: 'Called', email: 'Emailed', sms: 'Texted' };
+    commSnap.docs.forEach(d => {
+      const c = d.data();
+      const t = c.type || 'call';
+      timeline.push({
+        time: c.timestamp?.toDate ? c.timestamp.toDate() : new Date(c.timestamp || Date.now()),
+        icon: COMM_ICONS[t] || COMM_ICONS.call,
+        title: `${COMM_LABELS[t] || 'Contacted'} ${c.direction === 'inbound' ? 'from' : ''} customer`,
+        desc: c.content || c.note || '',
+        type: 'communication'
+      });
+    });
+  } catch (e) {
+    console.log('No communications found for timeline');
   }
 
   // Sort by time (newest first)
