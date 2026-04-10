@@ -39,7 +39,23 @@ const _serverTimestamp = window.serverTimestamp;
 const _arrayUnion = window.arrayUnion;
 
 
-function openLeadModal(){document.getElementById('leadModal').classList.add('open');}
+function openLeadModal(){
+  document.getElementById('leadModal').classList.add('open');
+  // Auto-infer jobType from current view: when user is on Cash view and clicks Add Lead,
+  // default the new lead to jobType=cash (same for Insurance/Finance).
+  const jtEl = document.getElementById('lJobType');
+  const isEdit = !!(document.getElementById('lEditId')?.value);
+  if (jtEl && !isEdit && !jtEl.value) {
+    const view = window._currentViewKey || '';
+    if (['insurance','cash','finance'].includes(view)) {
+      jtEl.value = view;
+    }
+  }
+  // Apply smart stage dropdown filter based on current jobType
+  if (typeof window.filterStageDropdownByJobType === 'function') {
+    window.filterStageDropdownByJobType(jtEl?.value || '');
+  }
+}
 function closeLeadModal(){
   document.getElementById('leadModal').classList.remove('open');
   document.getElementById('mErr').style.display='none';
@@ -157,8 +173,35 @@ async function saveLead(){
 
 function renderLeads(leads, filtered){
   const all   = (leads  || window._leads || []);
-  const list  = (filtered !== undefined && filtered !== null) ? filtered : all;
+  let list    = (filtered !== undefined && filtered !== null) ? filtered : all;
   window._filteredLeads = (filtered !== undefined && filtered !== null) ? filtered : null;
+
+  // ── Per-pipeline filter: only show leads that belong to the active track ──
+  // Simple view: show all leads (no filter)
+  // Insurance view: show insurance + unset jobType leads (NBD defaults to insurance)
+  // Cash view: show only cash leads
+  // Finance view: show only finance leads
+  // Jobs view: show only leads in post-contract (job) stages
+  const _view = window._currentViewKey || 'simple';
+  const _norm = window.normalizeStage;
+  const _jobStageSet = new Set([
+    'job_created','permit_pulled','materials_ordered','materials_delivered',
+    'crew_scheduled','install_in_progress','install_complete','final_photos',
+    'deductible_collected','final_payment','closed'
+  ]);
+  if (_view === 'insurance') {
+    list = list.filter(l => !l.jobType || l.jobType === 'insurance');
+  } else if (_view === 'cash') {
+    list = list.filter(l => l.jobType === 'cash');
+  } else if (_view === 'finance') {
+    list = list.filter(l => l.jobType === 'finance');
+  } else if (_view === 'jobs') {
+    list = list.filter(l => {
+      const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
+      return _jobStageSet.has(sk);
+    });
+  }
+  // simple view: no filter (list stays as-is)
 
   // ── stat helpers ──
   const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };

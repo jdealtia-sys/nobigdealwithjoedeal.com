@@ -234,6 +234,51 @@
     const stageVal = document.getElementById('lStage')?.value || '';
     const jobStages = ['job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','closed'];
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
+    // Smart stage dropdown — hide irrelevant track optgroups based on jobType
+    window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
+  };
+
+  // ── Smart stage dropdown filter ──
+  // Hide optgroups from other tracks based on the selected jobType.
+  // Preserves the current selection even if its track would be hidden —
+  // shows a small warning instead of silently switching stages.
+  window.filterStageDropdownByJobType = function(jobType) {
+    const sel = document.getElementById('lStage');
+    if (!sel) return;
+    const currentVal = sel.value;
+    const groups = sel.querySelectorAll('optgroup');
+    let currentOptVisible = true;
+    groups.forEach(g => {
+      const label = (g.label || '').toLowerCase();
+      let show = true;
+      if (jobType === 'insurance') {
+        if (label.includes('cash') || label.includes('finance')) show = false;
+      } else if (jobType === 'cash') {
+        if (label.includes('insurance') || label.includes('finance')) show = false;
+      } else if (jobType === 'finance') {
+        if (label.includes('insurance') || label.includes('cash')) show = false;
+      }
+      // jobType === '' → show everything
+      g.style.display = show ? '' : 'none';
+      // Check if the currently selected option lives in a hidden group
+      g.querySelectorAll('option').forEach(o => {
+        if (o.value === currentVal && !show) currentOptVisible = false;
+      });
+    });
+    // Show or hide a warning about cross-track stage mismatch
+    let warn = document.getElementById('lStageWarning');
+    if (!currentOptVisible && currentVal) {
+      if (!warn) {
+        warn = document.createElement('div');
+        warn.id = 'lStageWarning';
+        warn.style.cssText = 'font-size:10px;color:#ea580c;margin-top:4px;padding:4px 8px;background:rgba(234,88,12,.08);border-left:2px solid #ea580c;border-radius:3px;';
+        sel.parentElement.appendChild(warn);
+      }
+      warn.textContent = '⚠ Current stage is from a different track. Change stage to match the new job type.';
+      warn.style.display = 'block';
+    } else if (warn) {
+      warn.style.display = 'none';
+    }
   };
 
   // Attach listener after DOM ready
