@@ -761,12 +761,21 @@
     const profit   = retailBeforeOHP * profitPct;
     const subtotal = retailBeforeOHP + overhead + profit;
 
-    // Tax (insurance hides tax)
-    const settings2 = window.EstimateBuilderV2 ? window.EstimateBuilderV2.loadSettings() : {};
+    // Tax (insurance hides tax).
+    // Tax rates come from (in priority order):
+    //   1. settings.countyTax — explicitly passed by caller
+    //   2. EstimateBuilderV2 live settings — fallback for UI flows
+    //      that don't pass countyTax through
+    //   3. settings.fallbackTaxRate or 7% — last resort
+    const countyTaxMap = (settings.countyTax && typeof settings.countyTax === 'object')
+      ? settings.countyTax
+      : (window.EstimateBuilderV2
+          ? (window.EstimateBuilderV2.loadSettings().countyTax || {})
+          : {});
     const taxRate = (mode === 'insurance')
       ? 0
-      : ((settings2.countyTax || {})[settings.county || ''] != null
-          ? Number(settings2.countyTax[settings.county])
+      : (countyTaxMap[settings.county || ''] != null
+          ? Number(countyTaxMap[settings.county])
           : Number(settings.fallbackTaxRate || 0.07));
     const tax = subtotal * taxRate;
 

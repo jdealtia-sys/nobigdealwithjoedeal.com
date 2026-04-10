@@ -756,6 +756,9 @@
         if (l.stage) l._stageKey = normalizeStage(l.stage);
         else l._stageKey = S.NEW;
       });
+      // Flag so downstream modules (Ask Joe Proactive morning briefing,
+      // widgets, etc.) know the lead cache is hydrated vs still pending.
+      window._leadsLoaded = true;
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
       
       // Update health indicator to healthy

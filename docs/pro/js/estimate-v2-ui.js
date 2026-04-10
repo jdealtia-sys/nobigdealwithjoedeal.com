@@ -523,20 +523,33 @@
     const limited = items.slice(0, 50);
     const totalCount = items.length;
 
+    // Simple HTML escape for attributes + text nodes. Catalog codes
+    // are alphanumeric today but this guards against any future
+    // catalog entry containing quotes or HTML special characters
+    // that would break out of an attribute and become an XSS sink.
+    const esc = (s) => String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
     catDiv.innerHTML = limited.map(item => {
       const inScope = !!state.scope.find(s => s.code === item.code);
       const mat = Number(item.materialCost) || 0;
       const lab = Number(item.laborCost) || 0;
       const unitCost = mat + lab;
+      // Use data-code attribute instead of embedding the code in the
+      // onclick handler string. Click handler reads it from dataset.
       return `
-        <div class="v2-item" onclick="EstimateV2UI.addToScope('${item.code}')" ${inScope ? 'style="border-color:#065f46;background:#0f1d15;"' : ''}>
+        <div class="v2-item" data-code="${esc(item.code)}" onclick="EstimateV2UI.addToScope(this.dataset.code)" ${inScope ? 'style="border-color:#065f46;background:#0f1d15;"' : ''}>
           <div style="flex:1;min-width:0;">
-            <div class="code">${item.code}</div>
-            <div class="name">${(item.name || '').substring(0, 60)}${(item.name || '').length > 60 ? '…' : ''}</div>
+            <div class="code">${esc(item.code)}</div>
+            <div class="name">${esc((item.name || '').substring(0, 60))}${(item.name || '').length > 60 ? '…' : ''}</div>
           </div>
           <div class="cost">
             <div style="color:#e8eaf0;font-weight:700;">$${unitCost.toFixed(0)}</div>
-            <div style="font-size:9px;">/${item.unit}</div>
+            <div style="font-size:9px;">/${esc(item.unit)}</div>
             ${inScope ? '<div style="color:#065f46;font-size:9px;margin-top:2px;">✓ IN SCOPE</div>' : ''}
           </div>
         </div>

@@ -170,8 +170,22 @@
     };
 
     // ── Pull from CRM leads ──
+    // Timing guard: if window._leads is empty AND _leadsLoaded is
+    // falsy (set to true by the CRM module once Firestore returns),
+    // the lead cache hasn't finished loading yet. Flag the briefing
+    // so the UI knows to retry, and return early-with-incomplete
+    // data rather than falsely reporting "quiet morning" with
+    // 0 overdue leads.
     const leads = window._leads || [];
+    const leadsLoaded = !!window._leadsLoaded || leads.length > 0;
     briefing.stats.activeLeads = leads.length;
+    briefing.leadsLoaded = leadsLoaded;
+    if (!leadsLoaded) {
+      briefing.incomplete = true;
+      briefing.summary = 'Leads still loading — briefing will refresh once CRM data is ready.';
+      // Return early with the minimum so the UI can still render
+      return briefing;
+    }
 
     // Overdue follow-ups (no touch in N days)
     const overdueMs = prefs.triggers.overdueThresholdDays * 24 * 60 * 60 * 1000;

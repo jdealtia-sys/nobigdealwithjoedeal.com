@@ -422,7 +422,7 @@ ${footer}
     return {
       format: 'insurance-scope',
       html,
-      lineCount: estimate.lines.length,
+      lineCount: (estimate.lines || []).length,
       codeRefCount: codeRequired.length,
       photoReqCount: photoItems.length,
       total: estimate.total,
@@ -537,7 +537,7 @@ ${footer}
       <p style="font-size:12px;color:#444;">
         <strong>Materials:</strong> Manufacturer warranty per product (see scope details).<br>
         <strong>Workmanship:</strong> 10-year NBD labor warranty on all installation.<br>
-        <strong>System Warranty:</strong> Available with ${escapeHtml((estimate.lines.find(l => /warranty/i.test(l.name)) || {}).name || 'Better/Best tier upgrades')}.
+        <strong>System Warranty:</strong> Available with ${escapeHtml(((estimate.lines || []).find(l => /warranty/i.test(l.name)) || {}).name || 'Better/Best tier upgrades')}.
       </p>
     `;
 
@@ -629,7 +629,7 @@ ${footer}
     return {
       format: 'retail-quote',
       html,
-      lineCount: estimate.lines.length,
+      lineCount: (estimate.lines || []).length,
       scopeItemCount: bullets.length,
       total: estimate.total,
       deposit: deposit,
