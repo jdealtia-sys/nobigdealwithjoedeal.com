@@ -67,7 +67,8 @@ exports.claudeProxy = onRequest(
       }
 
       // Subscription check — only paid plans can use AI proxy
-      const isDemoUser = decoded.email === 'demo@nobigdeal.pro';
+      const bypassEmails = ['demo@nobigdeal.pro', 'vip@nobigdeal.pro', 'admin@nobigdeal.pro', 'jd@nobigdealwithjoedeal.com'];
+      const isDemoUser = bypassEmails.includes(decoded.email);
       if (!isDemoUser) {
         const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
         const sub = subSnap.exists ? subSnap.data() : null;
@@ -86,7 +87,7 @@ exports.claudeProxy = onRequest(
       const windowMs = 60000; // 1 minute
       const maxRequests = 30;  // 30 requests per minute
 
-      if (userSnap.exists()) {
+      if (userSnap.exists) {
         const data = userSnap.data();
         const windowStart = data.windowStart || 0;
         const count = data.count || 0;
@@ -159,7 +160,7 @@ exports.claudeProxy = onRequest(
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error', debug: e.message || String(e) });
       }
     }
   }
