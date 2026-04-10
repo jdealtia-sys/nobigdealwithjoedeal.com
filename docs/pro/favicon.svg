@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#0A0C0F"/>
+  <text x="32" y="32" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" fill="#FFFFFF" letter-spacing="1">NBD</text>
+  <text x="32" y="50" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="14" fill="#e8720c" letter-spacing="2">PRO</text>
+</svg>
