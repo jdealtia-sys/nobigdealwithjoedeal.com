@@ -973,7 +973,7 @@ header {
         <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='#e8720c'" onmouseout="this.style.borderColor=''">
           <div style="font-size:28px;margin-bottom:6px;">+</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse — JPG, PNG, HEIC, WebP, AVIF up to 15MB</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse — JPG, PNG, HEIC, WebP, AVIF · up to 15 MB each · 25 per batch</div>
         </div>
       </div>
     </div>
@@ -1183,7 +1183,7 @@ header {
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
       <div class="upload-text">Click to browse or drag photos here</div>
-      <div class="upload-hint">Supports: JPG, PNG, HEIC, HEIF, WebP, AVIF • Max 15MB per file</div>
+      <div class="upload-hint">JPG, PNG, HEIC, HEIF, WebP, AVIF • Max 15 MB per file • Up to 25 per batch</div>
     </div>
     
     <div class="upload-preview" id="uploadPreview"></div>
@@ -3011,7 +3011,26 @@ window.handleFileSelect = function(event) {
   event.target.value = ''; // Reset input
 };
 
+// Batch size cap — iPhone "Select All" can grab 200+ photos. Without
+// a cap, the browser tab can hang, Firebase Storage accumulates
+// half-uploaded bytes, and the customer demo locks up. 25 is the
+// sweet spot: covers a full slope set (before/during/after) but
+// stays responsive. Users can run multiple batches back-to-back.
+const PHOTO_MAX_BATCH = 25;
+window.PHOTO_MAX_BATCH = PHOTO_MAX_BATCH;
+
 function addFilesToQueue(files) {
+  // Enforce batch cap up-front before any per-file work. If the
+  // user dropped more than PHOTO_MAX_BATCH, take the first 25 and
+  // warn via toast — don't reject the whole batch.
+  if (files.length > PHOTO_MAX_BATCH) {
+    const dropped = files.length - PHOTO_MAX_BATCH;
+    files = files.slice(0, PHOTO_MAX_BATCH);
+    const msg = `Only the first ${PHOTO_MAX_BATCH} photos will upload. ${dropped} skipped — you can add them in the next batch.`;
+    if (typeof showToast === 'function') showToast(msg, 'warning');
+    else alert(msg);
+  }
+
   files.forEach(file => {
     // Validate file size (max 15MB — iPhone HEIC photos often exceed 10MB)
     if (file.size > 15 * 1024 * 1024) {
@@ -3024,7 +3043,7 @@ function addFilesToQueue(files) {
       alert(`File ${file.name} is not a supported image type. Supported: JPG, PNG, HEIC, HEIF, WebP, GIF, AVIF.`);
       return;
     }
-    
+
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {

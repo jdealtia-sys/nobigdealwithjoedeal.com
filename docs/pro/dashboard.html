@@ -9583,17 +9583,26 @@ function renderPhotoGrid(photos){
   grid.innerHTML=photos.map(p=>`<div class="photo-thumb"><img src="${p.url}" alt="${p.name}" onclick="window.open('${p.url}','_blank')"></div>`).join('');
 }
 
-const PHOTO_MAX_SIZE = 15 * 1024 * 1024; // 15 MB
-const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif'];
+const PHOTO_MAX_SIZE = 15 * 1024 * 1024; // 15 MB per file
+const PHOTO_MAX_BATCH = 25; // max photos per upload session (iOS 'Select All' safety cap)
+const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif'];
 
 async function uploadPhotos(input){
-  const files=Array.from(input.files);
+  let files=Array.from(input.files);
   if(!files.length||!currentPhotoLeadId) return;
+
+  // Batch cap — iPhone 'Select All' can grab 200+ photos. Cap at 25
+  // to keep the browser responsive and avoid runaway Storage bills.
+  if(files.length > PHOTO_MAX_BATCH){
+    const dropped = files.length - PHOTO_MAX_BATCH;
+    files = files.slice(0, PHOTO_MAX_BATCH);
+    showToast(`Only the first ${PHOTO_MAX_BATCH} photos will upload. ${dropped} skipped — add them in the next batch.`, 'warning');
+  }
 
   // Validate each file before uploading
   const valid = [];
   for(const f of files){
-    if(!PHOTO_ALLOWED_TYPES.includes(f.type) && !f.name.match(/\.(jpe?g|png|webp|gif|heic|heif)$/i)){
+    if(!PHOTO_ALLOWED_TYPES.includes(f.type) && !f.name.match(/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i)){
       showToast(`"${f.name}" is not a supported image type`,'error'); continue;
     }
     if(f.size > PHOTO_MAX_SIZE){
@@ -11977,7 +11986,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-logic-engine.js?v=2"></script>
 <script defer src="js/estimate-finalization.js?v=2"></script>
 <script defer src="js/estimate-supplement.js?v=1"></script>
-<script defer src="js/estimate-v2-ui.js?v=3"></script>
+<script defer src="js/estimate-v2-ui.js?v=4"></script>
 <script defer src="js/product-library.js?v=1"></script>
 <script defer src="js/theme-engine.js?v=1"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>

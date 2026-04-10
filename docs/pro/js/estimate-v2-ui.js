@@ -83,12 +83,42 @@
         flex:1; display:grid;
         grid-template-columns:280px 1fr 360px;
         gap:0; overflow:hidden;
+        min-height:0;
       }
       .v2-pane {
         background:#181c22; border-right:1px solid #2a2f35;
         padding:16px; overflow-y:auto; color:#e8eaf0;
+        min-height:0;
       }
       .v2-pane.right { border-right:none; border-left:1px solid #2a2f35; background:#111418; }
+
+      /* ── Mobile responsive ── Stack the 3 panes vertically
+         under 1000px so the modal stays usable on tablets in
+         portrait, small laptops, and phones. */
+      @media (max-width: 1000px) {
+        .v2-body {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr auto;
+          overflow-y: auto;
+        }
+        .v2-pane {
+          border-right: none;
+          border-bottom: 1px solid #2a2f35;
+          max-height: none;
+        }
+        .v2-pane.right {
+          border-left: none;
+          border-top: 1px solid #2a2f35;
+        }
+      }
+      @media (max-width: 600px) {
+        .v2-hdr { padding: 10px 14px; }
+        .v2-title { font-size: 16px !important; }
+        .v2-title + .v2-title { margin-left: 10px !important; }
+        .v2-pane { padding: 12px; }
+        .v2-close { padding: 6px 12px; font-size: 11px; }
+        .v2-total-val { font-size: 32px !important; }
+      }
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
         font-weight:700; text-transform:uppercase; letter-spacing:.15em;
@@ -645,15 +675,39 @@
         preparedBy: 'Joe Deal'
       }
     };
-    // For retail quote, also pass tier comparison
+    // For retail quote, also pass tier comparison.
+    // Line-item mode produces identical totals across tiers because
+    // the scope items are fixed. To show real tier differentiation,
+    // we use the EstimateBuilderV2 per-SQ calculator which applies
+    // the flat $545/$595/$660 rates from locked spec — giving the
+    // customer a meaningful good/better/best choice on the quote.
     if (format === 'retail-quote') {
-      const cat = window.NBD_XACT_CATALOG;
-      const items = state.scope.map(s => cat.find(s.code)).filter(Boolean);
-      meta.tiers = {
-        good:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'good',   mode: state.jobMode, county: state.county }),
-        better: window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'better', mode: state.jobMode, county: state.county }),
-        best:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'best',   mode: state.jobMode, county: state.county })
+      const perSqInput = {
+        rawSqft:         state.measurements.rawSqft,
+        pitch:           state.measurements.pitch,
+        cutUpRoof:       state.measurements.cutUpRoof,
+        ridgeLf:         state.measurements.ridgeLf,
+        eaveLf:          state.measurements.eaveLf,
+        hipLf:           state.measurements.hipLf,
+        pipes:           state.measurements.pipes,
+        tearOffLayers:   state.measurements.tearOffLayers,
+        county:          state.county,
+        city:            state.county,  // permit lookup uses city or county
+        mode:            state.jobMode
       };
+      if (window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.calculateAllTiers === 'function') {
+        meta.tiers = window.EstimateBuilderV2.calculateAllTiers(perSqInput);
+      } else {
+        // Fallback to the (identical-per-tier) line-item calc if
+        // the per-SQ engine is unavailable for some reason
+        const cat = window.NBD_XACT_CATALOG;
+        const items = state.scope.map(s => cat.find(s.code)).filter(Boolean);
+        meta.tiers = {
+          good:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'good',   mode: state.jobMode, county: state.county }),
+          better: window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'better', mode: state.jobMode, county: state.county }),
+          best:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'best',   mode: state.jobMode, county: state.county })
+        };
+      }
     }
     const result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
     window.EstimateFinalization.openInNewWindow(result);
