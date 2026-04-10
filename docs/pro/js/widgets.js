@@ -30,16 +30,19 @@ const WIDGETS = [
         <div class="w-sub">Total Pipeline Value</div>
         <div style="display:flex;border-radius:4px;overflow:hidden;margin-top:10px;gap:1px;">${stageBar || '<div style="flex:1;background:var(--br);height:8px;"></div>'}</div>
         <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--m);">
-          <span>${leads.length} leads</span><span>${leads.filter(l=>l.stage==='Won').length} won</span>
+          <span>${leads.length} leads</span><span>${leads.filter(l=>['closed','Complete','install_complete'].includes(l.stage||l._stageKey||'')).length} won</span>
         </div>`;
     }},
 
   {id:'hot-leads', name:'Hot Leads', icon:'🔥', cat:'Pipeline & Sales', size:'md',
     render(el){
+      const TERMINAL = ['closed','Complete','install_complete','lost','Lost'];
+      const HOT = ['contacted','estimate_submitted','contract_signed','Contacted','Est. Sent'];
       const leads = (window._leads || []).filter(l => {
-        if(l.stage === 'Won' || l.stage === 'Lost') return false;
+        const sk = l.stage || l._stageKey || '';
+        if(TERMINAL.includes(sk)) return false;
         if(l.callback) { const cb = new Date(l.callback); return cb <= new Date(); }
-        return l.stage === 'Contacted' || l.stage === 'Est. Sent';
+        return HOT.includes(sk);
       }).slice(0, 5);
       if(!leads.length) { el.innerHTML = '<div class="w-empty">No hot leads right now</div>'; return; }
       el.innerHTML = leads.map(l => `
@@ -52,8 +55,11 @@ const WIDGETS = [
   {id:'win-rate', name:'Win Rate', icon:'🏆', cat:'Pipeline & Sales', size:'sm',
     render(el){
       const leads = window._leads || [];
-      const closed = leads.filter(l => l.stage === 'Won' || l.stage === 'Lost');
-      const won = closed.filter(l => l.stage === 'Won').length;
+      const WON = ['closed','Complete','install_complete','final_photos','final_payment','deductible_collected'];
+      const LOST = ['lost','Lost'];
+      const decided = leads.filter(l => WON.includes(l.stage||l._stageKey||'') || LOST.includes(l.stage||l._stageKey||''));
+      const won = decided.filter(l => WON.includes(l.stage||l._stageKey||'')).length;
+      const closed = decided;
       const rate = closed.length > 0 ? (won / closed.length * 100) : 0;
       const circumference = 2 * Math.PI * 36;
       const offset = circumference - (rate / 100) * circumference;
@@ -71,8 +77,13 @@ const WIDGETS = [
     render(el){
       const leads = window._leads || [];
       const now = new Date();
-      const thisMonth = leads.filter(l => l.stage === 'Won' && l.wonDate && new Date(l.wonDate).getMonth() === now.getMonth());
-      const rev = thisMonth.reduce((s,l) => s + parseFloat(l.estValue || l.value || 0), 0);
+      const WON = ['closed','Complete','install_complete','final_photos','final_payment','deductible_collected'];
+      const thisMonth = leads.filter(l => {
+        if(!WON.includes(l.stage||l._stageKey||'')) return false;
+        const d = l.updatedAt?.toDate ? l.updatedAt.toDate() : l.updatedAt?.seconds ? new Date(l.updatedAt.seconds*1000) : new Date(l.updatedAt||0);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      const rev = thisMonth.reduce((s,l) => s + parseFloat(l.jobValue || l.estValue || l.value || 0), 0);
       const goal = parseFloat(localStorage.getItem('nbd_monthly_goal') || '50000');
       const pct = goal > 0 ? Math.min(100, rev / goal * 100) : 0;
       el.innerHTML = `
