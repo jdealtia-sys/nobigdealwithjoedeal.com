@@ -660,6 +660,18 @@
       renderD2D();
       refreshMapMarkers();
       window.showToast?.(`${DISPOSITIONS[disposition].icon} ${DISPOSITIONS[disposition].label} — ${data.address}`, 'success');
+
+      // ── Auto-convert hot dispositions into CRM leads ──
+      // Appointment/Interested/Storm Damage/Insurance dispositions auto-create
+      // a CRM lead with pre-filled data + auto-assigned follow-up.
+      // This fixes the D2D→CRM gap: D2D is the primary lead source but knocks
+      // did not flow into the pipeline automatically.
+      if (HOT_DISPOSITIONS.includes(disposition)) {
+        // Non-blocking — don't fail the knock if lead creation has issues
+        convertToLead(ref.id).catch(err => {
+          console.warn('Auto-convert to lead failed:', err);
+        });
+      }
       return ref.id;
     } catch (e) {
       console.error('submitKnock failed:', e);
@@ -708,11 +720,12 @@
       const firstName = (knock.homeowner || '').split(' ')[0] || 'D2D';
       const lastName = (knock.homeowner || '').split(' ').slice(1).join(' ') || 'Lead';
 
-      // Map D2D disposition → CRM stage
-      let stage = 'New';
-      if (knock.disposition === 'appointment') stage = 'Inspection';
-      else if (knock.disposition === 'interested') stage = 'Contacted';
-      else if (INS_DISPOSITIONS.includes(knock.disposition)) stage = 'Claim Filed';
+      // Map D2D disposition → CRM stage key (snake_case, matches crm-stages.js)
+      let stage = 'new';
+      if (knock.disposition === 'appointment') stage = 'inspected';
+      else if (knock.disposition === 'interested') stage = 'contacted';
+      else if (INS_DISPOSITIONS.includes(knock.disposition)) stage = 'claim_filed';
+      else if (knock.disposition === 'storm_damage') stage = 'contacted';
 
       // Map D2D disposition → CRM job type
       let jobType = '';
@@ -723,6 +736,27 @@
       if (knock.disposition === 'ins_has_claim') claimStatus = 'Has Claim';
       else if (knock.disposition === 'ins_needs_file') claimStatus = 'Needs Filing';
       else if (knock.disposition === 'ins_denied') claimStatus = 'Denied';
+
+      // Auto-assign follow-up date — use the knock's follow-up if set, otherwise
+      // smart defaults per disposition (Interested: 2d, Appointment: 1d, Storm: 3d)
+      let followUpStr = '';
+      if (knock.followUpDate) {
+        followUpStr = (typeof knock.followUpDate === 'object' && knock.followUpDate.toISOString
+          ? knock.followUpDate.toISOString().split('T')[0]
+          : String(knock.followUpDate));
+      } else {
+        const defaultDays = (
+          knock.disposition === 'appointment' ? 1 :
+          knock.disposition === 'interested' ? 2 :
+          knock.disposition === 'storm_damage' ? 3 :
+          INS_DISPOSITIONS.includes(knock.disposition) ? 2 : 0
+        );
+        if (defaultDays > 0) {
+          const d = new Date();
+          d.setDate(d.getDate() + defaultDays);
+          followUpStr = d.toISOString().split('T')[0];
+        }
+      }
 
       const leadData = {
         firstName,
@@ -741,7 +775,7 @@
         d2dKnockId: knockId,
         lat: knock.lat || null,
         lng: knock.lng || null,
-        followUp: knock.followUpDate ? (typeof knock.followUpDate === 'object' && knock.followUpDate.toISOString ? knock.followUpDate.toISOString().split('T')[0] : String(knock.followUpDate)) : ''
+        followUp: followUpStr
       };
 
       // Use _saveLead which also creates map pin and geocodes
