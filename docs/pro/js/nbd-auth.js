@@ -96,6 +96,8 @@ let _userPlan = 'free';
 let _role = 'member';
 let _initPromise = null;
 let _options = {};
+let _trialDaysLeft = -1; // -1 = no trial, 0+ = days remaining
+let _isTrialUser = false;
 
 // ── Core Module ───────────────────────────────────────────
 export const NBDAuth = {
@@ -110,6 +112,9 @@ export const NBDAuth = {
   get role()         { return _role; },
   get isAdmin()      { return _role === 'admin'; },
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
+  get trialDaysLeft(){ return _trialDaysLeft; },
+  get isTrialUser()  { return _isTrialUser; },
+  get isTrialExpired(){ return _isTrialUser && _trialDaysLeft <= 0; },
   PLAN_LEVELS,
   PAGE_PLANS,
   PLAN_NAMES,
@@ -208,6 +213,22 @@ export const NBDAuth = {
             _subscription = subSnap.data();
             if (_subscription.status === 'active') {
               _userPlan = _subscription.plan || 'foundation';
+
+              // ── Trial expiration check ──
+              if (_subscription.trialEndsAt) {
+                const trialEnd = _subscription.trialEndsAt.toDate ? _subscription.trialEndsAt.toDate() : new Date(_subscription.trialEndsAt);
+                const now = new Date();
+                const msLeft = trialEnd.getTime() - now.getTime();
+                _trialDaysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+                _isTrialUser = true;
+
+                if (_trialDaysLeft <= 0) {
+                  // Trial expired — downgrade to lite
+                  _userPlan = 'lite';
+                  _subscription = { ..._subscription, _trialExpired: true };
+                  console.info('Trial expired — downgraded to lite');
+                }
+              }
             } else {
               _userPlan = 'free';
               _subscription = { ..._subscription, _inactive: true };
@@ -219,7 +240,6 @@ export const NBDAuth = {
           }
         } catch (e) {
           // Fail closed on network error — default to free tier for security
-          // Paying users will get correct plan on next successful load
           console.warn('Subscription check failed — defaulting to free:', e.message);
           const cached = localStorage.getItem('nbd_user_plan');
           _userPlan = (cached === 'professional' || cached === 'foundation') ? cached : 'free';
@@ -421,6 +441,8 @@ function _exposeGlobals() {
   window._firebaseApp = _app;
   window._firebaseReady = true;
   window._role = _role;
+  window._trialDaysLeft = _trialDaysLeft;
+  window._isTrialUser = _isTrialUser;
   window.NBDAuth = NBDAuth;
 }
 

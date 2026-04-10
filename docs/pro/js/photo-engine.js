@@ -1394,10 +1394,30 @@
 
     // Internal methods (prefixed with _)
     _filterGallery: async (leadId) => {
-      // Placeholder for filter logic
+      const filterTag = document.getElementById('filter-tag')?.value || '';
+      const photos = await getPhotosForLead(leadId);
+      const filtered = filterTag ? photos.filter(p => p.tags && p.tags.includes(filterTag)) : photos;
+      const sortBy = document.getElementById('sort-by')?.value || 'newest';
+      const sorted = [...filtered].sort((a, b) => {
+        if (sortBy === 'oldest') return (a.capturedAt?.seconds || 0) - (b.capturedAt?.seconds || 0);
+        if (sortBy === 'quality') return (b.quality || '').localeCompare(a.quality || '');
+        return (b.capturedAt?.seconds || 0) - (a.capturedAt?.seconds || 0);
+      });
+      const container = document.getElementById('gallery-content');
+      if (container) renderGalleryGrid(container, sorted, leadId);
     },
     _sortGallery: async (leadId) => {
-      // Placeholder for sort logic
+      const filterTag = document.getElementById('filter-tag')?.value || '';
+      const photos = await getPhotosForLead(leadId);
+      const filtered = filterTag ? photos.filter(p => p.tags && p.tags.includes(filterTag)) : photos;
+      const sortBy = document.getElementById('sort-by')?.value || 'newest';
+      const sorted = [...filtered].sort((a, b) => {
+        if (sortBy === 'oldest') return (a.capturedAt?.seconds || 0) - (b.capturedAt?.seconds || 0);
+        if (sortBy === 'quality') return (b.quality || '').localeCompare(a.quality || '');
+        return (b.capturedAt?.seconds || 0) - (a.capturedAt?.seconds || 0);
+      });
+      const container = document.getElementById('gallery-content');
+      if (container) renderGalleryGrid(container, sorted, leadId);
     },
     _openLightbox: openLightbox,
     _stagePhoto: stagePhoto,

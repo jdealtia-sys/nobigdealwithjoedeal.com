@@ -89,6 +89,11 @@ window.NBDDocGen = {
     }
     const typeName = this.DOCUMENT_TYPES[type]?.name || type;
     const win = window.open('', '_blank');
+    if (!win) {
+      if(typeof showToast==='function') showToast('Popup blocked — please allow popups for this site and try again.','error');
+      else alert('Please allow popups for this site to generate documents.');
+      return;
+    }
     // Inject action bar before closing </body>
     const actionBar = `
       <div class="doc-action-bar">
@@ -765,8 +770,8 @@ window.NBDDocGen = {
   renderProposal(data = {}) {
     // Merge with defaults
     const merged = {
-      homeownerName: 'John Smith',
-      address: '123 Main Street, Lexington, KY 40507',
+      homeownerName: '',
+      address: '',
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       projectDescription: 'Complete roofing system replacement including removal of existing materials, installation of new premium asphalt shingles, underlayment, flashing, and gutters.',
       scopeItems: [
@@ -785,7 +790,7 @@ window.NBDDocGen = {
         { description: 'Labor & Installation', qty: 1, unit: 'Job', unitPrice: 3000, total: 3000 },
         { description: 'Permits & Compliance', qty: 1, unit: 'Job', unitPrice: 200, total: 200 }
       ],
-      totalPrice: '$11,050.00',
+      totalPrice: '',
       warrantyTier: 'better',
       photos: null,
       ...data
@@ -930,11 +935,11 @@ window.NBDDocGen = {
    */
   renderContract(data = {}) {
     const merged = {
-      homeownerName: 'John Smith',
-      homeownerAddress: '123 Main Street, Lexington, KY 40507',
+      homeownerName: '',
+      homeownerAddress: '',
       contractorName: this.COMPANY.name,
       contractorPhone: this.COMPANY.phone,
-      contractPrice: '$11,050.00',
+      contractPrice: '',
       startDate: 'Upon contract execution',
       estimatedCompletion: '5-7 business days',
       projectDescription: 'Complete roofing system replacement including removal of existing materials, installation of new premium asphalt shingles, underlayment, flashing, and gutters.',
@@ -1082,8 +1087,8 @@ window.NBDDocGen = {
    */
   renderInspectionHomeowner(data = {}) {
     const merged = {
-      homeownerName: 'John Smith',
-      address: '123 Main Street, Lexington, KY 40507',
+      homeownerName: '',
+      address: '',
       inspectionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       inspectorName: 'NBD Inspector',
       overallConditionGrade: 'C',
@@ -1254,14 +1259,14 @@ window.NBDDocGen = {
    */
   renderInspectionInsurance(data = {}) {
     const merged = {
-      claimantName: 'John Smith',
+      claimantName: '',
       claimNumber: 'CLM-2026-0001',
       dateOfLoss: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      propertyAddress: '123 Main Street, Lexington, KY 40507',
+      propertyAddress: '',
       inspectionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       inspectorName: 'NBD Damage Assessor',
       damageType: 'Wind Damage',
-      estimatedRepairCost: '$11,050.00',
+      estimatedRepairCost: '',
       photos: null,
       ...data
     };
