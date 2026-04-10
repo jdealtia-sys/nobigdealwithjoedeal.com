@@ -593,7 +593,7 @@
       tier:'best',
       reason:'LumaNails engineered ring-shank fasteners with enhanced pullout resistance. Joe\'s preferred fastener for Best-tier systems.',
       tags:['fasteners','lumanails','ring-shank','best-tier','premium'],
-      packaging: { unit: 'Box', coverage: '10 SQ per box', costPerBox: 75 } });
+      packaging: { unit: 'Box', coverage: 10, coverageUnit: 'SQ', costPerBox: 75 } });
   A({ code:'RFG NAIL-SS', name:'Stainless Steel Roofing Nails', sub:'fasteners', cat:'roofing', unit:'SQ', mat:18, lab:0,
       tier:'best', reason:'Stainless steel nails for cedar/metal/slate applications to prevent staining.',
       tags:['fasteners','stainless','cedar','metal'] });
