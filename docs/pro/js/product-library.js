@@ -8,7 +8,11 @@
   'use strict';
 
   const STORAGE_KEY = 'nbd_product_library';
-  const DATA_VERSION = 2;
+  // DATA_VERSION bumped 2→3 (2026-04-10) to invalidate stale caches
+  // that still hold only the 134 base products. When users reload
+  // with this version, seedDefaults() re-reads window.NBD_PRODUCTS
+  // which now includes the 88 RoofIVent products (total: 222).
+  const DATA_VERSION = 3;
 
   // Pull from product-data.js globals
   const CATEGORIES = window.NBD_CATEGORIES || {};
