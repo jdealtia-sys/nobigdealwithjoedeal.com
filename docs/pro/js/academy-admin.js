@@ -239,125 +239,131 @@
     }
   };
   
-  // CSS for styling
+  // CSS for styling — uses CSS variables from the live theme
+  // so the academy admin panel respects the active theme picker
+  // (155 themes). Fallbacks provided for any theme that doesn't
+  // define a variable.
   const style = document.createElement('style');
   style.textContent = `
     .academy-admin-panel {
       padding: 20px;
-      background: #1a1a1a;
-      color: #fff;
+      background: var(--s, #1a1a1a);
+      color: var(--t, #fff);
       border-radius: 8px;
     }
-    
+
     .admin-nav {
       display: flex;
       gap: 10px;
       margin: 20px 0;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--br, #333);
     }
-    
+
     .admin-tab-btn {
       padding: 10px 20px;
       background: none;
       border: none;
-      color: #999;
+      color: var(--m, #999);
       cursor: pointer;
       border-bottom: 2px solid transparent;
       transition: all 0.3s;
+      font-family: inherit;
     }
-    
+
     .admin-tab-btn.active {
-      color: #ff9500;
-      border-bottom-color: #ff9500;
+      color: var(--orange, #e8720c);
+      border-bottom-color: var(--orange, #e8720c);
     }
-    
+
     .admin-tab {
       display: none;
       margin-top: 20px;
     }
-    
+
     .admin-tab.active {
       display: block;
     }
-    
+
     .team-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
       gap: 15px;
       margin: 20px 0;
     }
-    
+
     .team-card {
-      background: #222;
+      background: var(--s2, #222);
       padding: 15px;
       border-radius: 6px;
-      border: 1px solid #333;
+      border: 1px solid var(--br, #333);
     }
-    
+
     .team-card h4 {
       margin: 0 0 5px 0;
-      color: #ff9500;
+      color: var(--orange, #e8720c);
     }
-    
+
     .progress-stat {
       font-size: 12px;
-      color: #999;
+      color: var(--m, #999);
       margin: 8px 0;
     }
-    
+
     .progress-bar {
       height: 6px;
-      background: #333;
+      background: var(--s3, #333);
       border-radius: 3px;
       overflow: hidden;
       margin: 5px 0;
     }
-    
+
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #ff9500, #ffb84d);
+      background: linear-gradient(90deg, var(--orange, #e8720c), var(--ob, #f08030));
     }
-    
+
     .assign-form, .bulk-form {
       display: flex;
       flex-direction: column;
       gap: 10px;
       max-width: 400px;
     }
-    
+
     .assign-form input, .assign-form select, .assign-form textarea {
       padding: 10px;
-      background: #222;
-      border: 1px solid #333;
-      color: #fff;
+      background: var(--s2, #222);
+      border: 1px solid var(--br, #333);
+      color: var(--t, #fff);
       border-radius: 4px;
+      font-family: inherit;
     }
-    
+
     .assign-submit, .bulk-assign-submit {
       padding: 10px 20px;
-      background: #ff9500;
-      color: #000;
+      background: var(--orange, #e8720c);
+      color: #fff;
       border: none;
       border-radius: 4px;
       font-weight: bold;
       cursor: pointer;
+      font-family: inherit;
     }
-    
+
     .leaderboard-table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
     }
-    
+
     .leaderboard-table th, .leaderboard-table td {
       padding: 10px;
       text-align: left;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--br, #333);
     }
-    
+
     .leaderboard-table th {
-      background: #222;
-      color: #ff9500;
+      background: var(--s2, #222);
+      color: var(--orange, #e8720c);
       font-weight: bold;
     }
   `;

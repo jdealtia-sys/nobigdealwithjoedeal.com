@@ -101,14 +101,81 @@
   }
 
   // ═════════════════════════════════════════════════════════
-  // 2. Safe formula evaluator
+  // 2. Safe formula evaluator (TWO-LAYER SANDBOX)
   //
-  // Only whitelisted variable names and Math.* are exposed
-  // to the function scope. Formulas are data (not user input),
-  // so this is sandboxed for typos more than for security.
+  // Layer 1: Strict character/token whitelist. The formula
+  //   source is validated against a regex of allowed tokens
+  //   BEFORE being passed to new Function(). Anything the
+  //   whitelist doesn't recognize is rejected up-front. This
+  //   blocks 'process.exit', 'window.x', 'require("fs")',
+  //   'document.cookie', 'fetch(...)', 'eval()', etc.
+  //
+  // Layer 2: new Function() creates the function in a
+  //   restricted parameter scope with Math + math helpers +
+  //   the whitelisted measurement vars. Any runtime error is
+  //   caught and returns 0.
+  //
+  // Formulas come from the NBD_XACT_CATALOG data file. This
+  // is the same trust boundary as any other code Joe ships,
+  // but the two-layer check means a corrupted catalog or a
+  // malicious user-entered override can't escape the sandbox.
   // ═════════════════════════════════════════════════════════
 
+  // Allowed identifiers = measurement vars + math helpers
+  const FORMULA_ALLOWED_IDENTIFIERS = new Set([
+    // Math helpers exposed to formulas
+    'Math', 'max', 'min', 'ceil', 'floor', 'round', 'abs', 'pow', 'sqrt',
+    // Literal keywords allowed in expressions
+    'true', 'false'
+  ]);
+  MEASUREMENT_VARS.forEach(v => FORMULA_ALLOWED_IDENTIFIERS.add(v));
+
+  /**
+   * Validates a formula against the strict whitelist.
+   * Returns null if safe, or a string describing the violation.
+   */
+  function validateFormula(formula) {
+    if (typeof formula !== 'string') return 'not a string';
+
+    // Reject known attack tokens up-front for clearer error messages
+    const dangerous = ['process', 'require', 'import', 'globalThis',
+                       'window', 'document', 'self', 'top', 'parent',
+                       'fetch', 'XMLHttpRequest', 'eval', 'Function',
+                       'localStorage', 'sessionStorage', 'cookie',
+                       'constructor', '__proto__', 'prototype'];
+    for (const bad of dangerous) {
+      // Match the token as a whole word (not a substring inside a var name)
+      const re = new RegExp('(^|[^a-zA-Z0-9_])' + bad + '($|[^a-zA-Z0-9_])');
+      if (re.test(formula)) {
+        return 'blocked token: ' + bad;
+      }
+    }
+
+    // Tokenize and check every identifier is in the whitelist.
+    // Allowed characters outside of identifiers:
+    //   digits, + - * / % ( ) , . ? :  < > = ! & |  and whitespace
+    // (ternary ?, comparisons <, >, <=, >=, ==, !=, &&, || are all
+    // fine because they operate on numbers only, never on objects)
+    const tokenRegex = /[a-zA-Z_$][a-zA-Z0-9_$]*/g;
+    let m;
+    while ((m = tokenRegex.exec(formula)) !== null) {
+      const token = m[0];
+      if (!FORMULA_ALLOWED_IDENTIFIERS.has(token)) {
+        return 'unknown identifier: ' + token;
+      }
+    }
+
+    // Reject any remaining suspicious characters outside the operator set
+    // (block: [ ] { } ; \ ` " ' backtick which could open up object/string literals)
+    if (/[\[\]{};\\`"']/.test(formula)) {
+      return 'forbidden character';
+    }
+
+    return null;  // safe
+  }
+
   const FORMULA_CACHE = {};
+  const FORMULA_BLOCKED = new Set();
 
   function calcQuantity(formula, context) {
     if (formula == null) return 0;
@@ -126,7 +193,16 @@
     const asNumber = Number(trimmed);
     if (!isNaN(asNumber)) return asNumber;
 
-    // Compile once, cache
+    // Layer 1: strict whitelist check
+    if (FORMULA_BLOCKED.has(trimmed)) return 0;
+    const violation = validateFormula(trimmed);
+    if (violation) {
+      console.warn('[EstimateLogic] Formula rejected (' + violation + '):', trimmed);
+      FORMULA_BLOCKED.add(trimmed);
+      return 0;
+    }
+
+    // Layer 2: compile once, cache
     if (!FORMULA_CACHE[trimmed]) {
       try {
         // Expose whitelisted vars + Math + math helpers

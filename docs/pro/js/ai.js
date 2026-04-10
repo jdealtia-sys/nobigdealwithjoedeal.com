@@ -192,15 +192,37 @@ function renderJoeMessages() {
   scrollJoeToBottom();
 }
 
+// HTML-escape helper — prevents XSS in chat messages.
+// Both user input AND Claude API responses should be escaped
+// before insertion into innerHTML. The markdown-style
+// transformations below then re-introduce the whitelisted tags.
+function _joeEscapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildJoeBubble(role, content) {
-  // Convert **bold**, bullet points, newlines
-  const formatted = (content||'')
+  // Escape FIRST, then apply markdown-style transformations.
+  // This way any <script>, <img onerror>, or other HTML in the
+  // content is rendered as plain text, but our own **bold**,
+  // bullet lists, and newlines still become real tags.
+  const escaped = _joeEscapeHtml(content || '');
+  const formatted = escaped
     .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
     .replace(/^[•\-] (.+)$/gm,'<li>$1</li>')
     .replace(/(<li>[\s\S]*?<\/li>\s*)+/g, match => '<ul>'+match+'</ul>')
     .replace(/\n/g,'<br>');
-  const avatar = role==='joe' ? '🤠' : (window._userSettings?.displayName?.[0]||'J');
-  return `<div class="joe-msg ${role}">
+  // Also escape the avatar — displayName comes from user settings
+  // and could contain HTML.
+  const avatarRaw = role==='joe' ? '🤠' : (window._userSettings?.displayName?.[0]||'J');
+  const avatar = _joeEscapeHtml(avatarRaw);
+  const safeRole = _joeEscapeHtml(role);
+  return `<div class="joe-msg ${safeRole}">
     <div class="joe-msg-avatar">${avatar}</div>
     <div class="joe-bubble">${formatted}</div>
   </div>`;
