@@ -17,7 +17,6 @@
 :root{
   --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;
   --orange:#e8720c;--orange-d:#f08030;--orange-l:#f59240;
-  --cyan:#e8720c;--cyan-d:#f08030;
   --navy:#0A0C0F;--navy-l:#111418;
   --white:#E8EAF0;--muted:#6B7280;--dimmed:#4A5568;
   --border:rgba(255,255,255,.07);
@@ -59,13 +58,13 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   max-width:560px;margin:0 auto 36px;
 }
 .demo-hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn-cyan{
+.btn-orange{
   padding:13px 28px;background:var(--orange);color:#fff;
   border-radius:4px;font-weight:800;font-size:12px;
   letter-spacing:1.5px;text-transform:uppercase;
   text-decoration:none;transition:.2s;
 }
-.btn-cyan:hover{background:var(--orange-d);transform:translateY(-1px)}
+.btn-orange:hover{background:var(--orange-d);transform:translateY(-1px)}
 .btn-outline{
   padding:13px 28px;background:transparent;color:var(--white);
   border:1px solid rgba(255,255,255,.2);border-radius:4px;
@@ -110,7 +109,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   margin-bottom:16px;
 }
 .tc-badge.orange{background:rgba(232,114,12,.12);border:1px solid rgba(232,114,12,.25);color:var(--orange)}
-.tc-badge.cyan{background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.22);color:var(--orange)}
+.tc-badge.orange{background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.22);color:var(--orange)}
 .tc-badge.green{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);color:#3fb950}
 .tc-badge.purple{background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:#8b5cf6}
 .tc-badge.gold{background:rgba(212,160,10,.1);border:1px solid rgba(212,160,10,.25);color:#d4a00a}
@@ -145,8 +144,8 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   text-decoration:none;transition:.2s;
 }
 .tc-launch:hover{background:var(--orange-d);transform:translateY(-1px)}
-.tc-launch.cyan-btn{background:var(--orange);color:#fff}
-.tc-launch.cyan-btn:hover{background:var(--orange-d)}
+.tc-launch{background:var(--orange);color:#fff}
+.tc-launch:hover{background:var(--orange-d)}
 
 /* MOCKUP SCREEN */
 .tc-mockup{
@@ -351,7 +350,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <h1>THE TOOLS YOUR<br><span>COMPETITORS DON'T HAVE.</span></h1>
   <p>Every tool in NBD Pro is built by a contractor, for contractors. Not adapted from generic software. Built from scratch for restoration and roofing sales operators.</p>
   <div class="demo-hero-btns">
-    <a href="/pro/register.html" class="btn-cyan">Start Free — 14 Day Pro Trial →</a>
+    <a href="/pro/register.html" class="btn-orange">Start Free — 14 Day Pro Trial →</a>
     <a href="/pro/register.html?plan=pro" class="btn-outline">Go Pro — $79/mo</a>
   </div>
 </section>
@@ -466,7 +465,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <!-- 3. AI Usability Tree -->
   <div class="tool-card reveal" style="margin-top:80px">
     <div class="tc-info">
-      <div class="tc-badge cyan">NBD Pro · AI-Powered</div>
+      <div class="tc-badge orange">NBD Pro · AI-Powered</div>
       <div class="tc-problem">Problem: You're paying for tools you don't actually use</div>
       <div class="tc-title">AI USABILITY TREE</div>
       <div class="tc-desc">Most contractors have 6-10 software subscriptions and use maybe half of them effectively. The AI Usability Tree maps your entire tool stack, scores each tool, and tells you exactly what to cut, keep, or replace.</div>
@@ -477,7 +476,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
         <li>Account manager with 4-column Kanban + drag-drop</li>
         <li>PDF report + CSV export for your whole stack</li>
       </ul>
-      <a href="/pro/register.html" class="tc-launch cyan-btn">Sign Up to Access →</a>
+      <a href="/pro/register.html" class="tc-launch">Sign Up to Access →</a>
     </div>
     <div class="tc-mockup">
       <div class="mock-bar">
@@ -654,7 +653,7 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
 </section>
 
 <footer class="demo-footer">
-  <div class="demo-footer-brand">No Big <span>Deal</span> Pro</div>
+  <div class="demo-footer-brand"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
   <div class="demo-footer-links">
     <a href="/pro/">← Pro Home</a>
     <a href="/pro/#pricing">Pricing</a>

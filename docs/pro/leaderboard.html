@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBD Pro — Leaderboard</title>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#e8720c">
+  <meta name="theme-color" content="#0A0C0F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NBD Pro">
@@ -20,10 +20,10 @@
 
     :root {
       --orange: #e8720c;
-      --orange-light: #ff8c2a;
-      --navy: #0a0f1e;
-      --navy-mid: #111827;
-      --navy-light: #1a2235;
+      --orange-light: #f08030;
+      --navy: #0A0C0F;
+      --navy-mid: #111418;
+      --navy-light: #181C22;
       --border: rgba(255,255,255,0.08);
       --text-muted: rgba(255,255,255,0.45);
       --text-dim: rgba(255,255,255,0.70);
@@ -90,14 +90,14 @@
     /* ROW */
     .lb-row { display: flex; align-items: center; gap: 14px; background: var(--navy-light); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; transition: border-color .2s; }
     .lb-row:hover { border-color: rgba(232,114,12,.3); }
-    .lb-row.top-1 { border-color: rgba(255,215,0,.35); background: rgba(255,215,0,.05); }
+    .lb-row.top-1 { border-color: rgba(232,114,12,.35); background: rgba(232,114,12,.08); }
     .lb-row.top-2 { border-color: rgba(192,192,192,.3); }
     .lb-row.top-3 { border-color: rgba(205,127,50,.3); }
     .rank { font-size: 1.1rem; font-weight: 900; min-width: 32px; text-align: center; }
-    .top-1 .rank { color: gold; }
-    .top-2 .rank { color: silver; }
+    .top-1 .rank { color: #e8720c; }
+    .top-2 .rank { color: #c0c0c0; }
     .top-3 .rank { color: #cd7f32; }
-    .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), var(--navy-light)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex-shrink: 0; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #181C22); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex-shrink: 0; }
     .lb-info { flex: 1; min-width: 0; }
     .lb-name { font-family: 'Barlow', sans-serif; font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .lb-sub { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
@@ -136,7 +136,7 @@
 <body>
 
 <nav class="nav">
-  <span class="nav-brand">NBD Pro</span>
+  <span class="nav-brand"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></span>
   <a href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
 </nav>
 

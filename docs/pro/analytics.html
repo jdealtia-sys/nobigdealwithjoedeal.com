@@ -28,13 +28,12 @@
 
 <style>
 :root{
-  --bg:#050608;--s:#0D1117;--s2:#111722;--s3:#161E2B;--s4:#1C2535;
-  --border:#1C2535;--border2:#243044;
+  --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--s4:#1C2535;
+  --border:rgba(255,255,255,0.07);--border2:#243044;
   --orange:#e8720c;--orange-d:rgba(232,114,12,.12);
   --green:#3DD68C;--green-d:rgba(61,214,140,.10);
   --red:#E05252;--red-d:rgba(224,82,82,.10);
   --blue:#4E9BF5;--blue-d:rgba(78,155,245,.10);
-  --cyan:#00d4ff;--cyan-d:rgba(0,212,255,.10);
   --text:#E2E8F0;--text2:#8892A4;--text3:#4A5568;
   --ease:cubic-bezier(0.22,1,0.36,1);--t:.2s;--r:8px;--rlg:14px;
 }
@@ -45,8 +44,8 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 /* TOPBAR */
 .topbar{height:56px;background:rgba(5,6,8,.97);border-bottom:1px solid var(--border);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 24px;gap:16px}
 .tb-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-.tb-mark{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:#fff}
-.tb-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text)}
+.tb-mark{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;color:#fff}
+.tb-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text)}
 .tb-title span{color:var(--orange)}
 .tb-links{display:flex;gap:6px;margin-left:auto;align-items:center}
 .tb-link{padding:5px 12px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease);letter-spacing:.5px}
@@ -60,24 +59,24 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 /* HEADER */
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:28px;flex-wrap:wrap}
 .ph-eyebrow{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--orange);margin-bottom:4px}
-.ph-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4vw,42px);letter-spacing:2px;line-height:.95}
+.ph-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,4vw,42px);letter-spacing:2px;line-height:.95}
 .ph-sub{font-size:13px;color:var(--text3);margin-top:4px}
 
 /* TIME TABS */
 .time-tabs{display:flex;gap:4px;background:var(--s);border:1px solid var(--border);border-radius:var(--r);padding:3px;flex-shrink:0}
 .tt{background:transparent;border:none;color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 16px;border-radius:6px;cursor:pointer;transition:all var(--t) var(--ease)}
 .tt:hover{color:var(--text2)}
-.tt.active{background:var(--orange);color:#000}
+.tt.active{background:var(--orange);color:#fff}
 
 /* STAT CARDS */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
 .sc{background:var(--s);border:1px solid var(--border);border-radius:var(--rlg);padding:22px 20px;position:relative;overflow:hidden;transition:all var(--t) var(--ease)}
 .sc:hover{border-color:var(--border2);transform:translateY(-2px)}
 .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.sc.blue::before{background:var(--blue)}.sc.orange::before{background:var(--orange)}.sc.green::before{background:var(--green)}.sc.cyan::before{background:var(--cyan)}
+.sc.blue::before{background:var(--blue)}.sc.orange::before{background:var(--orange)}.sc.green::before{background:var(--green)}.sc.cyan::before{background:var(--orange)}
 .sc-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
-.sc-val{font-family:'Bebas Neue',sans-serif;font-size:clamp(32px,3vw,44px);letter-spacing:1px;line-height:1}
-.sc-val.blue{color:var(--blue)}.sc-val.orange{color:var(--orange)}.sc-val.green{color:var(--green)}.sc-val.cyan{color:var(--cyan)}.sc-val.red{color:var(--red)}
+.sc-val{font-family:'Barlow Condensed',sans-serif;font-size:clamp(32px,3vw,44px);letter-spacing:1px;line-height:1}
+.sc-val.blue{color:var(--blue)}.sc-val.orange{color:var(--orange)}.sc-val.green{color:var(--green)}.sc-val.cyan{color:var(--orange)}.sc-val.red{color:var(--red)}
 .sc-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:8px;letter-spacing:.3px}
 
 /* CARDS */
@@ -102,7 +101,7 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 .tbl td{padding:12px 14px;border-bottom:1px solid rgba(28,37,53,.5);font-size:13px;color:var(--text2)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl tr:hover td{background:rgba(78,155,245,.03)}
-.rank{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text3);width:36px;text-align:center}
+.rank{font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--text3);width:36px;text-align:center}
 .feature-name{font-weight:600;color:var(--text)}
 .feature-icon{font-size:16px;margin-right:8px}
 .cost-cell{font-family:'JetBrains Mono',monospace;font-weight:500}
@@ -231,7 +230,7 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
     <div class="card-head"><div class="card-title">📋 Anthropic Pricing Reference</div></div>
     <div class="card-body">
       <div class="pricing">
-        <div class="price-card"><div class="price-model" style="color:var(--cyan)">Claude Opus 4</div><div class="price-row">Input: <span class="price-val">$15 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$75 / 1M tokens</span></div></div>
+        <div class="price-card"><div class="price-model" style="color:var(--blue)">Claude Opus 4</div><div class="price-row">Input: <span class="price-val">$15 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$75 / 1M tokens</span></div></div>
         <div class="price-card"><div class="price-model" style="color:var(--orange)">Claude Sonnet 4</div><div class="price-row">Input: <span class="price-val">$3 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$15 / 1M tokens</span></div></div>
         <div class="price-card"><div class="price-model" style="color:var(--green)">Claude Haiku 3.5</div><div class="price-row">Input: <span class="price-val">$0.80 / 1M tokens</span></div><div class="price-row">Output: <span class="price-val">$4 / 1M tokens</span></div></div>
       </div>
@@ -441,7 +440,7 @@ function renderModels(docs) {
   const sorted = Object.entries(models).sort((a, b) => b[1].cost - a[1].cost);
   if (!sorted.length) { el.innerHTML = '<div class="empty"><div class="empty-desc">No model data yet</div></div>'; return; }
 
-  const colors = { 'claude-opus-4-6': 'var(--cyan)', 'claude-sonnet-4-6': 'var(--orange)', 'claude-haiku-4-5-20251001': 'var(--green)' };
+  const colors = { 'claude-opus-4-6': 'var(--blue)', 'claude-sonnet-4-6': 'var(--orange)', 'claude-haiku-4-5-20251001': 'var(--green)' };
 
   el.innerHTML = '<table class="tbl"><thead><tr><th>Model</th><th>Calls</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead><tbody>' +
     sorted.map(([name, d]) => {
@@ -473,9 +472,9 @@ function renderCostBreakdown(docs, totalCost) {
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap">
-      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--blue);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Input tokens</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--blue);margin-top:4px">$${totalInput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${inputPct}% of total</div></div>
-      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--orange);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Output tokens</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--orange);margin-top:4px">$${totalOutput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${outputPct}% of total</div></div>
-      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Total cost</span><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--green);margin-top:4px">$${totalCost.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${docs.length} requests</div></div>
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--blue);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Input tokens</span><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;color:var(--blue);margin-top:4px">$${totalInput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${inputPct}% of total</div></div>
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--orange);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Output tokens</span><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;color:var(--orange);margin-top:4px">$${totalOutput.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${outputPct}% of total</div></div>
+      <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:8px"></span><span style="font-size:13px;color:var(--text2)">Total cost</span><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;color:var(--green);margin-top:4px">$${totalCost.toFixed(4)}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${docs.length} requests</div></div>
     </div>
   `;
 

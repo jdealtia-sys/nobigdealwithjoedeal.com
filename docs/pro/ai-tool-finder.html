@@ -288,30 +288,31 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 /* ── NAV CONFIG DEFAULTS ─────────────────────────────────────── */
 :root {
   --nbd-nav-h: 52px;
-  --nbd-nav-bg: #0f1d42;
+  --nbd-nav-bg: #0A0C0F;
   --nbd-nav-border: rgba(232,114,12,0.25);
   --nbd-nav-orange: #e8720c;
-  --nbd-nav-cyan: #00d4ff;
+  --nbd-nav-cyan: #e8720c;
   --nbd-nav-text: #8b9bb4;
   --nbd-nav-white: #f0f6fc;
 }
 
+/* Legacy duplicate nav — hidden because the page uses its own .topbar */
 #nbd-pro-nav {
+  display: none !important;
   position: sticky;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
   height: var(--nbd-nav-h);
-  background: rgba(15,29,66,0.97);
+  background: rgba(10,12,15,0.97);
   -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--nbd-nav-border);
-  display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
   gap: 12px;
-  font-family: 'DM Mono', 'Montserrat', monospace;
+  font-family: 'DM Mono', 'Barlow', monospace;
 }
 
 /* Logo */
@@ -327,12 +328,12 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   background: var(--nbd-nav-orange);
   border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 16px; color: #fff; letter-spacing: 1px;
   flex-shrink: 0;
 }
 #nbd-pro-nav .nnav-wordmark {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 16px; letter-spacing: 2px;
   color: var(--nbd-nav-white); line-height: 1;
 }
