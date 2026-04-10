@@ -2485,7 +2485,7 @@ async function loadEstimates(leadId) {
       const tierColor = tier==='best'?'#22C55E':tier==='better'?'#9B6DFF':'#e8720c';
       const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${tier}</span>` : '';
       return `
-        <div class="estimate-item" onclick="openEstimateModal('${est.id}')" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
+        <div class="estimate-item" onclick="viewEstimate('${est.id}')" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
           <div>
             <div class="estimate-title" style="display:flex;align-items:center;">${est.title || 'Estimate'}${tierLabel}</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
@@ -2968,7 +2968,7 @@ async function uploadSinglePhoto(item, index) {
 
 window._currentEstimateId = null;
 
-window.openEstimateModal = function(estimateId) {
+window.viewEstimate = function(estimateId) {
   const estimate = (window._customerEstimates || []).find(e => e.id === estimateId);
   if (!estimate) {
     alert('Estimate not found');
@@ -3498,121 +3498,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// ============================================
-// NOTES SYSTEM
-// ============================================
-
-
-window.closeNotesModal = function() {
-  document.getElementById('notesModal').style.display = 'none';
-};
-
-window.saveNote = async function() {
-  const noteText = document.getElementById('noteText').value.trim();
-  
-  if (!noteText) {
-    alert('Please enter a note');
-    return;
-  }
-  
-  if (!window._customerId) {
-    alert('Customer ID not found');
-    return;
-  }
-  
-  try {
-    await window.addDoc(window.collection(window.db, 'notes'), {
-      leadId: window._customerId,
-      userId: window.auth.currentUser.uid,
-      text: noteText,
-      createdAt: window.serverTimestamp(),
-      createdBy: auth.currentUser?.email || 'Unknown'
-    });
-    
-    closeNotesModal();
-    await loadNotes(window._customerId);
-    
-    // Reload timeline to show new note
-    const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
-    if (leadSnap.exists()) {
-      await loadTimeline(window._customerId, leadSnap.data());
-    }
-    
-  } catch (error) {
-    console.error('Error saving note:', error);
-    alert('Failed to save note. Please try again.');
-  }
-};
-
-
-function getTimeAgo(date) {
-  const seconds = Math.floor((new Date() - date) / 1000);
-  
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  
-  return date.toLocaleDateString();
-}
-
-// ============================================
-// ESTIMATE SYSTEM
-// ============================================
-
-window.openEstimateModal = function() {
-  document.getElementById('estimateModal').style.display = 'flex';
-  document.getElementById('estimateAmount').value = '';
-  document.getElementById('estimateNotes').value = '';
-};
-
-window.closeEstimateModal = function() {
-  document.getElementById('estimateModal').style.display = 'none';
-};
-
-window.saveEstimate = async function() {
-  const type = document.getElementById('estimateType').value;
-  const amount = parseFloat(document.getElementById('estimateAmount').value);
-  const notes = document.getElementById('estimateNotes').value.trim();
-  
-  if (!amount || amount <= 0) {
-    alert('Please enter a valid estimate amount');
-    return;
-  }
-  
-  if (!window._customerId) {
-    alert('Customer ID not found');
-    return;
-  }
-  
-  try {
-    await window.addDoc(window.collection(window.db, 'estimates'), {
-      leadId: window._customerId,
-      type: type,
-      amount: amount,
-      notes: notes,
-      status: 'Draft',
-      createdAt: window.serverTimestamp(),
-      createdBy: auth.currentUser?.email || 'Unknown'
-    });
-    
-    alert('Estimate created successfully!');
-    closeEstimateModal();
-    if (window.loadEstimates) await window.loadEstimates(window._customerId);
-
-    // Reload timeline
-    const leadSnap2 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
-    if (leadSnap2.exists()) {
-      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap2.data());
-    }
-    
-  } catch (error) {
-    console.error('Error saving estimate:', error);
-    alert('Failed to save estimate. Please try again.');
-  }
-};
-
-
+// NOTE: Duplicate NOTES / ESTIMATE definitions were removed here (audit C1 fix).
+// Canonical definitions live earlier in this file:
+//   - openNotesModal/closeNotesModal/saveNote: lines ~1748-1793
+//   - openEstimateModal (creation form): line ~1855
+//   - viewEstimate(estimateId) (detail viewer): line ~2971
+//   - getTimeAgo: line ~1840
 
 // Expose module-scope functions to window for cross-script access
 window.loadTimeline = loadTimeline;

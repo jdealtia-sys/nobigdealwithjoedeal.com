@@ -601,10 +601,18 @@ const NBD_NAV_CONFIG = {
     if (el.dataset.page === activePage) el.classList.add('active');
   });
 
-  // Auth state
-  try {
-    if (typeof firebase !== 'undefined') {
-      firebase.auth().onAuthStateChanged(user => {
+  // Auth state — use modular NBDAuth (v10 SDK) instead of legacy compat API
+  (async () => {
+    try {
+      // Wait for NBDAuth to initialize
+      for (let i = 0; i < 50; i++) {
+        if (window._auth || window.NBDAuth) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const { onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+      const auth = window._auth;
+      if (!auth) return;
+      onAuthStateChanged(auth, user => {
         const btn = document.getElementById('nnav-auth-btn');
         const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
         const userLabel = document.getElementById('nnav-user-label');
@@ -613,15 +621,15 @@ const NBD_NAV_CONFIG = {
           const name = user.displayName || user.email?.split('@')[0] || 'Member';
           if (userLabel) userLabel.textContent = name;
           if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
+          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); signOut(auth); }; }
+          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); signOut(auth); }; }
         } else {
           if (userLabel) userLabel.textContent = '';
           if (drawerUser) drawerUser.textContent = '';
         }
       });
-    }
-  } catch(e) {}
+    } catch(e) {}
+  })();
 })();
 
 function nbdNavToggle() {

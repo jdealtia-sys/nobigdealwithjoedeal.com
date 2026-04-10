@@ -11614,10 +11614,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/ui.js?v=3"></script>
 <script src="js/estimates.js?v=3"></script>
 <script src="js/ai.js?v=4"></script>
-<script defer src="js/review-engine.js?v=1"></script>
-<script defer src="js/share-gallery.js?v=1"></script>
+<script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
-<script defer src="js/lead-scoring.js?v=1"></script>
+<script defer src="js/lead-scoring.js?v=2"></script>
 <script defer src="js/sales-training.js?v=1"></script>
 <script defer src="js/real-deal-academy.js?v=2"></script>
 <script defer src="js/d2d-tracker.js?v=1"></script>
@@ -11626,8 +11626,20 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/rep-os.js?v=1"></script>
 <script defer src="js/product-library.js?v=1"></script>
 <script>
-// HOTFIX:
-// END HOTFIX
+// ── Service Worker registration (offline + PWA) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/pro/sw.js', { scope: '/pro/' })
+      .then(reg => console.log('✓ SW registered:', reg.scope))
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
+// ── Onboarding flow: dead (DOM does not exist). See audit C2. ──
+// checkAndShowOnboarding() references #onboardingModal and ~10 other IDs
+// that are not defined in dashboard.html. The function is stubbed to
+// no-op until the onboarding modal is built.
+window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script src="js/mobile-nav-customizer.js?v=1"></script>
 <script src="js/connection-status-btn.js?v=1"></script>

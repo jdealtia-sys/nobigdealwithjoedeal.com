@@ -941,7 +941,7 @@ canvas{max-width:100%;display:block;}
 
 <!-- NAV HTML -->
 <nav id="nbd-pro-nav">
-  <a href="/pro/features.html" class="nnav-logo">
+  <a href="/pro/dashboard.html" class="nnav-logo">
     <div class="nnav-mark">NBD</div>
     <div>
       <div class="nnav-wordmark"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
@@ -1020,17 +1020,24 @@ const NBD_NAV_CONFIG = {
     '/pro/codex.html': 'codex',
     '/pro/understand.html': 'understand',
     '/pro/demo.html': 'demo',
-    '/pro/features.html': 'features',
+    '/pro/dashboard.html': 'dashboard',
   };
   const activePage = pageMap[path] || '';
   document.querySelectorAll('.nnav-link[data-page], .nnav-drawer-link[data-page]').forEach(el => {
     if (el.dataset.page === activePage) el.classList.add('active');
   });
 
-  // Auth state
-  try {
-    if (typeof firebase !== 'undefined') {
-      firebase.auth().onAuthStateChanged(user => {
+  // Auth state — use modular NBDAuth (v10 SDK) instead of legacy compat API
+  (async () => {
+    try {
+      for (let i = 0; i < 50; i++) {
+        if (window._auth) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const { onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+      const auth = window._auth;
+      if (!auth) return;
+      onAuthStateChanged(auth, user => {
         const btn = document.getElementById('nnav-auth-btn');
         const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
         const userLabel = document.getElementById('nnav-user-label');
@@ -1039,15 +1046,15 @@ const NBD_NAV_CONFIG = {
           const name = user.displayName || user.email?.split('@')[0] || 'Member';
           if (userLabel) userLabel.textContent = name;
           if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
+          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); signOut(auth); }; }
+          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); signOut(auth); }; }
         } else {
           if (userLabel) userLabel.textContent = '';
           if (drawerUser) drawerUser.textContent = '';
         }
       });
-    }
-  } catch(e) {}
+    } catch(e) {}
+  })();
 })();
 
 function nbdNavToggle() {
@@ -1802,7 +1809,7 @@ function buildIntelligenceBrief(p){
 
 function buildCRMContext(){
   const cache = localStorage.getItem('nbd_pipeline_cache');
-  if(!cache) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:16px;">Connect your CRM to see pipeline data here. <br><a href="/pro/crm.html" style="color:var(--ac);">Open CRM →</a></div>';
+  if(!cache) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:16px;">Connect your CRM to see pipeline data here. <br><a href="/pro/dashboard.html" style="color:var(--ac);">Open CRM →</a></div>';
 
   try {
     const data = JSON.parse(cache);
@@ -1827,7 +1834,7 @@ function buildCRMContext(){
       html += '</div>';
     }
 
-    html += `<div style="margin-top:8px;text-align:right;"><a href="/pro/crm.html" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--ac);text-decoration:none;">OPEN FULL CRM →</a></div>`;
+    html += `<div style="margin-top:8px;text-align:right;"><a href="/pro/dashboard.html" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--ac);text-decoration:none;">OPEN FULL CRM →</a></div>`;
     return html;
   } catch(e){
     return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:16px;">Pipeline data unavailable</div>';
