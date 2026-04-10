@@ -7296,7 +7296,12 @@ function switchScTab(tab, btn) {
 <!-- ══ LEADERBOARD ══ -->
   <div class="view" id="view-board">
     <div class="view-scroll">
-      <div class="page-hdr"><div><div class="page-title">Leaderboard</div><div class="page-sub">Rep performance rankings</div></div></div>
+      <div class="page-hdr"><div><div class="page-title">Analytics & Leaderboard</div><div class="page-sub">Performance metrics and rankings</div></div></div>
+
+      <!-- Full Analytics Dashboard -->
+      <div id="analyticsContainer" style="margin-bottom:20px;"></div>
+
+      <!-- Leaderboard Rankings -->
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Rankings</div><div class="panel-title">Top Reps — All Time</div></div></div>
         <div class="panel-body" id="leaderboardBody">
@@ -8365,7 +8370,7 @@ function goTo(name, params = {}) {
   if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
   if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
   if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
-  if(name==='board') renderLeaderboard();
+  if(name==='board') { if(window.AnalyticsKPI) window.AnalyticsKPI.render('analyticsContainer'); renderLeaderboard(); }
   if(name==='photos') {
     renderPhotoLeads();
     // Populate lead selector for photo engine
@@ -8847,34 +8852,66 @@ async function loadStorm(){
 // ══════════════════════════════════════════════
 // LEADERBOARD
 // ══════════════════════════════════════════════
-function renderLeaderboard(){
-  const leads=window._leads||[];
-  const reps={};
-  leads.forEach(l=>{
-    const n=l.repName||l.source||'Unknown Rep';
-    if(!reps[n])reps[n]={name:n,leads:0,won:0};
+async function renderLeaderboard(){
+  const WON = ['closed','install_complete','final_photos','final_payment','deductible_collected','Complete'];
+  const leads = window._leads || [];
+  const db = window._db || window.db;
+  const uid = window._user?.uid;
+  const lbEl = document.getElementById('lbRows');
+  if (!lbEl) return;
+
+  // Build rep stats from leads
+  const reps = {};
+  leads.filter(l => !l.deleted).forEach(l => {
+    const n = l.repName || window._user?.displayName || 'You';
+    if (!reps[n]) reps[n] = { name: n, leads: 0, won: 0, revenue: 0, knocks: 0 };
     reps[n].leads++;
-    if(l.stage==='Closed Won')reps[n].won++;
+    if (WON.includes(l._stageKey || l.stage || '')) {
+      reps[n].won++;
+      reps[n].revenue += parseFloat(l.jobValue) || 0;
+    }
   });
-  // Add demo data if empty
-  if(!Object.keys(reps).length){
-    ['Jonathan D.','Mike R.','Sarah K.','Dave M.'].forEach((n,i)=>{
-      reps[n]={name:n,leads:20-i*4,won:8-i*2};
-    });
+
+  // Enrich with knock data if available
+  if (db && uid) {
+    try {
+      const snap = await window.getDocs(window.query(window.collection(db, 'knocks'), window.where('userId', '==', uid)));
+      const knockCount = snap.size;
+      // Assign knocks to first (or only) rep
+      const repKeys = Object.keys(reps);
+      if (repKeys.length > 0) reps[repKeys[0]].knocks = knockCount;
+      else reps[window._user?.displayName || 'You'] = { name: window._user?.displayName || 'You', leads: 0, won: 0, revenue: 0, knocks: knockCount };
+    } catch (e) { /* knocks may not have index — skip */ }
   }
-  const sorted=Object.values(reps).sort((a,b)=>b.won-a.won);
-  const medals=['🥇','🥈','🥉'];
-  const maxWon=sorted[0]?.won||1;
-  document.getElementById('lbRows').innerHTML=sorted.map((r,i)=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--br);">
-      <div style="font-size:20px;width:28px;text-align:center;">${medals[i]||'#'+(i+1)}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;">${r.name}</div>
-        <div style="font-size:11px;color:var(--m);">${r.leads} leads · ${r.won} won · ${r.leads?Math.round(r.won/r.leads*100):0}% close rate</div>
-        <div style="background:var(--s3);border-radius:4px;height:5px;margin-top:6px;overflow:hidden;"><div style="height:100%;border-radius:4px;background:var(--orange);width:${Math.round(r.won/maxWon*100)}%;transition:width .6s;"></div></div>
-      </div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--orange);">${r.won} <span style="font-size:11px;color:var(--m);">WON</span></div>
-    </div>`).join('');
+
+  // If still empty show a friendly message
+  if (!Object.keys(reps).length) {
+    lbEl.innerHTML = '<div style="text-align:center;padding:32px 16px;color:var(--m);font-size:13px;"><div style="font-size:28px;margin-bottom:8px;">📊</div>No data yet. Close deals to appear on the leaderboard.</div>';
+    return;
+  }
+
+  const sorted = Object.values(reps).sort((a, b) => b.won - a.won || b.revenue - a.revenue);
+  const medals = ['🥇', '🥈', '🥉'];
+  const maxWon = sorted[0]?.won || 1;
+
+  lbEl.innerHTML = sorted.map((r, i) => {
+    const rateStr = r.leads ? Math.round(r.won / r.leads * 100) + '%' : '—';
+    const revStr = r.revenue > 0 ? '$' + (r.revenue >= 1000 ? (r.revenue / 1000).toFixed(1) + 'K' : Math.round(r.revenue)) : '$0';
+    const barW = Math.round((r.won / maxWon) * 100);
+    const knockStr = r.knocks > 0 ? ' · ' + r.knocks + ' doors' : '';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--br);">' +
+      '<div style="font-size:20px;width:28px;text-align:center;">' + (medals[i] || '#' + (i + 1)) + '</div>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px;font-weight:600;">' + r.name + '</div>' +
+        '<div style="font-size:11px;color:var(--m);">' + r.leads + ' leads · ' + r.won + ' won · ' + rateStr + ' close rate' + knockStr + '</div>' +
+        '<div style="background:var(--s3);border-radius:4px;height:5px;margin-top:6px;overflow:hidden;"><div style="height:100%;border-radius:4px;background:var(--orange);width:' + barW + '%;transition:width .6s;"></div></div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:700;color:var(--orange);">' + r.won + ' <span style="font-size:11px;color:var(--m);">WON</span></div>' +
+        '<div style="font-size:10px;color:var(--m);margin-top:2px;">' + revStr + ' revenue</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ══════════════════════════════════════════════
