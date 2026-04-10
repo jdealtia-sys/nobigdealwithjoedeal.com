@@ -6352,11 +6352,20 @@ function switchScTab(tab, btn) {
   <!-- TIER 4: SYSTEM (Always Visible) -->
   <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
 
-  <div class="nav-section-label" style="margin-top:8px;"><span>AI TOOLS</span> <span class="nav-arrow" style="color:var(--orange);">▼</span></div>
-  <div class="ni" onclick="window.location.href='/pro/ai-tree.html'"><span class="ni-icon">⚡</span>Decision Engine</div>
-  <div class="ni" onclick="window.location.href='/pro/understand.html'"><span class="ni-icon">🔬</span>Deep Dive</div>
-  <div class="ni" onclick="window.location.href='/pro/project-codex.html'"><span class="ni-icon">📋</span>Project Intel</div>
-  <div class="ni" onclick="window.location.href='/pro/analytics.html'" id="nav-analytics"><span class="ni-icon">📊</span>AI Usage</div>
+  <!-- AI TOOLS (Collapsible — matches TOOLS + INSIGHTS pattern) -->
+  <div class="nav-section" style="margin-top:4px;">
+    <div class="nav-section-header" onclick="toggleNavSection('ai-tools')">
+      <span>AI TOOLS</span>
+      <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
+    </div>
+    <div class="nav-section-content open" id="section-ai-tools">
+      <div class="ni" onclick="window.location.href='/pro/ai-tree.html'"><span class="ni-icon">⚡</span>Decision Engine</div>
+      <div class="ni" onclick="window.location.href='/pro/understand.html'"><span class="ni-icon">🔬</span>Deep Dive</div>
+      <div class="ni" onclick="window.location.href='/pro/project-codex.html'"><span class="ni-icon">📋</span>Project Intel</div>
+      <div class="ni" onclick="window.location.href='/pro/analytics.html'" id="nav-analytics"><span class="ni-icon">📊</span>AI Usage</div>
+    </div>
+  </div>
+
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   
 </nav>

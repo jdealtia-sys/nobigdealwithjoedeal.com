@@ -787,11 +787,13 @@ function restoreSettingsSections() {
 
 // Restore nav section states on load
 function restoreNavSections() {
-  ['tools','insights'].forEach(section => {
+  ['tools','insights','ai-tools'].forEach(section => {
     const state = localStorage.getItem('nav-'+section);
     if(state === 'closed') {
-      document.getElementById('section-'+section).classList.remove('open');
-      document.getElementById('toggle-'+section).classList.remove('open');
+      const content = document.getElementById('section-'+section);
+      const toggle = document.getElementById('toggle-'+section);
+      if (content) content.classList.remove('open');
+      if (toggle) toggle.classList.remove('open');
     }
   });
 }
