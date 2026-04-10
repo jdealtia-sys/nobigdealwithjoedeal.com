@@ -162,21 +162,43 @@
     renderLeaderboard: function(containerId) {
       const container = document.getElementById(containerId);
       if(!container) return;
-      
-      const leaderboard = [
-        {rank:1, name:'John Smith', score:'5 courses', badge:'🏆 First Course Champion'},
-        {rank:2, name:'Sarah Jones', score:'4 courses', badge:'⚡ Quiz Master'},
-        {rank:3, name:'Mike Davis', score:'3 courses', badge:''},
-        {rank:4, name:'Lisa Brown', score:'2 courses', badge:'🔥 7-day streak'},
-        {rank:5, name:'Tom Wilson', score:'1 course', badge:''}
-      ];
-      
-      let html = '<table class="leaderboard"><thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Badge</th></tr></thead><tbody>';
-      leaderboard.forEach(row => {
-        html += `<tr><td>${row.rank}</td><td>${row.name}</td><td>${row.score}</td><td>${row.badge}</td></tr>`;
+
+      // Read real team progress from localStorage + Firestore (future).
+      // Solo operator mode: show empty state instead of fake data.
+      let teamProgress = [];
+      try {
+        const raw = localStorage.getItem('nbd_team_academy_progress');
+        if (raw) teamProgress = JSON.parse(raw) || [];
+      } catch (e) {}
+
+      if (teamProgress.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center;padding:40px 20px;color:var(--m, #8892A4);">
+            <div style="font-size:36px;margin-bottom:8px;">🎓</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t, #fff);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">
+              No Learners Yet
+            </div>
+            <div style="font-size:12px;line-height:1.6;max-width:380px;margin:0 auto;">
+              The leaderboard activates once you invite team members and they start completing courses.
+              For now you're in solo operator mode — every course you finish goes straight to your personal progress.
+            </div>
+            <div style="margin-top:18px;font-size:10px;color:var(--m, #888);text-transform:uppercase;letter-spacing:.12em;">
+              Multi-user team features coming in Enterprise tier
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Real data path (when team members eventually join)
+      let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Badge</th></tr></thead><tbody>';
+      teamProgress.forEach((row, i) => {
+        const name = String(row.name || '').replace(/</g, '&lt;');
+        const score = String(row.score || '').replace(/</g, '&lt;');
+        const badge = String(row.badge || '').replace(/</g, '&lt;');
+        html += `<tr><td>${i + 1}</td><td>${name}</td><td>${score}</td><td>${badge}</td></tr>`;
       });
       html += '</tbody></table>';
-      
       container.innerHTML = html;
     },
     

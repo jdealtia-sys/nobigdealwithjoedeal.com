@@ -367,12 +367,19 @@
             <div class="v2-rollup" id="v2rollup"></div>
           </div>
 
-          <div class="v2-section">Finalize</div>
+          <div class="v2-section">Preview / Export</div>
           <div class="v2-export-btns">
             <button onclick="EstimateV2UI.finalize('insurance-scope')">📋 Insurance Scope</button>
-            <button class="primary" onclick="EstimateV2UI.finalize('retail-quote')">💼 Retail Quote</button>
+            <button onclick="EstimateV2UI.finalize('retail-quote')">💼 Retail Quote</button>
             <button onclick="EstimateV2UI.finalize('internal-view')">🔒 Internal</button>
           </div>
+
+          <div class="v2-section">Save</div>
+          <button id="v2saveBtn" onclick="EstimateV2UI.save()"
+            style="width:100%;background:#e8720c;border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
+            💾 Save Estimate to Customer
+          </button>
+          <div id="v2saveStatus" style="font-size:10px;color:#888;margin-top:6px;text-align:center;"></div>
         </div>
       </div>
     `;
@@ -653,6 +660,108 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // Save estimate to Firestore — wires to window._saveEstimate
+  // (same function the classic builder uses, so V2 estimates
+  // appear in the existing Estimates list + customer records)
+  // ═════════════════════════════════════════════════════════
+
+  async function save() {
+    const statusEl = document.getElementById('v2saveStatus');
+    const btn = document.getElementById('v2saveBtn');
+    const setStatus = (msg, color) => {
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || '#888'; }
+    };
+
+    // Guard: no scope
+    const estimate = getCurrentEstimate();
+    if (!estimate) {
+      setStatus('Add line items to the scope first.', '#c53030');
+      return;
+    }
+
+    // Guard: save function missing (e.g., dashboard not loaded)
+    if (typeof window._saveEstimate !== 'function') {
+      setStatus('Save failed: _saveEstimate not loaded.', '#c53030');
+      return;
+    }
+
+    // Guard: user not signed in
+    if (!window._user?.uid) {
+      setStatus('Save failed: not signed in.', '#c53030');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    setStatus('Saving to Firestore…', '#888');
+
+    try {
+      // Match the classic builder's data shape so the estimates
+      // list + customer timeline rendering picks up V2 estimates.
+      const ctx = estimate.context || {};
+      const payload = {
+        // Identity
+        estimateVersion:  'v2',
+        method:           estimate.method || 'line-item',
+        tier:             estimate.tier || state.tier,
+        mode:             estimate.mode || state.jobMode,
+        // Customer association
+        leadId:           state.leadId || null,
+        addr:             state.customer.address || '',
+        owner:            state.customer.name || '',
+        // Measurements (echoed so the estimate list can show them)
+        raw:              Math.round(ctx.rawSqft || 0),
+        adj:              Math.round(ctx.adjustedSqft || 0),
+        sq:               Number((ctx.sq || 0).toFixed(2)),
+        wf:               ctx.waste || 1.17,
+        pl:               String(state.measurements.pitch || 8) + '/12',
+        ridge:            ctx.ridgeLf || 0,
+        eave:             ctx.eaveLf || 0,
+        hip:              ctx.hipLf || 0,
+        pipes:            ctx.pipes || 0,
+        // Line items in the same shape the classic builder emits
+        rows: (estimate.lines || []).map(line => ({
+          code:   line.code,
+          desc:   line.name,
+          qty:    (line.quantity || 0).toFixed(2) + (line.unit || ''),
+          rate:   '$' + ((line.materialCostPerUnit || 0) + (line.laborCostPerUnit || 0)).toFixed(2),
+          total:  line.lineTotal || 0
+        })),
+        // Totals
+        grandTotal:       estimate.total,
+        materialCost:     estimate.materialCost,
+        laborCost:        estimate.laborCost,
+        subtotal:         estimate.subtotal,
+        tax:              estimate.tax,
+        taxRate:          estimate.taxRate,
+        // Internal margin view
+        internal:         estimate.internal || null,
+        // Timestamp handled by _saveEstimate (serverTimestamp)
+      };
+
+      const savedId = await window._saveEstimate(payload);
+
+      if (savedId) {
+        setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', '#2ECC8A');
+        if (typeof window.showToast === 'function') {
+          window.showToast('✓ Estimate saved to Firestore', 'success');
+        }
+        if (btn) { btn.textContent = '✓ Saved — Save Again?'; }
+        // Re-enable after 2 seconds so user can save again after changes
+        setTimeout(() => {
+          if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+        }, 2000);
+      } else {
+        setStatus('Save failed — check console.', '#c53030');
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+      }
+    } catch (e) {
+      console.error('[EstimateV2UI] Save failed:', e);
+      setStatus('Save error: ' + e.message, '#c53030');
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Public API
   // ═════════════════════════════════════════════════════════
 
@@ -680,6 +789,7 @@
     clearScope,
     loadPreset,
     finalize,
+    save,
     getState: () => state
   };
 
