@@ -1,34 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="nbd-original">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Welcome to NBD Pro — Payment Successful</title>
 <style>
-:root{--navy:#1a2b5e;--navy-dark:#0f1d42;--orange:#e8720c;--white:#fff;}
+:root{--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--orange:#e8720c;--orange-hover:#f08030;--text:#E8EAF0;--muted:#6B7280;--border:rgba(255,255,255,.07);}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:var(--white);min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.container{max-width:500px;width:100%;background:rgba(22,27,34,.97);border:1px solid rgba(232,114,12,.2);border-radius:14px;padding:48px 40px;text-align:center;}
-.success-icon{width:72px;height:72px;background:rgba(232,114,12,.15);border:2px solid var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:38px;}
-h1{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:1px;margin-bottom:12px;color:var(--orange);}
-.sub{color:#c8d3e0;font-size:13px;line-height:1.7;margin-bottom:28px;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.container{max-width:500px;width:100%;background:var(--s);border:1px solid var(--border);border-radius:14px;padding:48px 40px;text-align:center;}
+.success-icon{width:72px;height:72px;background:rgba(232,114,12,.12);border:2px solid var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:38px;color:var(--orange);}
+h1{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;color:var(--orange);}
+.sub{color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:28px;}
 .status-box{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.2);border-radius:8px;margin-bottom:24px;font-size:13px;color:var(--orange);}
 .spinner{width:18px;height:18px;border:2px solid rgba(232,114,12,.2);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .form-section{text-align:left;margin-bottom:24px;}
-.form-section label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:6px;}
-.form-section input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:12px 14px;color:#fff;font-family:'Montserrat',sans-serif;font-size:14px;outline:none;margin-bottom:14px;}
+.form-section label{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.form-section input{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:12px 14px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:border-color .15s;}
 .form-section input:focus{border-color:var(--orange);}
-.btn{display:block;width:100%;background:var(--orange);color:#fff;padding:15px;border-radius:7px;font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .2s;margin-bottom:8px;}
-.btn:hover{background:#c45e08;}
-.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);}
-.btn-ghost:hover{border-color:rgba(255,255,255,.5);color:#fff;background:transparent;}
+.form-section input::placeholder{color:var(--muted);}
+.btn{display:block;width:100%;background:var(--orange);color:#fff;padding:15px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;transition:all .2s;margin-bottom:8px;}
+.btn:hover{background:var(--orange-hover);transform:translateY(-1px);}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:rgba(255,255,255,.3);color:var(--text);background:transparent;}
 .error-box{background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.3);color:#e05252;padding:14px;border-radius:8px;margin-bottom:20px;font-size:13px;display:none;}
-.note{font-size:11px;color:rgba(255,255,255,.3);margin-top:8px;}
+.note{font-size:11px;color:var(--muted);margin-top:8px;}
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/stripe-success">
 </head>
 <body>

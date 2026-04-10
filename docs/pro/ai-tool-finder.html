@@ -17,19 +17,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --void:#050608; --surface:#0D1117; --card:#111722; --lift:#161E2B;
-  --border:#1C2535; --border2:#243044;
+  --void:#0A0C0F; --surface:#111418; --card:#181C22; --lift:#1E2229;
+  --border:rgba(255,255,255,.07); --border2:rgba(255,255,255,.12);
   --orange:#e8720c; --orange-dim:rgba(232,114,12,0.10); --orange-glow:rgba(232,114,12,0.22);
   --red:#E05252; --red-dim:rgba(224,82,82,0.10);
   --green:#3DD68C; --green-dim:rgba(61,214,140,0.10);
   --blue:#4E9BF5; --blue-dim:rgba(78,155,245,0.10);
-  --text:#E2E8F0; --text2:#8892A4; --text3:#4A5568;
+  --text:#E8EAF0; --text2:#6B7280; --text3:#4A5568;
   --ease:cubic-bezier(0.22,1,0.36,1); --t:0.2s; --r:8px; --rlg:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'Barlow',sans-serif;background:var(--void);color:var(--text);min-height:100vh;min-height:100dvh;overflow-x:hidden}
-body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-image:linear-gradient(rgba(232,114,12,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(232,114,12,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-image:linear-gradient(rgba(232,114,12,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(232,114,12,0.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
 body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height:800px;background:radial-gradient(ellipse,rgba(232,114,12,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
 .app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
 

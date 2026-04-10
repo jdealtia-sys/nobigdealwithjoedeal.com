@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="nbd-original">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
-<link rel="icon" href="/pro/img/nbd-icon-192.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <meta name="robots" content="noindex, nofollow">
 <script src="js/standalone-compat.js"></script>
 <title>Join NBD Pro — No Big Deal Home Solutions</title>
@@ -30,6 +32,13 @@
   const app    = initializeApp(firebaseConfig);
   const auth   = getAuth(app);
   const db     = getFirestore(app);
+
+  // ── Trial duration helper ──
+  function getTrialEnd(days = 14) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d;
+  }
 
   // Access codes — validated server-side via Firestore ONLY
   // Manage codes in Firestore: access_codes collection, documents with {code: 'CODE', active: true}
@@ -80,13 +89,15 @@
 
         await setDoc(doc(db, 'users', cred.user.uid), {
           firstName, lastName, company: company || '', email,
-          role: 'member', plan: 'lite',
+          role: 'member', plan: 'professional',
           createdAt: serverTimestamp(), onboarded: false
         });
 
         await setDoc(doc(db, 'subscriptions', cred.user.uid), {
-          plan: 'lite', status: 'active',
-          createdAt: serverTimestamp(), source: 'registration-free',
+          plan: 'professional', status: 'active',
+          createdAt: serverTimestamp(), source: 'registration-free-trial',
+          trialEndsAt: getTrialEnd(14),
+          fallbackPlan: 'lite',
           limits: { maxLeads: 25 }
         });
 
@@ -128,14 +139,18 @@
         onboarded: false
       });
 
-      // Write subscription record — required for dashboard access gate
-      await setDoc(doc(db, 'subscriptions', cred.user.uid), {
-        plan:      'professional',
-        status:    'active',
-        createdAt: serverTimestamp(),
-        source:    'registration',
-        accessCode: code.toUpperCase().trim()
-      });
+      // Write subscription — tiered trial based on code type
+      const upperCode = code.toUpperCase().trim();
+      const codeSub = { plan: 'professional', status: 'active', createdAt: serverTimestamp(), source: 'registration-access-code', accessCode: upperCode };
+      // DEMO/TRYIT = 14 days, NBD-JOE/ADMIN = permanent, all others = 90-day beta
+      if (['DEMO','TRYIT','NBD-DEMO'].includes(upperCode)) {
+        codeSub.trialEndsAt = getTrialEnd(14);
+        codeSub.fallbackPlan = 'lite';
+      } else if (!['NBD-JOE','ADMIN','NBD-ADMIN'].includes(upperCode)) {
+        codeSub.trialEndsAt = getTrialEnd(90);
+        codeSub.fallbackPlan = 'lite';
+      }
+      await setDoc(doc(db, 'subscriptions', cred.user.uid), codeSub);
 
       okEl.textContent = 'Account created! Taking you to your dashboard...';
       btn.textContent = '✓ Done';
@@ -179,8 +194,11 @@
         const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
         if(!subSnap.exists()) {
           await setDoc(doc(db,'subscriptions',user.uid), {
-            plan:'lite', status:'active', createdAt:serverTimestamp(),
-            source:'registration-google-free', limits:{maxLeads:25}
+            plan:'professional', status:'active', createdAt:serverTimestamp(),
+            source:'registration-google-free-trial',
+            trialEndsAt: getTrialEnd(14),
+            fallbackPlan: 'lite',
+            limits:{maxLeads:25}
           });
         }
         window.location.replace('/pro/dashboard.html');
@@ -218,16 +236,19 @@
         });
       }
 
-      // Always write/refresh subscription — works for new AND returning Google users
+      // Always write/refresh subscription — tiered trial based on code
       const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
       if(!subSnap.exists() || subSnap.data().status !== 'active') {
-        await setDoc(doc(db, 'subscriptions', user.uid), {
-          plan:      'professional',
-          status:    'active',
-          createdAt: serverTimestamp(),
-          source:    'registration',
-          accessCode: code.toUpperCase().trim()
-        });
+        const gUpperCode = code.toUpperCase().trim();
+        const gCodeSub = { plan:'professional', status:'active', createdAt:serverTimestamp(), source:'registration-google-access-code', accessCode:gUpperCode };
+        if (['DEMO','TRYIT','NBD-DEMO'].includes(gUpperCode)) {
+          gCodeSub.trialEndsAt = getTrialEnd(14);
+          gCodeSub.fallbackPlan = 'lite';
+        } else if (!['NBD-JOE','ADMIN','NBD-ADMIN'].includes(gUpperCode)) {
+          gCodeSub.trialEndsAt = getTrialEnd(90);
+          gCodeSub.fallbackPlan = 'lite';
+        }
+        await setDoc(doc(db, 'subscriptions', user.uid), gCodeSub);
       }
 
       document.getElementById('regOk').textContent = 'Signed in! Taking you to your dashboard...';
