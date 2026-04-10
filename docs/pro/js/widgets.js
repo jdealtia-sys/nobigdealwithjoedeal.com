@@ -101,11 +101,10 @@ const WIDGETS = [
   {id:'recent-activity', name:'Recent Activity', icon:'⚡', cat:'Pipeline & Sales', size:'md',
     render(el){
       const leads = (window._leads || []).filter(l => l.updatedAt || l.createdAt)
-        .sort((a,b) => new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt)).slice(0, 5);
+        .sort((a,b) => _toMs(b.updatedAt||b.createdAt) - _toMs(a.updatedAt||a.createdAt)).slice(0, 5);
       if(!leads.length) { el.innerHTML = '<div class="w-empty">No recent activity</div>'; return; }
       el.innerHTML = leads.map(l => {
-        const d = new Date(l.updatedAt || l.createdAt);
-        const ago = _timeAgo(d);
+        const ago = _timeAgo(l.updatedAt || l.createdAt);
         return `<div class="w-activity-row">
           <div class="w-activity-dot" style="background:${l.stage==='Won'?'#22C55E':l.stage==='Lost'?'#EF4444':'var(--orange)'}"></div>
           <div style="flex:1;min-width:0;">
@@ -121,14 +120,14 @@ const WIDGETS = [
       const now = Date.now();
       const stale = (window._leads || []).filter(l => {
         if(l.stage==='Won'||l.stage==='Lost') return false;
-        const last = new Date(l.updatedAt||l.createdAt||0).getTime();
-        return (now - last) > 7*24*60*60*1000;
-      }).sort((a,b) => new Date(a.updatedAt||a.createdAt) - new Date(b.updatedAt||b.createdAt)).slice(0,5);
+        const last = _toMs(l.updatedAt||l.createdAt);
+        return last > 0 && (now - last) > 7*24*60*60*1000;
+      }).sort((a,b) => _toMs(a.updatedAt||a.createdAt) - _toMs(b.updatedAt||b.createdAt)).slice(0,5);
       if(!stale.length) { el.innerHTML = '<div class="w-empty" style="color:var(--green);">No stale leads — nice work!</div>'; return; }
       el.innerHTML = `<div style="font-size:10px;color:var(--red);margin-bottom:6px;font-weight:700;">${stale.length} leads need attention</div>` +
         stale.map(l => {
-          const days = Math.floor((now - new Date(l.updatedAt||l.createdAt).getTime()) / 86400000);
-          return `<div class="w-lead-row"><div class="w-lead-name">${l.name||l.address||'Lead'}</div><div style="color:var(--red);font-size:10px;">${days}d ago</div></div>`;
+          const days = Math.floor((now - _toMs(l.updatedAt||l.createdAt)) / 86400000);
+          return `<div class="w-lead-row"><div class="w-lead-name">${l.name||l.address||'Lead'}</div><div style="color:var(--red);font-size:10px;">${days > 0 ? days+'d ago' : 'today'}</div></div>`;
         }).join('');
     }},
 
@@ -488,8 +487,17 @@ const WIDGETS = [
 
 
 // ── UTILITY HELPERS ─────────────────────────────────────────────
+function _toMs(v) { if(!v) return 0; if(v.toDate) return v.toDate().getTime(); if(v.seconds) return v.seconds*1000; const d=new Date(v); return isNaN(d)?0:d.getTime(); }
+
 function _timeAgo(date) {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  // Handle Firestore Timestamps, strings, and Date objects
+  let d = date;
+  if(d && d.toDate) d = d.toDate();
+  else if(d && d.seconds) d = new Date(d.seconds * 1000);
+  else if(!(d instanceof Date)) d = new Date(d);
+  if(isNaN(d.getTime())) return '';
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if(s < 0) return 'just now';
   if(s < 60) return 'just now';
   if(s < 3600) return Math.floor(s/60) + 'm ago';
   if(s < 86400) return Math.floor(s/3600) + 'h ago';

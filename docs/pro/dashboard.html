@@ -784,7 +784,15 @@
   }
   window._loadLeads = loadLeads;
   // Refresh trash badge after leads load
-  loadLeads().then(()=>{ if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800); });
+  loadLeads().then(()=>{
+    if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800);
+    // Re-render KPI row after leads are loaded (fixes $0 / 0% on first load)
+    if(typeof renderKPIRow==='function') setTimeout(renderKPIRow, 300);
+    // Re-render home widgets if on home view
+    if(window.NBDWidgets && document.getElementById('view-home')?.classList.contains('active')) {
+      setTimeout(()=>window.NBDWidgets.render(), 500);
+    }
+  });
 
   // ══════════════════════════════════════════════════════════════
   // LOAD SAMPLE DATA (for testing when account has zero leads)
