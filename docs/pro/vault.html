@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eternal Vault V2 — NBD Pro</title>
@@ -19,7 +20,7 @@
 </script>
 
 <!-- Google Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <style>
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -70,7 +71,7 @@ html {
 }
 
 body {
-  font-family: 'Crimson Pro', serif;
+  font-family: 'Barlow Condensed', serif;
   background: var(--void);
   color: var(--text);
   min-height: 100vh;min-height: 100dvh;
@@ -737,6 +738,7 @@ body::after {
     </a>
     
     <div class="topbar-status">
+      <a href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
       <span class="save-indicator" id="saveIndicator">✓ Synced</span>
       <button class="btn-save" onclick="manualSave()">💾 Save Now</button>
     </div>

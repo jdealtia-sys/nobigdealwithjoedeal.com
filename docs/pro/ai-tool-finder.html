@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';
   window._nbdAuth = NBDAuth.init({
@@ -664,6 +665,7 @@ window.nbdNavToggle = nbdNavToggle;
     </div>
   </a>
   <div class="topbar-chips">
+    <a href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
     <a href="/pro/understand.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🔮 Understand</a>
     <a href="/pro/ai-tree.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🛠 AI Tree</a>
     <button class="topbar-guide-btn" onclick="openGuide()">? How To Use</button>
