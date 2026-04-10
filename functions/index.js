@@ -925,7 +925,36 @@ exports.validateAccessCode = onCall(
         accessCode: normalized
       });
 
-      console.log(`Access code validated: ${normalized} → ${creds.email} (trial: ${creds.trialDays || 'permanent'})`);
+      // Create/update subscription doc so dashboard auth gate passes
+      const plan = creds.trialDays === null ? 'professional' : 'foundation';
+      const subData = {
+        plan: plan,
+        status: 'active',
+        source: 'access_code',
+        accessCode: normalized,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (creds.trialDays !== null) {
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + creds.trialDays);
+        subData.trialEndsAt = admin.firestore.Timestamp.fromDate(trialEnd);
+      }
+      await admin.firestore().doc(`subscriptions/${userRecord.uid}`).set(subData, { merge: true });
+
+      // Also create user doc if missing
+      const userDocRef = admin.firestore().doc(`users/${userRecord.uid}`);
+      const userDocSnap = await userDocRef.get();
+      if (!userDocSnap.exists) {
+        await userDocRef.set({
+          email: creds.email,
+          role: creds.role,
+          displayName: userRecord.displayName || 'NBD Member',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      console.log(`Access code validated: ${normalized} → ${creds.email} (plan: ${plan}, trial: ${creds.trialDays || 'permanent'})`);
 
       // Return email + password for client signInWithEmailAndPassword
       return {
