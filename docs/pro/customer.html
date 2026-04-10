@@ -4565,10 +4565,20 @@ window.generateCustomerDoc = function(type) {
     return;
   }
 
-  // All prerequisites met — generate with real data
+  // All prerequisites met — open pre-flight modal so the user can
+  // review/edit every field before generation. Falls back to direct
+  // generate if the pre-flight module has not yet loaded.
+  if (window.DocPreflight && typeof window.DocPreflight.open === 'function') {
+    window.DocPreflight.open(type, window._customerId);
+    return;
+  }
   window.NBDDocGen.generate(type, data);
   logGeneratedDoc(type, data);
 };
+
+// Expose logGeneratedDoc globally so doc-preflight.js can call it
+// after successful generation.
+window.logGeneratedDoc = function(type, data) { return logGeneratedDoc(type, data); };
 
 function logGeneratedDoc(type, data) {
   var typeName = (window.NBDDocGen.DOCUMENT_TYPES[type] || {}).name || type;
@@ -4659,6 +4669,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/photo-editor.js?v=3"></script>
 <script src="js/document-generator.js?v=3"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
+<script defer src="js/doc-preflight.js?v=1"></script>
 
 <!-- Edit Customer Modal -->
 <div id="editCustomerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;">
