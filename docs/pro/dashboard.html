@@ -3385,6 +3385,34 @@ input:focus, select:focus, textarea:focus {
   background: linear-gradient(90deg, var(--orange), var(--ob));
 }
 
+/* ── TIER CARDS — SMALL MOBILE (≤640px) ── */
+@media(max-width:640px){
+  .tier-grid {
+    display:flex !important;
+    flex-direction:column !important;
+    gap:10px !important;
+  }
+  .tier-card {
+    padding:14px 16px !important;
+    min-height:auto !important;
+  }
+  .tier-card .tier-name {
+    font-size:15px !important;
+  }
+  .tier-card .tier-items {
+    font-size:12px !important;
+    line-height:1.6 !important;
+  }
+  .tier-card .tier-price {
+    font-size:18px !important;
+    margin-top:8px !important;
+  }
+  .tier-badge {
+    font-size:10px !important;
+    padding:3px 10px !important;
+  }
+}
+
 /* ── COMMAND PALETTE POLISH ── */
 .cmd-palette-overlay {
   -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(12px) saturate(1.4);

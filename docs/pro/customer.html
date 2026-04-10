@@ -6,7 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
-<link rel="icon" href="/pro/img/nbd-icon-192.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
 <title>Customer Details — NBD Pro</title>
 <meta name="robots" content="noindex, nofollow">
@@ -191,6 +192,7 @@ header {
   border-bottom:1px solid var(--br);
 }
 .timeline-item:last-child { border-bottom:none; }
+.timeline-item.tl-hidden { display:none; }
 .timeline-icon {
   width:32px; height:32px; background:var(--s2); border-radius:50%;
   display:flex; align-items:center; justify-content:center;
@@ -206,6 +208,32 @@ header {
 .timeline-time {
   font-size:11px; color:var(--m); font-family:'DM Mono',monospace;
 }
+
+/* TIMELINE FILTER PILLS */
+.tl-filters {
+  display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;
+}
+.tl-pill {
+  padding:5px 12px; font-size:11px; font-weight:600;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  background:var(--s2); border:1px solid var(--br);
+  border-radius:20px; cursor:pointer; color:var(--m);
+  transition:all .15s; user-select:none;
+}
+.tl-pill:hover { border-color:var(--orange); color:var(--t); }
+.tl-pill.active { background:var(--orange); border-color:var(--orange); color:#fff; }
+
+/* TIMELINE COLLAPSE TOGGLE */
+.tl-show-all {
+  display:none; text-align:center; padding:10px 0; margin-top:4px;
+}
+.tl-show-all button {
+  background:none; border:1px solid var(--br); border-radius:6px;
+  padding:6px 16px; font-size:11px; font-weight:600; cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
+  color:var(--orange); transition:all .15s;
+}
+.tl-show-all button:hover { border-color:var(--orange); background:var(--s2); }
 
 /* PHOTOS */
 .photo-grid {
@@ -660,11 +688,22 @@ header {
             ✅ Add Task
           </button>
         </div>
+        <div class="tl-filters" id="tlFilters">
+          <span class="tl-pill active" data-filter="all" onclick="filterTimeline('all',this)">All</span>
+          <span class="tl-pill" data-filter="stage" onclick="filterTimeline('stage',this)">Stage Changes</span>
+          <span class="tl-pill" data-filter="photo" onclick="filterTimeline('photo',this)">Photos</span>
+          <span class="tl-pill" data-filter="task" onclick="filterTimeline('task',this)">Tasks</span>
+          <span class="tl-pill" data-filter="document" onclick="filterTimeline('document',this)">Documents</span>
+          <span class="tl-pill" data-filter="note" onclick="filterTimeline('note',this)">Notes</span>
+        </div>
         <div id="timelineList">
           <div class="empty">
             <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>
             Loading...
           </div>
+        </div>
+        <div class="tl-show-all" id="tlShowAll">
+          <button onclick="toggleTimelineCollapse()">Show all items</button>
         </div>
       </div>
 
@@ -1107,7 +1146,9 @@ header {
         Cancel
       </button>
     </div>
-  
+  </div><!-- /modal-content -->
+</div><!-- /uploadModal -->
+
 <!-- DOCUMENT UPLOAD MODAL -->
 <div id="docUploadModal" class="modal" style="display:none;">
   <div class="modal-content" style="max-width:600px;">
@@ -1966,6 +2007,7 @@ async function loadCustomerData(id) {
     // CRITICAL: Populate window._leads so external modules can find this lead
     window._leads = [lead];
     window._currentLead = lead;
+    window._leadDoc = lead; // Used by document generator data bridge
 
     // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
     if (!lead.customerId) {
@@ -2238,7 +2280,8 @@ async function loadTimeline(leadId, lead) {
         time: h.timestamp ? new Date(h.timestamp) : new Date(),
         icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
         title: `Stage: ${h.from} → ${h.to}`,
-        desc: h.user || 'System'
+        desc: h.user || 'System',
+        type: 'stage'
       });
     });
   }
@@ -2250,7 +2293,8 @@ async function loadTimeline(leadId, lead) {
       time: lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
       icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="4"/><circle cx="10" cy="10" r="1"/></svg>',
       title: 'Lead created',
-      desc: `Source: ${lead.source || 'Unknown'}`
+      desc: `Source: ${lead.source || 'Unknown'}`,
+      type: 'stage'
     });
   }
 
@@ -2268,7 +2312,8 @@ async function loadTimeline(leadId, lead) {
         desc: task.dueDate || '',
         isTask: true,
         taskId: d.id,
-        taskDone: task.done || false
+        taskDone: task.done || false,
+        type: 'task'
       });
     });
   } catch (e) {
@@ -2287,7 +2332,8 @@ async function loadTimeline(leadId, lead) {
           time: est.createdAt?.toDate ? est.createdAt.toDate() : new Date(est.createdAt),
           icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg>',
           title: 'Estimate created',
-          desc: est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft'
+          desc: est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft',
+          type: 'document'
         });
       }
     });
@@ -2307,7 +2353,8 @@ async function loadTimeline(leadId, lead) {
           time: photo.uploadedAt?.toDate ? photo.uploadedAt.toDate() : new Date(photo.uploadedAt),
           icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg>',
           title: 'Photo uploaded',
-          desc: photo.category || 'Property photo'
+          desc: photo.category || 'Property photo',
+          type: 'photo'
         });
       }
     });
@@ -2320,14 +2367,15 @@ async function loadTimeline(leadId, lead) {
 
   // Render
   const html = timeline.map(item => {
+    const dtype = item.type || 'note';
     if (item.isTask) {
       return `
-        <div class="timeline-item" style="cursor:pointer;" onclick="toggleTask('${item.taskId}', ${!item.taskDone})">
+        <div class="timeline-item" data-type="${dtype}" style="cursor:pointer;" onclick="toggleTask('${item.taskId}', ${!item.taskDone})">
           <div class="timeline-icon">${item.icon}</div>
           <div class="timeline-content">
             <div class="timeline-title" style="display:flex;align-items:center;gap:8px;">
-              <input type="checkbox" ${item.taskDone ? 'checked' : ''} 
-                style="width:16px;height:16px;cursor:pointer;" 
+              <input type="checkbox" ${item.taskDone ? 'checked' : ''}
+                style="width:16px;height:16px;cursor:pointer;"
                 onclick="event.stopPropagation();toggleTask('${item.taskId}', !this.checked)">
               <span style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.title}</span>
             </div>
@@ -2338,7 +2386,7 @@ async function loadTimeline(leadId, lead) {
       `;
     } else {
       return `
-        <div class="timeline-item">
+        <div class="timeline-item" data-type="${dtype}">
           <div class="timeline-icon">${item.icon}</div>
           <div class="timeline-content">
             <div class="timeline-title">${item.title}</div>
@@ -2350,8 +2398,13 @@ async function loadTimeline(leadId, lead) {
     }
   }).join('');
 
-  document.getElementById('timelineList').innerHTML = html || 
+  document.getElementById('timelineList').innerHTML = html ||
     '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
+
+  // Apply collapse (show only last 5 by default)
+  window._tlCollapsed = true;
+  window._tlActiveFilter = 'all';
+  applyTimelineCollapse();
 }
 
 async function loadPhotos(leadId) {
@@ -3564,6 +3617,57 @@ window.saveEstimate = async function() {
 // Expose module-scope functions to window for cross-script access
 window.loadTimeline = loadTimeline;
 window.loadEstimates = loadEstimates;
+
+// ── TIMELINE FILTER & COLLAPSE ──
+window._tlCollapsed = true;
+window._tlActiveFilter = 'all';
+
+window.filterTimeline = function(filter, pill) {
+  window._tlActiveFilter = filter;
+  document.querySelectorAll('#tlFilters .tl-pill').forEach(function(p) { p.classList.remove('active'); });
+  if (pill) pill.classList.add('active');
+
+  var items = document.querySelectorAll('#timelineList .timeline-item');
+  items.forEach(function(el) {
+    if (filter === 'all' || el.getAttribute('data-type') === filter) {
+      el.classList.remove('tl-hidden');
+    } else {
+      el.classList.add('tl-hidden');
+    }
+  });
+
+  // Re-apply collapse after filtering
+  applyTimelineCollapse();
+};
+
+window.toggleTimelineCollapse = function() {
+  window._tlCollapsed = !window._tlCollapsed;
+  applyTimelineCollapse();
+};
+
+window.applyTimelineCollapse = function() {
+  var items = document.querySelectorAll('#timelineList .timeline-item:not(.tl-hidden)');
+  var showAllBtn = document.getElementById('tlShowAll');
+  var totalVisible = items.length;
+
+  if (window._tlCollapsed && totalVisible > 5) {
+    items.forEach(function(el, i) {
+      el.style.display = i < 5 ? '' : 'none';
+    });
+    showAllBtn.style.display = 'block';
+    showAllBtn.querySelector('button').textContent = 'Show all ' + totalVisible + ' items';
+  } else {
+    items.forEach(function(el) {
+      el.style.display = '';
+    });
+    if (totalVisible > 5) {
+      showAllBtn.style.display = 'block';
+      showAllBtn.querySelector('button').textContent = 'Collapse timeline';
+    } else {
+      showAllBtn.style.display = 'none';
+    }
+  }
+};
 </script>
 
 
@@ -4421,64 +4525,157 @@ window.deletePhoto = async function(photoId) {
 };
 
 // ── Document Generator Integration ─────────────
+// ══════════════════════════════════════════════════════════════════
+// DOCUMENT GENERATOR — DATA BRIDGE + PREREQUISITE GATES
+// Pulls real customer data from Firestore, checks prerequisites
+// before generating. No more hardcoded defaults or DOM scraping.
+// ══════════════════════════════════════════════════════════════════
+
+const DOC_PREREQUISITES = {
+  proposal:             { needs: ['estimate'], label: 'Proposal / Estimate', msg: 'Build an estimate first in the Estimates tab.' },
+  contract:             { needs: ['estimate','contact'], label: 'Roofing Contract', msg: 'Build an estimate and add customer contact info.' },
+  work_authorization:   { needs: ['address','scope'], label: 'Work Authorization', msg: 'Add property address and scope of work.' },
+  scope_of_work:        { needs: ['estimate'], label: 'Scope of Work', msg: 'Build an estimate to generate scope details.' },
+  inspectionHomeowner:  { needs: ['photos'], label: 'Inspection Report', msg: 'Upload inspection photos first.' },
+  inspectionInsurance:  { needs: ['photos','claim'], label: 'Insurance Report', msg: 'Upload photos and add insurance claim info (carrier + claim #).' },
+  supplement_request:   { needs: ['estimate','claim'], label: 'Supplement Request', msg: 'Requires an estimate and filed insurance claim.' },
+  warranty_certificate: { needs: ['jobComplete'], label: 'Warranty Certificate', msg: 'Job must be marked Complete to generate warranty.' },
+  certificate_of_completion: { needs: ['jobComplete','beforeAfterPhotos'], label: 'Certificate of Completion', msg: 'Job must be complete with before & after photos.' },
+  invoice:              { needs: ['jobValue'], label: 'Invoice', msg: 'Add a job value or build an estimate first.' },
+  change_order:         { needs: ['estimate'], label: 'Change Order', msg: 'Requires an existing estimate to modify.' },
+  before_after_report:  { needs: ['beforeAfterPhotos'], label: 'Before & After Report', msg: 'Need BOTH before and after photos uploaded.' },
+  financing_options:    { needs: ['jobValue'], label: 'Financing Options', msg: 'Add a job value or build an estimate.' },
+  company_intro:        { needs: [], label: 'Company Introduction' },
+  referral_card:        { needs: [], label: 'Referral Card' },
+  storm_checklist:      { needs: [], label: 'Storm Checklist' },
+  claim_guide:          { needs: [], label: 'Claim Guide' },
+  door_hanger:          { needs: [], label: 'Door Hanger' },
+  neighborhood_mailer:  { needs: [], label: 'Neighborhood Mailer' },
+  testimonial_sheet:    { needs: [], label: 'Testimonial Sheet' },
+  thank_you:            { needs: [], label: 'Thank You' },
+  payment_agreement:    { needs: ['jobValue','contact'], label: 'Payment Agreement', msg: 'Add job value and customer contact info.' }
+};
+
+function getCustomerDocData() {
+  const lead = window._leadDoc || {};
+  const id = window._customerId;
+  const estimates = window._customerEstimates || [];
+  const photos = window._allPhotos || [];
+  const est = estimates.length > 0 ? estimates[0] : null;
+  const beforePhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'before');
+  const afterPhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'after');
+  const duringPhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'during');
+  const name = ((lead.firstName||'') + ' ' + (lead.lastName||'')).trim();
+  const jobVal = lead.jobValue || (est ? est.grandTotal : 0);
+
+  return {
+    // Customer info
+    homeownerName: name, customerName: name,
+    firstName: lead.firstName || '', lastName: lead.lastName || '',
+    address: lead.address || '', homeownerAddress: lead.address || '',
+    phone: lead.phone || '', customerPhone: lead.phone || '',
+    email: lead.email || '', customerEmail: lead.email || '',
+
+    // Job info
+    damageType: lead.damageType || '', stage: lead.stage || '',
+    source: lead.source || '', notes: lead.notes || '',
+    jobType: lead.jobType || '', jobValue: jobVal,
+    scopeOfWork: lead.scopeOfWork || '',
+    projectDescription: lead.scopeOfWork || est?.description || '',
+
+    // Insurance
+    insCarrier: lead.insCarrier || '', insuranceCompany: lead.insCarrier || '',
+    claimNumber: lead.claimNumber || '', claimStatus: lead.claimStatus || '',
+    policyNumber: lead.policyNumber || '', dateOfLoss: lead.dateOfLoss || '',
+    deductible: lead.deductible || '', supplementStatus: lead.supplementStatus || '',
+
+    // Estimate
+    totalPrice: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+    estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+    contractPrice: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+    warrantyTier: est?.tier || est?.tierName || lead.warrantyTier || '',
+    estimateLineItems: est?.lineItems || [],
+
+    // Property
+    roofAge: lead.roofAge || '', roofType: lead.roofType || '',
+    stories: lead.stories || '', pitch: lead.pitch || '',
+    squareFootage: lead.squareFootage || '',
+
+    // Photos
+    beforePhotoUrl: beforePhotos[0]?.url || '',
+    afterPhotoUrl: afterPhotos[0]?.url || '',
+    beforePhotos: beforePhotos, afterPhotos: afterPhotos, duringPhotos: duringPhotos,
+    photoCount: photos.length, allPhotos: photos,
+
+    // Meta
+    date: new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }),
+    leadId: id,
+
+    // Computed flags (for prerequisite checks)
+    _hasEstimate: estimates.length > 0,
+    _hasPhotos: photos.length > 0,
+    _hasBeforeAfterPhotos: beforePhotos.length > 0 && afterPhotos.length > 0,
+    _hasClaim: !!(lead.claimNumber && lead.insCarrier),
+    _hasContact: !!(lead.phone || lead.email),
+    _hasAddress: !!lead.address,
+    _hasScope: !!(lead.scopeOfWork || est?.description),
+    _hasJobValue: !!jobVal,
+    _isJobComplete: (lead.stage||'').toLowerCase().includes('complete')
+  };
+}
+
+function checkPrerequisites(type, data) {
+  const prereq = DOC_PREREQUISITES[type];
+  if (!prereq) return { ok: true };
+  const missing = [];
+  for (const need of prereq.needs) {
+    switch(need) {
+      case 'estimate': if (!data._hasEstimate) missing.push('Build an estimate'); break;
+      case 'contact': if (!data._hasContact) missing.push('Add phone or email'); break;
+      case 'address': if (!data._hasAddress) missing.push('Add property address'); break;
+      case 'scope': if (!data._hasScope) missing.push('Add scope of work'); break;
+      case 'photos': if (!data._hasPhotos) missing.push('Upload inspection photos'); break;
+      case 'claim': if (!data._hasClaim) missing.push('Add insurance carrier & claim number'); break;
+      case 'jobValue': if (!data._hasJobValue) missing.push('Add job value or build estimate'); break;
+      case 'jobComplete': if (!data._isJobComplete) missing.push('Mark job as Complete'); break;
+      case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push('Upload both Before AND After photos'); break;
+    }
+  }
+  return missing.length > 0 ? { ok: false, missing, label: prereq.label, msg: prereq.msg } : { ok: true };
+}
+
 window.generateCustomerDoc = function(type) {
   if (!window.NBDDocGen) {
-    alert('Document generator not loaded. Please refresh the page.');
+    showToast('Document generator loading...', 'error');
     return;
   }
-  
-  // Get customer data from the loaded lead
-  var data = {};
-  try {
-    var nameEl = document.querySelector('.customer-name');
-    var name = nameEl ? nameEl.textContent.trim() : '';
-    data.homeownerName = name;
-    data.customerName = name;
-    
-    // Try to get address from overview fields
-    var fields = document.querySelectorAll('.field-value');
-    fields.forEach(function(el) {
-      var label = el.previousElementSibling;
-      if (!label) return;
-      var labelText = label.textContent.toLowerCase().trim();
-      var val = el.textContent.trim();
-      if (labelText.includes('address') || labelText.includes('street')) data.address = val;
-      if (labelText.includes('phone')) data.phone = val;
-      if (labelText.includes('email')) data.customerEmail = val;
-      if (labelText.includes('damage')) data.damageType = val;
-      if (labelText.includes('insurance') && labelText.includes('company')) data.insuranceCompany = val;
-      if (labelText.includes('claim')) data.claimNumber = val;
-    });
-    
-    // Get estimate data if available
-    if (window._customerEstimates && window._customerEstimates.length > 0) {
-      var est = window._customerEstimates[0];
-      data.totalPrice = est.grandTotal ? '$' + parseFloat(est.grandTotal).toLocaleString() : '';
-      data.estimateAmount = data.totalPrice;
-      data.warrantyTier = est.tier || est.tierName || 'better';
-      data.projectDescription = est.title || est.description || '';
-    }
-    
-    // Get photo URLs if available for before/after
-    if (window._allPhotos && window._allPhotos.length > 0) {
-      var beforePhotos = window._allPhotos.filter(function(p){ return p.phase === 'Before'; });
-      var afterPhotos = window._allPhotos.filter(function(p){ return p.phase === 'After'; });
-      if (beforePhotos.length) data.beforePhotoUrl = beforePhotos[0].url;
-      if (afterPhotos.length) data.afterPhotoUrl = afterPhotos[0].url;
-      data.photoCount = window._allPhotos.length;
-    }
 
-    data.date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    data.leadId = window._customerId;
-    
-  } catch(e) {
-    console.warn('Could not auto-fill all document data:', e);
+  const data = getCustomerDocData();
+  const check = checkPrerequisites(type, data);
+
+  if (!check.ok) {
+    // Show prerequisite warning with specific missing items
+    const label = check.label || type;
+    const items = check.missing.map(m => '• ' + m).join('\n');
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--card,#111);border:1px solid var(--border,#333);border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;">
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${label}</div>
+        <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
+        <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
+          ${check.missing.map(m => '<div style="font-size:13px;color:#e8720c;padding:4px 0;">• ' + m + '</div>').join('')}
+        </div>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:12px 28px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    return;
   }
-  
-  // Generate the document
+
+  // All prerequisites met — generate with real data
   window.NBDDocGen.generate(type, data);
-  
-  // Log to generated docs list
   logGeneratedDoc(type, data);
 };
 
@@ -4569,7 +4766,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/offline-manager.js?v=3"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <script src="js/photo-editor.js?v=3"></script>
-<script src="js/document-generator.js?v=2"></script>
+<script src="js/document-generator.js?v=3"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
 
 <!-- Edit Customer Modal -->
