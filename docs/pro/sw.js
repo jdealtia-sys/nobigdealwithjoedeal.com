@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v3',
-  cdn: 'nbd-cdn-v3',
+  shell: 'nbd-shell-v4',  // bumped for pre-demo sweep critical fixes
+  cdn: 'nbd-cdn-v4',      // bumped — forces re-fetch of JS + CSS modules
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v1'
