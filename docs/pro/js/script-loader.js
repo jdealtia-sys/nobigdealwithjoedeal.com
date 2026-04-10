@@ -68,7 +68,7 @@
       'js/offline-manager.js'
     ],
     push: [
-      'js/push-notifications.js'
+      // push-notifications.js requires type="module" — loaded separately when needed
     ],
     company: [
       'js/company-admin.js'
@@ -95,14 +95,27 @@
       'js/product-library.js'
     ],
     photos: [
-      'js/photo-report.js'
+      'js/photo-report.js',
+      'js/photo-engine.js',
+      'js/photo-editor.js'
     ],
     reviews: [
       'js/review-engine.js'
     ],
+    gallery: [
+      'js/share-gallery.js'
+    ],
     ai: [
       'js/claude-proxy.js',
+      'js/ai.js',
       'js/ai_review_system.js'
+    ],
+    inspection: [
+      'js/inspection-report-engine.js'
+    ],
+    materials: [
+      'js/material-calculator.js',
+      'js/material_catalog.js'
     ],
     tasks: [
       'js/tasks.js'
@@ -121,16 +134,22 @@
   // Map views to required bundles
   const viewBundles = {
     'home': ['core'],
+    'dash': ['core', 'analytics'],
     'pipeline': ['core'],
     'kanban': ['core'],
+    'crm': ['core'],
     'd2d': ['core', 'd2d'],
+    'est': ['core', 'estimates'],
     'estimates': ['core', 'estimates'],
     'docs': ['core', 'documents'],
     'documents': ['core', 'documents'],
     'academy': ['core', 'academy'],
+    'training': ['core', 'academy'],
     'settings': ['core', 'themes', 'billing', 'push', 'company', 'comms'],
     'storm': ['core', 'storm'],
     'photos': ['core', 'photos'],
+    'draw': ['core', 'photos'],
+    'map': ['core'],
     'products': ['core', 'products'],
     'reports': ['core', 'reporting'],
     'reporting': ['core', 'reporting'],
@@ -141,7 +160,12 @@
     'reviews': ['core', 'reviews'],
     'tasks': ['core', 'tasks'],
     'crew': ['core', 'crew'],
-    'analytics': ['core', 'analytics']
+    'analytics': ['core', 'analytics'],
+    'joe': ['ai'],
+    'closeboard': ['core'],
+    'repos': ['core'],
+    'board': ['core'],
+    'schedule': ['core', 'crew']
   };
 
   /**
