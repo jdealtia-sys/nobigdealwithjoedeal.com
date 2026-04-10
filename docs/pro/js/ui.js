@@ -674,37 +674,34 @@ function switchSettingsTab(tab) {
     if (typeof dsInitEditor === 'function') dsInitEditor();
     if (typeof dsLoadThemeGrid === 'function') dsLoadThemeGrid();
   }
-  // Lazy-render Company tab
+  // Load v2 estimate settings when switching to estimates tab
+  if (tab === 'estimates') {
+    if (typeof window._loadEstimateDefaultsV2 === 'function') {
+      window._loadEstimateDefaultsV2();
+    }
+  }
+  // Lazy-load Company tab settings from localStorage + Firestore
   if (tab === 'company') {
-    const c = document.getElementById('companySettingsContainer');
-    if (c && typeof window.renderCompanySettings === 'function') {
-      c.innerHTML = window.renderCompanySettings();
+    if (typeof window._loadCompanySettings === 'function') {
+      window._loadCompanySettings();
     }
   }
-  // Lazy-render Team tab
-  if (tab === 'team') {
-    const t = document.getElementById('teamManagementContainer');
-    if (t && typeof window.renderTeamManagement === 'function') {
-      t.innerHTML = window.renderTeamManagement();
-    }
-  }
-  // Lazy-render Access tab
+  // Access tab — populate session info
   if (tab === 'access') {
-    const a = document.getElementById('accessControlContainer');
-    if (a && typeof window.renderAccessControl === 'function') {
-      a.innerHTML = window.renderAccessControl();
+    if (typeof window._loadAccessInfo === 'function') {
+      window._loadAccessInfo();
     }
   }
-  // Lazy-render Billing tab
+  // Billing tab — populate Ask Joe AI usage
   if (tab === 'billing') {
-    if (window.StripeBilling?.renderBillingPanel) {
-      window.StripeBilling.renderBillingPanel('billingContainer');
+    if (typeof window._loadBillingInfo === 'function') {
+      window._loadBillingInfo();
     }
   }
-  // Lazy-render Notifications tab
+  // Notifications tab — restore saved preferences
   if (tab === 'notifications') {
-    if (window.PushNotifications?.renderSettingsPanel) {
-      window.PushNotifications.renderSettingsPanel('notificationSettingsContainer');
+    if (typeof window._loadNotifSettings === 'function') {
+      window._loadNotifSettings();
     }
   }
 }

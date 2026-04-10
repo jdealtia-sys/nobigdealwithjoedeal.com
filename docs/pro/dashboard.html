@@ -1413,46 +1413,348 @@
     } catch(e) { showToast('Save failed','error'); }
   };
 
-  // Save estimate default rates to Firestore
-  window._saveEstimateDefaults = async function() {
-    const defaults = {
-      pitch: document.getElementById('defPitch').value || '8/12',
-      waste: document.getElementById('defWaste').value || '17%',
-      rateShingle: parseFloat(document.getElementById('rateShingle').value) || 185,
-      rateTear: parseFloat(document.getElementById('rateTear').value) || 55,
-      rateDrip: parseFloat(document.getElementById('rateDrip').value) || 2.10,
-      rateGutter: parseFloat(document.getElementById('rateGutter').value) || 8.50
+  // V2 Estimate Engine settings — read from EstimateBuilderV2 settings store
+  // and sync to/from localStorage + Firestore.
+  function _v2ReadSettings() {
+    const EB2 = window.EstimateBuilderV2;
+    if (!EB2 || typeof EB2.loadSettings !== 'function') return null;
+    return EB2.loadSettings();
+  }
+
+  function _v2WriteSettings(patch) {
+    const EB2 = window.EstimateBuilderV2;
+    if (!EB2 || typeof EB2.updateSettings !== 'function') return null;
+    return EB2.updateSettings(patch);
+  }
+
+  // Populate the Estimates settings tab from current v2 engine settings
+  window._loadEstimateDefaultsV2 = function() {
+    const s = _v2ReadSettings();
+    if (!s) return;
+    const byId = (id) => document.getElementById(id);
+
+    if (byId('v2rateGood'))   byId('v2rateGood').value   = s.tierRates?.good   ?? 545;
+    if (byId('v2rateBetter')) byId('v2rateBetter').value = s.tierRates?.better ?? 595;
+    if (byId('v2rateBest'))   byId('v2rateBest').value   = s.tierRates?.best   ?? 660;
+
+    if (byId('v2costGood'))   byId('v2costGood').value   = s.costBasis?.good   ?? 340;
+    if (byId('v2costBetter')) byId('v2costBetter').value = s.costBasis?.better ?? 385;
+    if (byId('v2costBest'))   byId('v2costBest').value   = s.costBasis?.best   ?? 430;
+
+    if (byId('v2minJob'))   byId('v2minJob').value   = s.minJobCharge ?? 2500;
+    if (byId('v2roundTo'))  byId('v2roundTo').value  = s.roundTo ?? 25;
+
+    if (byId('v2matMarkup')) byId('v2matMarkup').value = Math.round((s.materialMarkupPct ?? 0.25) * 100);
+    if (byId('v2overhead'))  byId('v2overhead').value  = Math.round((s.overheadPct ?? 0.10) * 100);
+    if (byId('v2profit'))    byId('v2profit').value    = Math.round((s.profitPct ?? 0.10) * 100);
+
+    if (byId('defDumpFee'))    byId('defDumpFee').value    = s.dumpFee ?? 550;
+    if (byId('defExtraLayer')) byId('defExtraLayer').value = s.tearOffExtraPerSq ?? 50;
+    if (byId('defTaxRate'))    byId('defTaxRate').value    = ((s.fallbackTaxRate ?? 0.07) * 100).toFixed(2);
+
+    // Permit costs
+    const permits = s.permits || {};
+    const permMap = {
+      'permHamOh': 'hamilton-oh', 'permButOh': 'butler-oh',
+      'permWarOh': 'warren-oh',   'permCleOh': 'clermont-oh',
+      'permKenKy': 'kenton-ky',   'permBooKy': 'boone-ky',
+      'permCamKy': 'campbell-ky'
     };
+    Object.keys(permMap).forEach(id => {
+      const el = byId(id);
+      if (el && permits[permMap[id]]) el.value = permits[permMap[id]].cost;
+    });
+
+    // County tax
+    const tax = s.countyTax || {};
+    const taxMap = {
+      'taxHamOh': 'hamilton-oh', 'taxButOh': 'butler-oh',
+      'taxWarOh': 'warren-oh',   'taxCleOh': 'clermont-oh',
+      'taxKenKy': 'kenton-ky',   'taxBooKy': 'boone-ky',
+      'taxCamKy': 'campbell-ky'
+    };
+    Object.keys(taxMap).forEach(id => {
+      const el = byId(id);
+      if (el && tax[taxMap[id]] != null) el.value = (tax[taxMap[id]] * 100).toFixed(2);
+    });
+
+    // Catalog summary
+    if (byId('v2matCount'))  byId('v2matCount').textContent  = (window.NBD_PRODUCTS || []).length;
+    if (byId('v2labCount'))  byId('v2labCount').textContent  = (window.NBD_LABOR?.count) || 0;
+    if (byId('v2xactCount')) byId('v2xactCount').textContent = (window.NBD_XACT_CATALOG?.count) || 0;
+  };
+
+  // Save every v2 engine setting from the Estimates tab form
+  window._saveEstimateDefaultsV2 = async function() {
+    const byId = (id) => document.getElementById(id);
+    const num = (id, fallback) => {
+      const v = parseFloat(byId(id)?.value);
+      return isNaN(v) ? fallback : v;
+    };
+
+    const patch = {
+      tierRates: {
+        good:   num('v2rateGood', 545),
+        better: num('v2rateBetter', 595),
+        best:   num('v2rateBest', 660)
+      },
+      costBasis: {
+        good:   num('v2costGood', 340),
+        better: num('v2costBetter', 385),
+        best:   num('v2costBest', 430)
+      },
+      minJobCharge: num('v2minJob', 2500),
+      roundTo: num('v2roundTo', 25),
+      materialMarkupPct: num('v2matMarkup', 25) / 100,
+      overheadPct: num('v2overhead', 10) / 100,
+      profitPct: num('v2profit', 10) / 100,
+      dumpFee: num('defDumpFee', 550),
+      tearOffExtraPerSq: num('defExtraLayer', 50),
+      fallbackTaxRate: num('defTaxRate', 7) / 100
+    };
+
+    // Permit map
+    const current = _v2ReadSettings() || {};
+    patch.permits = Object.assign({}, current.permits);
+    const permMap = {
+      'permHamOh': { key: 'hamilton-oh', name: 'Hamilton County, OH' },
+      'permButOh': { key: 'butler-oh',   name: 'Butler County, OH' },
+      'permWarOh': { key: 'warren-oh',   name: 'Warren County, OH' },
+      'permCleOh': { key: 'clermont-oh', name: 'Clermont County, OH' },
+      'permKenKy': { key: 'kenton-ky',   name: 'Kenton County, KY' },
+      'permBooKy': { key: 'boone-ky',    name: 'Boone County, KY' },
+      'permCamKy': { key: 'campbell-ky', name: 'Campbell County, KY' }
+    };
+    Object.keys(permMap).forEach(id => {
+      const v = num(id, null);
+      if (v != null) patch.permits[permMap[id].key] = { name: permMap[id].name, cost: v };
+    });
+
+    // County tax
+    patch.countyTax = Object.assign({}, current.countyTax);
+    const taxMap = {
+      'taxHamOh': 'hamilton-oh', 'taxButOh': 'butler-oh',
+      'taxWarOh': 'warren-oh',   'taxCleOh': 'clermont-oh',
+      'taxKenKy': 'kenton-ky',   'taxBooKy': 'boone-ky',
+      'taxCamKy': 'campbell-ky'
+    };
+    Object.keys(taxMap).forEach(id => {
+      const v = num(id, null);
+      if (v != null) patch.countyTax[taxMap[id]] = v / 100;
+    });
+
+    // Apply locally (flows through EstimateBuilderV2.updateSettings → localStorage)
+    _v2WriteSettings(patch);
+
+    // Sync to Firestore for cross-device
     try {
-      const {setDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-      await setDoc(doc(window._db, 'userSettings', window._user.uid), 
-        { estimateDefaults: defaults }, 
-        { merge: true }
-      );
-      showToast('✓ Estimate defaults saved', 'success');
-    } catch (error) {
-      console.error('Error saving estimate defaults:', error);
-      showToast('Failed to save defaults', 'error');
+      if (window._db && window._user) {
+        const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        await setDoc(
+          doc(window._db, 'userSettings', window._user.uid),
+          { estimateSettingsV2: patch, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+    } catch (e) { console.warn('Firestore sync failed:', e); }
+
+    const msg = document.getElementById('v2save-msg');
+    if (msg) {
+      msg.style.display = 'block';
+      msg.textContent = '✓ Estimate settings saved. Every linked estimate will use these rates.';
+      setTimeout(() => msg.style.display = 'none', 3500);
+    }
+    if (typeof showToast === 'function') showToast('✓ Estimate settings saved', 'success');
+  };
+
+  window._resetEstimateDefaultsV2 = function() {
+    if (!confirm('Reset all estimate settings to factory defaults? This cannot be undone.')) return;
+    const EB2 = window.EstimateBuilderV2;
+    if (!EB2) return;
+    const defaults = EB2.getDefaultSettings();
+    EB2.saveSettings(defaults);
+    window._loadEstimateDefaultsV2();
+    if (typeof showToast === 'function') showToast('↺ Reset to factory defaults', 'success');
+  };
+
+  // Legacy stubs kept for backwards compat with any other caller
+  window._saveEstimateDefaults = function() { return window._saveEstimateDefaultsV2(); };
+  window._loadEstimateDefaults = function() { return window._loadEstimateDefaultsV2(); };
+
+  // ═════════════════════════════════════════════════════════
+  // COMPANY SETTINGS
+  // ═════════════════════════════════════════════════════════
+  const CO_FIELDS = [
+    'coName','coDba','coEin','coState','coPhone','coEmail','coAddress','coCity',
+    'coWebsite','coGbp','coLicOh','coLicKy','coGl','coWc','coGaf','coCerts',
+    'coTerritory','coRadius'
+  ];
+
+  window._saveCompanySettings = async function() {
+    const data = {};
+    CO_FIELDS.forEach(f => {
+      const el = document.getElementById(f);
+      if (el) data[f] = el.value || '';
+    });
+    try { localStorage.setItem('nbd_company_settings', JSON.stringify(data)); } catch(e){}
+    try {
+      if (window._db && window._user) {
+        const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        await setDoc(
+          doc(window._db, 'userSettings', window._user.uid),
+          { company: data, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+    } catch (e) { console.warn('Company settings Firestore sync failed:', e); }
+
+    const msg = document.getElementById('co-save-msg');
+    if (msg) {
+      msg.style.display = 'block';
+      msg.textContent = '✓ Company info saved';
+      setTimeout(() => msg.style.display = 'none', 3000);
+    }
+    if (typeof showToast === 'function') showToast('✓ Company info saved', 'success');
+  };
+
+  window._loadCompanySettings = async function() {
+    let data = {};
+    try {
+      const raw = localStorage.getItem('nbd_company_settings');
+      if (raw) data = JSON.parse(raw);
+    } catch(e){}
+
+    // Firestore wins if present
+    try {
+      if (window._db && window._user) {
+        const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const snap = await getDoc(doc(window._db, 'userSettings', window._user.uid));
+        if (snap.exists() && snap.data().company) {
+          data = Object.assign({}, data, snap.data().company);
+        }
+      }
+    } catch (e) {}
+
+    CO_FIELDS.forEach(f => {
+      const el = document.getElementById(f);
+      if (el && data[f] != null) el.value = data[f];
+    });
+  };
+
+  // ═════════════════════════════════════════════════════════
+  // NOTIFICATION SETTINGS
+  // ═════════════════════════════════════════════════════════
+  const NOTIF_TRIGGERS = ['notifOverdue','notifHot','notifStorm','notifApproval','notifInbound','notifD2d'];
+  const NOTIF_CHANNELS = ['chInApp','chPush','chEmail','chSms'];
+
+  window._saveNotifSettings = async function() {
+    const modeEl = document.querySelector('input[name="notifMode"]:checked');
+    const data = {
+      mode: modeEl ? modeEl.value : 'critical',
+      triggers: {},
+      channels: {}
+    };
+    NOTIF_TRIGGERS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) data.triggers[id] = !!el.checked;
+    });
+    NOTIF_CHANNELS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) data.channels[id] = !!el.checked;
+    });
+
+    try { localStorage.setItem('nbd_notif_settings', JSON.stringify(data)); } catch(e){}
+    try {
+      if (window._db && window._user) {
+        const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        await setDoc(
+          doc(window._db, 'userSettings', window._user.uid),
+          { notifications: data, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+    } catch (e) {}
+
+    const msg = document.getElementById('notif-save-msg');
+    if (msg) {
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 3000);
+    }
+    if (typeof showToast === 'function') showToast('✓ Notification preferences saved', 'success');
+  };
+
+  window._loadNotifSettings = function() {
+    try {
+      const raw = localStorage.getItem('nbd_notif_settings');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      const modeEl = document.getElementById('notif' + (data.mode || 'critical').charAt(0).toUpperCase() + (data.mode || 'critical').slice(1));
+      if (modeEl) modeEl.checked = true;
+      if (data.triggers) {
+        NOTIF_TRIGGERS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && data.triggers[id] != null) el.checked = data.triggers[id];
+        });
+      }
+      if (data.channels) {
+        NOTIF_CHANNELS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && data.channels[id] != null) el.checked = data.channels[id];
+        });
+      }
+    } catch (e) {}
+  };
+
+  window._testNotif = function() {
+    if (typeof showToast === 'function') {
+      showToast('🔔 Test notification — your alerts work!', 'success');
+    } else {
+      alert('🔔 Test notification — your alerts work!');
     }
   };
 
-  // Load estimate defaults from Firestore
-  window._loadEstimateDefaults = async function() {
+  // ═════════════════════════════════════════════════════════
+  // ACCESS TAB — populate current session info
+  // ═════════════════════════════════════════════════════════
+  window._loadAccessInfo = function() {
+    const byId = (id) => document.getElementById(id);
+    if (byId('accSignedInAs') && window._user) {
+      byId('accSignedInAs').textContent = window._user.displayName || window._user.email || 'Joe';
+    }
+    if (byId('accUserId') && window._user) {
+      byId('accUserId').textContent = window._user.uid || '—';
+    }
+    if (byId('accLoginMethod') && window._user) {
+      const method = window._user.providerData?.[0]?.providerId || 'email';
+      byId('accLoginMethod').textContent = method === 'password' ? 'Email + Password' :
+                                           method === 'google.com' ? 'Google OAuth' :
+                                           'Access Code';
+    }
+    if (byId('accSessionStarted')) {
+      const start = sessionStorage.getItem('nbd_session_start') || new Date().toISOString();
+      if (!sessionStorage.getItem('nbd_session_start')) sessionStorage.setItem('nbd_session_start', start);
+      byId('accSessionStarted').textContent = new Date(start).toLocaleString();
+    }
+  };
+
+  // ═════════════════════════════════════════════════════════
+  // BILLING TAB — populate Ask Joe AI usage stats
+  // ═════════════════════════════════════════════════════════
+  window._loadBillingInfo = function() {
+    const byId = (id) => document.getElementById(id);
     try {
-      const {getDoc, doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-      const snap = await getDoc(doc(window._db, 'userSettings', window._user.uid));
-      
-      if (snap.exists() && snap.data().estimateDefaults) {
-        const defaults = snap.data().estimateDefaults;
-        document.getElementById('defPitch').value = defaults.pitch || '8/12';
-        document.getElementById('defWaste').value = defaults.waste || '17%';
-        document.getElementById('rateShingle').value = defaults.rateShingle || 185;
-        document.getElementById('rateTear').value = defaults.rateTear || 55;
-        document.getElementById('rateDrip').value = defaults.rateDrip || 2.10;
-        document.getElementById('rateGutter').value = defaults.rateGutter || 8.50;
-      }
-    } catch (error) {
-      console.error('Error loading estimate defaults:', error);
+      const usageRaw = localStorage.getItem('nbd_ai_usage') || '{}';
+      const usage = JSON.parse(usageRaw);
+      const now = new Date();
+      const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      const thisMonth = usage[monthKey] || { calls: 0, tokens: 0, cost: 0 };
+      if (byId('aiUsageMonth'))  byId('aiUsageMonth').textContent  = thisMonth.calls || 0;
+      if (byId('aiUsageTokens')) byId('aiUsageTokens').textContent = (thisMonth.tokens || 0).toLocaleString();
+      if (byId('aiUsageCost'))   byId('aiUsageCost').textContent   = '$' + (thisMonth.cost || 0).toFixed(2);
+    } catch (e) {
+      if (byId('aiUsageMonth'))  byId('aiUsageMonth').textContent  = '0';
+      if (byId('aiUsageTokens')) byId('aiUsageTokens').textContent = '0';
+      if (byId('aiUsageCost'))   byId('aiUsageCost').textContent   = '$0.00';
     }
   };
 </script>
@@ -7560,25 +7862,124 @@ function switchScTab(tab, btn) {
       <!-- ══ TAB: ESTIMATES ══ -->
       <div class="stab-panel" id="stab-panel-estimates" style="display:none;">
 
-        <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Estimate Defaults</div><div class="panel-title">Pricing & Measurements</div></div></div>
+        <!-- ▸ Per-SQ Tier Rates (v2 engine) -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">V2 Engine · Per-SQ Mode</div><div class="panel-title">Tier Rates</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">These defaults pre-fill every new estimate. Update them to match your current pricing.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Flat per-square pricing used when V2 Estimate Builder is in Per-SQ mode. Locked contractor pricing from the April 2026 price review.</p>
             <div class="sf-row">
-              <div class="sf"><label>Default Pitch</label><input type="text" id="defPitch" placeholder="8/12"></div>
-              <div class="sf"><label>Default Waste %</label><input type="text" id="defWaste" placeholder="17%"></div>
+              <div class="sf"><label>Good Tier ($/SQ)</label><input type="number" id="v2rateGood" value="545" step="5"></div>
+              <div class="sf"><label>Better Tier ($/SQ)</label><input type="number" id="v2rateBetter" value="595" step="5"></div>
+              <div class="sf"><label>Best Tier ($/SQ)</label><input type="number" id="v2rateBest" value="660" step="5"></div>
+            </div>
+            <h4 style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin:14px 0 6px;">Internal · Cost Basis per SQ</h4>
+            <div class="sf-row">
+              <div class="sf"><label>Good Cost ($/SQ)</label><input type="number" id="v2costGood" value="340" step="5"></div>
+              <div class="sf"><label>Better Cost ($/SQ)</label><input type="number" id="v2costBetter" value="385" step="5"></div>
+              <div class="sf"><label>Best Cost ($/SQ)</label><input type="number" id="v2costBest" value="430" step="5"></div>
             </div>
             <div class="sf-row">
-              <div class="sf"><label>Shingle Rate ($/SQ)</label><input type="number" id="rateShingle" value="185"></div>
-              <div class="sf"><label>Tear Off Rate ($/SQ)</label><input type="number" id="rateTear" value="55"></div>
+              <div class="sf"><label>Minimum Job Charge</label><input type="number" id="v2minJob" value="2500" step="50"></div>
+              <div class="sf"><label>Round To Nearest ($)</label><input type="number" id="v2roundTo" value="25" step="5"></div>
             </div>
-            <div class="sf-row">
-              <div class="sf"><label>Drip Edge ($/LF)</label><input type="number" id="rateDrip" value="2.10" step="0.01"></div>
-              <div class="sf"><label>Gutter Rate ($/LF)</label><input type="number" id="rateGutter" value="8.50" step="0.01"></div>
-            </div>
-            <button class="btn btn-orange" onclick="window._saveEstimateDefaults()" style="margin-top:8px;">💾 Save Estimate Defaults</button>
           </div>
         </div>
+
+        <!-- ▸ OH&P Markup -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">V2 Engine · Line-Item Mode</div><div class="panel-title">Overhead, Profit & Markup</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Controls for the 3-catalog linked model. These percentages apply to every line-item estimate.</p>
+            <div class="sf-row">
+              <div class="sf"><label>Material Markup %</label><input type="number" id="v2matMarkup" value="25" step="1"></div>
+              <div class="sf"><label>Overhead %</label><input type="number" id="v2overhead" value="10" step="1"></div>
+              <div class="sf"><label>Profit %</label><input type="number" id="v2profit" value="10" step="1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ Default Measurements -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Measurement & Waste Defaults</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Default Pitch</label>
+                <select id="defPitch" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
+                  <option>4/12</option><option>6/12</option><option selected>8/12</option>
+                  <option>10/12</option><option>12/12</option><option>14/12</option>
+                </select>
+              </div>
+              <div class="sf"><label>Default Waste %</label><input type="number" id="defWaste" value="17" step="1"></div>
+              <div class="sf"><label>Default Deck Replace %</label><input type="number" id="defDeckPct" value="15" step="1"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Dump Fee ($)</label><input type="number" id="defDumpFee" value="550" step="25"></div>
+              <div class="sf"><label>Extra Layer Tear-Off ($/SQ)</label><input type="number" id="defExtraLayer" value="50" step="5"></div>
+              <div class="sf"><label>Fallback Tax Rate %</label><input type="number" id="defTaxRate" value="7" step="0.1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ Permit Costs (city-specific) -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Permits</div><div class="panel-title">City-Specific Permit Costs</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">These values auto-populate the permit line when an estimate's county is set. Update as your local jurisdictions change their fees.</p>
+            <div class="sf-row">
+              <div class="sf"><label>Hamilton County, OH</label><input type="number" id="permHamOh" value="185"></div>
+              <div class="sf"><label>Butler County, OH</label><input type="number" id="permButOh" value="150"></div>
+              <div class="sf"><label>Warren County, OH</label><input type="number" id="permWarOh" value="165"></div>
+              <div class="sf"><label>Clermont County, OH</label><input type="number" id="permCleOh" value="170"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Kenton County, KY</label><input type="number" id="permKenKy" value="125"></div>
+              <div class="sf"><label>Boone County, KY</label><input type="number" id="permBooKy" value="135"></div>
+              <div class="sf"><label>Campbell County, KY</label><input type="number" id="permCamKy" value="130"></div>
+              <div class="sf"><label></label><span style="font-size:10px;color:var(--m);padding:12px 0;display:block;">All values in USD. Saved per estimate via county lookup.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ County Sales Tax Rates -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Sales Tax</div><div class="panel-title">County Tax Rates</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Applied automatically on cash estimates based on the customer's county. Insurance mode skips tax.</p>
+            <div class="sf-row">
+              <div class="sf"><label>Hamilton OH %</label><input type="number" id="taxHamOh" value="7.80" step="0.01"></div>
+              <div class="sf"><label>Butler OH %</label><input type="number" id="taxButOh" value="7.25" step="0.01"></div>
+              <div class="sf"><label>Warren OH %</label><input type="number" id="taxWarOh" value="6.75" step="0.01"></div>
+              <div class="sf"><label>Clermont OH %</label><input type="number" id="taxCleOh" value="7.25" step="0.01"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Kenton KY %</label><input type="number" id="taxKenKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label>Boone KY %</label><input type="number" id="taxBooKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label>Campbell KY %</label><input type="number" id="taxCamKy" value="6.00" step="0.01"></div>
+              <div class="sf"><label></label></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ Catalog Summary (read-only) -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Catalog Summary</div><div class="panel-title">Loaded Catalogs</div></div></div>
+          <div class="panel-body">
+            <div id="v2catalogSummary" style="font-size:13px;color:var(--t);line-height:1.8;">
+              <div>📦 <strong>Material Library</strong>: <span id="v2matCount">—</span> products</div>
+              <div>👷 <strong>Labor Catalog</strong>: <span id="v2labCount">—</span> actions</div>
+              <div>📋 <strong>Xactimate Line Items</strong>: <span id="v2xactCount">—</span> items</div>
+              <div style="margin-top:8px;font-size:11px;color:var(--m);">All three catalogs link via materialId + laborId + qtyFormula. Update any rate in-place and every linked estimate recalculates automatically.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ Save/Reset -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-orange" onclick="window._saveEstimateDefaultsV2()">💾 Save All Estimate Settings</button>
+          <button class="btn btn-ghost" onclick="window._resetEstimateDefaultsV2()" style="font-size:11px;">↺ Reset to Defaults</button>
+          <button class="btn btn-ghost" onclick="window.openEstimateV2Builder()" style="font-size:11px;color:var(--orange);">✨ Open V2 Builder →</button>
+        </div>
+        <div id="v2save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Estimate settings saved</div>
 
       </div><!-- /stab-panel-estimates -->
 
@@ -7664,37 +8065,338 @@ function switchScTab(tab, btn) {
 
       <!-- ══ TAB: COMPANY ══ -->
       <div class="stab-panel" id="stab-panel-company" style="display:none;">
-        <div id="companySettingsContainer">
-          <div class="empty"><div class="empty-icon">🏢</div>Loading company settings...</div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Brand Identity</div><div class="panel-title">Company Info</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Legal Business Name</label><input type="text" id="coName" placeholder="No Big Deal Home Solutions"></div>
+              <div class="sf"><label>DBA / Trade Name</label><input type="text" id="coDba" placeholder="No Big Deal"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>EIN</label><input type="text" id="coEin" placeholder="XX-XXXXXXX"></div>
+              <div class="sf"><label>State of Incorporation</label><input type="text" id="coState" placeholder="OH"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Business Phone</label><input type="text" id="coPhone" placeholder="(859) 420-7382"></div>
+              <div class="sf"><label>Business Email</label><input type="text" id="coEmail" placeholder="JD@nobigdealwithjoedeal.com"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Street Address</label><input type="text" id="coAddress" placeholder="6563 Manila Rd"></div>
+              <div class="sf"><label>City, State ZIP</label><input type="text" id="coCity" placeholder="Goshen, OH 45122"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Website</label><input type="text" id="coWebsite" placeholder="nobigdealwithjoedeal.com"></div>
+              <div class="sf"><label>Google Business URL</label><input type="text" id="coGbp" placeholder="g.co/kgs/..."></div>
+            </div>
+          </div>
         </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Licensing & Insurance</div><div class="panel-title">Credentials</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>OH License #</label><input type="text" id="coLicOh" placeholder="OH-HIC-12345"></div>
+              <div class="sf"><label>KY License #</label><input type="text" id="coLicKy" placeholder="KY-CON-98765"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>General Liability Policy</label><input type="text" id="coGl" placeholder="Carrier · Policy # · Limit"></div>
+              <div class="sf"><label>Workers Comp Policy</label><input type="text" id="coWc" placeholder="Carrier · Policy # · Limit"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>GAF Certification</label><input type="text" id="coGaf" placeholder="Master Elite / Certified"></div>
+              <div class="sf"><label>Other Certifications</label><input type="text" id="coCerts" placeholder="OC Platinum, HAAG, etc."></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Territory</div><div class="panel-title">Service Area</div></div></div>
+          <div class="panel-body">
+            <div class="sf"><label>Primary Service Area (counties, comma-separated)</label>
+              <input type="text" id="coTerritory" placeholder="Hamilton, Butler, Warren, Clermont, Kenton, Boone, Campbell">
+            </div>
+            <div class="sf" style="margin-top:10px;"><label>Service Radius (miles from HQ)</label>
+              <input type="number" id="coRadius" placeholder="50" value="50">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-orange" onclick="window._saveCompanySettings()">💾 Save Company Info</button>
+          <button class="btn btn-ghost" onclick="window._loadCompanySettings()" style="font-size:11px;">↺ Reload</button>
+        </div>
+        <div id="co-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Company info saved</div>
       </div><!-- /stab-panel-company -->
 
       <!-- ══ TAB: TEAM ══ -->
       <div class="stab-panel" id="stab-panel-team" style="display:none;">
-        <div id="teamManagementContainer">
-          <div class="empty"><div class="empty-icon">👥</div>Loading team management...</div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Team Members</div><div class="panel-title">Solo Operator Mode</div></div></div>
+          <div class="panel-body">
+            <div style="padding:16px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">JD</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--t);">Joe Deal</div>
+                  <div style="font-size:11px;color:var(--m);">Owner / Operator · Admin · All permissions</div>
+                </div>
+              </div>
+            </div>
+            <p style="font-size:12px;color:var(--m);">NBD Pro is currently in single-operator mode. You're the only user on this account.</p>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Roadmap</div><div class="panel-title">Multi-User Enterprise Tier</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Team features coming in the Enterprise rebuild (spec'd but not yet built):</p>
+            <ul style="font-size:12px;color:var(--t);line-height:1.8;padding-left:20px;">
+              <li>Company → Team → Rep hierarchy</li>
+              <li>Territory assignment per rep with "where are they now" live map</li>
+              <li>Rep leaderboards tracking knocks, inspections, signed deals, close rate</li>
+              <li>Conversion-based payout tracking</li>
+              <li>Role-based access control (Owner / Admin / Manager / Sales Rep / Viewer)</li>
+              <li>Per-rep Ask Joe AI usage limits + cost tracking</li>
+              <li>Cross-rep deal assignment and handoffs</li>
+            </ul>
+            <div style="margin-top:14px;padding:10px 14px;background:var(--og);border-left:3px solid var(--orange);border-radius:0 4px 4px 0;font-size:11px;color:var(--t);">
+              <strong>Coming soon:</strong> When you're ready to onboard your first rep, the multi-tenant architecture will be rebuilt from the ground up. See <code>site_wide_spec_20260410.md</code> for the locked Enterprise scope.
+            </div>
+          </div>
         </div>
       </div><!-- /stab-panel-team -->
 
       <!-- ══ TAB: ACCESS ══ -->
       <div class="stab-panel" id="stab-panel-access" style="display:none;">
-        <div id="accessControlContainer">
-          <div class="empty"><div class="empty-icon">🔐</div>Loading access controls...</div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Login Security</div><div class="panel-title">Access Methods</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">NBD Pro supports three login methods. You can enable or disable each one.</p>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Email + Password</div>
+                <div style="font-size:11px;color:var(--m);">Standard Firebase Auth login</div>
+              </div>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Access Code</div>
+                <div style="font-size:11px;color:var(--m);">Shared team code · current: <code>NBD-2026</code></div>
+              </div>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Demo / Try It Mode</div>
+                <div style="font-size:11px;color:var(--m);">Read-only sandbox on landing page</div>
+              </div>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Session</div><div class="panel-title">Current Session</div></div></div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;">
+              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Signed in as</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSignedInAs">—</div></div>
+              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">User ID</label><div style="font-size:11px;color:var(--m);font-family:monospace;word-break:break-all;" id="accUserId">—</div></div>
+              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Login method</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accLoginMethod">Email + Password</div></div>
+              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Session started</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSessionStarted">—</div></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+              <button class="btn btn-red" onclick="window._signOut()">Sign Out Everywhere</button>
+              <button class="btn btn-ghost" onclick="location.reload()" style="font-size:11px;">Refresh Session</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Data Retention</div><div class="panel-title">Export & Cleanup</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your data is yours. Export it anytime.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-ghost" onclick="window._exportAllData && window._exportAllData()" style="font-size:11px;">📥 Export All Leads (CSV)</button>
+              <button class="btn btn-ghost" onclick="window._exportEstimates && window._exportEstimates()" style="font-size:11px;">📥 Export Estimates (CSV)</button>
+              <button class="btn btn-ghost" onclick="window._exportPhotos && window._exportPhotos()" style="font-size:11px;">📥 Export Photos (ZIP)</button>
+            </div>
+          </div>
         </div>
       </div><!-- /stab-panel-access -->
 
       <!-- ══ TAB: BILLING ══ -->
       <div class="stab-panel" id="stab-panel-billing" style="display:none;">
-        <div id="billingContainer">
-          <div class="empty"><div class="empty-icon">💳</div>Loading billing info...</div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Current Plan</div><div class="panel-title">NBD Pro · Full Access</div></div></div>
+          <div class="panel-body">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px;background:linear-gradient(135deg,rgba(232,114,12,.15),rgba(232,114,12,.05));border:2px solid var(--orange);border-radius:10px;margin-bottom:14px;">
+              <div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">FOUNDER · LIFETIME</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;">Full Access</div>
+                <div style="font-size:11px;color:var(--m);margin-top:4px;">All features, unlimited leads, no limits</div>
+              </div>
+              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:#fff;border-radius:3px;letter-spacing:.1em;">ACTIVE</span>
+            </div>
+            <p style="font-size:12px;color:var(--m);">Joe's operator account. Unlimited everything. No billing charges.</p>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Platform</div><div class="panel-title">Ask Joe AI Usage</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Anthropic API charges pass through directly to your key. We don't mark up AI calls.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">This Month</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--t);" id="aiUsageMonth">—</div>
+                <div style="font-size:9px;color:var(--m);">API calls</div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">Cost</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--orange);" id="aiUsageCost">$0.00</div>
+                <div style="font-size:9px;color:var(--m);">Estimated</div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">Tokens</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--t);" id="aiUsageTokens">—</div>
+                <div style="font-size:9px;color:var(--m);">In + Out</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hdr"><div><div class="panel-label">Subscription</div><div class="panel-title">Future Billing (When Licensed)</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">When NBD Pro is ready to license to other contractors, subscription tiers will live here. Built on Stripe Checkout.</p>
+            <ul style="font-size:12px;color:var(--t);line-height:1.8;padding-left:20px;">
+              <li>Starter — solo operator, 50 leads/mo, $99/mo</li>
+              <li>Growth — small team, 500 leads/mo, $249/mo</li>
+              <li>Enterprise — unlimited + multi-tenant, custom pricing</li>
+            </ul>
+            <div style="margin-top:12px;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:11px;color:var(--m);">
+              <strong>North Star:</strong> Always 1/3 of competitor pricing. Contractor-built, contractor-priced.
+            </div>
+          </div>
         </div>
       </div><!-- /stab-panel-billing -->
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
       <div class="stab-panel" id="stab-panel-notifications" style="display:none;">
-        <div id="notificationSettingsContainer">
-          <div class="empty"><div class="empty-icon">🔔</div>Loading notification settings...</div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Mode</div><div class="panel-title">How Noisy Should Joe Be?</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Pick one default mode. Critical-only is recommended — keeps interruptions under 4/day.</p>
+
+            <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;cursor:pointer;">
+              <input type="radio" name="notifMode" value="critical" id="notifCritical" checked style="margin-top:3px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Critical Only (Recommended)</div>
+                <div style="font-size:11px;color:var(--m);margin-top:2px;">Overdue follow-ups, hot leads, storm alerts in your area. Max 3–4/day.</div>
+              </div>
+            </label>
+
+            <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;cursor:pointer;">
+              <input type="radio" name="notifMode" value="digest" id="notifDigest" style="margin-top:3px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Scheduled Digests</div>
+                <div style="font-size:11px;color:var(--m);margin-top:2px;">7am morning briefing + 3pm afternoon update. No real-time interruptions.</div>
+              </div>
+            </label>
+
+            <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <input type="radio" name="notifMode" value="firehose" id="notifFirehose" style="margin-top:3px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t);">Real-Time Firehose</div>
+                <div style="font-size:11px;color:var(--m);margin-top:2px;">Every lead change, every message, every event. Power user mode.</div>
+              </div>
+            </label>
+          </div>
         </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Triggers</div><div class="panel-title">What Triggers an Alert</div></div></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Overdue Follow-Ups</div>
+                  <div style="font-size:10px;color:var(--m);">Lead has no touch in 3+ days</div>
+                </div>
+                <input type="checkbox" id="notifOverdue" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Hot Leads</div>
+                  <div style="font-size:10px;color:var(--m);">High lead score + recent activity</div>
+                </div>
+                <input type="checkbox" id="notifHot" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Storm Alerts</div>
+                  <div style="font-size:10px;color:var(--m);">Hail / wind event in service area</div>
+                </div>
+                <input type="checkbox" id="notifStorm" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Estimate Approvals</div>
+                  <div style="font-size:10px;color:var(--m);">Customer signs / adjuster approves</div>
+                </div>
+                <input type="checkbox" id="notifApproval" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Inbound Messages</div>
+                  <div style="font-size:10px;color:var(--m);">Customer texts, emails, calls</div>
+                </div>
+                <input type="checkbox" id="notifInbound" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">D2D Territory Updates</div>
+                  <div style="font-size:10px;color:var(--m);">New knocks, interested dispositions</div>
+                </div>
+                <input type="checkbox" id="notifD2d">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Channels</div><div class="panel-title">Where Alerts Go</div></div></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div style="font-size:13px;color:var(--t);">🖥️ In-app banner</div>
+                <input type="checkbox" id="chInApp" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div style="font-size:13px;color:var(--t);">📱 Push (browser / PWA)</div>
+                <input type="checkbox" id="chPush">
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div style="font-size:13px;color:var(--t);">📧 Email</div>
+                <input type="checkbox" id="chEmail" checked>
+              </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div style="font-size:13px;color:var(--t);">📞 SMS (coming soon)</div>
+                <input type="checkbox" id="chSms" disabled>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-orange" onclick="window._saveNotifSettings()">💾 Save Notification Settings</button>
+          <button class="btn btn-ghost" onclick="window._testNotif && window._testNotif()" style="font-size:11px;">🧪 Test Notification</button>
+        </div>
+        <div id="notif-save-msg" style="display:none;margin-top:10px;font-size:11px;color:#4caf82;">✓ Notification preferences saved</div>
       </div><!-- /stab-panel-notifications -->
 
       <!-- ══ TAB: HELP ══ -->
