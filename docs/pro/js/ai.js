@@ -157,9 +157,10 @@ function initJoeChat() {
   const input  = document.getElementById('joeInputArea');
   if(!noKey || !msgs || !input) return;
 
-  // Check for stored key — show gate if missing
+  // Check for Cloud Function proxy OR stored key — show gate only if NEITHER available
   const _k = getJoeKey();
-  if (!_k) {
+  const hasProxy = typeof window.callClaude === 'function';
+  if (!_k && !hasProxy) {
     noKey.style.display='block'; msgs.style.display='none'; input.style.display='none';
     document.getElementById('joeContextBar').style.display='none';
     return;
