@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBD Pro — Leaderboard</title>
@@ -26,6 +27,9 @@
       --text-dim: rgba(255,255,255,0.70);
       --radius: 10px;
       --shadow: 0 4px 24px rgba(0,0,0,0.4);
+      --green: #2ECC8A;
+      --blue: #4E9BF5;
+      --red: #E05252;
     }
 
     body {
@@ -37,245 +41,143 @@
 
     /* NAV */
     .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 24px;
-      background: var(--navy-mid);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; background: var(--navy-mid);
       border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      position: sticky; top: 0; z-index: 100;
     }
-    .nav-brand {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: .85rem;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: var(--orange);
-    }
-    .nav-back {
-      font-size: .78rem;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 600;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      transition: color .2s;
-    }
+    .nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: .85rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--orange); }
+    .nav-back { font-size: .78rem; color: var(--text-muted); text-decoration: none; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; transition: color .2s; }
     .nav-back:hover { color: #fff; }
 
     /* HERO */
-    .hero {
-      text-align: center;
-      padding: 48px 24px 32px;
-      background: linear-gradient(180deg, var(--navy-mid) 0%, var(--navy) 100%);
-      border-bottom: 1px solid var(--border);
-    }
+    .hero { text-align: center; padding: 48px 24px 32px; background: linear-gradient(180deg, var(--navy-mid) 0%, var(--navy) 100%); border-bottom: 1px solid var(--border); }
     .hero-icon { font-size: 2.5rem; margin-bottom: 12px; }
-    .hero h1 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
-      font-weight: 900;
-      letter-spacing: -.02em;
-      margin-bottom: 8px;
-    }
+    .hero h1 { font-family: 'Barlow Condensed', sans-serif; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 900; letter-spacing: -.02em; margin-bottom: 8px; }
     .hero h1 span { color: var(--orange); }
-    .hero p {
-      font-size: .9rem;
-      color: var(--text-dim);
-      max-width: 480px;
-      margin: 0 auto;
-    }
+    .hero p { font-size: .9rem; color: var(--text-dim); max-width: 480px; margin: 0 auto; }
 
-    /* TABS */
-    .tabs {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      padding: 24px 24px 0;
-    }
-    .tab-btn {
-      background: var(--navy-light);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: .78rem;
-      font-weight: 700;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      padding: 8px 18px;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all .2s;
-    }
+    /* PERIOD TABS */
+    .period-tabs { display: flex; justify-content: center; gap: 8px; padding: 24px 24px 0; flex-wrap: wrap; }
+    .period-btn { background: var(--navy-light); border: 1px solid var(--border); color: var(--text-muted); font-family: 'Barlow Condensed', sans-serif; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: all .2s; }
+    .period-btn:hover { color: #fff; border-color: rgba(255,255,255,.2); }
+    .period-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+
+    /* CATEGORY TABS */
+    .tabs { display: flex; justify-content: center; gap: 8px; padding: 16px 24px 0; flex-wrap: wrap; }
+    .tab-btn { background: var(--navy-light); border: 1px solid var(--border); color: var(--text-muted); font-family: 'Barlow Condensed', sans-serif; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: all .2s; }
     .tab-btn:hover { color: #fff; border-color: rgba(255,255,255,.2); }
-    .tab-btn.active {
-      background: var(--orange);
-      border-color: var(--orange);
-      color: #fff;
-    }
+    .tab-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
     /* BOARD */
-    .board {
-      max-width: 720px;
-      margin: 24px auto 48px;
-      padding: 0 16px;
-    }
+    .board { max-width: 720px; margin: 24px auto 20px; padding: 0 16px; }
 
     /* LOADING / EMPTY */
-    .state-msg {
-      text-align: center;
-      padding: 64px 24px;
-      color: var(--text-muted);
-      font-size: .9rem;
-    }
+    .state-msg { text-align: center; padding: 64px 24px; color: var(--text-muted); font-size: .9rem; }
     .state-msg .icon { font-size: 2rem; margin-bottom: 12px; }
 
+    /* STAT SUMMARY */
+    .stat-summary { max-width: 720px; margin: 0 auto 16px; padding: 0 16px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .stat-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+    .stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 900; color: var(--orange); line-height: 1.1; }
+    .stat-val.green { color: var(--green); }
+    .stat-val.blue { color: var(--blue); }
+    .stat-lbl { font-size: .65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
+
     /* ROW */
-    .lb-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: var(--navy-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      margin-bottom: 8px;
-      transition: border-color .2s;
-    }
+    .lb-row { display: flex; align-items: center; gap: 14px; background: var(--navy-light); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; transition: border-color .2s; }
     .lb-row:hover { border-color: rgba(232,114,12,.3); }
     .lb-row.top-1 { border-color: rgba(255,215,0,.35); background: rgba(255,215,0,.05); }
     .lb-row.top-2 { border-color: rgba(192,192,192,.3); }
     .lb-row.top-3 { border-color: rgba(205,127,50,.3); }
-
-    .rank {
-      font-size: 1.1rem;
-      font-weight: 900;
-      min-width: 32px;
-      text-align: center;
-    }
+    .rank { font-size: 1.1rem; font-weight: 900; min-width: 32px; text-align: center; }
     .top-1 .rank { color: gold; }
     .top-2 .rank { color: silver; }
     .top-3 .rank { color: #cd7f32; }
-
-    .avatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--orange), var(--navy-light));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: .85rem;
-      flex-shrink: 0;
-    }
-
+    .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), var(--navy-light)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex-shrink: 0; }
     .lb-info { flex: 1; min-width: 0; }
-    .lb-name {
-      font-family: 'Barlow', sans-serif;
-      font-size: .9rem;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .lb-sub {
-      font-size: .72rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .lb-stat {
-      text-align: right;
-      flex-shrink: 0;
-    }
-    .lb-stat-val {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 1.1rem;
-      font-weight: 900;
-      color: var(--orange);
-    }
-    .lb-stat-label {
-      font-size: .65rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
+    .lb-name { font-family: 'Barlow', sans-serif; font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lb-sub { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+    .lb-stat { text-align: right; flex-shrink: 0; }
+    .lb-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 900; color: var(--orange); }
+    .lb-stat-label { font-size: .65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
 
     /* MY RANK BANNER */
-    .my-rank-banner {
-      max-width: 720px;
-      margin: 0 auto 16px;
-      padding: 0 16px;
-    }
-    .my-rank-inner {
-      background: rgba(232,114,12,.12);
-      border: 1px solid rgba(232,114,12,.35);
-      border-radius: var(--radius);
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: .82rem;
-    }
+    .my-rank-banner { max-width: 720px; margin: 0 auto 16px; padding: 0 16px; }
+    .my-rank-inner { background: rgba(232,114,12,.12); border: 1px solid rgba(232,114,12,.35); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; font-size: .82rem; }
     .my-rank-inner strong { color: var(--orange); }
 
+    /* ACTIVITY FEED */
+    .feed { max-width: 720px; margin: 0 auto 48px; padding: 0 16px; }
+    .feed-title { font-family: 'Barlow Condensed', sans-serif; font-size: .85rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+    .feed-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--navy-light); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; font-size: .82rem; }
+    .feed-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .feed-text { flex: 1; color: var(--text-dim); }
+    .feed-text strong { color: #fff; }
+    .feed-time { font-size: .68rem; color: var(--text-muted); white-space: nowrap; }
+
     /* AUTH WALL */
-    .auth-wall {
-      text-align: center;
-      padding: 80px 24px;
-      max-width: 400px;
-      margin: 0 auto;
-    }
+    .auth-wall { text-align: center; padding: 80px 24px; max-width: 400px; margin: 0 auto; }
     .auth-wall .icon { font-size: 2.5rem; margin-bottom: 16px; }
     .auth-wall h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
     .auth-wall p { font-size: .88rem; color: var(--text-dim); margin-bottom: 24px; }
-    .btn-primary {
-      display: inline-block;
-      background: var(--orange);
-      color: #fff;
-      font-family: inherit;
-      font-size: .85rem;
-      font-weight: 700;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      padding: 12px 28px;
-      border-radius: 8px;
-      text-decoration: none;
-      border: none;
-      cursor: pointer;
-      transition: background .2s;
-    }
-    .btn-primary:hover { background: var(--orange-light, #ff8c2a); }
+    .btn-primary { display: inline-block; background: var(--orange); color: #fff; font-family: inherit; font-size: .85rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 12px 28px; border-radius: 8px; text-decoration: none; border: none; cursor: pointer; transition: background .2s; }
+    .btn-primary:hover { background: var(--orange-light); }
+
+    /* LOADING SPINNER */
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/leaderboard">
 </head>
 <body>
 
 <nav class="nav">
-  <span class="nav-brand">⚡ NBD Pro</span>
-  <a href="/pro/dashboard.html" class="nav-back">← Dashboard</a>
+  <span class="nav-brand">NBD Pro</span>
+  <a href="/pro/dashboard.html" class="nav-back">Dashboard</a>
 </nav>
 
 <div class="hero">
   <div class="hero-icon">🏆</div>
   <h1>The <span>Leaderboard</span></h1>
-  <p>Top performers. Real numbers. No big deal — unless you're on it.</p>
+  <p>Real numbers from your CRM. Doors knocked, deals closed, revenue earned.</p>
 </div>
 
+<!-- Period selector -->
+<div class="period-tabs">
+  <button class="period-btn" data-period="day">Today</button>
+  <button class="period-btn" data-period="week">This Week</button>
+  <button class="period-btn" data-period="month">This Month</button>
+  <button class="period-btn active" data-period="all">All Time</button>
+</div>
+
+<!-- Category tabs -->
 <div class="tabs">
-  <button class="tab-btn active" data-tab="doors">🚪 Door Streak</button>
-  <button class="tab-btn" data-tab="wins">🏆 Win Streak</button>
+  <button class="tab-btn active" data-tab="doors">🚪 Doors Knocked</button>
+  <button class="tab-btn" data-tab="deals">🏆 Deals Closed</button>
   <button class="tab-btn" data-tab="revenue">💰 Revenue</button>
-  <button class="tab-btn" data-tab="total">📋 Total Doors</button>
+</div>
+
+<!-- Summary stats -->
+<div class="stat-summary" style="margin-top:16px;">
+  <div class="stat-grid" id="summaryStats">
+    <div class="stat-card"><div class="stat-val" id="sumKnocks">—</div><div class="stat-lbl">Doors</div></div>
+    <div class="stat-card"><div class="stat-val green" id="sumDeals">—</div><div class="stat-lbl">Deals Closed</div></div>
+    <div class="stat-card"><div class="stat-val blue" id="sumRevenue">—</div><div class="stat-lbl">Revenue</div></div>
+    <div class="stat-card"><div class="stat-val" id="sumRate">—</div><div class="stat-lbl">Close Rate</div></div>
+  </div>
 </div>
 
 <div id="my-rank-banner" class="my-rank-banner" style="display:none;margin-top:16px;"></div>
 <div class="board" id="board">
-  <div class="state-msg"><div class="icon">⏳</div>Loading leaderboard…</div>
+  <div class="state-msg"><div class="spinner"></div><div style="margin-top:12px">Loading leaderboard...</div></div>
+</div>
+
+<!-- Activity feed -->
+<div class="feed" id="feed" style="display:none;">
+  <div class="feed-title">Recent Wins</div>
+  <div id="feedItems"></div>
 </div>
 
 <div id="auth-wall" style="display:none">
@@ -291,7 +193,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, collection, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -306,22 +208,37 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const TABS = {
-  doors:   { field: 'door_streak',    label: 'Day Streak',   icon: '🚪', suffix: 'd' },
-  wins:    { field: 'win_streak',     label: 'Win Streak',   icon: '🏆', suffix: 'd' },
-  revenue: { field: 'total_revenue',  label: 'Revenue',      icon: '💰', prefix: '$' },
-  total:   { field: 'total_doors',    label: 'Total Doors',  icon: '🚪', suffix: '' }
-};
+// ── Stage classification ──
+const WON_STAGES = ['closed','install_complete','final_photos','final_payment','deductible_collected','Complete'];
 
+// ── State ──
 let currentTab = 'doors';
+let currentPeriod = 'all';
 let currentUser = null;
-let allData = [];
+let rawData = { leads: [], knocks: [], invoices: [] };
 
-function fmt(tab, val) {
-  const t = TABS[tab];
-  if (!val && val !== 0) return '—';
-  if (t.prefix) return t.prefix + Number(val).toLocaleString();
-  return Number(val).toLocaleString() + (t.suffix ? t.suffix : '');
+// ── Helpers ──
+function toDate(v) {
+  if (!v) return null;
+  if (v.toDate) return v.toDate();
+  if (v.seconds) return new Date(v.seconds * 1000);
+  if (typeof v === 'string' || typeof v === 'number') return new Date(v);
+  if (v instanceof Date) return v;
+  return null;
+}
+
+function periodStart(p) {
+  const now = new Date();
+  if (p === 'day') { const d = new Date(now); d.setHours(0,0,0,0); return d; }
+  if (p === 'week') { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }
+  if (p === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+  return new Date(2020, 0, 1);
+}
+
+function isInPeriod(dateVal) {
+  const d = toDate(dateVal);
+  if (!d) return currentPeriod === 'all';
+  return d >= periodStart(currentPeriod);
 }
 
 function initials(name) {
@@ -329,15 +246,116 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function renderBoard(tab) {
+function fmtCurrency(n) {
+  if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '$' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function relativeTime(d) {
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + 'd ago';
+  return d.toLocaleDateString();
+}
+
+// ── Data loading ──
+async function loadData() {
+  const uid = currentUser?.uid;
+  if (!uid) return;
+
+  try {
+    const [leadsSnap, knocksSnap, invoicesSnap] = await Promise.all([
+      getDocs(query(collection(db, 'leads'), where('userId', '==', uid))),
+      getDocs(query(collection(db, 'knocks'), where('userId', '==', uid))),
+      getDocs(query(collection(db, 'invoices'), where('createdBy', '==', uid)))
+    ]);
+
+    rawData.leads = leadsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.deleted);
+    rawData.knocks = knocksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rawData.invoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error('Leaderboard data load error:', e);
+  }
+
+  renderAll();
+}
+
+// ── Compute metrics for the selected period ──
+function computeMetrics() {
+  const leads = rawData.leads.filter(l => isInPeriod(l.createdAt));
+  const knocks = rawData.knocks.filter(k => isInPeriod(k.createdAt));
+  const paidInvoices = rawData.invoices.filter(inv => inv.status === 'paid' && isInPeriod(inv.paidAt));
+  const wonLeads = rawData.leads.filter(l => WON_STAGES.includes(l._stageKey || l.stage || '') && isInPeriod(l.updatedAt));
+
+  const totalKnocks = knocks.length;
+  const totalDeals = wonLeads.length;
+  const totalRevenue = paidInvoices.reduce((s, inv) => s + (parseFloat(inv.total) || 0), 0);
+  // If no paid invoices, fall back to job value from won leads
+  const revenueFallback = totalRevenue > 0 ? totalRevenue : wonLeads.reduce((s, l) => s + (parseFloat(l.jobValue) || 0), 0);
+  const closeRate = (totalDeals + leads.filter(l => ['lost','Lost'].includes(l._stageKey || l.stage || '')).length) > 0
+    ? Math.round(totalDeals / (totalDeals + leads.filter(l => ['lost','Lost'].includes(l._stageKey || l.stage || '')).length) * 100)
+    : 0;
+
+  // Appointments from knocks
+  const appointments = knocks.filter(k => k.disposition === 'appointment' || k.stage === 'appointment').length;
+
+  return {
+    totalKnocks, totalDeals, totalRevenue: revenueFallback, closeRate, appointments,
+    knocks, wonLeads, paidInvoices, leads
+  };
+}
+
+// ── Build rep-level data (for multi-rep future use) ──
+function buildReps(metrics) {
+  const name = currentUser?.displayName || 'You';
+  return [{
+    name: name,
+    uid: currentUser?.uid,
+    knocks: metrics.totalKnocks,
+    deals: metrics.totalDeals,
+    revenue: metrics.totalRevenue,
+    appointments: metrics.appointments,
+    rate: metrics.closeRate
+  }];
+}
+
+// ── Render everything ──
+function renderAll() {
+  const metrics = computeMetrics();
+  const reps = buildReps(metrics);
+
+  // Summary stats
+  document.getElementById('sumKnocks').textContent = metrics.totalKnocks.toLocaleString();
+  document.getElementById('sumDeals').textContent = metrics.totalDeals.toLocaleString();
+  document.getElementById('sumRevenue').textContent = fmtCurrency(metrics.totalRevenue);
+  document.getElementById('sumRate').textContent = metrics.closeRate + '%';
+
+  renderBoard(reps);
+  renderFeed(metrics);
+}
+
+function renderBoard(reps) {
   const board = document.getElementById('board');
   const banner = document.getElementById('my-rank-banner');
-  const t = TABS[tab];
 
-  const sorted = [...allData].sort((a, b) => (b[t.field] || 0) - (a[t.field] || 0));
+  const TABS = {
+    doors:   { field: 'knocks',   label: 'Doors',   fmtFn: v => v.toLocaleString() },
+    deals:   { field: 'deals',    label: 'Deals',    fmtFn: v => v.toLocaleString() },
+    revenue: { field: 'revenue',  label: 'Revenue',  fmtFn: v => fmtCurrency(v) }
+  };
+  const t = TABS[currentTab];
 
-  if (sorted.length === 0) {
-    board.innerHTML = `<div class="state-msg"><div class="icon">📭</div>No data yet. Be the first on the board.</div>`;
+  const sorted = [...reps].sort((a, b) => (b[t.field] || 0) - (a[t.field] || 0));
+
+  if (sorted.length === 0 || sorted.every(r => !r[t.field])) {
+    board.innerHTML = '<div class="state-msg"><div class="icon">📊</div>No data for this period yet. Get out there and knock some doors.</div>';
     banner.style.display = 'none';
     return;
   }
@@ -346,12 +364,9 @@ function renderBoard(tab) {
   if (currentUser) {
     const myIdx = sorted.findIndex(r => r.uid === currentUser.uid);
     if (myIdx !== -1) {
-      const myEntry = sorted[myIdx];
+      const my = sorted[myIdx];
       banner.style.display = 'block';
-      banner.innerHTML = `<div class="my-rank-inner">
-        <span>Your rank: <strong>#${myIdx + 1}</strong></span>
-        <span>${t.icon} <strong>${fmt(tab, myEntry[t.field])}</strong> ${t.label}</span>
-      </div>`;
+      banner.innerHTML = '<div class="my-rank-inner"><span>Your rank: <strong>#' + (myIdx + 1) + '</strong></span><span><strong>' + t.fmtFn(my[t.field] || 0) + '</strong> ' + t.label + (my.appointments > 0 ? ' · ' + my.appointments + ' appts set' : '') + '</span></div>';
     } else {
       banner.style.display = 'none';
     }
@@ -359,65 +374,102 @@ function renderBoard(tab) {
 
   const rows = sorted.slice(0, 25).map((entry, i) => {
     const rankClass = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
-    const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-    const name = entry.displayName || 'NBD Member';
-    return `<div class="lb-row ${rankClass}">
-      <div class="rank">${rankIcon}</div>
-      <div class="avatar">${initials(name)}</div>
-      <div class="lb-info">
-        <div class="lb-name">${name}</div>
-        <div class="lb-sub">${entry.page_count || 0} days logged</div>
-      </div>
-      <div class="lb-stat">
-        <div class="lb-stat-val">${fmt(tab, entry[t.field])}</div>
-        <div class="lb-stat-label">${t.label}</div>
-      </div>
-    </div>`;
+    const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+    const name = entry.name || 'NBD Member';
+    const sub = currentTab === 'doors'
+      ? entry.appointments + ' appointments · ' + entry.rate + '% close rate'
+      : currentTab === 'deals'
+        ? fmtCurrency(entry.revenue) + ' revenue · ' + entry.rate + '% close rate'
+        : entry.deals + ' deals · ' + entry.knocks + ' doors knocked';
+
+    return '<div class="lb-row ' + rankClass + '">' +
+      '<div class="rank">' + rankIcon + '</div>' +
+      '<div class="avatar">' + initials(name) + '</div>' +
+      '<div class="lb-info">' +
+        '<div class="lb-name">' + name + '</div>' +
+        '<div class="lb-sub">' + sub + '</div>' +
+      '</div>' +
+      '<div class="lb-stat">' +
+        '<div class="lb-stat-val">' + t.fmtFn(entry[t.field] || 0) + '</div>' +
+        '<div class="lb-stat-label">' + t.label + '</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
   board.innerHTML = rows;
 }
 
-async function loadLeaderboard() {
-  try {
-    const snap = await getDocs(collection(db, 'leaderboard'));
-    allData = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-    renderBoard(currentTab);
-  } catch (e) {
-    document.getElementById('board').innerHTML =
-      `<div class="state-msg"><div class="icon">⚠️</div>Could not load leaderboard. Check back soon.</div>`;
+function renderFeed(metrics) {
+  const feedEl = document.getElementById('feed');
+  const feedItems = document.getElementById('feedItems');
+
+  // Build recent activity from won leads and knocks
+  const events = [];
+
+  metrics.wonLeads.slice(0, 5).forEach(l => {
+    const d = toDate(l.updatedAt);
+    if (d) events.push({ icon: '🏆', text: '<strong>Deal closed</strong> — ' + (l.name || l.address || 'Lead') + (l.jobValue ? ' · ' + fmtCurrency(parseFloat(l.jobValue)) : ''), time: d });
+  });
+
+  const recentKnocks = metrics.knocks.filter(k => k.disposition === 'appointment').slice(0, 5);
+  recentKnocks.forEach(k => {
+    const d = toDate(k.createdAt);
+    if (d) events.push({ icon: '📋', text: '<strong>Appointment set</strong> — ' + (k.address || 'Address'), time: d });
+  });
+
+  events.sort((a, b) => b.time - a.time);
+
+  if (events.length === 0) {
+    feedEl.style.display = 'none';
+    return;
   }
+
+  feedEl.style.display = 'block';
+  feedItems.innerHTML = events.slice(0, 8).map(e =>
+    '<div class="feed-item">' +
+      '<div class="feed-icon">' + e.icon + '</div>' +
+      '<div class="feed-text">' + e.text + '</div>' +
+      '<div class="feed-time">' + relativeTime(e.time) + '</div>' +
+    '</div>'
+  ).join('');
 }
 
-// Tab switching
+// ── Tab switching ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentTab = btn.dataset.tab;
-    renderBoard(currentTab);
+    renderAll();
   });
 });
 
-// Auth gate
+// ── Period switching ──
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = btn.dataset.period;
+    renderAll();
+  });
+});
+
+// ── Auth gate ──
 onAuthStateChanged(auth, user => {
   currentUser = user;
+  document.documentElement.style.visibility = 'visible';
   if (user) {
     document.getElementById('auth-wall').style.display = 'none';
     document.getElementById('board').style.display = 'block';
-    loadLeaderboard();
+    loadData();
   } else {
     document.getElementById('board').style.display = 'none';
     document.getElementById('auth-wall').style.display = 'block';
     document.getElementById('my-rank-banner').style.display = 'none';
+    document.getElementById('feed').style.display = 'none';
   }
 });
 </script>
 
 </body>
 </html>
-```
-
-Commit message:
-```
-feat: add public leaderboard page with Firebase Firestore reads
