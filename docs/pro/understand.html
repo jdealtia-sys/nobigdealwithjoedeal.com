@@ -1,1624 +1,671 @@
 <!DOCTYPE html>
-<html lang="en" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Understanding Tool — NBD Pro</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#0A0C12;--sur:#10141E;--card:#141926;--lift:#181E2C;
-  --b1:#1E2535;--b2:#263047;
-  --or:#F97316;--or-d:rgba(249,115,22,.10);--or-g:rgba(249,115,22,.20);
-  --bl:#0EA5E9;--bl-d:rgba(14,165,233,.10);
-  --gn:#22C55E;--gn-d:rgba(34,197,94,.10);
-  --rd:#EF4444;--rd-d:rgba(239,68,68,.10);
-  --pu:#A855F7;--go:#F59E0B;--go-d:rgba(245,158,11,.10);
-  --tx:#F0F2F8;--tx2:#8892A4;--tx3:#4A5568;
-  --ac:var(--or);
-  --ease:cubic-bezier(0.22,1,0.36,1);--t:.2s;--r:8px;--rl:14px;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;min-height:100dvh;overflow-x:hidden}
-body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background:radial-gradient(ellipse at 15% 10%,rgba(249,115,22,.04),transparent 50%),radial-gradient(ellipse at 85% 80%,rgba(14,165,233,.03),transparent 50%);pointer-events:none;z-index:0}
-
-/* TOPBAR */
-.tb{height:58px;background:rgba(10,12,18,.97);border-bottom:1px solid var(--b1);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 24px;gap:12px}
-.tb-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.tb-badge{width:32px;height:32px;background:var(--or);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;color:#fff}
-.tb-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx)}
-.tb-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--or);letter-spacing:1px}
-.tb-r{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
-.tbtn{background:none;border:1px solid var(--b2);color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 11px;border-radius:var(--r);cursor:pointer;letter-spacing:.5px;transition:all var(--t) var(--ease);display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap}
-.tbtn:hover,.tbtn.on{border-color:var(--ac);color:var(--ac);background:var(--or-d)}
-
-/* HERO */
-.hero{padding:52px 28px 36px;text-align:center;position:relative;z-index:1;max-width:820px;margin:0 auto}
-.hero-ey{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--or);margin-bottom:12px}
-.hero-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(44px,7vw,82px);font-weight:900;letter-spacing:2px;text-transform:uppercase;line-height:.92;color:var(--tx);margin-bottom:16px}
-.hero-h .hl{color:var(--or)}
-.hero-s{font-size:17px;color:var(--tx2);line-height:1.65;max-width:520px;margin:0 auto 36px}
-.paths{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.path-btn{padding:16px 20px;border-radius:var(--rl);border:1px solid var(--b2);background:var(--card);color:var(--tx);font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease);display:flex;flex-direction:column;align-items:center;gap:8px;min-width:160px}
-.path-btn .pi{font-size:26px}
-.path-btn .ps{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);letter-spacing:.5px;font-weight:400;text-transform:none;text-align:center;line-height:1.4}
-.path-btn:hover{transform:translateY(-3px)}
-.pa:hover{border-color:var(--or);background:var(--or-d);box-shadow:0 8px 24px rgba(249,115,22,.15)}
-.pe:hover{border-color:var(--bl);background:var(--bl-d);box-shadow:0 8px 24px rgba(14,165,233,.12)}
-.pd:hover{border-color:var(--gn);background:var(--gn-d);box-shadow:0 8px 24px rgba(34,197,94,.12)}
-
-/* PROGRESS STRIP */
-.pstrip{background:var(--sur);border-bottom:1px solid var(--b1);padding:14px 28px;position:sticky;top:58px;z-index:190;display:none}
-.pstrip.show{display:block}
-.p-inner{display:flex;align-items:center;max-width:660px;margin:0 auto}
-.ps-step{display:flex;align-items:center;flex:1}
-.ps-step:last-child{flex:0}
-.ps-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer}
-.ps-dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--b2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);transition:all var(--t) var(--ease);background:var(--sur)}
-.ps-dot:hover{border-color:var(--ac)}
-.ps-dot.cur{border-color:var(--ac);color:var(--ac);background:var(--or-d);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
-.ps-dot.done{border-color:var(--gn);background:var(--gn);color:#fff}
-.ps-lbl{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--tx3);margin-top:4px;letter-spacing:.5px;white-space:nowrap}
-.ps-line{flex:1;height:2px;background:var(--b1);margin:0 4px;transition:background .4s var(--ease);margin-bottom:18px}
-.ps-line.done{background:var(--gn)}
-
-/* ANSWER SIDEBAR */
-.as-tog{position:fixed;left:0;top:50%;transform:translateY(-50%);background:var(--ac);color:#fff;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;writing-mode:vertical-rl;padding:10px 7px;border-radius:0 var(--r) var(--r) 0;cursor:pointer;z-index:195;transition:all var(--t) var(--ease);border:none;display:none}
-.as-tog.show{display:block}
-.as-tog:hover{background:var(--tx);color:var(--bg)}
-.as-panel{position:fixed;left:-250px;top:116px;bottom:0;width:250px;background:var(--sur);border-right:1px solid var(--b1);z-index:194;overflow-y:auto;transition:left var(--t) var(--ease);padding:14px}
-.as-panel.open{left:0}
-.as-ttl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--ac);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--b1)}
-.as-item{padding:8px 0;border-bottom:1px solid var(--b1)}
-.as-item:last-child{border-bottom:none}
-.as-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);letter-spacing:.5px;margin-bottom:3px}
-.as-val{font-size:13px;color:var(--tx);line-height:1.4}
-.as-em{font-size:12px;color:var(--tx3);font-style:italic}
-
-/* WIZARD */
-.wiz{display:none;position:relative;z-index:1;max-width:880px;margin:0 auto;padding:0 28px 80px}
-.wiz.show{display:block}
-.step{display:none;animation:su .28s var(--ease) both}
-.step.cur{display:block}
-@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.step-hd{margin-bottom:22px}
-.step-n{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ac);margin-bottom:5px}
-.step-t{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx);margin-bottom:5px}
-.step-s{font-size:14px;color:var(--tx2);line-height:1.5}
-.step-nav{display:flex;align-items:center;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--b1)}
-.s-back{background:none;border:1px solid var(--b2);color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 16px;border-radius:var(--r);cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
-.s-back:hover{border-color:var(--ac);color:var(--ac)}
-.s-ctr{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);flex:1;text-align:center;letter-spacing:.5px}
-
-/* LEARN MODE TOGGLE */
-.lmt{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--rl);border:1px solid var(--b2);background:var(--card);cursor:pointer;transition:all var(--t) var(--ease);user-select:none}
-.lmt:hover,.lmt.on{border-color:var(--bl);background:var(--bl-d)}
-.lmt-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);letter-spacing:.5px;transition:color var(--t)}
-.lmt.on .lmt-lbl{color:var(--bl)}
-.lmt-sw{width:32px;height:18px;border-radius:20px;background:var(--b2);position:relative;transition:background var(--t) var(--ease);flex-shrink:0}
-.lmt-sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform var(--t) var(--ease)}
-.lmt.on .lmt-sw{background:var(--bl)}
-.lmt.on .lmt-sw::after{transform:translateX(14px)}
-.lm-hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bl);background:var(--bl-d);border:1px solid rgba(14,165,233,.25);border-radius:var(--r);padding:7px 12px;margin-top:10px;display:none;letter-spacing:.3px}
-.lm-hint.show{display:block}
-body.lm .tool-card{border-color:rgba(14,165,233,.25)!important}
-body.lm .tool-card:hover{border-color:var(--bl)!important;background:var(--bl-d)!important;transform:translateY(-3px)}
-body.lm .tool-card.selected{border-color:var(--or)!important;background:var(--or-d)!important}
-
-/* TOOL PICKER */
-.t-search{width:100%;background:var(--card);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'Barlow',sans-serif;font-size:15px;padding:11px 16px;outline:none;transition:border-color var(--t) var(--ease);margin-bottom:12px}
-.t-search:focus{border-color:var(--ac)}
-.t-search::placeholder{color:var(--tx3)}
-.cat-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.cpill{padding:4px 12px;border-radius:20px;border:1px solid var(--b2);background:transparent;color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
-.cpill:hover{border-color:var(--ac);color:var(--ac)}
-.cpill.on{background:var(--or-d);color:var(--or);border-color:var(--or)}
-.t-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:360px;overflow-y:auto;padding-right:4px;margin-bottom:4px}
-.tool-card{background:var(--card);border:2px solid var(--b1);border-radius:var(--rl);padding:14px 10px;cursor:pointer;transition:all var(--t) var(--ease);display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;position:relative;user-select:none}
-.tool-card:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.tool-card.selected{border-color:var(--or)!important;background:var(--or-d)!important}
-.tool-card.selected .tc-name{color:var(--or)}
-.tc-ico{font-size:24px;line-height:1}
-.tc-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--tx);text-transform:uppercase;line-height:1.1}
-.tc-cat{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);letter-spacing:.3px}
-.stk-badge{position:absolute;top:5px;right:5px;background:var(--gn);color:#fff;font-family:'JetBrains Mono',monospace;font-size:7px;padding:1px 4px;border-radius:3px}
-.tc-other{border-style:dashed}
-.other-inp{width:100%;background:transparent;border:none;outline:none;font-family:'Barlow',sans-serif;font-size:13px;color:var(--tx);text-align:center;margin-top:4px}
-.other-inp::placeholder{color:var(--tx3)}
-
-/* MATRIX */
-.mat-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--b1)}
-.mat{border-collapse:collapse;width:100%;min-width:520px}
-.mat th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);padding:10px 12px;text-align:left;background:var(--card);border-bottom:1px solid var(--b1)}
-.mat th.ic{text-align:center}
-.mat td{padding:4px 6px;border-bottom:1px solid rgba(30,37,53,.5)}
-.mat tr:last-child td{border-bottom:none}
-.uc-lbl{font-size:13px;color:var(--tx2);padding:8px 12px 8px 10px;white-space:nowrap;border-right:1px solid var(--b1)}
-.ic-cell{text-align:center}
-.imp-btn{min-width:66px;height:30px;border-radius:var(--r);border:1px solid var(--b2);background:transparent;color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:9px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.3px;display:inline-flex;align-items:center;justify-content:center}
-.imp-btn:hover{border-color:var(--tx3);color:var(--tx)}
-.imp-btn.n-skip{background:var(--b2);color:var(--tx3);border-color:var(--b2)}
-.imp-btn.n-nice{background:var(--bl-d);color:var(--bl);border-color:var(--bl)}
-.imp-btn.n-need{background:var(--or-d);color:var(--or);border-color:var(--or)}
-.imp-btn.n-crit{background:var(--rd-d);color:var(--rd);border-color:var(--rd)}
-
-/* BUDGET */
-.bud-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.bchip{padding:10px 20px;border-radius:var(--rl);border:1px solid var(--b2);background:var(--card);color:var(--tx2);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
-.bchip:hover{border-color:var(--ac);color:var(--ac)}
-.bchip.on{background:var(--or-d);color:var(--or);border-color:var(--or)}
-.bud-custom{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
-.bud-custom span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)}
-.bud-inp{background:var(--card);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:14px;padding:8px 12px;outline:none;width:110px;transition:border-color var(--t) var(--ease)}
-.bud-inp:focus{border-color:var(--ac)}
-
-/* ENGAGEMENT */
-.eng-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.eng-card{background:var(--card);border:2px solid var(--b1);border-radius:var(--rl);padding:20px;cursor:pointer;transition:all var(--t) var(--ease)}
-.eng-card:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
-.eng-card.sel{border-color:var(--or)!important;background:var(--or-d)!important}
-.eng-ico{font-size:28px;margin-bottom:10px;line-height:1}
-.eng-lbl{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--tx);margin-bottom:6px}
-.eng-desc{font-size:13px;color:var(--tx2);line-height:1.5}
-
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:var(--rl);border:none;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease);white-space:nowrap}
-.btn-p{background:var(--or);color:#fff;box-shadow:0 4px 16px var(--or-g)}
-.btn-p:hover{filter:brightness(1.08);transform:translateY(-2px)}
-.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn-s{background:var(--lift);color:var(--tx);border:1px solid var(--b2)}
-.btn-s:hover{border-color:var(--ac);color:var(--ac)}
-.btn-sm{padding:6px 14px;font-size:12px}
-
-/* TOAST */
-.tcon{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:6px}
-.toast{background:var(--card);border:1px solid var(--b1);border-left:3px solid var(--or);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx);box-shadow:0 8px 32px rgba(0,0,0,.5);animation:tI .25s var(--ease);min-width:220px}
-@keyframes tI{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-.toast.g{border-left-color:var(--gn)}.toast.r{border-left-color:var(--rd)}.toast.b{border-left-color:var(--bl)}
-
-/* TEACH ME PANEL */
-.tm-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:300;display:none}
-.tm-bd.open{display:block;animation:fd .2s ease}
-@keyframes fd{from{opacity:0}to{opacity:1}}
-.tm-panel{position:fixed;right:-480px;top:58px;bottom:0;width:460px;background:var(--sur);border-left:1px solid var(--b1);z-index:301;overflow:hidden;transition:right .3s var(--ease);display:flex;flex-direction:column}
-.tm-panel.open{right:0}
-.tm-hero{padding:18px 20px 14px;border-bottom:1px solid var(--b1);background:var(--card);flex-shrink:0}
-.tm-hero-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
-.tm-ico{font-size:34px;line-height:1;flex-shrink:0}
-.tm-info{flex:1;min-width:0}
-.tm-nm{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx);line-height:1}
-.tm-cat-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ac);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
-.tm-tag{font-size:13px;color:var(--tx2);margin-top:4px;line-height:1.4}
-.tm-x{background:none;border:1px solid var(--b2);color:var(--tx3);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all var(--t) var(--ease);flex-shrink:0}
-.tm-x:hover{border-color:var(--rd);color:var(--rd)}
-.tm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
-.tm-stat{background:var(--lift);border:1px solid var(--b1);border-radius:var(--r);padding:8px 6px;text-align:center}
-.tm-sv{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--ac);line-height:1}
-.tm-sl{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--tx3);letter-spacing:.5px;margin-top:2px}
-.tm-cache{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);padding:5px 9px;background:var(--lift);border-radius:var(--r)}
-.tm-cache.stale{color:var(--go);background:var(--go-d);border:1px solid rgba(245,158,11,.2)}
-.tm-ref{background:none;border:none;color:var(--bl);font-family:'JetBrains Mono',monospace;font-size:9px;cursor:pointer;letter-spacing:.5px;margin-left:auto;text-decoration:underline}
-.tm-body{flex:1;overflow-y:auto;padding:14px 18px}
-.tm-sec{margin-bottom:12px;border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden}
-.tm-str{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--card);cursor:pointer;border:none;width:100%;text-align:left;transition:background var(--t) var(--ease)}
-.tm-str:hover{background:var(--lift)}
-.tm-si{font-size:13px;flex-shrink:0}
-.tm-sl2{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);flex:1}
-.tm-sec.open .tm-sl2{color:var(--ac)}
-.tm-chev{font-size:10px;color:var(--tx3);transition:transform var(--t) var(--ease)}
-.tm-sec.open .tm-chev{transform:rotate(180deg)}
-.tm-sb{display:none;padding:12px 14px;border-top:1px solid var(--b1);background:rgba(13,17,23,.4)}
-.tm-sec.open .tm-sb{display:block}
-.tm-ul{list-style:none;display:flex;flex-direction:column;gap:5px}
-.tm-ul li{display:flex;gap:8px;font-size:14px;color:var(--tx2);line-height:1.5}
-.tm-ul li::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px}
-.ul-g li::before{background:var(--gn)}.ul-r li::before{background:var(--rd)}.ul-b li::before{background:var(--bl)}.ul-y li::before{background:var(--go)}
-.tm-p{font-size:14px;color:var(--tx2);line-height:1.7}
-.tm-curve{display:flex;flex-direction:column;gap:6px}
-.tm-pips{display:flex;gap:4px}
-.tm-pip{width:26px;height:8px;border-radius:4px;background:var(--b2);transition:background .3s}
-.tm-pip.on{background:var(--ac)}
-.tm-cl{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.5px;color:var(--tx)}
-.tm-cd{font-size:13px;color:var(--tx2);line-height:1.5;margin-top:2px}
-.tm-pricing{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
-.tm-pt{background:var(--lift);border:1px solid var(--b1);border-radius:var(--r);padding:9px 10px;text-align:center}
-.tm-ptn{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
-.tm-ptv{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:var(--ac)}
-.tm-ptd{font-size:10px;color:var(--tx3);margin-top:2px;line-height:1.3}
-.tm-alts{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
-.tm-alt{padding:4px 11px;border-radius:20px;border:1px solid var(--b2);background:var(--lift);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx2);cursor:pointer;transition:all var(--t) var(--ease)}
-.tm-alt:hover{border-color:var(--ac);color:var(--ac)}
-.tm-scene{background:var(--lift);border:1px solid var(--b1);border-radius:var(--r);padding:11px 13px;margin-bottom:8px}
-.tm-scene:last-child{margin-bottom:0}
-.tm-scl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ac);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
-.tm-sct{font-size:13px;color:var(--tx2);line-height:1.6}
-.tm-notes{padding:12px 18px;border-top:1px solid var(--b1);background:var(--card);flex-shrink:0}
-.tm-nl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx3);margin-bottom:7px}
-.tm-stars{display:flex;gap:4px;margin-bottom:7px}
-.tm-star{font-size:20px;cursor:pointer;transition:transform var(--t) var(--ease);color:var(--b2);line-height:1}
-.tm-star.on{color:var(--go)}
-.tm-star:hover{transform:scale(1.2)}
-.tm-ni{width:100%;background:var(--lift);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'Barlow',sans-serif;font-size:13px;padding:8px 11px;outline:none;resize:none;transition:border-color var(--t) var(--ease)}
-.tm-ni:focus{border-color:var(--ac)}
-.tm-ni::placeholder{color:var(--tx3)}
-.tm-nf{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
-.tm-foot{padding:12px 18px;border-top:1px solid var(--b1);background:var(--card);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.shimmer{background:linear-gradient(90deg,var(--card) 25%,var(--lift) 50%,var(--card) 75%);background-size:200% 100%;animation:shim 1.5s infinite;border-radius:var(--r);height:16px;margin-bottom:8px}
-@keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.shim-t{height:24px;width:70%}.shim-b{height:48px}
-
-/* BROWSE MODE */
-.br-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:310;display:none}
-.br-bd.open{display:block;animation:fd .2s ease}
-.br-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,95vw);height:min(680px,90vh);background:var(--sur);border:1px solid var(--b1);border-radius:20px;z-index:311;display:none;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.br-panel.open{display:flex;animation:bpin .3s var(--ease)}
-@keyframes bpin{from{opacity:0;transform:translate(-50%,-52%)}to{opacity:1;transform:translate(-50%,-50%)}}
-.br-hd{padding:14px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--card)}
-.br-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx);flex-shrink:0}
-.br-search{flex:1;max-width:240px;background:var(--lift);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'Barlow',sans-serif;font-size:14px;padding:7px 11px;outline:none;transition:border-color var(--t) var(--ease)}
-.br-search:focus{border-color:var(--ac)}
-.br-search::placeholder{color:var(--tx3)}
-.br-body{flex:1;overflow-y:auto;padding:14px 18px}
-.br-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
-.br-tab{padding:5px 13px;border-radius:20px;border:1px solid var(--b1);background:transparent;color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
-.br-tab:hover{border-color:var(--tx2);color:var(--tx)}
-.br-tab.on{background:var(--bl-d);color:var(--bl);border-color:var(--bl)}
-.br-feat-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:9px;display:flex;align-items:center;gap:8px}
-.br-feat-lbl::after{content:'';flex:1;height:1px;background:var(--b1)}
-.br-feat-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:16px}
-.fc{flex-shrink:0;width:120px;background:var(--card);border:1px solid var(--b1);border-radius:var(--rl);padding:13px 9px;cursor:pointer;transition:all var(--t) var(--ease);text-align:center}
-.fc:hover{border-color:var(--bl);transform:translateY(-2px);box-shadow:0 5px 14px rgba(14,165,233,.15)}
-.fc-ico{font-size:26px;margin-bottom:5px}
-.fc-nm{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--tx);text-transform:uppercase}
-.fc-cat{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--tx3);margin-top:2px}
-.br-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:7px}
-
-/* READING LIST */
-.rl-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:290;display:none}
-.rl-bd.open{display:block;animation:fd .2s ease}
-.rl-panel{position:fixed;right:-380px;top:58px;bottom:0;width:360px;background:var(--sur);border-left:1px solid var(--b1);z-index:291;overflow-y:auto;transition:right .3s var(--ease);padding:18px}
-.rl-panel.open{right:0}
-.rl-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--b1)}
-.rl-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx)}
-.rl-card{background:var(--card);border:1px solid var(--b1);border-radius:var(--rl);padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all var(--t) var(--ease)}
-.rl-card:hover{border-color:var(--ac)}
-.rl-ci{font-size:20px;flex-shrink:0}
-.rl-cn{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--tx);letter-spacing:.3px}
-.rl-cm{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);margin-top:2px;display:flex;align-items:center;gap:6px}
-.rl-stars{color:var(--go);font-size:10px}
-.rl-empty{text-align:center;padding:40px 20px;color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8}
-
-/* RESULT MODAL */
-.rm-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:320;display:none;align-items:flex-end;justify-content:center}
-.rm-bd.open{display:flex;animation:fd .25s ease}
-.rm-modal{background:var(--sur);border:1px solid var(--b1);border-radius:24px 24px 0 0;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;box-shadow:0 -20px 60px rgba(0,0,0,.6);animation:rmup .35s var(--ease)}
-@keyframes rmup{from{transform:translateY(40px);opacity:.5}to{transform:translateY(0);opacity:1}}
-.rm-hd{padding:20px 26px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.rm-tn{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx)}
-.rm-x{background:none;border:1px solid var(--b2);color:var(--tx3);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all var(--t) var(--ease)}
-.rm-x:hover{border-color:var(--or);color:var(--or)}
-.rm-body{padding:18px 26px 26px}
-.grade-box{display:flex;align-items:center;gap:14px;margin-bottom:22px;padding:14px 18px;border-radius:var(--rl);border:1px solid var(--b1);background:var(--card)}
-.grade-bdg{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:78px;padding:10px;border-radius:var(--rl);flex-shrink:0}
-.grade-L{font-family:'Barlow Condensed',sans-serif;font-size:46px;font-weight:900;line-height:1}
-.grade-P{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-top:2px}
-.grade-V{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-top:3px}
-.grade-R{flex:1}
-.grade-hl{font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:800;letter-spacing:.5px;color:var(--tx);margin-bottom:4px}
-.rm-sec-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:9px;margin-top:18px}
-.rm-quote{font-size:15px;color:var(--tx);line-height:1.7;font-style:italic;padding:11px 14px;border-left:3px solid var(--or);background:var(--card);border-radius:0 var(--r) var(--r) 0}
-.rm-det{font-size:14px;color:var(--tx2);line-height:1.7}
-.rec-card{background:var(--card);border:1px solid var(--b1);border-radius:var(--rl);padding:14px;margin-bottom:9px}
-.rec-card.pri{border-color:var(--or)}
-.rec-rk{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);margin-bottom:5px}
-.rec-nm{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:800;letter-spacing:.5px;color:var(--tx);margin-bottom:5px;display:flex;align-items:center;gap:8px}
-.rec-gr{font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:4px}
-.rec-tl{font-size:12px;color:var(--or);font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.3px}
-.rec-wh{font-size:13px;color:var(--tx2);line-height:1.5}
-.cmp-tbl{width:100%;border-collapse:collapse;font-size:13px}
-.cmp-tbl th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);padding:8px 11px;background:var(--card);border-bottom:1px solid var(--b1);text-align:left}
-.cmp-tbl td{padding:9px 11px;border-bottom:1px solid rgba(30,37,53,.5);color:var(--tx2);vertical-align:top}
-.cmp-tbl tr:last-child td{border-bottom:none}
-.rm-acts{display:flex;gap:8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--b1);margin-top:14px}
-.save-bar{background:var(--card);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px;margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.save-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx2);flex:1}
-.save-inp{background:var(--lift);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'Barlow',sans-serif;font-size:13px;padding:7px 10px;outline:none;width:160px;transition:border-color var(--t) var(--ease)}
-.save-inp:focus{border-color:var(--ac)}
-.ls-wrap{display:flex;flex-direction:column;gap:8px;max-width:380px;margin:20px auto 0;text-align:left}
-.ls-row{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);opacity:0;transition:all .4s var(--ease)}
-.ls-row.show{opacity:1;color:var(--tx2)}
-.ls-row.done{color:var(--gn)}
-.ls-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);flex-shrink:0;transition:background .4s var(--ease)}
-.ls-row.done .ls-dot{background:var(--gn)}
-.ls-row.show .ls-dot{background:var(--or);animation:lp 1s infinite}
-@keyframes lp{0%,100%{opacity:1}50%{opacity:.3}}
-.spin{width:36px;height:36px;border:3px solid var(--b2);border-top-color:var(--or);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 14px}
-@keyframes sp{to{transform:rotate(360deg)}}
-
-/* GUIDE */
-.gd-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
-.gd-bd.open{display:flex;animation:fd .2s ease}
-.gd-modal{background:var(--sur);border:1px solid var(--b1);border-radius:var(--rl);max-width:560px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.gd-hd{padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--sur);z-index:1}
-.gd-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx)}
-.gd-body{padding:18px 20px}
-.gd-step{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--b1)}
-.gd-step:last-child{border-bottom:none}
-.gd-n{width:25px;height:25px;border-radius:50%;background:var(--or);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
-.gd-t{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--tx);margin-bottom:3px;letter-spacing:.3px}
-.gd-d{font-size:13px;color:var(--tx2);line-height:1.6}
-
-/* HISTORY */
-.hs-bd{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.6);z-index:280;display:none}
-.hs-bd.open{display:block;animation:fd .2s ease}
-.hs-panel{position:fixed;right:-400px;top:58px;bottom:0;width:380px;background:var(--sur);border-left:1px solid var(--b1);z-index:281;overflow-y:auto;transition:right .3s var(--ease);padding:18px}
-.hs-panel.open{right:0}
-.hs-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.hs-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--tx)}
-.ac-card{background:var(--card);border:1px solid var(--b1);border-radius:var(--rl);padding:12px 14px;margin-bottom:7px;cursor:pointer;transition:all var(--t) var(--ease)}
-.ac-card:hover{border-color:var(--or)}
-.ac-nm{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--tx);letter-spacing:.5px}
-.ac-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-top:3px;display:flex;align-items:center;gap:8px}
-.ac-gr{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
-
-@media(max-width:680px){
-  .eng-grid{grid-template-columns:1fr}
-  .tm-panel,.rl-panel,.hs-panel{width:100%;right:-100%}
-  .br-panel{width:100%;height:100vh;border-radius:0}
-  .rm-body{padding:14px 16px 22px}
-  .grade-box{flex-direction:column;text-align:center}
-  .tb-r .tbtn:nth-child(n+4){display:none}
-}
-/* -- UNIFIED HEADER STYLES -- */
-.tb-brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
-.tb-mark{width:32px;height:32px;background:var(--or);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#000;letter-spacing:1px;flex-shrink:0}
-.tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--tx);line-height:1}
-.tb-title span{color:var(--or)}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';
   window._nbdAuth = NBDAuth.init({
     requiredPlan: 'professional',
     onReady: (user) => {
-      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
+      window._authUser = user;
+      window._db = NBDAuth.db;
+      window._firebaseReady = true;
+      if (typeof initUnderstand === 'function') initUnderstand();
     }
   });
 </script>
-  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/understand">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+:root{
+  --bg:#0A0C0F;--s1:#111318;--s2:#181C23;--s3:#1E2430;
+  --or:#e8720c;--or-dim:rgba(232,114,12,0.08);--or-glow:rgba(232,114,12,0.18);
+  --grn:#22C55E;--grn-dim:rgba(34,197,94,0.1);
+  --red:#EF4444;--red-dim:rgba(239,68,68,0.1);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,0.1);
+  --purp:#A855F7;--purp-dim:rgba(168,85,247,0.1);
+  --gold:#F59E0B;--gold-dim:rgba(245,158,11,0.1);
+  --tx:#F0F2F8;--tx2:#8892A4;--tx3:#4A5568;
+  --bdr:rgba(255,255,255,0.07);--bdr2:rgba(255,255,255,0.12);
+  --ease:cubic-bezier(0.22,1,0.36,1);--r:8px;--rl:12px;
+}
+body{background:var(--bg);color:var(--tx);font-family:'Barlow',sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 80% 15%,rgba(232,114,12,0.03),transparent 55%),radial-gradient(ellipse at 15% 85%,rgba(59,130,246,0.02),transparent 50%);pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{height:54px;background:rgba(10,12,15,0.97);border-bottom:1px solid var(--bdr);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:14px}
+.tb-back{color:var(--tx3);text-decoration:none;font-size:13px;font-weight:500;transition:color .15s}
+.tb-back:hover{color:var(--or)}
+.tb-brand{display:flex;align-items:center;gap:9px}
+.tb-mark{width:30px;height:30px;background:var(--or);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;color:#fff}
+.tb-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx)}
+.tb-title span{color:var(--or)}
+.tb-spacer{flex:1}
+.tb-saved{background:none;border:1px solid var(--bdr2);color:var(--tx3);padding:6px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px}
+.tb-saved:hover{color:var(--or);border-color:var(--or)}
+.tb-saved .count{background:var(--or);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+/* ── HERO ── */
+.hero{padding:48px 20px 32px;text-align:center;position:relative;z-index:1;max-width:820px;margin:0 auto}
+.hero-ey{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--or);margin-bottom:10px}
+.hero-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(40px,6.5vw,72px);font-weight:800;letter-spacing:2px;text-transform:uppercase;line-height:.92;color:var(--tx);margin-bottom:14px}
+.hero-h .hl{color:var(--or)}
+.hero-sub{font-size:16px;color:var(--tx2);line-height:1.65;max-width:520px;margin:0 auto 36px}
+
+/* ── PATH CARDS ── */
+.paths{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;max-width:780px;margin:0 auto}
+.path-card{flex:1;min-width:220px;max-width:260px;padding:24px 20px;border-radius:var(--rl);border:1px solid var(--bdr2);background:var(--s1);cursor:pointer;transition:all .25s var(--ease);display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.path-card:hover{transform:translateY(-4px)}
+.path-card.ins:hover{border-color:var(--or);background:var(--or-dim);box-shadow:0 8px 28px rgba(232,114,12,0.15)}
+.path-card.tech:hover{border-color:var(--blue);background:var(--blue-dim);box-shadow:0 8px 28px rgba(59,130,246,0.12)}
+.path-card.biz:hover{border-color:var(--grn);background:var(--grn-dim);box-shadow:0 8px 28px rgba(34,197,94,0.12)}
+.path-ico{font-size:32px;line-height:1}
+.path-name{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--tx)}
+.path-desc{font-size:12px;color:var(--tx3);line-height:1.5}
+
+/* ── CHAT VIEW ── */
+.chat-view{display:none;max-width:820px;margin:0 auto;padding:0 20px 80px;position:relative;z-index:1}
+.chat-view.show{display:block}
+
+.cv-hd{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--bdr)}
+.cv-back{background:none;border:1px solid var(--bdr2);color:var(--tx3);padding:6px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.cv-back:hover{color:var(--or);border-color:var(--or)}
+.cv-domain-badge{padding:4px 12px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.cv-domain-badge.ins{color:var(--or);background:var(--or-dim);border:1px solid var(--or-glow)}
+.cv-domain-badge.tech{color:var(--blue);background:var(--blue-dim);border:1px solid rgba(59,130,246,0.2)}
+.cv-domain-badge.biz{color:var(--grn);background:var(--grn-dim);border:1px solid rgba(34,197,94,0.2)}
+.cv-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase;flex:1}
+
+/* ── TOPIC PILLS ── */
+.topic-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.topic-pill{padding:6px 14px;border-radius:20px;border:1px solid var(--bdr2);background:none;color:var(--tx3);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.topic-pill:hover{border-color:var(--or);color:var(--or);background:var(--or-dim)}
+
+/* ── CHAT MESSAGES ── */
+.chat-box{background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
+.chat-msgs{max-height:520px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.chat-msg{max-width:88%;padding:12px 16px;border-radius:var(--rl);font-size:14px;line-height:1.7}
+.chat-msg.user{background:var(--or-dim);border:1px solid var(--or-glow);color:var(--tx);align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg.ai{background:var(--s2);border:1px solid var(--bdr);color:var(--tx2);align-self:flex-start;border-bottom-left-radius:4px}
+.chat-msg.ai p{margin-bottom:8px}
+.chat-msg.ai p:last-child{margin-bottom:0}
+.chat-msg.ai strong{color:var(--tx);font-weight:600}
+.chat-msg.ai ul,.chat-msg.ai ol{margin:6px 0 6px 18px}
+.chat-msg.ai li{margin-bottom:4px}
+.chat-msg.ai code{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-size:12px}
+.chat-msg.ai h3{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--or);margin:10px 0 6px;letter-spacing:.5px}
+.chat-typing{display:flex;gap:4px;align-items:center;padding:10px 16px;align-self:flex-start}
+.chat-typing span{width:6px;height:6px;border-radius:50%;background:var(--or);animation:blink 1.2s infinite}
+.chat-typing span:nth-child(2){animation-delay:.2s}
+.chat-typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+.chat-welcome{text-align:center;padding:40px 24px;color:var(--tx3);font-size:13px;line-height:1.7}
+.chat-welcome strong{color:var(--tx);display:block;font-size:16px;margin-bottom:6px}
+
+.chat-input-row{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--bdr)}
+.chat-input{flex:1;background:var(--s2);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--tx);outline:none;resize:none;min-height:42px;max-height:120px;transition:border-color .15s}
+.chat-input:focus{border-color:var(--or)}
+.chat-input::placeholder{color:var(--tx3)}
+.chat-send{background:var(--or);border:none;color:#fff;width:42px;height:42px;border-radius:var(--r);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.chat-send:hover{filter:brightness(1.1)}
+.chat-send:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── CONTEXT BAR ── */
+.ctx-bar{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:12px;color:var(--tx3)}
+.ctx-bar .ctx-val{color:var(--or);font-weight:600}
+
+/* ── SAVED INSIGHTS PANEL ── */
+.si-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:500;display:none}
+.si-overlay.open{display:block}
+.si-panel{position:fixed;right:-420px;top:54px;bottom:0;width:400px;max-width:100%;background:var(--s1);border-left:1px solid var(--bdr);z-index:501;overflow-y:auto;transition:right .3s var(--ease);padding:20px}
+.si-panel.open{right:0}
+.si-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--bdr)}
+.si-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.si-x{background:none;border:1px solid var(--bdr2);color:var(--tx3);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;border:none}
+.si-x:hover{color:var(--red)}
+.si-empty{text-align:center;padding:40px 16px;color:var(--tx3);font-size:13px;line-height:1.7}
+.si-card{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.si-card:hover{border-color:var(--or)}
+.si-card-domain{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.si-card-domain.ins{color:var(--or)}
+.si-card-domain.tech{color:var(--blue)}
+.si-card-domain.biz{color:var(--grn)}
+.si-card-q{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px;line-height:1.4}
+.si-card-date{font-size:10px;color:var(--tx3)}
+.si-card-preview{font-size:12px;color:var(--tx2);line-height:1.5;margin-top:6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.si-card-acts{display:flex;gap:6px;margin-top:8px}
+.si-del{background:none;border:1px solid var(--bdr2);color:var(--tx3);font-size:10px;padding:3px 8px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.si-del:hover{color:var(--red);border-color:var(--red)}
+.si-clear{background:none;border:1px solid var(--bdr2);color:var(--tx3);font-size:11px;padding:5px 12px;border-radius:var(--r);cursor:pointer;transition:all .15s;margin-top:12px}
+.si-clear:hover{color:var(--red);border-color:var(--red)}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--s1);border:1px solid var(--bdr);border-left:3px solid var(--or);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--tx);box-shadow:0 8px 24px rgba(0,0,0,0.5);animation:toastIn .25s var(--ease);max-width:320px}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+.toast.ok{border-left-color:var(--grn)}
+.toast.err{border-left-color:var(--red)}
+
+/* ── MOBILE ── */
+@media(max-width:640px){
+  .hero{padding:32px 16px 24px}
+  .paths{flex-direction:column;align-items:center}
+  .path-card{max-width:100%;min-width:0}
+  .chat-msg{max-width:95%}
+  .si-panel{width:100%;right:-100%}
+  .cv-title{font-size:16px}
+}
+</style>
+<meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/understand">
 </head>
 <body>
-<!-- ═══════════════════════════════════════════════════════════════
-     NBD PRO UNIVERSAL NAV BAR v1.0
-     Drop this block into any NBD Pro tool page.
-     Config: edit NBD_NAV_CONFIG below to change behavior.
-     ═══════════════════════════════════════════════════════════════ -->
-<style>
-/* ── NAV CONFIG DEFAULTS ─────────────────────────────────────── */
-:root {
-  --nbd-nav-h: 52px;
-  --nbd-nav-bg: #0f1d42;
-  --nbd-nav-border: rgba(232,114,12,0.25);
-  --nbd-nav-orange: #e8720c;
-  --nbd-nav-cyan: #00d4ff;
-  --nbd-nav-text: #8b9bb4;
-  --nbd-nav-white: #f0f6fc;
-}
-
-#nbd-pro-nav {
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  height: var(--nbd-nav-h);
-  background: rgba(15,29,66,0.97);
-  -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--nbd-nav-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  gap: 12px;
-  font-family: 'DM Mono', 'Montserrat', monospace;
-}
-
-/* Logo */
-#nbd-pro-nav .nnav-logo {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-#nbd-pro-nav .nnav-mark {
-  width: 32px; height: 32px;
-  background: var(--nbd-nav-orange);
-  border-radius: 5px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 16px; color: #fff; letter-spacing: 1px;
-  flex-shrink: 0;
-}
-#nbd-pro-nav .nnav-wordmark {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 16px; letter-spacing: 2px;
-  color: var(--nbd-nav-white); line-height: 1;
-}
-#nbd-pro-nav .nnav-wordmark span { color: var(--nbd-nav-orange); }
-#nbd-pro-nav .nnav-sub {
-  font-family: 'DM Mono', monospace;
-  font-size: 8px; color: var(--nbd-nav-text);
-  letter-spacing: 2px; text-transform: uppercase; margin-top: 1px;
-}
-
-/* Links */
-#nbd-pro-nav .nnav-links {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  justify-content: center;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-#nbd-pro-nav .nnav-links::-webkit-scrollbar { display: none; }
-#nbd-pro-nav .nnav-link {
-  display: flex; align-items: center; gap: 5px;
-  padding: 5px 9px;
-  border-radius: 5px;
-  text-decoration: none;
-  font-size: 10px; font-weight: 600;
-  letter-spacing: .5px; text-transform: uppercase;
-  color: var(--nbd-nav-text);
-  white-space: nowrap;
-  transition: all .15s;
-  border: 1px solid transparent;
-}
-#nbd-pro-nav .nnav-link:hover {
-  color: var(--nbd-nav-white);
-  background: rgba(255,255,255,.06);
-}
-#nbd-pro-nav .nnav-link.active {
-  color: var(--nbd-nav-orange);
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
-}
-#nbd-pro-nav .nnav-link.demo-link {
-  color: var(--nbd-nav-cyan);
-}
-#nbd-pro-nav .nnav-link.demo-link:hover {
-  background: rgba(0,212,255,.08);
-  border-color: rgba(0,212,255,.2);
-}
-#nbd-pro-nav .nnav-icon { font-size: 12px; line-height: 1; }
-
-/* Right side */
-#nbd-pro-nav .nnav-right {
-  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-}
-#nbd-pro-nav .nnav-login-btn {
-  padding: 6px 14px;
-  background: var(--nbd-nav-orange);
-  color: #fff; border: none; border-radius: 4px;
-  font-family: 'DM Mono', monospace;
-  font-size: 9px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; cursor: pointer;
-  text-decoration: none;
-  transition: .15s;
-  white-space: nowrap;
-}
-#nbd-pro-nav .nnav-login-btn:hover { background: #c45e08; }
-#nbd-pro-nav .nnav-login-btn.logout {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,.15);
-  color: var(--nbd-nav-text);
-}
-#nbd-pro-nav .nnav-login-btn.logout:hover {
-  border-color: var(--nbd-nav-orange);
-  color: var(--nbd-nav-orange);
-}
-#nbd-pro-nav .nnav-user {
-  font-size: 9px; color: var(--nbd-nav-text);
-  letter-spacing: .5px; max-width: 120px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* Hamburger */
-#nbd-pro-nav .nnav-burger {
-  display: none;
-  flex-direction: column; gap: 4px;
-  background: none; border: none; cursor: pointer;
-  padding: 6px; flex-shrink: 0;
-}
-#nbd-pro-nav .nnav-burger span {
-  display: block; width: 20px; height: 2px;
-  background: var(--nbd-nav-white); border-radius: 2px;
-  transition: .25s;
-}
-
-/* Mobile drawer */
-#nbd-nav-drawer {
-  display: none;
-  position: fixed;
-  top: var(--nbd-nav-h);
-  left: 0; right: 0; bottom: 0;
-  z-index: 999;
-  background: rgba(8,12,24,.97);
-  -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(16px);
-  flex-direction: column;
-  overflow-y: auto;
-}
-#nbd-nav-drawer.open { display: flex; }
-.nnav-drawer-links {
-  flex: 1;
-  display: flex; flex-direction: column;
-  padding: 16px;
-  gap: 4px;
-}
-.nnav-drawer-link {
-  display: flex; align-items: center; gap: 12px;
-  padding: 13px 16px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-family: 'DM Mono', monospace;
-  font-size: 12px; font-weight: 600; letter-spacing: .5px;
-  text-transform: uppercase;
-  color: var(--nbd-nav-text);
-  border: 1px solid transparent;
-  transition: .15s;
-}
-.nnav-drawer-link:hover {
-  background: rgba(255,255,255,.06);
-  color: var(--nbd-nav-white);
-}
-.nnav-drawer-link.active {
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
-  color: var(--nbd-nav-orange);
-}
-.nnav-drawer-link.demo-link { color: var(--nbd-nav-cyan); }
-.nnav-drawer-link .nnav-icon { font-size: 18px; width: 24px; text-align: center; }
-.nnav-drawer-footer {
-  padding: 16px;
-  border-top: 1px solid rgba(255,255,255,.06);
-  display: flex; flex-direction: column; gap: 8px;
-}
-.nnav-drawer-footer .nnav-login-btn {
-  display: block; width: 100%; text-align: center;
-  padding: 14px; font-size: 11px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  #nbd-pro-nav .nnav-links { display: none; }
-  #nbd-pro-nav .nnav-right .nnav-login-btn { display: none; }
-  #nbd-pro-nav .nnav-right .nnav-user { display: none; }
-  #nbd-pro-nav .nnav-burger { display: flex; }
-}
-
-/* Position variants */
-#nbd-pro-nav.pos-bottom {
-  position: fixed;
-  top: auto; bottom: 0;
-  border-top: 1px solid var(--nbd-nav-border);
-  border-bottom: none;
-}
-#nbd-pro-nav.pos-dock {
-  position: fixed;
-  top: auto; bottom: 16px;
-  left: 50%; right: auto;
-  transform: translateX(-50%);
-  width: auto; max-width: 92vw;
-  border-radius: 40px;
-  border: 1px solid var(--nbd-nav-border);
-  padding: 0 20px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
-}
-#nbd-pro-nav.pos-dock .nnav-wordmark,
-#nbd-pro-nav.pos-dock .nnav-sub { display: none; }
-</style>
-
-<!-- NAV HTML -->
-<nav id="nbd-pro-nav">
-  <a href="/pro/landing.html" class="nnav-logo">
-    <div class="nnav-mark">NBD</div>
-    <div>
-      <div class="nnav-wordmark">No Big <span>Deal</span></div>
-      <div class="nnav-sub">Pro</div>
-    </div>
-  </a>
-
-  <div class="nnav-links" id="nnav-links">
-    <a href="/pro/" class="nnav-link" data-page="home"><span class="nnav-icon">🏠</span><span class="nnav-lbl">Home</span></a>
-    <a href="/pro/dashboard.html" class="nnav-link" data-page="dashboard"><span class="nnav-icon">📊</span><span class="nnav-lbl">Dashboard</span></a>
-    <a href="/pro/daily-success/" class="nnav-link" data-page="daily-success"><span class="nnav-icon">✅</span><span class="nnav-lbl">Daily</span></a>
-    <a href="/pro/ai-tree.html" class="nnav-link" data-page="ai-tree"><span class="nnav-icon">🌳</span><span class="nnav-lbl">AI Tree</span></a>
-    <a href="/pro/codex.html" class="nnav-link" data-page="codex"><span class="nnav-icon">📖</span><span class="nnav-lbl">Codex</span></a>
-    <a href="/pro/project-codex.html" class="nnav-link" data-page="project-codex"><span class="nnav-icon">📋</span><span class="nnav-lbl">My Codex</span></a>
-    <a href="/pro/understand.html" class="nnav-link" data-page="understand"><span class="nnav-icon">🧠</span><span class="nnav-lbl">Understand</span></a>
-    <a href="/pro/analytics.html" class="nnav-link" data-page="analytics"><span class="nnav-icon">💰</span><span class="nnav-lbl">Analytics</span></a>
-    <a href="/pro/demo.html" class="nnav-link demo-link" data-page="demo"><span class="nnav-icon">▶</span><span class="nnav-lbl">Demo</span></a>
-  </div>
-
-  <div class="nnav-right">
-    <span class="nnav-user" id="nnav-user-label"></span>
-    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-auth-btn">Login</a>
-    <button class="nnav-burger" id="nnav-burger" onclick="nbdNavToggle()" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
-  </div>
-</nav>
-
-<!-- MOBILE DRAWER -->
-<div id="nbd-nav-drawer">
-  <div class="nnav-drawer-links">
-    <a href="/pro/" class="nnav-drawer-link" data-page="home"><span class="nnav-icon">🏠</span> Home</a>
-    <a href="/pro/dashboard.html" class="nnav-drawer-link" data-page="dashboard"><span class="nnav-icon">📊</span> Dashboard</a>
-    <a href="/pro/daily-success/" class="nnav-drawer-link" data-page="daily-success"><span class="nnav-icon">✅</span> Daily Success</a>
-    <a href="/pro/ai-tree.html" class="nnav-drawer-link" data-page="ai-tree"><span class="nnav-icon">🌳</span> AI Tree</a>
-    <a href="/pro/codex.html" class="nnav-drawer-link" data-page="codex"><span class="nnav-icon">📖</span> Codex</a>
-    <a href="/pro/project-codex.html" class="nnav-drawer-link" data-page="project-codex"><span class="nnav-icon">📋</span> My Codex</a>
-    <a href="/pro/understand.html" class="nnav-drawer-link" data-page="understand"><span class="nnav-icon">🧠</span> Understand</a>
-    <a href="/pro/analytics.html" class="nnav-drawer-link" data-page="analytics"><span class="nnav-icon">💰</span> Analytics</a>
-    <a href="/pro/demo.html" class="nnav-drawer-link demo-link" data-page="demo"><span class="nnav-icon">▶</span> Live Demo</a>
-  </div>
-  <div class="nnav-drawer-footer">
-    <span id="nnav-drawer-user" style="font-size:10px;color:#8b9bb4;text-align:center;letter-spacing:.5px;"></span>
-    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-drawer-auth-btn">Login</a>
-  </div>
-</div>
-
-<script>
-/* ── NBD NAV CONFIG ─────────────────────────────────────────────
-   Change position here or wire to a settings page later.
-   Options: 'top' | 'bottom' | 'dock'
-   ─────────────────────────────────────────────────────────────── */
-const NBD_NAV_CONFIG = {
-  position: 'top',      // 'top' | 'bottom' | 'dock'
-  activeColor: '#e8720c',
-  showLabels: true,
-};
-
-(function nbdNavInit() {
-  // Apply position
-  const nav = document.getElementById('nbd-pro-nav');
-  if (NBD_NAV_CONFIG.position !== 'top') {
-    nav.classList.add('pos-' + NBD_NAV_CONFIG.position);
-    nav.style.position = 'fixed';
-    if (NBD_NAV_CONFIG.position === 'bottom' || NBD_NAV_CONFIG.position === 'dock') {
-      document.body.style.paddingBottom = '68px';
-      document.body.style.paddingTop = '0';
-    }
-  }
-
-  // Mark active page
-  const path = window.location.pathname;
-  const pageMap = {
-    '/pro/': 'home',
-    '/pro/dashboard.html': 'dashboard',
-    '/pro/daily-success/': 'daily-success',
-    '/pro/daily-success/index.html': 'daily-success',
-    '/pro/ai-tree.html': 'ai-tree',
-    '/pro/codex.html': 'codex',
-    '/pro/understand.html': 'understand',
-    '/pro/demo.html': 'demo',
-    '/pro/landing.html': 'features',
-  };
-  const activePage = pageMap[path] || '';
-  document.querySelectorAll('.nnav-link[data-page], .nnav-drawer-link[data-page]').forEach(el => {
-    if (el.dataset.page === activePage) el.classList.add('active');
-  });
-
-  // Auth state
-  try {
-    if (typeof firebase !== 'undefined') {
-      firebase.auth().onAuthStateChanged(user => {
-        const btn = document.getElementById('nnav-auth-btn');
-        const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
-        const userLabel = document.getElementById('nnav-user-label');
-        const drawerUser = document.getElementById('nnav-drawer-user');
-        if (user) {
-          const name = user.displayName || user.email?.split('@')[0] || 'Member';
-          if (userLabel) userLabel.textContent = name;
-          if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); firebase.auth().signOut(); }; }
-        } else {
-          if (userLabel) userLabel.textContent = '';
-          if (drawerUser) drawerUser.textContent = '';
-        }
-      });
-    }
-  } catch(e) {}
-})();
-
-function nbdNavToggle() {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const open = drawer.classList.toggle('open');
-  burger.style.opacity = open ? '0.6' : '1';
-  document.body.style.overflow = open ? 'hidden' : '';
-}
-
-// Close drawer on link click
-document.querySelectorAll('.nnav-drawer-link').forEach(l => {
-  l.addEventListener('click', () => {
-    document.getElementById('nbd-nav-drawer').classList.remove('open');
-    document.body.style.overflow = '';
-  });
-});
-
-// Close on outside click
-document.addEventListener('click', e => {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const nav = document.getElementById('nbd-pro-nav');
-  if (drawer.classList.contains('open') && !nav.contains(e.target) && !drawer.contains(e.target)) {
-    drawer.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-});
-
-window.nbdNavToggle = nbdNavToggle;
-</script>
-
 
 <!-- TOPBAR -->
-<header class="tb">
-  <a class="tb-brand" href="/pro/">
-    <div class="tb-mark">NBD</div>
-    <div><div class="tb-title">No Big Deal <span>Pro</span></div><div class="tb-sub">Understanding Tool</div></div>
-  </a>
-  <div class="tb-r">
-    <button class="tbtn" onclick="openRL()" id="rlBtn">?? <span id="rlCount">0</span> Reading List</button>
-    <button class="tbtn" onclick="openBrowse()">?? Browse & Learn</button>
-    <button class="tbtn" onclick="openHistory()" id="histBtn">?? <span id="histCount">0</span> Saved</button>
-    <button class="tbtn" onclick="openGuide()">? Guide</button>
-    <button class="tbtn" onclick="openKeyConfig()" id="keyBtn" title="API Key Settings">🔑 <span id="keyStatus"></span></button>
-    <a class="tbtn" href="/pro/ai-tree.html">🛠 AI Tree</a>
-    <a class="tbtn" href="/pro/project-codex.html">Project Codex</a>
-    <a class="tbtn" href="/pro/dashboard.html">CRM</a>
-    <a class="tbtn" href="/pro/analytics.html">💰 Analytics</a>
-    <a class="tbtn on" href="/pro/login.html">My Account</a>
-    <a class="tbtn" href="/pro/codex.html">⬛ Codex</a>
+<div class="topbar">
+  <a href="/pro/dashboard.html" class="tb-back">&larr; Back to Dashboard</a>
+  <div class="tb-brand">
+    <div class="tb-mark">UT</div>
+    <div class="tb-title">Understanding <span>Tool</span></div>
   </div>
-</header>
-
-<!-- PROGRESS STRIP -->
-<div class="pstrip" id="pstrip">
-  <div class="p-inner">
-    <div class="ps-step"><div class="ps-wrap" onclick="jmpStep(1)"><div class="ps-dot cur" id="pd1">1</div><div class="ps-lbl">Tool</div></div><div class="ps-line" id="pl1"></div></div>
-    <div class="ps-step"><div class="ps-wrap" onclick="jmpStep(2)"><div class="ps-dot" id="pd2">2</div><div class="ps-lbl">Goals</div></div><div class="ps-line" id="pl2"></div></div>
-    <div class="ps-step"><div class="ps-wrap" onclick="jmpStep(3)"><div class="ps-dot" id="pd3">3</div><div class="ps-lbl">Budget</div></div><div class="ps-line" id="pl3"></div></div>
-    <div class="ps-step"><div class="ps-wrap" onclick="jmpStep(4)"><div class="ps-dot" id="pd4">4</div><div class="ps-lbl">Effort</div></div></div>
-  </div>
+  <div class="tb-spacer"></div>
+  <button class="tb-saved" onclick="openSavedInsights()">
+    Saved <span class="count" id="savedCount">0</span>
+  </button>
 </div>
 
-<!-- ANSWER SIDEBAR -->
-<button class="as-tog" id="asTog" onclick="toggleAS()">MY ANSWERS</button>
-<div class="as-panel" id="asPanel">
-  <div class="as-ttl">Your Answers</div>
-  <div class="as-item"><div class="as-lbl">Tool</div><div class="as-val" id="as-tool"><span class="as-em">Not selected</span></div></div>
-  <div class="as-item"><div class="as-lbl">Top Goals</div><div class="as-val" id="as-goals"><span class="as-em">Not selected</span></div></div>
-  <div class="as-item"><div class="as-lbl">Budget</div><div class="as-val" id="as-budget"><span class="as-em">Not set</span></div></div>
-  <div class="as-item"><div class="as-lbl">Engagement</div><div class="as-val" id="as-effort"><span class="as-em">Not set</span></div></div>
-</div>
+<!-- HERO (path selection) -->
+<div class="hero" id="heroView">
+  <div class="hero-ey">Deep-Dive Analysis</div>
+  <div class="hero-h">Understand <span class="hl">Everything</span></div>
+  <div class="hero-sub">Pick a domain below and ask anything. Get expert-level answers on insurance, technical specs, or business strategy -- tailored for roofing contractors.</div>
 
-<!-- HERO -->
-<section class="hero" id="heroSec">
-  <div class="hero-ey">NBD Pro · AI Advisor</div>
-  <h1 class="hero-h">WHAT SHOULD<br>YOU <span class="hl">ACTUALLY</span><br>USE?</h1>
-  <p class="hero-s">Tell us what you want to accomplish, your budget, and how hands-on you want to be. We'll give you a straight answer.</p>
   <div class="paths">
-    <button class="path-btn pa" onclick="startWiz('audit')"><span class="pi">🔍</span>Audit a Tool<span class="ps">I have a tool in mind —<br>tell me if it's right for me</span></button>
-    <button class="path-btn pe" onclick="startWiz('explore')"><span class="pi">🧭</span>Explore Options<span class="ps">I have a general idea —<br>show me what's out there</span></button>
-    <button class="path-btn pd" onclick="startWiz('discover')"><span class="pi">⚡</span>Discover<span class="ps">I have no idea —<br>just tell me what to use</span></button>
+    <div class="path-card ins" onclick="selectDomain('insurance')">
+      <div class="path-ico">&#128203;</div>
+      <div class="path-name">Insurance Deep Dive</div>
+      <div class="path-desc">Claim processes, supplement strategy, carrier-specific tactics, adjuster meeting prep</div>
+    </div>
+    <div class="path-card tech" onclick="selectDomain('technical')">
+      <div class="path-ico">&#128295;</div>
+      <div class="path-name">Technical Analysis</div>
+      <div class="path-desc">Building codes, material comparisons, installation methods, ventilation calculations</div>
+    </div>
+    <div class="path-card biz" onclick="selectDomain('business')">
+      <div class="path-ico">&#128200;</div>
+      <div class="path-name">Business Strategy</div>
+      <div class="path-desc">Pricing models, marketing, territory planning, growth strategy, hiring</div>
+    </div>
   </div>
-</section>
+</div>
 
-<!-- WIZARD -->
-<div class="wiz" id="wiz">
-  <!-- STEP 1 -->
-  <div class="step cur" id="step1">
-    <div class="step-hd">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
-        <div><div class="step-n">Step 1 of 4</div><div class="step-t" id="s1title">Which Tool Are You Evaluating?</div><div class="step-s" id="s1sub">Pick from the grid or search. One tool per audit.</div></div>
-        <div class="lmt" id="lmToggle" onclick="toggleLM()"><span style="font-size:15px">🧠</span><span class="lmt-lbl">Learn Mode</span><div class="lmt-sw" id="lmSw"></div></div>
+<!-- CHAT VIEW -->
+<div class="chat-view" id="chatView">
+  <div class="cv-hd">
+    <button class="cv-back" onclick="backToHero()">&larr; Back</button>
+    <div class="cv-domain-badge" id="cvBadge">INSURANCE</div>
+    <div class="cv-title" id="cvTitle">Insurance Deep Dive</div>
+  </div>
+
+  <!-- Context bar (pipeline data) -->
+  <div class="ctx-bar" id="ctxBar" style="display:none">
+    Your pipeline: <span class="ctx-val" id="ctxLeads">0</span> leads &middot;
+    <span class="ctx-val" id="ctxRevenue">$0</span> pipeline value
+  </div>
+
+  <!-- Topic suggestions -->
+  <div class="topic-pills" id="topicPills"></div>
+
+  <!-- Chat -->
+  <div class="chat-box">
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="chat-welcome" id="chatWelcome">
+        <strong>Ready to help.</strong>
+        Pick a topic above or ask any question about this domain.
       </div>
-      <div class="lm-hint" id="lmHint">Learn Mode <strong>ON</strong> — tap any card to learn about it. Your selection is preserved.</div>
     </div>
-    <div id="s1content"></div>
-    <div class="step-nav">
-      <button class="s-back" onclick="goHome()">← Start Over</button>
-      <span class="s-ctr" id="sc1"></span>
-      <button class="btn btn-p" id="s1next" onclick="goStep(2)" disabled>Next: Set Goals →</button>
-    </div>
-  </div>
-  <!-- STEP 2 -->
-  <div class="step" id="step2">
-    <div class="step-hd"><div class="step-n">Step 2 of 4</div><div class="step-t">What Are You Trying to Accomplish?</div><div class="step-s">Mark each use case by importance. Critical = must-have. Be honest — this drives the recommendation.</div></div>
-    <div id="s2content"></div>
-    <div class="step-nav"><button class="s-back" onclick="goStep(1)">← Back</button><span class="s-ctr" id="sc2"></span><button class="btn btn-p" onclick="goStep(3)">Next: Budget →</button></div>
-  </div>
-  <!-- STEP 3 -->
-  <div class="step" id="step3">
-    <div class="step-hd"><div class="step-n">Step 3 of 4</div><div class="step-t">What's Your Budget?</div><div class="step-s">Monthly spend you're comfortable with. This filters what we recommend.</div></div>
-    <div id="s3content"></div>
-    <div class="step-nav"><button class="s-back" onclick="goStep(2)">← Back</button><span class="s-ctr" id="sc3"></span><button class="btn btn-p" id="s3next" onclick="goStep(4)" disabled>Next: Effort →</button></div>
-  </div>
-  <!-- STEP 4 -->
-  <div class="step" id="step4">
-    <div class="step-hd"><div class="step-n">Step 4 of 4</div><div class="step-t">How Hands-On Do You Want to Be?</div><div class="step-s">The best tool for a power user is completely different from one for someone who wants to set it and walk away.</div></div>
-    <div id="s4content"></div>
-    <div class="step-nav"><button class="s-back" onclick="goStep(3)">← Back</button><span class="s-ctr" id="sc4"></span><button class="btn btn-p" id="s4next" onclick="runAnalysis()" disabled>⚡ Get My Recommendation</button></div>
-  </div>
-</div>
-
-<!-- PANELS -->
-<div class="tm-bd" id="tmBd" onclick="closeTM()"></div>
-<div class="tm-panel" id="tmPanel">
-  <div class="tm-hero" id="tmHero">
-    <div class="tm-hero-row"><div class="tm-ico" id="tmIco">🤖</div><div class="tm-info"><div class="tm-nm" id="tmNm">Tool</div><div class="tm-cat-lbl" id="tmCatLbl">Category</div><div class="tm-tag" id="tmTag">Loading…</div></div><button class="tm-x" onclick="closeTM()">✕</button></div>
-    <div class="tm-stats" id="tmStats"></div>
-    <div class="tm-cache" id="tmCache"><span id="tmCacheTxt">Loading…</span><button class="tm-ref" onclick="tmRefresh()">↻ Refresh</button></div>
-  </div>
-  <div class="tm-body" id="tmBody"><div style="padding:20px"><div class="shimmer shim-t"></div><div class="shimmer shim-b"></div><div class="shimmer shim-t" style="width:50%"></div><div class="shimmer shim-b"></div></div></div>
-  <div class="tm-notes" id="tmNotes" style="display:none">
-    <div class="tm-nl">Your Take</div>
-    <div class="tm-stars" id="tmStars"><span class="tm-star" onclick="tmRate(1)">★</span><span class="tm-star" onclick="tmRate(2)">★</span><span class="tm-star" onclick="tmRate(3)">★</span><span class="tm-star" onclick="tmRate(4)">★</span><span class="tm-star" onclick="tmRate(5)">★</span></div>
-    <textarea class="tm-ni" id="tmNI" rows="3" placeholder="Add your own notes…"></textarea>
-    <div class="tm-nf"><button class="btn btn-s btn-sm" onclick="tmSaveNote()">Save Note</button></div>
-  </div>
-  <div class="tm-foot" id="tmFoot" style="display:none">
-    <button class="btn btn-p btn-sm" onclick="tmAudit()">🔍 Audit This Tool</button>
-    <button class="btn btn-s btn-sm" onclick="tmSaveRL()">📖 Save to Reading List</button>
-    <button class="btn btn-s btn-sm" onclick="tmPDF()">↓ PDF Brief</button>
-  </div>
-</div>
-
-<div class="br-bd" id="brBd" onclick="closeBrowse()"></div>
-<div class="br-panel" id="brPanel">
-  <div class="br-hd"><div class="br-title">🧠 Browse & Learn</div><input class="br-search" id="brSearch" placeholder="Search tools…" oninput="brFilter(this.value)"><button class="tbtn" onclick="brShowSaved()">📖 <span id="brRLCount">0</span> Saved</button><button class="tm-x" onclick="closeBrowse()">✕</button></div>
-  <div class="br-body"><div class="br-tabs" id="brTabs"></div><div id="brFeat"></div><div class="br-grid" id="brGrid"></div><div id="brSavedList" style="display:none"></div></div>
-</div>
-
-<div class="rl-bd" id="rlBd" onclick="closeRL()"></div>
-<div class="rl-panel" id="rlPanel"><div class="rl-hd"><div class="rl-title">📖 Reading List</div><button class="tbtn" onclick="closeRL()">✕</button></div><div id="rlList"></div></div>
-
-<div class="rm-bd" id="rmBd" onclick="if(event.target===this)closeRM()"></div>
-<div class="gd-bd" id="gdBd" onclick="if(event.target===this)closeGuide()">
-  <div class="gd-modal">
-    <div class="gd-hd"><div class="gd-title">How This Works</div><button class="tm-x" onclick="closeGuide()">✕</button></div>
-    <div class="gd-body">
-      <div style="font-size:14px;color:var(--tx2);margin-bottom:14px;line-height:1.6">Answer 4 quick questions. We research your tool against all available alternatives and give you a straight verdict.</div>
-      <div class="gd-step"><div class="gd-n">1</div><div><div class="gd-t">Choose Your Path</div><div class="gd-d">Audit a specific tool, explore options, or let us discover the best fit from scratch.</div></div></div>
-      <div class="gd-step"><div class="gd-n">2</div><div><div class="gd-t">Pick a Tool</div><div class="gd-d">Browse 50+ AI tools by category. Toggle Learn Mode to read about any tool before selecting it — you won't lose your place.</div></div></div>
-      <div class="gd-step"><div class="gd-n">3</div><div><div class="gd-t">Rate Your Goals</div><div class="gd-d">The use case matrix shows what you need. Mark Critical, Need, Nice, or Skip for each row.</div></div></div>
-      <div class="gd-step"><div class="gd-n">4</div><div><div class="gd-t">Set Budget + Effort</div><div class="gd-d">Budget filters what's realistic. Effort tells us whether to recommend a powerhouse or something hands-off.</div></div></div>
-      <div class="gd-step"><div class="gd-n">5</div><div><div class="gd-t">Get Your Verdict</div><div class="gd-d">Grade (A–F), confidence score, primary recommendation + 2 alternatives. If the tool isn't right, we tell you exactly what is.</div></div></div>
-      <div class="gd-step"><div class="gd-n">6</div><div><div class="gd-t">Learn Any Tool</div><div class="gd-d">Use Browse & Learn or turn on Learn Mode to read deep lessons on any tool — excels, struggles, pricing, curve, real scenarios — then save to your Reading List.</div></div></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Ask anything..." rows="1"></textarea>
+      <button class="chat-send" id="chatSend" onclick="sendMessage()">&#9654;</button>
     </div>
   </div>
 </div>
 
-<div class="hs-bd" id="hsBd" onclick="closeHistory()"></div>
-<div class="hs-panel" id="hsPanel"><div class="hs-hd"><div class="hs-title">Saved Audits</div><button class="tbtn" onclick="closeHistory()">✕</button></div><div id="hsList"></div></div>
-
-<!-- API KEY CONFIG MODAL -->
-<div class="gd-bd" id="keyBd" onclick="if(event.target===this)closeKeyConfig()" style="display:none">
-<div class="gd-modal" style="max-width:440px">
-<div class="gd-hd"><div class="gd-title">API Key Settings</div><button class="tbtn" onclick="closeKeyConfig()">✕</button></div>
-<div class="gd-body" style="padding:18px 20px">
-<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);letter-spacing:.5px;margin-bottom:12px">OPTIONAL — Enables AI-powered deep analysis</div>
-<div style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:16px">Without an API key, the tool uses built-in intelligence for recommendations. With a key, you get live AI-powered deep analysis using Claude.</div>
-<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);letter-spacing:1px;margin-bottom:6px">ANTHROPIC API KEY</div>
-<input id="keyInp" type="password" style="width:100%;background:var(--card);border:1px solid var(--b2);border-radius:var(--r);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;outline:none;margin-bottom:12px" placeholder="sk-ant-api03-...">
-<div style="display:flex;gap:8px;margin-bottom:14px">
-<button class="btn btn-p btn-sm" onclick="saveKey()">Save Key</button>
-<button class="btn btn-s btn-sm" onclick="clearKey()">Clear Key</button>
-</div>
-<div id="keyMsg" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gn);min-height:16px"></div>
-<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--b1);font-size:12px;color:var(--tx3);line-height:1.6">Your key is stored locally in your browser only. It is never sent to our servers — API calls go directly to Anthropic.</div>
-</div>
-</div>
+<!-- SAVED INSIGHTS PANEL -->
+<div class="si-overlay" id="siOverlay" onclick="closeSavedInsights()"></div>
+<div class="si-panel" id="siPanel">
+  <div class="si-hd">
+    <div class="si-title">Saved Insights</div>
+    <button class="si-x" onclick="closeSavedInsights()">&#10005;</button>
+  </div>
+  <div id="siList">
+    <div class="si-empty">No saved insights yet. Save answers from your conversations for quick reference.</div>
+  </div>
+  <button class="si-clear" id="siClearBtn" style="display:none" onclick="clearAllInsights()">Clear All</button>
 </div>
 
-<div class="tcon" id="tcon"></div>
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/claude-proxy.js?v=3"></script>
 <script>
-// ══ DATA ══
-const TOOLS=[
-  {n:'ChatGPT',c:'LLM',i:'🤖',q:1},{n:'Claude',c:'LLM',i:'🧠',q:1},{n:'Gemini',c:'LLM',i:'♊',q:1},
-  {n:'Perplexity',c:'Search AI',i:'🔍',q:1},{n:'Grok',c:'LLM',i:'⚡',q:1},
-  {n:'Copilot',c:'LLM',i:'🪟'},{n:'Mistral',c:'LLM',i:'🌀'},{n:'LLaMA',c:'LLM',i:'🦙'},
-  {n:'Command R+',c:'LLM',i:'🔮'},{n:'Gemma',c:'LLM',i:'💎'},
-  {n:'Cursor',c:'Code',i:'💻'},{n:'GitHub Copilot',c:'Code',i:'🐙'},{n:'Codeium',c:'Code',i:'⚡'},
-  {n:'Tabnine',c:'Code',i:'📝'},{n:'Replit AI',c:'Code',i:'🔁'},{n:'v0',c:'Code',i:'🎨'},{n:'Bolt',c:'Code',i:'🔩'},
-  {n:'Midjourney',c:'Image',i:'🖼'},{n:'DALL-E',c:'Image',i:'🎨'},{n:'Stable Diffusion',c:'Image',i:'🌊'},
-  {n:'Ideogram',c:'Image',i:'✏️'},{n:'Runway',c:'Video',i:'🎬'},{n:'Sora',c:'Video',i:'📽'},
-  {n:'Zapier AI',c:'Automation',i:'⚙️'},{n:'Make',c:'Automation',i:'🔗'},{n:'n8n',c:'Automation',i:'🧩'},
-  {n:'Jasper',c:'Writing',i:'📄'},{n:'Copy.ai',c:'Writing',i:'✍️'},{n:'Notion AI',c:'Productivity',i:'📓'},{n:'Grammarly',c:'Writing',i:'📝'},
-  {n:'You.com',c:'Search AI',i:'🔎'},{n:'Phind',c:'Search AI',i:'🔬'},{n:'Elicit',c:'Research',i:'📊'},
-  {n:'Julius AI',c:'Data',i:'📈'},{n:'Obviously AI',c:'Data',i:'🧮'},
-  {n:'ElevenLabs',c:'Voice',i:'🎙'},{n:'Murf AI',c:'Voice',i:'🔊'},
-  {n:'HubSpot AI',c:'Sales',i:'🏷'},{n:'Apollo AI',c:'Sales',i:'🚀'},
-  {n:'Intercom AI',c:'Support',i:'💬'},{n:'Drift',c:'Support',i:'💭'},
-  {n:'Surfer SEO',c:'SEO',i:'🏄'},{n:'Clearscope',c:'SEO',i:'🎯'},
-  {n:'AutoGPT',c:'Automation',i:'🤖'},{n:'Salesforce Einstein',c:'Sales',i:'☁️'},
-];
-const CATS=['All','LLM','Code','Image','Video','Writing','Automation','Search AI','Data','Voice','Sales','Support','SEO','Research','Productivity'];
-const FEATURED=['ChatGPT','Claude','Gemini','Perplexity','Grok','Midjourney','Cursor','Zapier AI'];
-const USE_CASES=[
-  {l:'Writing & Content Creation',i:'✍️'},{l:'Coding & Development',i:'💻'},
-  {l:'Image & Video Generation',i:'🎨'},{l:'Research & Summarization',i:'📚'},
-  {l:'Automation & Workflows',i:'⚙️'},{l:'Customer Service / Chatbot',i:'💬'},
-  {l:'Sales & Outreach',i:'🚀'},{l:'Data Analysis & Reporting',i:'📊'},
-  {l:'Project Management',i:'📋'},{l:'Legal & Compliance',i:'⚖️'},
-  {l:'Finance & Accounting',i:'💰'},{l:'Social Media & Marketing',i:'📱'},
-  {l:'Email Marketing',i:'📧'},{l:'HR & Recruiting',i:'👥'},{l:'SEO & Search Strategy',i:'🔍'},
-];
-const BUDGETS=[{k:'free',l:'Free'},{k:'u20',l:'Under $20'},{k:'20-50',l:'$20–$50'},{k:'50-100',l:'$50–$100'},{k:'100+',l:'$100+'}];
-const ENGAGEMENT=[
-  {k:'handoff',i:'🛋️',l:'Set It & Forget It',d:'Give it a command a few times for big results. Minimal ongoing input required.'},
-  {k:'light',i:'☕',l:'Light Touch',d:'Check in weekly. Brief prompts, quick reviews. Fits into your workflow without demanding it.'},
-  {k:'moderate',i:'🔧',l:'Moderate Use',d:'Daily or near-daily. Requires regular input and some configuration to get the best results.'},
-  {k:'heavy',i:'⚡',l:'Daily Workhorse',d:"Core part of your daily workflow. You're actively using, configuring, and pushing it every day."},
-];
-const TM_SECTIONS=[
-  {k:'excels',i:'✅',l:'What It Excels At',t:'bullets',bc:'ul-g'},
-  {k:'struggles',i:'⚠️',l:'What It Struggles With',t:'bullets',bc:'ul-r'},
-  {k:'bestUse',i:'🎯',l:'Best Case Uses',t:'para'},
-  {k:'worstUse',i:'🚫',l:'Worst Case Uses',t:'para'},
-  {k:'pricing',i:'💰',l:'Pricing Overview',t:'pricing'},
-  {k:'curve',i:'📈',l:'Learning Curve',t:'curve'},
-  {k:'persona',i:'👤',l:"Who It's Best For",t:'para'},
-  {k:'alts',i:'🔀',l:'Notable Competitors',t:'alts'},
-  {k:'scenarios',i:'🎬',l:'Real User Scenarios',t:'scenarios'},
-];
-const CACHE_TTL=7*24*60*60*1000;
-const PROXY='https://nbd-ai-proxy.jonathandeal459.workers.dev';
+/* ══════════════════════════════════════════════════
+   UNDERSTANDING TOOL — Logic
+   ══════════════════════════════════════════════════ */
 
-// ══ TOOL INTELLIGENCE DATABASE (offline fallback) ══
-const TOOL_INTEL={
-'ChatGPT':{grade:'A',confidence:88,headline:'The Swiss army knife of AI — does everything well, masters nothing.',detail:'ChatGPT excels at general-purpose tasks: writing, brainstorming, code, and conversation. GPT-4o is fast and capable. The free tier is generous. Weakness: it hallucinates more than Claude on complex reasoning and can be verbose. Best for users who need one tool for many tasks. Not ideal for deep research or specialized workflows.',pricing:'Free tier + $20/mo Plus',effort:'moderate',bestFor:['Writing & Content Creation','Research & Summarization','Coding & Development'],weakFor:['Data Analysis & Reporting','Automation & Workflows'],alts:['Claude','Gemini','Perplexity']},
-'Claude':{grade:'A',confidence:92,headline:'The thinking AI — best for nuanced reasoning, writing, and code analysis.',detail:'Claude leads in careful reasoning, long-context analysis (200K tokens), and producing genuinely well-written content. Its code analysis capabilities are top-tier. Sonnet is fast and cheap; Opus is the strongest reasoning model available. Weakness: no image generation, no web browsing in API. Best for professionals who need quality over speed.',pricing:'Free tier + $20/mo Pro',effort:'moderate',bestFor:['Writing & Content Creation','Coding & Development','Research & Summarization','Legal & Compliance'],weakFor:['Image & Video Generation','Social Media & Marketing'],alts:['ChatGPT','Gemini','Perplexity']},
-'Gemini':{grade:'B',confidence:78,headline:'Google-native AI — strong on search, integrated into the ecosystem.',detail:'Gemini integrates natively with Google Workspace (Docs, Sheets, Gmail). Good at web search and multimodal tasks. The free tier is generous with Gemini 1.5 Flash. Weakness: reasoning quality trails Claude and GPT-4o on complex tasks. Output can feel generic. Best for Google-heavy workflows.',pricing:'Free tier + $20/mo Advanced',effort:'light',bestFor:['Research & Summarization','Email Marketing','Project Management'],weakFor:['Coding & Development','Legal & Compliance'],alts:['ChatGPT','Claude','Perplexity']},
-'Perplexity':{grade:'A',confidence:85,headline:'AI-powered search that actually cites sources — kills hallucination.',detail:'Perplexity is the best AI search engine. Every answer includes citations you can verify. Pro mode chains multiple searches for deep research. Excellent for fact-checking, market research, and competitive analysis. Weakness: not great for creative writing or coding. It searches, not creates.',pricing:'Free tier + $20/mo Pro',effort:'light',bestFor:['Research & Summarization','SEO & Search Strategy','Sales & Outreach'],weakFor:['Writing & Content Creation','Coding & Development','Image & Video Generation'],alts:['You.com','Phind','ChatGPT']},
-'Grok':{grade:'B',confidence:70,headline:'X-native AI with real-time social data — edgy but inconsistent.',detail:'Grok has unfiltered personality and access to real-time X/Twitter data. Good for trending topics and social media research. Weakness: reasoning quality is below Claude/GPT-4o, smaller ecosystem, limited integrations. Best for social media professionals and X power users.',pricing:'Included with X Premium ($8/mo)',effort:'light',bestFor:['Social Media & Marketing','Research & Summarization'],weakFor:['Coding & Development','Legal & Compliance','Data Analysis & Reporting'],alts:['ChatGPT','Perplexity','Claude']},
-'Cursor':{grade:'A',confidence:90,headline:'The AI code editor that actually understands your entire codebase.',detail:'Cursor is VS Code rebuilt with AI at its core. Tab autocomplete, multi-file editing, codebase-aware chat. It indexes your entire project for context. Supports Claude, GPT-4o, and custom models. Weakness: expensive at scale, can be aggressive with suggestions. Best for developers who spend 4+ hours/day coding.',pricing:'Free tier + $20/mo Pro',effort:'heavy',bestFor:['Coding & Development'],weakFor:['Writing & Content Creation','Image & Video Generation','Sales & Outreach'],alts:['GitHub Copilot','Codeium','Tabnine']},
-'GitHub Copilot':{grade:'B',confidence:82,headline:'Inline code completion that lives in your existing editor.',detail:'Copilot integrates directly into VS Code, JetBrains, and Neovim. Excellent inline suggestions and chat. GitHub integration is seamless for PR reviews and issue analysis. Weakness: not as smart as Cursor for multi-file refactoring. Best for developers who want AI assistance without switching editors.',pricing:'$10/mo individual',effort:'heavy',bestFor:['Coding & Development'],weakFor:['Writing & Content Creation','Image & Video Generation'],alts:['Cursor','Codeium','Tabnine']},
-'Midjourney':{grade:'A',confidence:88,headline:'The gold standard for AI image generation — photorealism to fantasy.',detail:'Midjourney produces the most aesthetically pleasing AI images. V6 handles photorealism, illustration, product shots, and concept art. The Discord-based workflow is unique but effective. Weakness: no API, Discord-only, expensive for high volume. Best for designers, marketers, and creative professionals.',pricing:'$10/mo Basic',effort:'moderate',bestFor:['Image & Video Generation','Social Media & Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting','Automation & Workflows'],alts:['DALL-E','Stable Diffusion','Ideogram']},
-'DALL-E':{grade:'B',confidence:75,headline:'OpenAI image gen — good enough, built into ChatGPT.',detail:'DALL-E 3 is integrated directly into ChatGPT, making it the easiest AI image generator to use. Good for quick mockups and social content. Weakness: less artistic control than Midjourney, limited style range. Best for casual users who want images without leaving ChatGPT.',pricing:'Included with ChatGPT Plus ($20/mo)',effort:'light',bestFor:['Image & Video Generation','Social Media & Marketing'],weakFor:['Coding & Development'],alts:['Midjourney','Stable Diffusion','Ideogram']},
-'Zapier AI':{grade:'B',confidence:80,headline:'Connect everything to everything — the automation backbone.',detail:'Zapier connects 6,000+ apps with no-code automation. AI features add smart routing and content generation to workflows. Excellent for business process automation. Weakness: gets expensive fast at scale, can be slow for complex multi-step zaps. Best for non-technical users automating repetitive business tasks.',pricing:'Free tier + $20/mo Starter',effort:'moderate',bestFor:['Automation & Workflows','Email Marketing','Sales & Outreach'],weakFor:['Coding & Development','Image & Video Generation'],alts:['Make','n8n','AutoGPT']},
-'Jasper':{grade:'C',confidence:65,headline:'AI writing for marketing teams — polished but overpriced.',detail:'Jasper generates marketing copy, blog posts, and ad content. Good templates and brand voice features. Weakness: the base LLM is just GPT-4, which you can use directly for less. Expensive for individuals. Best for marketing teams that need brand consistency at scale.',pricing:'$39/mo Creator',effort:'moderate',bestFor:['Writing & Content Creation','Social Media & Marketing','Email Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting'],alts:['ChatGPT','Claude','Copy.ai']},
-'Notion AI':{grade:'B',confidence:77,headline:'AI built into your workspace — write, summarize, organize.',detail:'Notion AI adds summarization, writing, and Q&A directly into your Notion workspace. Great for meeting notes, project docs, and knowledge management. Weakness: limited to Notion context, not as capable as standalone LLMs. Best for teams already using Notion.',pricing:'$10/mo add-on',effort:'light',bestFor:['Writing & Content Creation','Project Management','Research & Summarization'],weakFor:['Coding & Development','Image & Video Generation'],alts:['ChatGPT','Claude','Grammarly']},
-'ElevenLabs':{grade:'A',confidence:85,headline:'Most realistic AI voice generation — indistinguishable from human.',detail:'ElevenLabs produces the most natural-sounding AI speech. Voice cloning, multilingual, real-time streaming. Used by podcasters, video creators, and accessibility projects. Weakness: can be pricey at high volume. Ethical concerns around voice cloning. Best for content creators who need professional narration.',pricing:'Free tier + $5/mo Starter',effort:'light',bestFor:['Voice','Writing & Content Creation','Social Media & Marketing'],weakFor:['Coding & Development','Data Analysis & Reporting'],alts:['Murf AI','Amazon Polly','Google TTS']},
-'Stable Diffusion':{grade:'B',confidence:74,headline:'Open-source image generation — ultimate control, steeper learning curve.',detail:'Stable Diffusion is free, open-source, and runs locally. Infinite customization via LoRAs, ControlNet, and fine-tuning. Weakness: requires technical setup, GPU hardware, and prompt engineering expertise. Best for developers and artists who want full control.',pricing:'Free (open source)',effort:'heavy',bestFor:['Image & Video Generation'],weakFor:['Writing & Content Creation','Sales & Outreach'],alts:['Midjourney','DALL-E','Ideogram']},
-'HubSpot AI':{grade:'B',confidence:76,headline:'CRM-native AI that writes emails, scores leads, and predicts deals.',detail:'HubSpot AI is baked into the CRM — email generation, lead scoring, conversation intelligence, and forecasting. Best for sales teams already on HubSpot. Weakness: locked to HubSpot ecosystem, expensive at higher tiers. Not a standalone AI tool.',pricing:'Included with HubSpot plans',effort:'moderate',bestFor:['Sales & Outreach','Email Marketing','Customer Service / Chatbot'],weakFor:['Coding & Development','Image & Video Generation'],alts:['Apollo AI','Salesforce Einstein','ChatGPT']},
-'Julius AI':{grade:'B',confidence:73,headline:'Upload data, ask questions in plain English — AI data analyst.',detail:'Julius AI lets you upload CSVs and spreadsheets, then ask questions in natural language. Generates charts, runs statistical analysis, writes Python code. Weakness: limited to tabular data, smaller model than ChatGPT for general reasoning. Best for non-technical analysts who need quick data insights.',pricing:'Free tier + $20/mo Pro',effort:'light',bestFor:['Data Analysis & Reporting','Finance & Accounting'],weakFor:['Writing & Content Creation','Image & Video Generation'],alts:['ChatGPT','Obviously AI','Elicit']},
+const STORAGE_KEY = 'nbd_understand_insights';
+let currentDomain = null;
+let chatHistory = [];
+let pipelineContext = null;
+
+const DOMAINS = {
+  insurance: {
+    label: 'Insurance Deep Dive',
+    badge: 'ins',
+    topics: [
+      'How does the roof insurance claim process work in Ohio?',
+      'What are the best supplement line items for a shingle roof?',
+      'How should I prepare for an adjuster meeting?',
+      'State Farm vs Allstate: different claim strategies?',
+      'How to handle a denied roof claim?',
+      'What\'s the O&P (overhead and profit) rule?',
+      'How to write a supplement that gets approved?',
+      'What are common Xactimate line items adjusters miss?'
+    ],
+    system: `You are an expert insurance claims consultant specializing in roofing. You help roofing contractors navigate the insurance claim process, write supplements, prepare for adjuster meetings, and maximize claim payouts -- all within legal and ethical bounds.
+
+Key areas of expertise:
+- Ohio and Kentucky insurance law and regulations
+- Xactimate estimating and supplement strategies
+- Carrier-specific claim processes (State Farm, Allstate, USAA, Erie, etc.)
+- Adjuster meeting tactics and documentation
+- Denied claim appeals
+- ACV vs RCV, depreciation, deductibles, O&P
+
+Be specific, actionable, and practical. Use real terminology contractors would use. When discussing supplements, mention specific Xactimate line items where relevant.`
+  },
+  technical: {
+    label: 'Technical Analysis',
+    badge: 'tech',
+    topics: [
+      'GAF vs Owens Corning vs CertainTeed: which is best?',
+      'What building codes apply to reroofing in Ohio?',
+      'How to calculate proper attic ventilation (NFA)?',
+      'Ice and water shield requirements by code',
+      'When should I recommend a full tear-off vs overlay?',
+      'Best underlayment options and when to use synthetic',
+      'How to properly flash a chimney on a shingle roof',
+      'Metal roofing vs asphalt shingles: cost-benefit analysis'
+    ],
+    system: `You are an expert roofing technical consultant. You help contractors understand building codes, material specifications, installation best practices, and technical decision-making.
+
+Key areas of expertise:
+- Ohio Residential Building Code (IRC-based)
+- Manufacturer installation requirements (GAF, Owens Corning, CertainTeed, Atlas)
+- Ventilation calculations (NFA, intake vs exhaust)
+- Flashing details and water management
+- Material comparisons and specifications
+- Warranty implications of installation methods
+- Energy efficiency and cool roof technology
+
+Be technically precise. Reference specific code sections when relevant. Give practical field advice, not just textbook answers.`
+  },
+  business: {
+    label: 'Business Strategy',
+    badge: 'biz',
+    topics: [
+      'How should I price my roofing jobs to stay competitive?',
+      'Best marketing strategies for roofing contractors',
+      'How to build and manage a roofing crew',
+      'Territory planning: how many leads do I need per month?',
+      'Should I focus on insurance work or retail/cash jobs?',
+      'How to get more Google reviews and rank higher',
+      'When should I hire a project manager vs do it myself?',
+      'How to scale from $500K to $2M annual revenue'
+    ],
+    system: `You are an expert roofing business consultant. You help contractors with pricing strategy, marketing, operations, hiring, territory planning, and growth.
+
+Key areas of expertise:
+- Roofing business financial models and pricing
+- Digital marketing for contractors (Google, Facebook, SEO)
+- Lead generation and conversion optimization
+- Crew management and scaling operations
+- Insurance restoration vs retail roofing business models
+- CRM usage and pipeline management
+- Territory analysis and market opportunity
+
+Give specific, numbers-driven advice when possible. Reference typical metrics for roofing businesses. Tailor advice for small to mid-size contractors (1-15 person operations).`
+  }
 };
 
-function getToolIntel(name){return TOOL_INTEL[name]||null;}
+/* ── Init ── */
+function initUnderstand() {
+  loadPipelineContext();
+  renderSavedInsights();
+}
 
-// ══ OFFLINE RECOMMENDATION ENGINE ══
-function runOfflineAnalysis(toolName,toolCat,goals,budget,effort){
-const intel=getToolIntel(toolName);
-const goalArr=goals.split(',').map(g=>g.trim().replace(/\s*\(.+\)/,''));
+/* ── Domain Selection ── */
+function selectDomain(domain) {
+  currentDomain = domain;
+  chatHistory = [];
+  const d = DOMAINS[domain];
 
-// Score the tool against goals
-let fitScore=0,fitMax=0;
-if(intel){
-goalArr.forEach(goal=>{
-fitMax++;
-if(intel.bestFor.some(b=>b.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))fitScore++;
-else if(intel.weakFor.some(w=>w.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))fitScore-=0.5;
-else fitScore+=0.3;
+  document.getElementById('heroView').style.display = 'none';
+  document.getElementById('chatView').classList.add('show');
+
+  // Header
+  document.getElementById('cvBadge').textContent = d.label.split(' ')[0].toUpperCase();
+  document.getElementById('cvBadge').className = 'cv-domain-badge ' + d.badge;
+  document.getElementById('cvTitle').textContent = d.label;
+
+  // Topic pills
+  const pillsEl = document.getElementById('topicPills');
+  pillsEl.innerHTML = '';
+  d.topics.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'topic-pill';
+    btn.textContent = t.length > 50 ? t.substring(0, 47) + '...' : t;
+    btn.title = t;
+    btn.onclick = () => {
+      document.getElementById('chatInput').value = t;
+      sendMessage();
+    };
+    pillsEl.appendChild(btn);
+  });
+
+  // Context bar
+  if (pipelineContext) {
+    document.getElementById('ctxBar').style.display = '';
+    document.getElementById('ctxLeads').textContent = pipelineContext.leads || 0;
+    document.getElementById('ctxRevenue').textContent = '$' + Number(pipelineContext.revenue || 0).toLocaleString();
+  }
+
+  // Reset chat
+  const msgs = document.getElementById('chatMsgs');
+  msgs.innerHTML = `<div class="chat-welcome" id="chatWelcome"><strong>Ready to help with ${escHTML(d.label)}.</strong>Pick a topic above or type your question below.</div>`;
+}
+
+function backToHero() {
+  currentDomain = null;
+  chatHistory = [];
+  document.getElementById('heroView').style.display = '';
+  document.getElementById('chatView').classList.remove('show');
+}
+
+/* ── Chat Input ── */
+const chatInput = document.getElementById('chatInput');
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
 });
-}
-
-const pct=fitMax>0?Math.round((fitScore/fitMax)*100):50;
-const grade=pct>=85?'A':pct>=70?'B':pct>=50?'C':pct>=30?'D':'F';
-const isRightFit=pct>=50;
-const verdict=pct>=75?'RECOMMENDED':pct>=50?'CONDITIONALLY RECOMMENDED':'NOT RECOMMENDED';
-const verdictColor=pct>=75?'#22C55E':pct>=50?'#F59E0B':'#EF4444';
-
-// Build recommendations from TOOL_INTEL
-const recs=[];
-const candidates=Object.entries(TOOL_INTEL).filter(([n])=>n!==toolName).map(([name,ti])=>{
-let score=0;
-goalArr.forEach(goal=>{
-if(ti.bestFor.some(b=>b.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))score+=2;
-if(ti.weakFor.some(w=>w.toLowerCase().includes(goal.toLowerCase().split(' ')[0])))score-=1;
-});
-return{name,score,...ti};
-}).sort((a,b)=>b.score-a.score);
-
-candidates.slice(0,3).forEach((c,i)=>{
-recs.push({rank:i+1,name:c.name,grade:c.grade,confidence:c.confidence,tagline:c.headline,why:c.detail.split('.').slice(0,2).join('.')+'. '+c.bestFor.slice(0,2).join(', ')+'.'});
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
-const comparison=recs.length>0?[
-{aspect:'Best For',chosen:intel?intel.bestFor.slice(0,2).join(', '):'General use',recommended:candidates[0]?.bestFor?.slice(0,2).join(', ')||'—'},
-{aspect:'Cost',chosen:intel?.pricing||'Varies',recommended:candidates[0]?.pricing||'—'},
-{aspect:'Effort',chosen:intel?.effort||'moderate',recommended:candidates[0]?.effort||'moderate'},
-{aspect:'Key Weakness',chosen:intel?intel.weakFor.slice(0,2).join(', '):'Unknown',recommended:candidates[0]?.weakFor?.slice(0,2).join(', ')||'—'}
-]:[];
+/* ── Send Message ── */
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q || !currentDomain) return;
 
-return{
-toolEvaluated:toolName,grade,confidence:Math.min(pct+20,95),
-verdict,verdictColor,
-headline:intel?.headline||`${toolName} — ${verdict.toLowerCase()} for your use case.`,
-aiQuote:intel?`${toolName} ${isRightFit?'shines':'struggles'} specifically in ${goalArr[0]||'general tasks'}. ${intel.detail.split('.')[1]||''}.`:`Without specific intelligence on ${toolName}, I'd recommend exploring alternatives in the ${toolCat} category.`,
-detail:intel?.detail||`${toolName} is a ${toolCat} tool. For your goals (${goals}), ${isRightFit?'it could be a reasonable fit':'you may want to explore alternatives'}. Budget: ${budget}, engagement: ${effort}.`,
-isRightFit,notFitReason:isRightFit?'':intel?`${toolName} is weak in: ${intel.weakFor.join(', ')}. Your goals emphasize areas where this tool underperforms.`:`${toolName} may not align with your stated goals.`,
-recommendations:recs,comparison,
-_meta:{tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'offline'}
-};
-}
+  input.value = '';
+  input.style.height = 'auto';
 
-// ══ STATE ══
-const S={path:null,tool:null,other:'',uc:{},budget:null,budgetAmt:'',effort:null,cur:0,asOpen:false,lmOn:false};
-let savedAudits=[],readingList=[],lessonCache={},secPrefs={},curLesson=null,curTool=null,tmRating=0,brCat='All',brQ='';
+  // Hide welcome, hide topic pills after first message
+  const welcome = document.getElementById('chatWelcome');
+  if (welcome) welcome.remove();
+  document.getElementById('topicPills').style.display = 'none';
 
-// ══ UTILS ══
-const g=id=>document.getElementById(id);
-const set=(id,v)=>{const e=g(id);if(e)e.textContent=v};
-const uid=()=>Math.random().toString(36).slice(2,9);
+  const msgs = document.getElementById('chatMsgs');
 
-function toast(msg,type=''){
-  const c=g('tcon'),t=document.createElement('div');
-  t.className='toast'+(type?' '+type:'');
-  t.innerHTML=`<span>${type==='g'?'✓':type==='r'?'✕':type==='b'?'◈':'◆'}</span><span>${msg}</span>`;
-  c.appendChild(t);
-  setTimeout(()=>{t.style.transition='.2s';t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),200)},3200);
-}
+  // User message
+  appendChatMsg('user', q);
+  chatHistory.push({ role: 'user', content: q });
 
-// ══ STORAGE ══
-async function store(){
-  try{
-    await window.storage.set('nbd-ut-audits',JSON.stringify(savedAudits));
-    await window.storage.set('nbd-ut-rl',JSON.stringify(readingList));
-    await window.storage.set('nbd-ut-lc',JSON.stringify(lessonCache));
-    await window.storage.set('nbd-ut-sp',JSON.stringify(secPrefs));
-  }catch(e){}
-}
-async function loadAll(){
-  try{
-    const a=await window.storage.get('nbd-ut-audits');if(a)savedAudits=JSON.parse(a.value);
-    const r=await window.storage.get('nbd-ut-rl');if(r)readingList=JSON.parse(r.value);
-    const l=await window.storage.get('nbd-ut-lc');if(l)lessonCache=JSON.parse(l.value);
-    const s=await window.storage.get('nbd-ut-sp');if(s)secPrefs=JSON.parse(s.value);
-  }catch(e){}
-}
-function isInStack(name){
-  try{const r=localStorage.getItem('nbd-tools-v2');if(!r)return false;return JSON.parse(r).some(t=>t.name.toLowerCase().includes(name.toLowerCase()));}catch(e){return false;}
-}
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'chat-typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
 
-// ══ THEME SYNC ══
-function syncAccent(){
-  try{
-    const t=localStorage.getItem('nbd-theme')||'';
-    const m={blue:'#0EA5E9',teal:'#14B8A6',purple:'#A855F7',green:'#22C55E',gold:'#F59E0B',red:'#EF4444'};
-    let ac='#F97316';
-    for(const[k,v]of Object.entries(m)){if(t.includes(k)){ac=v;break;}}
-    document.documentElement.style.setProperty('--ac',ac);
-  }catch(e){}
-}
+  const sendBtn = document.getElementById('chatSend');
+  sendBtn.disabled = true;
 
-// ══ WIZARD NAV ══
-function goHome(){
-  g('heroSec').style.display='block';
-  g('wiz').classList.remove('show');
-  g('pstrip').classList.remove('show');
-  g('asTog').classList.remove('show');
-  S.cur=0;
-  Object.assign(S,{tool:null,other:'',uc:{},budget:null,budgetAmt:'',effort:null});
-  updateAS();
-}
+  try {
+    if (!window.callClaude) throw new Error('AI proxy not loaded. Refresh and try again.');
 
-function startWiz(path){
-  S.path=path;
-  g('heroSec').style.display='none';
-  g('wiz').classList.add('show');
-  g('pstrip').classList.add('show');
-  g('asTog').classList.add('show');
-  const titles={audit:['Which Tool Are You Evaluating?','Pick the tool you have in mind. We\'ll audit it against your exact needs.'],explore:['Any Tool in Mind? (Optional)','Pick one if you\'re leaning somewhere, or skip to let us find the best fit.'],discover:['Skip — We\'ll Find It For You','No tool in mind? Tell us what you need and we\'ll find the right one.']};
-  const [t,s]=titles[path]||titles.audit;
-  set('s1title',t);set('s1sub',s);
-  if(path!=='audit'){const b=g('s1next');if(b){b.disabled=false;b.textContent='Next: Set Goals →';}}
-  goStep(1);
-}
+    const domain = DOMAINS[currentDomain];
+    let systemPrompt = domain.system;
 
-function goStep(n){
-  document.querySelectorAll('.step').forEach(s=>s.classList.remove('cur'));
-  const el=g('step'+n);if(el){el.classList.add('cur');el.scrollIntoView({behavior:'smooth',block:'start'});}
-  S.cur=n;
-  updProgress(n);
-  updateAS();
-}
-function jmpStep(n){if(n<=S.cur)goStep(n);}
-
-function updProgress(cur){
-  for(let i=1;i<=4;i++){
-    const d=g('pd'+i);if(!d)continue;
-    d.classList.remove('cur','done');
-    if(i<cur){d.classList.add('done');d.textContent='✓';}
-    else if(i===cur){d.classList.add('cur');d.textContent=String(i);}
-    else{d.textContent=String(i);}
-    const l=g('pl'+i);if(l)l.classList.toggle('done',i<cur);
-  }
-}
-
-// ══ ANSWER SIDEBAR ══
-function toggleAS(){S.asOpen=!S.asOpen;g('asPanel').classList.toggle('open',S.asOpen);g('asTog').textContent=S.asOpen?'CLOSE ✕':'MY ANSWERS';}
-function updateAS(){
-  const te=g('as-tool');
-  if(te)te.innerHTML=S.tool?`${S.tool.i} <strong>${S.tool.n}</strong>`:S.other?`<strong>${S.other}</strong>`:'<span class="as-em">Not selected</span>';
-  const ge=g('as-goals');
-  if(ge){const items=[...Object.entries(S.uc).filter(([,v])=>v==='critical').map(([k])=>`🔴 ${k}`),...Object.entries(S.uc).filter(([,v])=>v==='need').map(([k])=>`🟠 ${k}`)];ge.innerHTML=items.length?items.map(x=>`<div style="font-size:12px;margin-bottom:2px">${x}</div>`).join(''):'<span class="as-em">Not selected</span>';}
-  const be=g('as-budget');
-  if(be){const b=S.budgetAmt?`$${S.budgetAmt}/mo`:S.budget?BUDGETS.find(x=>x.k===S.budget)?.l:null;be.innerHTML=b?`<strong>${b}</strong>`:'<span class="as-em">Not set</span>';}
-  const ee=g('as-effort');
-  if(ee){const e=ENGAGEMENT.find(x=>x.k===S.effort);ee.innerHTML=e?`<strong>${e.l}</strong>`:'<span class="as-em">Not set</span>';}
-}
-
-// ══ LEARN MODE ══
-function toggleLM(){
-  S.lmOn=!S.lmOn;
-  localStorage.setItem('nbd-lm',S.lmOn?'1':'0');
-  applyLM();
-}
-function applyLM(){
-  g('lmToggle').classList.toggle('on',S.lmOn);
-  g('lmHint').classList.toggle('show',S.lmOn);
-  document.body.classList.toggle('lm',S.lmOn);
-  renderGrid();
-}
-
-// ══ STEP 1: TOOL PICKER ══
-let tCat='All',tQ='';
-function renderS1(){
-  const el=g('s1content');if(!el)return;
-  el.innerHTML=`<input class="t-search" id="tSearch" placeholder="Search tools… ChatGPT, Runway, Cursor…" oninput="tFilter(this.value)"><div class="cat-pills" id="catPills"></div><div class="t-grid" id="tGrid"></div><div id="otherWrap" style="display:none;margin-top:12px"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);letter-spacing:1px;margin-bottom:6px">CUSTOM TOOL NAME</div><input class="t-search" id="otherInp" placeholder="Type tool name…" oninput="setOther(this.value)" style="margin-bottom:0"></div>`;
-  const pills=g('catPills');
-  CATS.forEach(cat=>{const b=document.createElement('button');b.className='cpill'+(cat==='All'?' on':'');b.textContent=cat;b.onclick=()=>setCat(cat,b);pills.appendChild(b);});
-  renderGrid();
-}
-function setCat(cat,btn){tCat=cat;document.querySelectorAll('.cpill').forEach(p=>p.classList.remove('on'));btn.classList.add('on');renderGrid();}
-function tFilter(v){tQ=v;renderGrid();}
-function renderGrid(){
-  const grid=g('tGrid');if(!grid)return;
-  let list=[...TOOLS];
-  if(tCat!=='All')list=list.filter(t=>t.c===tCat);
-  if(tQ)list=list.filter(t=>t.n.toLowerCase().includes(tQ.toLowerCase())||t.c.toLowerCase().includes(tQ.toLowerCase()));
-  list.sort((a,b)=>(b.q||0)-(a.q||0));
-  grid.innerHTML=list.map(t=>{
-    const inStk=isInStack(t.n);
-    const sel=S.tool&&S.tool.n===t.n;
-    const clickFn=S.lmOn?`openTM('${t.n.replace(/'/g,"\\'")}','${t.c}','${t.i}')`:`selTool('${t.n.replace(/'/g,"\\'")}','${t.c}','${t.i}')`;
-    return`<div class="tool-card${sel?' selected':''}" onclick="${clickFn}">
-      ${inStk?'<span class="stk-badge">IN STACK</span>':''}
-      ${t.q?'<span style="position:absolute;top:6px;left:6px;font-size:8px;color:var(--or)">★</span>':''}
-      <div class="tc-ico">${t.i}</div><div class="tc-name">${t.n}</div><div class="tc-cat">${t.c}</div>
-    </div>`;
-  }).join('')+`<div class="tool-card tc-other" onclick="toggleOther()"><div class="tc-ico">✏️</div><div class="tc-name">Other</div><div class="tc-cat">Type your own</div></div>`;
-}
-function selTool(n,c,i){S.tool={n,c,i};S.other='';g('otherWrap').style.display='none';const b=g('s1next');if(b)b.disabled=false;renderGrid();updateAS();toast(`${i} ${n} selected`,'g');}
-function toggleOther(){const w=g('otherWrap');const on=w.style.display==='block';w.style.display=on?'none':'block';if(!on){S.tool=null;renderGrid();setTimeout(()=>g('otherInp')?.focus(),50);}}
-function setOther(v){S.other=v;const b=g('s1next');if(b)b.disabled=!v.trim();updateAS();}
-
-// ══ STEP 2: USE CASE MATRIX ══
-function renderS2(){
-  const el=g('s2content');if(!el)return;
-  el.innerHTML=`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);margin-bottom:12px;letter-spacing:.5px"><span style="color:var(--rd)">Critical</span> = must-have · <span style="color:var(--or)">Need</span> = important · <span style="color:var(--bl)">Nice</span> = bonus · Skip = irrelevant</div><div class="mat-wrap"><table class="mat" id="ucTable"><thead><tr><th style="width:48%">Use Case</th><th class="ic">Skip</th><th class="ic">Nice</th><th class="ic">Need</th><th class="ic">Critical</th></tr></thead><tbody id="ucBody"></tbody></table></div>`;
-  renderMatrix();
-}
-function renderMatrix(){
-  const body=g('ucBody');if(!body)return;
-  body.innerHTML=USE_CASES.map(uc=>{
-    const cur=S.uc[uc.l]||null;
-    const levels=[{k:'skip',cl:'n-skip',l:'Skip'},{k:'nice',cl:'n-nice',l:'Nice'},{k:'need',cl:'n-need',l:'Need'},{k:'critical',cl:'n-crit',l:'Critical'}];
-    return`<tr><td class="uc-lbl">${uc.i} ${uc.l}</td>${levels.map(lv=>`<td class="ic-cell"><button class="imp-btn ${cur===lv.k?lv.cl:''}" onclick="setUC('${uc.l}','${lv.k}')">${lv.l}</button></td>`).join('')}</tr>`;
-  }).join('');
-}
-function setUC(label,level){if(S.uc[label]===level)delete S.uc[label];else S.uc[label]=level;renderMatrix();updateAS();}
-
-// ══ STEP 3: BUDGET ══
-function renderS3(){
-  const el=g('s3content');if(!el)return;
-  el.innerHTML=`<div class="bud-row">${BUDGETS.map(b=>`<button class="bchip${S.budget===b.k?' on':''}" onclick="setBudget('${b.k}',this)">${b.l}</button>`).join('')}</div><div class="bud-custom"><span>Or enter exact max:</span><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--tx3)">$</span><input class="bud-inp" id="budCustom" type="number" min="0" placeholder="0" oninput="setBudgetAmt(this.value)"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)">/mo</span></div><div style="margin-top:14px;padding:11px 13px;background:var(--card);border-radius:var(--r);border:1px solid var(--b1);font-size:13px;color:var(--tx2);line-height:1.6">💡 Free tiers often have usage limits. For business use, budget at least $20–$50/mo to avoid hitting caps at the wrong time.</div>`;
-}
-function setBudget(k,btn){S.budget=k;S.budgetAmt='';const ci=g('budCustom');if(ci)ci.value='';document.querySelectorAll('.bchip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');const nb=g('s3next');if(nb)nb.disabled=false;updateAS();}
-function setBudgetAmt(v){S.budgetAmt=v;S.budget=null;document.querySelectorAll('.bchip').forEach(b=>b.classList.remove('on'));const nb=g('s3next');if(nb)nb.disabled=!v||parseFloat(v)<0;updateAS();}
-
-// ══ STEP 4: ENGAGEMENT ══
-function renderS4(){
-  const el=g('s4content');if(!el)return;
-  el.innerHTML=`<div class="eng-grid">${ENGAGEMENT.map(e=>`<div class="eng-card${S.effort===e.k?' sel':''}" onclick="setEffort('${e.k}')"><div class="eng-ico">${e.i}</div><div class="eng-lbl">${e.l}</div><div class="eng-desc">${e.d}</div></div>`).join('')}</div>`;
-}
-function setEffort(k){S.effort=k;renderS4();const b=g('s4next');if(b)b.disabled=false;updateAS();toast('Engagement level set','g');}
-
-// ══ ANALYSIS ══
-async function runAnalysis(){
-  const toolName=S.tool?.n||S.other||'Unknown Tool';
-  const toolCat=S.tool?.c||'General';
-  const goals=Object.entries(S.uc).filter(([,v])=>v!=='skip'&&v).map(([k,v])=>`${k} (${v})`).join(', ')||'General use';
-  const budget=S.budgetAmt?`$${S.budgetAmt}/mo max`:BUDGETS.find(x=>x.k===S.budget)?.l||'any';
-  const effortMap={handoff:'minimal (set and forget)',light:'light weekly',moderate:'moderate daily',heavy:'heavy daily power user'};
-  const effort=effortMap[S.effort]||'moderate';
-  const rmBd=g('rmBd');
-  const rmModal=document.createElement('div');
-  rmModal.className='rm-modal';rmModal.id='rmModal';
-  rmBd.innerHTML='';rmBd.appendChild(rmModal);rmBd.classList.add('open');
-  const loadSteps=['Identifying your requirements…','Researching the top 50 AI tools…','Scoring against alternatives…','Building your recommendation…','Finalizing verdict…'];
-  rmModal.innerHTML=`<div class="rm-hd" style="padding:22px 26px"><div class="rm-tn" style="font-size:20px">Analyzing ${toolName}…</div><button class="rm-x" onclick="closeRM()">✕</button></div><div class="rm-body" style="text-align:center;padding:32px"><div class="spin"></div><div class="ls-wrap">${loadSteps.map((s,i)=>`<div class="ls-row" id="ls${i}"><div class="ls-dot"></div>${s}</div>`).join('')}</div></div>`;
-  for(let i=0;i<loadSteps.length;i++){
-    await new Promise(r=>setTimeout(r,550));
-    const el=g('ls'+i);if(el)el.classList.add('show');
-    if(i>0){const p=g('ls'+(i-1));if(p){p.classList.remove('show');p.classList.add('done');}}
-  }
-  const prompt=`You are a ruthless, expert AI tools analyst. No fluff. Straight talk.
-
-${S.path==='audit'?`Audit "${toolName}" (Category: ${toolCat}) for this user.`:`Find the best tool for this user's needs (no specific tool in mind).`}
-
-User profile:
-- Goals: ${goals}
-- Budget: ${budget}
-- Effort: ${effort}
-- Mode: ${S.path}
-
-Return ONLY valid JSON (no markdown, no backticks):
-{"toolEvaluated":"${toolName}","grade":"A"|"B"|"C"|"D"|"F","confidence":0-100,"verdict":"RECOMMENDED"|"NOT RECOMMENDED"|"CONDITIONALLY RECOMMENDED","verdictColor":"#22C55E"|"#F97316"|"#EF4444","headline":"One bold sentence verdict","aiQuote":"One direct AI insight — the thing most people miss about this tool for this use case","detail":"2-3 paragraphs of specific analysis — real features, real limitations","isRightFit":true|false,"notFitReason":"If false — why this tool isn't right","recommendations":[{"rank":1,"name":"Tool Name","grade":"A","confidence":0-100,"tagline":"One line why this is #1","why":"2-3 sentences specific to the user's goals"},{"rank":2,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"},{"rank":3,"name":"Tool Name","grade":"B","confidence":0-100,"tagline":"One line","why":"2-3 sentences"}],"comparison":[{"aspect":"Best For","chosen":"...","recommended":"..."},{"aspect":"Cost","chosen":"...","recommended":"..."},{"aspect":"Effort","chosen":"...","recommended":"..."},{"aspect":"Key Weakness","chosen":"...","recommended":"..."}]}`;
-  const apiKey=localStorage.getItem('nbd_joe_key')||'';
-  let result=null;
-  try{
-    if(apiKey){
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':apiKey},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-      const data=await resp.json();
-      const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-      result=JSON.parse(raw);
-      result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'api'};
-    } else {
-      // Try proxy
-      try{
-        const resp=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,tool:toolName,goals,budget,effort,path:S.path})});
-        if(resp.ok){const data=await resp.json();result=data;result._meta={tool:toolName,goals,budget,effort,date:new Date().toISOString(),source:'proxy'};}
-      }catch(pe){}
+    // Add pipeline context if available
+    if (pipelineContext) {
+      systemPrompt += `\n\nContractor's current pipeline data (for context):
+- Total leads: ${pipelineContext.leads || 0}
+- Pipeline value: $${Number(pipelineContext.revenue || 0).toLocaleString()}
+- Active jobs: ${pipelineContext.active || 0}
+- Closed jobs: ${pipelineContext.closed || 0}
+Use this context when relevant to personalize advice.`;
     }
-    if(!result){
-      // Offline fallback
-      result=runOfflineAnalysis(toolName,toolCat,goals,budget,effort);
-      toast('Using built-in intelligence (no API key set)','b');
+
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: chatHistory.slice(-12)
+    });
+
+    typing.remove();
+
+    const reply = result?.content?.[0]?.text || result?.content || 'No response received.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    appendChatMsg('ai', reply, q);
+
+  } catch (err) {
+    typing.remove();
+    appendChatMsg('ai', 'Error: ' + err.message);
+    toast('AI request failed: ' + err.message, 'err');
+  }
+
+  sendBtn.disabled = false;
+}
+
+function appendChatMsg(role, text, question) {
+  const msgs = document.getElementById('chatMsgs');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+
+  if (role === 'ai') {
+    div.innerHTML = formatAiText(text);
+
+    // Add save button
+    const saveBtn = document.createElement('button');
+    saveBtn.style.cssText = 'background:none;border:1px solid var(--bdr2);color:var(--tx3);font-size:10px;padding:3px 10px;border-radius:6px;cursor:pointer;margin-top:8px;transition:all .15s';
+    saveBtn.textContent = 'Save insight';
+    saveBtn.onmouseover = () => { saveBtn.style.color = 'var(--or)'; saveBtn.style.borderColor = 'var(--or)'; };
+    saveBtn.onmouseout = () => { saveBtn.style.color = 'var(--tx3)'; saveBtn.style.borderColor = 'var(--bdr2)'; };
+    saveBtn.onclick = () => {
+      saveInsight(question || '', text, currentDomain);
+      saveBtn.textContent = 'Saved!';
+      saveBtn.style.color = 'var(--grn)';
+      saveBtn.style.borderColor = 'var(--grn)';
+      saveBtn.disabled = true;
+    };
+    div.appendChild(saveBtn);
+  } else {
+    div.textContent = text;
+  }
+
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function formatAiText(text) {
+  let html = escHTML(text);
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Headers (### )
+  html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+  // Bullet lists
+  html = html.replace(/^[-\u2022]\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  // Numbered lists
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+  // Paragraphs
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return html;
+}
+
+/* ── Pipeline Context ── */
+async function loadPipelineContext() {
+  try {
+    if (window._db && window._authUser) {
+      const { collection, getDocs, query } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const uid = window._authUser.uid;
+      const snap = await getDocs(query(collection(window._db, 'leads', uid, 'leads')));
+      let totalRevenue = 0;
+      let active = 0;
+      let closed = 0;
+      snap.forEach(d => {
+        const data = d.data();
+        totalRevenue += Number(data.estimateTotal || data.totalRCV || data.cashPrice || 0);
+        if (data.stage === 'completed' || data.stage === 'collected') closed++;
+        else active++;
+      });
+      pipelineContext = { leads: snap.size, revenue: totalRevenue, active, closed };
     }
-    renderResult(result);
-  }catch(e){
-    // Final fallback to offline
-    try{
-      result=runOfflineAnalysis(toolName,toolCat,goals,budget,effort);
-      renderResult(result);
-      toast('Offline analysis complete','b');
-    }catch(e2){
-      rmModal.innerHTML=`<div class="rm-hd"><div class="rm-tn" style="font-size:18px">Analysis Failed</div><button class="rm-x" onclick="closeRM()">✕</button></div><div class="rm-body"><div style="color:var(--tx2);font-size:15px;margin-bottom:14px">Something went wrong.</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)">${e.message}</div><div style="margin-top:14px"><button class="btn btn-p" onclick="runAnalysis()">Try Again</button></div></div>`;
-      toast('Analysis failed','r');
-    }
+  } catch (err) {
+    console.warn('Could not load pipeline context:', err);
   }
 }
 
-function renderResult(r){
-  const modal=g('rmModal');if(!modal)return;
-  const gc={A:'#22C55E',B:'#84CC16',C:'#F59E0B',D:'#F97316',F:'#EF4444'};
-  const c=r.verdictColor||gc[r.grade]||'#F97316';
-  const recs=r.recommendations||[];
-  const notFit=!r.isRightFit;
-  modal.innerHTML=`<div class="rm-hd"><div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);letter-spacing:1px;margin-bottom:4px">AUDIT RESULT</div><div class="rm-tn">${r.toolEvaluated}</div></div><button class="rm-x" onclick="closeRM()">✕</button></div>
-  <div class="rm-body">
-    <div class="grade-box" style="border-color:${c}44;background:${c}08">
-      <div class="grade-bdg" style="background:${c}18;border:2px solid ${c}">
-        <div class="grade-L" style="color:${c}">${r.grade}</div>
-        <div class="grade-P" style="color:${c}">${r.confidence}%</div>
-        <div class="grade-V" style="color:${c}">${r.verdict?.split(' ')[0]}</div>
-      </div>
-      <div class="grade-R">
-        <div class="grade-hl">${r.headline}</div>
-        <div style="margin-top:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;background:${c}18;color:${c};border:1px solid ${c}44;letter-spacing:1px">${r.verdict}</span></div>
-      </div>
-    </div>
-    <div class="rm-sec-lbl" id="qs" style="opacity:0;transition:opacity .4s ease .3s">AI Insight</div>
-    <div class="rm-quote" id="qq" style="opacity:0;transition:opacity .4s ease .3s">"${r.aiQuote}"</div>
-    <div class="rm-sec-lbl" id="ds" style="opacity:0;transition:opacity .4s ease .6s">Full Analysis</div>
-    <div class="rm-det" id="dd" style="opacity:0;transition:opacity .4s ease .6s">${(r.detail||'').replace(/\n/g,'<br><br>')}</div>
-    ${notFit&&r.notFitReason?`<div id="nf" style="opacity:0;transition:opacity .4s ease .8s;background:var(--rd-d);border:1px solid rgba(239,68,68,.3);border-radius:var(--rl);padding:13px 16px;margin-top:14px"><div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--rd);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">⚠ Not the Right Fit</div><div style="font-size:14px;color:var(--tx2);line-height:1.6">${r.notFitReason}</div></div>`:''}
-    <div class="rm-sec-lbl" id="rs" style="opacity:0;transition:opacity .4s ease .9s">${notFit?'Better Options':'Top Alternatives'}</div>
-    <div id="rc" style="opacity:0;transition:opacity .4s ease .9s">${recs.map((rec,i)=>{const rc=gc[rec.grade]||'#F97316';return`<div class="rec-card${i===0?' pri':''}"><div class="rec-rk">${i===0?'★ PRIMARY RECOMMENDATION':'Runner-Up #'+i}</div><div class="rec-nm">${rec.name}<span class="rec-gr" style="background:${rc}18;color:${rc};border:1px solid ${rc}44">${rec.grade} · ${rec.confidence}%</span></div><div class="rec-tl">${rec.tagline}</div><div class="rec-wh">${rec.why}</div></div>`;}).join('')}</div>
-    ${notFit&&r.comparison?.length?`<div class="rm-sec-lbl" id="cs" style="opacity:0;transition:opacity .4s ease 1.1s">Side-by-Side</div><div id="ct" style="opacity:0;transition:opacity .4s ease 1.1s;overflow-x:auto;border-radius:var(--r);border:1px solid var(--b1)"><table class="cmp-tbl"><thead><tr><th>Aspect</th><th>${r.toolEvaluated}</th><th>${recs[0]?.name||'Recommended'}</th></tr></thead><tbody>${(r.comparison||[]).map(row=>`<tr><td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3)">${row.aspect}</td><td>${row.chosen}</td><td style="color:var(--gn)">${row.recommended}</td></tr>`).join('')}</tbody></table></div>`:''}
-    <div id="sv" style="opacity:0;transition:opacity .4s ease 1.2s"><div class="save-bar"><div class="save-lbl">Save this audit?</div><input class="save-inp" id="auditNm" value="${r.toolEvaluated} — ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}"><button class="btn btn-p btn-sm" onclick="saveAudit()">Save</button></div></div>
-    <div class="rm-acts" id="ra" style="opacity:0;transition:opacity .4s ease 1.3s">
-      <button class="btn btn-p" onclick="saveAudit()">💾 Save</button>
-      <button class="btn btn-s" onclick="copyAudit()">⎘ Copy</button>
-      <button class="btn btn-s" onclick="auditPDF()">↓ PDF</button>
-      <button class="btn btn-s" style="margin-left:auto" onclick="closeRM();goStep(1)">← Run Another</button>
-    </div>
-  </div>`;
-  const show=(id,delay)=>setTimeout(()=>{const e=g(id);if(e)e.style.opacity='1';},delay);
-  ['qs','qq'].forEach(id=>show(id,300));
-  ['ds','dd'].forEach(id=>show(id,600));
-  show('nf',800);['rs','rc'].forEach(id=>show(id,900));
-  ['cs','ct'].forEach(id=>show(id,1100));
-  show('sv',1200);show('ra',1300);
-  window._curResult=r;
-  toast('Audit complete — '+r.grade+' · '+r.confidence+'%','g');
-}
-function closeRM(){g('rmBd').classList.remove('open');}
-
-// ══ SAVE AUDIT ══
-function saveAudit(){
-  const r=window._curResult;if(!r)return;
-  const name=g('auditNm')?.value.trim()||r.toolEvaluated;
-  savedAudits.unshift({id:uid(),name,date:new Date().toISOString(),grade:r.grade,confidence:r.confidence,verdict:r.verdict,tool:r.toolEvaluated,result:r});
-  store();updateCounts();toast('Audit saved: '+name,'g');
-}
-function copyAudit(){
-  const r=window._curResult;if(!r)return;
-  navigator.clipboard.writeText(`AI Tool Audit — ${r.toolEvaluated}\nGrade: ${r.grade} · ${r.confidence}% · ${r.verdict}\n\n${r.headline}\n\n"${r.aiQuote}"\n\n${r.detail}\n\nPrimary Recommendation: ${r.recommendations?.[0]?.name||'—'}\n${r.recommendations?.[0]?.why||''}\n\nGenerated by NBD Pro Understanding Tool`).then(()=>toast('Copied','g'));
-}
-function auditPDF(){
-  const r=window._curResult;if(!r)return;
-  const gc={A:'#22C55E',B:'#84CC16',C:'#F59E0B',D:'#F97316',F:'#EF4444'};
-  const c=gc[r.grade]||'#F97316';
-  const win=window.open('','_blank');if(!win){toast('Allow popups','r');return;}
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Segoe UI',sans-serif;color:#111;padding:40px;font-size:14px;line-height:1.6;max-width:700px;margin:0 auto}h1{font-size:28px;font-weight:900;text-transform:uppercase;letter-spacing:2px}h2{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6b7280;margin:18px 0 6px;border-bottom:1px solid #e5e7eb;padding-bottom:5px}.gb{display:inline-flex;flex-direction:column;align-items:center;padding:10px 18px;border-radius:10px;border:2px solid ${c};background:${c}12;margin-bottom:14px}.gl{font-size:40px;font-weight:900;color:${c};line-height:1}.gp{font-size:12px;font-weight:700;color:${c}}.footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af}@media print{body{padding:20px}}</style></head><body>
-  <h1>${r.toolEvaluated}</h1><div class="gb"><div class="gl">${r.grade}</div><div class="gp">${r.confidence}%</div></div>
-  <p><strong>${r.headline}</strong></p><blockquote style="border-left:3px solid ${c};padding-left:12px;font-style:italic;color:#374151">"${r.aiQuote}"</blockquote>
-  <h2>Full Analysis</h2><p>${(r.detail||'').replace(/\n/g,'<br>')}</p>
-  ${r.isRightFit===false?`<h2 style="color:#ef4444">⚠ Not the Right Fit</h2><p>${r.notFitReason}</p>`:''}
-  <h2>Recommendations</h2>${(r.recommendations||[]).map((rec,i)=>`<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px"><strong>#${i+1} ${rec.name}</strong> — ${rec.grade} · ${rec.confidence}%<br><em>${rec.tagline}</em><br>${rec.why}</div>`).join('')}
-  <div class="footer">Generated by NBD Pro Understanding Tool · ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
-  </body></html>`);
-  win.document.close();setTimeout(()=>win.print(),400);toast('PDF opening…','b');
+/* ── Saved Insights (localStorage) ── */
+function getSavedInsights() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch { return []; }
 }
 
-// ══ HISTORY ══
-function openHistory(){renderHistory();g('hsBd').classList.add('open');g('hsPanel').classList.add('open');}
-function closeHistory(){g('hsBd').classList.remove('open');g('hsPanel').classList.remove('open');}
-function renderHistory(){
-  const list=g('hsList');if(!list)return;
-  const gc={A:'#22C55E',B:'#84CC16',C:'#F59E0B',D:'#F97316',F:'#EF4444'};
-  list.innerHTML=savedAudits.length?savedAudits.map(a=>{
-    const c=gc[a.grade]||'#F97316';const d=new Date(a.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    return`<div class="ac-card" onclick="loadAudit('${a.id}')"><div class="ac-nm">${a.name}</div><div class="ac-meta"><span class="ac-gr" style="background:${c}18;color:${c};border:1px solid ${c}44">${a.grade} · ${a.confidence}%</span><span>${d}</span><button style="margin-left:auto;background:none;border:none;color:var(--tx3);cursor:pointer;font-size:12px" onclick="delAudit(event,'${a.id}')">✕</button></div></div>`;
-  }).join(''):`<div style="text-align:center;padding:32px;color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:11px">No saved audits yet.</div>`;
-}
-function loadAudit(id){const a=savedAudits.find(x=>x.id===id);if(!a)return;window._curResult=a.result;closeHistory();const rmBd=g('rmBd');const rmModal=document.createElement('div');rmModal.className='rm-modal';rmModal.id='rmModal';rmBd.innerHTML='';rmBd.appendChild(rmModal);rmBd.classList.add('open');renderResult(a.result);}
-function delAudit(e,id){e.stopPropagation();savedAudits=savedAudits.filter(x=>x.id!==id);store();updateCounts();renderHistory();toast('Deleted','');}
-
-// ══ TEACH ME ══
-function openTM(n,c,i){
-  curTool={n,c,i};curLesson=null;tmRating=0;
-  const setE=(id,v)=>{const e=g(id);if(e)e.textContent=v;};
-  setE('tmNm',n);setE('tmCatLbl',c||'AI Tool');setE('tmIco',i||'🤖');setE('tmTag','Loading lesson…');
-  g('tmStats').innerHTML='';
-  g('tmBody').innerHTML=`<div style="padding:18px"><div class="shimmer shim-t"></div><div class="shimmer shim-b"></div><div class="shimmer shim-t" style="width:50%"></div><div class="shimmer shim-b"></div></div>`;
-  g('tmNotes').style.display='none';g('tmFoot').style.display='none';
-  const saved=readingList.find(r=>r.n===n);
-  if(saved){tmRating=saved.rating||0;const ni=g('tmNI');if(ni)ni.value=saved.note||'';}
-  tmRenderStars();
-  g('tmBd').classList.add('open');g('tmPanel').classList.add('open');
-  fetchLesson(n,c,i);
-}
-function closeTM(){g('tmBd').classList.remove('open');g('tmPanel').classList.remove('open');}
-function tmRefresh(){if(!curTool)return;delete lessonCache[curTool.n];store();openTM(curTool.n,curTool.c,curTool.i);}
-
-async function fetchLesson(n,c,i){
-  const cached=lessonCache[n];
-  const now=Date.now();
-  const stale=!cached||(now-cached.ts)>CACHE_TTL;
-  const cacheTxt=g('tmCacheTxt');const cacheEl=g('tmCache');
-  if(cached&&!stale){
-    const days=Math.floor((now-cached.ts)/(24*60*60*1000));
-    const lbl=days===0?'today':days===1?'1 day ago':`${days} days ago`;
-    if(cacheTxt)cacheTxt.textContent=`Cached — last updated ${lbl}`;
-    if(cacheEl)cacheEl.classList.remove('stale');
-    renderLesson(cached.data,n,i,c);return;
-  }
-  if(cached&&stale){if(cacheTxt)cacheTxt.textContent='Stale — 7+ days old, refreshing…';if(cacheEl)cacheEl.classList.add('stale');}
-  else{if(cacheTxt)cacheTxt.textContent='Fetching fresh data…';}
-  const prompt=`You are a brutally honest AI tools educator. Be specific — no generic filler.
-
-Teach me everything about "${n}" (Category: ${c||'AI Tool'}).
-
-Return ONLY valid JSON (no markdown, no backticks):
-{"tagline":"One punchy sentence","pricing":[{"tier":"Free","price":"$0/mo","desc":"What you get"},{"tier":"Pro","price":"$X/mo","desc":"What you get"}],"curve":{"level":1,"label":"Beginner","desc":"One plain sentence about daily use"},"persona":"2 sentences — exactly who this is built for","excels":["bullet 1","bullet 2","bullet 3","bullet 4"],"struggles":["bullet 1","bullet 2","bullet 3"],"bestUse":"2-3 sentences on when it shines with a concrete example","worstUse":"2-3 sentences on when NOT to use it","scenarios":[{"label":"Scenario title","text":"2 sentences real-world story"},{"label":"Scenario 2","text":"2 sentences"},{"label":"Scenario 3","text":"2 sentences"}],"alternatives":["Alt 1","Alt 2","Alt 3","Alt 4"],"altContext":"One sentence on when to pick an alternative"}`;
-  const apiKey=localStorage.getItem('nbd_joe_key')||'';
-  try{
-    let lesson=null;
-    if(apiKey){
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true','x-api-key':apiKey},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-      const data=await resp.json();
-      const raw=(data?.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-      lesson=JSON.parse(raw);
-    }
-    if(!lesson){
-      // Offline fallback lesson from TOOL_INTEL
-      const intel=getToolIntel(n);
-      if(intel){
-        lesson={tagline:intel.headline,pricing:[{tier:'See Details',price:intel.pricing,desc:'Check official site for current plans'}],curve:{level:intel.effort==='light'?1:intel.effort==='moderate'?3:4,label:intel.effort==='light'?'Easy':intel.effort==='moderate'?'Moderate':'Advanced',desc:`${n} requires ${intel.effort} engagement to get the most value.`},persona:`Best for users focused on ${intel.bestFor.slice(0,2).join(' and ')}.`,excels:intel.bestFor.map(b=>`Strong at ${b}`),struggles:intel.weakFor.map(w=>`Not ideal for ${w}`),bestUse:intel.detail.split('.').slice(0,2).join('.')+'.',worstUse:`Avoid using ${n} primarily for ${intel.weakFor.join(' or ')}.`,scenarios:[{label:'Typical User',text:intel.detail.split('.').slice(2,4).join('.')+'.'}],alternatives:intel.alts,altContext:`Consider these alternatives if ${n} does not fit your primary use case.`};
-        toast('Using built-in intelligence','b');
-      } else {
-        throw new Error('No data available for '+n);
-      }
-    }
-    lessonCache[n]={data:lesson,ts:Date.now()};store();
-    if(cacheTxt)cacheTxt.textContent=apiKey?'Fresh — just generated':'Built-in intelligence';
-    if(cacheEl)cacheEl.classList.remove('stale');
-    renderLesson(lesson,n,i,c);
-  }catch(e){
-    g('tmBody').innerHTML=`<div style="padding:20px;color:var(--tx2);font-size:14px"><div style="color:var(--rd);margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:11px">LOAD FAILED</div>${e.message}<br><br><button class="btn btn-s btn-sm" onclick="tmRefresh()">Try Again</button></div>`;
-  }
+function saveInsight(question, answer, domain) {
+  const insights = getSavedInsights();
+  insights.unshift({
+    id: Date.now(),
+    question,
+    answer,
+    domain,
+    date: new Date().toISOString()
+  });
+  // Keep max 50
+  if (insights.length > 50) insights.length = 50;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(insights));
+  renderSavedInsights();
+  toast('Insight saved!', 'ok');
 }
 
-function renderLesson(d,n,i,c){
-  if(!d)return;curLesson=d;
-  g('tmTag').textContent=d.tagline||'';
-  const statsEl=g('tmStats');
-  if(statsEl)statsEl.innerHTML=`<div class="tm-stat"><div class="tm-sv">${(d.pricing||[])[0]?.price||'$0'}</div><div class="tm-sl">Free Tier</div></div><div class="tm-stat"><div class="tm-sv">${(d.pricing||[])[1]?.price||'—'}</div><div class="tm-sl">Paid From</div></div><div class="tm-stat"><div class="tm-sv">${d.curve?.level||'?'}/5</div><div class="tm-sl">Complexity</div></div><div class="tm-stat"><div class="tm-sv">${(d.excels||[]).length}</div><div class="tm-sl">Strengths</div></div>`;
-  const getOpen=k=>secPrefs.hasOwnProperty(k)?secPrefs[k]:true;
-  const html=TM_SECTIONS.map(sec=>{
-    const open=getOpen(sec.k);let body='';
-    if(sec.t==='bullets')body=`<ul class="tm-ul ${sec.bc}">${(d[sec.k]||[]).map(x=>`<li>${x}</li>`).join('')}</ul>`;
-    else if(sec.t==='para')body=`<div class="tm-p">${d[sec.k]||''}</div>`;
-    else if(sec.t==='pricing')body=`<div class="tm-pricing">${(d.pricing||[]).map(t=>`<div class="tm-pt"><div class="tm-ptn">${t.tier}</div><div class="tm-ptv">${t.price}</div><div class="tm-ptd">${t.desc||''}</div></div>`).join('')}</div>`;
-    else if(sec.t==='curve'){const cv=d.curve||{};const pips=Array.from({length:5},(_,i)=>`<div class="tm-pip${i<(cv.level||0)?' on':''}"></div>`).join('');body=`<div class="tm-curve"><div class="tm-pips">${pips}</div><div class="tm-cl">${cv.label||''}</div><div class="tm-cd">${cv.desc||''}</div></div>`;}
-    else if(sec.t==='alts'){const chips=(d.alternatives||[]).map(a=>`<span class="tm-alt" onclick="openTM('${a.replace(/'/g,"\\'")}','','🤖')">${a}</span>`).join('');body=`<div class="tm-alts">${chips}</div>${d.altContext?`<div class="tm-p" style="margin-top:8px">${d.altContext}</div>`:''}`;}
-    else if(sec.t==='scenarios')body=(d.scenarios||[]).map(s=>`<div class="tm-scene"><div class="tm-scl">${s.label}</div><div class="tm-sct">${s.text}</div></div>`).join('');
-    return`<div class="tm-sec${open?' open':''}" id="tms-${sec.k}"><button class="tm-str${open?' on':''}" onclick="tmTogSec('${sec.k}')"><span class="tm-si">${sec.i}</span><span class="tm-sl2">${sec.l}</span><span class="tm-chev">▼</span></button><div class="tm-sb">${body}</div></div>`;
-  }).join('');
-  g('tmBody').innerHTML=html;
-  g('tmNotes').style.display='block';g('tmFoot').style.display='flex';
-  tmRenderStars();
+function deleteInsight(id) {
+  const insights = getSavedInsights().filter(i => i.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(insights));
+  renderSavedInsights();
 }
 
-function tmTogSec(k){
-  const el=g('tms-'+k);if(!el)return;
-  el.classList.toggle('open');
-  const btn=el.querySelector('.tm-str');if(btn)btn.classList.toggle('on',el.classList.contains('open'));
-  secPrefs[k]=el.classList.contains('open');store();
-}
-function tmRenderStars(){document.querySelectorAll('.tm-star').forEach((s,i)=>s.classList.toggle('on',i<tmRating));}
-function tmRate(n){tmRating=n;tmRenderStars();}
-function tmSaveNote(){
-  if(!curTool)return;
-  const note=g('tmNI')?.value?.trim()||'';
-  const entry={n:curTool.n,i:curTool.i,c:curTool.c,rating:tmRating,note,date:Date.now()};
-  const idx=readingList.findIndex(r=>r.n===curTool.n);
-  if(idx>=0)readingList[idx]=entry;else readingList.unshift(entry);
-  store();updateCounts();toast('Note saved for '+curTool.n,'g');
-}
-function tmSaveRL(){tmSaveNote();}
-function tmAudit(){
-  if(!curTool)return;
-  const{n,c,i}=curTool;closeTM();
-  if(confirm(`Start an audit of ${n}?`)){
-    if(!g('wiz').classList.contains('show'))startWiz('audit');
-    setTimeout(()=>{S.lmOn=false;applyLM();selTool(n,c,i);setTimeout(()=>goStep(2),200);},100);
-  }
-}
-function tmPDF(){
-  if(!curLesson||!curTool)return;
-  const d=curLesson;const{n,i,c}=curTool;
-  const win=window.open('','_blank');if(!win){toast('Allow popups','r');return;}
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Segoe UI',sans-serif;color:#111;padding:40px;font-size:14px;line-height:1.6;max-width:700px;margin:0 auto}h1{font-size:28px;font-weight:900;text-transform:uppercase;letter-spacing:2px}h2{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6b7280;margin:16px 0 6px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}ul{padding-left:18px}li{margin-bottom:3px}.footer{margin-top:28px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af}@media print{body{padding:20px}}</style></head><body>
-  <h1>${i} ${n}</h1><p style="color:#6b7280;font-style:italic">${d.tagline||''}</p>
-  <h2>✅ What It Excels At</h2><ul>${(d.excels||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
-  <h2>⚠️ What It Struggles With</h2><ul>${(d.struggles||[]).map(x=>`<li>${x}</li>`).join('')}</ul>
-  <h2>🎯 Best Case Uses</h2><p>${d.bestUse||''}</p>
-  <h2>🚫 Worst Case Uses</h2><p>${d.worstUse||''}</p>
-  <h2>📈 Learning Curve</h2><p><strong>${d.curve?.label||''}</strong> — ${d.curve?.desc||''}</p>
-  <h2>👤 Who It's Best For</h2><p>${d.persona||''}</p>
-  <h2>🔀 Alternatives</h2><p>${(d.alternatives||[]).join(' · ')}</p>
-  <div class="footer">Generated by NBD Pro Understanding Tool · ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
-  </body></html>`);
-  win.document.close();setTimeout(()=>win.print(),400);toast('PDF opening…','b');
+function clearAllInsights() {
+  if (!confirm('Delete all saved insights?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderSavedInsights();
+  toast('All insights cleared.', 'ok');
 }
 
-// ══ BROWSE ══
-let brShowingSaved=false;
-function openBrowse(){brShowingSaved=false;g('brBd').classList.add('open');g('brPanel').classList.add('open');brRender();}
-function closeBrowse(){g('brBd').classList.remove('open');g('brPanel').classList.remove('open');}
-function brRender(){
-  // Tabs
-  const tabs=g('brTabs');if(tabs){
-    const allCats=['All',...new Set(TOOLS.map(t=>t.c))];
-    tabs.innerHTML=allCats.map(cat=>`<button class="br-tab${brCat===cat?' on':''}" onclick="brSetCat('${cat}',this)">${cat}</button>`).join('')+`<button class="br-tab${brShowingSaved?' on':''}" onclick="brShowSaved()" style="margin-left:auto">📖 <span id="brRLCount2">${readingList.length}</span> Saved</button>`;
-  }
-  // Featured
-  const feat=g('brFeat');if(feat&&!brShowingSaved){
-    const fTools=TOOLS.filter(t=>FEATURED.includes(t.n));
-    feat.innerHTML=`<div class="br-feat-lbl">Featured</div><div class="br-feat-row">${fTools.map(t=>`<div class="fc" onclick="openTM('${t.n.replace(/'/g,"\\'")}','${t.c}','${t.i}')"><div class="fc-ico">${t.i}</div><div class="fc-nm">${t.n}</div><div class="fc-cat">${t.c}</div></div>`).join('')}</div>`;
-    feat.style.display='block';
-  }else if(feat){feat.style.display='none';}
-  brRenderGrid();
-}
-function brSetCat(cat,btn){brCat=cat;brShowingSaved=false;document.querySelectorAll('.br-tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');brRender();}
-function brFilter(v){brQ=v;brRenderGrid();}
-function brRenderGrid(){
-  const grid=g('brGrid');const sl=g('brSavedList');
-  if(brShowingSaved){
-    if(grid)grid.style.display='none';
-    if(sl){sl.style.display='block';sl.innerHTML=readingList.length?readingList.map(r=>`<div class="rl-card" onclick="openTM('${r.n.replace(/'/g,"\\'")}','${r.c}','${r.i}');closeBrowse()"><div class="rl-ci">${r.i||'🤖'}</div><div><div class="rl-cn">${r.n}</div><div class="rl-cm"><span class="rl-stars">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</span><span>${new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div></div></div>`).join(''):`<div class="rl-empty">No saved lessons yet.<br>Turn on Learn Mode and tap any tool.</div>`;}
+function renderSavedInsights() {
+  const insights = getSavedInsights();
+  const list = document.getElementById('siList');
+  const countEl = document.getElementById('savedCount');
+  const clearBtn = document.getElementById('siClearBtn');
+
+  countEl.textContent = insights.length;
+  clearBtn.style.display = insights.length > 0 ? '' : 'none';
+
+  if (insights.length === 0) {
+    list.innerHTML = '<div class="si-empty">No saved insights yet. Save answers from your conversations for quick reference.</div>';
     return;
   }
-  if(sl)sl.style.display='none';
-  if(grid){grid.style.display='grid';
-    let list=[...TOOLS];
-    if(brCat!=='All')list=list.filter(t=>t.c===brCat);
-    if(brQ)list=list.filter(t=>t.n.toLowerCase().includes(brQ.toLowerCase()));
-    list.sort((a,b)=>(b.q||0)-(a.q||0));
-    grid.innerHTML=list.map(t=>{const saved=readingList.find(r=>r.n===t.n);return`<div class="fc" onclick="openTM('${t.n.replace(/'/g,"\\'")}','${t.c}','${t.i}');closeBrowse()">${saved?'<div style="position:absolute;top:6px;right:6px;font-size:9px">📖</div>':''}<div class="fc-ico">${t.i}</div><div class="fc-nm">${t.n}</div><div class="fc-cat">${t.c}</div></div>`;}).join('')||'<div style="color:var(--tx3);font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:20px;text-align:center">No tools found</div>';
-  }
-}
-function brShowSaved(){brShowingSaved=true;brCat='All';g('brFeat').style.display='none';document.querySelectorAll('.br-tab').forEach(b=>b.classList.remove('on'));brRenderGrid();}
 
-// ══ READING LIST ══
-function openRL(){renderRL();g('rlBd').classList.add('open');g('rlPanel').classList.add('open');}
-function closeRL(){g('rlBd').classList.remove('open');g('rlPanel').classList.remove('open');}
-function renderRL(){
-  const list=g('rlList');if(!list)return;
-  list.innerHTML=readingList.length?readingList.map(r=>`<div class="rl-card" onclick="openTM('${r.n.replace(/'/g,"\\'")}','${r.c}','${r.i}');closeRL()"><div class="rl-ci">${r.i||'🤖'}</div><div style="flex:1;min-width:0"><div class="rl-cn">${r.n}</div><div class="rl-cm"><span class="rl-stars">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</span><span>${new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>${r.note?`<span style="color:var(--tx3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${r.note}</span>`:''}</div></div><button style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:12px;flex-shrink:0" onclick="event.stopPropagation();delRL('${r.n.replace(/'/g,"\\'")}')">✕</button></div>`).join(''):`<div class="rl-empty">No saved lessons yet.<br>Open any tool, read the lesson,<br>tap "Save to Reading List".</div>`;
-}
-function delRL(name){readingList=readingList.filter(r=>r.n!==name);store();updateCounts();renderRL();toast('Removed','');}
-
-// ══ GUIDE ══
-function openGuide(){g('gdBd').classList.add('open');}
-function closeGuide(){g('gdBd').classList.remove('open');}
-
-// ══ API KEY CONFIG ══
-function openKeyConfig(){
-const bd=g('keyBd');bd.style.display='flex';bd.classList.add('open');
-const inp=g('keyInp');
-const existing=localStorage.getItem('nbd_joe_key')||'';
-inp.value=existing;
-g('keyMsg').textContent=existing?'Key is set and active.':'No key set — using built-in intelligence.';
-g('keyMsg').style.color=existing?'var(--gn)':'var(--tx3)';
-}
-function closeKeyConfig(){const bd=g('keyBd');bd.classList.remove('open');bd.style.display='none';}
-function saveKey(){
-const v=g('keyInp').value.trim();
-if(!v){g('keyMsg').textContent='Please enter a key or click Clear.';g('keyMsg').style.color='var(--go)';return;}
-localStorage.setItem('nbd_joe_key',v);
-g('keyMsg').textContent='Key saved! AI-powered analysis is now active.';
-g('keyMsg').style.color='var(--gn)';
-updateKeyStatus();
-toast('API key saved','g');
-}
-function clearKey(){
-localStorage.removeItem('nbd_joe_key');
-g('keyInp').value='';
-g('keyMsg').textContent='Key cleared. Using built-in intelligence.';
-g('keyMsg').style.color='var(--tx3)';
-updateKeyStatus();
-toast('API key cleared','');
-}
-function updateKeyStatus(){
-const has=!!localStorage.getItem('nbd_joe_key');
-const el=g('keyStatus');
-if(el)el.textContent=has?'Active':'Offline';
-const btn=g('keyBtn');
-if(btn)btn.classList.toggle('on',has);
+  list.innerHTML = '';
+  insights.forEach(ins => {
+    const d = DOMAINS[ins.domain];
+    const card = document.createElement('div');
+    card.className = 'si-card';
+    card.innerHTML = `
+      <div class="si-card-domain ${d?.badge || ''}">${d?.label || ins.domain}</div>
+      <div class="si-card-q">${escHTML(ins.question || 'Quick insight')}</div>
+      <div class="si-card-date">${new Date(ins.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+      <div class="si-card-preview">${escHTML(ins.answer).substring(0, 200)}...</div>
+      <div class="si-card-acts">
+        <button class="si-del" data-id="${ins.id}">Delete</button>
+      </div>`;
+    card.querySelector('.si-del').onclick = (e) => { e.stopPropagation(); deleteInsight(ins.id); };
+    card.onclick = () => {
+      closeSavedInsights();
+      if (ins.domain && DOMAINS[ins.domain]) {
+        selectDomain(ins.domain);
+        // Show the answer
+        const welcome = document.getElementById('chatWelcome');
+        if (welcome) welcome.remove();
+        document.getElementById('topicPills').style.display = 'none';
+        if (ins.question) appendChatMsg('user', ins.question);
+        appendChatMsg('ai', ins.answer, ins.question);
+        chatHistory.push({ role: 'user', content: ins.question });
+        chatHistory.push({ role: 'assistant', content: ins.answer });
+      }
+    };
+    list.appendChild(card);
+  });
 }
 
-// ══ COUNTS ══
-function updateCounts(){
-  set('histCount',savedAudits.length);set('rlCount',readingList.length);
-  const e=g('brRLCount2');if(e)e.textContent=readingList.length;
+function openSavedInsights() {
+  document.getElementById('siOverlay').classList.add('open');
+  document.getElementById('siPanel').classList.add('open');
 }
 
-// ══ INIT ══
-async function init(){
-  await loadAll();syncAccent();
-  if(localStorage.getItem('nbd-lm')==='1'){S.lmOn=true;applyLM();}
-  updateCounts();updateKeyStatus();renderS1();renderS2();renderS3();renderS4();
-  setTimeout(()=>toast('NBD Pro Understanding Tool · Ready','b'),800);
+function closeSavedInsights() {
+  document.getElementById('siOverlay').classList.remove('open');
+  document.getElementById('siPanel').classList.remove('open');
 }
-init();
+
+/* ── Toast ── */
+function toast(msg, type) {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+/* ── Helpers ── */
+function escHTML(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+/* ── Keyboard: Escape ── */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSavedInsights();
+});
+
+/* ── Init if auth ready ── */
+if (window._firebaseReady) initUnderstand();
 </script>
 </body>
 </html>

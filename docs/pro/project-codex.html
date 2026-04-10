@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="en" style="visibility:hidden">
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
 <head>
+<link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Codex — NBD Pro</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';
   window._nbdAuth = NBDAuth.init({
     requiredPlan: 'foundation',
     onReady: (user) => {
-      // Expose for legacy code in this file
       window._authUser = user;
       window._db = NBDAuth.db;
       window._firebaseReady = true;
-      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
+      if (typeof initCodex === 'function') initCodex();
     }
   });
 </script>
@@ -22,1705 +22,754 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 :root{
-  --bg:#060a12;--s:#0d1421;--s2:#121c2e;--s3:#18243a;
-  --cyan:#00d4ff;--cyan-d:#00a8cc;--cyan-dim:rgba(0,212,255,0.08);
-  --orange:#e8720c;--orange-d:#c45e08;
-  --gold:#d4a00a;--green:#3fb950;--red:#f85149;--purple:#8b5cf6;
-  --white:#f0f6fc;--muted:#8b9bb4;--dim:#4a5568;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --bg:#0A0C0F;--s1:#111318;--s2:#181C23;--s3:#1E2430;
+  --or:#e8720c;--or-dim:rgba(232,114,12,0.08);--or-glow:rgba(232,114,12,0.18);
+  --grn:#22C55E;--grn-dim:rgba(34,197,94,0.1);
+  --red:#EF4444;--red-dim:rgba(239,68,68,0.1);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,0.1);
+  --purp:#A855F7;--purp-dim:rgba(168,85,247,0.1);
+  --gold:#F59E0B;--gold-dim:rgba(245,158,11,0.1);
+  --tx:#F0F2F8;--tx2:#8892A4;--tx3:#4A5568;
+  --bdr:rgba(255,255,255,0.07);--bdr2:rgba(255,255,255,0.12);
+  --ease:cubic-bezier(0.22,1,0.36,1);--r:8px;--rl:12px;
 }
-body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden}
-
-/* ── LOCK SCREEN ── */
-#lock-screen{position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
-.lock-box{width:100%;max-width:380px;padding:48px 40px;text-align:center}
-.lock-icon{font-size:40px;margin-bottom:20px;filter:drop-shadow(0 0 20px rgba(0,212,255,0.3))}
-.lock-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--white);margin-bottom:6px}
-.lock-sub{font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:32px}
-.lock-input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:14px 18px;font-family:'DM Mono',monospace;font-size:16px;color:var(--white);outline:none;text-align:center;letter-spacing:4px;transition:.2s}
-.lock-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,212,255,0.1)}
-.lock-btn{margin-top:12px;width:100%;padding:14px;background:var(--cyan);color:#000;border:none;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:.2s}
-.lock-btn:hover{background:var(--cyan-d)}
-.lock-error{margin-top:12px;font-size:11px;color:var(--red);letter-spacing:.5px;min-height:16px}
-.lock-hint{margin-top:20px;font-size:10px;color:var(--dim);letter-spacing:.5px}
-
-/* ── APP SHELL ── */
-#app{display:none;flex-direction:column;min-height:100vh;min-height:100dvh}
-#app.unlocked{display:flex}
+body{background:var(--bg);color:var(--tx);font-family:'Barlow',sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(232,114,12,0.03),transparent 55%);pointer-events:none;z-index:0}
 
 /* ── TOPBAR ── */
-.topbar{height:56px;background:rgba(6,10,18,0.97);border-bottom:1px solid var(--border);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
-.tb-brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
-.tb-mark{width:32px;height:32px;background:var(--cyan);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:#000;letter-spacing:1px;flex-shrink:0}
-.tb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--white);line-height:1}
-.tb-title span{color:var(--cyan)}
-.tb-sub{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:1px}
-.tb-stats{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
-.tb-stat{display:flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.5px}
-.tb-stat-val{color:var(--cyan);font-weight:700}
-.tb-stat-lbl{color:var(--muted)}
-.tb-actions{display:flex;gap:6px;flex-shrink:0}
-.tb-btn{padding:6px 12px;background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.15s;white-space:nowrap}
-.tb-btn:hover{color:var(--white);border-color:var(--cyan)}
-.tb-btn.primary{background:var(--cyan);border-color:var(--cyan);color:#000;font-weight:700}
-.tb-btn.primary:hover{background:var(--cyan-d)}
+.topbar{height:54px;background:rgba(10,12,15,0.97);border-bottom:1px solid var(--bdr);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:14px}
+.tb-back{color:var(--tx3);text-decoration:none;font-size:13px;font-weight:500;transition:color .15s}
+.tb-back:hover{color:var(--or)}
+.tb-brand{display:flex;align-items:center;gap:9px}
+.tb-mark{width:30px;height:30px;background:var(--or);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;color:#fff}
+.tb-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx)}
+.tb-title span{color:var(--or)}
+.tb-spacer{flex:1}
 
-/* ── LAYOUT ── */
-.layout{display:flex;flex:1;min-height:0}
-.sidebar{width:200px;background:rgba(8,12,20,0.98);border-right:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
-.sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.sb-section{padding:14px 12px 6px;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
-.sb-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left;border-left:2px solid transparent;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
-.sb-item:hover{color:var(--white);background:rgba(255,255,255,0.04)}
-.sb-item.active{color:var(--cyan);background:var(--cyan-dim);border-left-color:var(--cyan)}
-.sb-icon{font-size:13px;width:16px;text-align:center;flex-shrink:0}
-.sb-badge{font-family:'DM Mono',monospace;font-size:8px;padding:1px 5px;border-radius:8px;background:var(--red);color:#fff;font-weight:700;margin-left:auto}
-.sb-badge.ok{background:var(--green)}
-.sb-divider{height:1px;background:var(--border);margin:6px 12px}
-.main-content{flex:1;overflow-y:auto;min-width:0}
-.page{display:none;padding:28px 32px;max-width:1060px}
-.page.active{display:block}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.page.active{animation:fadeUp .2s ease both}
+/* ── MAIN LAYOUT ── */
+.main{max-width:960px;margin:0 auto;padding:28px 20px 80px;position:relative;z-index:1}
 
-/* ── PAGE HEADERS ── */
-.page-header{margin-bottom:28px}
-.page-eyebrow{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px}
-.page-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(32px,3.5vw,44px);letter-spacing:1.5px;line-height:.95;margin-bottom:8px}
-.page-sub{font-size:13px;color:var(--muted);line-height:1.7;max-width:600px}
+/* ── SECTION HEADERS ── */
+.sec-ey{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--or);margin-bottom:6px}
+.sec-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:1px;text-transform:uppercase;line-height:.95;margin-bottom:6px}
+.sec-sub{font-size:14px;color:var(--tx2);line-height:1.6;max-width:600px;margin-bottom:24px}
 
-/* ── CARDS ── */
-.card{background:var(--s);border:1px solid var(--border);border-radius:10px;padding:20px}
-.card-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:12px}
+/* ── PROJECT SELECTOR ── */
+.proj-sel{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:28px;padding:16px 18px;background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl)}
+.proj-sel label{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--tx2);flex-shrink:0}
+.proj-dd{flex:1;min-width:200px;background:var(--s2);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--tx);outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238892A4' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.proj-dd:focus{border-color:var(--or)}
+.proj-dd option{background:var(--s2);color:var(--tx)}
+.proj-refresh{background:none;border:1px solid var(--bdr2);color:var(--tx3);width:36px;height:36px;border-radius:var(--r);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.proj-refresh:hover{color:var(--or);border-color:var(--or)}
 
-/* ── SESSION 0 — EXECUTIVE SYNTHESIS ── */
-.synthesis-box{background:var(--s);border:1px solid rgba(0,212,255,0.2);border-radius:10px;border-top:3px solid var(--cyan);padding:24px;margin-bottom:20px;position:relative}
-.synthesis-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
-.synthesis-content{font-size:14px;color:var(--white);line-height:1.8;white-space:pre-wrap;min-height:60px}
-.synthesis-content[contenteditable="true"]{outline:1px solid rgba(0,212,255,0.3);border-radius:4px;padding:4px;cursor:text}
-.synthesis-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-.syn-btn{padding:7px 14px;background:var(--s2);border:1px solid var(--border2);border-radius:6px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--muted);transition:.15s;display:flex;align-items:center;gap:5px}
-.syn-btn:hover{color:var(--white);border-color:var(--cyan)}
-.syn-btn.ai-btn{border-color:rgba(0,212,255,0.3);color:var(--cyan)}
-.syn-btn.ai-btn:hover{background:var(--cyan-dim)}
-.ai-loading{display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--cyan)}
-.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:blink 1s infinite}
-.ai-dot:nth-child(2){animation-delay:.2s}
-.ai-dot:nth-child(3){animation-delay:.4s}
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:28px}
+.stat-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 16px;text-align:center}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--or);line-height:1}
+.stat-lbl{font-size:11px;color:var(--tx3);letter-spacing:.5px;margin-top:4px}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bdr);margin-bottom:24px;overflow-x:auto}
+.tab{padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--or);border-bottom-color:var(--or)}
+.tab-panel{display:none}
+.tab-panel.on{display:block;animation:fadeUp .2s var(--ease) both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── TIMELINE ── */
+.tl-empty{text-align:center;padding:48px 20px;color:var(--tx3);font-size:14px}
+.tl-item{display:flex;gap:14px;margin-bottom:0}
+.tl-rail{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:28px}
+.tl-dot{width:10px;height:10px;border-radius:50%;background:var(--s3);border:2px solid var(--bdr2);margin-top:16px;flex-shrink:0;z-index:1}
+.tl-dot.latest{background:var(--or);border-color:var(--or);box-shadow:0 0 8px var(--or-glow)}
+.tl-dot.est{background:var(--blue);border-color:var(--blue)}
+.tl-dot.photo{background:var(--purp);border-color:var(--purp)}
+.tl-dot.task{background:var(--gold);border-color:var(--gold)}
+.tl-dot.doc{background:var(--grn);border-color:var(--grn)}
+.tl-track{width:2px;background:var(--bdr);flex:1;margin-top:4px}
+.tl-body{flex:1;padding:12px 0 20px}
+.tl-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;transition:all .15s}
+.tl-card:hover{border-color:var(--bdr2)}
+.tl-type{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px}
+.tl-type.est{color:var(--blue);background:var(--blue-dim)}
+.tl-type.photo{color:var(--purp);background:var(--purp-dim)}
+.tl-type.task{color:var(--gold);background:var(--gold-dim)}
+.tl-type.doc{color:var(--grn);background:var(--grn-dim)}
+.tl-type.note{color:var(--or);background:var(--or-dim)}
+.tl-title{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:4px}
+.tl-date{font-size:11px;color:var(--tx3)}
+.tl-detail{font-size:13px;color:var(--tx2);line-height:1.6;margin-top:8px}
+
+/* ── ASK AI ── */
+.ai-box{background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl);overflow:hidden}
+.ai-msgs{max-height:460px;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.ai-msg{max-width:85%;padding:10px 14px;border-radius:var(--rl);font-size:14px;line-height:1.65}
+.ai-msg.user{background:var(--or-dim);border:1px solid var(--or-glow);color:var(--tx);align-self:flex-end;border-bottom-right-radius:4px}
+.ai-msg.ai{background:var(--s2);border:1px solid var(--bdr);color:var(--tx2);align-self:flex-start;border-bottom-left-radius:4px}
+.ai-msg.ai p{margin-bottom:8px}
+.ai-msg.ai p:last-child{margin-bottom:0}
+.ai-msg.ai strong{color:var(--tx);font-weight:600}
+.ai-msg.ai ul,.ai-msg.ai ol{margin:6px 0 6px 18px}
+.ai-msg.ai li{margin-bottom:4px}
+.ai-msg.ai code{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-size:12px}
+.ai-typing{display:flex;gap:4px;align-items:center;padding:8px 14px;align-self:flex-start}
+.ai-typing span{width:6px;height:6px;border-radius:50%;background:var(--or);animation:blink 1.2s infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}
+.ai-typing span:nth-child(3){animation-delay:.4s}
 @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+.ai-empty{text-align:center;padding:40px 20px;color:var(--tx3);font-size:13px;line-height:1.7}
+.ai-chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 10px}
+.ai-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--bdr2);background:none;color:var(--tx3);font-size:12px;cursor:pointer;transition:all .15s}
+.ai-chip:hover{border-color:var(--or);color:var(--or);background:var(--or-dim)}
+.ai-input-row{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--bdr)}
+.ai-input{flex:1;background:var(--s2);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 14px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--tx);outline:none;resize:none;min-height:42px;max-height:120px;transition:border-color .15s}
+.ai-input:focus{border-color:var(--or)}
+.ai-input::placeholder{color:var(--tx3)}
+.ai-send{background:var(--or);border:none;color:#fff;width:42px;height:42px;border-radius:var(--r);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.ai-send:hover{filter:brightness(1.1)}
+.ai-send:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── SESSION TIMELINE ── */
-.timeline{display:flex;flex-direction:column;gap:0}
-.timeline-entry{display:flex;gap:0;position:relative}
-.tl-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:36px}
-.tl-dot{width:10px;height:10px;border-radius:50%;background:var(--s3);border:2px solid var(--border2);flex-shrink:0;margin-top:18px;z-index:1}
-.tl-dot.latest{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px rgba(0,212,255,0.5)}
-.tl-track{width:2px;background:var(--border);flex:1;margin-top:4px}
-.tl-body{flex:1;padding:14px 0 24px 4px}
-.tl-card{background:var(--s);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:pointer;transition:.15s}
-.tl-card:hover{border-color:var(--border2);background:var(--s2)}
-.tl-card.expanded{border-color:rgba(0,212,255,0.2);background:var(--s2)}
-.tl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:0}
-.tl-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--cyan);letter-spacing:1px;line-height:1;flex-shrink:0}
-.tl-meta{flex:1;min-width:0}
-.tl-session-title{font-size:13px;font-weight:600;color:var(--white);margin-bottom:3px;line-height:1.4}
-.tl-date{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.5px}
-.tl-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
-.tl-chip{font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:10px;letter-spacing:.5px}
-.tl-chip.decision{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);color:var(--cyan)}
-.tl-chip.loop{background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.2);color:var(--red)}
-.tl-chip.shipped{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.2);color:var(--green)}
-.tl-expand{font-size:14px;color:var(--muted);transition:.2s;flex-shrink:0}
-.tl-card.expanded .tl-expand{transform:rotate(180deg)}
-.tl-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.8;white-space:pre-wrap}
-.tl-card.expanded .tl-detail{display:block}
+/* ── QUICK ACTIONS ── */
+.qa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.qa-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--rl);padding:18px;cursor:pointer;transition:all .2s var(--ease);display:flex;flex-direction:column;gap:8px}
+.qa-card:hover{border-color:var(--or);background:var(--or-dim);transform:translateY(-2px)}
+.qa-ico{font-size:26px;line-height:1}
+.qa-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--tx)}
+.qa-desc{font-size:12px;color:var(--tx3);line-height:1.5}
+.qa-card.loading{pointer-events:none;opacity:.6}
+.qa-card.loading .qa-ico{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── ADD SESSION MODAL ── */
-.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,0.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.open{display:flex}
-.modal{background:var(--s);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7)}
-.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px}
-.modal-close{background:rgba(255,255,255,0.07);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:16px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
-.modal-close:hover{color:var(--white)}
-.modal-tabs{display:flex;padding:0 12px;border-bottom:1px solid var(--border);gap:2px;flex-shrink:0}
-.modal-tab{padding:8px 14px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;background:none;border-left:none;border-right:none;border-top:none;transition:.15s}
-.modal-tab.on{color:var(--cyan);border-bottom-color:var(--cyan)}
-.modal-body{flex:1;overflow-y:auto;padding:20px}
-.modal-panel{display:none}
-.modal-panel.on{display:block}
-.form-group{margin-bottom:16px}
-.form-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:block}
-.form-input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--white);outline:none;transition:.15s}
-.form-input:focus{border-color:var(--cyan)}
-.form-textarea{resize:vertical;min-height:120px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.7}
-.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
-
-/* ── TASKS ── */
-.task-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;transition:.15s}
-.task-item:hover{border-color:var(--border2)}
-.task-item.closed{opacity:.45}
-.task-check{width:16px;height:16px;border-radius:3px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:.15s}
-.task-check.checked{background:var(--green);border-color:var(--green)}
-.task-check.checked::after{content:'✓';font-size:9px;color:#000;font-weight:700}
-.task-text{flex:1;font-size:12px;color:var(--white);line-height:1.5}
-.task-meta{font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px}
-.task-priority{font-family:'DM Mono',monospace;font-size:8px;padding:1px 6px;border-radius:8px;flex-shrink:0;margin-top:1px}
-.task-priority.critical{background:rgba(248,81,73,0.15);color:var(--red);border:1px solid rgba(248,81,73,0.2)}
-.task-priority.high{background:rgba(212,160,10,0.15);color:var(--gold);border:1px solid rgba(212,160,10,0.2)}
-.task-priority.med{background:rgba(139,92,246,0.15);color:var(--purple);border:1px solid rgba(139,92,246,0.2)}
-
-/* ── DEBT REGISTER ── */
-.debt-table{width:100%;border-collapse:collapse;font-size:11px}
-.debt-table th{padding:8px 12px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
-.debt-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--muted)}
-.debt-table td:first-child{color:var(--white);font-weight:500}
-.debt-sessions{font-family:'DM Mono',monospace;color:var(--red);font-weight:700}
-
-/* ── DIRECTIVES ── */
-.directive-item{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--cyan)}
-.directive-tag{font-family:'DM Mono',monospace;font-size:8px;padding:2px 6px;background:var(--cyan-dim);border:1px solid rgba(0,212,255,0.2);border-radius:8px;color:var(--cyan);flex-shrink:0;margin-top:1px;letter-spacing:.5px}
-.directive-text{flex:1;font-size:12px;color:var(--white);line-height:1.6}
-.directive-session{font-family:'DM Mono',monospace;font-size:8px;color:var(--dim);margin-top:2px}
-
-/* ── DNA ── */
-.dna-field{margin-bottom:16px}
-.dna-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:5px}
-.dna-value{font-size:13px;color:var(--white);line-height:1.7;padding:10px 14px;background:var(--s2);border:1px solid var(--border);border-radius:6px;white-space:pre-wrap}
-.dna-value.editable[contenteditable="true"]{outline:1px solid rgba(0,212,255,0.3);cursor:text}
-
-/* ── SEARCH ── */
-.search-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.search-input{flex:1;min-width:200px;background:var(--s2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--white);outline:none}
-.search-input:focus{border-color:var(--cyan)}
-.search-filter{padding:8px 12px;background:var(--s2);border:1px solid var(--border2);border-radius:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;transition:.15s}
-.search-filter.on{background:var(--cyan-dim);border-color:rgba(0,212,255,0.3);color:var(--cyan)}
-.search-result{padding:12px 14px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;transition:.15s}
-.search-result:hover{border-color:var(--border2);background:var(--s2)}
-.sr-session{font-family:'DM Mono',monospace;font-size:9px;color:var(--cyan);letter-spacing:.5px;margin-bottom:4px}
-.sr-text{font-size:12px;color:var(--white);line-height:1.5}
-.sr-match{background:rgba(0,212,255,0.2);border-radius:2px;padding:0 2px}
-
-/* ── VERSION HISTORY ── */
-.version-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
-.version-item{padding:12px 14px;background:var(--s);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;transition:.15s}
-.version-item:hover{border-color:var(--border2)}
-.version-item.active{border-color:rgba(0,212,255,0.3);background:var(--cyan-dim)}
-.version-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.5px}
-.version-label{font-size:12px;color:var(--white);font-weight:600}
-
-/* ── SETUP WIZARD ── */
-#setup-screen{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
-#setup-screen.open{display:flex}
-.setup-box{width:100%;max-width:560px}
-.setup-step{display:none}
-.setup-step.active{display:block}
-.setup-eyebrow{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:12px}
-.setup-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4vw,40px);letter-spacing:1.5px;line-height:.95;margin-bottom:16px}
-.setup-sub{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:28px}
-.setup-options{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
-.setup-option{padding:14px 18px;background:var(--s);border:1px solid var(--border2);border-radius:8px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:12px}
-.setup-option:hover{border-color:var(--cyan);background:var(--cyan-dim)}
-.setup-option.selected{border-color:var(--cyan);background:var(--cyan-dim)}
-.setup-option-icon{font-size:20px;flex-shrink:0}
-.setup-option-text{font-size:13px;color:var(--white);font-weight:500}
-.setup-option-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.setup-actions{display:flex;gap:8px;justify-content:flex-end}
-.setup-btn{padding:10px 20px;background:var(--cyan);color:#000;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.15s}
-.setup-btn:hover{background:var(--cyan-d)}
-.setup-btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}
-.setup-btn.ghost:hover{color:var(--white);border-color:var(--border2)}
-.setup-progress{display:flex;gap:4px;margin-bottom:28px}
-.setup-pip{height:3px;flex:1;border-radius:2px;background:var(--border2);transition:.3s}
-.setup-pip.done{background:var(--cyan)}
-
-/* ── EXPORT PANEL ── */
-.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
-.export-card{padding:16px;background:var(--s);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s;text-align:center}
-.export-card:hover{border-color:var(--cyan);background:var(--cyan-dim)}
-.export-icon{font-size:28px;margin-bottom:8px}
-.export-name{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--white);margin-bottom:4px}
-.export-desc{font-size:11px;color:var(--muted);line-height:1.5}
+/* ── RESULT MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:500;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--bdr2);border-radius:16px;width:100%;max-width:680px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);animation:modalIn .25s var(--ease)}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.modal-hd{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.modal-x{background:var(--s2);border:1px solid var(--bdr2);color:var(--tx3);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;border:none}
+.modal-x:hover{color:var(--red)}
+.modal-body{flex:1;overflow-y:auto;padding:20px;font-size:14px;color:var(--tx2);line-height:1.7;white-space:pre-wrap}
+.modal-acts{padding:14px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--r);border:none;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.btn-or{background:var(--or);color:#fff}
+.btn-or:hover{filter:brightness(1.1)}
+.btn-ghost{background:var(--s2);color:var(--tx2);border:1px solid var(--bdr2)}
+.btn-ghost:hover{color:var(--tx);border-color:var(--or)}
 
 /* ── TOAST ── */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:9px 18px;font-family:'DM Mono',monospace;font-size:11px;color:var(--white);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9999}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--s1);border:1px solid var(--bdr);border-left:3px solid var(--or);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--tx);box-shadow:0 8px 24px rgba(0,0,0,0.5);animation:toastIn .25s var(--ease);max-width:320px}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+.toast.ok{border-left-color:var(--grn)}
+.toast.err{border-left-color:var(--red)}
 
 /* ── MOBILE ── */
-@media(max-width:768px){
-  .sidebar{display:none}
-  .tb-stats{display:none}
-  .page{padding:16px}
-  .export-grid{grid-template-columns:1fr}
+@media(max-width:640px){
+  .main{padding:16px 14px 60px}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .qa-grid{grid-template-columns:1fr}
+  .ai-msg{max-width:95%}
+  .modal{max-height:95vh}
 }
 </style>
-  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/project-codex">
+<meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/project-codex">
 </head>
 <body>
 
-<!-- LOCK SCREEN (public version uses access code, vault uses 'eternal') -->
-<div id="lock-screen">
-  <div class="lock-box">
-    <div class="lock-icon">📋</div>
-    <div class="lock-title">PROJECT CODEX</div>
-    <div class="lock-sub">Your living project brain. Enter your access code.</div>
-    <input class="lock-input" id="lock-input" type="password" placeholder="••••••••"
-      maxlength="32" autocomplete="off" onkeydown="if(event.key==='Enter')unlock()">
-    <button class="lock-btn" onclick="unlock()">UNLOCK</button>
-    <div class="lock-error" id="lock-error"></div>
-    <div class="lock-hint">First time? <span style="color:var(--cyan);cursor:pointer" onclick="showSetup()">Create your Codex →</span></div>
+<!-- TOPBAR -->
+<div class="topbar">
+  <a href="/pro/dashboard.html" class="tb-back">&larr; Back to Dashboard</a>
+  <div class="tb-brand">
+    <div class="tb-mark">PC</div>
+    <div class="tb-title">Project <span>Codex</span></div>
+  </div>
+  <div class="tb-spacer"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="sec-ey">AI Project Intelligence</div>
+  <div class="sec-h">Project <span style="color:var(--or)">Codex</span></div>
+  <div class="sec-sub">Your project brain. Select a project to view its full timeline, ask AI questions, and take quick actions.</div>
+
+  <!-- PROJECT SELECTOR -->
+  <div class="proj-sel">
+    <label>Project:</label>
+    <select class="proj-dd" id="projSelect">
+      <option value="">-- Select a project --</option>
+    </select>
+    <button class="proj-refresh" onclick="loadProjects()" title="Refresh projects">&#x21bb;</button>
+  </div>
+
+  <!-- STATS ROW (hidden until project selected) -->
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div class="stat-card"><div class="stat-val" id="statStage">--</div><div class="stat-lbl">Current Stage</div></div>
+    <div class="stat-card"><div class="stat-val" id="statDays">--</div><div class="stat-lbl">Days Active</div></div>
+    <div class="stat-card"><div class="stat-val" id="statPhotos">--</div><div class="stat-lbl">Photos</div></div>
+    <div class="stat-card"><div class="stat-val" id="statValue">--</div><div class="stat-lbl">Estimated Value</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabsBar" style="display:none">
+    <button class="tab on" data-tab="timeline">Timeline</button>
+    <button class="tab" data-tab="ask">Ask AI</button>
+    <button class="tab" data-tab="actions">Quick Actions</button>
+  </div>
+
+  <!-- TAB: TIMELINE -->
+  <div class="tab-panel on" id="panel-timeline">
+    <div class="tl-empty" id="tlEmpty">Select a project above to see its timeline.</div>
+    <div id="tlContainer"></div>
+  </div>
+
+  <!-- TAB: ASK AI -->
+  <div class="tab-panel" id="panel-ask">
+    <div class="ai-box">
+      <div class="ai-msgs" id="aiMsgs">
+        <div class="ai-empty">Ask anything about this project. I have the full context.</div>
+      </div>
+      <div class="ai-chips" id="aiChips">
+        <button class="ai-chip" data-q="What's the current status of this project?">Status check</button>
+        <button class="ai-chip" data-q="What steps are left to complete this project?">What's left?</button>
+        <button class="ai-chip" data-q="Draft a professional follow-up email to the homeowner.">Draft follow-up email</button>
+        <button class="ai-chip" data-q="Summarize everything that's happened on this project.">Full summary</button>
+      </div>
+      <div class="ai-input-row">
+        <textarea class="ai-input" id="aiInput" placeholder="Ask about this project..." rows="1"></textarea>
+        <button class="ai-send" id="aiSend" onclick="sendAiMessage()">&#9654;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: QUICK ACTIONS -->
+  <div class="tab-panel" id="panel-actions">
+    <div class="qa-grid">
+      <div class="qa-card" onclick="runAction('scope')">
+        <div class="qa-ico">&#128221;</div>
+        <div class="qa-name">Generate Scope of Work</div>
+        <div class="qa-desc">AI drafts a detailed scope of work based on project data, photos, and estimates.</div>
+      </div>
+      <div class="qa-card" onclick="runAction('followup')">
+        <div class="qa-ico">&#9993;</div>
+        <div class="qa-name">Draft Follow-Up Email</div>
+        <div class="qa-desc">Professional email to homeowner with project update and next steps.</div>
+      </div>
+      <div class="qa-card" onclick="runAction('checklist')">
+        <div class="qa-ico">&#9989;</div>
+        <div class="qa-name">Pre-Build Checklist</div>
+        <div class="qa-desc">Generate a checklist of everything needed before starting the build.</div>
+      </div>
+      <div class="qa-card" onclick="runAction('supplement')">
+        <div class="qa-ico">&#128200;</div>
+        <div class="qa-name">Supplement Strategy</div>
+        <div class="qa-desc">AI analyzes scope vs estimate and suggests supplement line items.</div>
+      </div>
+      <div class="qa-card" onclick="runAction('closeout')">
+        <div class="qa-ico">&#127942;</div>
+        <div class="qa-name">Job Close-Out Summary</div>
+        <div class="qa-desc">Full project summary for your records, including timeline and financials.</div>
+      </div>
+      <div class="qa-card" onclick="runAction('review')">
+        <div class="qa-ico">&#11088;</div>
+        <div class="qa-name">Request Review Template</div>
+        <div class="qa-desc">Generate a personalized review request message for this homeowner.</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- SETUP WIZARD -->
-<div id="setup-screen">
-  <div class="setup-box">
-    <div id="setup-step-1" class="setup-step active">
-      <div class="setup-progress">
-        <div class="setup-pip done" id="pip-1"></div>
-        <div class="setup-pip" id="pip-2"></div>
-        <div class="setup-pip" id="pip-3"></div>
-      </div>
-      <div class="setup-eyebrow">Step 1 of 3</div>
-      <div class="setup-title">HOW DO YOU WANT<br>TO <span style="color:var(--cyan)">START?</span></div>
-      <div class="setup-sub">Choose how to seed your Codex. You can always add more later.</div>
-      <div class="setup-options">
-        <div class="setup-option" onclick="selectSetupMode('wizard')" id="opt-wizard">
-          <div class="setup-option-icon">🧙</div>
-          <div><div class="setup-option-text">Guided Wizard</div><div class="setup-option-sub">Answer 10 questions — AI builds your Section 0 and Project DNA</div></div>
-        </div>
-        <div class="setup-option" onclick="selectSetupMode('blank')" id="opt-blank">
-          <div class="setup-option-icon">📄</div>
-          <div><div class="setup-option-text">Blank Slate</div><div class="setup-option-sub">Start empty — fill in your own Project DNA and first session</div></div>
-        </div>
-        <div class="setup-option" onclick="selectSetupMode('import')" id="opt-import">
-          <div class="setup-option-icon">📥</div>
-          <div><div class="setup-option-text">Import Existing Doc</div><div class="setup-option-sub">Paste a Codex export — AI parses and imports your sessions</div></div>
-        </div>
-      </div>
-      <div class="setup-actions">
-        <button class="setup-btn ghost" onclick="closeSetup()">Cancel</button>
-        <button class="setup-btn" onclick="setupNext(1)">Continue →</button>
-      </div>
-    </div>
-
-    <div id="setup-step-2" class="setup-step">
-      <div class="setup-progress">
-        <div class="setup-pip done" id="pip-1b"></div>
-        <div class="setup-pip done" id="pip-2b"></div>
-        <div class="setup-pip" id="pip-3b"></div>
-      </div>
-      <div class="setup-eyebrow">Step 2 of 3</div>
-      <div class="setup-title">WHERE DOES YOUR<br><span style="color:var(--cyan)">DATA LIVE?</span></div>
-      <div class="setup-sub">Choose your storage preference. You can change this in settings later.</div>
-      <div class="setup-options">
-        <div class="setup-option" onclick="selectStorage('local')" id="opt-local">
-          <div class="setup-option-icon">💾</div>
-          <div><div class="setup-option-text">This Device Only</div><div class="setup-option-sub">localStorage — fast, private, no account needed</div></div>
-        </div>
-        <div class="setup-option" onclick="selectStorage('cloud')" id="opt-cloud">
-          <div class="setup-option-icon">☁️</div>
-          <div><div class="setup-option-text">Cloud Sync</div><div class="setup-option-sub">Firestore — syncs across devices when logged in to NBD Pro</div></div>
-        </div>
-        <div class="setup-option" onclick="selectStorage('export')" id="opt-export">
-          <div class="setup-option-icon">📤</div>
-          <div><div class="setup-option-text">Export Only</div><div class="setup-option-sub">No persistent storage — you manage your own markdown files</div></div>
-        </div>
-      </div>
-      <div class="setup-actions">
-        <button class="setup-btn ghost" onclick="setupBack(2)">← Back</button>
-        <button class="setup-btn" onclick="setupNext(2)">Continue →</button>
-      </div>
-    </div>
-
-    <div id="setup-step-3" class="setup-step">
-      <div class="setup-progress">
-        <div class="setup-pip done"></div><div class="setup-pip done"></div><div class="setup-pip done"></div>
-      </div>
-      <div class="setup-eyebrow">Step 3 of 3</div>
-      <div class="setup-title">SET YOUR<br><span style="color:var(--cyan)">ACCESS CODE</span></div>
-      <div class="setup-sub">Choose a code to protect your Codex. Write it down somewhere.</div>
-      <div class="form-group">
-        <label class="form-label">Project Name</label>
-        <input class="form-input" id="setup-project-name" placeholder="e.g. NBD PRO Build">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Access Code</label>
-        <input class="form-input" id="setup-access-code" type="password" placeholder="Choose a password">
-      </div>
-      <div id="setup-import-area" style="display:none">
-        <label class="form-label">Paste Your Codex Export</label>
-        <textarea class="form-input form-textarea" id="setup-import-text" placeholder="Paste your ETERNAL-CODEX-EXPORT markdown here..."></textarea>
-      </div>
-      <div class="setup-actions" style="margin-top:20px">
-        <button class="setup-btn ghost" onclick="setupBack(3)">← Back</button>
-        <button class="setup-btn" onclick="setupFinish()">Create My Codex →</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- APP SHELL -->
-<div id="app">
-
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="tb-brand">
-      <div class="tb-mark">PC</div>
-      <div>
-        <div class="tb-title">Project <span>Codex</span></div>
-        <div class="tb-sub" id="tb-project-name">Loading...</div>
-      </div>
-    </div>
-    <div class="tb-stats">
-      <div class="tb-stat"><span class="tb-stat-val" id="stat-sessions">0</span><span class="tb-stat-lbl">sessions</span></div>
-      <div class="tb-stat"><span class="tb-stat-val" id="stat-loops" style="color:var(--red)">0</span><span class="tb-stat-lbl">open loops</span></div>
-      <div class="tb-stat"><span class="tb-stat-val" id="stat-closed" style="color:var(--green)">0</span><span class="tb-stat-lbl">closed</span></div>
-      <div class="tb-stat"><span class="tb-stat-val" id="stat-days" style="color:var(--gold)">0</span><span class="tb-stat-lbl">days active</span></div>
-    </div>
-    <div class="tb-actions">
-      <button class="tb-btn" onclick="openSearch()">🔍 Search</button>
-      <button class="tb-btn" onclick="openAddSession()">+ Session</button>
-      <button class="tb-btn primary" onclick="goTo('export')">Export</button>
-    </div>
-  </div>
-
-  <div class="layout">
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="sb-section">Codex</div>
-      <button class="sb-item active" onclick="goTo('synthesis')" id="nav-synthesis">
-        <span class="sb-icon">⚡</span><span>Section 0</span>
-      </button>
-      <button class="sb-item" onclick="goTo('dna')" id="nav-dna">
-        <span class="sb-icon">🧬</span><span>Project DNA</span>
-      </button>
-      <button class="sb-item" onclick="goTo('sessions')" id="nav-sessions">
-        <span class="sb-icon">📅</span><span>Sessions</span>
-        <span class="sb-badge ok" id="sb-session-count">0</span>
-      </button>
-      <div class="sb-divider"></div>
-      <div class="sb-section">Operations</div>
-      <button class="sb-item" onclick="goTo('tasks')" id="nav-tasks">
-        <span class="sb-icon">✅</span><span>Tasks</span>
-        <span class="sb-badge" id="sb-task-count">0</span>
-      </button>
-      <button class="sb-item" onclick="goTo('debt')" id="nav-debt">
-        <span class="sb-icon">⏱</span><span>Cost of Delay</span>
-      </button>
-      <button class="sb-item" onclick="goTo('directives')" id="nav-directives">
-        <span class="sb-icon">📌</span><span>Directives</span>
-      </button>
-      <div class="sb-divider"></div>
-      <div class="sb-section">Tools</div>
-      <button class="sb-item" onclick="goTo('briefing')" id="nav-briefing">
-        <span class="sb-icon">🤖</span><span>Agent Briefing</span>
-      </button>
-      <button class="sb-item" onclick="goTo('versions')" id="nav-versions">
-        <span class="sb-icon">🕐</span><span>Versions</span>
-      </button>
-      <button class="sb-item" onclick="goTo('export')" id="nav-export">
-        <span class="sb-icon">📤</span><span>Export</span>
-      </button>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div class="main-content">
-
-      <!-- SECTION 0: EXECUTIVE SYNTHESIS -->
-      <div class="page active" id="page-synthesis">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 0</div>
-          <div class="page-title">LIVING EXECUTIVE<br>SYNTHESIS</div>
-          <div class="page-sub">AI-generated strategic overview. Auto-updates after every session. The highest-altitude view of your project.</div>
-        </div>
-        <div class="synthesis-box">
-          <div class="synthesis-label">Current State</div>
-          <div class="synthesis-content" id="synthesis-text">No synthesis yet. Add your first session to generate one.</div>
-          <div class="synthesis-actions">
-            <button class="syn-btn ai-btn" onclick="regenerateSynthesis()">⚡ AI Rewrite</button>
-            <button class="syn-btn" onclick="editSynthesis()">✏️ Edit Manually</button>
-            <button class="syn-btn" onclick="saveSynthesis()">💾 Save</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- SECTION 1: PROJECT DNA -->
-      <div class="page" id="page-dna">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 1</div>
-          <div class="page-title">PROJECT DNA</div>
-          <div class="page-sub">Immutable project identity. Set at start, never changes without explicit revision.</div>
-        </div>
-        <div id="dna-fields"></div>
-        <button class="tb-btn" style="margin-top:8px" onclick="editDNA()">✏️ Edit DNA</button>
-      </div>
-
-      <!-- SECTION 2: SESSIONS -->
-      <div class="page" id="page-sessions">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 2</div>
-          <div class="page-title">SESSION LOG</div>
-          <div class="page-sub">Append-only chronological record. Every session locked after save.</div>
-        </div>
-        <button class="tb-btn primary" style="margin-bottom:20px" onclick="openAddSession()">+ Add Session</button>
-        <div class="timeline" id="session-timeline"></div>
-        <div id="no-sessions" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">No sessions yet. Add your first one above.</div>
-      </div>
-
-      <!-- SECTION 3: AGENT BRIEFING -->
-      <div class="page" id="page-briefing">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 3</div>
-          <div class="page-title">AGENT BRIEFING</div>
-          <div class="page-sub">Auto-generated after each session and locked as a historical snapshot. Drop this into any AI chat to bring it up to speed instantly.</div>
-        </div>
-        <div id="briefing-list"></div>
-        <button class="syn-btn ai-btn" onclick="generateBriefing()" style="margin-top:8px">⚡ Generate Latest Briefing</button>
-      </div>
-
-      <!-- SECTION 4: TASKS -->
-      <div class="page" id="page-tasks">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 4</div>
-          <div class="page-title">TASK REGISTRY</div>
-          <div class="page-sub">AI extracts open loops from session notes automatically. Check off to close.</div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-          <button class="search-filter on" onclick="filterTasks('open',this)">Open</button>
-          <button class="search-filter" onclick="filterTasks('closed',this)">Closed</button>
-          <button class="search-filter" onclick="filterTasks('all',this)">All</button>
-          <button class="tb-btn" style="margin-left:auto" onclick="openAddTask()">+ Add Task</button>
-        </div>
-        <div id="task-list"></div>
-        <div id="no-tasks" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">No tasks yet.</div>
-      </div>
-
-      <!-- SECTION 5: COST OF DELAY -->
-      <div class="page" id="page-debt">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 5</div>
-          <div class="page-title">COST OF DELAY</div>
-          <div class="page-sub">Every open item has a daily cost. This register makes it visible.</div>
-        </div>
-        <button class="tb-btn" style="margin-bottom:16px" onclick="openAddDebt()">+ Add Item</button>
-        <div style="overflow-x:auto">
-          <table class="debt-table">
-            <thead><tr>
-              <th>Item</th><th>Sessions Open</th><th>Est. Time</th><th>Daily Cost</th><th></th>
-            </tr></thead>
-            <tbody id="debt-body"></tbody>
-          </table>
-        </div>
-        <div id="no-debt" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">No debt items yet.</div>
-      </div>
-
-      <!-- SECTION 6: DIRECTIVES -->
-      <div class="page" id="page-directives">
-        <div class="page-header">
-          <div class="page-eyebrow">Section 6</div>
-          <div class="page-title">META DIRECTIVES</div>
-          <div class="page-sub">Standing rules that never break. Tag as ALWAYS, NEVER, or IMMUTABLE. Every AI agent that reads this Codex must follow these.</div>
-        </div>
-        <button class="tb-btn" style="margin-bottom:16px" onclick="openAddDirective()">+ Add Directive</button>
-        <div id="directive-list"></div>
-        <div id="no-directives" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">No directives yet.</div>
-      </div>
-
-      <!-- VERSION HISTORY -->
-      <div class="page" id="page-versions">
-        <div class="page-header">
-          <div class="page-eyebrow">Version History</div>
-          <div class="page-title">PREVIOUS EXPORTS</div>
-          <div class="page-sub">Every export is saved as a version snapshot. Click to compare side by side.</div>
-        </div>
-        <div class="version-list" id="version-list"></div>
-        <div id="no-versions" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">No saved versions yet. Export to create one.</div>
-        <div id="version-compare" style="display:none">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div><div class="card-title">Version A</div><pre id="ver-a" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:500px;overflow-y:auto"></pre></div>
-            <div><div class="card-title">Version B</div><pre id="ver-b" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:500px;overflow-y:auto"></pre></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- EXPORT -->
-      <div class="page" id="page-export">
-        <div class="page-header">
-          <div class="page-eyebrow">Export</div>
-          <div class="page-title">EXPORT YOUR CODEX</div>
-          <div class="page-sub">Download, copy, or backup your full Codex. Each export is saved as a version snapshot automatically.</div>
-        </div>
-        <div class="export-grid">
-          <div class="export-card" onclick="exportCodex('markdown')">
-            <div class="export-icon">📝</div>
-            <div class="export-name">Markdown</div>
-            <div class="export-desc">Full .md file — paste directly into AI chat to brief any agent</div>
-          </div>
-          <div class="export-card" onclick="exportCodex('pdf')">
-            <div class="export-icon">📄</div>
-            <div class="export-name">PDF</div>
-            <div class="export-desc">Formatted PDF snapshot — great for sharing or archiving</div>
-          </div>
-          <div class="export-card" onclick="exportCodex('clipboard')">
-            <div class="export-icon">📋</div>
-            <div class="export-name">Copy to Clipboard</div>
-            <div class="export-desc">Instant copy — paste straight into Claude, GPT, or any AI</div>
-          </div>
-          <div class="export-card" onclick="exportCodex('json')">
-            <div class="export-icon">🗄️</div>
-            <div class="export-name">JSON Backup</div>
-            <div class="export-desc">Full structured backup — import back into Project Codex later</div>
-          </div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <div class="card-title">Import / Restore</div>
-          <textarea class="form-input form-textarea" id="import-text" placeholder="Paste a JSON backup or Codex markdown export to restore or smart-merge..." style="margin-bottom:10px"></textarea>
-          <button class="tb-btn primary" onclick="importCodex()">Smart Merge Import</button>
-          <div style="font-size:11px;color:var(--dim);margin-top:8px">Smart merge: auto-detects session numbers and only appends sessions it hasn't seen yet. Your existing data is preserved.</div>
-        </div>
-      </div>
-
-      <!-- SEARCH PAGE -->
-      <div class="page" id="page-search">
-        <div class="page-header">
-          <div class="page-eyebrow">Search</div>
-          <div class="page-title">SEARCH CODEX</div>
-        </div>
-        <div class="search-bar">
-          <input class="search-input" id="search-input" placeholder="Search sessions, decisions, directives..." oninput="runSearch()">
-          <button class="search-filter on" id="sf-all" onclick="toggleSearchFilter('all',this)">All</button>
-          <button class="search-filter" id="sf-decisions" onclick="toggleSearchFilter('decisions',this)">Decisions</button>
-          <button class="search-filter" id="sf-loops" onclick="toggleSearchFilter('loops',this)">Open Loops</button>
-          <button class="search-filter" id="sf-files" onclick="toggleSearchFilter('files',this)">Files</button>
-          <button class="search-filter" id="sf-directives" onclick="toggleSearchFilter('directives',this)">Directives</button>
-        </div>
-        <div id="search-results"></div>
-        <div id="no-results" style="text-align:center;padding:48px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;display:none">No results found.</div>
-      </div>
-
-    </div><!-- end main-content -->
-  </div><!-- end layout -->
-</div><!-- end app -->
-
-<!-- ADD SESSION MODAL -->
-<div class="modal-overlay" id="add-session-modal">
+<!-- RESULT MODAL -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
   <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title">+ ADD SESSION</div>
-      <button class="modal-close" onclick="closeAddSession()">✕</button>
+    <div class="modal-hd">
+      <div class="modal-title" id="modalTitle">Result</div>
+      <button class="modal-x" onclick="closeModal()">&#10005;</button>
     </div>
-    <div class="modal-tabs">
-      <button class="modal-tab on" onclick="sessionTab('summary',this)">AI Summary</button>
-      <button class="modal-tab" onclick="sessionTab('raw',this)">Raw Notes → AI Extract</button>
-      <button class="modal-tab" onclick="sessionTab('form',this)">Manual Form</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-panel on" id="sp-summary">
-        <div class="form-group">
-          <label class="form-label">Session Title</label>
-          <input class="form-input" id="s-title" placeholder="e.g. Stripe Integration + Feature Page Build">
-        </div>
-        <div class="form-group">
-          <label class="form-label">What happened this session? (AI will format and append)</label>
-          <textarea class="form-input form-textarea" id="s-summary" placeholder="Describe what you built, decided, shipped, and what's still open..."></textarea>
-        </div>
-        <button class="syn-btn ai-btn" onclick="aiFormatSession()" style="margin-bottom:12px">⚡ AI Format & Preview</button>
-        <div id="s-preview" style="display:none;background:var(--s2);border-radius:6px;padding:14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-bottom:12px"></div>
-      </div>
-      <div class="modal-panel" id="sp-raw">
-        <div class="form-group">
-          <label class="form-label">Paste Raw Session Notes</label>
-          <textarea class="form-input form-textarea" style="min-height:200px" id="s-raw" placeholder="Paste anything — chat logs, bullet points, brain dump. AI will extract decisions, open loops, files changed, and directives."></textarea>
-        </div>
-        <button class="syn-btn ai-btn" onclick="aiExtractSession()" style="margin-bottom:12px">⚡ AI Extract & Preview</button>
-        <div id="s-raw-preview" style="display:none;background:var(--s2);border-radius:6px;padding:14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-bottom:12px"></div>
-      </div>
-      <div class="modal-panel" id="sp-form">
-        <div class="form-group">
-          <label class="form-label">Session Title</label>
-          <input class="form-input" id="sf-title" placeholder="Session title">
-        </div>
-        <div class="form-group">
-          <label class="form-label">What shipped / was completed</label>
-          <textarea class="form-input form-textarea" id="sf-shipped" placeholder="List what shipped this session..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Key decisions made</label>
-          <textarea class="form-input form-textarea" id="sf-decisions" placeholder="List key decisions..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Open loops / what didn't ship</label>
-          <textarea class="form-input form-textarea" id="sf-loops" placeholder="List open items carried forward..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Files modified</label>
-          <input class="form-input" id="sf-files" placeholder="e.g. pro/dashboard.html, pro/features.html">
-        </div>
-        <div class="form-group">
-          <label class="form-label">New directives (if any)</label>
-          <textarea class="form-input form-textarea" style="min-height:60px" id="sf-directives" placeholder="Any new rules or immutable decisions..."></textarea>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="tb-btn" onclick="closeAddSession()">Cancel</button>
-      <button class="tb-btn primary" onclick="saveSession()">Save Session →</button>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-acts">
+      <button class="btn btn-ghost" onclick="copyModal()">Copy</button>
+      <button class="btn btn-or" onclick="closeModal()">Done</button>
     </div>
   </div>
 </div>
 
 <!-- TOAST -->
-<div class="toast" id="toast"></div>
+<div class="toast-wrap" id="toastWrap"></div>
 
+<script src="js/claude-proxy.js?v=3"></script>
 <script>
-/* ═══════════════════════════════════════════════════════
-   PROJECT CODEX — CORE ENGINE
-   ═══════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════
+   PROJECT CODEX — Logic
+   ══════════════════════════════════════════════════ */
 
-const CODEX_VERSION = '1.0';
-const PROXY = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+let currentProject = null;
+let projectList = [];
+let aiHistory = [];
 
-// ── STATE ─────────────────────────────────────────────
-let CODEX = {
-  version: CODEX_VERSION,
-  projectName: '',
-  accessCode: '',
-  storageMode: 'local', // 'local' | 'cloud' | 'export'
-  createdAt: null,
-  synthesis: '',
-  dna: {},
-  sessions: [],
-  tasks: [],
-  debt: [],
-  directives: [],
-  briefings: [],
-  versions: [],
-};
-let _setupMode = 'blank';
-let _setupStorage = 'local';
-let _taskFilter = 'open';
-let _searchFilters = ['all'];
-let _currentPage = 'synthesis';
-
-// ── STORAGE KEY ───────────────────────────────────────
-function storageKey() { return 'nbd-project-codex-' + btoa(CODEX.accessCode || '').slice(0,8); }
-
-// ── LOCK / UNLOCK ─────────────────────────────────────
-async function unlock() {
-  // Verify Firebase auth and admin role before unlocking
-  if (!window._firebaseReady) {
-    showError('Authentication system loading. Please try again.');
-    return;
-  }
-
-  if (!window._authUser) {
-    showError('You must be logged in to access Project Codex');
-    setTimeout(() => {
-      window.location.href = '/pro/login.html';
-    }, 2000);
-    return;
-  }
-
-  const code = document.getElementById('lock-input').value.trim();
-  if (!code) { showError('Enter your access code'); return; }
-
-  // Try loading existing codex with this code
-  const key = 'nbd-project-codex-' + btoa(code).slice(0,8);
-  const saved = localStorage.getItem(key);
-  if (saved) {
-    try {
-      CODEX = JSON.parse(saved);
-      CODEX.accessCode = code;
-      launchApp();
-      return;
-    } catch(e) {}
-  }
-  showError('No Codex found for that code. Create one below ↓');
+/* ── Init ── */
+function initCodex() {
+  loadProjects();
 }
 
-function showError(msg) {
-  const el = document.getElementById('lock-error');
-  el.textContent = msg;
-  setTimeout(() => el.textContent = '', 3000);
-}
-
-function showSetup() {
-  document.getElementById('setup-screen').classList.add('open');
-}
-function closeSetup() {
-  document.getElementById('setup-screen').classList.remove('open');
-}
-
-function selectSetupMode(mode) {
-  _setupMode = mode;
-  document.querySelectorAll('.setup-option').forEach(o => o.classList.remove('selected'));
-  document.getElementById('opt-' + mode).classList.add('selected');
-}
-function selectStorage(mode) {
-  _setupStorage = mode;
-  document.querySelectorAll('.setup-option').forEach(o => o.classList.remove('selected'));
-  document.getElementById('opt-' + mode).classList.add('selected');
-}
-
-function setupNext(step) {
-  document.getElementById('setup-step-' + step).classList.remove('active');
-  document.getElementById('setup-step-' + (step+1)).classList.add('active');
-  if (_setupMode === 'import') {
-    document.getElementById('setup-import-area').style.display = 'block';
-  }
-}
-function setupBack(step) {
-  document.getElementById('setup-step-' + step).classList.remove('active');
-  document.getElementById('setup-step-' + (step-1)).classList.add('active');
-}
-
-async function setupFinish() {
-  const name = document.getElementById('setup-project-name').value.trim() || 'My Project';
-  const code = document.getElementById('setup-access-code').value.trim();
-  if (!code) { toast('Enter an access code'); return; }
-
-  CODEX = {
-    version: CODEX_VERSION,
-    projectName: name,
-    accessCode: code,
-    storageMode: _setupStorage,
-    createdAt: new Date().toISOString(),
-    synthesis: '',
-    dna: { vision: '', github: '', stack: '', pillars: '' },
-    sessions: [], tasks: [], debt: [], directives: [], briefings: [], versions: [],
-  };
-
-  if (_setupMode === 'import') {
-    const raw = document.getElementById('setup-import-text').value.trim();
-    if (raw) await parseAndImport(raw);
-  } else if (_setupMode === 'wizard') {
-    // Seed with wizard — launch and show wizard prompt in synthesis
-    CODEX.synthesis = 'Complete the setup wizard: go to Session → Add Session → describe your project to generate your first Section 0.';
-  }
-
-  closeSetup();
-  saveCodex();
-  launchApp();
-}
-
-async function launchApp() {
-  document.getElementById('lock-screen').style.display = 'none';
-  const app = document.getElementById('app');
-  app.classList.add('unlocked');
-  renderAll();
-  goTo('synthesis');
-  // Try to merge cloud data
-  if (window._firebaseReady && window._authUser) {
-    const cloudDocs = await loadFromFirestore();
-    if (cloudDocs && cloudDocs.length) {
-      const codexId = btoa(CODEX.accessCode || '').slice(0,8);
-      const cloudDoc = cloudDocs.find(d => btoa(d.accessCode||'').slice(0,8) === codexId) || cloudDocs[0];
-      if (cloudDoc) {
-        // Merge: cloud sessions we don't have locally
-        const localIds = new Set(CODEX.sessions.map(s => s.number));
-        (cloudDoc.sessions || []).forEach(s => {
-          if (!localIds.has(s.number)) CODEX.sessions.push(s);
-        });
-        // Merge tasks
-        const localTaskIds = new Set(CODEX.tasks.map(t => t.id));
-        (cloudDoc.tasks || []).forEach(t => {
-          if (!localTaskIds.has(t.id)) CODEX.tasks.push(t);
-        });
-        // Use cloud synthesis if local is empty
-        if (!CODEX.synthesis && cloudDoc.synthesis) CODEX.synthesis = cloudDoc.synthesis;
-        // Merge DNA
-        if (cloudDoc.dna) {
-          Object.keys(cloudDoc.dna).forEach(k => {
-            if (!CODEX.dna[k] && cloudDoc.dna[k]) CODEX.dna[k] = cloudDoc.dna[k];
-          });
-        }
-        saveCodex();
-        renderAll();
-        showSyncBadge('Cloud merged');
-      }
-    } else {
-      // No cloud data — push local up
-      syncToFirestore();
-    }
-  }
-}
-
-// ── SAVE / LOAD ───────────────────────────────────────
-let _syncTimer = null;
-function saveCodex() {
-  if (CODEX.storageMode === 'export') return;
-  localStorage.setItem(storageKey(), JSON.stringify(CODEX));
-  // Debounced Firestore sync
-  if (window._firebaseReady && window._authUser && window._db) {
-    clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(() => syncToFirestore(), 2000);
-  }
-}
-
-async function syncToFirestore() {
-  if (!window._db || !window._authUser) return;
-  try {
-    const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const uid = window._authUser.uid;
-    const codexId = btoa(CODEX.accessCode || '').slice(0,8);
-    await setDoc(doc(window._db, 'users', uid, 'codex', codexId), {
-      ...CODEX,
-      accessCode: undefined, // Don't store access code in Firestore
-      _uid: uid,
-      _updatedAt: serverTimestamp()
-    }, { merge: true });
-    showSyncBadge('Synced');
-  } catch(e) {
-    console.warn('Codex Firestore sync failed:', e);
-    showSyncBadge('Sync failed');
-  }
-}
-
-async function loadFromFirestore() {
-  if (!window._db || !window._authUser) return null;
-  try {
-    const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const uid = window._authUser.uid;
-    const snap = await getDocs(collection(window._db, 'users', uid, 'codex'));
-    if (snap.empty) return null;
-    const docs = [];
-    snap.forEach(d => docs.push(d.data()));
-    return docs;
-  } catch(e) { return null; }
-}
-
-function showSyncBadge(msg) {
-  let badge = document.getElementById('sync-badge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'sync-badge';
-    badge.style.cssText = 'position:fixed;top:10px;right:16px;z-index:9999;font-family:DM Mono,monospace;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--cyan);transition:opacity .4s;opacity:0;pointer-events:none;';
-    document.body.appendChild(badge);
-  }
-  badge.textContent = msg;
-  badge.style.opacity = '1';
-  setTimeout(() => { badge.style.opacity = '0'; }, 2400);
-}
-
-// ── NAVIGATION ────────────────────────────────────────
-function goTo(page) {
-  _currentPage = page;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
-  const pg = document.getElementById('page-' + page);
-  const nav = document.getElementById('nav-' + page);
-  if (pg) pg.classList.add('active');
-  if (nav) nav.classList.add('active');
-}
-
-function openSearch() { goTo('search'); document.getElementById('search-input')?.focus(); }
-
-// ── RENDER ALL ────────────────────────────────────────
-function renderAll() {
-  renderStats();
-  renderSynthesis();
-  renderDNA();
-  renderSessions();
-  renderTasks();
-  renderDebt();
-  renderDirectives();
-  renderBriefings();
-  renderVersions();
-}
-
-function renderStats() {
-  const openTasks = CODEX.tasks.filter(t => !t.closed).length;
-  const closedTasks = CODEX.tasks.filter(t => t.closed).length;
-  const days = CODEX.createdAt ? Math.ceil((Date.now() - new Date(CODEX.createdAt)) / 86400000) : 0;
-  document.getElementById('stat-sessions').textContent = CODEX.sessions.length;
-  document.getElementById('stat-loops').textContent = openTasks;
-  document.getElementById('stat-closed').textContent = closedTasks;
-  document.getElementById('stat-days').textContent = days;
-  document.getElementById('sb-session-count').textContent = CODEX.sessions.length;
-  document.getElementById('sb-task-count').textContent = openTasks;
-  document.getElementById('tb-project-name').textContent = CODEX.projectName || 'Project Codex';
-}
-
-function renderSynthesis() {
-  document.getElementById('synthesis-text').textContent = CODEX.synthesis || 'No synthesis yet. Add your first session to generate one.';
-}
-
-function renderDNA() {
-  const el = document.getElementById('dna-fields');
-  if (!el) return;
-  const dna = CODEX.dna || {};
-  const fields = [
-    ['vision', 'Core Vision'],
-    ['github', 'Repository / URL'],
-    ['stack', 'Tech Stack'],
-    ['pillars', 'Product Pillars'],
-    ['notes', 'Additional Notes'],
-  ];
-  el.innerHTML = fields.map(([key, label]) => `
-    <div class="dna-field">
-      <div class="dna-label">${label}</div>
-      <div class="dna-value" id="dna-${key}">${dna[key] || '<span style="color:var(--dim)">Not set</span>'}</div>
-    </div>`).join('');
-}
-
-function renderSessions() {
-  const el = document.getElementById('session-timeline');
-  const none = document.getElementById('no-sessions');
-  if (!el) return;
-  if (!CODEX.sessions.length) {
-    el.innerHTML = '';
-    if (none) none.style.display = 'block';
-    return;
-  }
-  if (none) none.style.display = 'none';
-  const sorted = [...CODEX.sessions].reverse();
-  el.innerHTML = sorted.map((s, i) => `
-    <div class="timeline-entry">
-      <div class="tl-line">
-        <div class="tl-dot ${i===0?'latest':''}"></div>
-        ${i < sorted.length-1 ? '<div class="tl-track"></div>' : ''}
-      </div>
-      <div class="tl-body">
-        <div class="tl-card" onclick="toggleSession(this)">
-          <div class="tl-head">
-            <div class="tl-num">S${s.number||i+1}</div>
-            <div class="tl-meta">
-              <div class="tl-session-title">${escHtml(s.title||'Untitled Session')}</div>
-              <div class="tl-date">${s.date||''}</div>
-              <div class="tl-chips">
-                ${s.decisions?.length ? `<span class="tl-chip decision">${s.decisions.length} decisions</span>` : ''}
-                ${s.loops?.length ? `<span class="tl-chip loop">${s.loops.length} open loops</span>` : ''}
-                ${s.shipped?.length ? `<span class="tl-chip shipped">${s.shipped.length} shipped</span>` : ''}
-              </div>
-            </div>
-            <div class="tl-expand">▼</div>
-          </div>
-          <div class="tl-detail">${escHtml(s.content||'')}</div>
-        </div>
-      </div>
-    </div>`).join('');
-}
-
-function toggleSession(card) {
-  card.classList.toggle('expanded');
-}
-
-function renderTasks() {
-  const el = document.getElementById('task-list');
-  const none = document.getElementById('no-tasks');
-  if (!el) return;
-  let tasks = CODEX.tasks || [];
-  if (_taskFilter === 'open') tasks = tasks.filter(t => !t.closed);
-  else if (_taskFilter === 'closed') tasks = tasks.filter(t => t.closed);
-  if (!tasks.length) {
-    el.innerHTML = '';
-    if (none) none.style.display = 'block';
-    return;
-  }
-  if (none) none.style.display = 'none';
-  el.innerHTML = tasks.map((t, i) => `
-    <div class="task-item ${t.closed?'closed':''}">
-      <div class="task-check ${t.closed?'checked':''}" onclick="toggleTask('${t.id}')"></div>
-      <div style="flex:1">
-        <div class="task-text">${escHtml(t.text)}</div>
-        <div class="task-meta">S${t.session||'?'} · ${t.date||''}</div>
-      </div>
-      <div class="task-priority ${t.priority?.toLowerCase()||'med'}">${t.priority||'MED'}</div>
-    </div>`).join('');
-}
-
-function filterTasks(filter, btn) {
-  _taskFilter = filter;
-  document.querySelectorAll('.search-filter').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  renderTasks();
-}
-
-function toggleTask(id) {
-  const t = CODEX.tasks.find(t => t.id === id);
-  if (t) { t.closed = !t.closed; saveCodex(); renderTasks(); renderStats(); }
-}
-
-function renderDebt() {
-  const body = document.getElementById('debt-body');
-  const none = document.getElementById('no-debt');
-  if (!body) return;
-  if (!CODEX.debt?.length) {
-    body.innerHTML = '';
-    if (none) none.style.display = 'block';
-    return;
-  }
-  if (none) none.style.display = 'none';
-  body.innerHTML = CODEX.debt.map((d, i) => `
-    <tr>
-      <td>${escHtml(d.item)}</td>
-      <td><span class="debt-sessions">${d.sessions}</span></td>
-      <td>${escHtml(d.time||'')}</td>
-      <td style="color:var(--red)">${escHtml(d.cost||'')}</td>
-      <td><button class="tb-btn" style="padding:3px 8px;font-size:8px" onclick="removeDebt(${i})">✕</button></td>
-    </tr>`).join('');
-}
-
-function renderDirectives() {
-  const el = document.getElementById('directive-list');
-  const none = document.getElementById('no-directives');
-  if (!el) return;
-  if (!CODEX.directives?.length) {
-    el.innerHTML = '';
-    if (none) none.style.display = 'block';
-    return;
-  }
-  if (none) none.style.display = 'none';
-  el.innerHTML = CODEX.directives.map((d, i) => `
-    <div class="directive-item">
-      <div class="directive-tag">${d.tag||'RULE'}</div>
-      <div>
-        <div class="directive-text">${escHtml(d.text)}</div>
-        <div class="directive-session">S${d.session||'?'} · ${d.date||''}</div>
-      </div>
-      <button class="tb-btn" style="padding:3px 8px;font-size:8px;margin-left:auto;flex-shrink:0" onclick="removeDirective(${i})">✕</button>
-    </div>`).join('');
-}
-
-function renderBriefings() {
-  const el = document.getElementById('briefing-list');
-  if (!el) return;
-  if (!CODEX.briefings?.length) {
-    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-family:\'DM Mono\',monospace;font-size:11px">No briefings yet. Add a session to generate one.</div>';
-    return;
-  }
-  el.innerHTML = CODEX.briefings.map((b, i) => `
-    <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="card-title">Briefing After S${b.afterSession} · ${b.date||''}</div>
-        <button class="tb-btn" onclick="copyBriefing(${i})">📋 Copy</button>
-      </div>
-      <pre style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto">${escHtml(b.content)}</pre>
-    </div>`).join('');
-}
-
-function renderVersions() {
-  const el = document.getElementById('version-list');
-  const none = document.getElementById('no-versions');
-  if (!el) return;
-  if (!CODEX.versions?.length) {
-    el.innerHTML = '';
-    if (none) none.style.display = 'block';
-    return;
-  }
-  if (none) none.style.display = 'none';
-  el.innerHTML = [...CODEX.versions].reverse().map((v, i) => `
-    <div class="version-item" onclick="loadVersionCompare(${CODEX.versions.length-1-i})">
-      <div>
-        <div class="version-label">v${v.versionNum||i+1} — ${v.date||''}</div>
-        <div class="version-meta">${v.sessions||0} sessions · ${v.label||'Export'}</div>
-      </div>
-      <div class="tb-btn">Compare →</div>
-    </div>`).join('');
-}
-
-function loadVersionCompare(idx) {
-  const v = CODEX.versions[idx];
-  if (!v) return;
-  document.getElementById('version-compare').style.display = 'block';
-  document.getElementById('ver-a').textContent = v.markdown || JSON.stringify(v, null, 2);
-  document.getElementById('ver-b').textContent = generateMarkdown();
-}
-
-// ── ADD SESSION MODAL ─────────────────────────────────
-function openAddSession() {
-  document.getElementById('add-session-modal').classList.add('open');
-}
-function closeAddSession() {
-  document.getElementById('add-session-modal').classList.remove('open');
-}
-function sessionTab(tab, btn) {
-  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('on'));
-  btn.classList.add('on');
-  document.querySelectorAll('.modal-panel').forEach(p => p.classList.remove('on'));
-  document.getElementById('sp-' + tab).classList.add('on');
-}
-
-async function aiFormatSession() {
-  const title = document.getElementById('s-title').value;
-  const summary = document.getElementById('s-summary').value;
-  if (!summary) { toast('Enter a session summary first'); return; }
-  const preview = document.getElementById('s-preview');
-  preview.style.display = 'block';
-  preview.textContent = '⚡ Formatting...';
-  const sessionNum = (CODEX.sessions.length || 0) + 1;
-  const prompt = `You are formatting a session log entry for a Project Codex system.
-Project: ${CODEX.projectName}
-Session number: ${sessionNum}
-Date: ${new Date().toLocaleDateString()}
-Title: ${title}
-Summary from user: ${summary}
-
-Format this into a structured session log entry with these sections:
-- Output (bullet list of what shipped/was completed)
-- Key Decisions
-- Open Loops Carried Forward
-- Files Modified (if mentioned)
-
-Be concise and technical. Use the same tone as a changelog. Return plain text only.`;
-
-  const result = await callAI(prompt);
-  preview.textContent = result;
-}
-
-async function aiExtractSession() {
-  const raw = document.getElementById('s-raw').value;
-  if (!raw) { toast('Paste your raw notes first'); return; }
-  const preview = document.getElementById('s-raw-preview');
-  preview.style.display = 'block';
-  preview.textContent = '⚡ Extracting...';
-  const sessionNum = (CODEX.sessions.length || 0) + 1;
-  const prompt = `Extract a structured session log from these raw notes for a Project Codex.
-Project: ${CODEX.projectName}
-Session number: ${sessionNum}
-Date: ${new Date().toLocaleDateString()}
-
-Raw notes:
-${raw}
-
-Extract and format:
-- Session Title (one line)
-- Output (what shipped)
-- Key Decisions Made
-- Open Loops / What Didn't Ship
-- Files Modified (if mentioned)
-- New Directives (any new rules or immutable decisions)
-
-Return plain text only, no markdown headers.`;
-
-  const result = await callAI(prompt);
-  preview.textContent = result;
-}
-
-async function saveSession() {
-  const activeTab = document.querySelector('.modal-tab.on')?.textContent?.trim();
-  let sessionData = {};
-  const sessionNum = (CODEX.sessions.length || 0) + 1;
-  const date = new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
-
-  if (activeTab?.includes('Summary')) {
-    const title = document.getElementById('s-title').value || 'Session ' + sessionNum;
-    const content = document.getElementById('s-preview').textContent || document.getElementById('s-summary').value;
-    sessionData = { number: sessionNum, title, date, content, decisions: [], loops: [], shipped: [] };
-  } else if (activeTab?.includes('Raw')) {
-    const content = document.getElementById('s-raw-preview').textContent || document.getElementById('s-raw').value;
-    sessionData = { number: sessionNum, title: 'Session ' + sessionNum, date, content, decisions: [], loops: [], shipped: [] };
-  } else {
-    const title = document.getElementById('sf-title').value || 'Session ' + sessionNum;
-    const shipped = document.getElementById('sf-shipped').value;
-    const decisions = document.getElementById('sf-decisions').value;
-    const loops = document.getElementById('sf-loops').value;
-    const files = document.getElementById('sf-files').value;
-    const directives = document.getElementById('sf-directives').value;
-    const content = [
-      shipped ? 'OUTPUT:\n' + shipped : '',
-      decisions ? 'KEY DECISIONS:\n' + decisions : '',
-      loops ? 'OPEN LOOPS:\n' + loops : '',
-      files ? 'FILES MODIFIED:\n' + files : '',
-      directives ? 'NEW DIRECTIVES:\n' + directives : '',
-    ].filter(Boolean).join('\n\n');
-    sessionData = {
-      number: sessionNum, title, date, content,
-      decisions: decisions ? decisions.split('\n').filter(Boolean) : [],
-      loops: loops ? loops.split('\n').filter(Boolean) : [],
-      shipped: shipped ? shipped.split('\n').filter(Boolean) : [],
-    };
-    // Auto-extract tasks from loops
-    if (loops) {
-      loops.split('\n').filter(Boolean).forEach(loop => {
-        CODEX.tasks.push({ id: 'task-' + Date.now() + Math.random(), text: loop.replace(/^[□✓\-\*]\s*/,''), session: sessionNum, date, priority: 'HIGH', closed: false });
-      });
-    }
-    // Auto-extract directives
-    if (directives) {
-      directives.split('\n').filter(Boolean).forEach(d => {
-        CODEX.directives.push({ text: d, tag: 'RULE', session: sessionNum, date });
-      });
-    }
-  }
-
-  CODEX.sessions.push(sessionData);
-
-  // Auto-extract tasks from content using AI if content is rich enough
-  if (sessionData.content.length > 100) {
-    extractTasksFromSession(sessionData);
-  }
-
-  // Auto-regenerate synthesis
-  if (CODEX.sessions.length > 0) {
-    autoRegenerateSynthesis();
-  }
-
-  // Auto-generate briefing
-  generateBriefingForSession(sessionData);
-
-  closeAddSession();
-  saveCodex();
-  renderAll();
-  goTo('sessions');
-  toast('Session S' + sessionNum + ' saved');
-}
-
-async function extractTasksFromSession(session) {
-  const prompt = `Extract open tasks/loops from this session log as a simple list. Return ONLY a JSON array of strings, nothing else.
-Session: ${session.content}`;
-  try {
-    const result = await callAI(prompt);
-    const clean = result.replace(/```json|```/g,'').trim();
-    const loops = JSON.parse(clean);
-    if (Array.isArray(loops)) {
-      loops.forEach(loop => {
-        if (!CODEX.tasks.find(t => t.text === loop)) {
-          CODEX.tasks.push({ id: 'task-' + Date.now() + Math.random(), text: loop, session: session.number, date: session.date, priority: 'HIGH', closed: false });
-        }
-      });
-      saveCodex();
-      renderTasks();
-      renderStats();
-    }
-  } catch(e) {}
-}
-
-// ── AI SYNTHESIS ──────────────────────────────────────
-async function autoRegenerateSynthesis() {
-  const prompt = buildSynthesisPrompt();
-  const result = await callAI(prompt);
-  if (result && !result.includes('Error')) {
-    CODEX.synthesis = result;
-    saveCodex();
-    renderSynthesis();
-  }
-}
-
-async function regenerateSynthesis() {
-  const el = document.getElementById('synthesis-text');
-  el.textContent = '⚡ Generating synthesis...';
-  const prompt = buildSynthesisPrompt();
-  const result = await callAI(prompt);
-  CODEX.synthesis = result;
-  saveCodex();
-  renderSynthesis();
-  toast('Synthesis updated');
-}
-
-function buildSynthesisPrompt() {
-  const recent = CODEX.sessions.slice(-3).map(s => `S${s.number}: ${s.title}\n${s.content}`).join('\n\n');
-  const openTasks = CODEX.tasks.filter(t => !t.closed).slice(0,5).map(t => '□ ' + t.text).join('\n');
-  return `Write a "Living Executive Synthesis" for a project Codex. This is the highest-altitude view of the project — what's been built, where things stand, what matters most right now.
-
-Project: ${CODEX.projectName}
-Total sessions: ${CODEX.sessions.length}
-Project DNA: ${JSON.stringify(CODEX.dna)}
-
-Recent sessions:
-${recent}
-
-Open tasks:
-${openTasks}
-
-Write 3-5 sentences of clear, direct, high-altitude synthesis. No bullet points. Write like a technical co-founder summarizing to an investor. Be specific about what's live, what's blocking, and what the next move is. Return plain text only.`;
-}
-
-function editSynthesis() {
-  const el = document.getElementById('synthesis-text');
-  el.contentEditable = 'true';
-  el.focus();
-  toast('Click Save when done editing');
-}
-function saveSynthesis() {
-  const el = document.getElementById('synthesis-text');
-  el.contentEditable = 'false';
-  CODEX.synthesis = el.textContent;
-  saveCodex();
-  toast('Synthesis saved');
-}
-
-// ── AGENT BRIEFING ────────────────────────────────────
-async function generateBriefing() {
-  const lastSession = CODEX.sessions[CODEX.sessions.length - 1];
-  if (!lastSession) { toast('Add a session first'); return; }
-  await generateBriefingForSession(lastSession);
-  renderBriefings();
-  toast('Briefing generated');
-}
-
-async function generateBriefingForSession(session) {
-  const prompt = `Generate an "Agent Briefing" — a concise brief for the next AI agent picking up this project.
-
-Project: ${CODEX.projectName}
-After Session ${session.number}: ${session.title}
-Date: ${session.date}
-
-Project DNA:
-${JSON.stringify(CODEX.dna, null, 2)}
-
-Recent session content:
-${session.content}
-
-Open tasks:
-${CODEX.tasks.filter(t=>!t.closed).slice(0,8).map(t=>'□ '+t.text).join('\n')}
-
-Key directives:
-${CODEX.directives.slice(-5).map(d=>'['+d.tag+'] '+d.text).join('\n')}
-
-Write a briefing covering: what is this project, what just shipped, what's live right now, what's NOT done yet, and what the next session must focus on. Be technical and direct. 300 words max. Plain text only.`;
-
-  const result = await callAI(prompt);
-  const briefing = {
-    afterSession: session.number,
-    date: session.date,
-    content: result,
-  };
-  // Only keep last 10 briefings
-  CODEX.briefings = [...(CODEX.briefings||[]), briefing].slice(-10);
-  saveCodex();
-}
-
-function copyBriefing(i) {
-  navigator.clipboard?.writeText(CODEX.briefings[i]?.content || '');
-  toast('Briefing copied to clipboard');
-}
-
-// ── DNA EDIT ──────────────────────────────────────────
-function editDNA() {
-  const fields = ['vision','github','stack','pillars','notes'];
-  fields.forEach(key => {
-    const el = document.getElementById('dna-' + key);
-    if (el) {
-      el.contentEditable = 'true';
-      el.classList.add('editable');
-    }
+/* ── Tabs ── */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('on'));
+    t.classList.add('on');
+    const panel = document.getElementById('panel-' + t.dataset.tab);
+    if (panel) panel.classList.add('on');
   });
-  toast('Edit fields, then click Save DNA');
-  const saveBtn = document.querySelector('#page-dna .tb-btn');
-  if (saveBtn) { saveBtn.textContent = '💾 Save DNA'; saveBtn.onclick = saveDNA; }
-}
-function saveDNA() {
-  const fields = ['vision','github','stack','pillars','notes'];
-  fields.forEach(key => {
-    const el = document.getElementById('dna-' + key);
-    if (el) {
-      CODEX.dna[key] = el.textContent;
-      el.contentEditable = 'false';
-      el.classList.remove('editable');
-    }
+});
+
+/* ── AI chip clicks ── */
+document.querySelectorAll('.ai-chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.getElementById('aiInput').value = c.dataset.q;
+    sendAiMessage();
   });
-  saveCodex();
-  toast('Project DNA saved');
-  const saveBtn = document.querySelector('#page-dna .tb-btn');
-  if (saveBtn) { saveBtn.textContent = '✏️ Edit DNA'; saveBtn.onclick = editDNA; }
-}
+});
 
-// ── TASKS ─────────────────────────────────────────────
-function openAddTask() {
-  const text = prompt('Task description:');
-  if (!text?.trim()) return;
-  const priority = prompt('Priority (CRITICAL / HIGH / MED):', 'HIGH') || 'HIGH';
-  CODEX.tasks.push({
-    id: 'task-' + Date.now(),
-    text: text.trim(),
-    session: CODEX.sessions.length || 0,
-    date: new Date().toLocaleDateString(),
-    priority: priority.toUpperCase(),
-    closed: false,
-  });
-  saveCodex(); renderTasks(); renderStats();
-  toast('Task added');
-}
-
-// ── DEBT ──────────────────────────────────────────────
-function openAddDebt() {
-  const item = prompt('Item name:');
-  if (!item?.trim()) return;
-  const sessions = parseInt(prompt('Sessions open:', '1')) || 1;
-  const time = prompt('Estimated time:', '1 hr') || '1 hr';
-  const cost = prompt('Daily cost (revenue impact):', '$0') || '$0';
-  CODEX.debt.push({ item: item.trim(), sessions, time, cost });
-  saveCodex(); renderDebt();
-  toast('Debt item added');
-}
-function removeDebt(i) {
-  CODEX.debt.splice(i, 1);
-  saveCodex(); renderDebt();
-}
-
-// ── DIRECTIVES ────────────────────────────────────────
-function openAddDirective() {
-  const text = prompt('Directive text:');
-  if (!text?.trim()) return;
-  const tag = prompt('Tag (ALWAYS / NEVER / IMMUTABLE / RULE):', 'RULE') || 'RULE';
-  CODEX.directives.push({
-    text: text.trim(), tag: tag.toUpperCase(),
-    session: CODEX.sessions.length || 0,
-    date: new Date().toLocaleDateString(),
-  });
-  saveCodex(); renderDirectives();
-  toast('Directive added');
-}
-function removeDirective(i) {
-  CODEX.directives.splice(i, 1);
-  saveCodex(); renderDirectives();
-}
-
-// ── SEARCH ────────────────────────────────────────────
-function toggleSearchFilter(filter, btn) {
-  if (filter === 'all') {
-    _searchFilters = ['all'];
-    document.querySelectorAll('.search-filter').forEach(b => b.classList.remove('on'));
-    btn.classList.add('on');
-  } else {
-    _searchFilters = _searchFilters.filter(f => f !== 'all');
-    if (_searchFilters.includes(filter)) {
-      _searchFilters = _searchFilters.filter(f => f !== filter);
-      btn.classList.remove('on');
-    } else {
-      _searchFilters.push(filter);
-      btn.classList.add('on');
-    }
-    if (!_searchFilters.length) {
-      _searchFilters = ['all'];
-      document.getElementById('sf-all').classList.add('on');
-    }
-  }
-  runSearch();
-}
-
-function runSearch() {
-  const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
-  const results = document.getElementById('search-results');
-  const none = document.getElementById('no-results');
-  if (!results) return;
-  if (!q) { results.innerHTML = ''; none.style.display='none'; return; }
-
-  let hits = [];
-  const highlight = txt => txt.replace(new RegExp(q,'gi'), m => `<span class="sr-match">${m}</span>`);
-
-  // Search sessions
-  if (_searchFilters.includes('all') || _searchFilters.includes('decisions')) {
-    CODEX.sessions.forEach(s => {
-      if (s.title?.toLowerCase().includes(q) || s.content?.toLowerCase().includes(q)) {
-        hits.push({ session: 'S' + s.number + ' · ' + s.date, text: highlight((s.title + '\n' + s.content).slice(0,200)) });
-      }
-    });
-  }
-  // Search tasks
-  if (_searchFilters.includes('all') || _searchFilters.includes('loops')) {
-    CODEX.tasks.forEach(t => {
-      if (t.text?.toLowerCase().includes(q)) {
-        hits.push({ session: 'Task · S' + t.session, text: highlight(t.text) });
-      }
-    });
-  }
-  // Search directives
-  if (_searchFilters.includes('all') || _searchFilters.includes('directives')) {
-    CODEX.directives.forEach(d => {
-      if (d.text?.toLowerCase().includes(q)) {
-        hits.push({ session: '[' + d.tag + '] S' + d.session, text: highlight(d.text) });
-      }
-    });
-  }
-
-  if (!hits.length) {
-    results.innerHTML = '';
-    none.style.display = 'block';
-    return;
-  }
-  none.style.display = 'none';
-  results.innerHTML = hits.map(h => `
-    <div class="search-result">
-      <div class="sr-session">${h.session}</div>
-      <div class="sr-text">${h.text}</div>
-    </div>`).join('');
-}
-
-// ── EXPORT ────────────────────────────────────────────
-function generateMarkdown() {
-  const now = new Date().toLocaleDateString();
-  const v = (CODEX.versions?.length || 0) + 1;
-  let md = `CODEX-EXPORT-v${v}.0\n${CODEX.projectName?.toUpperCase() || 'PROJECT CODEX'}\nVersion: v${v}.0 | Sessions: ${CODEX.sessions.length} | Generated: ${now}\n\n`;
-  md += '════════════════════════════════════════\n\n';
-  md += '0. LIVING EXECUTIVE SYNTHESIS\n\n' + (CODEX.synthesis || 'No synthesis yet.') + '\n\n';
-  md += '════════════════════════════════════════\n\n';
-  md += '1. PROJECT DNA\n\n';
-  Object.entries(CODEX.dna || {}).forEach(([k,v]) => { if(v) md += k.toUpperCase() + ': ' + v + '\n'; });
-  md += '\n════════════════════════════════════════\n\n';
-  md += '2. SESSION LOG\n\n';
-  [...CODEX.sessions].reverse().forEach(s => {
-    md += `Session ${s.number} — ${s.date} — "${s.title}"\n${s.content}\n\n────────────────────────────────────────\n\n`;
-  });
-  md += '3. TASK REGISTRY\n\n';
-  md += 'OPEN:\n';
-  CODEX.tasks.filter(t=>!t.closed).forEach(t => { md += `[${t.priority}] ${t.text} | S${t.session}\n`; });
-  md += '\nCLOSED:\n';
-  CODEX.tasks.filter(t=>t.closed).forEach(t => { md += `✓ ${t.text}\n`; });
-  md += '\n════════════════════════════════════════\n\n';
-  md += '4. COST OF DELAY\n\n';
-  CODEX.debt?.forEach(d => { md += `${d.item} | ${d.sessions} sessions | ${d.time} | ${d.cost}\n`; });
-  md += '\n════════════════════════════════════════\n\n';
-  md += '5. META DIRECTIVES\n\n';
-  CODEX.directives?.forEach(d => { md += `[${d.tag}] S${d.session}: ${d.text}\n`; });
-  md += '\n════════════════════════════════════════\n';
-  md += `END OF CODEX v${v}.0\nGenerated by Project Codex · NBD Pro\n${now}`;
-  return md;
-}
-
-function exportCodex(format) {
-  const md = generateMarkdown();
-  const v = (CODEX.versions?.length || 0) + 1;
-  const date = new Date().toLocaleDateString();
-
-  // Save version snapshot
-  CODEX.versions = [...(CODEX.versions||[]), {
-    versionNum: v, date, sessions: CODEX.sessions.length,
-    label: 'Export v' + v, markdown: md,
-  }].slice(-20);
-  saveCodex();
-  renderVersions();
-
-  if (format === 'markdown') {
-    const blob = new Blob([md], {type:'text/markdown'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `CODEX-EXPORT-v${v}.0.md`;
-    a.click();
-    toast('Markdown exported');
-  } else if (format === 'json') {
-    const blob = new Blob([JSON.stringify(CODEX, null, 2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `codex-backup-v${v}.json`;
-    a.click();
-    toast('JSON backup exported');
-  } else if (format === 'clipboard') {
-    navigator.clipboard?.writeText(md);
-    toast('Codex copied to clipboard — paste into any AI chat');
-  } else if (format === 'pdf') {
-    const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>${CODEX.projectName} Codex</title><style>body{font-family:monospace;font-size:12px;line-height:1.7;padding:40px;max-width:800px;margin:0 auto}pre{white-space:pre-wrap}</style></head><body><pre>${md.replace(/</g,'&lt;')}</pre><script>window.print();<\/script></body></html>`);
-    w.document.close();
-    toast('PDF print dialog opened');
-  }
-}
-
-async function importCodex() {
-  const text = document.getElementById('import-text').value.trim();
-  if (!text) { toast('Paste export data first'); return; }
-  await parseAndImport(text);
-  saveCodex();
-  renderAll();
-  toast('Smart merge complete');
-}
-
-async function parseAndImport(text) {
-  // Try JSON first
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed.sessions) {
-      // Smart merge: only add sessions we don't have
-      const existingNums = new Set(CODEX.sessions.map(s => s.number));
-      const newSessions = (parsed.sessions || []).filter(s => !existingNums.has(s.number));
-      CODEX.sessions = [...CODEX.sessions, ...newSessions];
-      if (parsed.directives) CODEX.directives = [...(CODEX.directives||[]), ...(parsed.directives||[])];
-      if (parsed.tasks) CODEX.tasks = [...(CODEX.tasks||[]), ...(parsed.tasks||[]).filter(t => !CODEX.tasks.find(e=>e.text===t.text))];
-      if (parsed.synthesis && !CODEX.synthesis) CODEX.synthesis = parsed.synthesis;
-      if (parsed.dna && !Object.keys(CODEX.dna||{}).length) CODEX.dna = parsed.dna;
-      toast(`Merged ${newSessions.length} new sessions`);
-      return;
-    }
-  } catch(e) {}
-
-  // Parse markdown format
-  const sessionMatches = [...text.matchAll(/Session (\d+) — ([^\n]+) — "([^"]+)"\n([\s\S]*?)(?=Session \d+|$)/g)];
-  const existingNums = new Set(CODEX.sessions.map(s => s.number));
-  let added = 0;
-  sessionMatches.forEach(m => {
-    const num = parseInt(m[1]);
-    if (!existingNums.has(num)) {
-      CODEX.sessions.push({ number: num, date: m[2].trim(), title: m[3].trim(), content: m[4].trim(), decisions:[], loops:[], shipped:[] });
-      added++;
-    }
-  });
-
-  // Extract directives
-  const directiveMatches = [...text.matchAll(/\[(ALWAYS|NEVER|IMMUTABLE|RULE)\] S(\d+): (.+)/g)];
-  directiveMatches.forEach(m => {
-    if (!CODEX.directives.find(d=>d.text===m[3])) {
-      CODEX.directives.push({ tag: m[1], session: m[2], text: m[3], date: '' });
-    }
-  });
-
-  toast(`Parsed ${added} sessions from markdown`);
-}
-
-// ── AI CALL ───────────────────────────────────────────
-async function callAI(prompt) {
-  const apiKey = localStorage.getItem('nbd_joe_key') || '';
-  if (!apiKey) {
-    return offlineAIFallback(prompt);
-  }
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true', 'x-api-key': apiKey },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{role: 'user', content: prompt}]
-      }),
-    });
-    const data = await res.json();
-    return data?.content?.[0]?.text || offlineAIFallback(prompt);
-  } catch(e) {
-    return offlineAIFallback(prompt);
-  }
-}
-
-function offlineAIFallback(prompt) {
-  // Basic rule-based fallback when no API key is available
-  const lower = prompt.toLowerCase();
-  if (lower.includes('synthesis') || lower.includes('executive')) {
-    const sessions = CODEX.sessions.length;
-    const openTasks = CODEX.tasks.filter(t => !t.closed).length;
-    const lastSession = CODEX.sessions[CODEX.sessions.length - 1];
-    return `${CODEX.projectName} has ${sessions} session${sessions!==1?'s':''} logged with ${openTasks} open task${openTasks!==1?'s':''}. ${lastSession ? 'Last session: "'+lastSession.title+'" covered: '+(lastSession.content||'').split('\n')[0] : 'No sessions recorded yet.'}. ${openTasks > 3 ? 'Task backlog is growing — prioritize and close items.' : 'Task load is manageable.'} [Auto-generated — set API key in Understand → 🔑 for AI-powered synthesis]`;
-  }
-  if (lower.includes('briefing') || lower.includes('agent')) {
-    const lastSession = CODEX.sessions[CODEX.sessions.length - 1];
-    const tasks = CODEX.tasks.filter(t => !t.closed).slice(0, 5).map(t => '□ ' + t.text).join('\n');
-    return `PROJECT: ${CODEX.projectName}\nSTATUS: ${CODEX.sessions.length} sessions logged\n${lastSession ? 'LAST SESSION: '+lastSession.title+'\n'+lastSession.content : ''}\n\nOPEN TASKS:\n${tasks || '(none)'}\n\n[Auto-generated briefing — set API key for AI-powered version]`;
-  }
-  if (lower.includes('extract') && lower.includes('task')) {
-    return '[]'; // Return empty JSON array for task extraction
-  }
-  if (lower.includes('format') || lower.includes('extract')) {
-    return prompt.split('Summary from user:')[1]?.split('\n')[0]?.trim() || prompt.split('Raw notes:')[1]?.trim() || 'Content saved as-is. Set API key for AI formatting.';
-  }
-  return 'AI features require an API key. Set one in the Understand Tool → 🔑 button. Your data is saved locally and synced to the cloud.';
-}
-
-// ── UTILS ─────────────────────────────────────────────
-function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function toast(msg) {
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2400);
-}
-
-// ── BOOT ──────────────────────────────────────────────
-window.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+/* ── AI input auto-resize + Enter to send ── */
+const aiInput = document.getElementById('aiInput');
+aiInput.addEventListener('input', () => {
+  aiInput.style.height = 'auto';
+  aiInput.style.height = Math.min(aiInput.scrollHeight, 120) + 'px';
+});
+aiInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendAiMessage();
   }
 });
+
+/* ── Load Projects from Firestore ── */
+async function loadProjects() {
+  const sel = document.getElementById('projSelect');
+  sel.innerHTML = '<option value="">-- Loading... --</option>';
+
+  try {
+    if (window._db && window._authUser) {
+      const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const uid = window._authUser.uid;
+      const q = query(collection(window._db, 'leads', uid, 'leads'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      projectList = [];
+      snap.forEach(d => {
+        const data = d.data();
+        projectList.push({ id: d.id, ...data });
+      });
+
+      sel.innerHTML = '<option value="">-- Select a project (' + projectList.length + ' found) --</option>';
+      projectList.forEach(p => {
+        const name = (p.firstName || '') + ' ' + (p.lastName || '') + (p.address ? ' - ' + p.address : '');
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = name.trim() || p.id;
+        sel.appendChild(opt);
+      });
+    } else {
+      sel.innerHTML = '<option value="">-- No database connection --</option>';
+      addManualEntry(sel);
+    }
+  } catch (err) {
+    console.error('Failed to load projects:', err);
+    sel.innerHTML = '<option value="">-- Error loading projects --</option>';
+    addManualEntry(sel);
+    toast('Failed to load projects: ' + err.message, 'err');
+  }
+
+  sel.onchange = () => selectProject(sel.value);
+}
+
+function addManualEntry(sel) {
+  const opt = document.createElement('option');
+  opt.value = '__manual__';
+  opt.textContent = '+ Enter project manually';
+  sel.appendChild(opt);
+}
+
+/* ── Select Project ── */
+async function selectProject(id) {
+  if (!id) {
+    currentProject = null;
+    document.getElementById('statsRow').style.display = 'none';
+    document.getElementById('tabsBar').style.display = 'none';
+    document.getElementById('tlEmpty').style.display = 'block';
+    document.getElementById('tlContainer').innerHTML = '';
+    return;
+  }
+
+  if (id === '__manual__') {
+    const name = prompt('Enter homeowner name or project address:');
+    if (!name) return;
+    currentProject = { id: 'manual', firstName: name, stage: 'new', createdAt: { toDate: () => new Date() } };
+  } else {
+    currentProject = projectList.find(p => p.id === id) || null;
+  }
+
+  if (!currentProject) return;
+
+  // Show UI
+  document.getElementById('statsRow').style.display = '';
+  document.getElementById('tabsBar').style.display = '';
+  document.getElementById('tlEmpty').style.display = 'none';
+
+  // Update stats
+  updateStats();
+  buildTimeline();
+  resetAiChat();
+}
+
+/* ── Update Stats ── */
+function updateStats() {
+  if (!currentProject) return;
+  const p = currentProject;
+
+  const stage = (p.stage || 'new').replace(/_/g, ' ');
+  document.getElementById('statStage').textContent = stage.charAt(0).toUpperCase() + stage.slice(1);
+
+  const created = p.createdAt?.toDate ? p.createdAt.toDate() : (p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000) : new Date());
+  const days = Math.max(1, Math.ceil((Date.now() - created.getTime()) / 86400000));
+  document.getElementById('statDays').textContent = days;
+
+  const photoCount = (p.photos || []).length || 0;
+  document.getElementById('statPhotos').textContent = photoCount;
+
+  const val = p.estimateTotal || p.totalRCV || p.cashPrice || 0;
+  document.getElementById('statValue').textContent = val ? '$' + Number(val).toLocaleString() : '--';
+}
+
+/* ── Build Timeline ── */
+function buildTimeline() {
+  const container = document.getElementById('tlContainer');
+  container.innerHTML = '';
+  if (!currentProject) return;
+
+  const events = [];
+  const p = currentProject;
+
+  // Created
+  const createdDate = p.createdAt?.toDate ? p.createdAt.toDate() : (p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000) : new Date());
+  events.push({ type: 'note', title: 'Project Created', detail: 'Lead entered into system. Source: ' + (p.source || 'manual'), date: createdDate });
+
+  // Stage transitions from history
+  if (p.stageHistory && Array.isArray(p.stageHistory)) {
+    p.stageHistory.forEach(h => {
+      const d = h.at?.toDate ? h.at.toDate() : (h.at?.seconds ? new Date(h.at.seconds * 1000) : null);
+      if (d) events.push({ type: 'note', title: 'Stage: ' + (h.to || '').replace(/_/g, ' '), detail: h.note || '', date: d });
+    });
+  }
+
+  // Estimate
+  if (p.estimateTotal || p.totalRCV) {
+    const d = p.estimateDate?.toDate ? p.estimateDate.toDate() : (p.estimateDate?.seconds ? new Date(p.estimateDate.seconds * 1000) : createdDate);
+    events.push({ type: 'est', title: 'Estimate: $' + Number(p.estimateTotal || p.totalRCV || 0).toLocaleString(), detail: p.estimateNotes || 'Estimate generated for project.', date: d });
+  }
+
+  // Photos
+  if (p.photos && p.photos.length) {
+    events.push({ type: 'photo', title: p.photos.length + ' Photos Captured', detail: 'Inspection photos on file.', date: p.inspectionDate?.toDate ? p.inspectionDate.toDate() : createdDate });
+  }
+
+  // Tasks
+  if (p.tasks && Array.isArray(p.tasks)) {
+    p.tasks.forEach(t => {
+      const d = t.createdAt?.toDate ? t.createdAt.toDate() : createdDate;
+      events.push({ type: 'task', title: (t.done ? '\u2705 ' : '\u23F3 ') + (t.text || 'Task'), detail: t.notes || '', date: d });
+    });
+  }
+
+  // Documents
+  if (p.documents && Array.isArray(p.documents)) {
+    p.documents.forEach(doc => {
+      const d = doc.createdAt?.toDate ? doc.createdAt.toDate() : createdDate;
+      events.push({ type: 'doc', title: doc.name || 'Document', detail: doc.type || '', date: d });
+    });
+  }
+
+  // Notes
+  if (p.notes) {
+    events.push({ type: 'note', title: 'Notes', detail: p.notes, date: createdDate });
+  }
+
+  // Sort newest first
+  events.sort((a, b) => b.date - a.date);
+
+  if (events.length === 0) {
+    container.innerHTML = '<div class="tl-empty">No timeline events yet for this project.</div>';
+    return;
+  }
+
+  events.forEach((ev, i) => {
+    const isLatest = i === 0;
+    const item = document.createElement('div');
+    item.className = 'tl-item';
+    item.innerHTML = `
+      <div class="tl-rail">
+        <div class="tl-dot ${isLatest ? 'latest' : ev.type}"></div>
+        ${i < events.length - 1 ? '<div class="tl-track"></div>' : ''}
+      </div>
+      <div class="tl-body">
+        <div class="tl-card">
+          <span class="tl-type ${ev.type}">${ev.type.toUpperCase()}</span>
+          <div class="tl-title">${escHTML(ev.title)}</div>
+          <div class="tl-date">${formatDate(ev.date)}</div>
+          ${ev.detail ? '<div class="tl-detail">' + escHTML(ev.detail) + '</div>' : ''}
+        </div>
+      </div>`;
+    container.appendChild(item);
+  });
+}
+
+/* ── AI Chat ── */
+function resetAiChat() {
+  aiHistory = [];
+  const msgs = document.getElementById('aiMsgs');
+  msgs.innerHTML = '<div class="ai-empty">Ask anything about this project. I have the full context.</div>';
+  document.getElementById('aiChips').style.display = '';
+}
+
+async function sendAiMessage() {
+  const input = document.getElementById('aiInput');
+  const q = input.value.trim();
+  if (!q || !currentProject) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('aiChips').style.display = 'none';
+
+  const msgs = document.getElementById('aiMsgs');
+  // Remove empty state
+  const empty = msgs.querySelector('.ai-empty');
+  if (empty) empty.remove();
+
+  // Add user message
+  appendMsg('user', q);
+  aiHistory.push({ role: 'user', content: q });
+
+  // Show typing
+  const typing = document.createElement('div');
+  typing.className = 'ai-typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const sendBtn = document.getElementById('aiSend');
+  sendBtn.disabled = true;
+
+  try {
+    if (!window.callClaude) throw new Error('AI proxy not loaded. Refresh and try again.');
+
+    const projectCtx = buildProjectContext();
+    const systemPrompt = `You are the NBD Pro Project Codex AI assistant. You help roofing contractors manage their projects.
+
+You have full context about this specific project:
+${projectCtx}
+
+Answer questions about this project concisely and professionally. When drafting emails or documents, use a friendly but professional tone appropriate for a roofing contractor communicating with homeowners.
+
+Format responses with clear structure. Use bullet points for lists. Keep responses focused and actionable.`;
+
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1200,
+      system: systemPrompt,
+      messages: aiHistory.slice(-10) // keep last 10 messages for context
+    });
+
+    typing.remove();
+
+    const reply = result?.content?.[0]?.text || result?.content || 'No response received.';
+    aiHistory.push({ role: 'assistant', content: reply });
+    appendMsg('ai', reply);
+
+  } catch (err) {
+    typing.remove();
+    appendMsg('ai', 'Error: ' + err.message);
+    toast('AI request failed: ' + err.message, 'err');
+  }
+
+  sendBtn.disabled = false;
+}
+
+function appendMsg(role, text) {
+  const msgs = document.getElementById('aiMsgs');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ' + role;
+  if (role === 'ai') {
+    div.innerHTML = formatAiText(text);
+  } else {
+    div.textContent = text;
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function formatAiText(text) {
+  // Basic markdown-lite formatting
+  let html = escHTML(text);
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Bullet lists
+  html = html.replace(/^[-\u2022]\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+  // Fix nested ul
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  // Numbered lists
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+  // Paragraphs
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return html;
+}
+
+/* ── Build Project Context for AI ── */
+function buildProjectContext() {
+  const p = currentProject;
+  if (!p) return 'No project selected.';
+
+  const lines = [];
+  lines.push('PROJECT: ' + (p.firstName || '') + ' ' + (p.lastName || ''));
+  lines.push('ADDRESS: ' + (p.address || 'Not set'));
+  lines.push('PHONE: ' + (p.phone || 'Not set'));
+  lines.push('EMAIL: ' + (p.email || 'Not set'));
+  lines.push('STAGE: ' + (p.stage || 'new'));
+  lines.push('SOURCE: ' + (p.source || 'manual'));
+  lines.push('DAMAGE TYPE: ' + (p.damageType || 'Not specified'));
+
+  const created = p.createdAt?.toDate ? p.createdAt.toDate() : (p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000) : null);
+  if (created) lines.push('CREATED: ' + created.toLocaleDateString());
+
+  if (p.estimateTotal || p.totalRCV) lines.push('ESTIMATE VALUE: $' + Number(p.estimateTotal || p.totalRCV).toLocaleString());
+  if (p.cashPrice) lines.push('CASH PRICE: $' + Number(p.cashPrice).toLocaleString());
+  if (p.deductible) lines.push('DEDUCTIBLE: $' + Number(p.deductible).toLocaleString());
+  if (p.insuranceCarrier) lines.push('INSURANCE: ' + p.insuranceCarrier);
+  if (p.claimNumber) lines.push('CLAIM #: ' + p.claimNumber);
+  if (p.notes) lines.push('NOTES: ' + p.notes);
+
+  if (p.photos && p.photos.length) lines.push('PHOTOS: ' + p.photos.length + ' on file');
+
+  if (p.stageHistory && Array.isArray(p.stageHistory)) {
+    lines.push('STAGE HISTORY:');
+    p.stageHistory.forEach(h => {
+      const d = h.at?.toDate ? h.at.toDate() : null;
+      lines.push('  - ' + (h.to || '').replace(/_/g, ' ') + (d ? ' (' + d.toLocaleDateString() + ')' : '') + (h.note ? ': ' + h.note : ''));
+    });
+  }
+
+  if (p.tasks && Array.isArray(p.tasks)) {
+    lines.push('TASKS:');
+    p.tasks.forEach(t => {
+      lines.push('  - [' + (t.done ? 'DONE' : 'OPEN') + '] ' + (t.text || 'Task'));
+    });
+  }
+
+  return lines.join('\n');
+}
+
+/* ── Quick Actions ── */
+async function runAction(type) {
+  if (!currentProject) {
+    toast('Select a project first.', 'err');
+    return;
+  }
+
+  const card = event.currentTarget;
+  card.classList.add('loading');
+
+  const ctx = buildProjectContext();
+  const prompts = {
+    scope: `Based on this roofing project data, generate a professional Scope of Work document. Include sections for: Project Overview, Work Description, Materials, Timeline, and Terms.\n\nProject data:\n${ctx}`,
+    followup: `Draft a professional follow-up email from a roofing contractor to the homeowner for this project. Be warm but professional. Include project status and next steps.\n\nProject data:\n${ctx}`,
+    checklist: `Generate a pre-build checklist for this roofing project. Include materials ordering, permits, crew scheduling, homeowner communication, and safety items.\n\nProject data:\n${ctx}`,
+    supplement: `Analyze this roofing project and suggest potential insurance supplement line items. Consider common items adjusters miss: drip edge, ice & water shield, pipe jacks, step flashing, ridge vent, starter strip, and code upgrades.\n\nProject data:\n${ctx}`,
+    closeout: `Generate a complete job close-out summary for this roofing project. Include: project overview, work completed, timeline recap, financial summary, and recommendations for the homeowner.\n\nProject data:\n${ctx}`,
+    review: `Generate a personalized review request message for this roofing project homeowner. Make it friendly, reference the specific work done, and suggest Google and Facebook as review platforms.\n\nProject data:\n${ctx}`
+  };
+
+  const titles = {
+    scope: 'Scope of Work',
+    followup: 'Follow-Up Email',
+    checklist: 'Pre-Build Checklist',
+    supplement: 'Supplement Strategy',
+    closeout: 'Close-Out Summary',
+    review: 'Review Request'
+  };
+
+  try {
+    if (!window.callClaude) throw new Error('AI proxy not loaded.');
+
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      system: 'You are an expert roofing contractor assistant for NBD Pro. Generate professional, actionable documents. Use clear formatting with headers and bullet points.',
+      messages: [{ role: 'user', content: prompts[type] }]
+    });
+
+    const text = result?.content?.[0]?.text || result?.content || 'No response.';
+    showModal(titles[type], text);
+
+  } catch (err) {
+    toast('Action failed: ' + err.message, 'err');
+  }
+
+  card.classList.remove('loading');
+}
+
+/* ── Modal ── */
+function showModal(title, content) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = formatAiText(content);
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalBg').classList.remove('open');
+}
+
+function copyModal() {
+  const text = document.getElementById('modalBody').innerText;
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard!', 'ok')).catch(() => toast('Copy failed', 'err'));
+}
+
+/* ── Toast ── */
+function toast(msg, type) {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+/* ── Helpers ── */
+function escHTML(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch { return ''; }
+}
+
+/* ── Keyboard shortcut: Escape closes modal ── */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ── Try init if auth already ready ── */
+if (window._firebaseReady) initCodex();
 </script>
 </body>
 </html>
