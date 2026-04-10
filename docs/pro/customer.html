@@ -973,7 +973,7 @@ header {
         <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='#e8720c'" onmouseout="this.style.borderColor=''">
           <div style="font-size:28px;margin-bottom:6px;">+</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse - JPG, PNG, HEIC up to 10MB</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse — JPG, PNG, HEIC, WebP, AVIF up to 15MB</div>
         </div>
       </div>
     </div>
@@ -1178,12 +1178,12 @@ header {
       <button class="modal-close" onclick="closeUploadModal()">×</button>
     </div>
     
-    <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
       <div class="upload-text">Click to browse or drag photos here</div>
-      <div class="upload-hint">Supports: JPG, PNG, HEIC • Max 10MB per file</div>
+      <div class="upload-hint">Supports: JPG, PNG, HEIC, HEIF, WebP, AVIF • Max 15MB per file</div>
     </div>
     
     <div class="upload-preview" id="uploadPreview"></div>
@@ -2973,11 +2973,30 @@ function initPhotoUploadHandlers() {
   uploadZone.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadZone.classList.remove('drag-over');
-    
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+
+    const files = Array.from(e.dataTransfer.files).filter(isSupportedImageFile);
     addFilesToQueue(files);
   });
 }
+
+// ── HEIC-aware image detector ──
+// Chrome on Windows / some Firefox versions return an EMPTY MIME type
+// for HEIC files from iPhone. Falling back to filename extension fixes
+// the false-negative. Also accepts jpeg/png/webp/gif/heic/heif/avif.
+const SUPPORTED_IMAGE_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?)$/i;
+const SUPPORTED_IMAGE_MIME = /^image\/(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?)$/i;
+function isSupportedImageFile(file) {
+  if (!file) return false;
+  // Prefer MIME type when the browser fills it in
+  if (file.type && SUPPORTED_IMAGE_MIME.test(file.type)) return true;
+  // Generic 'image/*' match (browser told us it's an image)
+  if (file.type && file.type.startsWith('image/')) return true;
+  // Fallback: check filename extension (handles empty-MIME HEIC case)
+  if (file.name && SUPPORTED_IMAGE_EXT.test(file.name)) return true;
+  return false;
+}
+// Expose globally so other handlers can reuse it
+window.isSupportedImageFile = isSupportedImageFile;
 
 // Call initialization when modal is opened
 const originalOpenUploadModal = window.openUploadModal;
@@ -2994,15 +3013,15 @@ window.handleFileSelect = function(event) {
 
 function addFilesToQueue(files) {
   files.forEach(file => {
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert(`File ${file.name} is too large. Max size is 10MB.`);
+    // Validate file size (max 15MB — iPhone HEIC photos often exceed 10MB)
+    if (file.size > 15 * 1024 * 1024) {
+      alert(`File ${file.name} is too large (${(file.size/1024/1024).toFixed(1)} MB). Max size is 15 MB.`);
       return;
     }
-    
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert(`File ${file.name} is not an image.`);
+
+    // Validate file type — HEIC-aware (checks MIME + filename extension)
+    if (!isSupportedImageFile(file)) {
+      alert(`File ${file.name} is not a supported image type. Supported: JPG, PNG, HEIC, HEIF, WebP, GIF, AVIF.`);
       return;
     }
     

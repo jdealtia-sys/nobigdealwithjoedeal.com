@@ -1229,7 +1229,9 @@
   function capturePhoto() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    // Accept iPhone HEIC + modern formats. 'image/*' alone drops HEIC
+    // on desktop Chrome; explicit extensions fix that.
+    input.accept = 'image/*,.heic,.heif,.avif';
     input.capture = 'environment';
     input.multiple = true;
     input.onchange = async (e) => {
