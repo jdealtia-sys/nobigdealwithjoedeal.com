@@ -5,24 +5,60 @@
 // ============================================================
 
 // Default pricing table (Cincinnati/Ohio market fallback)
+//
+// UNIT CONVENTION: all SF-based items (shingle, felt, tear, iws, deck)
+// are stored PER SQUARE (100 SF), not per SF. The calcTierPrices()
+// formulas multiply by `sq` (the count of 100-SF squares), so these
+// rates must be dollars per square. Historical bug: previously these
+// were stored as per-SF ($4.25/SF for shingle) but the formula used
+// squares, producing estimates ~30x below real market. Example of
+// the fix impact: a 54-sq (3900 SF raw) Good-tier reroof was quoting
+// $1,194 — now correctly quotes ~$12,000.
+//
+// LF items (starter, drip, ridge, hip, gutter) stay per LF.
+// Count items (pipe) stay per EA.
 const DEFAULT_RATES = {
-  shingle: 4.25, felt: 0.45, tear: 1.75, starter: 2.10, drip: 1.85,
-  ridge: 5.50, iws: 2.25, hip: 5.75, pipe: 45.00, deck: 2.50,
-  gutter: 8.50, deckPct: 0.15
+  // SF-based materials — PER SQUARE (100 SF)
+  shingle: 135,    // $/SQ — 30-yr architectural retail installed
+  felt: 35,        // $/SQ — synthetic underlayment
+  tear: 75,        // $/SQ — tear-off labor (1 layer)
+  iws: 95,         // $/SQ — ice & water shield
+  deck: 145,       // $/SQ — OSB decking material + labor
+  // LF-based — PER LINEAR FOOT
+  starter: 2.10,   // $/LF
+  drip: 1.85,      // $/LF
+  ridge: 5.50,     // $/LF ridge cap
+  hip: 5.75,       // $/LF hip cap
+  gutter: 8.50,    // $/LF seamless aluminum
+  // Count-based
+  pipe: 45.00,     // $/EA — pipe boot
+  // Fractional
+  deckPct: 0.15    // 15% deck allowance
 };
 
-// Product Library → Estimate Rate Mapping
-// Maps estimate line-item codes to product library IDs
+// Product Library → Estimate Rate Mapping.
+// Each entry says: "when syncRatesFromProductLibrary() runs, look up
+// product.pricing[tier].sell and multiply by unitConvert to produce
+// the value stored in window.R[key]."
+//
+// Product prices are native to their own units (per SQ for shingles,
+// per 25-LF bundle for ridge, etc.). unitConvert bridges that to the
+// rate unit required by the calcTierPrices formulas.
+//
+// For SF-based items the target unit is PER SQ (100 SF), matching
+// the DEFAULT_RATES convention above. Previously these used 1/100
+// to convert to per-SF, which produced rates the formula couldn't
+// use correctly.
 const PRODUCT_MAP = {
-  shingle: { id: 'shingle_001', unitConvert: 1/100 }, // product is per SQ (100sqft), rate is per sqft
-  felt:    { id: 'under_001',   unitConvert: 1/100 }, // product per SQ, rate per sqft
+  shingle: { id: 'shingle_001', unitConvert: 1 },     // product per SQ → rate per SQ
+  felt:    { id: 'under_001',   unitConvert: 1 },     // product per SQ → rate per SQ
   tear:    null,                                        // labor only — no product mapping
-  starter: { id: 'flash_008',  unitConvert: 1/100 }, // product per BDNL (~100LF), rate per LF
-  drip:    { id: 'flash_003',  unitConvert: 1 },     // product per LF, rate per LF
-  ridge:   { id: 'flash_007',  unitConvert: 1/25 },  // product per BDNL (~25LF), rate per LF
-  iws:     { id: 'under_006',  unitConvert: 1/200 }, // product per RL (200SF), rate per sqft
-  hip:     { id: 'flash_007',  unitConvert: 1/25 },  // same as ridge
-  pipe:    { id: 'flash_002',  unitConvert: 1 },     // product per EA, rate per EA
+  starter: { id: 'flash_008',   unitConvert: 1/100 }, // product per 100-LF bundle → rate per LF
+  drip:    { id: 'flash_003',   unitConvert: 1 },     // product per LF → rate per LF
+  ridge:   { id: 'flash_007',   unitConvert: 1/25 },  // product per 25-LF bundle → rate per LF
+  iws:     { id: 'under_006',   unitConvert: 1/2 },   // product per 2-SQ roll (200 SF) → rate per SQ
+  hip:     { id: 'flash_007',   unitConvert: 1/25 },  // same as ridge
+  pipe:    { id: 'flash_002',   unitConvert: 1 },     // product per EA → rate per EA
   deck:    null,                                        // decking — use default rate
   gutter:  null                                         // gutters — use default rate
 };
@@ -200,28 +236,39 @@ function buildReview() {
   estData.tierName=tierNames[selectedTier]; estData.rows=rows;
 
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Escape every interpolated user-typed value. The classic review
+  // step was previously dropping addr/owner/parcel/yr/roofType + row
+  // descriptions straight into innerHTML, meaning any user who typed
+  // HTML into an address would get it rendered on the review page
+  // (self-XSS if they paste a malicious address from elsewhere).
+  // The esc() helper here runs locally so this file has no external
+  // dependency on dom-safe.js even if script load order shifts.
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
   document.getElementById('estReviewBody').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
       <div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Property</div>
-        <div style="font-size:14px;font-weight:600;color:var(--blue);">${addr}</div>
-        <div style="font-size:12px;color:var(--m);">${owner} · Parcel: ${parcel} · Built: ${yr}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--blue);">${esc(addr)}</div>
+        <div style="font-size:12px;color:var(--m);">${esc(owner)} · Parcel: ${esc(parcel)} · Built: ${esc(yr)}</div>
       </div>
       <div style="text-align:right;">
         <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);">Estimate Total</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:var(--orange);">${fmt(grandTotal)}</div>
-        <div style="font-size:11px;color:var(--m);">${tierNames[selectedTier]}</div>
+        <div style="font-size:11px;color:var(--m);">${esc(tierNames[selectedTier])}</div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;font-size:11px;">
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Roof Type</div><div style="font-weight:700;">${roofType}</div></div>
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Pitch</div><div style="font-weight:700;">${d.pl}</div></div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Roof Type</div><div style="font-weight:700;">${esc(roofType)}</div></div>
+      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Pitch</div><div style="font-weight:700;">${esc(d.pl)}</div></div>
       <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;"><div style="color:var(--m);margin-bottom:3px;">Squares</div><div style="font-weight:700;">${d.sq.toFixed(2)} SQ</div></div>
     </div>
     <table class="li-table">
       <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
       <tbody>
-        ${rows.map(r=>`<tr><td class="code">${r.code}</td><td>${r.desc}</td><td>${r.qty}</td><td>${r.rate}</td><td><strong>${fmt(r.total)}</strong></td></tr>`).join('')}
+        ${rows.map(r=>`<tr><td class="code">${esc(r.code)}</td><td>${esc(r.desc)}</td><td>${esc(r.qty)}</td><td>${esc(r.rate)}</td><td><strong>${fmt(r.total)}</strong></td></tr>`).join('')}
         <tr class="total-row grand"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(grandTotal)}</strong></td></tr>
       </tbody>
     </table>`;
@@ -303,7 +350,19 @@ function exportEstimate() {
   const rows=d.rows||getLineItems();
   const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Roofing Estimate — ${d.addr}</title>
+  // Escape every user-typed interpolation. This HTML is written to
+  // a brand-new window via document.write — if any field contains
+  // </script> or <img onerror> we'd execute attacker code in the
+  // new window's origin (same-origin, so it could read cookies and
+  // Firebase tokens). Every d.* and r.* interpolation below must
+  // run through esc() with the single exception of numeric values
+  // like fmt(d.grandTotal) and d.sq.toFixed() which are always
+  // pure numbers out of parseFloat.
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Roofing Estimate — ${esc(d.addr)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
   .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
@@ -332,27 +391,27 @@ function exportEstimate() {
   </style></head><body>
   <div class="hdr">
     <div><div class="brand">No Big <span>Deal</span></div><div class="sub">Home Solutions</div><div class="badge">Insurance Restoration</div></div>
-    <div class="est-hdr"><div class="est-type">${tierNames[selectedTier]||'Estimate'}</div><div class="est-date">${dateStr}</div>
+    <div class="est-hdr"><div class="est-type">${esc(tierNames[selectedTier]||'Estimate')}</div><div class="est-date">${esc(dateStr)}</div>
       <div class="est-total-lbl">Estimate Total</div><div class="est-total-val">${fmt(d.grandTotal)}</div></div>
   </div>
   <h2>Property Information</h2>
   <div class="prop-grid">
-    <div class="prop-field"><label>Address</label><div class="v">${d.addr||'—'}</div></div>
-    <div class="prop-field"><label>Owner</label><div class="v">${d.owner||'—'}</div></div>
-    <div class="prop-field"><label>Parcel</label><div class="v">${d.parcel||'—'}</div></div>
-    <div class="prop-field"><label>Year Built</label><div class="v">${d.yr||'—'}</div></div>
+    <div class="prop-field"><label>Address</label><div class="v">${esc(d.addr||'—')}</div></div>
+    <div class="prop-field"><label>Owner</label><div class="v">${esc(d.owner||'—')}</div></div>
+    <div class="prop-field"><label>Parcel</label><div class="v">${esc(d.parcel||'—')}</div></div>
+    <div class="prop-field"><label>Year Built</label><div class="v">${esc(d.yr||'—')}</div></div>
   </div>
   <h2>Measurements</h2>
   <div class="meas-grid">
-    <div class="mf"><label>Pitch</label><div class="v">${d.pl||'—'}</div></div>
+    <div class="mf"><label>Pitch</label><div class="v">${esc(d.pl||'—')}</div></div>
     <div class="mf"><label>Squares</label><div class="v">${d.sq?d.sq.toFixed(2):'—'} SQ</div></div>
-    <div class="mf"><label>Roof Type</label><div class="v">${d.roofType||'—'}</div></div>
+    <div class="mf"><label>Roof Type</label><div class="v">${esc(d.roofType||'—')}</div></div>
   </div>
   <h2>Line Items</h2>
   <table>
     <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
     <tbody>
-      ${rows.map(r=>'<tr><td class="code">'+r.code+'</td><td>'+r.desc+'</td><td>'+r.qty+'</td><td>'+r.rate+'</td><td class="total-cell">'+fmt(r.total)+'</td></tr>').join('')}
+      ${rows.map(r=>'<tr><td class="code">'+esc(r.code)+'</td><td>'+esc(r.desc)+'</td><td>'+esc(r.qty)+'</td><td>'+esc(r.rate)+'</td><td class="total-cell">'+fmt(r.total)+'</td></tr>').join('')}
       <tr class="grand-row"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(d.grandTotal)}</strong></td></tr>
     </tbody>
   </table>

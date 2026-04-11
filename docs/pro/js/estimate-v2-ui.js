@@ -760,13 +760,21 @@
     // all the finish flashing most houses actually need. Adds
     // chimney + step flashing which the prior preset was missing,
     // so the quote doesn't short the field crew on flashing labor.
+    //
+    // Dumpster sizes: we include all three sq-gated sizes so the
+    // engine's self-selecting formulas pick exactly one based on
+    // the actual roof size. A 22-sq roof gets 20YD, a 33-sq roof
+    // gets 30YD, a 45-sq roof gets 40YD. The other two resolve
+    // to qty=0 and sit at $0 in the scope list. User can remove
+    // the zero-qty ones if they want a cleaner quote.
     'standard-reroof': {
       codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG STPF-AL',
-        'RFG RIDG-VNT', 'RFG NAIL-C', 'DSP 30YD', 'PRM RES-OH',
-        'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
+        'RFG RIDG-VNT', 'RFG NAIL-C',
+        'DSP 20YD', 'DSP 30YD', 'DSP 40YD',
+        'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
       measurements: null
     },
@@ -778,7 +786,8 @@
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG STPF-AL',
-        'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 30YD',
+        'RFG RIDG-VNT', 'RFG NAIL-LUMA',
+        'DSP 20YD', 'DSP 30YD', 'DSP 40YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'LAB PHOTO',
         'LAB WALK', 'CUP IWS-E', 'CUP KICK'
       ],
@@ -830,7 +839,8 @@
         'LAB TO1', 'RFG OSB716', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS',
         'RFG STRT', 'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG STPF-AL',
-        'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 40YD',
+        'RFG RIDG-VNT', 'RFG NAIL-LUMA',
+        'DSP 30YD', 'DSP 40YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
       // Partial measurement override — only the keys listed get
@@ -1027,7 +1037,22 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-    listDiv.innerHTML = estimate.lines.map(line => {
+    // Hide zero-qty dumpster lines (DSP 20YD / 30YD / 40YD) so
+    // when a preset loads all three sizes only the one the engine
+    // self-selected for the actual roof size actually renders.
+    // User can still remove the live one via the × button; if they
+    // want an alternate size, they re-add from the catalog.
+    // Only dumpster codes are filtered — every other zero-qty line
+    // (e.g. step flashing with wallLf=0) still shows so the user
+    // can see what's in scope and pencil a quantity in.
+    const visibleLines = estimate.lines.filter(line => {
+      if (line.quantity > 0) return true;
+      // Filter zero-qty auto-gated dumpsters
+      if (/^DSP\s+\d+YD$/.test(line.code)) return false;
+      return true;
+    });
+
+    listDiv.innerHTML = visibleLines.map(line => {
       const qtyDecimals = (line.unit === 'SQ' || line.unit === 'LF') ? 1 : 0;
       const safeQty = (Number(line.quantity) || 0).toFixed(qtyDecimals);
       const overridden = !!line.qtyOverridden;
