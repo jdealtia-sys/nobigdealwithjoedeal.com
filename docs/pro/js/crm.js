@@ -567,28 +567,185 @@ document.addEventListener('dragend', e=>{
   _dragId = null;
 });
 
+// ═══════════════════════════════════════════════════════════
+// Lost reason prompt — shown once when a lead is first moved to
+// the 'Lost' stage. Captures a reason (optional) so the Rep
+// Report Generator's Win/Loss Analysis metric has data to
+// pattern-match on. Returns:
+//   - string    (user picked a reason or typed a custom one)
+//   - null      (user skipped, no reason recorded)
+//   - false     (user hit Cancel — caller should abort the move)
+// DOM built with createElement so no XSS risk from user notes.
+// ═══════════════════════════════════════════════════════════
+function promptLostReason(lead) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('nbd-lost-reason-modal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-lost-reason-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);border-radius:12px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);';
+
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'margin-bottom:16px;';
+    const hdrTitle = document.createElement('div');
+    hdrTitle.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--t);text-transform:uppercase;letter-spacing:.04em;";
+    hdrTitle.textContent = 'Why Lost?';
+    const hdrSub = document.createElement('div');
+    hdrSub.style.cssText = 'font-size:12px;color:var(--m);margin-top:4px;';
+    const customerName = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'This customer';
+    hdrSub.textContent = customerName + ' — pick a reason to help future reporting (optional)';
+    hdr.appendChild(hdrTitle);
+    hdr.appendChild(hdrSub);
+    sheet.appendChild(hdr);
+
+    const reasons = [
+      { key: 'price',              label: 'Price — too expensive' },
+      { key: 'timing',             label: 'Timing — not ready yet' },
+      { key: 'no_claim',           label: 'No insurance claim approved' },
+      { key: 'no_response',        label: 'Ghosted / no response' },
+      { key: 'competitor',         label: 'Chose a competitor' },
+      { key: 'insurance_denial',   label: 'Insurance denied the claim' },
+      { key: 'other',              label: 'Other (type below)' }
+    ];
+    let selected = null;
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;';
+    reasons.forEach(r => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = r.label;
+      btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--t);padding:10px 12px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;text-align:left;transition:all .15s;';
+      btn.addEventListener('mouseenter', () => { btn.style.borderColor = '#e8720c'; });
+      btn.addEventListener('mouseleave', () => { if (selected !== r.key) btn.style.borderColor = 'var(--br)'; });
+      btn.addEventListener('click', () => {
+        selected = r.key;
+        grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'var(--br)'; b.style.background = 'var(--s2)'; });
+        btn.style.borderColor = '#e8720c';
+        btn.style.background = 'rgba(232,114,12,.08)';
+        if (r.key === 'other') customInput.focus();
+      });
+      grid.appendChild(btn);
+    });
+    sheet.appendChild(grid);
+
+    const customLabel = document.createElement('label');
+    customLabel.style.cssText = 'display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin-bottom:6px;';
+    customLabel.textContent = 'Or type a custom reason';
+    const customInput = document.createElement('textarea');
+    customInput.rows = 2;
+    customInput.placeholder = 'Optional — e.g. adjuster lowballed and customer would not negotiate';
+    customInput.style.cssText = 'width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:12px;outline:none;resize:vertical;';
+    sheet.appendChild(customLabel);
+    sheet.appendChild(customInput);
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px;';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel Move';
+    cancelBtn.style.cssText = 'background:none;border:1px solid var(--br);color:var(--m);padding:10px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;';
+    cancelBtn.addEventListener('click', () => { overlay.remove(); resolve(false); });
+
+    const right = document.createElement('div');
+    right.style.cssText = 'display:flex;gap:8px;';
+
+    const skipBtn = document.createElement('button');
+    skipBtn.type = 'button';
+    skipBtn.textContent = 'Skip — no reason';
+    skipBtn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;';
+    skipBtn.addEventListener('click', () => { overlay.remove(); resolve(null); });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Mark Lost';
+    saveBtn.style.cssText = 'background:#e8720c;border:1px solid #e8720c;color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;';
+    saveBtn.addEventListener('click', () => {
+      const custom = customInput.value.trim();
+      let reason = null;
+      if (custom) {
+        // Custom takes precedence over preset if both are present
+        reason = custom.substring(0, 300);
+      } else if (selected) {
+        const r = reasons.find(x => x.key === selected);
+        reason = r ? r.label : null;
+      }
+      overlay.remove();
+      resolve(reason);
+    });
+
+    right.appendChild(skipBtn);
+    right.appendChild(saveBtn);
+    footer.appendChild(cancelBtn);
+    footer.appendChild(right);
+    sheet.appendChild(footer);
+
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+
+    // Click outside cancels (same as Cancel button)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { overlay.remove(); resolve(false); }
+    });
+    // Esc cancels
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+        resolve(false);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+  });
+}
+
 async function moveCard(id, newStage){
   const lead = (window._leads||[]).find(l=>l.id===id);
   if(!lead) return;
   // Prevent concurrent moves on the same card
   if(lead._pending){ if(typeof showToast==='function') showToast('Move in progress...','info'); return; }
-  lead._pending = true;
 
   const oldStage = lead.stage || 'New';
   const oldStageKey = lead._stageKey || oldStage;
+
+  // ─── Lost-reason prompt ───
+  // When a lead moves to 'lost' (or 'Lost'), capture an optional
+  // reason so the Win/Loss Analysis metric in the Rep Report
+  // Generator can show patterns. User can pick a preset, type a
+  // custom reason, or skip entirely. Canceling the prompt cancels
+  // the move.
+  let lostReason = null;
+  const isLostMove = /^lost$/i.test(String(newStage || ''));
+  if (isLostMove && !lead.lostReason) {
+    lostReason = await promptLostReason(lead);
+    if (lostReason === false) {
+      // User canceled the prompt — do NOT move the card
+      if (typeof showToast === 'function') showToast('Move canceled', 'info');
+      return;
+    }
+    // lostReason is either a string or null (skip)
+  }
+
+  lead._pending = true;
 
   // ══════════════════════════════════════════════
   // OPTIMISTIC UPDATE — Update UI immediately
   // ══════════════════════════════════════════════
   lead.stage = newStage;
   lead._stageKey = window.normalizeStage ? window.normalizeStage(newStage) : newStage;
-  
+  if (isLostMove && lostReason) lead.lostReason = lostReason;
+
   // Mark as syncing (add visual indicator)
   lead._syncing = true;
-  
+
   // Render immediately with new stage
   renderLeads(window._leads, window._filteredLeads);
-  
+
   // Record stage change in history
   const historyEvent = {
     from: oldStage,
@@ -596,15 +753,21 @@ async function moveCard(id, newStage){
     timestamp: new Date().toISOString(),
     user: window._currentUser?.email || 'unknown'
   };
-  
+  if (isLostMove && lostReason) historyEvent.lostReason = lostReason;
+
   try {
     // Save to Firebase in background
     const leadRef = window.doc(window.db, 'leads', id);
-    await window.updateDoc(leadRef, {
+    const updatePayload = {
       stage: newStage,
       updatedAt: window.serverTimestamp(),
       stageHistory: window.arrayUnion(historyEvent)
-    });
+    };
+    if (isLostMove) {
+      updatePayload.closedAt = window.serverTimestamp();
+      if (lostReason) updatePayload.lostReason = lostReason;
+    }
+    await window.updateDoc(leadRef, updatePayload);
     
     // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
