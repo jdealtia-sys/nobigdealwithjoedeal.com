@@ -2,19 +2,19 @@ name: Firebase deploy
 
 # Auto-deploys the site to Firebase on every push to main.
 #
-# Deploys in the correct order:
+# Gracefully skips when the FIREBASE_SERVICE_ACCOUNT secret is not
+# configured — that way this file can live in main from day one
+# without generating failure emails before go-live.
+#
+# Deploy order (when the secret IS set):
 #   1. Firestore rules (pro project)
 #   2. Storage rules
 #   3. Cloud Functions
 #   4. Hosting
 #   5. Marketing-project Firestore rules (separate project)
 #
-# Also includes a manual trigger (workflow_dispatch) so you can re-deploy
-# without pushing a commit — useful if a deploy gets stuck or you rotate
-# a secret and want to force functions to pick it up.
-#
 # ─────────────────────────────────────────────────────────────
-# REQUIRED GITHUB ACTIONS SECRET
+# REQUIRED GITHUB ACTIONS SECRET (one-time setup to enable deploys)
 # ─────────────────────────────────────────────────────────────
 # Name:  FIREBASE_SERVICE_ACCOUNT
 # Value: the contents of a Firebase service-account JSON file with
@@ -22,17 +22,16 @@ name: Firebase deploy
 #        Hosting Admin + Firebase Rules Admin roles.
 #
 # How to generate:
-#   1. Firebase Console → Project Settings → Service accounts
-#      → "Generate new private key" → download JSON
-#   2. GitHub repo → Settings → Secrets and variables → Actions
-#      → New repository secret → name: FIREBASE_SERVICE_ACCOUNT,
+#   1. Firebase Console → Project Settings → Service accounts →
+#      "Generate new private key" → download JSON
+#   2. GitHub repo → Settings → Secrets and variables → Actions →
+#      New repository secret → name: FIREBASE_SERVICE_ACCOUNT,
 #      value: paste the entire JSON file contents
 #   3. NEVER commit the JSON to the repo. GitHub Secrets are the
 #      only place it should live.
 #
-# The workflow uses `npx firebase-tools` with
-# GOOGLE_APPLICATION_CREDENTIALS pointed at a temp file, so the
-# service account JSON is never written to a persistent location.
+# Until the secret is set, every workflow run will be a quick
+# "skipped — secret not configured" notice, NOT a failure email.
 # ─────────────────────────────────────────────────────────────
 
 on:
@@ -40,7 +39,7 @@ on:
     branches:
       - main
     paths:
-      # Don't trigger on docs-only changes (GO_LIVE.md etc)
+      # Skip doc-only changes
       - 'docs/**'
       - 'functions/**'
       - 'firestore.rules'
@@ -51,7 +50,7 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'What to deploy (default: everything)'
+        description: 'What to deploy'
         required: true
         default: 'all'
         type: choice
@@ -67,8 +66,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ─────────────────────────────────────────────────────────
+  # check — read whether the secret is set. Always succeeds.
+  # Outputs `configured=true|false` for the deploy job's `if:`.
+  # This runs without accessing the secret's value, only its presence,
+  # so it's cheap and GitHub-Actions-safe.
+  # ─────────────────────────────────────────────────────────
+  check:
+    name: Check if Firebase credentials are configured
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT is set — proceeding to deploy."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### ⏸ Firebase deploy skipped"
+              echo ""
+              echo "The \`FIREBASE_SERVICE_ACCOUNT\` repository secret is not configured yet."
+              echo "Auto-deploy is intentionally disabled until it's set — this is a safety feature, not an error."
+              echo ""
+              echo "**To enable auto-deploy:**"
+              echo ""
+              echo "1. Firebase Console → Project Settings → Service Accounts → *Generate new private key* → download the JSON."
+              echo "2. GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**"
+              echo "   - Name: \`FIREBASE_SERVICE_ACCOUNT\`"
+              echo "   - Value: paste the entire JSON file contents"
+              echo "3. Push to main (or manually re-run this workflow from the Actions tab)."
+              echo ""
+              echo "Until then every push will show this notice instead of failing."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT is not set — skipping deploy (this is expected before go-live)."
+          fi
+
+  # ─────────────────────────────────────────────────────────
+  # deploy — runs only when credentials are present. Never runs on
+  # an un-configured repo, so no more failure emails pre-go-live.
+  # ─────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Firebase
+    needs: check
+    if: needs.check.outputs.configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -89,15 +134,25 @@ jobs:
 
       - name: Install Cloud Functions dependencies
         working-directory: functions
-        run: npm ci || npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
 
+      # Writes the service account JSON via an env var instead of shell
+      # interpolation, which avoids GitHub Actions' "possible secret
+      # exposure" warnings and is the recommended pattern.
       - name: Write service-account JSON to a temp file
         id: sa
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           SA_FILE="$RUNNER_TEMP/firebase-sa.json"
-          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$SA_FILE"
+          printf '%s' "$SA_JSON" > "$SA_FILE"
           if [ ! -s "$SA_FILE" ]; then
-            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is empty or missing."
+            echo "::error::FIREBASE_SERVICE_ACCOUNT resolved to empty at deploy time."
             exit 1
           fi
           echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
@@ -131,14 +186,14 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
-          # Swap the pro rules for the marketing rules, deploy against
-          # the marketing project, then restore. Always restore on exit
-          # so the pro rules never get orphaned.
           set -e
           if [ ! -f marketing-site-firestore.rules ]; then
             echo "::warning::marketing-site-firestore.rules not found — skipping"
             exit 0
           fi
+          # Swap the pro rules for the marketing rules, deploy against
+          # the marketing project, then restore. Always restore on exit
+          # so the pro rules never get orphaned.
           cp firestore.rules /tmp/firestore.rules.pro.bak
           trap 'cp /tmp/firestore.rules.pro.bak firestore.rules; rm -f /tmp/firestore.rules.pro.bak' EXIT
           cp marketing-site-firestore.rules firestore.rules
@@ -151,14 +206,16 @@ jobs:
       - name: Deploy summary
         if: success()
         run: |
-          echo "### ✓ Firebase deploy complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Component | Project | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Firestore rules | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Storage rules | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Cloud Functions | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Hosting | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Marketing Firestore rules | $MKT_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Next: run \`./scripts/verify-deploy.sh\` against the live URLs to confirm the smoke tests pass." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### ✓ Firebase deploy complete"
+            echo ""
+            echo "| Component | Project | Status |"
+            echo "|---|---|---|"
+            echo "| Firestore rules | $PRO_PROJECT | deployed |"
+            echo "| Storage rules | $PRO_PROJECT | deployed |"
+            echo "| Cloud Functions | $PRO_PROJECT | deployed |"
+            echo "| Hosting | $PRO_PROJECT | deployed |"
+            echo "| Marketing Firestore rules | $MKT_PROJECT | deployed |"
+            echo ""
+            echo "Next: run \`./scripts/verify-deploy.sh\` against the live URLs to confirm the smoke tests pass."
+          } >> "$GITHUB_STEP_SUMMARY"
