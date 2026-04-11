@@ -649,9 +649,21 @@
     const context = measurements && measurements.__resolved ? measurements : buildContext(measurements);
     const tier = opts.tier || 'better';
 
-    // 1. Quantity from formula (explicit or inferred)
+    // 1. Quantity — per-line override wins over formula. This is how
+    //    the V2 Builder supports "Edit qty" on each scope item, and
+    //    how presets that carry baked-in quantities (e.g. a tiny
+    //    patch) can bypass the measurement-based formulas entirely.
+    //    Override must be a finite non-negative number; anything else
+    //    falls back to the formula path so we never silently NaN.
     const formula = item.qtyFormula || inferQtyFormula(item);
-    const quantity = calcQuantity(formula, context);
+    let quantity;
+    const rawOverride = (item._qtyOverride != null ? item._qtyOverride : item.qtyOverride);
+    const numOverride = Number(rawOverride);
+    if (rawOverride !== undefined && rawOverride !== null && rawOverride !== '' && Number.isFinite(numOverride) && numOverride >= 0) {
+      quantity = numOverride;
+    } else {
+      quantity = calcQuantity(formula, context);
+    }
 
     // 2. Material cost — explicit cost wins, otherwise lookup via materialId
     let matCostPerUnit;
@@ -704,6 +716,7 @@
       unit:           item.unit,
       quantity:       quantity,
       qtyFormula:     formula,
+      qtyOverridden:  (rawOverride !== undefined && rawOverride !== null && rawOverride !== '' && Number.isFinite(numOverride) && numOverride >= 0),
       materialCostPerUnit: matCostPerUnit,
       laborCostPerUnit:    labCostPerUnit,
       unitCost:       matCostPerUnit + labCostPerUnit,

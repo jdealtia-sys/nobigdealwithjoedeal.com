@@ -35,7 +35,11 @@
     customer: { name: '', address: '', phone: '', email: '' },
     claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null },
     searchFilter: '',
-    categoryFilter: 'all'
+    categoryFilter: 'all',
+    // Per-job minimum-charge floor. null means "use engine default"
+    // ($2500). Presets can override this — e.g. Shingle Patch sets
+    // it to $500 so tiny jobs don't get bumped to the full-job floor.
+    minJobCharge: null
   };
 
   // ═════════════════════════════════════════════════════════
@@ -54,13 +58,20 @@
         background:rgba(10,12,15,0.95);
         display:none; overflow:hidden;
         font-family:'Barlow','Helvetica Neue',sans-serif;
+        /* Safe-area insets so the header isn't clipped under the notch
+           and the footer isn't clipped by the home indicator. */
+        padding-top: env(safe-area-inset-top, 0);
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        padding-left: env(safe-area-inset-left, 0);
+        padding-right: env(safe-area-inset-right, 0);
       }
       #estV2Modal.open { display:flex; flex-direction:column; }
       .v2-hdr {
         background:#111418; border-bottom:2px solid #e8720c;
-        padding:14px 24px;
+        padding:12px 20px;
         display:flex; justify-content:space-between; align-items:center;
         flex-shrink:0;
+        gap:12px;
       }
       .v2-title {
         font-family:'Barlow Condensed',sans-serif; font-size:22px;
@@ -73,12 +84,23 @@
         padding:2px 8px; border-radius:2px; letter-spacing:.15em;
         margin-left:10px;
       }
+      /* Close button: iOS HIG minimum 44x44 tap target, clearly
+         visible, orange-filled on mobile so it's impossible to miss. */
       .v2-close {
-        background:none; border:1px solid #e8720c; color:#e8720c;
-        padding:8px 16px; cursor:pointer; font-weight:600;
-        border-radius:4px; font-size:12px;
+        background:#e8720c; border:1px solid #e8720c; color:#fff;
+        padding:10px 18px; cursor:pointer; font-weight:700;
+        border-radius:6px; font-size:13px;
+        min-height:44px; min-width:44px;
+        display:inline-flex; align-items:center; justify-content:center;
+        flex-shrink:0;
+        font-family:inherit;
+        letter-spacing:.04em;
+        transition:background .15s, transform .12s;
+        -webkit-tap-highlight-color:transparent;
+        touch-action:manipulation;
       }
-      .v2-close:hover { background:#e8720c; color:#fff; }
+      .v2-close:hover { background:#ff8420; border-color:#ff8420; }
+      .v2-close:active { transform:scale(.95); }
       .v2-body {
         flex:1; display:grid;
         grid-template-columns:280px 1fr 360px;
@@ -116,8 +138,18 @@
         .v2-title { font-size: 16px !important; }
         .v2-title + .v2-title { margin-left: 10px !important; }
         .v2-pane { padding: 12px; }
-        .v2-close { padding: 6px 12px; font-size: 11px; }
+        /* Keep the 44×44 tap target on mobile — only trim label
+           length if the header runs tight. */
+        .v2-close { padding: 10px 14px; font-size: 12px; min-height:44px; }
         .v2-total-val { font-size: 32px !important; }
+      }
+      /* Extra-small phones (iPhone SE, 320px): stack header vertically
+         to avoid crowding the close button against the title. */
+      @media (max-width: 380px) {
+        .v2-hdr { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+        .v2-title { font-size: 14px !important; }
+        .v2-title + .v2-title { margin-left: 8px !important; }
+        .v2-close { width: 100%; }
       }
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
@@ -243,20 +275,31 @@
         padding:10px 12px; margin-bottom:6px; border-radius:3px;
         font-size:12px;
       }
+      .v2-scope-item.overridden { border-left-color:#22d3ee; }
       .v2-scope-item .name { color:#e8eaf0; font-weight:600; }
       .v2-scope-item .qty {
         color:#888; font-size:10px; margin-top:2px;
         font-variant-numeric:tabular-nums;
       }
+      .v2-scope-item.overridden .qty { color:#22d3ee; }
       .v2-scope-item .total {
         color:#e8720c; font-weight:700; font-size:13px; float:right;
         font-variant-numeric:tabular-nums;
       }
-      .v2-scope-item .rm {
-        background:none; border:none; color:#666; cursor:pointer;
-        font-size:14px; float:right; margin-left:8px; padding:0;
+      .v2-scope-item .actions {
+        float:right; display:flex; gap:4px; margin-left:8px;
       }
-      .v2-scope-item .rm:hover { color:#c53030; }
+      .v2-scope-item .rm,
+      .v2-scope-item .edit-qty {
+        background:none; border:none; color:#666; cursor:pointer;
+        font-size:14px; padding:2px 6px; border-radius:3px;
+        min-width:28px; min-height:28px;
+        display:inline-flex; align-items:center; justify-content:center;
+        transition:color .15s, background .15s;
+      }
+      .v2-scope-item .edit-qty { font-size:12px; }
+      .v2-scope-item .edit-qty:hover { color:#22d3ee; background:rgba(34,211,238,.08); }
+      .v2-scope-item .rm:hover { color:#c53030; background:rgba(197,48,48,.08); }
       .v2-total-card {
         background:#0a0c0f; border:2px solid #e8720c;
         border-radius:6px; padding:16px; margin-top:16px;
@@ -406,6 +449,7 @@
             <button type="button" data-action="load-preset" data-arg="standard-reroof">Standard Reroof</button>
             <button type="button" data-action="load-preset" data-arg="storm-claim">Storm Claim</button>
             <button type="button" data-action="load-preset" data-arg="small-repair">Small Repair</button>
+            <button type="button" data-action="load-preset" data-arg="shingle-patch">Shingle Patch</button>
             <button type="button" data-action="load-preset" data-arg="full-redeck">Full Redeck</button>
             <button type="button" data-action="load-preset" data-arg="hail-damage-insurance" style="grid-column:span 2;">Hail Damage Insurance</button>
           </div>
@@ -545,6 +589,12 @@
           if (code) removeFromScope(code);
           break;
         }
+        case 'override-qty': {
+          const item = target.closest('.v2-scope-item');
+          const code = item && item.dataset.code;
+          if (code) overrideQty(code);
+          break;
+        }
       }
     });
 
@@ -624,47 +674,180 @@
     render();
   }
 
+  // Manual quantity override. Opens a prompt seeded with the current
+  // computed quantity so the user can type the exact value they want
+  // (e.g. 2 squares for a tiny repair, 15 LF of drip edge instead of
+  // the auto-calculated full perimeter). Passing an empty string or
+  // "auto" clears the override and reverts to the formula.
+  function overrideQty(code) {
+    const scopeEntry = state.scope.find(s => s.code === code);
+    if (!scopeEntry) return;
+    const estimate = getCurrentEstimate();
+    const line = estimate && estimate.lines.find(l => l.code === code);
+    if (!line) return;
+
+    const unit = line.unit || '';
+    const qtyDecimals = (unit === 'SQ' || unit === 'LF') ? 1 : 0;
+    const current = (Number(line.quantity) || 0).toFixed(qtyDecimals);
+    const msg = 'Edit quantity for ' + (line.name || code) + ' (' + unit + ')\n\n'
+      + 'Current: ' + current + ' ' + unit + '\n'
+      + 'Enter a number to override, or leave blank to revert to auto-calculation.';
+    // eslint-disable-next-line no-alert
+    const input = window.prompt(msg, line.qtyOverridden ? current : '');
+    if (input === null) return;  // user hit Cancel
+
+    scopeEntry.overrides = scopeEntry.overrides || {};
+    const trimmed = String(input).trim();
+    if (trimmed === '' || trimmed.toLowerCase() === 'auto') {
+      // Revert to formula
+      delete scopeEntry.overrides.qty;
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) {
+        // eslint-disable-next-line no-alert
+        window.alert('Please enter a non-negative number (or blank to revert).');
+        return;
+      }
+      scopeEntry.overrides.qty = n;
+    }
+    render();
+  }
+
   function clearScope() {
     state.scope = [];
     render();
   }
 
-  function loadPreset(presetKey) {
-    clearScope();
-    const PRESETS = {
-      'standard-reroof': [
+  // Sync state.measurements back into the DOM inputs. Used when a
+  // preset carries its own measurement defaults so the user actually
+  // sees the new rawSqft / eaveLf / etc. numbers reflected in the
+  // left pane, not just in the total.
+  function syncMeasurementInputs() {
+    const map = {
+      rawSqft: 'v2rawSqft', pitch: 'v2pitch', eaveLf: 'v2eaveLf',
+      rakeLf: 'v2rakeLf', ridgeLf: 'v2ridgeLf', hipLf: 'v2hipLf',
+      valleyLf: 'v2valleyLf', pipes: 'v2pipes', chimneys: 'v2chimneys',
+      skylights: 'v2skylights', tearOffLayers: 'v2layers', stories: 'v2stories'
+    };
+    Object.keys(map).forEach(key => {
+      const el = document.getElementById(map[key]);
+      if (!el) return;
+      const v = state.measurements[key];
+      el.value = (v == null ? '' : String(v));
+    });
+    const cutupEl = document.getElementById('v2cutup');
+    if (cutupEl) cutupEl.checked = !!state.measurements.cutUpRoof;
+  }
+
+  // Presets are objects, not bare code lists. Each preset declares:
+  //   codes        — the line items to add
+  //   measurements — optional measurement defaults to load (null =
+  //                  keep whatever the user already typed)
+  //
+  // Full-roof presets (Standard Reroof, Storm Claim, Full Redeck,
+  // Hail Insurance) keep measurements:null because those ARE full-
+  // roof jobs and the user should type their real measurements first.
+  //
+  // Repair presets (Small Repair, Shingle Patch) ship with baked-in
+  // small-job defaults so the line items scale to the repair size
+  // instead of inheriting whatever the user had typed before.
+  //
+  // Disposal line choice: full-roof presets use DSP 30YD / DSP 40YD
+  // (formula-gated by sq). Repair presets use DSP HAUL which is
+  // manual-entry so user types their actual disposal cost.
+  const PRESETS = {
+    'standard-reroof': {
+      codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG RIDG-VNT', 'RFG NAIL-C', 'DSP 30YD', 'PRM RES-OH',
         'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
-      'storm-claim': [
+      measurements: null
+    },
+    'storm-claim': {
+      codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 30YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'LAB PHOTO',
         'CUP IWS-E', 'CUP KICK'
       ],
-      'small-repair': [
+      measurements: null
+    },
+    // Small Repair: 2 squares, ~20 LF of eave. Uses DSP HAUL (manual)
+    // so a 10-yd dumpster doesn't get auto-zero'd by its sq-gate.
+    // User can tweak rawSqft/eaveLf for their specific repair area.
+    // $2,500 min-job floor applies — a crew roll-out isn't worth less.
+    'small-repair': {
+      codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG STRT', 'RFG DRPE-AL',
-        'DSP 10YD', 'LAB MOB', 'LAB CLN-M'
+        'DSP HAUL', 'LAB MOB', 'LAB CLN-M'
       ],
-      'full-redeck': [
+      measurements: {
+        rawSqft: 200, pitch: 8, waste: 1.15,
+        ridgeLf: 0, eaveLf: 20, rakeLf: 0, hipLf: 0, valleyLf: 0, wallLf: 0,
+        pipes: 0, chimneys: 0, skylights: 0, stories: 1,
+        tearOffLayers: 1, deckReplacePct: 0, cutUpRoof: false
+      },
+      minJobCharge: 2500
+    },
+    // Shingle Patch: truly tiny — 10 SF / ~1 square foot of repair.
+    // Barebones scope: tear-off labor, shingles, detail hourly,
+    // haul-it disposal. User fills in DSP HAUL + LAB DTL-HR with
+    // real numbers via the qty-override pencil.
+    // $500 min-job floor — this is a trip charge, not a job-level min.
+    'shingle-patch': {
+      codes: [
+        'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG NAIL-C',
+        'LAB DTL-HR', 'DSP HAUL'
+      ],
+      measurements: {
+        rawSqft: 10, pitch: 8, waste: 1.10,
+        ridgeLf: 0, eaveLf: 0, rakeLf: 0, hipLf: 0, valleyLf: 0, wallLf: 0,
+        pipes: 0, chimneys: 0, skylights: 0, stories: 1,
+        tearOffLayers: 1, deckReplacePct: 0, cutUpRoof: false
+      },
+      minJobCharge: 500
+    },
+    'full-redeck': {
+      codes: [
         'LAB TO1', 'RFG OSB716', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS',
         'RFG STRT', 'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 40YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
-      'hail-damage-insurance': [
+      measurements: null
+    },
+    'hail-damage-insurance': {
+      codes: [
         'LAB TO1', 'RFG ARM-GAF', 'RFG SYN-P', 'RFG IWS', 'RFG STRT-PS',
         'RFG DRPE-AL', 'RFG RIDG-IMP', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG CHIM-SAD', 'RFG RIDG-VNT-PR', 'RFG NAIL-LUMA',
         'DSP 30YD', 'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M',
         'LAB PHOTO', 'CUP IWS-E', 'CUP KICK', 'CUP HC'
-      ]
-    };
-    const codes = PRESETS[presetKey] || [];
-    codes.forEach(c => state.scope.push({ code: c }));
+      ],
+      measurements: null
+    }
+  };
+
+  function loadPreset(presetKey) {
+    clearScope();
+    const preset = PRESETS[presetKey];
+    if (!preset) return;
+    // If the preset ships its own measurements, overwrite state +
+    // sync the DOM so the user sees the change. Otherwise leave the
+    // user's typed measurements alone.
+    if (preset.measurements) {
+      state.measurements = Object.assign({}, state.measurements, preset.measurements);
+      syncMeasurementInputs();
+    }
+    // Per-preset min job charge. Presets without a floor fall back
+    // to the engine default ($2500). Repair presets drop it to $500
+    // so a Shingle Patch quote shows the real cost instead of the
+    // full-job crew-rollout minimum.
+    state.minJobCharge = (preset.minJobCharge != null) ? preset.minJobCharge : null;
+    (preset.codes || []).forEach(c => state.scope.push({ code: c, overrides: {} }));
     render();
   }
 
@@ -675,14 +858,32 @@
   function getCurrentEstimate() {
     const cat = window.NBD_XACT_CATALOG;
     if (!cat) return null;
-    const items = state.scope.map(s => cat.find(s.code)).filter(Boolean);
+    // Merge each scope entry's override.qty onto the catalog item
+    // so resolveLineItem() can skip the formula. Non-destructive —
+    // we spread a fresh object so the catalog's original item stays
+    // untouched and other consumers see clean data.
+    const items = state.scope.map(s => {
+      const base = cat.find(s.code);
+      if (!base) return null;
+      const ov = s.overrides && s.overrides.qty;
+      if (ov !== undefined && ov !== null && ov !== '') {
+        return Object.assign({}, base, { _qtyOverride: Number(ov) });
+      }
+      return base;
+    }).filter(Boolean);
     if (!items.length) return null;
     if (!window.EstimateLogic) return null;
-    return window.EstimateLogic.resolveEstimate(items, state.measurements, {
+    const settings = {
       tier: state.tier,
       mode: state.jobMode,
       county: state.county
-    });
+    };
+    // Only pass minJobCharge if the preset/user set one — otherwise
+    // the engine uses its own $2500 default. null means "use default".
+    if (state.minJobCharge != null) {
+      settings.minJobCharge = state.minJobCharge;
+    }
+    return window.EstimateLogic.resolveEstimate(items, state.measurements, settings);
   }
 
   function renderCatalog() {
@@ -804,15 +1005,21 @@
     listDiv.innerHTML = estimate.lines.map(line => {
       const qtyDecimals = (line.unit === 'SQ' || line.unit === 'LF') ? 1 : 0;
       const safeQty = (Number(line.quantity) || 0).toFixed(qtyDecimals);
+      const overridden = !!line.qtyOverridden;
       // data-action + data-code get picked up by the delegated click
       // handler on #v2scopeList installed in ensureModal(). Clean under
       // Report-Only CSP (script-src-attr 'none') — zero inline onclicks.
+      // The pencil (edit-qty) lets the user set a manual quantity that
+      // bypasses the measurement-based formula.
       return `
-        <div class="v2-scope-item" data-code="${escLocal(line.code)}">
-          <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
+        <div class="v2-scope-item${overridden ? ' overridden' : ''}" data-code="${escLocal(line.code)}">
+          <div class="actions">
+            <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>
+            <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
+          </div>
           <div class="total">$${Math.round(Number(line.lineTotal) || 0).toLocaleString()}</div>
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
-          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}</div>
+          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:#22d3ee;">manual</span>' : ''}</div>
         </div>
       `;
     }).join('');
@@ -937,8 +1144,17 @@
       // Match the classic builder's data shape so the estimates
       // list + customer timeline rendering picks up V2 estimates.
       const ctx = estimate.context || {};
+      // Estimate name: use typed name if any, else synthesize one
+      // from customer + tier so the list row is still recognizable
+      // (matches the pattern used by the classic builder).
+      const existingName = (state.estimateName || '').trim();
+      const fallbackName = (state.customer.address || '').trim()
+        || (state.customer.name ? state.customer.name.trim() + ' estimate' : '')
+        || 'V2 Estimate ' + new Date().toLocaleDateString();
       const payload = {
         // Identity
+        name:             existingName || fallbackName,
+        builder:          'v2',
         estimateVersion:  'v2',
         method:           estimate.method || 'line-item',
         tier:             estimate.tier || state.tier,

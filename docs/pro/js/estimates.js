@@ -249,8 +249,20 @@ async function saveEstimate() {
   const origText = saveBtn ? saveBtn.textContent : '';
   if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
+  // Estimate name: use whatever was typed, else fall back to the
+  // address + tier so the list row is still recognizable. Never
+  // blank — every saved estimate should be easy to identify later
+  // even if it was never formally named or assigned.
+  const existingName = (estData.name || '').trim();
+  const fallbackName = (estData.addr ? estData.addr.trim() : '')
+    || (estData.owner ? estData.owner.trim() + ' estimate' : '')
+    || ('Untitled estimate ' + new Date().toLocaleDateString());
+  const estName = existingName || fallbackName;
+
   try {
     await window._saveEstimate({
+      name: estName,
+      builder: 'classic',
       addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
       roofType:estData.roofType, pitch:estData.pl, wf:estData.wf, sq:estData.sq, tier:selectedTier,
       tierName:estData.tierName, grandTotal:estData.grandTotal,
@@ -351,9 +363,358 @@ function exportEstimate() {
   else { showToast('Pop-up blocked — allow pop-ups for this site','error'); }
 }
 
+// Real estimate-type chooser modal. Fires when the user clicks
+// "New Estimate" from anywhere — the CRM toolbar, the home widget,
+// the customer page, etc. Instead of silently dropping them into
+// the classic v1 builder, this shows both options so they can pick
+// the right tool for the job.
+//
+// DOM is built with createElement (not innerHTML) so this is safe
+// under the Report-Only CSP (`script-src-attr 'none'`) and there's
+// no way a malicious theme variable or catalog name could inject.
 function showEstimateTypeSelector() {
-  // Default to original estimate builder
-  startNewEstimateOriginal();
+  // Reuse an existing modal if it's still in the DOM (fast re-open).
+  let overlay = document.getElementById('est-type-chooser');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    return;
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'est-type-chooser';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;'
+    + 'background:rgba(0,0,0,.75);'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'padding:20px;';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);'
+    + 'border-radius:12px;padding:28px;max-width:680px;width:100%;'
+    + 'box-shadow:0 20px 60px rgba(0,0,0,.5);';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'margin-bottom:20px;';
+  const hdrTitle = document.createElement('div');
+  hdrTitle.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:22px;"
+    + 'font-weight:800;color:var(--t, #fff);text-transform:uppercase;letter-spacing:.05em;';
+  hdrTitle.textContent = 'New Estimate';
+  const hdrSub = document.createElement('div');
+  hdrSub.style.cssText = 'font-size:12px;color:var(--m, #888);margin-top:4px;';
+  hdrSub.textContent = 'Choose which builder to start with.';
+  hdr.appendChild(hdrTitle);
+  hdr.appendChild(hdrSub);
+  sheet.appendChild(hdr);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:14px;';
+
+  const makeCard = (opts) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.style.cssText = 'text-align:left;background:var(--s2, #22252c);'
+      + 'border:2px solid var(--br, #2a2d35);border-radius:10px;'
+      + 'padding:20px;cursor:pointer;font-family:inherit;color:var(--t, #fff);'
+      + 'transition:border-color .15s, transform .12s;';
+    card.addEventListener('mouseenter', () => { card.style.borderColor = '#e8720c'; });
+    card.addEventListener('mouseleave', () => { card.style.borderColor = 'var(--br, #2a2d35)'; });
+    card.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      opts.onClick();
+    });
+
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.12em;'
+      + 'text-transform:uppercase;color:' + opts.badgeColor + ';margin-bottom:8px;';
+    badge.textContent = opts.badge;
+    card.appendChild(badge);
+
+    const name = document.createElement('div');
+    name.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:20px;"
+      + 'font-weight:800;color:var(--t, #fff);text-transform:uppercase;'
+      + 'letter-spacing:.04em;margin-bottom:6px;';
+    name.textContent = opts.name;
+    card.appendChild(name);
+
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size:11px;color:var(--m, #888);line-height:1.55;margin-bottom:12px;';
+    desc.textContent = opts.desc;
+    card.appendChild(desc);
+
+    const list = document.createElement('ul');
+    list.style.cssText = 'font-size:11px;color:var(--m, #888);line-height:1.8;padding-left:16px;margin:0;';
+    (opts.features || []).forEach(f => {
+      const li = document.createElement('li');
+      li.textContent = f;
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+
+    return card;
+  };
+
+  grid.appendChild(makeCard({
+    badge: 'Classic — Tiers',
+    badgeColor: '#60a5fa',
+    name: 'Classic Builder',
+    desc: '4-step walkthrough with Good / Better / Best package tiers. Fast for standard reroofs.',
+    features: [
+      '4-step wizard (Measure, Pitch, Package, Review)',
+      'Good / Better / Best pricing tiers',
+      'Product library sync',
+      'Quick Measure PDF import'
+    ],
+    onClick: () => { if (typeof startNewEstimateOriginal === 'function') startNewEstimateOriginal(); }
+  }));
+
+  grid.appendChild(makeCard({
+    badge: 'V2 Beta — Line-Item',
+    badgeColor: '#e8720c',
+    name: 'V2 Builder',
+    desc: '270-line Xactimate-style catalog with presets, per-item qty overrides, and 3 output formats.',
+    features: [
+      '6 job presets incl. Small Repair & Shingle Patch',
+      'Measurement auto-scale per preset',
+      'Per-item manual qty override (pencil icon)',
+      '3 outputs: Insurance / Retail / Internal'
+    ],
+    onClick: () => { if (typeof window.openEstimateV2Builder === 'function') window.openEstimateV2Builder(); }
+  }));
+
+  sheet.appendChild(grid);
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;justify-content:flex-end;margin-top:20px;';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = 'background:none;border:1px solid var(--br, #2a2d35);'
+    + 'color:var(--m, #888);padding:10px 20px;border-radius:6px;cursor:pointer;'
+    + "font-family:'Barlow Condensed',sans-serif;font-size:12px;"
+    + 'font-weight:700;letter-spacing:.08em;text-transform:uppercase;';
+  cancelBtn.addEventListener('click', () => { overlay.style.display = 'none'; });
+  footer.appendChild(cancelBtn);
+  sheet.appendChild(footer);
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  // Click outside to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.style.display = 'none';
+  });
+  // Esc to close
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      overlay.style.display = 'none';
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+// ══════════════════════════════════════════════════════════════
+// Estimates list row actions — duplicate / rename / assign / delete
+// Called from the delegated click handler in renderEstimatesList
+// (dashboard.html). Each one reads window._estimates, mutates via
+// the window._* Firestore helpers, and the list re-renders because
+// loadEstimates() is called inside those helpers.
+// ══════════════════════════════════════════════════════════════
+
+async function duplicateEstimateAction(id) {
+  if (typeof window._duplicateEstimate !== 'function') {
+    showToast('Duplicate not available — reload the page', 'error');
+    return;
+  }
+  const src = (window._estimates || []).find(e => e.id === id);
+  if (!src) { showToast('Estimate not found', 'error'); return; }
+  const newId = await window._duplicateEstimate(id);
+  if (newId) showToast('\u2713 Estimate duplicated', 'success');
+  else showToast('Failed to duplicate', 'error');
+}
+
+async function renameEstimateAction(id) {
+  const src = (window._estimates || []).find(e => e.id === id);
+  if (!src) { showToast('Estimate not found', 'error'); return; }
+  const current = src.name || src.addr || '';
+  // eslint-disable-next-line no-alert
+  const next = window.prompt('Rename estimate:', current);
+  if (next === null) return;  // user hit Cancel
+  const trimmed = String(next).trim();
+  if (!trimmed) { showToast('Name cannot be empty', 'error'); return; }
+  if (typeof window._renameEstimate !== 'function') {
+    showToast('Rename not available', 'error');
+    return;
+  }
+  const ok = await window._renameEstimate(id, trimmed);
+  if (ok) showToast('\u2713 Renamed', 'success');
+  else showToast('Failed to rename', 'error');
+}
+
+async function assignEstimateAction(id) {
+  const src = (window._estimates || []).find(e => e.id === id);
+  if (!src) { showToast('Estimate not found', 'error'); return; }
+  const leads = window._leads || [];
+  if (!leads.length) {
+    showToast('No customers available — add a lead first', 'error');
+    return;
+  }
+  // Show picker modal
+  showAssignLeadPicker(id, src);
+}
+
+async function deleteEstimateAction(id) {
+  const src = (window._estimates || []).find(e => e.id === id);
+  if (!src) { showToast('Estimate not found', 'error'); return; }
+  const label = src.name || src.addr || 'this estimate';
+  // eslint-disable-next-line no-alert
+  if (!window.confirm('Delete "' + label + '"? This cannot be undone.')) return;
+  if (typeof window._deleteEstimate !== 'function') {
+    showToast('Delete not available', 'error');
+    return;
+  }
+  const ok = await window._deleteEstimate(id);
+  if (ok) showToast('\u2713 Estimate deleted', 'success');
+  else showToast('Failed to delete', 'error');
+}
+
+// Lead picker modal for the Assign action. Built via createElement
+// (no innerHTML string interpolation) so user-generated lead names
+// can never smuggle markup into the page.
+function showAssignLeadPicker(estimateId, estimate) {
+  const leads = window._leads || [];
+  // Reuse existing overlay if present
+  let overlay = document.getElementById('assign-lead-picker');
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement('div');
+  overlay.id = 'assign-lead-picker';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;'
+    + 'background:rgba(0,0,0,.75);display:flex;align-items:center;'
+    + 'justify-content:center;padding:20px;';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);'
+    + 'border-radius:12px;padding:24px;max-width:500px;width:100%;'
+    + 'max-height:80vh;display:flex;flex-direction:column;'
+    + 'box-shadow:0 20px 60px rgba(0,0,0,.5);';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'margin-bottom:14px;';
+  const hdrTitle = document.createElement('div');
+  hdrTitle.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:18px;"
+    + 'font-weight:800;color:var(--t, #fff);text-transform:uppercase;letter-spacing:.04em;';
+  hdrTitle.textContent = 'Assign to Customer';
+  const hdrSub = document.createElement('div');
+  hdrSub.style.cssText = 'font-size:11px;color:var(--m, #888);margin-top:4px;';
+  hdrSub.textContent = (estimate.name || estimate.addr || 'Untitled estimate');
+  hdr.appendChild(hdrTitle);
+  hdr.appendChild(hdrSub);
+  sheet.appendChild(hdr);
+
+  // Search box
+  const search = document.createElement('input');
+  search.type = 'text';
+  search.placeholder = 'Search customers...';
+  search.style.cssText = 'background:var(--s2);border:1px solid var(--br);'
+    + 'border-radius:6px;padding:10px 12px;font-size:13px;color:var(--t);'
+    + 'margin-bottom:12px;font-family:inherit;outline:none;';
+  sheet.appendChild(search);
+
+  // Results container — scrollable
+  const results = document.createElement('div');
+  results.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:200px;';
+  sheet.appendChild(results);
+
+  const renderLeads = (filter) => {
+    results.textContent = '';
+    const q = (filter || '').toLowerCase().trim();
+    const filtered = q
+      ? leads.filter(l => {
+          const text = [l.firstName, l.lastName, l.address, l.phone].filter(Boolean).join(' ').toLowerCase();
+          return text.includes(q);
+        })
+      : leads;
+
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'text-align:center;padding:30px 10px;color:var(--m);font-size:12px;';
+      empty.textContent = q ? 'No customers match "' + q + '"' : 'No customers yet';
+      results.appendChild(empty);
+      return;
+    }
+
+    // "Unassign" option at the top if currently assigned
+    if (estimate.leadId) {
+      const unassign = document.createElement('button');
+      unassign.type = 'button';
+      unassign.style.cssText = 'background:var(--s2);border:1px dashed var(--br);'
+        + 'color:var(--m);padding:10px 14px;border-radius:6px;text-align:left;'
+        + 'cursor:pointer;font-family:inherit;font-size:12px;';
+      unassign.textContent = '✕ Unassign (leave without customer)';
+      unassign.addEventListener('click', async () => {
+        overlay.remove();
+        const ok = await window._assignEstimateToLead(estimateId, null);
+        if (ok) showToast('\u2713 Estimate unassigned', 'success');
+      });
+      results.appendChild(unassign);
+    }
+
+    filtered.slice(0, 100).forEach(lead => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.style.cssText = 'background:var(--s2);border:1px solid var(--br);'
+        + 'border-radius:6px;padding:10px 14px;text-align:left;cursor:pointer;'
+        + 'font-family:inherit;transition:border-color .15s;';
+      row.addEventListener('mouseenter', () => { row.style.borderColor = '#e8720c'; });
+      row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--br)'; });
+
+      const name = document.createElement('div');
+      name.style.cssText = 'font-size:13px;font-weight:600;color:var(--t);';
+      name.textContent = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || '(no name)';
+      row.appendChild(name);
+
+      const addr = document.createElement('div');
+      addr.style.cssText = 'font-size:11px;color:var(--m);margin-top:2px;';
+      addr.textContent = lead.address || 'No address';
+      row.appendChild(addr);
+
+      row.addEventListener('click', async () => {
+        overlay.remove();
+        const ok = await window._assignEstimateToLead(estimateId, lead.id);
+        if (ok) showToast('\u2713 Assigned to ' + (lead.firstName || lead.address || 'customer'), 'success');
+        else showToast('Failed to assign', 'error');
+      });
+      results.appendChild(row);
+    });
+  };
+
+  renderLeads('');
+  search.addEventListener('input', () => renderLeads(search.value));
+
+  // Footer — cancel button
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;justify-content:flex-end;margin-top:14px;';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = 'background:none;border:1px solid var(--br);'
+    + 'color:var(--m);padding:8px 18px;border-radius:6px;cursor:pointer;'
+    + "font-family:'Barlow Condensed',sans-serif;font-size:12px;"
+    + 'font-weight:700;letter-spacing:.08em;text-transform:uppercase;';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+  footer.appendChild(cancelBtn);
+  sheet.appendChild(footer);
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  // Click outside + Esc to close
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  const escHandler = (e) => {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+  };
+  document.addEventListener('keydown', escHandler);
+  setTimeout(() => search.focus(), 50);
 }
 
 // ══ Window Scope Exposures ══════════════════════════════════
@@ -373,3 +734,7 @@ window.getLineItems = getLineItems;
 window.syncRatesFromProductLibrary = syncRatesFromProductLibrary;
 window.getProductName = getProductName;
 window.showEstimateTypeSelector = showEstimateTypeSelector;
+window.duplicateEstimateAction = duplicateEstimateAction;
+window.renameEstimateAction = renameEstimateAction;
+window.assignEstimateAction = assignEstimateAction;
+window.deleteEstimateAction = deleteEstimateAction;

@@ -1369,6 +1369,96 @@
     } catch(e) { console.error('Save estimate error:', e); return null; }
   };
 
+  // ── ESTIMATE CRUD HELPERS ─────────────────────
+  // Delete an estimate by document id. Cascade: we don't have
+  // child collections under an estimate, so a single deleteDoc is
+  // enough. Called from the estimates list overflow menu.
+  window._deleteEstimate = async (id) => {
+    try {
+      if (!id) return false;
+      await deleteDoc(doc(db, 'estimates', id));
+      await loadEstimates();
+      return true;
+    } catch (e) {
+      console.error('Delete estimate error:', e);
+      return false;
+    }
+  };
+
+  // Duplicate an existing estimate. Clones the document into a new
+  // one with a new id and a "(copy)" name suffix so it shows up as
+  // a separate row in the list. The duplicate is intentionally
+  // unassigned (leadId = null) so the user can re-assign it.
+  window._duplicateEstimate = async (id) => {
+    try {
+      if (!id) return null;
+      const src = (window._estimates || []).find(e => e.id === id);
+      if (!src) return null;
+      // Strip fields that should not carry over: id, createdAt,
+      // updatedAt, leadId. Keep everything else verbatim so the
+      // copy opens in the same builder with the same numbers.
+      const copy = { ...src };
+      delete copy.id;
+      delete copy.createdAt;
+      delete copy.updatedAt;
+      copy.leadId = null;
+      const baseName = (src.name || src.addr || 'Estimate').toString().substring(0, 80);
+      copy.name = baseName + ' (copy)';
+      const ref2 = await addDoc(collection(db, 'estimates'), {
+        ...copy,
+        createdAt: serverTimestamp(),
+        userId: window._user?.uid
+      });
+      await loadEstimates();
+      return ref2.id;
+    } catch (e) {
+      console.error('Duplicate estimate error:', e);
+      return null;
+    }
+  };
+
+  // Rename an estimate in place — just writes back the name field.
+  // Cheap and atomic.
+  window._renameEstimate = async (id, newName) => {
+    try {
+      if (!id) return false;
+      const name = String(newName || '').trim().substring(0, 120);
+      if (!name) return false;
+      await updateDoc(doc(db, 'estimates', id), { name, updatedAt: serverTimestamp() });
+      await loadEstimates();
+      return true;
+    } catch (e) {
+      console.error('Rename estimate error:', e);
+      return false;
+    }
+  };
+
+  // Assign (or re-assign) an estimate to a customer/lead. Writes
+  // leadId and also copies the lead's address/owner over for faster
+  // list display. Passing leadId=null clears the assignment.
+  window._assignEstimateToLead = async (id, leadId) => {
+    try {
+      if (!id) return false;
+      const patch = { leadId: leadId || null, updatedAt: serverTimestamp() };
+      if (leadId) {
+        const lead = (window._leads || []).find(l => l.id === leadId);
+        if (lead) {
+          if (lead.address) patch.addr = lead.address;
+          if (lead.firstName || lead.lastName) {
+            patch.owner = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
+          }
+        }
+      }
+      await updateDoc(doc(db, 'estimates', id), patch);
+      await loadEstimates();
+      return true;
+    } catch (e) {
+      console.error('Assign estimate error:', e);
+      return false;
+    }
+  };
+  // ── END ESTIMATE CRUD HELPERS ─────────────────
+
   // ── PINS ───────────────────────────────────────
   async function loadPins() {
     try {
@@ -2428,6 +2518,35 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 .view-scroll{flex:1;overflow-y:auto;padding:22px 24px;min-height:0;}
 .view-scroll::-webkit-scrollbar{width:4px;}.view-scroll::-webkit-scrollbar-thumb{background:var(--br);}
 
+/* ══ UNIVERSAL SCROLL SAFETY NET ══
+   Every .view is a flex column that should either:
+   (a) contain a .view-scroll that scrolls its children, OR
+   (b) scroll itself (custom layouts like Ask Joe, CRM kanban).
+   These rules guarantee the bottom of content is never clipped:
+   1. Safe-area-aware bottom padding on every scroll surface so the
+      iOS home indicator + mobile bottom nav (62px) can't overlap.
+   2. `min-height:0` on every flex descendant of .view so nested
+      flex children can actually shrink and let overflow:auto work.
+   3. Any view that forgot its .view-scroll still gets scroll via
+      the existing .view overflow-y:auto default. */
+.view.active > .view-scroll,
+.view.active > :not(header):not(nav):not(.joe-header):not(.joe-input-area):not(.joe-context-bar):not(.kanban-board):not(#kanbanBoard):not(#d2dMap):not(.crm-header):not(.crm-secondary-header):not(#bulkActionBar) {
+  min-height:0;
+}
+/* Safe-area bottom padding on the scroll surface so the mobile
+   bottom nav (62px) and the iPhone home indicator never cover
+   the last row of content. Applied to both .view-scroll and
+   the view itself when it's the scroll container. */
+.view-scroll {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0)) !important;
+}
+@media (max-width: 768px) {
+  .view-scroll {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)) !important;
+  }
+}
+/* ══ END UNIVERSAL SCROLL SAFETY NET ══ */
+
 /* MAP VIEWS */
 /* min-height:0 on every flex ancestor is REQUIRED so the
    sidebar's overflow-y:auto actually triggers. Without it,
@@ -2730,6 +2849,96 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 .est-addr{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:2px;}
 .est-meta{font-size:11px;color:var(--m);}
 .est-total{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--orange);margin-left:auto;flex-shrink:0;}
+
+/* ── Rebuilt Estimates list cards (April 2026) ── */
+/* The full-width card now has a click-to-open body and an
+   explicit action bar with edit/duplicate/rename/assign/delete.
+   We override .est-card display:flex with flex-direction:column
+   so the action row sits below the body instead of inline. */
+.nbd-est-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  cursor: default;
+}
+.nbd-est-card .est-card-main {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px 10px;
+  cursor: pointer;
+}
+.nbd-est-card .est-card-icon { font-size: 22px; flex-shrink: 0; }
+.nbd-est-card .est-card-body { flex: 1; min-width: 0; }
+.nbd-est-card .est-card-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: var(--t, #fff);
+  text-transform: uppercase; letter-spacing: .03em;
+  margin-bottom: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nbd-est-card .est-card-meta {
+  font-size: 11px; color: var(--m, #888);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nbd-est-card .est-card-chips {
+  display: flex; gap: 6px; margin-top: 6px;
+  flex-wrap: wrap; align-items: center;
+}
+.est-lead-chip {
+  font-size: 10px; font-weight: 600;
+  padding: 3px 8px; border-radius: 12px;
+  border: 1px solid var(--br, #2a2d35);
+  display: inline-flex; align-items: center; gap: 4px;
+  cursor: pointer;
+  max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.est-lead-chip.assigned { color: #4ade80; border-color: rgba(74,222,128,.35); background: rgba(74,222,128,.06); }
+.est-lead-chip.unassigned { color: var(--m, #888); background: var(--s3, #1a1d23); }
+.est-lead-chip.unassigned:hover { color: #e8720c; border-color: #e8720c; }
+.est-src-chip {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .1em;
+  padding: 2px 7px; border-radius: 3px;
+  text-transform: uppercase;
+}
+.est-src-chip.v2 { background: rgba(232,114,12,.12); color: #e8720c; border: 1px solid rgba(232,114,12,.3); }
+.est-src-chip.classic { background: rgba(96,165,250,.08); color: #60a5fa; border: 1px solid rgba(96,165,250,.25); }
+.est-date { font-size: 10px; color: var(--m, #888); margin-left: auto; }
+.nbd-est-card .est-card-total {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 700;
+  color: var(--orange, #e8720c);
+  flex-shrink: 0;
+}
+.nbd-est-card .est-card-actions {
+  display: flex; gap: 4px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--br, #2a2d35);
+  flex-wrap: wrap;
+}
+.est-act-btn {
+  background: none;
+  border: 1px solid var(--br, #2a2d35);
+  color: var(--m, #888);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .04em;
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+  min-height: 32px;
+}
+.est-act-btn:hover { color: var(--orange, #e8720c); border-color: var(--orange, #e8720c); background: rgba(232,114,12,.06); }
+.est-act-btn.danger:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,.06); }
+@media (max-width: 600px) {
+  .nbd-est-card .est-card-main { flex-wrap: wrap; }
+  .nbd-est-card .est-card-total { width: 100%; text-align: right; margin-top: 4px; }
+  .est-act-btn { flex: 1; min-width: 70px; }
+}
+/* ── End rebuilt cards ── */
 
 /* DAMAGE PHOTOS */
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
@@ -6906,8 +7115,11 @@ function switchScTab(tab, btn) {
           <div class="page-sub">All roofing estimates</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn" onclick="startNewEstimate()" title="Classic 4-step builder">＋ Classic</button>
-          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="New V2 builder with 270 line items, live labor catalog, and 3 output formats">
+          <!-- Classic button: go straight into the 4-step wizard.
+               Bypasses showEstimateTypeSelector because the user
+               already picked from this landing page. -->
+          <button class="btn" onclick="startNewEstimateOriginal()" title="Classic 4-step builder with Good/Better/Best tiers">＋ Classic</button>
+          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="V2 builder with 270 line items, presets, and per-item qty overrides">
             ✨ V2 Builder
             <span style="font-size:8px;background:#fff;color:#e8720c;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.1em;">BETA</span>
           </button>
@@ -9420,16 +9632,99 @@ function renderEstimatesList(ests) {
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   const wrap=document.getElementById('estListWrap');
-  if(!ests||!ests.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div>';return;}
-  wrap.innerHTML=ests.map(e=>`
-    <div class="est-card nbd-est-card" data-id="${esc(e.id)}">
-      <div style="font-size:22px;">📋</div>
-      <div><div class="est-addr">${esc(e.addr||'No address')}</div>
-      <div class="est-meta">${esc(e.roofType||'')} · ${esc(e.sq?.toFixed(2)||0)} SQ · ${esc(e.tierName||'')}</div></div>
-      <div class="est-total">$${Number(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
-    </div>`).join('');
-  wrap.querySelectorAll('.nbd-est-card').forEach(el => {
-    el.addEventListener('click', () => viewEstimate(el.dataset.id));
+  if(!ests||!ests.length){
+    // Empty state — the 2 builder options are already visible
+    // above this wrap in the page header, so we just invite the
+    // user to start one.
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">📋</div>'
+      + 'No estimates yet.<br><span style="font-size:11px;color:var(--m);">'
+      + 'Click <strong>Classic</strong> or <strong>V2 Builder</strong> above to create one.</span></div>';
+    return;
+  }
+
+  // Helper: find the linked customer (lead) for this estimate
+  // and render a short tag. Unassigned estimates get a neutral
+  // "Unassigned" chip that's click-to-assign.
+  const findLead = (leadId) => (window._leads || []).find(l => l.id === leadId);
+  const formatDate = (ts) => {
+    try {
+      const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
+      if (!d || isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    } catch (e) { return '—'; }
+  };
+  const displayName = (e) => {
+    if (e.name && e.name.trim()) return e.name.trim();
+    if (e.addr && e.addr.trim()) return e.addr.trim();
+    if (e.owner && e.owner.trim()) return e.owner.trim() + ' estimate';
+    return 'Untitled estimate';
+  };
+
+  wrap.innerHTML = ests.map(e => {
+    const lead = e.leadId ? findLead(e.leadId) : null;
+    const leadTag = lead
+      ? '<span class="est-lead-chip assigned" data-act="open-lead" data-lead="' + esc(lead.id) + '">'
+          + '👤 ' + esc((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+          + (lead.firstName || lead.lastName ? '' : esc(lead.address || 'Customer'))
+        + '</span>'
+      : '<span class="est-lead-chip unassigned" data-act="assign">➕ Unassigned</span>';
+    const builderTag = e.builder === 'v2'
+      ? '<span class="est-src-chip v2">V2</span>'
+      : '<span class="est-src-chip classic">CLASSIC</span>';
+    return ''
+      + '<div class="est-card nbd-est-card" data-id="' + esc(e.id) + '">'
+        + '<div class="est-card-main" data-act="open">'
+          + '<div class="est-card-icon">📋</div>'
+          + '<div class="est-card-body">'
+            + '<div class="est-card-name">' + esc(displayName(e)) + '</div>'
+            + '<div class="est-card-meta">'
+              + esc(e.addr || 'No address') + ' · '
+              + esc(e.roofType || '—') + ' · '
+              + esc((e.sq != null ? Number(e.sq).toFixed(2) : '—')) + ' SQ · '
+              + esc(e.tierName || '—')
+            + '</div>'
+            + '<div class="est-card-chips">'
+              + leadTag + builderTag
+              + '<span class="est-date">' + esc(formatDate(e.createdAt || e.updatedAt)) + '</span>'
+            + '</div>'
+          + '</div>'
+          + '<div class="est-card-total">$' + Number(e.grandTotal || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</div>'
+        + '</div>'
+        + '<div class="est-card-actions">'
+          + '<button class="est-act-btn" data-act="open" title="Open & edit">✎ Edit</button>'
+          + '<button class="est-act-btn" data-act="duplicate" title="Duplicate this estimate">⎘ Duplicate</button>'
+          + '<button class="est-act-btn" data-act="rename" title="Rename estimate">✏ Rename</button>'
+          + '<button class="est-act-btn" data-act="assign" title="Assign to customer">👤 Assign</button>'
+          + '<button class="est-act-btn danger" data-act="delete" title="Delete estimate">🗑</button>'
+        + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Single delegated handler for every action button on every
+  // card. Walks up to .nbd-est-card to get the id, then dispatches
+  // on data-act. CSP-clean (no inline onclicks, works under the
+  // Report-Only script-src-attr 'none' policy).
+  wrap.querySelectorAll('.nbd-est-card').forEach(card => {
+    card.addEventListener('click', (ev) => {
+      const target = ev.target.closest('[data-act]');
+      if (!target) return;
+      const act = target.dataset.act;
+      const id = card.dataset.id;
+      if (!id) return;
+      ev.stopPropagation();
+      switch (act) {
+        case 'open':       if (typeof viewEstimate === 'function') viewEstimate(id); break;
+        case 'duplicate':  if (typeof duplicateEstimateAction === 'function') duplicateEstimateAction(id); break;
+        case 'rename':     if (typeof renameEstimateAction === 'function') renameEstimateAction(id); break;
+        case 'assign':     if (typeof assignEstimateAction === 'function') assignEstimateAction(id); break;
+        case 'delete':     if (typeof deleteEstimateAction === 'function') deleteEstimateAction(id); break;
+        case 'open-lead': {
+          const leadId = target.dataset.lead;
+          if (leadId) window.location.href = '/pro/customer.html?id=' + encodeURIComponent(leadId);
+          break;
+        }
+      }
+    });
   });
 
   // Recent on dashboard — each card opens that specific estimate
@@ -12053,7 +12348,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/maps.js?v=6"></script>
 <script src="js/widgets.js?v=4"></script>
 <script src="js/ui.js?v=3"></script>
-<script src="js/estimates.js?v=3"></script>
+<script src="js/estimates.js?v=4"></script>
 <script src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/share-gallery.js?v=2"></script>
@@ -12078,10 +12373,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-builder-v2.js?v=1"></script>
 <script defer src="js/estimate-labor-catalog.js?v=1"></script>
 <script defer src="js/estimate-catalog-xactimate.js?v=1"></script>
-<script defer src="js/estimate-logic-engine.js?v=2"></script>
+<script defer src="js/estimate-logic-engine.js?v=3"></script>
 <script defer src="js/estimate-finalization.js?v=2"></script>
 <script defer src="js/estimate-supplement.js?v=1"></script>
-<script defer src="js/estimate-v2-ui.js?v=7"></script>
+<script defer src="js/estimate-v2-ui.js?v=9"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=1"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
