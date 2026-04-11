@@ -315,7 +315,7 @@ body {
         <p>Enter your access code to continue</p>
       </div>
 
-      <form onsubmit="handleLogin(event)" autocomplete="off">
+      <form autocomplete="off">
         <div class="form-group">
           <label class="form-label" for="adminEmail">Admin Email</label>
           <input
@@ -374,78 +374,12 @@ body {
         </a>
       </div>
 
-      <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+      <button type="button" class="logout-btn">🚪 Logout</button>
     </div>
   </div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-
-const app = initializeApp({
-  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-  authDomain: "nobigdeal-pro.firebaseapp.com",
-  projectId: "nobigdeal-pro",
-  storageBucket: "nobigdeal-pro.firebasestorage.app",
-  messagingSenderId: "717435841570",
-  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-});
-const auth = getAuth(app);
-
-// Custom-claims admin gate — no Firestore role field, no email whitelist.
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    try {
-      const result = await user.getIdTokenResult(true);
-      if (result.claims.role === 'admin') {
-        window.location.href = 'vault.html';
-        return;
-      }
-    } catch (e) { /* fall through to the form */ }
-  }
-  document.getElementById('loginForm').style.display = 'block';
-});
-
-// Real email + password form. The previous implementation read a non-existent
-// `#passfield` and sent an empty password, which is how it bypassed password checks.
-window.handleLogin = async function(event) {
-  event.preventDefault();
-  const emailEl = document.getElementById('adminEmail');
-  const passEl  = document.getElementById('adminPassword');
-  const errorDiv = document.getElementById('errorMsg');
-  const btn = document.getElementById('loginBtn');
-  const email = (emailEl?.value || '').trim();
-  const password = passEl?.value || '';
-
-  errorDiv.textContent = '';
-  if (!email || !password) {
-    errorDiv.textContent = 'Email and password required.';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Verifying...';
-
-  try {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const result = await cred.user.getIdTokenResult(true);
-    if (result.claims.role === 'admin') {
-      window.location.href = 'vault.html';
-    } else {
-      errorDiv.textContent = 'Account does not have admin access.';
-      btn.disabled = false;
-      btn.textContent = 'Unlock Admin Access';
-    }
-  } catch (e) {
-    errorDiv.textContent = 'Invalid credentials. Please try again.';
-    btn.disabled = false;
-    btn.textContent = 'Unlock Admin Access';
-    passEl && (passEl.value = '');
-    emailEl && emailEl.focus();
-  }
-};
-</script>
+<script type="module" src="js/pages/login.js"></script>
 
 </body>
 </html>

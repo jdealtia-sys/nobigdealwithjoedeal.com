@@ -5,39 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>NBD Admin</title>
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-
-const app = initializeApp({
-  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-  authDomain: "nobigdeal-pro.firebaseapp.com",
-  projectId: "nobigdeal-pro",
-  storageBucket: "nobigdeal-pro.firebasestorage.app",
-  messagingSenderId: "717435841570",
-  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-});
-
-const auth = getAuth(app);
-
-// Custom-claims admin gate only — no Firestore role lookup.
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = '/pro/login.html?redirect=/admin/vault.html';
-    return;
-  }
-  try {
-    const result = await user.getIdTokenResult(true);
-    if (result.claims.role === 'admin') {
-      window.location.href = 'vault.html';
-    } else {
-      window.location.href = '/pro/dashboard.html';
-    }
-  } catch (e) {
-    window.location.href = '/pro/login.html?redirect=/admin/vault.html';
-  }
-});
-</script>
+<script type="module" src="js/pages/index-redirect.js"></script>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/admin">
 </head>
 <body></body>
