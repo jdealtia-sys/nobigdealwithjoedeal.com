@@ -1459,6 +1459,60 @@
   };
   // ── END ESTIMATE CRUD HELPERS ─────────────────
 
+  // ── REPORTS CRUD HELPERS ──────────────────────
+  // Firestore-backed persistence for generated reports. Every report
+  // that gets saved goes into a `reports` collection scoped by userId.
+  // The Rep Report Generator UI calls these helpers; the viewer lists
+  // them in the My Reports history panel.
+  window._loadReports = async () => {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) { window._reports = []; return []; }
+      const snap = await getDocs(query(
+        collection(db, 'reports'),
+        where('userId', '==', uid),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      ));
+      window._reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return window._reports;
+    } catch (e) {
+      console.error('[Reports] loadReports failed:', e);
+      window._reports = [];
+      return [];
+    }
+  };
+
+  window._saveReport = async (data) => {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) throw new Error('Not signed in');
+      const ref2 = await addDoc(collection(db, 'reports'), {
+        ...data,
+        userId: uid,
+        createdAt: serverTimestamp()
+      });
+      await window._loadReports();
+      return ref2.id;
+    } catch (e) {
+      console.error('[Reports] saveReport failed:', e);
+      return null;
+    }
+  };
+
+  window._deleteReport = async (id) => {
+    try {
+      if (!id) return false;
+      await deleteDoc(doc(db, 'reports', id));
+      await window._loadReports();
+      return true;
+    } catch (e) {
+      console.error('[Reports] deleteReport failed:', e);
+      return false;
+    }
+  };
+  // ── END REPORTS CRUD HELPERS ──────────────────
+
   // ── PINS ───────────────────────────────────────
   async function loadPins() {
     try {
@@ -6573,6 +6627,7 @@ function switchScTab(tab, btn) {
     </div>
     <div class="nav-section-content open" id="section-insights">
       <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+      <div class="ni" onclick="goTo('reports')" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
       <div class="ni" onclick="window.open('/pro/daily-success/','_blank')" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" onclick="goTo('closeboard')" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
@@ -7942,6 +7997,42 @@ function switchScTab(tab, btn) {
         <div class="panel-hdr"><div><div class="panel-label">Rankings</div><div class="panel-title">Top Reps — All Time</div></div></div>
         <div class="panel-body" id="leaderboardBody">
           <div id="lbRows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REPORTS ══ -->
+  <!-- Legendary Rep Report Generator. Produces bold-editorial
+       visual reports for rep coaching + owner meetings. Reports
+       render via NBDDocViewer so they support Print, PDF, Email,
+       and Save to Customer / Rep records. -->
+  <div class="view" id="view-reports">
+    <div class="view-scroll" id="reportsViewScroll">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">Reports</div>
+          <div class="page-sub">Generate visual rep and business reports for meetings</div>
+        </div>
+        <button class="btn btn-orange" id="btnOpenReportGenerator" onclick="if(window.NBDReports){window.NBDReports.openGenerator()}else{showToast('Report engine loading...','error')}">＋ New Report</button>
+      </div>
+
+      <!-- Generator container — shows template picker + date range -->
+      <div id="reportGeneratorContainer"></div>
+
+      <!-- My Reports list — saved reports history -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">History</div>
+            <div class="panel-title">My Reports</div>
+          </div>
+        </div>
+        <div class="panel-body" id="myReportsList">
+          <div class="empty">
+            <div class="empty-icon">📈</div>
+            Loading saved reports...
+          </div>
         </div>
       </div>
     </div>
@@ -9441,6 +9532,14 @@ function goTo(name, params = {}) {
         docsView.innerHTML = window.NBDTemplateSuite.render();
         docsView.dataset.suiteLoaded = '1';
       }
+    }
+  }
+  if(name==='reports') {
+    // Lazy-init the Rep Report Generator on first open. The module
+    // renders the generator UI (template picker + date range) and
+    // loads the My Reports history from Firestore.
+    if (window.NBDReports && typeof window.NBDReports.init === 'function') {
+      window.NBDReports.init();
     }
   }
 }
@@ -12343,9 +12442,15 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
      Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<!-- ApexCharts — powers the Rep Report Generator's visual charts
+     (donuts, bars, heatmaps, funnels). ~150 KB gzipped, pro-grade. -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js" defer></script>
 <!-- Universal in-app document viewer — routes every generator's
      HTML through one modal so we never launch a blank popup again. -->
 <script defer src="js/nbd-doc-viewer.js?v=1"></script>
+<!-- Legendary Rep Report Generator — bold-editorial visual
+     reports for rep coaching + owner meetings. -->
+<script defer src="js/rep-report-generator.js?v=1"></script>
 
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=4"></script>
