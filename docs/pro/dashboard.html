@@ -2608,6 +2608,31 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 /* ══ END UNIVERSAL SCROLL SAFETY NET ══ */
 
+/* ══ TOUCH-DEVICE HOVER NEUTRALIZATION ══
+   On iPad + mobile, every :hover rule in the app (137+) would
+   stick after a tap and stay visible until the user tapped
+   somewhere else. That produces 'stuck hover' ghosts on cards,
+   buttons, and nav items. This rule disables transform changes
+   and heavy background shifts on devices without a real hover
+   capability (pointer: coarse). Buttons still get their :active
+   feedback and focus rings work normally.
+
+   The @media (hover: none) query targets: touchscreen-only iPad,
+   iPhone, Android. Desktop with mouse stays unaffected. iPad with
+   Apple Pencil reports hover:hover so it still gets hover styles
+   when the pencil hovers \u2014 that's the right behavior. */
+@media (hover: none) {
+  /* Disable transforms on :hover (scale / translate / lift) */
+  *:hover {
+    transform: none !important;
+  }
+  /* Most app buttons and cards rely on transform:translateY() or
+     scale() for their hover lift \u2014 those all get neutralized by
+     the rule above. Color / border / shadow changes are left
+     alone because they're cheap and don't create stuck ghosts. */
+}
+/* ══ END HOVER NEUTRALIZATION ══ */
+
 /* MAP VIEWS */
 /* min-height:0 on every flex ancestor is REQUIRED so the
    sidebar's overflow-y:auto actually triggers. Without it,
@@ -2986,11 +3011,16 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 11px; font-weight: 600;
   letter-spacing: .04em;
-  padding: 6px 10px;
+  padding: 10px 12px;
   border-radius: 5px;
   cursor: pointer;
   transition: all .15s;
-  min-height: 32px;
+  /* iOS HIG min 44x44 tap target. Previously 32px, which was
+     hard to hit accurately in the field on iPhone. */
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .est-act-btn:hover { color: var(--orange, #e8720c); border-color: var(--orange, #e8720c); background: rgba(232,114,12,.06); }
 .est-act-btn.danger:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,.06); }
