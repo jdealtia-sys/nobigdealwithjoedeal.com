@@ -316,7 +316,7 @@
           <span class="v2-title" style="margin-left:20px;">Estimate Builder V2</span>
           <span class="v2-beta">BETA</span>
         </div>
-        <button class="v2-close" onclick="closeEstimateV2Builder()">✕ Close</button>
+        <button class="v2-close" type="button" data-action="close">✕ Close</button>
       </div>
 
       <div class="v2-body">
@@ -324,22 +324,22 @@
         <div class="v2-pane">
           <div class="v2-section">Mode</div>
           <div class="v2-tabs">
-            <button id="v2modePerSq" onclick="EstimateV2UI.setMode('per-sq')">Per-SQ</button>
-            <button id="v2modeLine" class="active" onclick="EstimateV2UI.setMode('line-item')">Line-Item</button>
+            <button id="v2modePerSq" type="button" data-action="set-mode" data-arg="per-sq">Per-SQ</button>
+            <button id="v2modeLine" type="button" class="active" data-action="set-mode" data-arg="line-item">Line-Item</button>
           </div>
           <div class="v2-tabs">
-            <button id="v2jobInsurance" class="active" onclick="EstimateV2UI.setJobMode('insurance')">Insurance</button>
-            <button id="v2jobCash" onclick="EstimateV2UI.setJobMode('cash')">Cash</button>
+            <button id="v2jobInsurance" type="button" class="active" data-action="set-job-mode" data-arg="insurance">Insurance</button>
+            <button id="v2jobCash" type="button" data-action="set-job-mode" data-arg="cash">Cash</button>
           </div>
 
           <div class="v2-section">Measurements</div>
           <div class="v2-field">
             <label>Raw Roof Area (SF)</label>
-            <input type="number" id="v2rawSqft" placeholder="3900" oninput="EstimateV2UI.updateMeasurement('rawSqft', this.value)">
+            <input type="number" id="v2rawSqft" placeholder="3900" data-field="rawSqft">
           </div>
           <div class="v2-field">
             <label>Pitch (rise/12)</label>
-            <select id="v2pitch" onchange="EstimateV2UI.updateMeasurement('pitch', this.value)">
+            <select id="v2pitch" data-field="pitch">
               <option value="4">4/12</option>
               <option value="6">6/12</option>
               <option value="8" selected>8/12</option>
@@ -350,39 +350,39 @@
           </div>
           <div class="v2-field">
             <label>Eave LF</label>
-            <input type="number" id="v2eaveLf" placeholder="120" oninput="EstimateV2UI.updateMeasurement('eaveLf', this.value)">
+            <input type="number" id="v2eaveLf" placeholder="120" data-field="eaveLf">
           </div>
           <div class="v2-field">
             <label>Rake LF</label>
-            <input type="number" id="v2rakeLf" placeholder="50" oninput="EstimateV2UI.updateMeasurement('rakeLf', this.value)">
+            <input type="number" id="v2rakeLf" placeholder="50" data-field="rakeLf">
           </div>
           <div class="v2-field">
             <label>Ridge LF</label>
-            <input type="number" id="v2ridgeLf" placeholder="45" oninput="EstimateV2UI.updateMeasurement('ridgeLf', this.value)">
+            <input type="number" id="v2ridgeLf" placeholder="45" data-field="ridgeLf">
           </div>
           <div class="v2-field">
             <label>Hip LF</label>
-            <input type="number" id="v2hipLf" placeholder="20" oninput="EstimateV2UI.updateMeasurement('hipLf', this.value)">
+            <input type="number" id="v2hipLf" placeholder="20" data-field="hipLf">
           </div>
           <div class="v2-field">
             <label>Valley LF</label>
-            <input type="number" id="v2valleyLf" placeholder="32" oninput="EstimateV2UI.updateMeasurement('valleyLf', this.value)">
+            <input type="number" id="v2valleyLf" placeholder="32" data-field="valleyLf">
           </div>
           <div class="v2-field">
             <label>Pipes (count)</label>
-            <input type="number" id="v2pipes" placeholder="4" oninput="EstimateV2UI.updateMeasurement('pipes', this.value)">
+            <input type="number" id="v2pipes" placeholder="4" data-field="pipes">
           </div>
           <div class="v2-field">
             <label>Chimneys (count)</label>
-            <input type="number" id="v2chimneys" placeholder="1" oninput="EstimateV2UI.updateMeasurement('chimneys', this.value)">
+            <input type="number" id="v2chimneys" placeholder="1" data-field="chimneys">
           </div>
           <div class="v2-field">
             <label>Skylights (count)</label>
-            <input type="number" id="v2skylights" placeholder="0" oninput="EstimateV2UI.updateMeasurement('skylights', this.value)">
+            <input type="number" id="v2skylights" placeholder="0" data-field="skylights">
           </div>
           <div class="v2-field">
             <label>Tear-off Layers</label>
-            <select id="v2layers" onchange="EstimateV2UI.updateMeasurement('tearOffLayers', this.value)">
+            <select id="v2layers" data-field="tearOffLayers">
               <option value="1">1 Layer</option>
               <option value="2">2 Layers</option>
               <option value="3">3 Layers</option>
@@ -390,7 +390,7 @@
           </div>
           <div class="v2-field">
             <label>Stories</label>
-            <select id="v2stories" onchange="EstimateV2UI.updateMeasurement('stories', this.value)">
+            <select id="v2stories" data-field="stories">
               <option value="1">1 Story</option>
               <option value="2">2 Story</option>
               <option value="3">3 Story</option>
@@ -398,23 +398,23 @@
           </div>
           <div class="v2-field inline">
             <label>Cut-up Roof (+3% waste)</label>
-            <input type="checkbox" id="v2cutup" onchange="EstimateV2UI.updateMeasurement('cutUpRoof', this.checked)">
+            <input type="checkbox" id="v2cutup" data-field="cutUpRoof">
           </div>
 
           <div class="v2-section">Presets</div>
           <div class="v2-preset-btns">
-            <button onclick="EstimateV2UI.loadPreset('standard-reroof')">Standard Reroof</button>
-            <button onclick="EstimateV2UI.loadPreset('storm-claim')">Storm Claim</button>
-            <button onclick="EstimateV2UI.loadPreset('small-repair')">Small Repair</button>
-            <button onclick="EstimateV2UI.loadPreset('full-redeck')">Full Redeck</button>
-            <button onclick="EstimateV2UI.loadPreset('hail-damage-insurance')" style="grid-column:span 2;">Hail Damage Insurance</button>
+            <button type="button" data-action="load-preset" data-arg="standard-reroof">Standard Reroof</button>
+            <button type="button" data-action="load-preset" data-arg="storm-claim">Storm Claim</button>
+            <button type="button" data-action="load-preset" data-arg="small-repair">Small Repair</button>
+            <button type="button" data-action="load-preset" data-arg="full-redeck">Full Redeck</button>
+            <button type="button" data-action="load-preset" data-arg="hail-damage-insurance" style="grid-column:span 2;">Hail Damage Insurance</button>
           </div>
         </div>
 
         <!-- MIDDLE: Catalog picker -->
         <div class="v2-pane">
           <div class="v2-section">Line Item Catalog (270 items)</div>
-          <input type="text" class="v2-search" id="v2search" placeholder="Search by code, name, or tag..." oninput="EstimateV2UI.setSearch(this.value)">
+          <input type="text" class="v2-search" id="v2search" placeholder="Search by code, name, or tag..." data-action="search">
           <div class="v2-cat-tabs" id="v2cats"></div>
           <div class="v2-item-list" id="v2items"></div>
         </div>
@@ -434,13 +434,13 @@
 
           <div class="v2-section">Preview / Export</div>
           <div class="v2-export-btns">
-            <button onclick="EstimateV2UI.finalize('insurance-scope')">📋 Insurance Scope</button>
-            <button onclick="EstimateV2UI.finalize('retail-quote')">💼 Retail Quote</button>
-            <button onclick="EstimateV2UI.finalize('internal-view')">🔒 Internal</button>
+            <button type="button" data-action="finalize" data-arg="insurance-scope">📋 Insurance Scope</button>
+            <button type="button" data-action="finalize" data-arg="retail-quote">💼 Retail Quote</button>
+            <button type="button" data-action="finalize" data-arg="internal-view">🔒 Internal</button>
           </div>
 
           <div class="v2-section">Save</div>
-          <button id="v2saveBtn" onclick="EstimateV2UI.save()"
+          <button id="v2saveBtn" type="button" data-action="save"
             style="width:100%;background:#e8720c;border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
             💾 Save Estimate to Customer
           </button>
@@ -497,29 +497,83 @@
     });
 
     // ─────────────────────────────────────────────────────
-    // CSP-strict-safe delegated click handler for catalog
-    // items and scope-list remove buttons. The renderers emit
-    // data-action / data-code attributes instead of inline
-    // onclick handlers so everything here works under the
-    // Report-Only CSP (script-src-attr 'none').
+    // CSP-strict-safe delegated click handler. Every button in
+    // the modal uses data-action + optional data-arg instead of
+    // an inline onclick attribute. One listener dispatches them
+    // all so the file runs clean under the Report-Only CSP
+    // (script-src-attr 'none').
     // ─────────────────────────────────────────────────────
     modal.addEventListener('click', (ev) => {
-      // "Remove from scope" button inside a .v2-scope-item
-      const removeBtn = ev.target.closest('[data-action="remove-from-scope"]');
-      if (removeBtn) {
-        const item = removeBtn.closest('.v2-scope-item');
-        const code = item && item.dataset.code;
-        if (code) removeFromScope(code);
-        return;
-      }
-      // "Add to scope" click on a .v2-item card
-      const addItem = ev.target.closest('[data-action="add-to-scope"]');
-      if (addItem) {
-        const code = addItem.dataset.code;
-        if (code) addToScope(code);
-        return;
+      const target = ev.target.closest('[data-action]');
+      if (!target || !modal.contains(target)) return;
+      // Skip non-button elements that happen to have data-action
+      // further up the chain (inputs handle their own events below).
+      if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+
+      const action = target.dataset.action;
+      const arg    = target.dataset.arg;
+      switch (action) {
+        case 'close':
+          close();
+          break;
+        case 'set-mode':
+          if (arg) setMode(arg);
+          break;
+        case 'set-job-mode':
+          if (arg) setJobMode(arg);
+          break;
+        case 'load-preset':
+          if (arg) loadPreset(arg);
+          break;
+        case 'finalize':
+          if (arg) finalize(arg);
+          break;
+        case 'save':
+          save();
+          break;
+        case 'set-category':
+          setCategory(arg || 'all');
+          break;
+        case 'add-to-scope': {
+          const code = target.dataset.code;
+          if (code) addToScope(code);
+          break;
+        }
+        case 'remove-from-scope': {
+          const item = target.closest('.v2-scope-item');
+          const code = item && item.dataset.code;
+          if (code) removeFromScope(code);
+          break;
+        }
       }
     });
+
+    // ─────────────────────────────────────────────────────
+    // CSP-strict-safe delegated input/change handler. Every
+    // measurement input / select / checkbox has data-field set
+    // to the state key it updates. One listener pipes them all
+    // through updateMeasurement().
+    // The search input uses data-action="search" instead so
+    // it routes to setSearch() (it's not a measurement field).
+    // ─────────────────────────────────────────────────────
+    const fieldInputHandler = (ev) => {
+      const el = ev.target;
+      if (!el || !modal.contains(el)) return;
+
+      // Search input → setSearch
+      if (el.dataset.action === 'search') {
+        setSearch(el.value);
+        return;
+      }
+      // Measurement field → updateMeasurement
+      const field = el.dataset.field;
+      if (!field) return;
+      const value = (el.type === 'checkbox') ? el.checked : el.value;
+      updateMeasurement(field, value);
+    };
+    // input fires for text/number/search; change fires for select/checkbox
+    modal.addEventListener('input', fieldInputHandler);
+    modal.addEventListener('change', fieldInputHandler);
   }
 
   // ═════════════════════════════════════════════════════════
@@ -642,12 +696,21 @@
       return;
     }
 
-    // Category chips
+    // Category chips — use data-action + data-arg so the
+    // delegated click handler dispatches them, keeping this
+    // file CSP-strict (no inline onclick attributes).
+    const escAttr = (s) => String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
     const cats = Object.keys(cat.byCategory || {}).sort();
     catTabs.innerHTML = [
-      `<button class="${state.categoryFilter === 'all' ? 'active' : ''}" onclick="EstimateV2UI.setCategory('all')">All</button>`,
+      `<button type="button" class="${state.categoryFilter === 'all' ? 'active' : ''}" data-action="set-category" data-arg="all">All</button>`,
       ...cats.map(c =>
-        `<button class="${state.categoryFilter === c ? 'active' : ''}" onclick="EstimateV2UI.setCategory('${c}')">${c} (${cat.byCategory[c].length})</button>`
+        `<button type="button" class="${state.categoryFilter === c ? 'active' : ''}" data-action="set-category" data-arg="${escAttr(c)}">${escAttr(c)} (${cat.byCategory[c].length})</button>`
       )
     ].join('');
 
