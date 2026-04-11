@@ -9974,31 +9974,119 @@ window.viewEstimate = viewEstimate;
 // ══════════════════════════════════════════════
 let currentPhotoLeadId=null, currentPhotoAddr='';
 
-function renderPhotoLeads(){
-  const leads=window._leads||[];
+// ─── Photo count cache (April 2026) ───
+// The "Photos Near Me" list used to show every lead in the CRM,
+// sorted only by creation time. After knock segregation landed,
+// knock-leads were still flooding this list. Worse: leads with
+// zero photos were showing up first since they were newest,
+// making it impossible to find a real customer with real photos
+// when a homeowner was standing at the door.
+//
+// Fix: fetch photo counts per lead once, cache, then filter +
+// sort the render to show photos-first and exclude prospects.
+window._photoCountByLead = window._photoCountByLead || {};
+window._photoCountsLoaded = false;
+
+async function loadPhotoCounts() {
+  if (window._photoCountsLoaded) return window._photoCountByLead;
+  try {
+    const uid = window._user?.uid;
+    if (!uid) return {};
+    // One Firestore read — all photos owned by this user. We only
+    // need the leadId field, so we don't pull the actual photo data.
+    const snap = await getDocs(query(
+      collection(db, 'photos'),
+      where('userId', '==', uid)
+    ));
+    const counts = {};
+    snap.forEach(d => {
+      const data = d.data();
+      const lid = data.leadId;
+      if (lid) counts[lid] = (counts[lid] || 0) + 1;
+    });
+    window._photoCountByLead = counts;
+    window._photoCountsLoaded = true;
+    return counts;
+  } catch (e) {
+    console.warn('[Photos Near Me] loadPhotoCounts failed:', e.message);
+    return {};
+  }
+}
+
+async function renderPhotoLeads(){
   const wrap=document.getElementById('photoLeadsList');
-  if(!leads.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Add leads first to attach photos.</div>';return;}
+
+  // Ensure photo counts are loaded before we render so the sort
+  // can put photos-first. First open shows a loading state; later
+  // opens are instant because the counts cache hits.
+  if (!window._photoCountsLoaded) {
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Loading photo counts...</div>';
+    await loadPhotoCounts();
+  }
+
+  const allLeads = window._leads || [];
+  // Exclude prospects (hidden from kanban, should also be hidden
+  // from the Photos Near Me picker — they're not real customers).
+  const counts = window._photoCountByLead || {};
+  const realLeads = allLeads.filter(l => !l.isProspect);
+
+  if(!realLeads.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>No customers yet. Add a lead or promote a prospect to attach photos.</div>';
+    return;
+  }
+
+  // Smart rank: photos-first, then alphabetical by name
+  const ranked = realLeads.slice().sort((a, b) => {
+    const cntA = counts[a.id] || 0;
+    const cntB = counts[b.id] || 0;
+    if (cntA !== cntB) return cntB - cntA; // most photos first
+    const nameA = ((a.firstName||'') + ' ' + (a.lastName||'')).trim() || a.address || '';
+    const nameB = ((b.firstName||'') + ' ' + (b.lastName||'')).trim() || b.address || '';
+    return nameA.localeCompare(nameB);
+  });
+
+  // Split into two sections: 'Jobs with photos' and 'Jobs without'
+  const withPhotos = ranked.filter(l => (counts[l.id] || 0) > 0);
+  const withoutPhotos = ranked.filter(l => !counts[l.id]);
+
   const e = window.nbdEsc || (s => String(s == null ? '' : s));
-  wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;">'+leads.map(l=>{
+  const cardHTML = (l) => {
     const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || l.name || 'Unknown';
     const addr = l.address || 'No address';
     const stage = l.stage || 'new';
     const stageLabel = {'new':'New','contacted':'Contacted','inspected':'Inspected','claim_filed':'Claim Filed','contract_signed':'Signed','closed':'Closed'}[stage] || stage.replace(/_/g,' ');
-    // Escape every user-controlled value before interpolating. The onclick
-    // uses a data attribute that is read and opened by an event listener
-    // below, rather than inlined into the markup.
+    const count = counts[l.id] || 0;
+    const badgeBg = count > 0 ? '#22c55e' : 'var(--s3)';
+    const badgeColor = count > 0 ? '#fff' : 'var(--m)';
     return `
     <div class="panel" style="margin:0;">
       <div class="panel-hdr nbd-photo-lead" style="cursor:pointer;" data-lead-id="${e(l.id)}" data-addr="${e(addr)}">
         <div>
-          <div class="panel-label" style="display:flex;align-items:center;gap:6px;">📸 Photos <span style="background:var(--s3);color:var(--orange);font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${e(stageLabel)}</span></div>
+          <div class="panel-label" style="display:flex;align-items:center;gap:6px;">
+            📸 Photos
+            <span style="background:${badgeBg};color:${badgeColor};font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${count} photo${count === 1 ? '' : 's'}</span>
+            <span style="background:var(--s3);color:var(--orange);font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${e(stageLabel)}</span>
+          </div>
           <div class="panel-title" style="font-size:14px;">${e(name)}</div>
           <div style="font-size:11px;color:var(--m);margin-top:2px;">📍 ${e(addr)}</div>
         </div>
-        <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">📷 View / Upload</button>
+        <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">${count > 0 ? '📷 View / Add' : '📷 Upload'}</button>
       </div>
     </div>`;
-  }).join('')+'</div>';
+  };
+
+  let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+  if (withPhotos.length) {
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green, #22c55e);padding:6px 2px 0;">📸 Jobs with Photos (' + withPhotos.length + ')</div>';
+    html += withPhotos.map(cardHTML).join('');
+  }
+  if (withoutPhotos.length) {
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);padding:14px 2px 0;">Customers Without Photos (' + withoutPhotos.length + ')</div>';
+    html += withoutPhotos.map(cardHTML).join('');
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+
   wrap.querySelectorAll('.nbd-photo-lead').forEach(el => {
     el.addEventListener('click', () => {
       openPhotoFor(el.dataset.leadId, el.dataset.addr);
@@ -10079,6 +10167,12 @@ async function uploadPhotos(input){
   }
   const photos=await window._getPhotos(currentPhotoLeadId);
   renderPhotoGrid(photos);
+  // Invalidate the photo-count cache so the Photos Near Me list
+  // re-sorts this lead to the top (it just gained photos).
+  if (window._photoCountByLead) {
+    window._photoCountByLead[currentPhotoLeadId] =
+      (window._photoCountByLead[currentPhotoLeadId] || 0) + uploaded;
+  }
   showToast(uploaded === valid.length ? 'Photos uploaded!' : `${uploaded}/${valid.length} uploaded — some failed`);
   input.value='';
 }
