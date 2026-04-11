@@ -8,6 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eternal Vault V2 — NBD Pro</title>
 
+<!-- App Check site key — nbd-auth.js reads this before any claudeProxy call (GO_LIVE.md step 2). -->
+<script>window.__NBD_RECAPTCHA_KEY__ = 'REPLACE_WITH_RECAPTCHA_SITE_KEY';</script>
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';
   window._nbdAuth = NBDAuth.init({
@@ -883,6 +885,9 @@ body::after {
 <!-- Continue in Part 2... -->
 </body>
 </html>
+
+<!-- Hardened Claude proxy helper — exposes window.callClaude() -->
+<script src="/pro/js/claude-proxy.js"></script>
 
 <!-- ETERNAL VAULT V2 — PART 2: JAVASCRIPT CORE -->
 <script>
@@ -2576,7 +2581,10 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
    AI SESSION PARSER — Gemini-Powered Content Extraction
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// AI calls now go through window.callClaude() from claude-proxy.js.
+// The old Cloudflare nbd-ai-proxy worker and direct api.anthropic.com
+// calls are deprecated — callClaude enforces auth + App Check + the
+// server-side subscription and rate-limit gates.
 
 async function parseSessionWithGemini(session) {
   const prompt = `Analyze this NBD Pro build session and extract structured data.
@@ -2651,23 +2659,22 @@ EXTRACTION RULES:
 - CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini error ${response.status}: ${errorText}`);
+    if (typeof window.callClaude !== 'function') {
+      throw new Error('AI helper unavailable — auth not ready');
     }
-    
-    const data = await response.json();
-    const jsonText = data?.content?.[0]?.text || '';
-    
-    if (!jsonText) throw new Error('Gemini returned no content');
+    const data = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    let jsonText = '';
+    if (Array.isArray(data?.content)) {
+      jsonText = data.content
+        .map(c => (c && c.type === 'text' ? c.text : ''))
+        .join('');
+    }
+    if (!jsonText) throw new Error('Empty AI response');
     
     // Strip markdown code fences if present
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -2940,37 +2947,25 @@ Return this exact JSON structure:
 }`;
 
     statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
-    
-    // Call Gemini API
-    const currentUser = window._currentUser || window._auth?.currentUser;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
-      })
+
+    // Call the hardened claudeProxy Cloud Function via the shared helper.
+    if (typeof window.callClaude !== 'function') {
+      throw new Error('AI helper unavailable — auth not ready');
+    }
+    const data = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini error ${response.status}: ${errorText}`);
-    }
-    
-    const data = await response.json();
-    
-    // Extract response text (handle multiple possible formats)
+
+    // Extract response text from the Anthropic-shaped claudeProxy response.
     let jsonText = '';
-    if (typeof data === 'string') {
-      jsonText = data;
-    } else if (data.response) {
-      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
-    } else if (data.text) {
-      jsonText = data.text;
-    } else if (data.content?.[0]?.text) {
-      jsonText = data.content[0].text;
-    } else {
-      throw new Error('Cannot parse AI response format');
+    if (Array.isArray(data?.content)) {
+      jsonText = data.content
+        .map(c => (c && c.type === 'text' ? c.text : ''))
+        .join('');
     }
+    if (!jsonText) throw new Error('Empty AI response');
     
     // Clean markdown fences
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();

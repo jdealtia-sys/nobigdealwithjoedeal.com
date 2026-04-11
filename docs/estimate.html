@@ -515,10 +515,22 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 </footer>
 
 <!-- ═══════════════════════ FIREBASE ═══════════════════════ -->
+<!--
+  App Check reCAPTCHA Enterprise site key.
+  Paste the site key from Firebase Console → Project Settings →
+  App Check → Apps → (this web app) → reCAPTCHA Enterprise.
+  Until this is set, the AI estimate call will 401 and the funnel
+  will fall back to the canned ballpark.
+-->
+<script>
+  window.__NBD_RECAPTCHA_KEY__ = 'REPLACE_WITH_RECAPTCHA_SITE_KEY';
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 const app = initializeApp({
   apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -530,6 +542,42 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const functions = getFunctions(app);
+
+// Firebase App Check — gates the public /publicEstimateAI Cloud Function.
+// The `publicEstimateAI` function has enforceAppCheck:true so callers
+// must present a valid App Check token; this blocks bot/curl replay of
+// the endpoint. Joe must paste the reCAPTCHA Enterprise site key into
+// window.__NBD_RECAPTCHA_KEY__ in GO_LIVE.md step 2.
+let _appCheckReady = false;
+try {
+  const siteKey = window.__NBD_RECAPTCHA_KEY__;
+  if (siteKey && siteKey !== 'REPLACE_WITH_RECAPTCHA_SITE_KEY') {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    _appCheckReady = true;
+  }
+} catch (e) { console.warn('AppCheck init failed:', e); }
+
+// Expose a helper the estimate flow uses to call publicEstimateAI. We
+// pass the App Check token via the standard header; if App Check isn't
+// wired up yet (site key missing), the function will reject with 401 and
+// the UI will fall back to the canned ballpark.
+window._nbdFetchEstimateAI = async (payload) => {
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    if (_appCheckReady) {
+      const { token } = await getAppCheckToken(/*forceRefresh*/ false);
+      if (token) headers['X-Firebase-AppCheck'] = token;
+    }
+  } catch (e) { /* fall through without token; server will 401 */ }
+  const resp = await fetch(
+    'https://us-central1-nobigdeal-pro.cloudfunctions.net/publicEstimateAI',
+    { method: 'POST', headers, body: JSON.stringify(payload) }
+  );
+  return resp.json();
+};
 
 // Expose to global scope for inline handlers
 window._saveLead = async (data) => {
@@ -585,7 +633,9 @@ window._notifyJoe = async (leadData) => {
 /* ── Configuration ── */
 const CONFIG = {
   GOOGLE_MAPS_KEY: '', // Add your Google Maps Static API key here
-  PROXY_URL: 'https://nbd-ai-proxy.jonathandeal459.workers.dev',
+  // AI estimate requests now go through the hardened publicEstimateAI
+  // Cloud Function (App Check enforced, per-IP rate limited, server-owned
+  // system prompt). The old Cloudflare worker URL was removed.
   JOE_PHONE: '8594207382',
   OTP_ENABLED: true // Set to false to skip SMS verification during testing
 };
@@ -1022,55 +1072,23 @@ async function submitAndGetEstimate() {
     }
   }
 
-  // Get AI estimate
+  // Get AI estimate — via the hardened publicEstimateAI Cloud Function.
+  // We pass only allowlisted fields; the system prompt + pricing tables
+  // live server-side so the client cannot inject a freeform prompt.
   try {
-    var serviceLabel = {
-      'roof-replacement': 'roof replacement',
-      'roof-repair': 'roof repair',
-      'siding': 'siding installation',
-      'gutters': 'gutter installation',
-      'storm-damage': 'storm damage inspection and repair'
-    }[funnelData.service] || funnelData.service;
-
-    var materialLabel = {
-      asphalt: 'asphalt shingles',
-      metal: 'metal roofing',
-      flat: 'flat/low-slope roofing'
-    }[funnelData.roofType] || 'asphalt shingles';
-
-    var prompt = 'You are Joe Deal, owner of No Big Deal Home Solutions, a roofing contractor in Greater Cincinnati, OH. A verified homeowner wants a detailed estimate.\n\n' +
-      'Address: ' + funnelData.address + '\n' +
-      'Service: ' + serviceLabel + '\n' +
-      'Material preference: ' + materialLabel + '\n' +
-      'Timeline: ' + funnelData.timeline + '\n' +
-      'Name: ' + funnelData.firstName + '\n\n' +
-      'Based on this address and typical homes in this area, provide a JSON response with:\n' +
-      '1. Estimate the roof area in square feet\n' +
-      '2. Calculate squares (roof sqft / 100)\n' +
-      '3. Price ranges for 3 tiers: Good (3-tab), Better (architectural), Best (designer)\n' +
-      '4. Estimate the year built if possible\n' +
-      '5. A 2-3 sentence personalized "Joe\'s take" addressing ' + funnelData.firstName + ' by name\n\n' +
-      'Use 2026 Cincinnati-area rates:\n' +
-      '- Good (3-tab): $320-$380/square installed\n' +
-      '- Better (architectural): $420-$520/square installed\n' +
-      '- Best (designer/premium): $580-$750/square installed\n\n' +
-      'RESPOND ONLY WITH THIS JSON:\n' +
-      '{"roofSqft":number,"squares":number,"yearBuilt":number_or_null,"tiers":{"good":{"min":number,"max":number},"better":{"min":number,"max":number},"best":{"min":number,"max":number}},"joesTake":"string"}';
-
-    var resp = await fetch(CONFIG.PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }]
-      })
+    if (typeof window._nbdFetchEstimateAI !== 'function') {
+      throw new Error('AI helper unavailable');
+    }
+    var data = await window._nbdFetchEstimateAI({
+      address: funnelData.address,
+      service: funnelData.service,
+      material: funnelData.roofType,
+      timeline: funnelData.timeline,
+      firstName: funnelData.firstName
     });
-
-    var data = await resp.json();
-    var raw = (data && data.content && data.content[0] && data.content[0].text) || '';
-    var clean = raw.replace(/```json|```/g, '').trim();
-    var est = JSON.parse(clean);
+    if (data && data.error) throw new Error(data.error);
+    var est = data && data.estimate;
+    if (!est || typeof est !== 'object') throw new Error('Empty estimate');
     funnelData.estimate = est;
 
     setTimeout(function() { showResults(est); }, 800);

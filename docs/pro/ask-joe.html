@@ -10,6 +10,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0A0C0F">
   <script src="js/standalone-compat.js"></script>
+  <!-- Paste the reCAPTCHA Enterprise site key below before shipping (GO_LIVE.md step 2).
+       nbd-auth.js reads this and initializes Firebase App Check before any
+       claudeProxy/callClaude() call is made. -->
+  <script>window.__NBD_RECAPTCHA_KEY__ = 'REPLACE_WITH_RECAPTCHA_SITE_KEY';</script>
   <title>Ask Joe — NBD Pro</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -308,6 +312,9 @@
 </div>
 
 <script type="module" src="js/pages/ask-joe-auth.js"></script>
+
+<!-- Hardened Claude proxy helper — exposes window.callClaude() -->
+<script src="js/claude-proxy.js"></script>
 
 <script src="js/pages/ask-joe-main.js"></script>
 

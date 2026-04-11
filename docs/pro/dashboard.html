@@ -101,8 +101,7 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
-<link rel="dns-prefetch" href="https://api.anthropic.com">
-<link rel="dns-prefetch" href="https://nbd-ai-proxy.jonathandeal459.workers.dev">
+<!-- AI calls now all go through the hardened claudeProxy Cloud Function. -->
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
@@ -117,6 +116,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- App Check site key — nbd-auth.js reads this before any claudeProxy call (GO_LIVE.md step 2). -->
+<script>window.__NBD_RECAPTCHA_KEY__ = 'REPLACE_WITH_RECAPTCHA_SITE_KEY';</script>
 <!-- Centralized Auth Gate -->
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';

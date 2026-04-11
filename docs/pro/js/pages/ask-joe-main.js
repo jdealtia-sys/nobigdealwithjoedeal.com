@@ -38,43 +38,28 @@ async function sendMessage() {
   sendBtn.disabled = true;
   
   try {
-    // Get Anthropic API key from localStorage (same key saved by dashboard settings)
-    const _apiKey = localStorage.getItem('nbd_joe_key') || '';
-    if (!_apiKey || !_apiKey.startsWith('sk-ant')) {
+    // All Claude calls go through the hardened claudeProxy Cloud Function
+    // via window.callClaude — no more localStorage-held API keys. The
+    // subscription gate, rate limit, and token budget all live server-side.
+    if (typeof window.callClaude !== 'function') {
       typingDiv.remove();
-      addMessage('⚙️ To use Joe AI, add your Anthropic API key in the CRM Dashboard → Settings → Ask Joe AI tab. Get a free key at console.anthropic.com.', 'ai');
+      addMessage('⚙️ Joe AI is loading — give the page a second and try again.', 'ai');
       sendBtn.disabled = false;
       return;
     }
 
     const _systemPrompt = 'You are Joe Deal, owner of No Big Deal Home Solutions in Greater Cincinnati — a battle-tested insurance restoration contractor with 7+ years of experience. You help with roofing, siding, gutters, storm damage claims, Xactimate estimates, adjuster negotiations, and contractor business strategy. You are direct, actionable, and field-tested. You never recommend dishonest practices. Keep responses concise and practical.';
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-        'x-api-key': _apiKey
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: _systemPrompt,
-        messages: [{ role: 'user', content: message }]
-      })
+    const data = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: _systemPrompt,
+      messages: [{ role: 'user', content: message }],
     });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: { message: 'API error' } }));
-      throw new Error(err?.error?.message || `HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    
     // Remove typing indicator
     typingDiv.remove();
-    
+
     // Add AI response
     const _rt = data?.content?.[0]?.text;
     if (_rt) {
@@ -82,11 +67,18 @@ async function sendMessage() {
     } else {
       addMessage('Sorry, I encountered an error. Please try again.', 'ai');
     }
-    
+
   } catch (error) {
     console.error('Error:', error);
     typingDiv.remove();
-    addMessage('Oops! Something went wrong. Please try again.', 'ai');
+    const msg = String(error?.message || '');
+    if (/subscription|paid/i.test(msg)) {
+      addMessage('Ask Joe AI requires an active paid subscription. Upgrade from the dashboard to unlock it.', 'ai');
+    } else if (/rate limit|budget/i.test(msg)) {
+      addMessage('You\'ve hit the AI rate limit for now — try again in a minute or two.', 'ai');
+    } else {
+      addMessage('Oops! Something went wrong. Please try again.', 'ai');
+    }
   }
   
   // Re-enable send button

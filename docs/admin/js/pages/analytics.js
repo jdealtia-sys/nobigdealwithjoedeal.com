@@ -1,4 +1,7 @@
-const WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// The old Cloudflare nbd-ai-proxy worker is deprecated. This page currently
+// renders mock data (see the TODO in loadAnalytics below). When a real
+// analytics backend is wired up, call a dedicated Cloud Function, never a
+// public Cloudflare worker URL.
 
 let autoRefreshTimer = null;
 

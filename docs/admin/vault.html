@@ -12,11 +12,17 @@
 document.documentElement.style.display = 'none';
 </script>
 
+<!-- App Check site key — paste in GO_LIVE.md step 2. -->
+<script>
+  window.__NBD_RECAPTCHA_KEY__ = 'REPLACE_WITH_RECAPTCHA_SITE_KEY';
+</script>
 <!-- Firebase SDK v9 (modular) -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
   import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
   import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken }
+    from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -30,6 +36,43 @@ document.documentElement.style.display = 'none';
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // App Check — required by the hardened claudeProxy Cloud Function.
+  let _appCheckReady = false;
+  try {
+    const siteKey = window.__NBD_RECAPTCHA_KEY__;
+    if (siteKey && siteKey !== 'REPLACE_WITH_RECAPTCHA_SITE_KEY') {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+      _appCheckReady = true;
+    }
+  } catch (e) { console.warn('AppCheck init failed:', e); }
+
+  // Shared helper used by the AI session parser + vault analyzer — posts to
+  // the hardened claudeProxy Cloud Function with a Firebase ID token + App
+  // Check token. The old Cloudflare nbd-ai-proxy worker must not be called.
+  window._nbdCallClaudeProxy = async (body) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Not signed in');
+    const idToken = await user.getIdToken(false);
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + idToken,
+    };
+    try {
+      if (_appCheckReady) {
+        const { token } = await getAppCheckToken(false);
+        if (token) headers['X-Firebase-AppCheck'] = token;
+      }
+    } catch (_e) { /* server will 401 if enforced and token missing */ }
+    const resp = await fetch(
+      'https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy',
+      { method: 'POST', headers, body: JSON.stringify(body) }
+    );
+    return resp.json();
+  };
 
   // ADMIN AUTH GATE — custom claims only. No Firestore role field, no email whitelist.
   // Roles are set server-side via `admin.auth().setCustomUserClaims()` and
@@ -2486,7 +2529,9 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
    AI SESSION PARSER — Gemini-Powered Content Extraction
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// AI calls now go through the hardened claudeProxy Cloud Function via
+// window._nbdCallClaudeProxy. The old Cloudflare nbd-ai-proxy worker is
+// deprecated and must not be called from here.
 
 async function parseSessionWithGemini(session) {
   const prompt = `Analyze this NBD Pro build session and extract structured data.
@@ -2561,48 +2606,29 @@ EXTRACTION RULES:
 - CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
 
   try {
-    const response = await fetch(GEMINI_WORKER_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'gemini-2.0-flash-exp',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1 // Low temperature for structured extraction
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Worker error (${response.status}):`, errorText);
-      throw new Error(`Worker returned ${response.status}: ${errorText}`);
+    if (typeof window._nbdCallClaudeProxy !== 'function') {
+      throw new Error('AI helper unavailable — auth not ready');
     }
-    
-    const data = await response.json();
-    console.log('Raw worker response:', data);
-    
-    // Worker returns nested structure - try multiple paths
+    const data = await window._nbdCallClaudeProxy({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      temperature: 0.1,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    if (data && data.error) {
+      throw new Error(String(data.error));
+    }
+
+    // claudeProxy returns the raw Anthropic response shape.
     let jsonText = '';
-    
-    // Try common response paths
-    if (typeof data === 'string') {
-      jsonText = data;
-    } else if (data.response) {
-      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
-    } else if (data.text) {
-      jsonText = typeof data.text === 'string' ? data.text : JSON.stringify(data.text);
-    } else if (data.content) {
-      jsonText = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
-    } else if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-      // Gemini API format
-      jsonText = data.candidates[0].content.parts[0].text;
-    } else {
-      console.error('Unrecognized worker response format:', data);
-      throw new Error('Cannot find text content in worker response');
+    if (Array.isArray(data?.content)) {
+      jsonText = data.content
+        .map(c => (c && c.type === 'text' ? c.text : ''))
+        .join('');
+    }
+    if (!jsonText) {
+      console.error('Unrecognized claudeProxy response:', data);
+      throw new Error('Empty AI response');
     }
     
     if (!jsonText) {
@@ -2883,43 +2909,30 @@ Return this exact JSON structure:
 }`;
 
     statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
-    
-    // Call Gemini API
-    const currentUser = window._currentUser || window._auth?.currentUser;
-    const response = await fetch(GEMINI_WORKER_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'gemini-2.0-flash-exp',
-        messages: [{
-          role: 'user',
-          content: prompt
-        }],
-        temperature: 0.1,
-        uid: currentUser?.uid || 'anonymous',
-        feature: 'vault-analyzer'
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error ${response.status}: ${errorText}`);
+
+    // Call the hardened claudeProxy Cloud Function (ID token + App Check token).
+    if (typeof window._nbdCallClaudeProxy !== 'function') {
+      throw new Error('AI helper unavailable — auth not ready');
     }
-    
-    const data = await response.json();
-    
-    // Extract response text (handle multiple possible formats)
+    const data = await window._nbdCallClaudeProxy({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      temperature: 0.1,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    if (data && data.error) {
+      throw new Error(String(data.error));
+    }
+
+    // Extract response text from claudeProxy's Anthropic-shaped response.
     let jsonText = '';
-    if (typeof data === 'string') {
-      jsonText = data;
-    } else if (data.response) {
-      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
-    } else if (data.text) {
-      jsonText = data.text;
-    } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      jsonText = data.candidates[0].content.parts[0].text;
-    } else {
-      throw new Error('Cannot parse AI response format');
+    if (Array.isArray(data?.content)) {
+      jsonText = data.content
+        .map(c => (c && c.type === 'text' ? c.text : ''))
+        .join('');
+    }
+    if (!jsonText) {
+      throw new Error('Empty AI response');
     }
     
     // Clean markdown fences

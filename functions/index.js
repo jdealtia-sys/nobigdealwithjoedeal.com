@@ -987,6 +987,137 @@ exports.publicVisualizerAI = onRequest(
   }
 );
 
+// ═══════════════════════════════════════════════════════════════════════════
+// publicEstimateAI — Public homeowner ballpark estimate endpoint.
+//
+// Powers docs/estimate.html (the unauthenticated lead funnel). Homeowners
+// are NOT signed in, so claudeProxy's subscription gate doesn't apply.
+// Gates:
+//   - enforceAppCheck: true (blocks bots/curl without a valid App Check token)
+//   - per-IP rolling-window rate limit: 5 requests / hour
+//   - server-owned system prompt (client cannot inject one)
+//   - input fields allowlisted and length-clamped before being embedded in
+//     the prompt — no freeform messages/model/system passthrough
+//   - model locked to Haiku, max_tokens capped at 700
+//   - returns only the parsed JSON estimate; never the full upstream payload
+// ═══════════════════════════════════════════════════════════════════════════
+const ESTIMATE_SYSTEM_PROMPT = "You are Joe Deal, owner of No Big Deal Home Solutions, a roofing and exterior contractor in Greater Cincinnati, OH. You give honest, conservative ballpark estimates. Use 2026 Cincinnati-area rates: 3-tab $320-$380/square installed; architectural $420-$520/square installed; designer/premium $580-$750/square installed. RESPOND ONLY with a single JSON object matching the schema the user describes — no markdown fences, no commentary, no extra keys.";
+
+const ALLOWED_ESTIMATE_SERVICES = new Set([
+  'roof-replacement', 'roof-repair', 'siding', 'gutters', 'storm-damage',
+]);
+const ALLOWED_ESTIMATE_MATERIALS = new Set(['asphalt', 'metal', 'flat']);
+
+exports.publicEstimateAI = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 10,
+    concurrency: 20,
+    timeoutSeconds: 45,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Per-IP cap — 5 estimate calls / hour from a single IP.
+    if (!(await httpRateLimit(req, res, 'publicEstimateAI:ip', 5, 3_600_000))) return;
+
+    try {
+      const { address, service, material, timeline, firstName } = req.body || {};
+
+      const safeAddress = String(address || '').trim().slice(0, 200);
+      const safeService = ALLOWED_ESTIMATE_SERVICES.has(service) ? service : 'roof-replacement';
+      const safeMaterial = ALLOWED_ESTIMATE_MATERIALS.has(material) ? material : 'asphalt';
+      const safeTimeline = String(timeline || '').trim().slice(0, 60);
+      const safeFirstName = String(firstName || '').trim().slice(0, 40).replace(/[^\p{L}\p{M}' -]/gu, '');
+
+      if (!safeAddress || safeAddress.length < 5) {
+        res.status(400).json({ error: 'address required' });
+        return;
+      }
+
+      const serviceLabel = {
+        'roof-replacement': 'roof replacement',
+        'roof-repair': 'roof repair',
+        'siding': 'siding installation',
+        'gutters': 'gutter installation',
+        'storm-damage': 'storm damage inspection and repair',
+      }[safeService];
+      const materialLabel = {
+        asphalt: 'asphalt shingles',
+        metal: 'metal roofing',
+        flat: 'flat/low-slope roofing',
+      }[safeMaterial];
+
+      const userPrompt =
+        'A verified homeowner wants a detailed estimate.\n' +
+        'Address: ' + safeAddress + '\n' +
+        'Service: ' + serviceLabel + '\n' +
+        'Material preference: ' + materialLabel + '\n' +
+        (safeTimeline ? 'Timeline: ' + safeTimeline + '\n' : '') +
+        (safeFirstName ? 'Name: ' + safeFirstName + '\n' : '') +
+        '\nBased on typical homes at this address, return JSON with:\n' +
+        '1. roofSqft (estimated roof area in sqft)\n' +
+        '2. squares (roofSqft / 100)\n' +
+        '3. yearBuilt (number or null)\n' +
+        '4. tiers.good/better/best each with {min, max} in dollars\n' +
+        '5. joesTake: a 2-3 sentence personal note addressing ' +
+          (safeFirstName || 'the homeowner') + ' by name\n\n' +
+        'Schema: {"roofSqft":number,"squares":number,"yearBuilt":number|null,' +
+        '"tiers":{"good":{"min":number,"max":number},"better":{"min":number,"max":number},' +
+        '"best":{"min":number,"max":number}},"joesTake":"string"}';
+
+      const anthropicBody = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 700,
+        system: ESTIMATE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+      };
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn('publicEstimateAI: upstream error', { status: response.status });
+        res.status(response.status).json({ error: 'Upstream AI error' });
+        return;
+      }
+
+      // Extract text, strip markdown fences, parse JSON server-side so we
+      // never hand the raw upstream payload to the client.
+      const text = Array.isArray(data.content)
+        ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+        : '';
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      let estimate;
+      try {
+        estimate = JSON.parse(cleaned);
+      } catch (_parseErr) {
+        logger.warn('publicEstimateAI: unparseable model output');
+        res.status(502).json({ error: 'Estimate parse failed' });
+        return;
+      }
+      res.json({ estimate });
+    } catch (e) {
+      logger.error('publicEstimateAI error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
+
 // ═══════════════════════════════════════════════════════════════════
 // seedDemoData — REMOVED.
 // Previously this was an unauthenticated POST that ran the full demo

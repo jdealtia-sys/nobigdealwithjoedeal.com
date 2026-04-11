@@ -20,6 +20,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -149,6 +150,32 @@ export const NBDAuth = {
       _app = initializeApp(FIREBASE_CONFIG);
       _auth = getAuth(_app);
       _db = getFirestore(_app);
+
+      // ── App Check ─────────────────────────────────────
+      // Required by the hardened claudeProxy Cloud Function (and the
+      // Stripe/Twilio callable proxies). The site key must be pasted
+      // into window.__NBD_RECAPTCHA_KEY__ before this script loads.
+      // Until that's done, no App Check token is minted — callers will
+      // fail closed at the server with 401 "app-check".
+      let _appCheck = null;
+      try {
+        const siteKey = window.__NBD_RECAPTCHA_KEY__;
+        if (siteKey && siteKey !== 'REPLACE_WITH_RECAPTCHA_SITE_KEY') {
+          _appCheck = initializeAppCheck(_app, {
+            provider: new ReCaptchaEnterpriseProvider(siteKey),
+            isTokenAutoRefreshEnabled: true,
+          });
+        }
+      } catch (e) {
+        console.warn('AppCheck init failed:', e?.message || e);
+      }
+      window._nbdGetAppCheckToken = async () => {
+        if (!_appCheck) return null;
+        try {
+          const res = await getAppCheckToken(_appCheck, /*forceRefresh*/ false);
+          return res?.token || null;
+        } catch (_e) { return null; }
+      };
 
       // Expose on window for legacy pages
       window._auth = _auth;
