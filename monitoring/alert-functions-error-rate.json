@@ -1,0 +1,32 @@
+{
+  "displayName": "NBD Pro — Cloud Functions error rate spike",
+  "documentation": {
+    "content": "Cloud Functions are logging errors at an elevated rate. Check Cloud Logging for the specific function and error. Common causes: a deploy regression, an upstream dependency (Stripe/Twilio/Anthropic) outage, or an attack triggering unhandled paths.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Function errors > 50 in 5 min",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"^(claudeProxy|createCheckoutSession|validateAccessCode|imageProxy|publicVisualizerAI|stripeWebhook|invoiceWebhook|sendEmail|sendEstimateEmail|sendSMS|sendD2DSMS|sendVerificationCode|verifyCode|notifyNewLead)$\" AND metric.type=\"logging.googleapis.com/log_entry_count\" AND metric.labels.severity=\"ERROR\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 50,
+        "duration": "300s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE"
+          }
+        ]
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

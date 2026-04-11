@@ -1,0 +1,26 @@
+{
+  "displayName": "NBD Pro — Claude daily token budget exceeded",
+  "documentation": {
+    "content": "A user has exceeded their daily Anthropic token budget in claudeProxy. Normal for heavy power users; investigate if the same uid trips this repeatedly or multiple uids trip it at once (= possible credential stuffing).",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Daily AI budget exceeded response",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"claudeProxy\" AND jsonPayload.message=\"claudeProxy error\" OR textPayload:\"Daily AI budget exceeded\""
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": {
+      "period": "3600s"
+    },
+    "autoClose": "43200s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

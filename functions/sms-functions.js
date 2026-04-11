@@ -107,7 +107,7 @@ async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sen
       twilioSid: twilioSid || null
     });
   } catch (e) {
-    console.warn('Failed to log SMS:', e);
+    logger.warn('sms_log_write_failed', { err: e.message });
   }
 }
 
@@ -123,7 +123,7 @@ async function verifyAuth(req) {
   try {
     return await admin.auth().verifyIdToken(idToken);
   } catch (e) {
-    console.error('Auth verification failed:', e);
+    logger.warn('sms_auth_verify_failed', { err: e.message });
     return null;
   }
 }
@@ -220,7 +220,7 @@ exports.sendSMS = onRequest(
       });
 
     } catch (e) {
-      console.error('SMS send error:', e);
+      logger.error('sendSMS error', { err: e.message });
 
       // Log failure
       const db = admin.firestore();
@@ -358,7 +358,7 @@ exports.sendD2DSMS = onRequest(
       });
 
     } catch (e) {
-      console.error('D2D SMS error:', e);
+      logger.error('sendD2DSMS error', { err: e.message });
       res.status(500).json({
         error: 'Failed to send D2D SMS',
         details: e.message
@@ -475,7 +475,7 @@ exports.incomingSMS = onRequest(
                 }
               });
             } catch (e) {
-              console.warn('Failed to send push notification:', e);
+              logger.warn('push_notification_failed', { err: e.message });
             }
           }
         }
@@ -498,13 +498,13 @@ exports.incomingSMS = onRequest(
 </Response>`);
 
     } catch (e) {
-      console.error('Incoming SMS webhook error:', e);
+      logger.error('incomingSMS error', { err: e.message });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }
 );
 
-console.log('✓ SMS Cloud Functions loaded');
+logger.info('sms_functions_loaded');
 
 // ═══════════════════════════════════════════════════════════════
 // STORM ALERT SMS — Scheduled weather check
@@ -538,7 +538,7 @@ exports.checkStormAlerts = onSchedule(
         .get();
 
       if (subsSnap.empty) {
-        console.log('No active storm alert subscribers');
+        logger.info('storm_alerts_no_subscribers');
         return;
       }
 
@@ -551,7 +551,7 @@ exports.checkStormAlerts = onSchedule(
       });
 
       const uniqueZips = Object.keys(byZip);
-      console.log(`Checking ${uniqueZips.length} zip codes for ${subsSnap.size} subscribers`);
+      logger.info('storm_alerts_scan_start', { zips: uniqueZips.length, subscribers: subsSnap.size });
 
       const alertUrl = 'https://api.weather.gov/alerts/active?area=OH,KY&severity=Severe,Extreme';
       const alertResp = await fetch(alertUrl, {
@@ -659,7 +659,7 @@ exports.checkStormAlerts = onSchedule(
       logger.info('storm_alerts_complete', { totalSent });
 
     } catch (e) {
-      console.error('Storm alert check error:', e);
+      logger.error('checkStormAlerts error', { err: e.message });
     }
   }
 );

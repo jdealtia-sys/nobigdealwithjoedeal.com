@@ -274,7 +274,7 @@ async function logEmailToFirestore(db, to, subject, uid, status = 'sent') {
       status
     });
   } catch (e) {
-    console.warn('Failed to log email:', e);
+    logger.warn('email_log_write_failed', { err: e.message });
   }
 }
 
@@ -290,7 +290,7 @@ async function verifyAuth(req) {
   try {
     return await admin.auth().verifyIdToken(idToken);
   } catch (e) {
-    console.error('Auth verification failed:', e);
+    logger.warn('email_auth_verify_failed', { err: e.message });
     return null;
   }
 }
@@ -374,7 +374,7 @@ exports.sendEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Email send error:', e);
+      logger.error('sendEmail error', { err: e.message });
 
       // Log failure
       const db = admin.firestore();
@@ -477,7 +477,7 @@ exports.sendEstimateEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Estimate email error:', e);
+      logger.error('sendEstimateEmail error', { err: e.message });
       res.status(500).json({
         error: 'Failed to send estimate email',
         details: e.message
@@ -642,7 +642,7 @@ exports.sendTeamInviteEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Team invite email error:', e);
+      logger.error('sendTeamInviteEmail error', { err: e.message });
       res.status(500).json({
         error: 'Failed to send team invite',
         details: e.message
@@ -651,4 +651,4 @@ exports.sendTeamInviteEmail = onRequest(
   }
 );
 
-console.log('✓ Email Cloud Functions loaded');
+logger.info('email_functions_loaded');

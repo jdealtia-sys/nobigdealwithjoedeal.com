@@ -488,7 +488,12 @@ async function loadAnalytics() {
     
   } catch (error) {
     console.error('Analytics load error:', error);
-    document.getElementById('chartContainer').innerHTML = `<div class="error">Failed to load analytics: ${error.message}</div>`;
+    const el = document.getElementById('chartContainer');
+    el.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'error';
+    box.textContent = 'Failed to load analytics: ' + (error && error.message ? error.message : 'unknown error');
+    el.appendChild(box);
   }
 }
 
@@ -512,10 +517,12 @@ function renderChart(hourlyData) {
   let html = '<div style="display:flex; align-items:flex-end; gap:8px; height:100%; padding:20px 0;">';
   
   hourlyData.forEach(d => {
-    const height = (d.requests / max) * 100;
+    const reqs = Number(d.requests || 0);
+    const hour = Number(d.hour || 0);
+    const height = Math.max(0, Math.min(100, (reqs / max) * 100));
     html += `
       <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <div style="font-size:11px; color:var(--text3); font-family:'Syne Mono',monospace;">${d.requests}</div>
+        <div style="font-size:11px; color:var(--text3); font-family:'Syne Mono',monospace;">${reqs}</div>
         <div style="
           width:100%;
           background:var(--blue);
@@ -523,8 +530,8 @@ function renderChart(hourlyData) {
           border-radius:4px 4px 0 0;
           transition:all 0.3s var(--ease);
           opacity:0.7;
-        " title="${d.requests} requests at ${d.hour}:00"></div>
-        <div style="font-size:10px; color:var(--text3);">${d.hour}</div>
+        " title="${reqs} requests at ${hour}:00"></div>
+        <div style="font-size:10px; color:var(--text3);">${hour}</div>
       </div>
     `;
   });
@@ -533,58 +540,73 @@ function renderChart(hourlyData) {
   container.innerHTML = html;
 }
 
+// Tiny HTML escaper used by every render* helper in this file. Admin pages
+// are behind the custom-claim gate but authored data (user emails, feature
+// names) is still escaped defence-in-depth.
+function _analyticsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderTopUsers(users) {
   const container = document.getElementById('topUsers');
-  
+
   if (users.length === 0) {
     container.innerHTML = '<div style="color:var(--text3); font-size:14px;">No user data available</div>';
     return;
   }
-  
+
   let html = '';
   users.forEach((user, i) => {
+    const cost = Number(user.cost || 0).toFixed(4);
+    const requests = Number(user.requests || 0);
+    const tokens = Number(user.tokens || 0).toLocaleString();
     html += `
       <div class="user-item">
         <div class="user-rank">${i + 1}</div>
         <div class="user-info">
-          <div class="user-email">${user.email}</div>
-          <div class="user-meta">${user.requests} requests • ${user.tokens.toLocaleString()} tokens</div>
+          <div class="user-email">${_analyticsEsc(user.email)}</div>
+          <div class="user-meta">${requests} requests • ${_analyticsEsc(tokens)} tokens</div>
         </div>
         <div class="user-stats">
           <div class="user-stat">
-            <div class="user-stat-val">$${user.cost.toFixed(4)}</div>
+            <div class="user-stat-val">$${_analyticsEsc(cost)}</div>
             <div class="user-stat-lbl">Cost</div>
           </div>
         </div>
       </div>
     `;
   });
-  
+
   container.innerHTML = html;
 }
 
 function renderFeatures(features) {
   const container = document.getElementById('featureBreakdown');
-  
+
   let html = '<div class="user-list">';
-  
+
   Object.entries(features).forEach(([name, data]) => {
+    const reqs = Number(data.requests || 0);
+    const tokens = Number(data.tokens || 0).toLocaleString();
+    const cost = Number(data.cost || 0).toFixed(4);
     html += `
       <div class="user-item">
         <div class="user-info">
-          <div class="user-email">${name}</div>
-          <div class="user-meta">${data.requests} requests • ${data.tokens.toLocaleString()} tokens</div>
+          <div class="user-email">${_analyticsEsc(name)}</div>
+          <div class="user-meta">${reqs} requests • ${_analyticsEsc(tokens)} tokens</div>
         </div>
         <div class="user-stats">
           <div class="user-stat">
-            <div class="user-stat-val">$${data.cost.toFixed(4)}</div>
+            <div class="user-stat-val">$${_analyticsEsc(cost)}</div>
             <div class="user-stat-lbl">Cost</div>
           </div>
         </div>
       </div>
     `;
   });
-  
+
   html += '</div>';
   container.innerHTML = html;
 }

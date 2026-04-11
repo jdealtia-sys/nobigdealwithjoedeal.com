@@ -12,6 +12,24 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 
+// Lazy-load the v2 logger — this module is also require()'d by unit tests
+// that run outside the Firebase Functions runtime, where `firebase-functions`
+// is not installed. Fall back to a console shim in that case.
+let _logger;
+function logger() {
+  if (_logger) return _logger;
+  try {
+    _logger = require('firebase-functions/v2').logger;
+  } catch (_) {
+    _logger = {
+      info: (...a) => console.log('[info]', ...a),
+      warn: (...a) => console.warn('[warn]', ...a),
+      error: (...a) => console.error('[error]', ...a),
+    };
+  }
+  return _logger;
+}
+
 function hashKey(raw) {
   return crypto.createHash('sha256').update(String(raw || 'unknown')).digest('hex').substring(0, 32);
 }
@@ -53,6 +71,12 @@ async function enforceRateLimit(namespace, key, limit, windowMs) {
   });
 
   if (!result.allowed) {
+    // Emit a structured warning so Cloud Monitoring can attach a log-based
+    // metric to this and alert on spikes. See monitoring/alert-rate-limit-spike.json.
+    logger().warn('rate_limit_denied', {
+      namespace,
+      retryAfterMs: result.retryAfterMs,
+    });
     const e = new Error('rate_limited');
     e.rateLimited = true;
     e.retryAfterMs = result.retryAfterMs;

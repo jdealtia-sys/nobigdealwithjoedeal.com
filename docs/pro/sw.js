@@ -71,31 +71,52 @@ self.addEventListener('install', event => {
 });
 
 // ─────────────────────────────────────────────────────────
-// ACTIVATE: Clean up old cache versions
+// ACTIVATE: Clean up old cache versions + purge any cached
+// auth-gated HTML that leaked into the caches from prior
+// versions of this SW. Old SW versions used to precache
+// `/pro/dashboard.html`, `/pro/customer.html`, `/pro/login.html`
+// and the `handleAssetRequest` offline fallback could have
+// cached other pro pages. We explicitly delete those entries
+// now so a logged-out user can never see a stale shell after
+// the upgrade.
 // ─────────────────────────────────────────────────────────
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(name => {
-          // Delete caches not in our current versions
-          const isCurrentVersion = Object.values(CACHE_VERSIONS).includes(name);
-          if (!isCurrentVersion) {
-            return caches.delete(name);
-          }
-        })
-      );
-    }).then(() => {
-      // Notify all clients that a new SW is ready
-      return self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'SW_UPDATE_AVAILABLE'
-          });
-        });
+  event.waitUntil((async () => {
+    // 1. Delete every cache not in the current version set.
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => {
+      const isCurrentVersion = Object.values(CACHE_VERSIONS).includes(name);
+      if (!isCurrentVersion) return caches.delete(name);
+    }));
+
+    // 2. In every surviving cache, delete any auth-gated HTML that leaked
+    //    in before v5 started refusing to store them.
+    for (const cacheName of Object.values(CACHE_VERSIONS)) {
+      try {
+        const cache = await caches.open(cacheName);
+        const requests = await cache.keys();
+        await Promise.all(requests.map(req => {
+          try {
+            const u = new URL(req.url);
+            if (isAuthGatedHTML(u)) return cache.delete(req);
+          } catch (_) { /* ignore */ }
+        }));
+      } catch (_) { /* ignore */ }
+    }
+
+    // 3. Claim the currently-controlled clients so this SW version takes
+    //    over immediately, then tell every client to soft-reload. The
+    //    dashboard / customer / vault pages ignore the message unless the
+    //    URL is in the auth-gated set, so the marketing pages don't flap.
+    await self.clients.claim();
+    const clientList = await self.clients.matchAll({ includeUncontrolled: true });
+    clientList.forEach(client => {
+      client.postMessage({
+        type: 'SW_UPDATE_AVAILABLE',
+        version: CACHE_VERSIONS.shell,
       });
-    }).then(() => self.clients.claim())
-  );
+    });
+  })());
 });
 
 // ─────────────────────────────────────────────────────────

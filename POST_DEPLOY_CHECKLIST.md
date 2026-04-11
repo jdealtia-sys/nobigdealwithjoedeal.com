@@ -134,9 +134,43 @@ After completing sections 1–9 above, also do:
 - [ ] Test logging out of the dashboard, reloading `/pro/dashboard.html` with the tab offline → should get the offline page, NOT a stale cached dashboard.
 - [ ] Re-run the XSS smoke tests on the dashboard and customer pages: create a lead with `firstName` = `"<img src=x onerror=alert(1)>"`, create a note with the same payload, add a contact_lead via the public form with `firstName` containing HTML → none should execute.
 
-## 11. Still open (documented, not blocking this deploy)
+## 11. Phase-3 items (landed after phase-2)
+
+- **SW kill-switch upgrade** — `docs/pro/sw.js` now actively deletes any auth-gated HTML cached in surviving cache versions on activate, claims all clients, and posts `SW_UPDATE_AVAILABLE` with the version. `docs/pro/js/offline-manager.js` catches the message and force-reloads any open tab sitting on an auth-gated path (once per activation, via a `sessionStorage` flag so you don't get a reload loop). On rollout, every existing tab will do one clean reload and pick up the new shell.
+
+- **Admin-page innerHTML sweep** — `admin/analytics.html` and `admin/project-codex.html` now escape every rendered field. The search `highlight()` function in project-codex.html is the one I want you to look at — it escapes the raw text first, then re-inserts highlight spans via sentinel tokens. Can't be smuggled.
+
+- **Offline page** — `docs/offline.html` rewritten to match the new SW behaviour (auth-gated HTML is never served from cache, auto-reload on reconnect).
+
+- **Rate-limit tests** — `tests/rate-limit.test.js` runs against the emulator. Covers per-key / per-namespace isolation, window reset, burst enforcement, and deterministic hashing. Run with `cd tests && npm run test:ratelimit`.
+
+- **Structured logging sweep** — `email-functions.js` / `sms-functions.js` / `verify-functions.js` no longer use `console.log`/`warn`/`error`; every event goes through `firebase-functions/v2` logger with a stable event name (`otp_sent`, `rate_limit_denied`, `claudeProxy error`, etc). Cloud Logging can now filter by `jsonPayload.message`.
+
+- **Cloud Monitoring alert policies** — `monitoring/*.json` + `monitoring/README.md`. Four policies ready to import:
+  1. `alert-validateAccessCode-bruteforce.json` — fires on `access_code_invalid` spikes
+  2. `alert-functions-error-rate.json` — fires on Cloud Function ERROR log spikes
+  3. `alert-claude-budget-exceeded.json` — fires when a user trips the daily token budget
+  4. `alert-rate-limit-spike.json` — fires on `rate_limit_denied` spikes (the rate-limit helper now emits this event name)
+  Replace `NOTIFICATION_CHANNEL_ID` in each JSON with Joe's channel ID, then `gcloud alpha monitoring policies create --policy-from-file=monitoring/<file>.json`.
+
+- **Stray empty file removed** — `functions/{const` deleted.
+
+- **Report-only strict CSP** — added a `Content-Security-Policy-Report-Only` header alongside the enforced CSP. The report-only version drops `'unsafe-inline'` from `script-src`, adds `script-src-attr 'none'`, and drops `'unsafe-inline'` from `style-src`. Browsers will log a console violation for every inline handler / inline script that still needs migration, **without blocking anything**. Use this to triage what's left before flipping it to the enforced CSP in a future follow-up.
+
+### Phase-3 deploy steps
+
+After completing sections 1–10:
+
+- [ ] `cd tests && npm install && npm run test:ratelimit` — both rate-limit and rules tests should pass before deploy.
+- [ ] `firebase deploy --only functions,hosting` to ship the sw.js upgrade + structured logs.
+- [ ] For each Cloud Monitoring alert policy: list notification channels (`gcloud alpha monitoring channels list --project=nobigdeal-pro`), edit the JSON to replace `NOTIFICATION_CHANNEL_ID`, then `gcloud alpha monitoring policies create --policy-from-file=monitoring/<file>.json`.
+- [ ] Open the dashboard in a real browser with devtools open → watch for CSP-Report-Only violations. Each one is a remaining inline script/handler that needs to be migrated before flipping the enforced CSP to strict. Track them in a follow-up ticket.
+- [ ] Smoke test the SW upgrade: on an already-signed-in browser, deploy, then reload. Should do one automatic reload and land on the new shell.
+
+## 12. Still open (documented, not blocking this deploy)
 
 - **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
-- **Full `unsafe-inline` removal** — the CSP still allows `script-src 'unsafe-inline'` because the HTML files have inline `<script>` blocks. Next follow-up: move every inline block to an external file with a `nonce-` or `sha-` CSP entry, then drop `'unsafe-inline'` entirely.
+- **Full inline-script removal** — the CSP enforces `'unsafe-inline'` today. The new Report-Only CSP header will give you a full list of violations in devtools console. Next follow-up: move every inline `<script>` block + `onclick=` attribute to external files with per-deploy nonces, then flip the Report-Only directive into the enforced one and delete the enforced `'unsafe-inline'`. ~375 onclick handlers remain in dashboard.html alone; plan for a focused half-day sprint.
 - **Populate `functions/data/zip-to-county.json`** with the full zip→county map for every service area before re-enabling storm alerts.
-- **Remaining medium-risk innerHTML sinks** — some admin-only pages (`admin/analytics.html`, `admin/project-codex.html`, small bits of `pro/vault.html`) have a handful of sinks rendering authored data. They're admin-only behind the custom-claims gate, so exploit requires an existing admin, but they should be swept in the next pass.
+- **`docs/pro/js/_archive/` directory** — 33 legacy JS files, ~1.1 MB, not loaded by any current HTML. Can be deleted once you're confident nothing references them.
+- **Marketing site modular SDK migration** — `docs/sites/**` still uses the `compat` Firebase SDK. Migrate to the modular SDK so App Check can be attached to marketing-site form submissions.

@@ -138,7 +138,7 @@ exports.sendVerificationCode = onCall(
           channel: 'sms'
         });
 
-      console.log(`OTP sent to ${formatted}, status: ${verification.status}`);
+      logger.info('otp_sent', { status: verification.status });
 
       return {
         success: true,
@@ -146,7 +146,7 @@ exports.sendVerificationCode = onCall(
       };
 
     } catch (e) {
-      console.error('Send OTP error:', e);
+      logger.error('sendVerificationCode error', { err: e.message });
       return {
         success: false,
         error: 'Failed to send verification code. Please try again.'
@@ -205,7 +205,7 @@ exports.verifyCode = onCall(
           code: code
         });
 
-      console.log(`OTP check for ${formatted}: ${check.status}`);
+      logger.info('otp_check', { status: check.status });
 
       if (check.status === 'approved') {
         // Log successful verification
@@ -221,7 +221,7 @@ exports.verifyCode = onCall(
       }
 
     } catch (e) {
-      console.error('Verify OTP error:', e);
+      logger.error('verifyCode error', { err: e.message });
 
       // Twilio returns 404 if verification expired
       if (e.status === 404) {
@@ -405,16 +405,16 @@ exports.notifyNewLead = onCall(
         html: emailHtml
       });
 
-      console.log(`Lead notification email sent to Joe for: ${name}`);
+      logger.info('lead_notification_email_sent');
 
       return { success: true };
 
     } catch (e) {
-      console.error('Lead notification error:', e);
+      logger.error('notifyNewLead error', { err: e.message });
       // Don't fail the estimate — notification is non-critical
       return { success: false, error: 'Notification delivery issue' };
     }
   }
 );
 
-console.log('✅ Verify & Lead Notification Functions loaded');
+logger.info('verify_functions_loaded');
