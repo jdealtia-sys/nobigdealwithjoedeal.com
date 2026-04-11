@@ -6,41 +6,32 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Project Codex — NBD Pro</title>
 
-<!-- Admin Session Gate -->
+<!-- Admin Gate: Firebase Auth custom claims only. -->
+<!-- The previous localStorage-based gate was trivial to bypass (any client
+     could setItem() a session and walk in). -->
 <script>
-// Check session immediately (before any content loads)
-const SESSION_KEY = 'nbd_admin_session';
-const checkSession = () => {
-  const session = localStorage.getItem(SESSION_KEY);
-  
-  if (!session) {
-    window.location.replace('login.html');
-    return false;
-  }
-  
-  try {
-    const data = JSON.parse(session);
-    if (data.expires <= Date.now()) {
-      localStorage.removeItem(SESSION_KEY);
-      window.location.replace('login.html');
-      return false;
-    }
-    // Refresh session expiry on valid visit (rolling 7-day window)
-    data.expires = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    return true;
-  } catch (e) {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.replace('login.html');
-    return false;
-  }
-};
-
-// Run check immediately
-if (!checkSession()) {
-  // Stop page execution if session invalid
-  document.documentElement.innerHTML = '';
-}
+  document.documentElement.style.display = 'none';
+</script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  const app = initializeApp({
+    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    projectId: "nobigdeal-pro",
+    storageBucket: "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841570",
+    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+  });
+  const auth = getAuth(app);
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.replace('login.html'); return; }
+    try {
+      const result = await user.getIdTokenResult(true);
+      if (result.claims.role !== 'admin') { window.location.replace('/pro/dashboard.html'); return; }
+    } catch (e) { window.location.replace('login.html'); return; }
+    document.documentElement.style.display = '';
+  });
 </script>
 
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">

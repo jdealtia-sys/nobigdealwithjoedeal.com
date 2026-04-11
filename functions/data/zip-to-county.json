@@ -1,0 +1,21 @@
+{
+  "_README": "Static ZIP → NWS area name map for storm alert fan-out. Keys are 5-digit zip strings. Values are arrays of county/city names that appear in NWS `areaDesc`. The checkStormAlerts Cloud Function requires that a zip have at least one area match before it will send SMS. Populate this file with the zip codes the business actually serves before re-enabling storm alerts. An empty mapping makes the function refuse to send rather than fan out to all subscribers.",
+  "40502": ["Fayette"],
+  "40503": ["Fayette"],
+  "40504": ["Fayette"],
+  "40505": ["Fayette"],
+  "40509": ["Fayette"],
+  "41017": ["Kenton"],
+  "41018": ["Kenton"],
+  "41042": ["Boone"],
+  "41048": ["Boone"],
+  "41051": ["Kenton"],
+  "41071": ["Campbell"],
+  "41073": ["Campbell"],
+  "41075": ["Campbell"],
+  "45202": ["Hamilton"],
+  "45211": ["Hamilton"],
+  "45212": ["Hamilton"],
+  "45219": ["Hamilton"],
+  "45220": ["Hamilton"]
+}

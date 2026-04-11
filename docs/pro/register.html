@@ -15,10 +15,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script type="module">
   import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup }
+  import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithCustomToken, sendEmailVerification }
                                                   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs }
+  import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
                                                   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFunctions, httpsCallable }          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -32,27 +33,14 @@
   const app    = initializeApp(firebaseConfig);
   const auth   = getAuth(app);
   const db     = getFirestore(app);
+  const functions = getFunctions(app);
+  const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
-  // ── Trial duration helper ──
-  function getTrialEnd(days = 14) {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d;
-  }
-
-  // Access codes — validated server-side via Firestore ONLY
-  // Manage codes in Firestore: access_codes collection, documents with {code: 'CODE', active: true}
-  // NEVER hardcode access codes in client-side JavaScript
-  async function validateCode(code) {
-    const upper = code.toUpperCase().trim();
-    try {
-      const snap = await getDocs(query(collection(db,'access_codes'), where('code','==',upper), where('active','==',true)));
-      return !snap.empty;
-    } catch(e) {
-      console.error('Code validation error:', e);
-      return false;
-    }
-  }
+  // NOTE: Clients NO LONGER write to `subscriptions/*`, `users/*.role`, or
+  // `access_codes/*`. Subscriptions are minted by the Stripe webhook or by the
+  // hardened `validateAccessCode` Cloud Function via the admin SDK. Clients
+  // only write a minimal `users/{uid}` profile doc that excludes privileged
+  // fields (role, plan, accessCode, companyId).
 
   async function register(e) {
     e.preventDefault();
@@ -79,26 +67,20 @@
       errEl.textContent = 'Passwords do not match.'; return;
     }
     if(!code) {
-      // No access code — register as free/lite user
+      // No access code — register as free user. No paid plan is granted client-side.
+      // Users can upgrade via Stripe Checkout, which mints the subscription via webhook.
       btn.disabled = true;
       btn.textContent = 'Creating free account...';
 
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+        try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
 
+        // Minimal profile doc — no role, no plan, no accessCode (rules block those).
         await setDoc(doc(db, 'users', cred.user.uid), {
           firstName, lastName, company: company || '', email,
-          role: 'member', plan: 'professional',
           createdAt: serverTimestamp(), onboarded: false
-        });
-
-        await setDoc(doc(db, 'subscriptions', cred.user.uid), {
-          plan: 'professional', status: 'active',
-          createdAt: serverTimestamp(), source: 'registration-free-trial',
-          trialEndsAt: getTrialEnd(14),
-          fallbackPlan: 'lite',
-          limits: { maxLeads: 25 }
         });
 
         window.location.replace('/pro/dashboard.html');
@@ -115,46 +97,33 @@
     btn.disabled = true;
     btn.textContent = 'Creating account...';
 
-    const valid = await validateCode(code);
-    if(!valid) {
-      errEl.textContent = 'That access code is not valid. Contact Joe to get yours.';
-      btn.disabled = false; btn.textContent = 'Create Account';
-      return;
-    }
-
     try {
+      // Create the firebase user first — the access code flow attaches the plan.
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+      try { await sendEmailVerification(cred.user); } catch (_) {}
 
-      // Write user doc to Firestore
+      // Minimal profile doc (no privileged fields).
       await setDoc(doc(db, 'users', cred.user.uid), {
-        firstName,
-        lastName,
-        company:   company || '',
-        email,
-        role:      'member',
-        plan:      'professional',
-        accessCode: code.toUpperCase().trim(),
-        createdAt: serverTimestamp(),
-        onboarded: false
+        firstName, lastName, company: company || '', email,
+        createdAt: serverTimestamp(), onboarded: false
       });
 
-      // Write subscription — tiered trial based on code type
-      const upperCode = code.toUpperCase().trim();
-      const codeSub = { plan: 'professional', status: 'active', createdAt: serverTimestamp(), source: 'registration-access-code', accessCode: upperCode };
-      // DEMO/TRYIT = 14 days, NBD-JOE/ADMIN = permanent, all others = 90-day beta
-      if (['DEMO','TRYIT','NBD-DEMO'].includes(upperCode)) {
-        codeSub.trialEndsAt = getTrialEnd(14);
-        codeSub.fallbackPlan = 'lite';
-      } else if (!['NBD-JOE','ADMIN','NBD-ADMIN'].includes(upperCode)) {
-        codeSub.trialEndsAt = getTrialEnd(90);
-        codeSub.fallbackPlan = 'lite';
+      // Validate the access code server-side. Cloud Function mints the
+      // subscription doc + role claim via admin SDK, then returns a custom token
+      // that we exchange for a fresh session with the new claim attached.
+      const result = await validateAccessCodeFn({ code });
+      if (!result?.data?.success) {
+        errEl.textContent = (result?.data?.error) || 'That access code is not valid.';
+        btn.disabled = false; btn.textContent = 'Create Account';
+        return;
       }
-      await setDoc(doc(db, 'subscriptions', cred.user.uid), codeSub);
+      if (result.data.customToken) {
+        await signInWithCustomToken(auth, result.data.customToken);
+      }
 
       okEl.textContent = 'Account created! Taking you to your dashboard...';
       btn.textContent = '✓ Done';
-
       setTimeout(() => { window.location.href = '/pro/dashboard.html'; }, 1200);
 
     } catch(err) {
@@ -176,79 +145,35 @@
     const code  = document.getElementById('regCode').value.trim();
     errEl.textContent = '';
 
-    if(!code) {
-      // No access code — register as lite via Google
-      try {
-        const provider = new GoogleAuthProvider();
-        const cred = await signInWithPopup(auth, provider);
-        const user = cred.user;
-        const existing = await getDoc(doc(db,'users',user.uid));
-        if(!existing.exists()) {
-          const nameParts = (user.displayName||'').split(' ');
-          await setDoc(doc(db,'users',user.uid), {
-            firstName: nameParts[0]||'', lastName: nameParts.slice(1).join(' ')||'',
-            company:'', email:user.email, role:'member', plan:'lite',
-            createdAt:serverTimestamp(), onboarded:false
-          });
-        }
-        const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
-        if(!subSnap.exists()) {
-          await setDoc(doc(db,'subscriptions',user.uid), {
-            plan:'professional', status:'active', createdAt:serverTimestamp(),
-            source:'registration-google-free-trial',
-            trialEndsAt: getTrialEnd(14),
-            fallbackPlan: 'lite',
-            limits:{maxLeads:25}
-          });
-        }
-        window.location.replace('/pro/dashboard.html');
-        return;
-      } catch(e) {
-        errEl.textContent = e.message || 'Google sign-in failed';
-        return;
-      }
-    }
-
-    const valid = await validateCode(code);
-    if(!valid) {
-      errEl.textContent = 'That access code is not valid. Contact Joe to get yours.'; return;
-    }
-
     try {
       const provider = new GoogleAuthProvider();
-      const cred     = await signInWithPopup(auth, provider);
-      const user     = cred.user;
+      const cred = await signInWithPopup(auth, provider);
+      const user = cred.user;
 
-      // Check if user doc already exists
       const existing = await getDoc(doc(db,'users',user.uid));
       if(!existing.exists()) {
         const nameParts = (user.displayName||'').split(' ');
+        // Minimal profile doc — no role / plan / accessCode / companyId.
         await setDoc(doc(db,'users',user.uid), {
-          firstName:  nameParts[0] || '',
-          lastName:   nameParts.slice(1).join(' ') || '',
-          company:    '',
-          email:      user.email,
-          role:       'member',
-          plan:       'professional',
-          accessCode: code.toUpperCase().trim(),
-          createdAt:  serverTimestamp(),
-          onboarded:  false
+          firstName: nameParts[0] || '',
+          lastName:  nameParts.slice(1).join(' ') || '',
+          company:   '',
+          email:     user.email,
+          createdAt: serverTimestamp(),
+          onboarded: false
         });
       }
 
-      // Always write/refresh subscription — tiered trial based on code
-      const subSnap = await getDoc(doc(db,'subscriptions',user.uid));
-      if(!subSnap.exists() || subSnap.data().status !== 'active') {
-        const gUpperCode = code.toUpperCase().trim();
-        const gCodeSub = { plan:'professional', status:'active', createdAt:serverTimestamp(), source:'registration-google-access-code', accessCode:gUpperCode };
-        if (['DEMO','TRYIT','NBD-DEMO'].includes(gUpperCode)) {
-          gCodeSub.trialEndsAt = getTrialEnd(14);
-          gCodeSub.fallbackPlan = 'lite';
-        } else if (!['NBD-JOE','ADMIN','NBD-ADMIN'].includes(gUpperCode)) {
-          gCodeSub.trialEndsAt = getTrialEnd(90);
-          gCodeSub.fallbackPlan = 'lite';
+      // If an access code was provided, redeem it server-side.
+      if (code) {
+        const result = await validateAccessCodeFn({ code });
+        if (!result?.data?.success) {
+          errEl.textContent = (result?.data?.error) || 'That access code is not valid.';
+          return;
         }
-        await setDoc(doc(db, 'subscriptions', user.uid), gCodeSub);
+        if (result.data.customToken) {
+          await signInWithCustomToken(auth, result.data.customToken);
+        }
       }
 
       document.getElementById('regOk').textContent = 'Signed in! Taking you to your dashboard...';

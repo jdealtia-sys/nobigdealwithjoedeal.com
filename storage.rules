@@ -1,84 +1,84 @@
 rules_version = '2';
 
-// NBD Pro Firebase Storage Security Rules
+// NBD Pro Firebase Storage Security Rules — HARDENED (2026-04-11)
 // Deploy: firebase deploy --only storage
+//
+// Every path is owner-scoped by uid. "Public" customer-facing links now
+// require a short-lived download token generated server-side — no more
+// allow read; on user content.
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // ── PHOTOS (dashboard upload path) ────────────────
-    // Path: photos/{filename}
-    match /photos/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && request.resource.size < 15 * 1024 * 1024  // 15 MB limit
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+    function isAdmin() { return isAuth() && request.auth.token.role == 'admin'; }
+
+    // ── PHOTOS ─────────────────────────────────────────
+    // Path: photos/{uid}/{file}
+    // Owner (and admin) can read/write. No one else.
+    match /photos/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 15 * 1024 * 1024   // 15 MB cap
         && request.resource.contentType.matches('image/.*');
     }
 
-    // ── DOCUMENTS ────────────────────────────────────
-    // Path: docs/{filename}
-    match /docs/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && request.resource.size < 25 * 1024 * 1024;  // 25 MB limit
+    // Legacy path: photos/<file> (no uid). Block new writes; read only via imageProxy.
+    match /photos/{file} {
+      allow read, write: if false;
     }
 
-    // ── CUSTOMER PORTALS (shareable HTML pages) ──────
-    // Path: portals/{userId}/{leadId}.html
-    // Read: public (shared via link with customers)
-    // Write: authenticated users only
-    match /portals/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024;  // 5 MB limit
+    // ── DOCUMENTS ──────────────────────────────────────
+    // Path: docs/{uid}/{file}
+    match /docs/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 25 * 1024 * 1024;   // 25 MB cap
+    }
+    match /docs/{file} {
+      allow read, write: if false;
     }
 
-    // ── DEAL ROOMS (shareable pricing/agreement pages) ─
-    // Path: deal_rooms/{userId}/{dealId}.html
-    // Read: public (shared via link with customers)
-    // Write: authenticated users only
-    match /deal_rooms/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
+    // ── CUSTOMER PORTALS ──────────────────────────────
+    // Path: portals/{uid}/{leadId}.html
+    // Not publicly readable. Customers get a signed URL from the imageProxy
+    // or a portal-signing Cloud Function (to be added), not a direct CDN path.
+    match /portals/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
         && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // ── SHARED GALLERIES (shareable photo galleries) ──
-    // Path: galleries/{userId}/{leadId}.html
-    // Read: public (shared via link with customers)
-    // Write: authenticated users only
-    match /galleries/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
+    // ── DEAL ROOMS ─────────────────────────────────────
+    match /deal_rooms/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // ── SHARED GALLERIES ──────────────────────────────
+    match /galleries/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
         && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // ── SHARED REPORTS (shareable report pages) ───────
-    // Path: reports/{userId}/{filename}
-    // Read: public (shared via link with customers/adjusters)
-    // Write: authenticated users only
-    match /reports/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
+    // ── SHARED REPORTS ────────────────────────────────
+    match /reports/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
         && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // ── SHARED DOCUMENTS (shareable doc pages) ────────
-    // Path: shared_docs/{userId}/{filename}
-    // Read: public (shared via link)
-    // Write: authenticated users only
-    match /shared_docs/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
+    // ── SHARED DOCUMENTS ──────────────────────────────
+    match /shared_docs/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
         && request.resource.size < 25 * 1024 * 1024;
     }
 
-    // ── DEFAULT: Deny everything else ────────────────
+    // ── DEFAULT DENY ──────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

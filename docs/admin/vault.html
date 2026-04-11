@@ -31,19 +31,18 @@ document.documentElement.style.display = 'none';
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // ADMIN AUTH GATE — verify Firebase Auth + admin role in Firestore
+  // ADMIN AUTH GATE — custom claims only. No Firestore role field, no email whitelist.
+  // Roles are set server-side via `admin.auth().setCustomUserClaims()` and
+  // cannot be self-elevated by any client.
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.replace('/pro/login.html?redirect=/admin/vault.html');
       return;
     }
-
-    // Verify admin role in Firestore
     try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : null;
-      const isAdmin = role === 'admin' || user.email === 'demo@nobigdeal.pro';
-      if (!isAdmin) {
+      // Force token refresh so freshly-granted admin claims are picked up.
+      const result = await user.getIdTokenResult(true);
+      if (result.claims.role !== 'admin') {
         window.location.replace('/pro/dashboard.html');
         return;
       }
@@ -51,8 +50,6 @@ document.documentElement.style.display = 'none';
       window.location.replace('/pro/login.html?redirect=/admin/vault.html');
       return;
     }
-
-    // Admin verified — show page
     document.documentElement.style.display = '';
     window.dispatchEvent(new Event('firebase-ready'));
   });

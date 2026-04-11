@@ -13,8 +13,17 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const twilio = require('twilio');
+const { enforceRateLimit, httpRateLimit, clientIp } = require('./rate-limit');
+
+// Minimal HTML escaper for values we store from untrusted SMS webhooks.
+function escForStore(s) {
+  return String(s == null ? '' : s)
+    .replace(/[<>]/g, ch => ({ '<':'&lt;','>':'&gt;' }[ch]))
+    .slice(0, 4000);
+}
 
 // Secrets
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
@@ -63,26 +72,23 @@ const D2D_SMS_TEMPLATES = {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Validate US phone number format
+ * Validate US/Canada phone number format. We explicitly REJECT international
+ * numbers — international SMS is a toll-fraud ("SMS pumping") target.
  */
 function isValidPhoneNumber(phone) {
-  // Basic validation: 10 digits (US)
-  const cleaned = phone.replace(/\D/g, '');
-  return cleaned.length === 10 || cleaned.length === 11;
+  const cleaned = String(phone || '').replace(/\D/g, '');
+  if (cleaned.length === 10) return true;
+  if (cleaned.length === 11 && cleaned.startsWith('1')) return true;
+  return false;
 }
 
 /**
- * Format phone number to E.164 format for Twilio
+ * Format phone number to E.164 — US/Canada only. Returns null for anything else.
  */
 function formatPhoneNumber(phone) {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 10) {
-    return `+1${cleaned}`;
-  } else if (cleaned.length === 11 && cleaned.startsWith('1')) {
-    return `+${cleaned}`;
-  } else if (cleaned.length === 11) {
-    return `+1${cleaned}`;
-  }
+  const cleaned = String(phone || '').replace(/\D/g, '');
+  if (cleaned.length === 10) return `+1${cleaned}`;
+  if (cleaned.length === 11 && cleaned.startsWith('1')) return `+${cleaned}`;
   return null;
 }
 
@@ -134,7 +140,9 @@ exports.sendSMS = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB'
   },
@@ -144,11 +152,22 @@ exports.sendSMS = onRequest(
       return;
     }
 
+    // Per-IP cap: 30 SMS/hour from a single IP.
+    if (!(await httpRateLimit(req, res, 'sendSMS:ip', 30, 3_600_000))) return;
+
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
+    }
+
+    // Per-uid cap: 100 SMS/day.
+    try {
+      await enforceRateLimit('sendSMS:uid', decoded.uid, 100, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Daily SMS limit exceeded' }); return; }
+      throw e;
     }
 
     const { to, body, leadId } = req.body;
@@ -223,7 +242,9 @@ exports.sendD2DSMS = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB'
   },
@@ -233,11 +254,19 @@ exports.sendD2DSMS = onRequest(
       return;
     }
 
+    if (!(await httpRateLimit(req, res, 'sendD2DSMS:ip', 60, 3_600_000))) return;
+
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
+    }
+    try {
+      await enforceRateLimit('sendD2DSMS:uid', decoded.uid, 200, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Daily SMS limit exceeded' }); return; }
+      throw e;
     }
 
     const { knockId, templateKey } = req.body;
@@ -358,35 +387,31 @@ exports.incomingSMS = onRequest(
     }
 
     try {
-      // Verify Twilio signature
+      // Verify Twilio signature using the ACTUAL validator. The previous code
+      // called `twilio.webhook(...)` which is an Express middleware FACTORY —
+      // it returns a function, not a boolean, so the `if (!isValid)` branch
+      // was never taken and the signature check was effectively off.
       const twilioSignature = req.headers['x-twilio-signature'] || '';
       const authToken = TWILIO_AUTH_TOKEN.value();
-
-      // Construct the signed URL for verification
       const url = `https://${req.get('host')}${req.originalUrl}`;
 
-      const params = new URLSearchParams();
-      if (req.body && typeof req.body === 'object') {
-        Object.keys(req.body).forEach(key => {
-          params.append(key, req.body[key]);
-        });
-      }
+      // Twilio signs the sorted set of POSTed form fields as an object.
+      const params = (req.body && typeof req.body === 'object') ? req.body : {};
 
-      // Verify signature (Twilio utility)
-      const isValid = twilio.webhook(authToken, twilioSignature, url, params.toString());
-
+      const isValid = twilio.validateRequest(authToken, twilioSignature, url, params);
       if (!isValid) {
-        console.warn('Twilio webhook signature verification failed');
+        logger.warn('incomingSMS signature verification failed', {
+          host: req.get('host'),
+          ip: clientIp(req),
+        });
         res.status(403).json({ error: 'Webhook signature verification failed' });
         return;
       }
 
-      // Parse incoming message
-      const {
-        From: fromPhone,
-        Body: messageBody,
-        MessageSid: messageSid
-      } = req.body;
+      // Extract + sanitize fields.
+      const fromPhone    = escForStore(req.body.From);
+      const messageBody  = escForStore(req.body.Body);
+      const messageSid   = escForStore(req.body.MessageSid);
 
       if (!fromPhone || !messageBody) {
         res.status(400).json({ error: 'Missing From or Body' });
@@ -528,103 +553,110 @@ exports.checkStormAlerts = onSchedule(
       const uniqueZips = Object.keys(byZip);
       console.log(`Checking ${uniqueZips.length} zip codes for ${subsSnap.size} subscribers`);
 
-      // Check NWS alerts for each zip area
-      // NWS uses lat/lon, so we'll check Ohio/Kentucky zone alerts
       const alertUrl = 'https://api.weather.gov/alerts/active?area=OH,KY&severity=Severe,Extreme';
       const alertResp = await fetch(alertUrl, {
         headers: { 'User-Agent': 'NBDHomeStormAlerts/1.0 (jd@nobigdealwithjoedeal.com)' }
       });
-
-      if (!alertResp.ok) {
-        console.error('NWS API error:', alertResp.status);
-        return;
-      }
+      if (!alertResp.ok) { logger.error('NWS API error', { status: alertResp.status }); return; }
 
       const alertData = await alertResp.json();
       const features = alertData.features || [];
 
-      // Filter for hail/wind/tornado events
       const stormKeywords = ['hail', 'tornado', 'severe thunderstorm', 'wind'];
       const relevantAlerts = features.filter(f => {
         const event = (f.properties?.event || '').toLowerCase();
         const desc = (f.properties?.description || '').toLowerCase();
         return stormKeywords.some(k => event.includes(k) || desc.includes(k));
       });
+      if (relevantAlerts.length === 0) { logger.info('storm_alerts_none'); return; }
 
-      if (relevantAlerts.length === 0) {
-        console.log('No relevant storm alerts found');
+      // Load zip → county/city mapping (static, packaged with the function).
+      // Falls back to empty map if the file is missing, in which case we
+      // REFUSE to send rather than blasting every subscriber (the old bug).
+      let zipToAreas = {};
+      try {
+        zipToAreas = require('./data/zip-to-county.json');
+      } catch (e) {
+        logger.error('zip-to-county mapping missing — refusing to fan out');
         return;
       }
 
-      console.log(`Found ${relevantAlerts.length} relevant storm alerts`);
-
-      // Check which alerts we've already sent (dedup)
-      const sentAlerts = new Set();
+      // Dedup by (alertId, subscriberId).
+      const alreadySent = new Set();
       const recentSent = await db.collection('storm_alerts_sent')
-        .where('sentAt', '>', new Date(Date.now() - 24 * 60 * 60 * 1000))
+        .where('sentAt', '>', new Date(Date.now() - 48 * 60 * 60 * 1000))
         .get();
-      recentSent.docs.forEach(d => sentAlerts.add(d.data().alertId));
+      recentSent.docs.forEach(d => {
+        const r = d.data();
+        if (r.alertId && r.subscriberId) alreadySent.add(`${r.alertId}::${r.subscriberId}`);
+      });
 
-      // Initialize Twilio
-      const client = twilio(
-        TWILIO_ACCOUNT_SID.value(),
-        TWILIO_AUTH_TOKEN.value()
-      );
+      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       const fromPhone = TWILIO_PHONE_NUMBER.value();
-
       let totalSent = 0;
+
+      // Helper: does subscriber's zip fall inside this alert's areaDesc?
+      function zipMatchesArea(zip, areaDescLower) {
+        const areas = zipToAreas[zip];
+        if (!Array.isArray(areas) || areas.length === 0) return false;
+        return areas.some(name => areaDescLower.includes(String(name).toLowerCase()));
+      }
+
+      // Respect Twilio 1-per-second per-number pacing.
+      async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
       for (const alert of relevantAlerts) {
         const alertId = alert.properties?.id || alert.id;
-        if (sentAlerts.has(alertId)) continue;
+        if (!alertId) continue;
 
         const event = alert.properties?.event || 'Severe Weather';
         const headline = alert.properties?.headline || '';
-        const areas = (alert.properties?.areaDesc || '').toLowerCase();
+        const areasLower = (alert.properties?.areaDesc || '').toLowerCase();
+        if (!areasLower) continue;
 
-        // Check which zip codes are in the affected area
-        // NWS areas are county-based, so we match on county/city names
         for (const zip of uniqueZips) {
-          const subscribers = byZip[zip];
+          if (!zipMatchesArea(zip, areasLower)) continue; // <-- the real fix
+          for (const sub of byZip[zip]) {
+            const dedupKey = `${alertId}::${sub.id}`;
+            if (alreadySent.has(dedupKey)) continue;
 
-          // Send to each subscriber in this zip
-          for (const sub of subscribers) {
             const phone = formatPhoneNumber(sub.phone);
             if (!phone) continue;
 
-            const body = `⛈️ NBD Storm Alert: ${event} reported near your area (${zip}). ${headline.substring(0, 120)} — Free roof inspection: nobigdealwithjoedeal.com or call Joe (859) 420-7382. Reply STOP to unsubscribe.`;
+            const body = `⛈️ NBD Storm Alert: ${event} reported near ${zip}. ${String(headline).substring(0, 120)} — Free roof inspection: nobigdealwithjoedeal.com or call Joe (859) 420-7382. Reply STOP to unsubscribe.`;
 
             try {
               await client.messages.create({
                 body: body.substring(0, 1600),
                 from: fromPhone,
-                to: phone
+                to: phone,
               });
               totalSent++;
-            } catch (e) {
-              console.warn(`SMS failed for ${sub.phone}:`, e.message);
+              alreadySent.add(dedupKey);
 
-              // Deactivate if phone is invalid
+              await db.collection('storm_alerts_sent').add({
+                alertId,
+                subscriberId: sub.id,
+                event,
+                headline,
+                areas: areasLower,
+                zip,
+                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            } catch (e) {
+              logger.warn('storm_alert_sms_failed', { sub: sub.id, err: e.message });
               if (e.code === 21211 || e.code === 21614) {
                 await db.doc(`storm_alert_subscribers/${sub.id}`).update({ active: false });
-                console.log(`Deactivated invalid number: ${sub.phone}`);
               }
             }
+
+            // Twilio default per-number cap is 1 msg/sec.
+            await sleep(1100);
           }
         }
-
-        // Mark alert as sent
-        await db.collection('storm_alerts_sent').add({
-          alertId,
-          event,
-          headline,
-          areas,
-          sentAt: admin.firestore.FieldValue.serverTimestamp(),
-          subscriberCount: totalSent
-        });
       }
 
-      console.log(`Storm alert check complete. Sent ${totalSent} SMS messages.`);
+      logger.info('storm_alerts_complete', { totalSent });
 
     } catch (e) {
       console.error('Storm alert check error:', e);

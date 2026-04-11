@@ -109,6 +109,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
 <script src="js/standalone-compat.js"></script>
+<!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
+<script type="module" src="js/dom-safe.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
@@ -9545,23 +9547,32 @@ function renderPhotoLeads(){
   const leads=window._leads||[];
   const wrap=document.getElementById('photoLeadsList');
   if(!leads.length){wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>Add leads first to attach photos.</div>';return;}
+  const e = window.nbdEsc || (s => String(s == null ? '' : s));
   wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;">'+leads.map(l=>{
     const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || l.name || 'Unknown';
     const addr = l.address || 'No address';
     const stage = l.stage || 'new';
     const stageLabel = {'new':'New','contacted':'Contacted','inspected':'Inspected','claim_filed':'Claim Filed','contract_signed':'Signed','closed':'Closed'}[stage] || stage.replace(/_/g,' ');
+    // Escape every user-controlled value before interpolating. The onclick
+    // uses a data attribute that is read and opened by an event listener
+    // below, rather than inlined into the markup.
     return `
     <div class="panel" style="margin:0;">
-      <div class="panel-hdr" style="cursor:pointer;" onclick="openPhotoFor('${l.id}','${addr.replace(/'/g,"\\'")}')">
+      <div class="panel-hdr nbd-photo-lead" style="cursor:pointer;" data-lead-id="${e(l.id)}" data-addr="${e(addr)}">
         <div>
-          <div class="panel-label" style="display:flex;align-items:center;gap:6px;">📸 Photos <span style="background:var(--s3);color:var(--orange);font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${stageLabel}</span></div>
-          <div class="panel-title" style="font-size:14px;">${name}</div>
-          <div style="font-size:11px;color:var(--m);margin-top:2px;">📍 ${addr}</div>
+          <div class="panel-label" style="display:flex;align-items:center;gap:6px;">📸 Photos <span style="background:var(--s3);color:var(--orange);font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;">${e(stageLabel)}</span></div>
+          <div class="panel-title" style="font-size:14px;">${e(name)}</div>
+          <div style="font-size:11px;color:var(--m);margin-top:2px;">📍 ${e(addr)}</div>
         </div>
         <button class="btn btn-orange" style="font-size:11px;padding:7px 14px;">📷 View / Upload</button>
       </div>
     </div>`;
   }).join('')+'</div>';
+  wrap.querySelectorAll('.nbd-photo-lead').forEach(el => {
+    el.addEventListener('click', () => {
+      openPhotoFor(el.dataset.leadId, el.dataset.addr);
+    });
+  });
 }
 
 async function openPhotoFor(leadId, addr){
@@ -9580,7 +9591,24 @@ document.getElementById('photoModal').addEventListener('click',e=>{if(e.target==
 function renderPhotoGrid(photos){
   const grid=document.getElementById('photoGridModal');
   if(!photos.length){grid.innerHTML='<p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No photos yet. Upload above.</p>';return;}
-  grid.innerHTML=photos.map(p=>`<div class="photo-thumb"><img src="${p.url}" alt="${p.name}" onclick="window.open('${p.url}','_blank')"></div>`).join('');
+  // Build via DOM so user-controlled `p.url` and `p.name` cannot inject markup.
+  grid.textContent='';
+  const e = window.nbdEsc || (s => String(s == null ? '' : s));
+  photos.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.className = 'photo-thumb';
+    const img = document.createElement('img');
+    img.src = p.url;
+    img.alt = p.name || '';
+    img.addEventListener('click', () => {
+      // Validate url before opening to avoid javascript: schemes.
+      const safe = /^https?:/i.test(p.url) ? p.url : '#';
+      window.open(safe, '_blank', 'noopener,noreferrer');
+    });
+    wrap.appendChild(img);
+    grid.appendChild(wrap);
+    void e; // keep helper referenced
+  });
 }
 
 const PHOTO_MAX_SIZE = 15 * 1024 * 1024; // 15 MB per file

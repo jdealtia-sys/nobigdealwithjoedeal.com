@@ -8,7 +8,6 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const app = initializeApp({
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -20,23 +19,21 @@ const app = initializeApp({
 });
 
 const auth = getAuth(app);
-const db = getFirestore(app);
 
+// Custom-claims admin gate only — no Firestore role lookup.
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = '/pro/login.html?redirect=/admin/vault.html';
     return;
   }
-  // Verify admin role in Firestore
   try {
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const role = userDoc.exists() ? userDoc.data().role : null;
-    if (role === 'admin' || user.email === 'demo@nobigdeal.pro') {
+    const result = await user.getIdTokenResult(true);
+    if (result.claims.role === 'admin') {
       window.location.href = 'vault.html';
     } else {
       window.location.href = '/pro/dashboard.html';
     }
-  } catch(e) {
+  } catch (e) {
     window.location.href = '/pro/login.html?redirect=/admin/vault.html';
   }
 });

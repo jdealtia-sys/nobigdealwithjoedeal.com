@@ -681,31 +681,17 @@ async function runVisualizer() {
     const base64 = uploadedDataUrl.split(',')[1];
     const mediaType = uploadedDataUrl.split(';')[0].split(':')[1];
 
-    const response = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `You are Joe Deal, owner of No Big Deal Home Solutions in Greater Cincinnati, OH. You're a roofing and exterior contractor who's honest, plain-spoken, and genuinely helpful. A homeowner has uploaded a photo of their house and selected exterior options they want to visualize. Give them:
-
-1. A practical assessment of what their home currently has (roof, siding, gutters you can see)
-2. Specific honest feedback on how their chosen options would look on THIS house
-3. Any recommendations or things to consider — speak like you're in their driveway looking at it
-4. A short "visual description" (after the main text) prefixed with "CANVAS:" that describes in detail the colors and materials to render on the home for the canvas visualization — be specific about hex colors and placement
-
-Keep it conversational, 150-200 words for the main assessment, then the CANVAS: description.`,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: `The homeowner wants to visualize the following changes to their home: ${selectionsText}.${notes ? ' Additional context: ' + notes : ''} Give your honest contractor assessment and the CANVAS description.` }
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
+    // AI-generated visualizer text is currently disabled. The previous
+    // implementation called an unauthenticated Cloudflare Worker that forwarded
+    // to the Anthropic API with a shared secret — an open cost-bomb. The
+    // replacement flow (anonymous Firebase Auth + App Check + claudeProxy) has
+    // not shipped yet, so we fall through to the catch() block which renders a
+    // pre-written fallback assessment. The canvas overlay below still runs
+    // fully client-side and doesn't need AI.
+    throw new Error('ai_disabled');
+    // Keep vars in scope to avoid a ReferenceError if code below reads them.
+    // eslint-disable-next-line no-unreachable
+    const data = { content: [{ text: '' }] };
     const fullText = data.content?.[0]?.text || '';
     const canvasIdx = fullText.indexOf('CANVAS:');
     aiText = canvasIdx > -1 ? fullText.substring(0, canvasIdx).trim() : fullText;

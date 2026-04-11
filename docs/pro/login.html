@@ -445,14 +445,15 @@ async function doCodeLogin() {
   try {
     const result = await validateAccessCodeFn({ code: raw });
     const data = result.data;
-    if (!data.success) {
-      codeErrorMsg.textContent = data.error || 'Code not recognized. Check with Joe at (859) 420-7382.';
+    if (!data?.success || !data.customToken) {
+      codeErrorMsg.textContent = data?.error || 'Code not recognized. Check with Joe at (859) 420-7382.';
       codeError.classList.add('show');
       codeInput.focus();
       return;
     }
-    // Sign in with email/password returned by the server
-    await signInWithEmailAndPassword(auth, data.email, data.password);
+    // Exchange the server-minted custom token for a Firebase session.
+    // No password ever leaves the server.
+    await signInWithCustomToken(auth, data.customToken);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     codeErrorMsg.textContent = 'Authentication error. Contact Joe at (859) 420-7382.';
@@ -475,8 +476,8 @@ async function doDemoLogin() {
   try {
     const result = await validateAccessCodeFn({ code: 'DEMO' });
     const data = result.data;
-    if (!data.success) throw new Error(data.error);
-    await signInWithEmailAndPassword(auth, data.email, data.password);
+    if (!data?.success || !data.customToken) throw new Error(data?.error || 'demo unavailable');
+    await signInWithCustomToken(auth, data.customToken);
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     demoErrorMsg.textContent = 'Demo account unavailable right now. Try the Access Code tab or contact Joe.';
