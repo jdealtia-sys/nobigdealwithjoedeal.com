@@ -85,10 +85,26 @@
 
       const html = buildReportHTML(lead, name, before, during, after, now, hasPhases);
 
-      // Open in new window
-      const win = window.open('', '_blank');
-      win.document.write(html);
-      win.document.close();
+      // Route through the Universal Document Viewer so the user
+      // can Print or Download PDF via the action bar instead of
+      // being dumped into a blank popup.
+      if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+        const slug = (name || 'photos').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+        window.NBDDocViewer.open({
+          html: html,
+          title: 'Photo Report — ' + name,
+          filename: 'NBD-PhotoReport-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+          onSave: async () => {
+            if (typeof showToast === 'function') {
+              showToast('\u2713 Photo report ready \u2014 Print or Download PDF from the action bar', 'ok');
+            }
+          }
+        });
+      } else {
+        // Fallback: legacy popup
+        const win = window.open('', '_blank');
+        if (win) { win.document.write(html); win.document.close(); }
+      }
 
       if (typeof showToast === 'function') showToast('Photo report generated — print to PDF', 'ok');
     } catch(e) {

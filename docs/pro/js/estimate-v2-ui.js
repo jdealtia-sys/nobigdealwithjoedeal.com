@@ -1152,7 +1152,34 @@
       }
     }
     const result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
-    window.EstimateFinalization.openInNewWindow(result);
+    // Route through the Universal Document Viewer so the user
+    // can Save, Email, Print, or Download PDF without being
+    // dumped into a blank popup with no way back.
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      const titleMap = {
+        'insurance-scope': 'Insurance Scope',
+        'retail-quote': 'Retail Quote',
+        'internal': 'Internal Estimate View'
+      };
+      const titleSuffix = state.customer.address
+        ? ' — ' + state.customer.address
+        : '';
+      window.NBDDocViewer.open({
+        html: result.html,
+        title: (titleMap[format] || 'Estimate') + titleSuffix,
+        filename: 'NBD-' + (titleMap[format] || 'Estimate').replace(/\s+/g, '-')
+          + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+        onSave: async () => {
+          // Wire the doc viewer's "Save to Customer" button to
+          // the same Firestore write the Save button in the
+          // bottom-left corner of the builder uses.
+          await save();
+        }
+      });
+    } else {
+      // Fallback: original popup behavior if the viewer isn't loaded
+      window.EstimateFinalization.openInNewWindow(result);
+    }
   }
 
   // ═════════════════════════════════════════════════════════

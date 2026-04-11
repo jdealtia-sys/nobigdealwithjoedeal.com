@@ -1431,8 +1431,16 @@ function exportDrawReport() {
   ${lines.map(l=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${l.color};margin-right:6px;vertical-align:middle;"></span>${l.name}</td><td>${l.dist.toFixed(1)} ft</td></tr>`).join('')}
   </tbody></table>
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Measurements are estimates. Always verify on-site.</div></div>
-  <script>window.print();<\/script></body></html>`;
-  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+  </body></html>`;
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    window.NBDDocViewer.open({
+      html: html,
+      title: 'Roof Measurement Report',
+      filename: 'NBD-Measurements-' + new Date().toISOString().split('T')[0] + '.pdf'
+    });
+    return;
+  }
+  const w=window.open('','_blank'); if(w){ w.document.write(html); w.document.close(); }
 }
 
 // ── SAVE / RESTORE DRAWING STATE (localStorage) ──────────
@@ -1756,8 +1764,17 @@ function showMaterialTakeoff() {
   </tbody></table>
   <div class="warn">⚠️ Quantities are estimates based on satellite measurements. Always verify on-site before ordering. Pipe boot count and specialty items should be confirmed during inspection.</div>
   <div class="foot"><div>No Big Deal Home Solutions — nobigdealwithjoedeal.com</div><div>Generated from NBD Pro Drawing Tool</div></div>
-  <script>window.print();<\/script></body></html>`;
-  const w = window.open('','_blank'); w.document.write(html); w.document.close();
+  </body></html>`;
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    const slug = (addr || 'takeoff').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    window.NBDDocViewer.open({
+      html: html,
+      title: 'Material Takeoff — ' + (addr || 'Drawing'),
+      filename: 'NBD-Takeoff-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf'
+    });
+    return;
+  }
+  const w = window.open('','_blank'); if(w){ w.document.write(html); w.document.close(); }
 }
 
 

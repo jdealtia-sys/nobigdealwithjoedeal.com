@@ -4992,7 +4992,12 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/email_system.js"></script>
 <script src="js/customer-portal.js?v=2"></script>
 <script src="js/clipboard-fix.js?v=1"></script>
-<script src="js/photo-report.js?v=2"></script>
+<!-- html2pdf.js — powers NBDDocViewer's client-side PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<!-- Universal in-app document viewer — routes photo reports, docs,
+     etc. through one in-app modal instead of blank popups. -->
+<script defer src="js/nbd-doc-viewer.js?v=1"></script>
+<script src="js/photo-report.js?v=3"></script>
 <script src="js/review-engine.js?v=2"></script>
 <script src="js/profit-tracker.js?v=2"></script>
 <script src="js/lead-scoring.js?v=2"></script>
@@ -5000,7 +5005,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/offline-manager.js?v=3"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <script src="js/photo-editor.js?v=3"></script>
-<script src="js/document-generator.js?v=3"></script>
+<script src="js/document-generator.js?v=4"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>
 

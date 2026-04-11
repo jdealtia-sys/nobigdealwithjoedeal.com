@@ -512,6 +512,16 @@ function submitDeal() {
     const deal = dealRooms.find(d => d.id === dealId);
     if (!deal) return;
     const html = generateDealPageHTML(deal);
+    // Route through the Universal Document Viewer
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      const slug = String(deal.customerName || dealId || 'deal').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+      window.NBDDocViewer.open({
+        html: html,
+        title: 'Deal Preview — ' + (deal.customerName || 'Deal #' + dealId),
+        filename: 'NBD-Deal-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf'
+      });
+      return;
+    }
     const w = window.open('', '_blank');
     if (w) {
       w.document.write(html);

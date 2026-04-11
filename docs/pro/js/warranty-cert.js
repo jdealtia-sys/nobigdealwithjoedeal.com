@@ -152,13 +152,34 @@ function generateWarrantyCertPDF() {
     <div class="seal">NBD<br>Lifetime<br>Guarantee</div>
   </div>
 
-  <script>window.print();<\/script>
   </body></html>`;
 
-  const w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
   document.getElementById('warrantyCertModal').classList.remove('open');
+
+  // Route through the Universal Document Viewer — user picks
+  // Print or Download PDF from the action bar instead of the
+  // old auto-print popup.
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    const customerName = (typeof ownerName !== 'undefined' && ownerName) ? ownerName : '';
+    const slug = (customerName || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    window.NBDDocViewer.open({
+      html: html,
+      title: 'Lifetime Warranty Certificate' + (customerName ? ' — ' + customerName : ''),
+      filename: 'NBD-Warranty-' + slug + '-' + (typeof certNum !== 'undefined' ? certNum : new Date().getTime()) + '.pdf',
+      onSave: async () => {
+        if (typeof showToast === 'function') {
+          showToast('\u2713 Warranty certificate generated \u2014 Print or Download PDF from the action bar', 'success');
+        }
+      }
+    });
+  } else {
+    // Fallback: legacy popup
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html.replace('</body>', '<script>window.print();<\/script></body>'));
+      w.document.close();
+    }
+  }
   showToast('✓ Warranty certificate generated', 'success');
 }
 

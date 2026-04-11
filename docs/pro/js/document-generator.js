@@ -88,6 +88,25 @@ window.NBDDocGen = {
       return;
     }
     const typeName = this.DOCUMENT_TYPES[type]?.name || type;
+    // Route through the Universal Document Viewer so the user
+    // can Save / Email / Print / PDF / Close without being dumped
+    // into a blank popup with no way to persist the doc.
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      const customerName = (data.customer && (data.customer.name || data.customer.firstName)) || '';
+      const slug = (customerName || typeName).replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+      window.NBDDocViewer.open({
+        html: html,
+        title: typeName + (customerName ? ' — ' + customerName : ''),
+        filename: 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+        onSave: async () => {
+          if (typeof showToast === 'function') {
+            showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
+          }
+        }
+      });
+      return;
+    }
+    // Fallback: legacy popup if the doc viewer isn't loaded
     const win = window.open('', '_blank');
     if (!win) {
       if(typeof showToast==='function') showToast('Popup blocked — please allow popups for this site and try again.','error');

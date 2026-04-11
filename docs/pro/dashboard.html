@@ -95,7 +95,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm.js?v=9" as="script">
-<link rel="preload" href="js/maps.js?v=6" as="script">
+<link rel="preload" href="js/maps.js?v=7" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -12333,9 +12333,15 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- jsPDF for advanced PDF export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
+     Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<!-- Universal in-app document viewer — routes every generator's
+     HTML through one modal so we never launch a blank popup again. -->
+<script defer src="js/nbd-doc-viewer.js?v=1"></script>
 
 <script defer src="js/property-intel.js?v=3"></script>
-<script defer src="js/warranty-cert.js?v=3"></script>
+<script defer src="js/warranty-cert.js?v=4"></script>
 <script defer src="js/tools.js?v=6"></script>
 <script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
@@ -12345,7 +12351,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/photo-engine.js?v=3"></script>
 <script src="js/invoice-pipeline.js?v=3"></script>
 <script src="js/inspection-report-engine.js?v=3"></script>
-<script src="js/maps.js?v=6"></script>
+<script src="js/maps.js?v=7"></script>
 <script src="js/widgets.js?v=4"></script>
 <script src="js/ui.js?v=3"></script>
 <script src="js/estimates.js?v=5"></script>
