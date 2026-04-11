@@ -7380,6 +7380,10 @@ function switchScTab(tab, btn) {
           🎲 Load Sample Data
         </button>
         <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="btn btn-ghost" id="prospectsToggleBtn" onclick="toggleProspectsView()" style="font-size:11px;padding:6px 12px;position:relative;" title="Toggle prospects (raw knocks that haven't been promoted to full customers yet)">
+            👀 <span id="prospectsBtnLabel">Show Prospects</span>
+            <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+          </button>
           <button class="btn btn-ghost" id="bulkModeBtn" onclick="toggleBulkMode()" style="font-size:11px;padding:6px 12px;" title="Select multiple leads">☑ Bulk</button>
           <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
           <button class="btn btn-orange" onclick="openLeadModal()" title="Keyboard shortcut: C">＋ Add Lead <span class="kbd-hint">C</span></button>
@@ -12082,19 +12086,32 @@ window._cardDetailLeadId = null;
 function openCardDetailModal(leadId) {
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
-  
+
   window._cardDetailLeadId = leadId;
-  
+
   // Populate modal
-  document.getElementById('cardDetailName').textContent = 
+  document.getElementById('cardDetailName').textContent =
     `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead';
   document.getElementById('cardDetailStage').textContent = lead.stage || 'New';
   document.getElementById('cardDetailAddress').textContent = lead.address || '—';
   document.getElementById('cardDetailPhone').textContent = lead.phone || '—';
   document.getElementById('cardDetailDamage').textContent = lead.damageType || '—';
-  document.getElementById('cardDetailValue').textContent = 
+  document.getElementById('cardDetailValue').textContent =
     lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
-  
+
+  // ─── Prospect promote button ───
+  // Show a "Promote to Customer" call-to-action banner at the top of
+  // the detail modal when this lead is still marked as a prospect.
+  // Clicking it flips isProspect:false and re-renders the kanban.
+  const promoteBanner = document.getElementById('cardDetailPromoteBanner');
+  if (promoteBanner) {
+    if (lead.isProspect) {
+      promoteBanner.style.display = 'flex';
+    } else {
+      promoteBanner.style.display = 'none';
+    }
+  }
+
   // Show modal
   document.getElementById('cardDetailModal').classList.add('open');
 }
@@ -12370,14 +12387,23 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <div class="modal-bg" id="cardDetailModal">
   <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
-    
+
+    <!-- Prospect banner — only visible when lead.isProspect is true -->
+    <div id="cardDetailPromoteBanner" style="display:none;background:linear-gradient(135deg,rgba(232,114,12,.12),rgba(232,114,12,.04));border:1px solid rgba(232,114,12,.35);border-radius:8px;padding:14px 16px;margin-bottom:16px;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:180px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">👀 PROSPECT</div>
+        <div style="font-size:12px;color:var(--t);line-height:1.4;">This lead was auto-created from a door knock and hasn't been qualified yet. Promote them to your real customer pipeline when you're ready.</div>
+      </div>
+      <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" onclick="window.promoteProspect(window._cardDetailLeadId);closeCardDetailModal();">✓ Promote to Customer</button>
+    </div>
+
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
       <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
       <div style="flex:1;"></div>
       <div id="cardDetailStage" style="font-size:10px;padding:4px 10px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;"></div>
     </div>
-    
+
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px;" id="cardDetailName"></div>
     
     <!-- Quick Info Grid -->
@@ -12461,7 +12487,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
 <script src="js/claude-proxy.js?v=3"></script>
-<script src="js/crm.js?v=10"></script>
+<script src="js/crm.js?v=11"></script>
 <script src="js/tasks.js?v=3"></script>
 <script src="js/photo-engine.js?v=3"></script>
 <script src="js/invoice-pipeline.js?v=3"></script>
@@ -12482,7 +12508,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/academy-admin.js?v=2"></script>
 <script defer src="js/real-deal-academy-lab.js?v=1"></script>
 <script defer src="js/real-deal-academy.js?v=2"></script>
-<script defer src="js/d2d-tracker.js?v=3"></script>
+<script defer src="js/d2d-tracker.js?v=4"></script>
 <script defer src="js/storm-center.js?v=1"></script>
 <script defer src="js/storm-integration.js?v=1"></script>
 <script defer src="js/decision-engine.js?v=1"></script>

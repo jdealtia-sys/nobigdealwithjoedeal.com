@@ -176,6 +176,22 @@ function renderLeads(leads, filtered){
   let list    = (filtered !== undefined && filtered !== null) ? filtered : all;
   window._filteredLeads = (filtered !== undefined && filtered !== null) ? filtered : null;
 
+  // ─── Prospect segregation (April 2026) ─────────────────
+  // Leads marked { isProspect: true } represent knocks that
+  // auto-created a lead record but haven't been qualified yet
+  // (i.e. not-home, interested, storm-damage, etc. dispositions).
+  // By default the kanban HIDES prospects so they don't crowd real
+  // customer data. A toggle in the CRM header lets the user flip
+  // 'Show prospects' on when they want to triage.
+  //
+  // Appointments are the exception — they skip the Prospect stage
+  // entirely because a set meeting is already a qualified customer.
+  // See convertToLead() in d2d-tracker.js for the routing logic.
+  const _showProspects = (localStorage.getItem('nbd_crm_show_prospects') === '1');
+  if (!_showProspects) {
+    list = list.filter(l => !l.isProspect);
+  }
+
   // ── Per-pipeline filter: only show leads that belong to the active track ──
   // Simple view: show all leads (no filter)
   // Insurance view: show insurance + unset jobType leads (NBD defaults to insurance)
@@ -218,11 +234,38 @@ function renderLeads(leads, filtered){
     if(_closedKeys.includes(sk)) closedRev+=v;
     if(_approvedKeys.includes(sk)) approvedCount++;
   });
-  setEl('crmTotalLeads', all.length);
+  // Count prospects (hidden from kanban when toggle is off)
+  const _prospectCount = all.filter(l => l.isProspect).length;
+  const _realCount = all.length - _prospectCount;
+  // Update the Prospects toggle button label + badge so user
+  // knows how many are hiding.
+  const _prospectBadge = document.getElementById('prospectsCountBadge');
+  const _prospectLabel = document.getElementById('prospectsBtnLabel');
+  const _prospectBtn = document.getElementById('prospectsToggleBtn');
+  if (_prospectBadge) {
+    _prospectBadge.textContent = _prospectCount;
+    _prospectBadge.style.display = _prospectCount > 0 ? 'inline-block' : 'none';
+  }
+  if (_prospectLabel) {
+    _prospectLabel.textContent = _showProspects ? 'Hide Prospects' : 'Show Prospects';
+  }
+  if (_prospectBtn) {
+    if (_showProspects) {
+      _prospectBtn.style.background = 'rgba(232,114,12,.1)';
+      _prospectBtn.style.borderColor = 'var(--orange)';
+      _prospectBtn.style.color = 'var(--orange)';
+    } else {
+      _prospectBtn.style.background = '';
+      _prospectBtn.style.borderColor = '';
+      _prospectBtn.style.color = '';
+    }
+  }
+
+  setEl('crmTotalLeads', _realCount);
   setEl('crmPipeVal',    '$'+pipeVal.toLocaleString());
   setEl('crmApproved',  approvedCount);
   setEl('crmClosedRev', '$'+closedRev.toLocaleString());
-  setEl('crmSubLine',   all.length+' leads · $'+pipeVal.toLocaleString()+' pipeline');
+  setEl('crmSubLine',   _realCount + ' customers · $' + pipeVal.toLocaleString() + ' pipeline' + (_prospectCount > 0 ? ' · ' + _prospectCount + ' prospects' : ''));
   // dashboard cards
   setEl('statLeads', all.length);
   setEl('statVal',   '$'+pipeVal.toLocaleString());
@@ -1807,6 +1850,50 @@ async function refreshTrashBadge() {
     }
   } catch(e) { console.warn('refreshTrashBadge:', e.message); }
 }
+
+// ─── Prospects toggle (April 2026) ───
+// Flips the 'nbd_crm_show_prospects' localStorage flag and re-renders
+// the kanban. When ON, raw unqualified knocks that auto-created leads
+// with isProspect:true show up alongside real customers. When OFF
+// (default), they're hidden to keep the kanban clean.
+window.toggleProspectsView = function() {
+  const current = localStorage.getItem('nbd_crm_show_prospects') === '1';
+  if (current) {
+    localStorage.removeItem('nbd_crm_show_prospects');
+    if (typeof window.showToast === 'function') window.showToast('Prospects hidden', 'info');
+  } else {
+    localStorage.setItem('nbd_crm_show_prospects', '1');
+    if (typeof window.showToast === 'function') window.showToast('Prospects visible', 'info');
+  }
+  renderLeads(window._leads, window._filteredLeads);
+};
+
+// ─── Promote a prospect to a full customer ───
+// Strips the isProspect flag + bumps stage from 'prospect' to 'new'
+// if that's the current stage. Called from the lead detail modal's
+// "Promote to Customer" button (added in a separate edit) or
+// programmatically after a photo is uploaded / phone is captured.
+window.promoteProspect = async function(leadId) {
+  if (!leadId) return;
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) { if (typeof window.showToast === 'function') window.showToast('Lead not found', 'error'); return; }
+  if (!lead.isProspect) { if (typeof window.showToast === 'function') window.showToast('Already a full customer', 'info'); return; }
+  try {
+    const leadRef = window.doc(window.db, 'leads', leadId);
+    const patch = { isProspect: false, promotedAt: window.serverTimestamp(), updatedAt: window.serverTimestamp() };
+    // If the lead is still sitting in 'prospect' pseudo-stage, bump
+    // it to 'new' so the kanban has a real home for it.
+    if ((lead.stage || '').toLowerCase() === 'prospect') patch.stage = 'new';
+    await window.updateDoc(leadRef, patch);
+    lead.isProspect = false;
+    if (patch.stage) lead.stage = patch.stage;
+    renderLeads(window._leads, window._filteredLeads);
+    if (typeof window.showToast === 'function') window.showToast('✓ Promoted to customer', 'success');
+  } catch (e) {
+    console.error('promoteProspect failed:', e);
+    if (typeof window.showToast === 'function') window.showToast('Failed to promote: ' + e.message, 'error');
+  }
+};
 
 // Expose CRM functions to window for onclick handlers
 window.openLeadModal = openLeadModal;

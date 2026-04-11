@@ -758,6 +758,16 @@
         }
       }
 
+      // ─── Prospect segregation (April 2026) ───
+      // Appointment dispositions become full customers immediately
+      // (isProspect: false) because a set meeting is already a
+      // qualified customer worth tracking in the kanban.
+      // All other hot dispositions (interested, storm_damage, ins_*)
+      // become PROSPECTS — they auto-create a lead record for data
+      // integrity, but the lead is hidden from the kanban by default
+      // until the user explicitly promotes it via the CRM lead detail
+      // modal (Promote to Customer button).
+      const isAppointment = knock.disposition === 'appointment';
       const leadData = {
         firstName,
         lastName,
@@ -775,7 +785,10 @@
         d2dKnockId: knockId,
         lat: knock.lat || null,
         lng: knock.lng || null,
-        followUp: followUpStr
+        followUp: followUpStr,
+        // Prospect flag: appointments land in the kanban immediately,
+        // everything else waits for manual promotion.
+        isProspect: !isAppointment
       };
 
       // Use _saveLead which also creates map pin and geocodes
