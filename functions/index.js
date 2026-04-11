@@ -244,12 +244,12 @@ exports.createCheckoutSession = onRequest(
         },
       });
 
-      console.log(`Checkout session created: ${session.id} for user ${decoded.uid} (plan: ${plan})`);
+      logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, plan });
 
       res.json({ url: session.url });
 
     } catch (e) {
-      console.error('Checkout session creation error:', e);
+      logger.error('createCheckoutSession error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -287,7 +287,7 @@ exports.stripeWebhook = onRequest(
     try {
       event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
     } catch (e) {
-      console.error('Webhook signature verification failed:', e.message);
+      logger.error('stripeWebhook signature verification failed', { err: e.message });
       res.status(400).json({ error: 'Webhook signature verification failed' });
       return;
     }
@@ -302,7 +302,7 @@ exports.stripeWebhook = onRequest(
           const customerId = session.customer;
 
           if (!uid) {
-            console.warn('checkout.session.completed: no client_reference_id');
+            logger.warn('stripeWebhook.checkout_session_completed missing client_reference_id');
             break;
           }
 
@@ -320,7 +320,7 @@ exports.stripeWebhook = onRequest(
             { merge: true }
           );
 
-          console.log(`Subscription activated for user ${uid} (session: ${session.id})`);
+          logger.info('subscription_activated', { uid, sessionId: session.id });
           break;
         }
 
@@ -336,7 +336,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`customer.subscription.updated: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.subscription_updated no matching user', { customerId });
             break;
           }
 
@@ -349,7 +349,7 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Subscription updated for user ${uid} (status: ${subscription.status})`);
+          logger.info('subscription_updated', { uid, status: subscription.status });
           break;
         }
 
@@ -365,7 +365,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`customer.subscription.deleted: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.subscription_deleted no matching user', { customerId });
             break;
           }
 
@@ -377,7 +377,7 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Subscription cancelled for user ${uid}`);
+          logger.info('subscription_cancelled', { uid });
           break;
         }
 
@@ -393,7 +393,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`invoice.payment_failed: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.invoice_payment_failed no matching user', { customerId });
             break;
           }
 
@@ -405,18 +405,18 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Payment failed for user ${uid} (invoice: ${invoice.id})`);
+          logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
           break;
         }
 
         default:
-          console.log(`Unhandled webhook event type: ${event.type}`);
+          logger.info('stripeWebhook.unhandled_event_type', { type: event.type });
       }
 
       res.json({ received: true });
 
     } catch (e) {
-      console.error('Webhook processing error:', e);
+      logger.error('stripeWebhook processing error', { err: e.message });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }
@@ -471,12 +471,12 @@ exports.createCustomerPortalSession = onRequest(
         return_url: 'https://nobigdealwithjoedeal.com/pro/settings',
       });
 
-      console.log(`Billing portal session created for user ${decoded.uid}`);
+      logger.info('billing_portal_session_created', { uid: decoded.uid });
 
       res.json({ url: portalSession.url });
 
     } catch (e) {
-      console.error('Billing portal session creation error:', e);
+      logger.error('createCustomerPortalSession error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -528,7 +528,7 @@ exports.getSubscriptionStatus = onRequest(
       });
 
     } catch (e) {
-      console.error('Get subscription status error:', e);
+      logger.error('getSubscriptionStatus error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -572,10 +572,10 @@ exports.setStorageCors = onRequest(
           responseHeader: ['Content-Type', 'Authorization', 'Content-Length', 'User-Agent'],
         },
       ]);
-      console.log('Storage CORS configuration updated successfully');
+      logger.info('storage_cors_updated');
       res.json({ success: true, message: 'CORS configuration applied to storage bucket' });
     } catch (e) {
-      console.error('setCors error:', e);
+      logger.error('setStorageCors error', { err: e.message });
       res.status(500).json({ error: e.message });
     }
   }
@@ -838,7 +838,7 @@ exports.invoiceWebhook = onRequest(
           STRIPE_WEBHOOK_SECRET.value()
         );
       } catch (err) {
-        console.error('Webhook signature verification failed:', err.message);
+        logger.error('invoiceWebhook signature verification failed', { err: err.message });
         res.status(400).json({ error: 'Invalid signature' });
         return;
       }
@@ -878,7 +878,7 @@ exports.invoiceWebhook = onRequest(
       res.json({ received: true });
 
     } catch (e) {
-      console.error('invoiceWebhook error:', e);
+      logger.error('invoiceWebhook error', { err: e.message });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }

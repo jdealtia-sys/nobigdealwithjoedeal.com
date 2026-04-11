@@ -336,6 +336,7 @@ function renderLeads(leads, filtered){
       if(count) count.textContent = cards.length;
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      wireKanbanCardListeners(body);
       // attach drag events to cards
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
@@ -454,11 +455,15 @@ function buildCard(l){
     }
   }
 
-  // Photo thumbnails (from cache)
+  // Photo thumbnails (from cache). Click behavior is wired via data-* +
+  // delegated event listener in wireKanbanCardListeners(), so attacker-
+  // controlled fields like `l.address` can never break out of an onclick
+  // attribute. Only http(s) photo URLs are rendered.
   const photos = window._photoCache?.[l.id] || [];
-  const photoHTML = photos.length ? `<div class="kc-photos">
-    ${photos.slice(0,3).map(p=>`<img class="kc-photo-thumb" src="${p.url}" onclick="openPhotoFor('${l.id}','${(l.address||'').replace(/'/g,'&#39;')}')" loading="lazy">`).join('')}
-    ${photos.length > 3 ? `<div class="kc-photo-more" onclick="openPhotoFor('${l.id}','${(l.address||'').replace(/'/g,'&#39;')}')">+${photos.length-3}</div>` : ''}
+  const safePhotos = photos.filter(p => /^https?:/i.test(String(p.url || '')));
+  const photoHTML = safePhotos.length ? `<div class="kc-photos">
+    ${safePhotos.slice(0,3).map(p=>`<img class="kc-photo-thumb nbd-kc-photo" data-lead-id="${escHtml(l.id)}" src="${escHtml(p.url)}" loading="lazy">`).join('')}
+    ${safePhotos.length > 3 ? `<div class="kc-photo-more nbd-kc-photo" data-lead-id="${escHtml(l.id)}">+${safePhotos.length-3}</div>` : ''}
   </div>` : '';
 
   // Roof age
@@ -486,8 +491,16 @@ function buildCard(l){
                         l._syncSuccess ? '<div class="k-card-sync-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></div>' : 
                         l._syncError ? '<div class="k-card-sync-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg></div>' : '';
 
-  let html = `<div class="k-card" draggable="true" data-id="${l.id}" onclick="handleCardClick('${l.id}',event)">
-    <div class="k-card-checkbox" onclick="event.stopPropagation();toggleCardSelection('${l.id}')">
+  // All click behavior is wired by wireKanbanCardListeners() via delegation
+  // off the kanban body. Each action is encoded as a data-action attribute
+  // and every user-controlled value (id, phone, nameRaw) is escaped via
+  // escHtml before interpolation. An attacker-controlled lead field can
+  // therefore never break out of an attribute or inject a handler.
+  const safeId = escHtml(l.id);
+  const firstName = escHtml(nameRaw.split(' ')[0] || '');
+  const showSmsBtn = ['new','contacted','inspected'].includes(_sk) && phone;
+  let html = `<div class="k-card nbd-kc-main" draggable="true" data-id="${safeId}" data-action="card-click">
+    <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -498,9 +511,9 @@ function buildCard(l){
       </div>
     </div>
     <div class="kc-name">${name}${l.customerId ? ` <span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--orange,#e8720c);opacity:.8;margin-left:4px;">${escHtml(l.customerId)}</span>` : ''}</div>
-    ${addr ? `<div class="kc-addr" title="${l.address||''}">${addr}</div>` : ''}
+    ${addr ? `<div class="kc-addr" title="${escHtml(l.address||'')}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">
-      <a class="kc-phone-link" href="tel:${phone.replace(/\D/g,'')}" onclick="event.stopPropagation()"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> ${phone}</a>
+      <a class="kc-phone-link nbd-kc-stop" href="tel:${phone.replace(/\D/g,'')}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> ${phone}</a>
       ${daysLabel ? `<span class="kc-days ${daysClass}" style="margin-left:auto;">${daysLabel}</span>` : ''}
     </div>` : (daysLabel ? `<div style="text-align:right;margin-bottom:4px;"><span class="kc-days ${daysClass}">${daysLabel}</span></div>` : '')}
     ${email ? `<div class="kc-email-line" title="${email}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> ${email}</div>` : ''}
@@ -511,21 +524,21 @@ function buildCard(l){
     </div>` : ''}
     ${photoHTML}
     <div class="kc-tags">
-      ${l.damageType ? `<span class="kc-tag kct-dmg">${l.damageType}</span>` : ''}
+      ${l.damageType ? `<span class="kc-tag kct-dmg">${escHtml(l.damageType)}</span>` : ''}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${roofBadge}
     </div>
     <div class="kc-footer">
-      <button class="${taskBadgeClass}" onclick="openTaskModal('${l.id}',event)">${taskBadgeLabel}</button>
+      <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>
       <div class="kc-actions">
         <div class="kc-move">
-          ${prevS ? `<button class="kc-arrow" title="← ${prevLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${prevS}')">◀</button>` : '<span style="width:18px;"></span>'}
-          ${nextS ? `<button class="kc-arrow" title="→ ${nextLabel}" onclick="event.stopPropagation();moveCard('${l.id}','${nextS}')">▶</button>` : '<span style="width:18px;"></span>'}
+          ${prevS ? `<button type="button" class="kc-arrow nbd-kc-stop" title="← ${escHtml(prevLabel)}" data-action="move-card" data-id="${safeId}" data-target-stage="${escHtml(prevS)}">◀</button>` : '<span style="width:18px;"></span>'}
+          ${nextS ? `<button type="button" class="kc-arrow nbd-kc-stop" title="→ ${escHtml(nextLabel)}" data-action="move-card" data-id="${safeId}" data-target-stage="${escHtml(nextS)}">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
-        ${['new','contacted','inspected'].includes(_sk) && phone ? `<button class="kc-btn" title="Send booking link via SMS" onclick="event.stopPropagation();sendBookingSMS('${l.id}','${phone.replace(/'/g,'&#39;')}','${nameRaw.replace(/'/g,'&#39;').split(' ')[0]}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></button>` : ''}
-        ${email ? `<button class="kc-btn" title="Email" onclick="event.stopPropagation();if(typeof emailByStage==='function')emailByStage('${l.id}');else if(typeof window.emailByStage==='function')window.emailByStage('${l.id}');"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg></button>` : ''}
-        <button class="kc-btn edit" onclick="event.stopPropagation();editLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
-        <button class="kc-btn del"  onclick="event.stopPropagation();deleteLead('${l.id}')"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
+        ${showSmsBtn ? `<button type="button" class="kc-btn nbd-kc-stop" title="Send booking link via SMS" data-action="booking-sms" data-id="${safeId}" data-phone="${phone}" data-first-name="${firstName}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></button>` : ''}
+        ${email ? `<button type="button" class="kc-btn nbd-kc-stop" title="Email" data-action="email-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg></button>` : ''}
+        <button type="button" class="kc-btn edit nbd-kc-stop" data-action="edit-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
+        <button type="button" class="kc-btn del nbd-kc-stop" data-action="delete-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
       </div>
     </div>
   </div>`;
@@ -841,6 +854,55 @@ function renderNotifItem(n, opts = {}) {
 
 // Wire event listeners on all rendered notification rows. Called after every
 // innerHTML = list.map(renderNotifItem) so handlers attach to the new DOM.
+// Delegated click listener for every kanban card. Replaces the inline
+// onclick="..." attributes that buildCard() used to emit. Each action
+// button has a data-action attribute naming the handler, plus data-id /
+// data-* payloads. Called by the kanban render functions after every
+// innerHTML update so listeners survive re-renders.
+function wireKanbanCardListeners(container) {
+  if (!container || container.__nbdWired) return;
+  container.__nbdWired = true;
+
+  const handlers = {
+    'card-click':   (el, ev) => typeof handleCardClick === 'function' && handleCardClick(el.dataset.id, ev),
+    'toggle-select':(el)     => typeof toggleCardSelection === 'function' && toggleCardSelection(el.dataset.id),
+    'open-tasks':   (el, ev) => typeof openTaskModal === 'function' && openTaskModal(el.dataset.id, ev),
+    'move-card':    (el)     => typeof moveCard === 'function' && moveCard(el.dataset.id, el.dataset.targetStage),
+    'edit-lead':    (el)     => typeof editLead === 'function' && editLead(el.dataset.id),
+    'delete-lead':  (el)     => typeof deleteLead === 'function' && deleteLead(el.dataset.id),
+    'booking-sms':  (el)     => typeof sendBookingSMS === 'function' && sendBookingSMS(el.dataset.id, el.dataset.phone, el.dataset.firstName),
+    'email-lead':   (el)     => {
+      if (typeof emailByStage === 'function') return emailByStage(el.dataset.id);
+      if (typeof window.emailByStage === 'function') return window.emailByStage(el.dataset.id);
+    },
+    'open-photo':   (el)     => typeof openPhotoFor === 'function' && openPhotoFor(el.dataset.leadId, ''),
+  };
+
+  container.addEventListener('click', (ev) => {
+    // Let <a href="tel:..."> links and elements marked nbd-kc-stop swallow
+    // propagation before we dispatch, so they don't open the card behind.
+    const stopEl = ev.target.closest('.nbd-kc-stop');
+    const actionEl = ev.target.closest('[data-action]');
+    if (!actionEl || !container.contains(actionEl)) return;
+    const action = actionEl.dataset.action;
+
+    // Every non-card-click action must not bubble up to re-open the card.
+    if (action !== 'card-click') ev.stopPropagation();
+    if (stopEl && stopEl !== actionEl && action === 'card-click') return;
+
+    const fn = handlers[action];
+    if (fn) fn(actionEl, ev);
+  });
+
+  // Photo thumbs use a separate class because they don't have a data-action.
+  container.addEventListener('click', (ev) => {
+    const photo = ev.target.closest('.nbd-kc-photo');
+    if (!photo || !container.contains(photo)) return;
+    ev.stopPropagation();
+    if (typeof openPhotoFor === 'function') openPhotoFor(photo.dataset.leadId, '');
+  });
+}
+
 function wireNotifListeners(container) {
   if (!container) return;
   container.querySelectorAll('.nbd-notif-row').forEach(row => {
@@ -1518,21 +1580,38 @@ async function renderDeletedDrawer() {
     body.innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></div><div class="empty-title">All Clear</div><div class="empty-sub">No deleted leads in the trash.</div></div>';
     return;
   }
+  // Every deleted-lead field is escaped via escHtml before interpolation,
+  // and the action buttons use data-* + event delegation so an attacker-
+  // controlled lead name/address can never break out of an attribute.
   body.innerHTML = deleted.map(l => {
-    const name = ((l.firstName||'')+' '+(l.lastName||'')).trim() || l.address || 'Lead';
-    const addr = (l.address||'').split(',').slice(0,2).join(',');
-    const deletedDate = l.deletedAt?.toDate ? l.deletedAt.toDate().toLocaleDateString() : 'Recently';
+    const rawName = ((l.firstName||'')+' '+(l.lastName||'')).trim() || l.address || 'Lead';
+    const name = escHtml(rawName);
+    const addr = escHtml((l.address||'').split(',').slice(0,2).join(','));
+    const deletedDate = escHtml(l.deletedAt?.toDate ? l.deletedAt.toDate().toLocaleDateString() : 'Recently');
     const val = l.jobValue ? ' · $'+parseFloat(l.jobValue).toLocaleString() : '';
-    return `<div class="deleted-card" id="dc-${l.id}">
+    const stage = escHtml(l.stage || 'New');
+    const safeId = escHtml(l.id);
+    return `<div class="deleted-card" id="dc-${safeId}">
       <div class="deleted-card-name">${name}</div>
       <div class="deleted-card-addr">${addr}</div>
-      <div class="deleted-card-meta">Stage: ${l.stage||'New'}${val} · Deleted ${deletedDate}</div>
+      <div class="deleted-card-meta">Stage: ${stage}${val} · Deleted ${deletedDate}</div>
       <div class="deleted-card-btns">
-        <button class="dc-restore" onclick="restoreDeletedLead('${l.id}')">Restore</button>
-        <button class="dc-perm" onclick="permanentDeleteLead('${l.id}','${name.replace(/'/g,'&#39;')}')">Remove</button>
+        <button type="button" class="dc-restore nbd-dc-restore" data-id="${safeId}">Restore</button>
+        <button type="button" class="dc-perm nbd-dc-perm" data-id="${safeId}" data-name="${name}">Remove</button>
       </div>
     </div>`;
   }).join('');
+  // Wire delegated listeners.
+  body.querySelectorAll('.nbd-dc-restore').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (typeof restoreDeletedLead === 'function') restoreDeletedLead(btn.dataset.id);
+    });
+  });
+  body.querySelectorAll('.nbd-dc-perm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (typeof permanentDeleteLead === 'function') permanentDeleteLead(btn.dataset.id, btn.dataset.name || '');
+    });
+  });
 }
 
 async function restoreDeletedLead(id) {
