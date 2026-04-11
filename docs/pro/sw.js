@@ -11,11 +11,11 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v5',  // bumped — Phase 2 XSS/auth hardening, purges old shells
-  cdn: 'nbd-cdn-v5',      // bumped — forces re-fetch of JS + CSS modules
+  shell: 'nbd-shell-v6',  // bumped — UI sweep: touch fixes, collapsible v2 builder, new favicon
+  cdn: 'nbd-cdn-v6',      // bumped — forces re-fetch of JS + CSS modules
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
-  images: 'nbd-images-v1'
+  images: 'nbd-images-v2' // bumped — purges the old blue-tree PWA icons from cache
 };
 
 // Auth-gated pages — never cached. A stale shell can render after logout or

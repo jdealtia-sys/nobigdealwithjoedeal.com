@@ -72,6 +72,24 @@
         ]
       },
       {
+        "source": "/sites/oaks/**",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/oaks.html",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/template.html",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "source": "/pro/login.html",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }

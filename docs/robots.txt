@@ -27,3 +27,9 @@ Disallow: /pro/understand.html
 Disallow: /pro/daily-success/
 Disallow: /pro/js/
 Disallow: /pro/img/
+
+# Block the Oaks preview — it's a private template site for a specific
+# customer, not part of the public NBD marketing content.
+Disallow: /sites/oaks/
+Disallow: /sites/oaks.html
+Disallow: /sites/template.html
