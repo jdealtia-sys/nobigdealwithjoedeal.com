@@ -1703,16 +1703,31 @@
   // ============================================================================
   function openKnockDetail(knockId) {
     const knock = knocks.find(k => k.id === knockId);
-    if (!knock) return;
+    if (!knock) {
+      if (typeof window.showToast === 'function') window.showToast('Knock not found — it may have been deleted', 'error');
+      return;
+    }
 
     const dispo = DISPOSITIONS[knock.disposition];
     const attempts = getAttemptCount(knock.address);
     const history = getAddressHistory(knock.address);
+    // Escape the knock id for interpolation into inline onclick
+    // handlers below. Firestore doc IDs are alphanumeric today but
+    // this guards against any future ID scheme that includes quotes.
+    const safeId = esc(knock.id);
 
     const overlay = document.createElement('div');
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-detail-overlay';
+    // Esc to close — user said everything has to be accessible.
     overlay.onclick = (e) => { if (e.target === overlay) closeKnockDetail(); };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeKnockDetail();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
 
     const modal = document.createElement('div');
     modal.className = 'd2d-modal';
@@ -1749,7 +1764,7 @@
 
         ${knock.followUpDate ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Follow-up</label><div class="d2d-detail-value">${formatDate(knock.followUpDate)}</div></div>` : ''}
 
-        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${url}" class="d2d-photo-thumb" onclick="window.open('${url}','_blank')">`).join('')}</div></div>` : ''}
+        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" onclick="window.open('${esc(url)}','_blank')" onerror="this.parentNode.replaceChild(Object.assign(document.createElement('div'),{className:'d2d-photo-broken',textContent:'\ud83d\udcf7 Photo unavailable',style:'background:var(--s2);border:1px dashed var(--br);color:var(--m);padding:16px 12px;border-radius:6px;font-size:11px;text-align:center;'}),this);">`).join('')}</div></div>` : ''}
 
         ${knock.voiceUrl ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Voice Memo</label><audio controls src="${knock.voiceUrl}" class="d2d-audio-player"></audio></div>` : ''}
 
@@ -1768,13 +1783,13 @@
 
         <div class="d2d-detail-actions">
           ${!knock.convertedToLead ? `
-            <button class="d2d-action-btn" style="background:#2ECC8A;" onclick="window.D2D.convertToLead('${knock.id}')">✓ Convert to Lead</button>
+            <button class="d2d-action-btn" style="background:#2ECC8A;" onclick="window.D2D.convertToLead('${safeId}')" aria-label="Convert knock to lead">✓ Convert to Lead</button>
           ` : `
-            <button class="d2d-action-btn" disabled style="background:var(--br);color:var(--m);">✓ Lead Created</button>
+            <button class="d2d-action-btn" disabled style="background:var(--br);color:var(--m);" aria-label="Already converted to lead">✓ Lead Created</button>
           `}
-          <button class="d2d-action-btn" style="background:var(--orange);" onclick="window.D2D.openQuickKnock({address:'${esc(knock.address)}',lat:${knock.lat},lng:${knock.lng}})">↻ Re-Knock</button>
-          ${knock.phone ? `<button class="d2d-action-btn" style="background:var(--blue);" onclick="window.D2D.openSMSChooser('${knock.id}')">📱 Follow Up</button>` : ''}
-          <button class="d2d-action-btn" style="background:#E05252;" onclick="window.D2D.deleteKnock('${knock.id}')">🗑️ Delete</button>
+          <button class="d2d-action-btn" style="background:var(--orange);" onclick="window.D2D.openQuickKnock({address:'${esc(knock.address)}',lat:${Number(knock.lat) || 'null'},lng:${Number(knock.lng) || 'null'}})" aria-label="Re-knock this address">↻ Re-Knock</button>
+          ${knock.phone ? `<button class="d2d-action-btn" style="background:var(--blue);" onclick="window.D2D.openSMSChooser('${safeId}')" aria-label="Send SMS follow-up">📱 Follow Up</button>` : ''}
+          <button class="d2d-action-btn" style="background:#E05252;" onclick="window.D2D.deleteKnock('${safeId}')" aria-label="Delete this knock">🗑️ Delete</button>
         </div>
       </div>
     `;
