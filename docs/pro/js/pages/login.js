@@ -155,15 +155,35 @@ async function doCodeLogin() {
   try {
     const result = await validateAccessCodeFn({ code: raw });
     const data = result.data;
-    if (!data?.success || !data.customToken) {
+    if (!data?.success) {
       codeErrorMsg.textContent = data?.error || 'Code not recognized. Check with Joe at (859) 420-7382.';
       codeError.classList.add('show');
       codeInput.focus();
       return;
     }
-    // Exchange the server-minted custom token for a Firebase session.
-    await signInWithCustomToken(auth, data.customToken);
-    window.location.replace('/pro/dashboard.html');
+    // Hardened path: the new validateAccessCode returns a server-minted
+    // custom token. Exchange it for a Firebase session — no password
+    // ever leaves the server.
+    if (data.customToken) {
+      await signInWithCustomToken(auth, data.customToken);
+      window.location.replace('/pro/dashboard.html');
+      return;
+    }
+    // Transitional compat shim — DELETE after `firebase deploy --only functions`
+    // has shipped the hardened validateAccessCode to production. The OLD Cloud
+    // Function (still live until Joe deploys) returns {success, email, password}.
+    // Without this shim, access code login would break in the window between
+    // the moment this HTML ships via GitHub Pages and the moment the hardened
+    // Cloud Function is deployed. The old function is the vulnerability we're
+    // fixing — this fallback path MUST be removed once the new function is live.
+    if (data.email && data.password) {
+      console.warn('[login] Using legacy email/password path — deploy the hardened validateAccessCode and remove this shim.');
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+      window.location.replace('/pro/dashboard.html');
+      return;
+    }
+    codeErrorMsg.textContent = 'Server returned an unexpected response. Contact Joe.';
+    codeError.classList.add('show');
   } catch (err) {
     codeErrorMsg.textContent = 'Authentication error. Contact Joe at (859) 420-7382.';
     codeError.classList.add('show');
@@ -187,9 +207,20 @@ async function doDemoLogin() {
   try {
     const result = await validateAccessCodeFn({ code: 'DEMO' });
     const data = result.data;
-    if (!data?.success || !data.customToken) throw new Error(data?.error || 'demo unavailable');
-    await signInWithCustomToken(auth, data.customToken);
-    window.location.replace('/pro/dashboard.html');
+    if (!data?.success) throw new Error(data?.error || 'demo unavailable');
+    // Hardened path
+    if (data.customToken) {
+      await signInWithCustomToken(auth, data.customToken);
+      window.location.replace('/pro/dashboard.html');
+      return;
+    }
+    // Transitional compat shim — DELETE after hardened validateAccessCode ships.
+    if (data.email && data.password) {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+      window.location.replace('/pro/dashboard.html');
+      return;
+    }
+    throw new Error('unexpected server response');
   } catch (err) {
     demoErrorMsg.textContent = 'Demo account unavailable right now. Try the Access Code tab or contact Joe.';
     demoError.classList.add('show');
