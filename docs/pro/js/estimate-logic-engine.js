@@ -520,8 +520,13 @@
     'RFG SFT-I':       'max(1, Math.ceil(eaveLf / 4))',
     'RFG SMT':         'eaveLf',
     // Flashing & penetrations by count
-    'RFG STPF-AL':     'ridgeLf + hipLf',  // Step flashing often pays by LF
-    'RFG STPF-CU':     'ridgeLf + hipLf',
+    // Step flashing runs along wall-to-roof intersections. Using
+    // ridgeLf + hipLf was a regression — ridge seams use ridge cap
+    // and hip seams use hip cap, neither needs step flashing. If
+    // wallLf is 0 the line correctly resolves to 0 (no walls, no
+    // step flashing). User can still override via the pencil.
+    'RFG STPF-AL':     'wallLf',
+    'RFG STPF-CU':     'wallLf',
     'RFG CHIM-STD':    'chimneys',
     'RFG CHIM-SAD':    'chimneys',
     'RFG SKY-STD':     'skylights',

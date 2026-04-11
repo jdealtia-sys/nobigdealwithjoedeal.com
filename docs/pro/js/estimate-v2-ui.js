@@ -756,22 +756,31 @@
   // (formula-gated by sq). Repair presets use DSP HAUL which is
   // manual-entry so user types their actual disposal cost.
   const PRESETS = {
+    // Standard Reroof: bread-and-butter cash/insurance reroof with
+    // all the finish flashing most houses actually need. Adds
+    // chimney + step flashing which the prior preset was missing,
+    // so the quote doesn't short the field crew on flashing labor.
     'standard-reroof': {
       codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
+        'RFG CHIM-STD', 'RFG STPF-AL',
         'RFG RIDG-VNT', 'RFG NAIL-C', 'DSP 30YD', 'PRM RES-OH',
         'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
       measurements: null
     },
+    // Storm Claim: Standard Reroof + insurance documentation lines
+    // (LAB PHOTO, LAB WALK for adjuster walk, CUP IWS-E, CUP KICK).
+    // Uses premium nail gun line and adds step flashing.
     'storm-claim': {
       codes: [
         'LAB TO1', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS', 'RFG STRT',
         'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
-        'RFG CHIM-STD', 'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 30YD',
+        'RFG CHIM-STD', 'RFG STPF-AL',
+        'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 30YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M', 'LAB PHOTO',
-        'CUP IWS-E', 'CUP KICK'
+        'LAB WALK', 'CUP IWS-E', 'CUP KICK'
       ],
       measurements: null
     },
@@ -810,22 +819,38 @@
       },
       minJobCharge: 500
     },
+    // Full Redeck: 100% deck replacement. Without this override the
+    // engine used deckReplacePct=0.15 (15%) from the default — a
+    // critical bug that made Full Redeck quotes read like Standard
+    // Reroof quotes with an extra OSB line at 15% coverage. Now we
+    // force deckReplacePct=1.0 so all decking lines scale to full
+    // adjustedSqft. Also adds step flashing for completeness.
     'full-redeck': {
       codes: [
         'LAB TO1', 'RFG OSB716', 'RFG 240-GAF-HDZ', 'RFG SYN', 'RFG IWS',
         'RFG STRT', 'RFG DRPE-AL', 'RFG RIDG-ARC', 'RFG VLY-W', 'RFG PIPE-LD',
-        'RFG CHIM-STD', 'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 40YD',
+        'RFG CHIM-STD', 'RFG STPF-AL',
+        'RFG RIDG-VNT', 'RFG NAIL-LUMA', 'DSP 40YD',
         'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M'
       ],
-      measurements: null
+      // Partial measurement override — only the keys listed get
+      // merged in, preserving whatever the user typed for rawSqft
+      // / ridge / eave / etc. from their real measurements.
+      measurements: {
+        deckReplacePct: 1.0
+      }
     },
+    // Hail Damage Insurance: impact-rated shingles, code upgrades,
+    // hurricane clips, chimney saddle, step flashing, full
+    // insurance doc package. This is the premium claim scope.
     'hail-damage-insurance': {
       codes: [
         'LAB TO1', 'RFG ARM-GAF', 'RFG SYN-P', 'RFG IWS', 'RFG STRT-PS',
         'RFG DRPE-AL', 'RFG RIDG-IMP', 'RFG VLY-W', 'RFG PIPE-LD',
-        'RFG CHIM-STD', 'RFG CHIM-SAD', 'RFG RIDG-VNT-PR', 'RFG NAIL-LUMA',
+        'RFG CHIM-STD', 'RFG CHIM-SAD', 'RFG STPF-AL',
+        'RFG RIDG-VNT-PR', 'RFG NAIL-LUMA',
         'DSP 30YD', 'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M',
-        'LAB PHOTO', 'CUP IWS-E', 'CUP KICK', 'CUP HC'
+        'LAB PHOTO', 'LAB WALK', 'CUP IWS-E', 'CUP KICK', 'CUP HC'
       ],
       measurements: null
     }
