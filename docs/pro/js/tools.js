@@ -41,17 +41,51 @@ async function handleQMFile(file) {
   document.getElementById('qmPreview').style.display = 'none';
   document.getElementById('qmApplyBtn').style.display = 'none';
 
+  // Track what stage we're at so error messages can be specific
+  let stage = 'init';
+  let rawResponse = '';
+
   try {
-    // Convert PDF to base64
+    // ── Stage 1: pre-flight checks ──
+    stage = 'preflight';
+    if (!file.type || !file.type.includes('pdf')) {
+      throw new Error(`Not a PDF file (got ${file.type || 'unknown type'})`);
+    }
+    // Cloud Function request body limit is 10 MB. Base64 adds ~33% overhead,
+    // so the raw PDF needs to be under ~7.5 MB to fit.
+    const mb = (file.size / 1024 / 1024);
+    if (mb > 7.5) {
+      throw new Error(`PDF too large (${mb.toFixed(1)} MB). Max 7.5 MB — export a lower-res version from Quick Measure and try again.`);
+    }
+    if (!window.callClaude) {
+      throw new Error('Claude proxy not loaded. Refresh the page and try again.');
+    }
+    if (!window._user?.uid) {
+      throw new Error('Not signed in. Please log in and try again.');
+    }
+
+    // ── Stage 2: file → base64 ──
+    stage = 'reading file';
     const base64 = await new Promise((res, rej) => {
       const reader = new FileReader();
-      reader.onload = () => res(reader.result.split(',')[1]);
-      reader.onerror = () => rej(new Error('File read failed'));
+      reader.onload = () => {
+        try {
+          res(reader.result.split(',')[1]);
+        } catch (e) {
+          rej(new Error('File read returned invalid data URL'));
+        }
+      };
+      reader.onerror = () => rej(new Error('FileReader failed: ' + (reader.error?.message || 'unknown error')));
       reader.readAsDataURL(file);
     });
+    if (!base64 || base64.length < 100) {
+      throw new Error('PDF base64 encoding produced empty or truncated data');
+    }
 
-    statusText.textContent = '🤖 AI extracting measurements...';
+    statusText.textContent = '🤖 AI extracting measurements…';
 
+    // ── Stage 3: Claude API call ──
+    stage = 'Claude API';
     const prompt = `You are parsing a GAF Quick Measure roofing report PDF. Extract ONLY these exact fields and return ONLY valid JSON with no markdown, no explanation, no backticks:
 {
   "address": "full property address",
@@ -76,13 +110,11 @@ async function handleQMFile(file) {
 }
 Return ONLY the JSON object. No other text.`;
 
-    if (!window.callClaude) {
-      throw new Error('Claude proxy not loaded. Refresh the page and try again.');
-    }
-
+    // Sonnet 4.5 has stronger PDF document extraction than Haiku 4.5 — the
+    // accuracy gain on QM reports is worth the ~5x token cost.
     const result = await window.callClaude({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1000,
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: [
@@ -92,17 +124,52 @@ Return ONLY the JSON object. No other text.`;
       }]
     });
 
-    const raw = result?.content?.[0]?.text || '';
-    const clean = raw.replace(/```json|```/g, '').trim();
-    _qmData = JSON.parse(clean);
+    // ── Stage 4: parse response ──
+    stage = 'parsing response';
+    if (!result) {
+      throw new Error('Claude returned empty response');
+    }
+    if (result.error) {
+      throw new Error('Claude API error: ' + (result.error.message || JSON.stringify(result.error)));
+    }
+    rawResponse = result?.content?.[0]?.text || '';
+    if (!rawResponse) {
+      throw new Error('Claude response missing content.[0].text — structure: ' + JSON.stringify(result).substring(0, 200));
+    }
+    // Strip any code fences Claude might add
+    const clean = rawResponse.replace(/```json|```/g, '').trim();
+    try {
+      _qmData = JSON.parse(clean);
+    } catch (parseErr) {
+      throw new Error('Claude returned non-JSON response. First 200 chars: ' + clean.substring(0, 200));
+    }
+    if (!_qmData || typeof _qmData !== 'object') {
+      throw new Error('Parsed response is not an object: ' + typeof _qmData);
+    }
 
     statusText.textContent = '✅ Measurements extracted successfully';
+    if (typeof showToast === 'function') {
+      showToast('✓ Quick Measure imported', 'success');
+    }
     renderQMPreview(_qmData);
 
   } catch(err) {
-    console.error('QM Import error:', err);
-    statusText.textContent = '❌ Failed to parse PDF. Please try again or check the file.';
-    showToast('QM import failed', 'error');
+    // Structured log for diagnosis
+    console.error('[QM Import] failed at stage:', stage, {
+      message: err?.message,
+      fileName: file?.name,
+      fileSize: file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'n/a',
+      fileType: file?.type,
+      rawResponsePreview: rawResponse.substring(0, 200)
+    });
+
+    // Surface the actual error to the user so they know what to do
+    const msg = err?.message || 'unknown error';
+    statusText.innerHTML = `❌ <strong>Import failed at: ${stage}</strong><br>
+      <span style="font-size:11px;color:var(--m);">${msg.replace(/</g, '&lt;').substring(0, 300)}</span>`;
+    if (typeof showToast === 'function') {
+      showToast('QM import failed: ' + msg.substring(0, 80), 'error');
+    }
   }
 }
 

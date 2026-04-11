@@ -4330,12 +4330,16 @@ body {
   background:rgba(10,12,15,.98);
   -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:0 0 80px;
+  /* Respect iPhone notch / status bar so header isn't under the chrome */
+  padding:max(16px, env(safe-area-inset-top, 16px)) 0 80px;
 }
 #mobile-more-menu.open{display:flex;}
-.mm-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--br);}
+.mm-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--br);}
 .mm-header-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);letter-spacing:.04em;}
-.mm-close{background:none;border:1px solid var(--br);border-radius:10px;color:var(--m);font-size:18px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+/* 48x48 tap target (iOS HIG 44x44 minimum + 4px cushion).
+   Larger font, border that visually says 'tappable' */
+.mm-close{background:var(--s2);border:1px solid var(--br);border-radius:12px;color:var(--t);font-size:22px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all .15s;}
+.mm-close:hover,.mm-close:active{background:var(--orange);color:#fff;border-color:var(--orange);}
 .mm-section{padding:8px 12px 4px;font-size:9px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--m);font-weight:700;}
 .mm-item{display:flex;align-items:center;gap:14px;padding:15px 20px;cursor:pointer;font-size:15px;color:var(--t);border-left:3px solid transparent;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:48px;}
 .mm-item:hover,.mm-item:active{background:var(--s2);border-left-color:var(--orange);color:var(--orange);}
@@ -12037,7 +12041,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=3"></script>
-<script defer src="js/tools.js?v=4"></script>
+<script defer src="js/tools.js?v=5"></script>
 <script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
 <script src="js/claude-proxy.js?v=3"></script>
