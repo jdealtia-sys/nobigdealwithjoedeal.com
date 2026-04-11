@@ -82,43 +82,34 @@
     renderMemberDetail: function(containerId, uid) {
       const container = document.getElementById(containerId);
       if(!container) return;
-      
-      // Placeholder—fetches member data from Firestore in real implementation
-      const html = `
-        <div class="member-detail">
-          <h2>Member Progress</h2>
-          <div class="progress-section">
-            <h3>Process Tree Progress</h3>
-            <div class="tree-progress">
-              <div class="tree-branch">
-                <span>Insurance: 45%</span>
-                <div class="progress-bar"><div class="progress-fill" style="width:45%"></div></div>
-              </div>
-              <div class="tree-branch">
-                <span>Retail: 30%</span>
-                <div class="progress-bar"><div class="progress-fill" style="width:30%"></div></div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="progress-section">
-            <h3>Courses</h3>
-            <div class="course-list"></div>
-          </div>
-          
-          <div class="progress-section">
-            <h3>Assignment History</h3>
-            <table class="assignment-history">
-              <thead><tr><th>Content</th><th>Assigned</th><th>Due</th><th>Status</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          
-          <button class="assign-new-btn">Assign New Content</button>
-        </div>
-      `;
-      
-      container.innerHTML = html;
+
+      // Real implementation will fetch member progress from Firestore
+      // (academy_progress collection keyed by uid). Until that lands,
+      // show an empty state instead of hardcoded fake 45%/30% numbers.
+      // No fake data, no silent placeholder progress bars.
+      container.textContent = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'member-detail';
+      wrap.style.cssText = 'text-align:center;padding:40px 20px;color:var(--m, #8892A4);';
+
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Member Progress';
+      h2.style.cssText = 'color:var(--t, #fff);margin-bottom:12px;';
+      wrap.appendChild(h2);
+
+      const body = document.createElement('div');
+      body.style.cssText = 'font-size:13px;line-height:1.6;max-width:420px;margin:0 auto;';
+      body.textContent = uid
+        ? 'Member progress data lives in Firestore (academy_progress collection). This view activates when team members are invited and start completing courses.'
+        : 'Select a team member from the Overview tab to see their progress here.';
+      wrap.appendChild(body);
+
+      const hint = document.createElement('div');
+      hint.style.cssText = 'margin-top:18px;font-size:10px;color:var(--m, #888);text-transform:uppercase;letter-spacing:.12em;';
+      hint.textContent = 'Multi-user team features coming in Enterprise tier';
+      wrap.appendChild(hint);
+
+      container.appendChild(wrap);
     },
     
     assignContent: function(targetUid, contentId, type, opts) {
@@ -190,16 +181,34 @@
         return;
       }
 
-      // Real data path (when team members eventually join)
-      let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Badge</th></tr></thead><tbody>';
-      teamProgress.forEach((row, i) => {
-        const name = String(row.name || '').replace(/</g, '&lt;');
-        const score = String(row.score || '').replace(/</g, '&lt;');
-        const badge = String(row.badge || '').replace(/</g, '&lt;');
-        html += `<tr><td>${i + 1}</td><td>${name}</td><td>${score}</td><td>${badge}</td></tr>`;
+      // Real data path — build with DOM builders so row.name / score /
+      // badge can never smuggle markup into the page.
+      container.textContent = '';
+      const table = document.createElement('table');
+      table.className = 'leaderboard-table';
+
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      ['Rank', 'Name', 'Score', 'Badge'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headRow.appendChild(th);
       });
-      html += '</tbody></table>';
-      container.innerHTML = html;
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      teamProgress.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        [String(i + 1), row.name || '', row.score || '', row.badge || ''].forEach(v => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
     },
     
     _attachEventListeners: function(container) {
@@ -242,22 +251,82 @@
     },
     
     _loadTeamMembers: function(container) {
-      // Placeholder: loads team members from window.teamMembers
-      const teamMembers = window.teamMembers || [];
+      // Reads team members from the real Firestore-backed cache.
+      // In solo-operator mode the array is empty, so render an empty
+      // state instead of fake users — matches the renderLeaderboard
+      // empty-state pattern and the 'no fake data' quality standard.
+      const teamMembers = (window._teamMembersCache && Array.isArray(window._teamMembersCache))
+        ? window._teamMembersCache
+        : [];
       const grid = container.querySelector('.team-grid');
-      
-      if(grid) {
-        grid.innerHTML = teamMembers.map(member => `
-          <div class="team-card">
-            <h4>${member.name}</h4>
-            <p class="role">${member.role}</p>
-            <div class="progress-stat">Overall: ${Math.floor(Math.random() * 100)}%</div>
-            <div class="progress-stat">Courses: ${Math.floor(Math.random() * 6)}/6</div>
-            <div class="progress-stat">Last Activity: ${Math.floor(Math.random() * 30)} days ago</div>
-            <button class="view-detail-btn">View Details</button>
-          </div>
-        `).join('');
+      if (!grid) return;
+
+      if (teamMembers.length === 0) {
+        // Empty state — solo operator mode, no fake data
+        grid.textContent = '';
+        const empty = document.createElement('div');
+        empty.style.cssText = 'grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--m, #8892A4);';
+        const icon = document.createElement('div');
+        icon.style.cssText = 'font-size:32px;margin-bottom:8px;';
+        icon.textContent = '👥';
+        const title = document.createElement('div');
+        title.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t, #fff);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;";
+        title.textContent = 'No team members yet';
+        const body = document.createElement('div');
+        body.style.cssText = 'font-size:12px;line-height:1.5;max-width:340px;margin:0 auto;';
+        body.textContent = 'Invite reps from Settings → Team to populate this panel. Each invited rep appears here with their real course progress once they start learning.';
+        empty.appendChild(icon);
+        empty.appendChild(title);
+        empty.appendChild(body);
+        grid.appendChild(empty);
+        return;
       }
+
+      // Real data path — build cards with DOM builders so member.name /
+      // member.role / etc. can never inject markup even if they come
+      // from an un-sanitized Firestore write.
+      grid.textContent = '';
+      teamMembers.forEach(member => {
+        const card = document.createElement('div');
+        card.className = 'team-card';
+
+        const nameEl = document.createElement('h4');
+        nameEl.textContent = member.name || 'Unnamed rep';
+        card.appendChild(nameEl);
+
+        const roleEl = document.createElement('p');
+        roleEl.className = 'role';
+        roleEl.textContent = member.role || '';
+        card.appendChild(roleEl);
+
+        // Real progress fields (undefined when absent — shows '—')
+        const overall = (member.overallPct != null) ? member.overallPct + '%' : '—';
+        const courses = (member.coursesDone != null && member.coursesTotal != null)
+          ? member.coursesDone + '/' + member.coursesTotal
+          : '—';
+        const lastAct = member.lastActivityDaysAgo != null
+          ? member.lastActivityDaysAgo + ' days ago'
+          : '—';
+
+        [
+          ['Overall: ',       overall],
+          ['Courses: ',       courses],
+          ['Last Activity: ', lastAct]
+        ].forEach(([label, val]) => {
+          const stat = document.createElement('div');
+          stat.className = 'progress-stat';
+          stat.textContent = label + val;
+          card.appendChild(stat);
+        });
+
+        const btn = document.createElement('button');
+        btn.className = 'view-detail-btn';
+        btn.textContent = 'View Details';
+        btn.dataset.uid = member.uid || '';
+        card.appendChild(btn);
+
+        grid.appendChild(card);
+      });
     }
   };
   

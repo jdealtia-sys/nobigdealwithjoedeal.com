@@ -163,10 +163,24 @@ Return ONLY the JSON object. No other text.`;
       rawResponsePreview: rawResponse.substring(0, 200)
     });
 
-    // Surface the actual error to the user so they know what to do
-    const msg = err?.message || 'unknown error';
-    statusText.innerHTML = `❌ <strong>Import failed at: ${stage}</strong><br>
-      <span style="font-size:11px;color:var(--m);">${msg.replace(/</g, '&lt;').substring(0, 300)}</span>`;
+    // Surface the actual error to the user. Using DOM builders instead
+    // of innerHTML so err.message (which can come from Claude API /
+    // network / JSON parser) can never smuggle markup into the page.
+    // Matches the security posture of the innerHTML sweep in fe24f7e.
+    const msg = (err?.message || 'unknown error').substring(0, 300);
+    statusText.textContent = '';
+    const xmark = document.createTextNode('❌ ');
+    const strong = document.createElement('strong');
+    strong.textContent = 'Import failed at: ' + stage;
+    const br = document.createElement('br');
+    const span = document.createElement('span');
+    span.style.cssText = 'font-size:11px;color:var(--m);';
+    span.textContent = msg;
+    statusText.appendChild(xmark);
+    statusText.appendChild(strong);
+    statusText.appendChild(br);
+    statusText.appendChild(span);
+
     if (typeof showToast === 'function') {
       showToast('QM import failed: ' + msg.substring(0, 80), 'error');
     }
@@ -191,11 +205,23 @@ function renderQMPreview(d) {
     ['Suggested Waste', d.suggestedWastePct + '%'],
     ['Squares (w/waste)', d.squaresAtSuggestedWaste],
   ];
-  grid.innerHTML = rows.map(([k,v]) => `
-    <div style="background:var(--s2);border-radius:5px;padding:6px 8px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);">${k}</div>
-      <div style="font-size:12px;font-weight:700;color:var(--t);">${v}</div>
-    </div>`).join('');
+  // Build the preview grid with DOM builders so Claude-extracted field
+  // values (address, pitch, etc.) cannot smuggle markup into the page.
+  // Matches the security posture from the innerHTML sweep in fe24f7e.
+  grid.textContent = '';
+  rows.forEach(([k, v]) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--s2);border-radius:5px;padding:6px 8px;';
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);';
+    label.textContent = k;
+    const value = document.createElement('div');
+    value.style.cssText = 'font-size:12px;font-weight:700;color:var(--t);';
+    value.textContent = v == null ? '' : String(v);
+    card.appendChild(label);
+    card.appendChild(value);
+    grid.appendChild(card);
+  });
   document.getElementById('qmPreview').style.display = 'block';
   document.getElementById('qmApplyBtn').style.display = 'flex';
 }

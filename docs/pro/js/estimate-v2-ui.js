@@ -495,6 +495,31 @@
       if (ev.target.closest('input, select, textarea, button')) return;
       hdr.classList.toggle('collapsed');
     });
+
+    // ─────────────────────────────────────────────────────
+    // CSP-strict-safe delegated click handler for catalog
+    // items and scope-list remove buttons. The renderers emit
+    // data-action / data-code attributes instead of inline
+    // onclick handlers so everything here works under the
+    // Report-Only CSP (script-src-attr 'none').
+    // ─────────────────────────────────────────────────────
+    modal.addEventListener('click', (ev) => {
+      // "Remove from scope" button inside a .v2-scope-item
+      const removeBtn = ev.target.closest('[data-action="remove-from-scope"]');
+      if (removeBtn) {
+        const item = removeBtn.closest('.v2-scope-item');
+        const code = item && item.dataset.code;
+        if (code) removeFromScope(code);
+        return;
+      }
+      // "Add to scope" click on a .v2-item card
+      const addItem = ev.target.closest('[data-action="add-to-scope"]');
+      if (addItem) {
+        const code = addItem.dataset.code;
+        if (code) addToScope(code);
+        return;
+      }
+    });
   }
 
   // ═════════════════════════════════════════════════════════
@@ -657,10 +682,11 @@
       const mat = Number(item.materialCost) || 0;
       const lab = Number(item.laborCost) || 0;
       const unitCost = mat + lab;
-      // Use data-code attribute instead of embedding the code in the
-      // onclick handler string. Click handler reads it from dataset.
+      // data-code is read by the delegated click handler installed
+      // on #v2items in ensureModal(). No inline onclick attribute so
+      // this stays clean under the Report-Only CSP (script-src-attr 'none').
       return `
-        <div class="v2-item" data-code="${esc(item.code)}" onclick="EstimateV2UI.addToScope(this.dataset.code)" ${inScope ? 'style="border-color:#065f46;background:#0f1d15;"' : ''}>
+        <div class="v2-item" data-action="add-to-scope" data-code="${esc(item.code)}" ${inScope ? 'style="border-color:#065f46;background:#0f1d15;"' : ''}>
           <div style="flex:1;min-width:0;">
             <div class="code">${esc(item.code)}</div>
             <div class="name">${esc((item.name || '').substring(0, 60))}${(item.name || '').length > 60 ? '…' : ''}</div>
@@ -701,14 +727,29 @@
       return;
     }
 
+    // Escape every interpolated value so catalog data (today trusted,
+    // tomorrow possibly user-editable) can never smuggle markup into
+    // the scope list. Consistent with the data-code pattern introduced
+    // in the CRITICAL-1 fix for the catalog renderer above.
+    const escLocal = (s) => String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
     listDiv.innerHTML = estimate.lines.map(line => {
-      const safeCode = String(line.code || '').replace(/'/g, "\\'");
+      const qtyDecimals = (line.unit === 'SQ' || line.unit === 'LF') ? 1 : 0;
+      const safeQty = (Number(line.quantity) || 0).toFixed(qtyDecimals);
+      // data-action + data-code get picked up by the delegated click
+      // handler on #v2scopeList installed in ensureModal(). Clean under
+      // Report-Only CSP (script-src-attr 'none') — zero inline onclicks.
       return `
-        <div class="v2-scope-item">
-          <button class="rm" onclick="EstimateV2UI.removeFromScope('${safeCode}')" title="Remove">×</button>
-          <div class="total">$${Math.round(line.lineTotal).toLocaleString()}</div>
-          <div class="name">${(line.name || '').substring(0, 38)}</div>
-          <div class="qty">${line.quantity.toFixed(line.unit === 'SQ' || line.unit === 'LF' ? 1 : 0)} ${line.unit} · ${line.code}</div>
+        <div class="v2-scope-item" data-code="${escLocal(line.code)}">
+          <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
+          <div class="total">$${Math.round(Number(line.lineTotal) || 0).toLocaleString()}</div>
+          <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
+          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}</div>
         </div>
       `;
     }).join('');
