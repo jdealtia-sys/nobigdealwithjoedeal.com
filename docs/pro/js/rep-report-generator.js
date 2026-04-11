@@ -445,6 +445,25 @@
               <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('all')" style="font-size:11px;padding:6px 12px;">All time</button>
             </div>
 
+            <!-- Comparison + AI toggles -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 0 4px;border-top:1px solid var(--br);border-bottom:1px solid var(--br);">
+              <div>
+                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Compare Against</label>
+                <select id="reportCompareMode" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:12px;">
+                  <option value="none">No comparison</option>
+                  <option value="prior">vs Prior period (same length)</option>
+                  <option value="yoy">vs Same period last year</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">AI Narrative</label>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;">
+                  <input type="checkbox" id="reportIncludeNarrative" checked style="accent-color:#e8720c;">
+                  <span style="font-size:12px;color:var(--t);">Include Claude-written insights</span>
+                </label>
+              </div>
+            </div>
+
             <!-- Generate button -->
             <button class="btn btn-orange" onclick="window.NBDReports.generateSelected()" style="font-size:14px;padding:14px 20px;justify-content:center;">
               📈 Generate Report
@@ -501,6 +520,8 @@
   async function generateSelected() {
     const startEl = document.getElementById('reportRangeStart');
     const endEl = document.getElementById('reportRangeEnd');
+    const compareEl = document.getElementById('reportCompareMode');
+    const narrativeEl = document.getElementById('reportIncludeNarrative');
     if (!startEl || !endEl) return;
     const rangeStart = new Date(startEl.value + 'T00:00:00');
     const rangeEnd = new Date(endEl.value + 'T23:59:59');
@@ -508,7 +529,128 @@
       if (typeof showToast === 'function') showToast('Start date must be before end date', 'error');
       return;
     }
-    await generate(_selectedTemplate, { rangeStart, rangeEnd });
+    const compareMode = compareEl ? compareEl.value : 'none';
+    const includeNarrative = narrativeEl ? !!narrativeEl.checked : false;
+    await generate(_selectedTemplate, { rangeStart, rangeEnd, compareMode, includeNarrative });
+  }
+
+  // ─── Delta helper (used by templates when comparison enabled) ─
+  // Returns an HTML chip showing the +/- delta vs a comparison
+  // value. Colors: green for up, red for down, gray for no change.
+  // Used as string interpolation inside template HTML, so the
+  // output is pre-escaped and safe for innerHTML.
+  function deltaChip(current, prior, opts) {
+    opts = opts || {};
+    const format = opts.format || 'number';  // 'number' | 'money' | 'percent'
+    const invert = !!opts.invert;  // true if down is good (e.g. knocks-per-deal)
+    if (prior == null || current == null || isNaN(prior) || isNaN(current)) return '';
+    if (prior === 0 && current === 0) {
+      return '<span class="delta-chip flat">—</span>';
+    }
+    if (prior === 0) {
+      return '<span class="delta-chip up">NEW</span>';
+    }
+    const diff = current - prior;
+    const pct = ((current - prior) / Math.abs(prior)) * 100;
+    const up = diff > 0;
+    const colorClass = up === !invert ? 'up' : 'down';
+    const arrow = up ? '▲' : '▼';
+    const pctFmt = Math.abs(pct).toFixed(0) + '%';
+    return '<span class="delta-chip ' + colorClass + '">' + arrow + ' ' + pctFmt + '</span>';
+  }
+
+  // ─── Narrative generators (Stage 4) ──────────────────────
+  // Build a compact data summary for Claude. Not the full metrics
+  // object — only the high-signal numbers so the prompt stays under
+  // 500 input tokens and Claude can focus on insights.
+  function buildNarrativePrompt(templateName, metrics, comparison, opts) {
+    const core = metrics.core || {};
+    const k2d = metrics.knocksToDeal || {};
+    const heat = metrics.heatmap || {};
+    const velocity = metrics.velocity || {};
+    const rpk = metrics.revenuePerKnock || {};
+    const topCity = (metrics.topCities && metrics.topCities.topCities && metrics.topCities.topCities[0]) || null;
+    const stuck = metrics.stuckDeals || {};
+    const trend = metrics.revenueTrend || {};
+
+    const periodLabel = fmtDate(opts.rangeStart) + ' to ' + fmtDate(opts.rangeEnd);
+    const lines = [
+      'Report: ' + templateName,
+      'Rep: ' + (opts.repName || 'Rep'),
+      'Period: ' + periodLabel,
+      'Revenue closed: ' + fmtMoney(core.revenue) + ' (' + (core.dealsClosed || 0) + ' deals)',
+      'Close rate: ' + fmtPct(core.closeRate || 0),
+      'Pipeline value: ' + fmtMoney(core.pipelineValue) + ' (' + (core.leadsCreated || 0) + ' new leads)',
+      'Avg deal size: ' + fmtMoney(core.avgJobValue)
+    ];
+    if (k2d.totalKnocks != null) {
+      lines.push('Total knocks: ' + k2d.totalKnocks + ' · knocks per deal: ' + (k2d.knocksPerDeal ? Math.round(k2d.knocksPerDeal) : '—'));
+    }
+    if (heat.bestSlot) lines.push('Best time slot: ' + heat.bestSlot);
+    if (rpk.revenuePerKnock) lines.push('Revenue per knock: ' + fmtMoney(rpk.revenuePerKnock));
+    if (topCity) lines.push('Top territory: ' + topCity.city + ' (' + topCity.deals + ' deals, ' + fmtMoney(topCity.revenue) + ')');
+    if (velocity.bottleneck) lines.push('Pipeline bottleneck: ' + velocity.bottleneck);
+    if (stuck.count != null && stuck.count > 0) lines.push('Stuck deals: ' + stuck.count + ' worth ' + fmtMoney(stuck.totalValue));
+    if (trend.bestMonth) lines.push('Best month: ' + trend.bestMonth);
+
+    if (comparison && comparison.metrics && comparison.metrics.core) {
+      const priorCore = comparison.metrics.core;
+      lines.push('--- Compared period (' + comparison.mode + ') ---');
+      lines.push('Prior revenue: ' + fmtMoney(priorCore.revenue));
+      lines.push('Prior deals: ' + priorCore.dealsClosed);
+      lines.push('Prior close rate: ' + fmtPct(priorCore.closeRate || 0));
+    }
+
+    return lines.join('\n');
+  }
+
+  async function generateNarrative(templateName, metrics, comparison, opts) {
+    const dataSummary = buildNarrativePrompt(templateName, metrics, comparison, opts);
+    const systemPrompt = 'You are an expert sales coach writing a short insight paragraph '
+      + 'for a roofing contractor rep performance report. Your audience is the rep and '
+      + 'the owner. Write 3-4 sentences maximum. Focus on what the numbers mean, call out '
+      + 'one specific strength and one specific thing to improve. Use plain English, no '
+      + 'jargon. Never invent numbers not in the data. If comparison data is present, '
+      + 'mention the trend. Never use markdown, bullets, or section headers — just plain '
+      + 'prose sentences. Keep it under 400 characters total. Do not use exclamation marks.';
+    const result = await window.callClaude({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: dataSummary }]
+    });
+    if (!result || !result.content || !result.content[0] || !result.content[0].text) {
+      throw new Error('Claude returned empty response');
+    }
+    return result.content[0].text.trim();
+  }
+
+  // Deterministic fallback when Claude isn't available or errors.
+  // Never as good as Claude but always works and never fails.
+  function buildFallbackNarrative(templateName, metrics, comparison) {
+    const core = metrics.core || {};
+    const k2d = metrics.knocksToDeal || {};
+    const topCity = (metrics.topCities && metrics.topCities.topCities && metrics.topCities.topCities[0]) || null;
+    const parts = [];
+    if (core.revenue > 0) {
+      parts.push(fmtMoney(core.revenue) + ' closed across ' + (core.dealsClosed || 0) + ' deals (avg ' + fmtMoney(core.avgJobValue) + ').');
+    } else {
+      parts.push('No closed revenue in this period — pipeline has ' + (core.leadsCreated || 0) + ' new leads worth ' + fmtMoney(core.pipelineValue) + '.');
+    }
+    if (k2d.totalKnocks > 0 && k2d.dealsClosed > 0) {
+      parts.push('Conversion sits at ' + Math.round(k2d.knocksPerDeal) + ' knocks per deal across ' + k2d.totalKnocks + ' total doors.');
+    }
+    if (topCity && topCity.deals > 0) {
+      parts.push('Top territory is ' + topCity.city + ' (' + topCity.deals + ' deals, ' + fmtMoney(topCity.revenue) + ').');
+    }
+    if (comparison && comparison.metrics && comparison.metrics.core) {
+      const priorRev = comparison.metrics.core.revenue || 0;
+      if (priorRev > 0) {
+        const pct = Math.round(((core.revenue - priorRev) / priorRev) * 100);
+        parts.push('Revenue is ' + (pct >= 0 ? 'up ' : 'down ') + Math.abs(pct) + '% vs the ' + (comparison.mode === 'yoy' ? 'same period last year' : 'prior period') + '.');
+      }
+    }
+    return parts.join(' ');
   }
 
   // ─── Template registry ───────────────────────────────────
@@ -619,12 +761,67 @@
     // Compute metrics via the template's calculator bundle
     const metrics = tmpl.computeMetrics(leads, knocks, estimates, rangeStart, rangeEnd, opts);
 
+    // ─ Comparison period (Stage 4) ─
+    // If the user picked a comparison mode, compute metrics for
+    // the prior period using the same calculator bundle. Template
+    // builders see `meta.comparison` and can render delta chips.
+    let comparison = null;
+    if (opts.compareMode && opts.compareMode !== 'none') {
+      const rangeMs = rangeEnd.getTime() - rangeStart.getTime();
+      let compareStart, compareEnd;
+      if (opts.compareMode === 'yoy') {
+        compareStart = new Date(rangeStart);
+        compareStart.setFullYear(compareStart.getFullYear() - 1);
+        compareEnd = new Date(rangeEnd);
+        compareEnd.setFullYear(compareEnd.getFullYear() - 1);
+      } else {
+        // 'prior' — immediately preceding period of the same length
+        compareEnd = new Date(rangeStart.getTime() - 1);
+        compareStart = new Date(compareEnd.getTime() - rangeMs);
+      }
+      try {
+        const compareMetrics = tmpl.computeMetrics(leads, knocks, estimates, compareStart, compareEnd, opts);
+        comparison = {
+          mode: opts.compareMode,
+          rangeStart: compareStart,
+          rangeEnd: compareEnd,
+          metrics: compareMetrics
+        };
+      } catch (e) {
+        console.warn('[Reports] comparison calc failed:', e);
+      }
+    }
+
+    // ─ Narrative (Stage 4) ─
+    // Claude-written 3-4 sentence insight paragraph at the top
+    // of the report. If it fails (no API key, network, etc), the
+    // template falls back to a deterministic templated summary —
+    // we never fail the report because the narrative couldn't
+    // generate.
+    let narrative = null;
+    if (opts.includeNarrative !== false) {
+      if (typeof window.callClaude === 'function') {
+        try {
+          narrative = await generateNarrative(tmpl.name, metrics, comparison, {
+            rangeStart, rangeEnd, repName: window._user?.displayName || 'Rep'
+          });
+        } catch (e) {
+          console.warn('[Reports] Claude narrative failed — falling back to templated:', e.message);
+          narrative = buildFallbackNarrative(tmpl.name, metrics, comparison);
+        }
+      } else {
+        narrative = buildFallbackNarrative(tmpl.name, metrics, comparison);
+      }
+    }
+
     // Build report HTML
     const meta = {
       template,
       templateName: tmpl.name,
       rangeStart,
       rangeEnd,
+      comparison,
+      narrative,
       rep: {
         name: window._user?.displayName || window._user?.email || 'Rep',
         email: window._user?.email || '',
@@ -680,6 +877,15 @@
     const { core, knocksToDeal, heatmap, topCities, velocity, revenuePerKnock, estimateAccuracy } = metrics;
     const periodLabel = fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd);
     const repName = esc(meta.rep.name || 'Rep');
+    const priorCore = (meta.comparison && meta.comparison.metrics && meta.comparison.metrics.core) || null;
+    // AI narrative block (optional)
+    const narrativeBlock = meta.narrative
+      ? `<div class="narrative">
+          <div class="narrative-badge">AI Insight</div>
+          <div class="narrative-label">Coach's Note</div>
+          <div class="narrative-text">${esc(meta.narrative)}</div>
+        </div>`
+      : '';
 
     // Top cities list HTML
     const cityRows = (topCities.topCities || []).slice(0, 5).map((c, i) => `
@@ -993,27 +1199,28 @@
       <div class="report-subtitle">Personal performance review and coaching insights</div>
       <div class="report-period">${esc(periodLabel)}</div>
     </div>
+    ${narrativeBlock}
 
     <!-- HERO NUMBERS -->
     <div class="hero-grid">
       <div class="hero-cell">
         <div class="hero-label">Revenue Closed</div>
-        <div class="hero-value orange">${fmtMoney(core.revenue)}</div>
+        <div class="hero-value orange">${fmtMoney(core.revenue)} ${priorCore ? deltaChip(core.revenue, priorCore.revenue) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.dealsClosed)} deals</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Close Rate</div>
-        <div class="hero-value">${fmtPct(core.closeRate)}</div>
+        <div class="hero-value">${fmtPct(core.closeRate)} ${priorCore ? deltaChip(core.closeRate, priorCore.closeRate) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.dealsClosed)}W / ${fmtNumber(core.dealsLost)}L</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Pipeline Value</div>
-        <div class="hero-value">${fmtMoney(core.pipelineValue)}</div>
+        <div class="hero-value">${fmtMoney(core.pipelineValue)} ${priorCore ? deltaChip(core.pipelineValue, priorCore.pipelineValue) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.leadsCreated)} new leads</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Avg Deal Size</div>
-        <div class="hero-value">${fmtMoney(core.avgJobValue)}</div>
+        <div class="hero-value">${fmtMoney(core.avgJobValue)} ${priorCore ? deltaChip(core.avgJobValue, priorCore.avgJobValue) : ''}</div>
         <div class="hero-sub">per closed deal</div>
       </div>
     </div>
@@ -1156,6 +1363,16 @@
     const eyebrow = esc(opts.eyebrow || 'NBD PRO REPORT');
     const title = esc(opts.title || 'Report');
     const subtitle = esc(opts.subtitle || '');
+    // Narrative block appears immediately below the dark header
+    // if Claude (or the fallback) produced one.
+    const narrativeBlock = opts.narrative
+      ? `
+    <div class="narrative">
+      <div class="narrative-badge">AI Insight</div>
+      <div class="narrative-label">Coach's Note</div>
+      <div class="narrative-text">${esc(opts.narrative)}</div>
+    </div>`
+      : '';
     return {
       head: `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${title} — ${repName}</title>
@@ -1212,7 +1429,17 @@
   .stuck-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #c53030; text-align: right; font-size: 16px; }
   .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: #e8720c; text-align: right; font-size: 14px; }
   .stuck-stage { font-size: 10px; color: #999; text-align: right; text-transform: uppercase; letter-spacing: .05em; }
-  @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } }
+  /* Delta chip — up/down comparison vs prior period */
+  .delta-chip { display: inline-block; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 2px 6px; border-radius: 3px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
+  .delta-chip.up   { background: rgba(34,197,94,.15); color: #22c55e; }
+  .delta-chip.down { background: rgba(197,48,48,.15); color: #ff6b6b; }
+  .delta-chip.flat { background: rgba(255,255,255,.08); color: #8b8e96; }
+  /* AI narrative section (Stage 4) */
+  .narrative { background: #fff8f0; border-left: 5px solid #e8720c; padding: 24px 28px; margin: 0; border-bottom: 1px solid #eee; position: relative; }
+  .narrative-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; color: #e8720c; text-transform: uppercase; margin-bottom: 8px; }
+  .narrative-text { font-size: 16px; line-height: 1.6; color: #1a1a1a; font-weight: 500; }
+  .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #e8720c; background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
+  @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #e8720c; } }
 </style>
 </head>
 <body>
@@ -1222,7 +1449,7 @@
       <div class="report-title">${title}</div>
       <div class="report-subtitle">${subtitle}</div>
       <div class="report-period">${periodLabel}</div>
-    </div>`,
+    </div>` + narrativeBlock,
       footer: `
     <div class="report-footer">
       <div>
@@ -1246,13 +1473,16 @@
   // ═══════════════════════════════════════════════════════════
   function buildTerritoryDeepDiveHTML(metrics, meta) {
     const { core, topCities, heatmap, revenuePerKnock, knocksToDeal } = metrics;
+    const priorCore = (meta.comparison && meta.comparison.metrics && meta.comparison.metrics.core) || null;
+    const priorRpk = (meta.comparison && meta.comparison.metrics && meta.comparison.metrics.revenuePerKnock) || null;
     const shell = reportShell({
       repName: meta.rep.name,
       repEmail: meta.rep.email,
       eyebrow: 'TERRITORY DEEP DIVE',
       title: 'Where You Work Best',
       subtitle: 'Geographic performance breakdown and where to focus next',
-      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd),
+      narrative: meta.narrative
     });
 
     const cityList = topCities.topCities || [];
@@ -1295,12 +1525,12 @@
       </div>
       <div class="hero-cell">
         <div class="hero-label">Total Revenue</div>
-        <div class="hero-value">${fmtMoney(core.revenue)}</div>
+        <div class="hero-value">${fmtMoney(core.revenue)} ${priorCore ? deltaChip(core.revenue, priorCore.revenue) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.dealsClosed)} deals</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Revenue per Door</div>
-        <div class="hero-value">${fmtMoney(revenuePerKnock.revenuePerKnock)}</div>
+        <div class="hero-value">${fmtMoney(revenuePerKnock.revenuePerKnock)} ${priorRpk ? deltaChip(revenuePerKnock.revenuePerKnock, priorRpk.revenuePerKnock) : ''}</div>
         <div class="hero-sub">${fmtNumber(revenuePerKnock.knocks)} knocks</div>
       </div>
     </div>
@@ -1392,13 +1622,15 @@
   // ═══════════════════════════════════════════════════════════
   function buildPipelineHealthHTML(metrics, meta) {
     const { core, velocity, funnel, stuckDeals } = metrics;
+    const priorCore = (meta.comparison && meta.comparison.metrics && meta.comparison.metrics.core) || null;
     const shell = reportShell({
       repName: meta.rep.name,
       repEmail: meta.rep.email,
       eyebrow: 'PIPELINE HEALTH CHECK',
       title: 'Pipeline Health',
       subtitle: 'Stage funnel, velocity bottlenecks, and stuck deals that need attention',
-      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd),
+      narrative: meta.narrative
     });
 
     const funnelJSON = JSON.stringify(funnel.stages.map(s => ({ x: s.stage, y: s.count })));
@@ -1429,12 +1661,12 @@
     <div class="hero-grid">
       <div class="hero-cell">
         <div class="hero-label">Pipeline Value</div>
-        <div class="hero-value orange">${fmtMoney(core.pipelineValue)}</div>
+        <div class="hero-value orange">${fmtMoney(core.pipelineValue)} ${priorCore ? deltaChip(core.pipelineValue, priorCore.pipelineValue) : ''}</div>
         <div class="hero-sub">${fmtNumber(funnel.total)} active leads</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Close Rate</div>
-        <div class="hero-value">${fmtPct(core.closeRate)}</div>
+        <div class="hero-value">${fmtPct(core.closeRate)} ${priorCore ? deltaChip(core.closeRate, priorCore.closeRate) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.dealsClosed)}W / ${fmtNumber(core.dealsLost)}L</div>
       </div>
       <div class="hero-cell">
@@ -1518,13 +1750,15 @@
   // ═══════════════════════════════════════════════════════════
   function buildRevenueRecapHTML(metrics, meta) {
     const { core, revenueTrend, topCities, velocity } = metrics;
+    const priorCore = (meta.comparison && meta.comparison.metrics && meta.comparison.metrics.core) || null;
     const shell = reportShell({
       repName: meta.rep.name,
       repEmail: meta.rep.email,
       eyebrow: 'REVENUE RECAP',
       title: 'Revenue Recap',
       subtitle: 'Business performance summary for partners and stakeholders',
-      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd),
+      narrative: meta.narrative
     });
 
     const trendJSON = JSON.stringify((revenueTrend.months || []).map(m => ({ x: m.label, y: m.revenue })));
@@ -1542,22 +1776,22 @@
     <div class="hero-grid">
       <div class="hero-cell">
         <div class="hero-label">Total Revenue</div>
-        <div class="hero-value orange">${fmtMoney(core.revenue)}</div>
+        <div class="hero-value orange">${fmtMoney(core.revenue)} ${priorCore ? deltaChip(core.revenue, priorCore.revenue) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.dealsClosed)} deals closed</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Pipeline Value</div>
-        <div class="hero-value">${fmtMoney(core.pipelineValue)}</div>
+        <div class="hero-value">${fmtMoney(core.pipelineValue)} ${priorCore ? deltaChip(core.pipelineValue, priorCore.pipelineValue) : ''}</div>
         <div class="hero-sub">${fmtNumber(core.leadsCreated)} new leads</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Avg Deal Size</div>
-        <div class="hero-value">${fmtMoney(core.avgJobValue)}</div>
+        <div class="hero-value">${fmtMoney(core.avgJobValue)} ${priorCore ? deltaChip(core.avgJobValue, priorCore.avgJobValue) : ''}</div>
         <div class="hero-sub">per closed deal</div>
       </div>
       <div class="hero-cell">
         <div class="hero-label">Close Rate</div>
-        <div class="hero-value">${fmtPct(core.closeRate)}</div>
+        <div class="hero-value">${fmtPct(core.closeRate)} ${priorCore ? deltaChip(core.closeRate, priorCore.closeRate) : ''}</div>
         <div class="hero-sub">of decided deals</div>
       </div>
     </div>
@@ -1625,7 +1859,8 @@
       eyebrow: 'CUSTOMER JOURNEY',
       title: customerName,
       subtitle: lead.address || '',
-      periodLabel: 'Full History'
+      periodLabel: 'Full History',
+      narrative: meta.narrative
     });
 
     const vel = metrics.velocity;
