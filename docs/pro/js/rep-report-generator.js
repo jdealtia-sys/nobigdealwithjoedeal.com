@@ -243,6 +243,128 @@
     };
   }
 
+  // Pipeline funnel — counts leads by stage, ordered conventionally
+  // so we can render a proper funnel visualization. Returns stages
+  // in the canonical order even if they're empty, so the funnel
+  // shape is consistent across reports.
+  function computePipelineFunnel(leads, rangeStart, rangeEnd) {
+    // Standard roofing pipeline order (most-to-least likely to close)
+    const canonicalOrder = [
+      { key: 'new',                  label: 'New Leads' },
+      { key: 'contacted',            label: 'Contacted' },
+      { key: 'inspected',            label: 'Inspected' },
+      { key: 'claim_filed',          label: 'Claim Filed' },
+      { key: 'estimate_submitted',   label: 'Estimate Sent' },
+      { key: 'contract_signed',      label: 'Contract Signed' },
+      { key: 'install_in_progress', label: 'Installing' },
+      { key: 'closed',               label: 'Closed Won' },
+      { key: 'lost',                 label: 'Lost' }
+    ];
+    const counts = {};
+    canonicalOrder.forEach(s => { counts[s.key] = 0; });
+    leads.forEach(l => {
+      const d = toDate(l.updatedAt || l.createdAt);
+      if (!inRange(d, rangeStart, rangeEnd)) return;
+      const stageRaw = (l.stage || l._stageKey || '').toString().toLowerCase();
+      if (counts[stageRaw] != null) counts[stageRaw]++;
+      else {
+        // Map known synonyms
+        if (['install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'complete'].includes(stageRaw)) counts.closed++;
+      }
+    });
+    // Filter out stages with zero count from the canonical order for
+    // ApexCharts funnel — empty stages create ugly zero-width bars.
+    const stages = canonicalOrder
+      .map(s => ({ stage: s.label, key: s.key, count: counts[s.key] || 0 }))
+      .filter(s => s.count > 0);
+    const total = stages.reduce((sum, s) => sum + s.count, 0);
+    return { stages, total };
+  }
+
+  // Stuck deals — leads that haven't moved stages in >14 days and
+  // aren't won/lost. Useful for "you've got 5 stuck deals worth $47k"
+  // call-outs in the Pipeline Health report.
+  function computeStuckDeals(leads) {
+    const now = Date.now();
+    const fourteenDays = 14 * 24 * 60 * 60 * 1000;
+    const stuck = leads.filter(l => {
+      if (isWon(l) || isLost(l)) return false;
+      const updated = toDate(l.updatedAt || l.createdAt);
+      if (!updated) return false;
+      return (now - updated.getTime()) >= fourteenDays;
+    }).map(l => ({
+      id: l.id,
+      name: [l.firstName, l.lastName].filter(Boolean).join(' ') || l.address || 'Unknown',
+      address: l.address || '',
+      stage: l.stage || l._stageKey || 'unknown',
+      jobValue: Number(l.jobValue) || 0,
+      daysStuck: Math.floor((now - toDate(l.updatedAt || l.createdAt).getTime()) / (24 * 60 * 60 * 1000))
+    })).sort((a, b) => b.daysStuck - a.daysStuck);
+    const totalValue = stuck.reduce((sum, l) => sum + l.jobValue, 0);
+    return {
+      count: stuck.length,
+      totalValue,
+      topStuck: stuck.slice(0, 10)
+    };
+  }
+
+  // Revenue trend — monthly revenue buckets over the period. Used
+  // by the Revenue Recap template's bar chart so the owner can see
+  // month-over-month progression.
+  function computeRevenueTrend(leads, rangeStart, rangeEnd) {
+    const monthKey = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+    const monthLabel = (d) => d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+
+    // Build an ordered list of months in the range
+    const buckets = {};
+    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endCursor = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    while (cursor <= endCursor) {
+      const key = monthKey(cursor);
+      buckets[key] = { key, label: monthLabel(cursor), revenue: 0, deals: 0 };
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    leads.forEach(l => {
+      if (!isWon(l)) return;
+      const d = toDate(l.updatedAt || l.createdAt);
+      if (!d || !inRange(d, rangeStart, rangeEnd)) return;
+      const key = monthKey(d);
+      if (buckets[key]) {
+        buckets[key].revenue += Number(l.jobValue) || 0;
+        buckets[key].deals++;
+      }
+    });
+
+    const list = Object.values(buckets);
+    const best = list.reduce((a, b) => (a && a.revenue > b.revenue) ? a : b, null);
+    const total = list.reduce((sum, b) => sum + b.revenue, 0);
+    return {
+      months: list,
+      bestMonth: best ? (best.label + ' (' + fmtMoney(best.revenue) + ')') : 'No data',
+      totalRevenue: total
+    };
+  }
+
+  // Per-lead velocity — used by Customer Journey. Computes days
+  // elapsed at each stage the lead passed through (best-effort
+  // from createdAt/updatedAt since we don't log per-stage timestamps).
+  function computeLeadVelocity(lead) {
+    const created = toDate(lead.createdAt);
+    const updated = toDate(lead.updatedAt);
+    if (!created) return null;
+    const now = new Date();
+    const current = updated || now;
+    const daysActive = Math.floor((current - created) / (24 * 60 * 60 * 1000));
+    return {
+      createdAt: created,
+      currentStage: lead.stage || lead._stageKey || 'unknown',
+      daysInPipeline: daysActive,
+      isWon: isWon(lead),
+      isLost: isLost(lead)
+    };
+  }
+
   // Core KPIs — revenue, leads, close rate, pipeline value
   function computeCoreKPIs(leads, rangeStart, rangeEnd) {
     const inRangeLeads = leads.filter(l =>
@@ -294,10 +416,10 @@
               <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Template</label>
               <div id="reportTemplateGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:10px;">
                 ${renderTemplateCard('rep-monthly', 'Rep Monthly Review', '🎯', 'Per-rep coaching deep dive: knocks, deals, revenue, velocity, top cities.', true)}
-                ${renderTemplateCard('territory', 'Territory Deep Dive', '🗺️', 'Best cities/zips, where to work. Ships in Stage 2.', false)}
-                ${renderTemplateCard('pipeline-health', 'Pipeline Health Check', '📊', 'Stage velocity + bottleneck detection. Ships in Stage 2.', false)}
-                ${renderTemplateCard('revenue-recap', 'Revenue Recap', '💰', 'Owner/partner meeting view. Ships in Stage 3.', false)}
-                ${renderTemplateCard('customer-journey', 'Customer Journey', '📖', 'Full story of one customer. Ships in Stage 3.', false)}
+                ${renderTemplateCard('territory', 'Territory Deep Dive', '🗺️', 'Best cities/zips, where to knock. Revenue-per-territory heatmap + ranked table.', true)}
+                ${renderTemplateCard('pipeline-health', 'Pipeline Health Check', '📊', 'Stage funnel, velocity, bottleneck detection, stuck deals. Perfect for weekly review.', true)}
+                ${renderTemplateCard('revenue-recap', 'Revenue Recap', '💰', 'Owner/partner meeting view. Revenue breakdown, avg deal, closed vs pipeline, trend.', true)}
+                ${renderTemplateCard('customer-journey', 'Customer Journey', '📖', 'Full story of one customer: lead \u2192 knocks \u2192 estimate \u2192 contract \u2192 install. Pick a customer to run.', true)}
               </div>
             </div>
 
@@ -389,36 +511,118 @@
     await generate(_selectedTemplate, { rangeStart, rangeEnd });
   }
 
+  // ─── Template registry ───────────────────────────────────
+  // Each entry declares how to: (1) prompt for any extra input
+  // (Customer Journey needs a lead ID), (2) compute metrics, and
+  // (3) build the HTML. Adding a 6th template means adding one
+  // entry to this object — the dispatcher below doesn't change.
+  const TEMPLATES = {
+    'rep-monthly': {
+      name: 'Rep Monthly Review',
+      icon: '🎯',
+      filenamePrefix: 'Monthly',
+      buildHTML: (metrics, meta) => buildRepMonthlyReviewHTML(metrics, meta),
+      computeMetrics: (leads, knocks, estimates, rangeStart, rangeEnd) => ({
+        core: computeCoreKPIs(leads, rangeStart, rangeEnd),
+        knocksToDeal: computeKnocksToDeal(leads, knocks, rangeStart, rangeEnd),
+        heatmap: computeTimeOfDayHeatmap(knocks, rangeStart, rangeEnd),
+        topCities: computeTopCitiesZips(knocks, leads, rangeStart, rangeEnd),
+        velocity: computePipelineVelocity(leads, rangeStart, rangeEnd),
+        revenuePerKnock: computeRevenuePerKnock(leads, knocks, rangeStart, rangeEnd),
+        estimateAccuracy: computeEstimateAccuracy(estimates, leads, rangeStart, rangeEnd)
+      })
+    },
+    'territory': {
+      name: 'Territory Deep Dive',
+      icon: '🗺️',
+      filenamePrefix: 'Territory',
+      buildHTML: (metrics, meta) => buildTerritoryDeepDiveHTML(metrics, meta),
+      computeMetrics: (leads, knocks, estimates, rangeStart, rangeEnd) => ({
+        core: computeCoreKPIs(leads, rangeStart, rangeEnd),
+        topCities: computeTopCitiesZips(knocks, leads, rangeStart, rangeEnd),
+        heatmap: computeTimeOfDayHeatmap(knocks, rangeStart, rangeEnd),
+        revenuePerKnock: computeRevenuePerKnock(leads, knocks, rangeStart, rangeEnd),
+        knocksToDeal: computeKnocksToDeal(leads, knocks, rangeStart, rangeEnd)
+      })
+    },
+    'pipeline-health': {
+      name: 'Pipeline Health Check',
+      icon: '📊',
+      filenamePrefix: 'PipelineHealth',
+      buildHTML: (metrics, meta) => buildPipelineHealthHTML(metrics, meta),
+      computeMetrics: (leads, knocks, estimates, rangeStart, rangeEnd) => ({
+        core: computeCoreKPIs(leads, rangeStart, rangeEnd),
+        velocity: computePipelineVelocity(leads, rangeStart, rangeEnd),
+        funnel: computePipelineFunnel(leads, rangeStart, rangeEnd),
+        stuckDeals: computeStuckDeals(leads)
+      })
+    },
+    'revenue-recap': {
+      name: 'Revenue Recap',
+      icon: '💰',
+      filenamePrefix: 'Revenue',
+      buildHTML: (metrics, meta) => buildRevenueRecapHTML(metrics, meta),
+      computeMetrics: (leads, knocks, estimates, rangeStart, rangeEnd) => ({
+        core: computeCoreKPIs(leads, rangeStart, rangeEnd),
+        revenueTrend: computeRevenueTrend(leads, rangeStart, rangeEnd),
+        topCities: computeTopCitiesZips(knocks, leads, rangeStart, rangeEnd),
+        velocity: computePipelineVelocity(leads, rangeStart, rangeEnd)
+      })
+    },
+    'customer-journey': {
+      name: 'Customer Journey',
+      icon: '📖',
+      filenamePrefix: 'Journey',
+      buildHTML: (metrics, meta) => buildCustomerJourneyHTML(metrics, meta),
+      // Needs a lead picker — handled specially in generate()
+      requiresLead: true,
+      computeMetrics: (leads, knocks, estimates, rangeStart, rangeEnd, opts) => ({
+        lead: opts.lead || null,
+        knocks: knocks.filter(k => k.leadId === opts.leadId || (opts.lead && opts.lead.address && k.address && String(k.address).includes(String(opts.lead.address).split(',')[0]))),
+        estimates: estimates.filter(e => e.leadId === opts.leadId),
+        velocity: opts.lead ? computeLeadVelocity(opts.lead) : null
+      })
+    }
+  };
+
   // ─── Generate + open report ──────────────────────────────
   async function generate(template, opts) {
     opts = opts || {};
-    if (template !== 'rep-monthly') {
+    const tmpl = TEMPLATES[template];
+    if (!tmpl) {
       if (typeof showToast === 'function') {
-        showToast('This template ships in a future stage. Rep Monthly Review is live now.', 'info');
+        showToast('Unknown template: ' + template, 'error');
       }
       return;
     }
+
     const leads = window._leads || [];
     const knocks = window._knocks || [];
     const estimates = window._estimates || [];
     const rangeStart = opts.rangeStart || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const rangeEnd = opts.rangeEnd || new Date();
 
-    // Compute all metrics
-    const metrics = {
-      core: computeCoreKPIs(leads, rangeStart, rangeEnd),
-      knocksToDeal: computeKnocksToDeal(leads, knocks, rangeStart, rangeEnd),
-      heatmap: computeTimeOfDayHeatmap(knocks, rangeStart, rangeEnd),
-      topCities: computeTopCitiesZips(knocks, leads, rangeStart, rangeEnd),
-      velocity: computePipelineVelocity(leads, rangeStart, rangeEnd),
-      revenuePerKnock: computeRevenuePerKnock(leads, knocks, rangeStart, rangeEnd),
-      estimateAccuracy: computeEstimateAccuracy(estimates, leads, rangeStart, rangeEnd)
-    };
+    // Customer Journey needs a specific lead — show a picker if
+    // one wasn't passed via opts.leadId.
+    if (tmpl.requiresLead && !opts.leadId) {
+      showLeadPicker((leadId) => {
+        const lead = (window._leads || []).find(l => l.id === leadId);
+        if (!lead) {
+          if (typeof showToast === 'function') showToast('Customer not found', 'error');
+          return;
+        }
+        generate(template, Object.assign({}, opts, { leadId, lead }));
+      });
+      return;
+    }
+
+    // Compute metrics via the template's calculator bundle
+    const metrics = tmpl.computeMetrics(leads, knocks, estimates, rangeStart, rangeEnd, opts);
 
     // Build report HTML
     const meta = {
-      template: 'rep-monthly',
-      templateName: 'Rep Monthly Review',
+      template,
+      templateName: tmpl.name,
       rangeStart,
       rangeEnd,
       rep: {
@@ -427,24 +631,35 @@
         uid: window._user?.uid || ''
       }
     };
-    const html = buildRepMonthlyReviewHTML(metrics, meta);
+    const html = tmpl.buildHTML(metrics, meta);
+
+    // Firestore can't serialize plain JS Date objects inside nested
+    // fields reliably (it needs Timestamp). Deep-clone via JSON so
+    // Dates become ISO strings — then the My Reports view can show
+    // them without a re-computation.
+    let metricsForStorage;
+    try {
+      metricsForStorage = JSON.parse(JSON.stringify(metrics));
+    } catch (e) {
+      metricsForStorage = null;
+    }
 
     // Save to Firestore
     const reportId = await saveReport({
-      name: 'Rep Monthly Review — ' + fmtDate(rangeStart) + ' to ' + fmtDate(rangeEnd),
-      template: 'rep-monthly',
+      name: tmpl.name + ' — ' + fmtDate(rangeStart) + ' to ' + fmtDate(rangeEnd),
+      template,
       rangeStart: rangeStart.toISOString(),
       rangeEnd: rangeEnd.toISOString(),
       html, // stored so re-open is instant
-      metrics: JSON.parse(JSON.stringify(metrics)) // deep clone for Firestore
+      metrics: metricsForStorage
     });
 
     // Open in NBDDocViewer
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       window.NBDDocViewer.open({
         html,
-        title: 'Rep Monthly Review — ' + meta.rep.name,
-        filename: 'NBD-Report-Monthly-' + fmtDate(rangeStart).replace(/,/g, '').replace(/\s/g, '') + '.pdf',
+        title: tmpl.name + ' — ' + meta.rep.name,
+        filename: 'NBD-Report-' + tmpl.filenamePrefix + '-' + fmtDate(rangeStart).replace(/,/g, '').replace(/\s/g, '') + '.pdf',
         onSave: async () => {
           if (typeof showToast === 'function') {
             showToast('✓ Report saved to My Reports', 'success');
@@ -928,6 +1143,694 @@
   <\/script>
 </body>
 </html>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Shared report shell — the header, footer, and base CSS that
+  // every template uses. Each template injects its own <body>
+  // content plus an optional inline chart script.
+  // ═══════════════════════════════════════════════════════════
+  function reportShell(opts) {
+    const repName = esc(opts.repName || 'Rep');
+    const periodLabel = esc(opts.periodLabel || '');
+    const eyebrow = esc(opts.eyebrow || 'NBD PRO REPORT');
+    const title = esc(opts.title || 'Report');
+    const subtitle = esc(opts.subtitle || '');
+    return {
+      head: `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${title} — ${repName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"><\/script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Barlow', sans-serif; color: #111; background: #f7f7f5; padding: 0; line-height: 1.5; }
+  .report-page { max-width: 960px; margin: 0 auto; background: #fff; }
+  .report-hdr { background: #0a0c0f; color: #fff; padding: 40px 56px 32px; position: relative; overflow: hidden; }
+  .report-hdr::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #e8720c, #ff9030); }
+  .report-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .2em; color: #e8720c; margin-bottom: 10px; }
+  .report-brand span { color: #fff; }
+  .report-title { font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; line-height: 1; text-transform: uppercase; letter-spacing: -.01em; margin-bottom: 12px; }
+  .report-subtitle { font-size: 14px; color: #c7cad1; margin-bottom: 6px; }
+  .report-period { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; color: #e8720c; text-transform: uppercase; letter-spacing: .15em; }
+  .hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); background: #111418; color: #fff; }
+  .hero-cell { padding: 28px 20px; border-right: 1px solid #2a2f35; border-bottom: 1px solid #2a2f35; }
+  .hero-cell:last-child { border-right: none; }
+  .hero-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; color: #8b8e96; text-transform: uppercase; letter-spacing: .15em; margin-bottom: 6px; }
+  .hero-value { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 4px; }
+  .hero-value.orange { color: #e8720c; }
+  .hero-sub { font-size: 11px; color: #8b8e96; }
+  .section { padding: 40px 56px; border-bottom: 1px solid #eee; }
+  .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: #e8720c; margin-bottom: 8px; }
+  .section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; text-transform: uppercase; color: #111; margin-bottom: 6px; line-height: 1; }
+  .section-desc { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+  .metric-card { background: #f7f7f5; border-left: 4px solid #e8720c; padding: 20px 24px; }
+  .metric-card-label { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #999; margin-bottom: 4px; }
+  .metric-card-value { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800; color: #111; line-height: 1; margin-bottom: 4px; }
+  .metric-card-sub { font-size: 12px; color: #666; }
+  .city-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #eee; }
+  .city-row:last-child { border-bottom: none; }
+  .city-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: #e8720c; line-height: 1; min-width: 36px; }
+  .city-body { flex: 1; }
+  .city-name { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #111; text-transform: uppercase; }
+  .city-stats { font-size: 11px; color: #666; margin-top: 2px; }
+  .velocity-row { display: grid; grid-template-columns: 140px 1fr 80px 80px; gap: 12px; align-items: center; padding: 10px 0; font-size: 12px; }
+  .velocity-stage { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .04em; }
+  .velocity-bar-wrap { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+  .velocity-bar { height: 100%; background: linear-gradient(90deg, #e8720c, #ff9030); border-radius: 5px; }
+  .velocity-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: #e8720c; text-align: right; }
+  .velocity-count { font-size: 11px; color: #999; text-align: right; }
+  .report-footer { background: #0a0c0f; color: #8b8e96; padding: 24px 56px; display: flex; justify-content: space-between; font-size: 10px; }
+  .report-footer-brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; letter-spacing: .1em; color: #fff; }
+  .report-footer-brand span { color: #e8720c; }
+  .empty-state { padding: 20px; text-align: center; color: #999; font-style: italic; font-size: 12px; }
+  .chart-box { background: #fafaf9; padding: 20px; border-radius: 8px; border: 1px solid #eee; min-height: 300px; }
+  .stuck-row { display: grid; grid-template-columns: 1fr 90px 90px 90px; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 12px; }
+  .stuck-row:last-child { border-bottom: none; }
+  .stuck-name { font-weight: 700; color: #111; }
+  .stuck-addr { font-size: 11px; color: #666; margin-top: 2px; }
+  .stuck-days { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #c53030; text-align: right; font-size: 16px; }
+  .stuck-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: #e8720c; text-align: right; font-size: 14px; }
+  .stuck-stage { font-size: 10px; color: #999; text-align: right; text-transform: uppercase; letter-spacing: .05em; }
+  @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } }
+</style>
+</head>
+<body>
+  <div class="report-page">
+    <div class="report-hdr">
+      <div class="report-brand">NBD <span>PRO</span> — ${eyebrow}</div>
+      <div class="report-title">${title}</div>
+      <div class="report-subtitle">${subtitle}</div>
+      <div class="report-period">${periodLabel}</div>
+    </div>`,
+      footer: `
+    <div class="report-footer">
+      <div>
+        <div class="report-footer-brand">NBD <span>PRO</span></div>
+        <div>nobigdealwithjoedeal.com · Generated ${fmtDate(new Date())}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:#fff;font-weight:700;">${repName}</div>
+        <div>${esc(opts.repEmail || '')}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Template: Territory Deep Dive
+  // Focus: where to knock, best cities/zips, geographic ROI
+  // ═══════════════════════════════════════════════════════════
+  function buildTerritoryDeepDiveHTML(metrics, meta) {
+    const { core, topCities, heatmap, revenuePerKnock, knocksToDeal } = metrics;
+    const shell = reportShell({
+      repName: meta.rep.name,
+      repEmail: meta.rep.email,
+      eyebrow: 'TERRITORY DEEP DIVE',
+      title: 'Where You Work Best',
+      subtitle: 'Geographic performance breakdown and where to focus next',
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+    });
+
+    const cityList = topCities.topCities || [];
+    const hasCities = cityList.length > 0;
+    const topCity = hasCities ? cityList[0] : null;
+
+    // City bar chart data — top 10 by revenue
+    const chartData = cityList.slice(0, 10).map(c => ({
+      x: c.city.length > 18 ? c.city.substring(0, 18) + '…' : c.city,
+      y: c.revenue,
+      deals: c.deals,
+      knocks: c.knocks
+    }));
+    const chartDataJSON = JSON.stringify(chartData);
+    const heatmapJSON = JSON.stringify(heatmap.series);
+
+    const cityTable = hasCities
+      ? cityList.slice(0, 10).map((c, i) => `
+        <div class="city-row">
+          <div class="city-rank">${i + 1}</div>
+          <div class="city-body">
+            <div class="city-name">${esc(c.city)}</div>
+            <div class="city-stats">${fmtNumber(c.knocks)} knocks · ${fmtNumber(c.appts)} appts · ${fmtNumber(c.deals)} deals · ${fmtMoney(c.revenue)}</div>
+          </div>
+        </div>
+      `).join('')
+      : '<div class="empty-state">No territory data yet. Start knocking and this map fills in automatically.</div>';
+
+    return shell.head + `
+    <div class="hero-grid">
+      <div class="hero-cell">
+        <div class="hero-label">Territories Worked</div>
+        <div class="hero-value orange">${fmtNumber(cityList.length)}</div>
+        <div class="hero-sub">cities active in period</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Top Territory</div>
+        <div class="hero-value" style="font-size:22px;">${topCity ? esc(topCity.city) : '—'}</div>
+        <div class="hero-sub">${topCity ? (fmtMoney(topCity.revenue) + ' closed') : 'no data'}</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Total Revenue</div>
+        <div class="hero-value">${fmtMoney(core.revenue)}</div>
+        <div class="hero-sub">${fmtNumber(core.dealsClosed)} deals</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Revenue per Door</div>
+        <div class="hero-value">${fmtMoney(revenuePerKnock.revenuePerKnock)}</div>
+        <div class="hero-sub">${fmtNumber(revenuePerKnock.knocks)} knocks</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Top 10 Territories by Revenue</div>
+      <div class="section-title">Your Money Map</div>
+      <div class="section-desc">Cities ranked by closed revenue. Where you should be doubling down.</div>
+      <div class="chart-box" id="territory-bar-chart"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Full Territory Table</div>
+      <div class="section-title">Detailed Breakdown</div>
+      <div class="section-desc">Every city you worked this period. Top 10 shown. Scoring weights deals 1000x, appointments 10x, knocks 1x.</div>
+      ${cityTable}
+    </div>
+
+    <div class="section">
+      <div class="section-label">When You're Most Active</div>
+      <div class="section-title">Activity Heatmap</div>
+      <div class="section-desc">Hour × day grid of your knocking pattern. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
+      <div class="chart-box" id="territory-heatmap"></div>
+    </div>
+    ` + shell.footer + `
+  <script>
+    (function () {
+      try {
+        if (typeof ApexCharts === 'undefined') return;
+        // Territory revenue bar chart
+        var barData = ${chartDataJSON};
+        if (barData.length > 0) {
+          var barOptions = {
+            series: [{ name: 'Revenue', data: barData.map(function(d){return d.y;}) }],
+            chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
+            plotOptions: { bar: { horizontal: true, barHeight: '65%', distributed: true, borderRadius: 4 } },
+            colors: ['#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030'],
+            dataLabels: {
+              enabled: true,
+              formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; },
+              style: { fontWeight: 700, colors: ['#fff'] }
+            },
+            xaxis: {
+              categories: barData.map(function(d){return d.x;}),
+              labels: { formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; }, style: { colors: '#999', fontSize: '11px' } }
+            },
+            yaxis: { labels: { style: { colors: '#111', fontSize: '12px', fontWeight: 600 } } },
+            legend: { show: false },
+            grid: { borderColor: '#eee' }
+          };
+          new ApexCharts(document.getElementById('territory-bar-chart'), barOptions).render();
+        } else {
+          document.getElementById('territory-bar-chart').innerHTML = '<div style="padding:40px;text-align:center;color:#999;">No territory data yet.</div>';
+        }
+
+        // Heatmap
+        var heatmapSeries = ${heatmapJSON};
+        var heatOptions = {
+          series: heatmapSeries,
+          chart: { height: 320, type: 'heatmap', toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
+          dataLabels: { enabled: false },
+          colors: ['#e8720c'],
+          plotOptions: {
+            heatmap: {
+              shadeIntensity: 0.5,
+              colorScale: { ranges: [
+                { from: 0, to: 0, color: '#f0f0ed' },
+                { from: 1, to: 2, color: '#ffdcc0' },
+                { from: 3, to: 5, color: '#ff9940' },
+                { from: 6, to: 1000, color: '#e8720c' }
+              ] }
+            }
+          },
+          xaxis: { labels: { style: { colors: '#999', fontSize: '10px' } } },
+          yaxis: { labels: { style: { colors: '#666', fontSize: '11px', fontWeight: 600 } } },
+          grid: { borderColor: '#eee' }
+        };
+        new ApexCharts(document.getElementById('territory-heatmap'), heatOptions).render();
+      } catch (e) {
+        console.error('[Territory] chart render failed:', e);
+      }
+    })();
+  <\/script>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Template: Pipeline Health Check
+  // Focus: funnel, velocity, bottlenecks, stuck deals
+  // ═══════════════════════════════════════════════════════════
+  function buildPipelineHealthHTML(metrics, meta) {
+    const { core, velocity, funnel, stuckDeals } = metrics;
+    const shell = reportShell({
+      repName: meta.rep.name,
+      repEmail: meta.rep.email,
+      eyebrow: 'PIPELINE HEALTH CHECK',
+      title: 'Pipeline Health',
+      subtitle: 'Stage funnel, velocity bottlenecks, and stuck deals that need attention',
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+    });
+
+    const funnelJSON = JSON.stringify(funnel.stages.map(s => ({ x: s.stage, y: s.count })));
+    const velocityRows = (velocity.stages || []).map(s => `
+      <div class="velocity-row">
+        <div class="velocity-stage">${esc(s.stage)}</div>
+        <div class="velocity-bar-wrap">
+          <div class="velocity-bar" style="width:${Math.min(100, (s.avgDays / 30) * 100)}%"></div>
+        </div>
+        <div class="velocity-days">${s.avgDays.toFixed(1)} days</div>
+        <div class="velocity-count">${s.count} leads</div>
+      </div>
+    `).join('') || '<div class="empty-state">No velocity data yet.</div>';
+
+    const stuckRows = (stuckDeals.topStuck || []).map(s => `
+      <div class="stuck-row">
+        <div>
+          <div class="stuck-name">${esc(s.name)}</div>
+          <div class="stuck-addr">${esc(s.address)}</div>
+        </div>
+        <div class="stuck-stage">${esc(s.stage)}</div>
+        <div class="stuck-days">${s.daysStuck}d</div>
+        <div class="stuck-value">${fmtMoney(s.jobValue)}</div>
+      </div>
+    `).join('') || '<div class="empty-state">No stuck deals. Everything is moving.</div>';
+
+    return shell.head + `
+    <div class="hero-grid">
+      <div class="hero-cell">
+        <div class="hero-label">Pipeline Value</div>
+        <div class="hero-value orange">${fmtMoney(core.pipelineValue)}</div>
+        <div class="hero-sub">${fmtNumber(funnel.total)} active leads</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Close Rate</div>
+        <div class="hero-value">${fmtPct(core.closeRate)}</div>
+        <div class="hero-sub">${fmtNumber(core.dealsClosed)}W / ${fmtNumber(core.dealsLost)}L</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Stuck Deals</div>
+        <div class="hero-value" style="color:${stuckDeals.count > 0 ? '#c53030' : '#22c55e'}">${fmtNumber(stuckDeals.count)}</div>
+        <div class="hero-sub">${fmtMoney(stuckDeals.totalValue)} at risk</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Bottleneck</div>
+        <div class="hero-value" style="font-size:18px;">${esc(velocity.bottleneck.split(' (')[0] || '—')}</div>
+        <div class="hero-sub">${esc((velocity.bottleneck.match(/\((.*)\)/) || [])[1] || 'healthy')}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Stage Funnel</div>
+      <div class="section-title">Your Pipeline Shape</div>
+      <div class="section-desc">Lead count by stage. Notice where the shape gets narrow \u2014 that's where deals leak.</div>
+      <div class="chart-box" id="funnel-chart"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Stage Velocity</div>
+      <div class="section-title">Time Per Stage</div>
+      <div class="section-desc">How long leads linger at each stage. Longer bars = slower movement = bottleneck.</div>
+      ${velocityRows}
+    </div>
+
+    <div class="section">
+      <div class="section-label">Stuck Deals (>14 days since last update)</div>
+      <div class="section-title">Needs Attention</div>
+      <div class="section-desc">Call these customers this week. Every day they sit costs you money.</div>
+      ${stuckRows}
+    </div>
+    ` + shell.footer + `
+  <script>
+    (function () {
+      try {
+        if (typeof ApexCharts === 'undefined') return;
+        var funnelData = ${funnelJSON};
+        if (funnelData.length > 0) {
+          var options = {
+            series: [{ name: 'Leads', data: funnelData.map(function(d){return d.y;}) }],
+            chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
+            plotOptions: {
+              bar: {
+                horizontal: true,
+                barHeight: '72%',
+                distributed: true,
+                borderRadius: 4,
+                isFunnel: true
+              }
+            },
+            colors: ['#e8720c','#ff9030','#ffb870','#ffc68a','#ffce9a','#f0a060','#c58040','#8a5a28','#444'],
+            dataLabels: {
+              enabled: true,
+              formatter: function(val, opts) {
+                return funnelData[opts.dataPointIndex].x + ': ' + val;
+              },
+              style: { fontWeight: 700, colors: ['#fff'] },
+              dropShadow: { enabled: false }
+            },
+            xaxis: { categories: funnelData.map(function(d){return d.x;}) },
+            legend: { show: false },
+            grid: { show: false }
+          };
+          new ApexCharts(document.getElementById('funnel-chart'), options).render();
+        } else {
+          document.getElementById('funnel-chart').innerHTML = '<div style="padding:40px;text-align:center;color:#999;">No pipeline data for the selected period.</div>';
+        }
+      } catch (e) {
+        console.error('[Pipeline Health] chart render failed:', e);
+      }
+    })();
+  <\/script>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Template: Revenue Recap
+  // Focus: owner/investor view of revenue, growth, best month
+  // ═══════════════════════════════════════════════════════════
+  function buildRevenueRecapHTML(metrics, meta) {
+    const { core, revenueTrend, topCities, velocity } = metrics;
+    const shell = reportShell({
+      repName: meta.rep.name,
+      repEmail: meta.rep.email,
+      eyebrow: 'REVENUE RECAP',
+      title: 'Revenue Recap',
+      subtitle: 'Business performance summary for partners and stakeholders',
+      periodLabel: fmtDate(meta.rangeStart) + ' → ' + fmtDate(meta.rangeEnd)
+    });
+
+    const trendJSON = JSON.stringify((revenueTrend.months || []).map(m => ({ x: m.label, y: m.revenue })));
+    const cityTopRows = (topCities.topCities || []).slice(0, 5).map((c, i) => `
+      <div class="city-row">
+        <div class="city-rank">${i + 1}</div>
+        <div class="city-body">
+          <div class="city-name">${esc(c.city)}</div>
+          <div class="city-stats">${fmtMoney(c.revenue)} · ${fmtNumber(c.deals)} deals</div>
+        </div>
+      </div>
+    `).join('') || '<div class="empty-state">No territory data yet.</div>';
+
+    return shell.head + `
+    <div class="hero-grid">
+      <div class="hero-cell">
+        <div class="hero-label">Total Revenue</div>
+        <div class="hero-value orange">${fmtMoney(core.revenue)}</div>
+        <div class="hero-sub">${fmtNumber(core.dealsClosed)} deals closed</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Pipeline Value</div>
+        <div class="hero-value">${fmtMoney(core.pipelineValue)}</div>
+        <div class="hero-sub">${fmtNumber(core.leadsCreated)} new leads</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Avg Deal Size</div>
+        <div class="hero-value">${fmtMoney(core.avgJobValue)}</div>
+        <div class="hero-sub">per closed deal</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Close Rate</div>
+        <div class="hero-value">${fmtPct(core.closeRate)}</div>
+        <div class="hero-sub">of decided deals</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Monthly Revenue Trend</div>
+      <div class="section-title">Month-over-Month</div>
+      <div class="section-desc">Best month: <strong>${esc(revenueTrend.bestMonth)}</strong></div>
+      <div class="chart-box" id="revenue-chart"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Revenue by Territory</div>
+      <div class="section-title">Top 5 Markets</div>
+      <div class="section-desc">Where the revenue is coming from.</div>
+      ${cityTopRows}
+    </div>
+    ` + shell.footer + `
+  <script>
+    (function () {
+      try {
+        if (typeof ApexCharts === 'undefined') return;
+        var trendData = ${trendJSON};
+        var options = {
+          series: [{ name: 'Revenue', data: trendData.map(function(d){return d.y;}) }],
+          chart: { type: 'area', height: 320, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif', sparkline: { enabled: false } },
+          stroke: { curve: 'smooth', width: 3, colors: ['#e8720c'] },
+          fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, gradientToColors: ['#ff9030'], inverseColors: false, opacityFrom: 0.6, opacityTo: 0.05 } },
+          colors: ['#e8720c'],
+          dataLabels: { enabled: false },
+          xaxis: {
+            categories: trendData.map(function(d){return d.x;}),
+            labels: { style: { colors: '#666', fontSize: '11px', fontWeight: 600 } }
+          },
+          yaxis: {
+            labels: {
+              formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; },
+              style: { colors: '#999', fontSize: '11px' }
+            }
+          },
+          grid: { borderColor: '#eee', strokeDashArray: 4 },
+          tooltip: { y: { formatter: function(val) { return '$' + Math.round(val).toLocaleString(); } } }
+        };
+        new ApexCharts(document.getElementById('revenue-chart'), options).render();
+      } catch (e) {
+        console.error('[Revenue Recap] chart render failed:', e);
+      }
+    })();
+  <\/script>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Template: Customer Journey
+  // Focus: full story of one customer — knocks, estimate, install
+  // ═══════════════════════════════════════════════════════════
+  function buildCustomerJourneyHTML(metrics, meta) {
+    const lead = metrics.lead;
+    if (!lead) {
+      return '<html><body><h1>No customer selected</h1></body></html>';
+    }
+    const customerName = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'Unnamed Customer';
+    const shell = reportShell({
+      repName: meta.rep.name,
+      repEmail: meta.rep.email,
+      eyebrow: 'CUSTOMER JOURNEY',
+      title: customerName,
+      subtitle: lead.address || '',
+      periodLabel: 'Full History'
+    });
+
+    const vel = metrics.velocity;
+    const relatedKnocks = metrics.knocks || [];
+    const relatedEstimates = metrics.estimates || [];
+
+    const knockTimeline = relatedKnocks.length > 0
+      ? relatedKnocks.map(k => {
+        const d = toDate(k.timestamp || k.createdAt);
+        return `
+          <div class="velocity-row">
+            <div class="velocity-stage">${esc(d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—')}</div>
+            <div style="font-size:12px;color:#111;">${esc(k.disposition || 'visit')}</div>
+            <div class="velocity-days" style="color:#666;font-size:11px;">${esc(k.address || '')}</div>
+            <div class="velocity-count">${k.carrier ? esc(k.carrier) : ''}</div>
+          </div>
+        `;
+      }).join('')
+      : '<div class="empty-state">No door-knocks linked to this customer.</div>';
+
+    const estimateTimeline = relatedEstimates.length > 0
+      ? relatedEstimates.map(e => {
+        const d = toDate(e.createdAt);
+        return `
+          <div class="velocity-row">
+            <div class="velocity-stage">${esc(d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—')}</div>
+            <div style="font-size:12px;color:#111;">${esc(e.name || e.tierName || 'Estimate')}</div>
+            <div class="velocity-days">${fmtMoney(e.grandTotal || 0)}</div>
+            <div class="velocity-count">${esc(e.builder || 'classic')}</div>
+          </div>
+        `;
+      }).join('')
+      : '<div class="empty-state">No estimates generated for this customer yet.</div>';
+
+    const createdD = toDate(lead.createdAt);
+    const stageDisplay = (lead.stage || lead._stageKey || 'unknown').toString();
+    const won = isWon(lead);
+    const lost = isLost(lead);
+    const statusLabel = won ? 'WON' : (lost ? 'LOST' : 'ACTIVE');
+    const statusColor = won ? '#22c55e' : (lost ? '#c53030' : '#e8720c');
+
+    return shell.head + `
+    <div class="hero-grid">
+      <div class="hero-cell">
+        <div class="hero-label">Deal Status</div>
+        <div class="hero-value" style="color:${statusColor};">${statusLabel}</div>
+        <div class="hero-sub">${esc(stageDisplay)}</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Deal Value</div>
+        <div class="hero-value orange">${fmtMoney(lead.jobValue || 0)}</div>
+        <div class="hero-sub">${esc(lead.damageType || 'roof')}</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Days in Pipeline</div>
+        <div class="hero-value">${vel ? fmtNumber(vel.daysInPipeline) : '—'}</div>
+        <div class="hero-sub">since ${esc(createdD ? createdD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—')}</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Contacts</div>
+        <div class="hero-value">${fmtNumber(relatedKnocks.length)}</div>
+        <div class="hero-sub">door visits logged</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Customer Info</div>
+      <div class="section-title">${esc(customerName)}</div>
+      <div class="section-desc">${esc(lead.address || 'No address on file')}</div>
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-card-label">Phone</div>
+          <div class="metric-card-value" style="font-size:20px;">${esc(lead.phone || '—')}</div>
+          <div class="metric-card-sub">${esc(lead.email || 'no email')}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Insurance</div>
+          <div class="metric-card-value" style="font-size:20px;">${esc(lead.insCarrier || '—')}</div>
+          <div class="metric-card-sub">${esc(lead.claimStatus || 'no claim')}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Source</div>
+          <div class="metric-card-value" style="font-size:20px;">${esc(lead.source || '—')}</div>
+          <div class="metric-card-sub">how they found you</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Stage</div>
+          <div class="metric-card-value" style="font-size:20px;">${esc(stageDisplay)}</div>
+          <div class="metric-card-sub">current pipeline position</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Door-to-Door Timeline</div>
+      <div class="section-title">Every Visit</div>
+      <div class="section-desc">Chronological record of every touchpoint at this address.</div>
+      ${knockTimeline}
+    </div>
+
+    <div class="section">
+      <div class="section-label">Estimates Generated</div>
+      <div class="section-title">Proposal History</div>
+      <div class="section-desc">Every estimate built for this customer.</div>
+      ${estimateTimeline}
+    </div>
+
+    <div class="section">
+      <div class="section-label">Notes</div>
+      <div class="section-title">Customer File</div>
+      <div style="font-size:13px;color:#111;line-height:1.6;padding:16px;background:#fafaf9;border-left:4px solid #e8720c;">
+        ${esc(lead.notes || 'No notes on file for this customer.')}
+      </div>
+    </div>
+    ` + shell.footer;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Lead picker modal — used by the Customer Journey template
+  // ═══════════════════════════════════════════════════════════
+  function showLeadPicker(onPick) {
+    const leads = window._leads || [];
+    if (!leads.length) {
+      if (typeof showToast === 'function') showToast('No customers available yet', 'error');
+      return;
+    }
+
+    // Reuse an existing picker if present
+    let overlay = document.getElementById('report-lead-picker');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'report-lead-picker';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;';
+    overlay.appendChild(sheet);
+
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'margin-bottom:14px;';
+    hdr.innerHTML = '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--t);text-transform:uppercase;letter-spacing:.04em;">Pick a Customer</div>'
+      + '<div style="font-size:11px;color:var(--m);margin-top:4px;">Generate a full journey report for this customer.</div>';
+    sheet.appendChild(hdr);
+
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.placeholder = 'Search customers...';
+    search.style.cssText = 'background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--t);margin-bottom:12px;font-family:inherit;outline:none;';
+    sheet.appendChild(search);
+
+    const results = document.createElement('div');
+    results.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:240px;';
+    sheet.appendChild(results);
+
+    const renderList = (filter) => {
+      results.textContent = '';
+      const q = (filter || '').toLowerCase().trim();
+      const filtered = q
+        ? leads.filter(l => ([l.firstName, l.lastName, l.address, l.phone].filter(Boolean).join(' ').toLowerCase().includes(q)))
+        : leads;
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:30px;color:var(--m);text-align:center;font-size:12px;';
+        empty.textContent = 'No customers match "' + q + '"';
+        results.appendChild(empty);
+        return;
+      }
+      filtered.slice(0, 100).forEach(l => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.style.cssText = 'background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 14px;text-align:left;cursor:pointer;font-family:inherit;transition:border-color .15s;';
+        row.addEventListener('mouseenter', () => { row.style.borderColor = '#e8720c'; });
+        row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--br)'; });
+        const name = document.createElement('div');
+        name.style.cssText = 'font-size:13px;font-weight:600;color:var(--t);';
+        name.textContent = [l.firstName, l.lastName].filter(Boolean).join(' ') || '(no name)';
+        row.appendChild(name);
+        const addr = document.createElement('div');
+        addr.style.cssText = 'font-size:11px;color:var(--m);margin-top:2px;';
+        addr.textContent = l.address || 'No address';
+        row.appendChild(addr);
+        row.addEventListener('click', () => {
+          overlay.remove();
+          onPick(l.id);
+        });
+        results.appendChild(row);
+      });
+    };
+    renderList('');
+    search.addEventListener('input', () => renderList(search.value));
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;justify-content:flex-end;margin-top:14px;';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'background:none;border:1px solid var(--br);color:var(--m);padding:8px 18px;border-radius:6px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+    footer.appendChild(cancelBtn);
+    sheet.appendChild(footer);
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    setTimeout(() => search.focus(), 50);
   }
 
   // ─── Save report to Firestore ────────────────────────────
