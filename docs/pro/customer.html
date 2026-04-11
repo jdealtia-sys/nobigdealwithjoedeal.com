@@ -1688,8 +1688,14 @@ window.uploadDocuments = async function() {
 async function uploadSingleDocument(item, index) {
   const file = item.file;
   const timestamp = Date.now();
-  const filename = `${window._customerId}_${timestamp}_${file.name}`;
-  const storageRef = window.ref(window.storage, `documents/${filename}`);
+  // Storage rules require path `docs/{uid}/{file}` — the old
+  // `documents/{file}` path is blocked by default-deny. Same
+  // root-cause as the photo upload failure.
+  const uid = window.auth?.currentUser?.uid;
+  if (!uid) throw new Error('Not signed in — cannot upload');
+  const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
+  const filename = `${window._customerId}_${timestamp}_${safeName}`;
+  const storageRef = window.ref(window.storage, `docs/${uid}/${filename}`);
   
   const uploadTask = window.uploadBytesResumable(storageRef, file);
   
@@ -3220,8 +3226,18 @@ window.uploadPhotos = async function() {
 async function uploadSinglePhoto(item, index) {
   const file = item.file;
   const timestamp = Date.now();
-  const filename = `${window._customerId}_${timestamp}_${file.name}`;
-  const storageRef = window.ref(window.storage, `photos/${filename}`);
+  // Storage rules (storage.rules, 2026-04-11 hardening) require
+  // path `photos/{uid}/{file}`. The legacy `photos/{file}` path
+  // was blocked by the default-deny rule at the bottom of the
+  // rules file, which is why photo uploads were failing.
+  const uid = window.auth?.currentUser?.uid;
+  if (!uid) throw new Error('Not signed in — cannot upload');
+  // Sanitize the filename: keep ASCII word chars, dots, dashes;
+  // replace everything else with underscore. Prevents Unicode /
+  // space / paren issues that can choke the storage path parser.
+  const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
+  const filename = `${window._customerId}_${timestamp}_${safeName}`;
+  const storageRef = window.ref(window.storage, `photos/${uid}/${filename}`);
   
   const uploadTask = window.uploadBytesResumable(storageRef, file);
   
@@ -5004,7 +5020,7 @@ console.log('✓ Customer page enhancements loaded');
 <script src="js/insurance-claim.js?v=2"></script>
 <script src="js/offline-manager.js?v=3"></script>
 <script src="js/share-gallery.js?v=2"></script>
-<script src="js/photo-editor.js?v=3"></script>
+<script src="js/photo-editor.js?v=4"></script>
 <script src="js/document-generator.js?v=4"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>

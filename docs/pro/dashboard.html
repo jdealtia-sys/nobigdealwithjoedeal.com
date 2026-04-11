@@ -1487,12 +1487,19 @@
   window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){ console.warn('deletePin failed:', e); showToast('Failed to delete pin','error'); } };
 
   // ── PHOTOS ─────────────────────────────────────
+  // Storage rules (storage.rules, 2026-04-11 hardening) require
+  // `photos/{uid}/{...}`. The old `photos/{leadId}/...` path
+  // hits the default-deny rule and returns permission-denied —
+  // root cause of "upload failed" errors reported by users.
   window._uploadPhoto = async (leadId, file) => {
     try {
-      const r = ref(storage, `photos/${leadId}/${Date.now()}_${file.name}`);
+      const uid = window._user?.uid;
+      if (!uid) throw new Error('Not signed in');
+      const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
+      const r = ref(storage, `photos/${uid}/${leadId}/${Date.now()}_${safeName}`);
       await uploadBytes(r, file);
       const url = await getDownloadURL(r);
-      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:window._user?.uid, createdAt:serverTimestamp()});
+      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:uid, createdAt:serverTimestamp()});
       return url;
     } catch(e) { console.error('Upload failed',e); return null; }
   };
@@ -12367,7 +12374,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/academy-admin.js?v=2"></script>
 <script defer src="js/real-deal-academy-lab.js?v=1"></script>
 <script defer src="js/real-deal-academy.js?v=2"></script>
-<script defer src="js/d2d-tracker.js?v=1"></script>
+<script defer src="js/d2d-tracker.js?v=2"></script>
 <script defer src="js/storm-center.js?v=1"></script>
 <script defer src="js/storm-integration.js?v=1"></script>
 <script defer src="js/decision-engine.js?v=1"></script>

@@ -1260,10 +1260,20 @@
   async function uploadPhotos(files, knockId) {
     if (!files || !files.length) return [];
     const urls = [];
+    // Storage rules only permit photos under `photos/{uid}/...`.
+    // Route door-knock photos through `photos/{uid}/d2d/{knockId}/...`
+    // so they inherit the existing photos rule instead of hitting
+    // the default-deny that d2d_photos/{uid}/... falls under.
     const { ref, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js');
+    const uid = window._user && window._user.uid;
+    if (!uid) {
+      console.error('d2d photo upload: not signed in');
+      return [];
+    }
     for (const file of files) {
       try {
-        const storageRef = ref(window._storage, `d2d_photos/${window._user.uid}/${knockId}/${Date.now()}_${file.name}`);
+        const safeName = String(file.name || 'knock').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
+        const storageRef = ref(window._storage, `photos/${uid}/d2d/${knockId}/${Date.now()}_${safeName}`);
         await window.uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
         urls.push(url);

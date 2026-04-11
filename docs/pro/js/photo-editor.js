@@ -945,8 +945,15 @@
 
   async function uploadBlob(blob, overwrite) {
     try {
+      // Storage rules (2026-04-11 hardening) require `photos/{uid}/...`.
+      // The local `uid()` helper in this file is the annotation ID
+      // generator — it is NOT the Firebase auth UID. Use S.userId
+      // (set when the editor is opened) for the storage path.
+      const authUid = S.userId || (window.auth && window.auth.currentUser && window.auth.currentUser.uid);
+      if (!authUid) throw new Error('Not signed in');
+      const leadSegment = S.leadId ? (S.leadId + '/') : '';
       const fileName = overwrite ? `photo_${S.photoId}.jpg` : `photo_${uid()}.jpg`;
-      const storageRef = window.ref(window.storage, 'photos/' + fileName);
+      const storageRef = window.ref(window.storage, `photos/${authUid}/${leadSegment}${fileName}`);
       await window.uploadBytes(storageRef, blob);
       const url = await window.getDownloadURL(storageRef);
       const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp() };
