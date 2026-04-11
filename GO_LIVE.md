@@ -4,11 +4,23 @@ Everything on this list is something only **you** can do from your own
 machine, because it requires credentials or console access that no
 automation running inside the repo has.
 
+**Two paths to live:**
+
+- **Fast path (recommended):** set up GitHub Actions auto-deploy once
+  (15 min), then every `git push` to main automatically deploys Firebase.
+  You do Steps 0–4 once, ever, and skip Step 5 forever.
+- **Manual path:** run `./scripts/deploy.sh` or `./scripts/bootstrap.sh`
+  from your laptop each time. See Step 5.
+
 Do these in order. You can stop and resume between steps. If anything
 breaks, the long-form explanation is in `POST_DEPLOY_CHECKLIST.md` and
 `SECRET_ROTATION.md`.
 
 Estimated total time: **2–3 hours**. You can break it into two sessions.
+
+> **💡 Shortcut:** after Step 0–2, you can run `./scripts/bootstrap.sh`
+> which chains Steps 3 → 5 → 8 interactively (prompts you at each stage).
+> The script is fully re-runnable.
 
 ---
 
@@ -59,9 +71,20 @@ via the Firebase CLI from your laptop.
 
 ## Step 1 — Rotate every shared secret (30 min)
 
-Follow `SECRET_ROTATION.md` step-by-step. In short: assume every secret
-in git history was exfiltrated during the pre-audit window and rotate
-them all.
+**Automated version (recommended):**
+
+```bash
+./scripts/rotate-secrets.sh
+```
+
+The script walks you through every secret one at a time. For each one it
+opens the vendor dashboard URL in your browser, waits for you to paste
+the new value, and pushes it to Firebase via `firebase functions:secrets:set`.
+Hit ENTER to skip any secret you've already rotated.
+
+**Manual version:** follow `SECRET_ROTATION.md` step-by-step. Assume every
+secret in git history was exfiltrated during the pre-audit window and
+rotate them all:
 
 - [ ] **Anthropic**: new key at console.anthropic.com → delete old →
       `firebase functions:secrets:set ANTHROPIC_API_KEY`
@@ -128,10 +151,28 @@ Full docs on each script: `scripts/README.md`.
 
 ## Step 5 — Deploy (10 min)
 
-From the repo root:
+**Automated path — set up GitHub Actions once, then every push deploys:**
+
+1. Firebase Console → Project Settings → Service accounts → "Generate
+   new private key" → download the JSON.
+2. GitHub repo → Settings → Secrets and variables → Actions → "New
+   repository secret":
+   - Name: `FIREBASE_SERVICE_ACCOUNT`
+   - Value: paste the ENTIRE JSON file contents (open it in a text
+     editor and copy all of it).
+3. Delete the downloaded JSON from your laptop — it's safely in
+   GitHub Secrets now.
+4. Push to main to trigger the first deploy, OR go to
+   GitHub → Actions → "Firebase deploy" → "Run workflow" for a
+   manual trigger. Either way, the ordered firebase-deploy sequence
+   runs in GitHub's infrastructure, not your laptop.
+
+After this one-time setup, every `git push` to main auto-deploys. You
+never need to run `firebase deploy` by hand again.
+
+**Manual path:** From the repo root:
 
 ```bash
-chmod +x scripts/deploy.sh
 ./scripts/deploy.sh
 ```
 
@@ -144,12 +185,12 @@ This runs, in order:
 5. `firebase deploy --only firestore:rules --project nobigdealwithjoedeal`
     (the marketing project — separate from the pro project)
 
-**After this succeeds, the transitional shim in `docs/pro/js/pages/login.js`
-should be removed.** Look for the big `Transitional compat shim` comment
-block inside `doCodeLogin` and `doDemoLogin` and delete the `data.email
-&& data.password` branches. Commit + push + redeploy hosting. This is
-optional — the shim is harmless once the new function is live, but it's
-dead code.
+**After the deploy succeeds (either path), the transitional shim in
+`docs/pro/js/pages/login.js` should be removed.** Search for the big
+`Transitional compat shim` comment block inside `doCodeLogin` and
+`doDemoLogin` and delete the `data.email && data.password` branches.
+Commit + push + it auto-deploys. This is optional — the shim is harmless
+once the new function is live, but it's dead code.
 
 ## Step 6 — Delete the Cloudflare Worker (2 min)
 
@@ -182,8 +223,17 @@ budget, rate-limit denial spike).
 
 ## Step 8 — Smoke tests on production (15 min)
 
-Run these against the live site. Every one should FAIL — if any of them
-succeed, stop and investigate before going further.
+**Automated path:**
+
+```bash
+./scripts/verify-deploy.sh
+```
+
+Runs all the Cloud-Function + hosting-header + oaks-hiding probes for
+you and prints pass/fail with exit code. Safe to run anytime, read-only.
+
+**Manual path:** run these by hand. Every one should FAIL — if any of
+them succeed, stop and investigate before going further.
 
 - [ ] **Admin takeover attempt**:
       ```bash
