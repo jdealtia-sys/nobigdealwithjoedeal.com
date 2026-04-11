@@ -939,160 +939,19 @@ canvas{max-width:100%;display:block;}
 #nbd-pro-nav.pos-dock .nnav-sub { display: none; }
 </style>
 
-<!-- NAV HTML -->
-<nav id="nbd-pro-nav">
-  <a href="/pro/dashboard.html" class="nnav-logo">
-    <div class="nnav-mark">NBD</div>
-    <div>
-      <div class="nnav-wordmark"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
-    </div>
-  </a>
-
-  <div class="nnav-links" id="nnav-links">
-    <a href="/pro/" class="nnav-link" data-page="home"><span class="nnav-icon">🏠</span><span class="nnav-lbl">Home</span></a>
-    <a href="/pro/dashboard.html" class="nnav-link" data-page="dashboard"><span class="nnav-icon">📊</span><span class="nnav-lbl">Dashboard</span></a>
-    <a href="/pro/daily-success/" class="nnav-link" data-page="daily-success"><span class="nnav-icon">✅</span><span class="nnav-lbl">Daily</span></a>
-    <a href="/pro/ai-tree.html" class="nnav-link" data-page="ai-tree"><span class="nnav-icon">🌳</span><span class="nnav-lbl">AI Tree</span></a>
-    <a href="/pro/codex.html" class="nnav-link" data-page="codex"><span class="nnav-icon">📖</span><span class="nnav-lbl">Codex</span></a>
-    <a href="/pro/project-codex.html" class="nnav-link" data-page="project-codex"><span class="nnav-icon">📋</span><span class="nnav-lbl">My Codex</span></a>
-    <a href="/pro/understand.html" class="nnav-link" data-page="understand"><span class="nnav-icon">🧠</span><span class="nnav-lbl">Understand</span></a>
-    <a href="/pro/demo.html" class="nnav-link demo-link" data-page="demo"><span class="nnav-icon">▶</span><span class="nnav-lbl">Demo</span></a>
-  </div>
-
-  <div class="nnav-right">
-    <span class="nnav-user" id="nnav-user-label"></span>
-    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-auth-btn">Login</a>
-    <button class="nnav-burger" id="nnav-burger" onclick="nbdNavToggle()" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
-  </div>
-</nav>
-
-<!-- MOBILE DRAWER -->
-<div id="nbd-nav-drawer">
-  <div class="nnav-drawer-links">
-    <a href="/pro/" class="nnav-drawer-link" data-page="home"><span class="nnav-icon">🏠</span> Home</a>
-    <a href="/pro/dashboard.html" class="nnav-drawer-link" data-page="dashboard"><span class="nnav-icon">📊</span> Dashboard</a>
-    <a href="/pro/daily-success/" class="nnav-drawer-link" data-page="daily-success"><span class="nnav-icon">✅</span> Daily Success</a>
-    <a href="/pro/ai-tree.html" class="nnav-drawer-link" data-page="ai-tree"><span class="nnav-icon">🌳</span> AI Tree</a>
-    <a href="/pro/codex.html" class="nnav-drawer-link" data-page="codex"><span class="nnav-icon">📖</span> Codex</a>
-    <a href="/pro/project-codex.html" class="nnav-drawer-link" data-page="project-codex"><span class="nnav-icon">📋</span> My Codex</a>
-    <a href="/pro/understand.html" class="nnav-drawer-link" data-page="understand"><span class="nnav-icon">🧠</span> Understand</a>
-    <a href="/pro/demo.html" class="nnav-drawer-link demo-link" data-page="demo"><span class="nnav-icon">▶</span> Live Demo</a>
-  </div>
-  <div class="nnav-drawer-footer">
-    <span id="nnav-drawer-user" style="font-size:10px;color:#8b9bb4;text-align:center;letter-spacing:.5px;"></span>
-    <a href="/pro/login.html" class="nnav-login-btn" id="nnav-drawer-auth-btn">Login</a>
-  </div>
-</div>
-
-<script>
-/* ── NBD NAV CONFIG ─────────────────────────────────────────────
-   Change position here or wire to a settings page later.
-   Options: 'top' | 'bottom' | 'dock'
-   ─────────────────────────────────────────────────────────────── */
-const NBD_NAV_CONFIG = {
-  position: 'top',      // 'top' | 'bottom' | 'dock'
-  activeColor: '#e8720c',
-  showLabels: true,
-};
-
-(function nbdNavInit() {
-  // Apply position
-  const nav = document.getElementById('nbd-pro-nav');
-  if (NBD_NAV_CONFIG.position !== 'top') {
-    nav.classList.add('pos-' + NBD_NAV_CONFIG.position);
-    nav.style.position = 'fixed';
-    if (NBD_NAV_CONFIG.position === 'bottom' || NBD_NAV_CONFIG.position === 'dock') {
-      document.body.style.paddingBottom = '68px';
-      document.body.style.paddingTop = '0';
-    }
-  }
-
-  // Mark active page
-  const path = window.location.pathname;
-  const pageMap = {
-    '/pro/': 'home',
-    '/pro/dashboard.html': 'dashboard',
-    '/pro/daily-success/': 'daily-success',
-    '/pro/daily-success/index.html': 'daily-success',
-    '/pro/ai-tree.html': 'ai-tree',
-    '/pro/codex.html': 'codex',
-    '/pro/understand.html': 'understand',
-    '/pro/demo.html': 'demo',
-    '/pro/dashboard.html': 'dashboard',
-  };
-  const activePage = pageMap[path] || '';
-  document.querySelectorAll('.nnav-link[data-page], .nnav-drawer-link[data-page]').forEach(el => {
-    if (el.dataset.page === activePage) el.classList.add('active');
-  });
-
-  // Auth state — use modular NBDAuth (v10 SDK) instead of legacy compat API
-  (async () => {
-    try {
-      for (let i = 0; i < 50; i++) {
-        if (window._auth) break;
-        await new Promise(r => setTimeout(r, 100));
-      }
-      const { onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-      const auth = window._auth;
-      if (!auth) return;
-      onAuthStateChanged(auth, user => {
-        const btn = document.getElementById('nnav-auth-btn');
-        const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
-        const userLabel = document.getElementById('nnav-user-label');
-        const drawerUser = document.getElementById('nnav-drawer-user');
-        if (user) {
-          const name = user.displayName || user.email?.split('@')[0] || 'Member';
-          if (userLabel) userLabel.textContent = name;
-          if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); signOut(auth); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); signOut(auth); }; }
-        } else {
-          if (userLabel) userLabel.textContent = '';
-          if (drawerUser) drawerUser.textContent = '';
-        }
-      });
-    } catch(e) {}
-  })();
-})();
-
-function nbdNavToggle() {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const open = drawer.classList.toggle('open');
-  burger.style.opacity = open ? '0.6' : '1';
-  document.body.style.overflow = open ? 'hidden' : '';
-}
-
-// Close drawer on link click
-document.querySelectorAll('.nnav-drawer-link').forEach(l => {
-  l.addEventListener('click', () => {
-    document.getElementById('nbd-nav-drawer').classList.remove('open');
-    document.body.style.overflow = '';
-  });
-});
-
-// Close on outside click
-document.addEventListener('click', e => {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const nav = document.getElementById('nbd-pro-nav');
-  if (drawer.classList.contains('open') && !nav.contains(e.target) && !drawer.contains(e.target)) {
-    drawer.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-});
-
-window.nbdNavToggle = nbdNavToggle;
-</script>
+<!-- Global #nbd-pro-nav removed April 2026 to fix double-header bug. Navigation back to NBD Pro is via the NBD PRO logo in the .topbar below, which links to /pro/dashboard.html. -->
 
 
-<!-- ═══ WELCOME MODAL (shows once per device) ═══ -->
+<!-- ═══ WELCOME MODAL (shows once per device)
+     Hidden by default — a tiny inline script right after the
+     closing </div> checks localStorage and shows the modal only
+     on first visit. This prevents the flash-of-welcome-modal
+     bug where the modal appeared briefly on every load before a
+     bottom-of-page script hid it.  ═══ -->
 <div id="welcomeModal" style="
   position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;
   background:rgba(0,0,0,.85);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  display:flex;align-items:center;justify-content:center;
+  display:none;align-items:center;justify-content:center;
   padding:16px;
 ">
   <div style="
@@ -1195,13 +1054,27 @@ window.nbdNavToggle = nbdNavToggle;
     <div style="text-align:center;margin-top:10px;font-size:.72rem;color:rgba(255,255,255,.3);">This intro only appears once. Access it again via Settings → Welcome Guide.</div>
   </div>
 </div>
+<script>
+  // First-visit welcome modal gate. The modal ships with
+  // display:none so this script is the ONLY thing that shows it.
+  // Runs inline immediately after the modal's HTML is parsed, so
+  // there's no flash of the welcome on later visits.
+  (function () {
+    try {
+      if (!localStorage.getItem('nbd-welcome-seen')) {
+        var wm = document.getElementById('welcomeModal');
+        if (wm) wm.style.display = 'flex';
+      }
+    } catch (e) { /* localStorage blocked — default to hidden */ }
+  })();
+</script>
 
 
 <!-- TOPBAR -->
 
 <div class="topbar">
   <div class="tbl">
-    <div class="nbd-logo">NBD <span class="pro">PRO</span></div>
+    <a href="/pro/dashboard.html" class="nbd-logo" style="text-decoration:none;color:inherit;cursor:pointer;" title="Back to NBD Pro Dashboard">NBD <span class="pro">PRO</span></a>
     <div class="tbl-divider"></div>
     <div class="tbtitle">DAILY SUCCESS</div>
     <span class="sdot neu" id="sdot">● READY</span>
@@ -2707,11 +2580,9 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
   nbdRenderCats();
 })();
 
-// Hide welcome modal if already seen
-if(localStorage.getItem('nbd-welcome-seen')){
-  const wm = document.getElementById('welcomeModal');
-  if(wm) wm.style.display='none';
-}
+// Welcome modal gating now handled by the inline script directly
+// after the modal's HTML block. The modal is hidden by default,
+// so no late-hide check is needed here.
 
 </script>
 
