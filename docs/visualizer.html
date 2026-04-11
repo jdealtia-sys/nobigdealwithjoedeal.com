@@ -2,7 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com https://www.google.com/recaptcha/; object-src 'none'; base-uri 'self';">
+
+<!-- Firebase App Check for the public visualizer AI endpoint. Token is
+     attached to every fetch() of /publicVisualizerAI so only real browsers
+     loading this page (verified via reCAPTCHA Enterprise) can call it.
+     Replace RECAPTCHA_SITE_KEY with the reCAPTCHA Enterprise site key once
+     App Check is registered in the Firebase Console. -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
+  try {
+    const app = initializeApp({
+      apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+      authDomain: "nobigdeal-pro.firebaseapp.com",
+      projectId: "nobigdeal-pro",
+      storageBucket: "nobigdeal-pro.firebasestorage.app",
+      messagingSenderId: "717435841570",
+      appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+    });
+    // Site key is the reCAPTCHA Enterprise site key registered for App Check.
+    // Set window.__NBD_RECAPTCHA_KEY__ in a separate script before this loads,
+    // or hard-code here after Joe registers the key in the Firebase Console.
+    const siteKey = window.__NBD_RECAPTCHA_KEY__ || '';
+    if (siteKey) {
+      window._nbdAppCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+      window._nbdGetAppCheckToken = getToken;
+    }
+  } catch (e) {
+    console.warn('App Check init failed:', e);
+  }
+</script>
 <!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-8PG7N9Q3DL");</script>
@@ -674,39 +707,41 @@ async function runVisualizer() {
     features.includes('doors') ? 'Front door: new front door' : '',
   ].filter(Boolean).join('; ');
 
-  // Call Claude API for AI analysis and visual description
+  // Call the publicVisualizerAI Cloud Function. It requires an App Check
+  // token (reCAPTCHA Enterprise on the web), which is attached automatically
+  // by the Firebase App Check SDK loaded in <head>.
   let aiText = '';
   let canvasDescription = '';
   try {
     const base64 = uploadedDataUrl.split(',')[1];
     const mediaType = uploadedDataUrl.split(';')[0].split(':')[1];
 
-    const response = await fetch('https://nbd-ai-proxy.jonathandeal459.workers.dev', {
+    // Get the App Check token — the function returns 401 without it.
+    let appCheckToken = '';
+    if (window._nbdAppCheck) {
+      try {
+        const tokenResult = await window._nbdGetAppCheckToken(window._nbdAppCheck);
+        appCheckToken = tokenResult && tokenResult.token ? tokenResult.token : '';
+      } catch (_) { /* fall through — function will reject and we show fallback */ }
+    }
+
+    const response = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/publicVisualizerAI', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `You are Joe Deal, owner of No Big Deal Home Solutions in Greater Cincinnati, OH. You're a roofing and exterior contractor who's honest, plain-spoken, and genuinely helpful. A homeowner has uploaded a photo of their house and selected exterior options they want to visualize. Give them:
-
-1. A practical assessment of what their home currently has (roof, siding, gutters you can see)
-2. Specific honest feedback on how their chosen options would look on THIS house
-3. Any recommendations or things to consider — speak like you're in their driveway looking at it
-4. A short "visual description" (after the main text) prefixed with "CANVAS:" that describes in detail the colors and materials to render on the home for the canvas visualization — be specific about hex colors and placement
-
-Keep it conversational, 150-200 words for the main assessment, then the CANVAS: description.`,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: `The homeowner wants to visualize the following changes to their home: ${selectionsText}.${notes ? ' Additional context: ' + notes : ''} Give your honest contractor assessment and the CANVAS description.` }
-          ]
-        }]
-      })
+        imageBase64: base64,
+        mediaType,
+        selectionsText,
+        notes,
+      }),
     });
 
+    if (!response.ok) throw new Error('visualizer_failed_' + response.status);
     const data = await response.json();
-    const fullText = data.content?.[0]?.text || '';
+    const fullText = data.text || '';
     const canvasIdx = fullText.indexOf('CANVAS:');
     aiText = canvasIdx > -1 ? fullText.substring(0, canvasIdx).trim() : fullText;
     canvasDescription = canvasIdx > -1 ? fullText.substring(canvasIdx + 7).trim() : '';

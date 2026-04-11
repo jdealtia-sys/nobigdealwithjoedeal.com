@@ -1,0 +1,18 @@
+{
+  "name": "nbd-pro-rules-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Firestore rules + rate-limit unit tests for NBD Pro. Run against the Firebase emulator.",
+  "scripts": {
+    "test": "npm run test:rules && npm run test:ratelimit",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project nbd-test 'node ./firestore-rules.test.js'",
+    "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase-tools": "^13.0.0"
+  }
+}

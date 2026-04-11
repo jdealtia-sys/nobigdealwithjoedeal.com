@@ -122,10 +122,45 @@
       .v2-section {
         font-family:'Barlow Condensed',sans-serif; font-size:11px;
         font-weight:700; text-transform:uppercase; letter-spacing:.15em;
-        color:#e8720c; margin:16px 0 8px; padding-bottom:6px;
+        color:#e8720c; margin:16px 0 8px; padding:6px 8px 6px 4px;
         border-bottom:1px solid #2a2f35;
+        cursor:pointer; user-select:none;
+        display:flex; align-items:center; justify-content:space-between;
+        -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        min-height:32px;
       }
       .v2-section:first-child { margin-top:0; }
+      .v2-section::after {
+        content:'−';
+        font-size:16px; line-height:1; color:#e8720c;
+        margin-left:8px; transition:transform .15s;
+      }
+      .v2-section.collapsed::after { content:'+'; }
+      .v2-section-content {
+        overflow:hidden;
+        transition:max-height .2s ease, opacity .2s ease, margin .2s ease;
+        max-height:5000px; /* large enough for any content */
+        opacity:1;
+      }
+      .v2-section.collapsed + .v2-section-content {
+        max-height:0 !important;
+        opacity:0;
+        margin:0 !important;
+        pointer-events:none;
+      }
+
+      /* On small screens: make the panes flex so collapsed sections let
+         the open one breathe. Each pane scrolls independently, so the
+         items list can fill the entire middle pane when the measurements
+         + scope sections are collapsed. */
+      @media (max-width: 1000px) {
+        #estV2Modal.open .v2-body { min-height:0; }
+        .v2-pane { display:flex; flex-direction:column; }
+        .v2-pane > .v2-section-content { flex:0 0 auto; }
+        /* The catalog list is the one content area that must always
+           be free to grow, so give it flex:1 inside its pane. */
+        .v2-pane #v2items { flex:1 1 auto; min-height:200px; }
+      }
       .v2-field { margin-bottom:10px; }
       .v2-field label {
         display:block; font-size:9px; text-transform:uppercase;
@@ -414,6 +449,52 @@
       </div>
     `;
     document.body.appendChild(modal);
+
+    // ─────────────────────────────────────────────────────
+    // Wrap each .v2-section header's following siblings into
+    // a .v2-section-content block so the section can be
+    // collapsed by toggling a class on the header. This runs
+    // once, right after the modal DOM is created.
+    // ─────────────────────────────────────────────────────
+    modal.querySelectorAll('.v2-pane').forEach(pane => {
+      const sections = Array.from(pane.querySelectorAll('.v2-section'));
+      sections.forEach((hdr, i) => {
+        const next = sections[i + 1] || null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'v2-section-content';
+        // Move every sibling between this header and the next header
+        // (or the end of the pane) into the wrapper.
+        let cursor = hdr.nextSibling;
+        while (cursor && cursor !== next) {
+          const toMove = cursor;
+          cursor = cursor.nextSibling;
+          wrapper.appendChild(toMove);
+        }
+        hdr.parentNode.insertBefore(wrapper, next);
+      });
+
+      // On screens ≤1000px, start with everything EXCEPT the catalog
+      // section collapsed so the items list is front-and-center. The
+      // user can expand measurements/presets/scope on demand.
+      if (window.innerWidth <= 1000) {
+        pane.querySelectorAll('.v2-section').forEach(hdr => {
+          const txt = (hdr.textContent || '').trim().toLowerCase();
+          if (txt.startsWith('line item catalog')) return; // keep this expanded
+          hdr.classList.add('collapsed');
+        });
+      }
+    });
+
+    // Click-to-toggle. Delegation keeps it robust against re-renders
+    // inside the sections.
+    modal.addEventListener('click', (ev) => {
+      const hdr = ev.target.closest('.v2-section');
+      if (!hdr || !modal.contains(hdr)) return;
+      // Ignore clicks inside inputs/buttons that happen to be inside a
+      // section header (shouldn't happen given the markup, but defensive).
+      if (ev.target.closest('input, select, textarea, button')) return;
+      hdr.classList.toggle('collapsed');
+    });
   }
 
   // ═════════════════════════════════════════════════════════

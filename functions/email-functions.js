@@ -10,10 +10,12 @@
  *   - sendTeamInviteEmail (HTTP)
  */
 
-const { onRequest, onCall } = require('firebase-functions/v2/https');
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
+const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
 
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -272,7 +274,7 @@ async function logEmailToFirestore(db, to, subject, uid, status = 'sent') {
       status
     });
   } catch (e) {
-    console.warn('Failed to log email:', e);
+    logger.warn('email_log_write_failed', { err: e.message });
   }
 }
 
@@ -288,7 +290,7 @@ async function verifyAuth(req) {
   try {
     return await admin.auth().verifyIdToken(idToken);
   } catch (e) {
-    console.error('Auth verification failed:', e);
+    logger.warn('email_auth_verify_failed', { err: e.message });
     return null;
   }
 }
@@ -305,7 +307,9 @@ exports.sendEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB'
   },
@@ -314,12 +318,19 @@ exports.sendEmail = onRequest(
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
+    if (!(await httpRateLimit(req, res, 'sendEmail:ip', 60, 3_600_000))) return;
 
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
+    }
+    try {
+      await enforceRateLimit('sendEmail:uid', decoded.uid, 200, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Daily email limit exceeded' }); return; }
+      throw e;
     }
 
     const { to, subject, body, html, replyTo, attachments } = req.body;
@@ -363,7 +374,7 @@ exports.sendEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Email send error:', e);
+      logger.error('sendEmail error', { err: e.message });
 
       // Log failure
       const db = admin.firestore();
@@ -385,7 +396,9 @@ exports.sendEstimateEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB'
   },
@@ -394,6 +407,7 @@ exports.sendEstimateEmail = onRequest(
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
+    if (!(await httpRateLimit(req, res, 'sendEstimateEmail:ip', 60, 3_600_000))) return;
 
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
@@ -463,7 +477,7 @@ exports.sendEstimateEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Estimate email error:', e);
+      logger.error('sendEstimateEmail error', { err: e.message });
       res.status(500).json({
         error: 'Failed to send estimate email',
         details: e.message
@@ -478,18 +492,28 @@ exports.sendEstimateEmail = onRequest(
  */
 exports.sendDripEmail = onCall(
   {
-    secrets: [RESEND_API_KEY, EMAIL_FROM]
+    secrets: [RESEND_API_KEY, EMAIL_FROM],
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 20,
   },
   async (request) => {
-    const { to, templateId, variables, uid } = request.data;
+    const { to, templateId, variables } = request.data || {};
 
     // Verify auth (user calling this function)
     if (!request.auth) {
-      throw new Error('Unauthorized');
+      throw new HttpsError('unauthenticated', 'Unauthorized');
+    }
+    // Per-uid daily drip cap.
+    try {
+      await enforceRateLimit('sendDripEmail:uid', request.auth.uid, 500, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) throw new HttpsError('resource-exhausted', 'Daily drip limit exceeded');
+      throw e;
     }
 
     if (!to || !isValidEmail(to)) {
-      throw new Error('Invalid recipient email');
+      throw new HttpsError('invalid-argument', 'Invalid recipient email');
     }
 
     if (!templateId || !DRY_TEMPLATES[templateId]) {
@@ -510,9 +534,9 @@ exports.sendDripEmail = onCall(
         html
       });
 
-      // Log to Firestore
+      // Log to Firestore — owner is ALWAYS the authenticated caller.
       const db = admin.firestore();
-      await logEmailToFirestore(db, to, template.subject, uid || request.auth.uid, 'sent');
+      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent');
 
       return {
         success: true,
@@ -520,8 +544,8 @@ exports.sendDripEmail = onCall(
       };
 
     } catch (e) {
-      console.error('Drip email error:', e);
-      throw new Error(`Failed to send drip email: ${e.message}`);
+      logger.error('sendDripEmail error', { uid: request.auth?.uid, err: e.message });
+      throw new HttpsError('internal', 'Failed to send drip email');
     }
   }
 );
@@ -534,7 +558,9 @@ exports.sendTeamInviteEmail = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [RESEND_API_KEY, EMAIL_FROM],
+    enforceAppCheck: true,
     maxInstances: 10,
+    concurrency: 20,
     timeoutSeconds: 30,
     memory: '256MiB'
   },
@@ -543,6 +569,7 @@ exports.sendTeamInviteEmail = onRequest(
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
+    if (!(await httpRateLimit(req, res, 'sendTeamInviteEmail:ip', 20, 3_600_000))) return;
 
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
@@ -615,7 +642,7 @@ exports.sendTeamInviteEmail = onRequest(
       });
 
     } catch (e) {
-      console.error('Team invite email error:', e);
+      logger.error('sendTeamInviteEmail error', { err: e.message });
       res.status(500).json({
         error: 'Failed to send team invite',
         details: e.message
@@ -624,4 +651,4 @@ exports.sendTeamInviteEmail = onRequest(
   }
 );
 
-console.log('✓ Email Cloud Functions loaded');
+logger.info('email_functions_loaded');

@@ -6,41 +6,32 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Project Codex — NBD Pro</title>
 
-<!-- Admin Session Gate -->
+<!-- Admin Gate: Firebase Auth custom claims only. -->
+<!-- The previous localStorage-based gate was trivial to bypass (any client
+     could setItem() a session and walk in). -->
 <script>
-// Check session immediately (before any content loads)
-const SESSION_KEY = 'nbd_admin_session';
-const checkSession = () => {
-  const session = localStorage.getItem(SESSION_KEY);
-  
-  if (!session) {
-    window.location.replace('login.html');
-    return false;
-  }
-  
-  try {
-    const data = JSON.parse(session);
-    if (data.expires <= Date.now()) {
-      localStorage.removeItem(SESSION_KEY);
-      window.location.replace('login.html');
-      return false;
-    }
-    // Refresh session expiry on valid visit (rolling 7-day window)
-    data.expires = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    return true;
-  } catch (e) {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.replace('login.html');
-    return false;
-  }
-};
-
-// Run check immediately
-if (!checkSession()) {
-  // Stop page execution if session invalid
-  document.documentElement.innerHTML = '';
-}
+  document.documentElement.style.display = 'none';
+</script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  const app = initializeApp({
+    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    projectId: "nobigdeal-pro",
+    storageBucket: "nobigdeal-pro.firebasestorage.app",
+    messagingSenderId: "717435841570",
+    appId: "1:717435841570:web:c2338e11052c96fde02e7b"
+  });
+  const auth = getAuth(app);
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.replace('login.html'); return; }
+    try {
+      const result = await user.getIdTokenResult(true);
+      if (result.claims.role !== 'admin') { window.location.replace('/pro/dashboard.html'); return; }
+    } catch (e) { window.location.replace('login.html'); return; }
+    document.documentElement.style.display = '';
+  });
 </script>
 
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
@@ -887,8 +878,8 @@ function renderDNA() {
   ];
   el.innerHTML = fields.map(([key, label]) => `
     <div class="dna-field">
-      <div class="dna-label">${label}</div>
-      <div class="dna-value" id="dna-${key}">${dna[key] || '<span style="color:var(--dim)">Not set</span>'}</div>
+      <div class="dna-label">${escHtml(label)}</div>
+      <div class="dna-value" id="dna-${escHtml(key)}">${dna[key] ? escHtml(dna[key]) : '<span style="color:var(--dim)">Not set</span>'}</div>
     </div>`).join('');
 }
 
@@ -903,23 +894,28 @@ function renderSessions() {
   }
   if (none) none.style.display = 'none';
   const sorted = [...CODEX.sessions].reverse();
-  el.innerHTML = sorted.map((s, i) => `
+  el.innerHTML = sorted.map((s, i) => {
+    const num = Number(s.number) || (i + 1);
+    const decisions = Number(s.decisions?.length || 0);
+    const loops = Number(s.loops?.length || 0);
+    const shipped = Number(s.shipped?.length || 0);
+    return `
     <div class="timeline-entry">
       <div class="tl-line">
         <div class="tl-dot ${i===0?'latest':''}"></div>
         ${i < sorted.length-1 ? '<div class="tl-track"></div>' : ''}
       </div>
       <div class="tl-body">
-        <div class="tl-card" onclick="toggleSession(this)">
+        <div class="tl-card nbd-tl-card">
           <div class="tl-head">
-            <div class="tl-num">S${s.number||i+1}</div>
+            <div class="tl-num">S${num}</div>
             <div class="tl-meta">
               <div class="tl-session-title">${escHtml(s.title||'Untitled Session')}</div>
-              <div class="tl-date">${s.date||''}</div>
+              <div class="tl-date">${escHtml(s.date||'')}</div>
               <div class="tl-chips">
-                ${s.decisions?.length ? `<span class="tl-chip decision">${s.decisions.length} decisions</span>` : ''}
-                ${s.loops?.length ? `<span class="tl-chip loop">${s.loops.length} open loops</span>` : ''}
-                ${s.shipped?.length ? `<span class="tl-chip shipped">${s.shipped.length} shipped</span>` : ''}
+                ${decisions ? `<span class="tl-chip decision">${decisions} decisions</span>` : ''}
+                ${loops ? `<span class="tl-chip loop">${loops} open loops</span>` : ''}
+                ${shipped ? `<span class="tl-chip shipped">${shipped} shipped</span>` : ''}
               </div>
             </div>
             <div class="tl-expand">▼</div>
@@ -927,7 +923,11 @@ function renderSessions() {
           <div class="tl-detail">${escHtml(s.content||'')}</div>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.nbd-tl-card').forEach(card => {
+    card.addEventListener('click', () => toggleSession(card));
+  });
 }
 
 function toggleSession(card) {
@@ -947,15 +947,22 @@ function renderTasks() {
     return;
   }
   if (none) none.style.display = 'none';
-  el.innerHTML = tasks.map((t, i) => `
+  const ALLOWED_PRIORITIES = new Set(['LOW','MED','HIGH','CRITICAL']);
+  el.innerHTML = tasks.map((t, i) => {
+    const prio = ALLOWED_PRIORITIES.has(String(t.priority || '').toUpperCase()) ? String(t.priority).toUpperCase() : 'MED';
+    return `
     <div class="task-item ${t.closed?'closed':''}">
-      <div class="task-check ${t.closed?'checked':''}" onclick="toggleTask('${t.id}')"></div>
+      <div class="task-check nbd-task-check ${t.closed?'checked':''}" data-task-id="${escHtml(t.id)}"></div>
       <div style="flex:1">
         <div class="task-text">${escHtml(t.text)}</div>
-        <div class="task-meta">S${t.session||'?'} · ${t.date||''}</div>
+        <div class="task-meta">S${escHtml(t.session||'?')} · ${escHtml(t.date||'')}</div>
       </div>
-      <div class="task-priority ${t.priority?.toLowerCase()||'med'}">${t.priority||'MED'}</div>
-    </div>`).join('');
+      <div class="task-priority ${prio.toLowerCase()}">${prio}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.nbd-task-check').forEach(chk => {
+    chk.addEventListener('click', () => toggleTask(chk.dataset.taskId));
+  });
 }
 
 function filterTasks(filter, btn) {
@@ -983,11 +990,14 @@ function renderDebt() {
   body.innerHTML = CODEX.debt.map((d, i) => `
     <tr>
       <td>${escHtml(d.item)}</td>
-      <td><span class="debt-sessions">${d.sessions}</span></td>
+      <td><span class="debt-sessions">${Number(d.sessions) || 0}</span></td>
       <td>${escHtml(d.time||'')}</td>
       <td style="color:var(--red)">${escHtml(d.cost||'')}</td>
-      <td><button class="tb-btn" style="padding:3px 8px;font-size:8px" onclick="removeDebt(${i})">✕</button></td>
+      <td><button type="button" class="tb-btn nbd-debt-remove" data-debt-idx="${i}" style="padding:3px 8px;font-size:8px">✕</button></td>
     </tr>`).join('');
+  body.querySelectorAll('.nbd-debt-remove').forEach(btn => {
+    btn.addEventListener('click', () => removeDebt(Number(btn.dataset.debtIdx)));
+  });
 }
 
 function renderDirectives() {
@@ -1002,13 +1012,16 @@ function renderDirectives() {
   if (none) none.style.display = 'none';
   el.innerHTML = CODEX.directives.map((d, i) => `
     <div class="directive-item">
-      <div class="directive-tag">${d.tag||'RULE'}</div>
+      <div class="directive-tag">${escHtml(d.tag||'RULE')}</div>
       <div>
         <div class="directive-text">${escHtml(d.text)}</div>
-        <div class="directive-session">S${d.session||'?'} · ${d.date||''}</div>
+        <div class="directive-session">S${escHtml(d.session||'?')} · ${escHtml(d.date||'')}</div>
       </div>
-      <button class="tb-btn" style="padding:3px 8px;font-size:8px;margin-left:auto;flex-shrink:0" onclick="removeDirective(${i})">✕</button>
+      <button type="button" class="tb-btn nbd-directive-remove" data-directive-idx="${i}" style="padding:3px 8px;font-size:8px;margin-left:auto;flex-shrink:0">✕</button>
     </div>`).join('');
+  el.querySelectorAll('.nbd-directive-remove').forEach(btn => {
+    btn.addEventListener('click', () => removeDirective(Number(btn.dataset.directiveIdx)));
+  });
 }
 
 function renderBriefings() {
@@ -1021,11 +1034,14 @@ function renderBriefings() {
   el.innerHTML = CODEX.briefings.map((b, i) => `
     <div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="card-title">Briefing After S${b.afterSession} · ${b.date||''}</div>
-        <button class="tb-btn" onclick="copyBriefing(${i})">📋 Copy</button>
+        <div class="card-title">Briefing After S${escHtml(b.afterSession)} · ${escHtml(b.date||'')}</div>
+        <button type="button" class="tb-btn nbd-briefing-copy" data-briefing-idx="${i}">📋 Copy</button>
       </div>
       <pre style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto">${escHtml(b.content)}</pre>
     </div>`).join('');
+  el.querySelectorAll('.nbd-briefing-copy').forEach(btn => {
+    btn.addEventListener('click', () => copyBriefing(Number(btn.dataset.briefingIdx)));
+  });
 }
 
 function renderVersions() {
@@ -1038,14 +1054,22 @@ function renderVersions() {
     return;
   }
   if (none) none.style.display = 'none';
-  el.innerHTML = [...CODEX.versions].reverse().map((v, i) => `
-    <div class="version-item" onclick="loadVersionCompare(${CODEX.versions.length-1-i})">
+  el.innerHTML = [...CODEX.versions].reverse().map((v, i) => {
+    const compareIdx = CODEX.versions.length - 1 - i;
+    const num = Number(v.versionNum) || (i + 1);
+    const sessions = Number(v.sessions) || 0;
+    return `
+    <div class="version-item nbd-version-row" data-compare-idx="${compareIdx}">
       <div>
-        <div class="version-label">v${v.versionNum||i+1} — ${v.date||''}</div>
-        <div class="version-meta">${v.sessions||0} sessions · ${v.label||'Export'}</div>
+        <div class="version-label">v${num} — ${escHtml(v.date||'')}</div>
+        <div class="version-meta">${sessions} sessions · ${escHtml(v.label||'Export')}</div>
       </div>
       <div class="tb-btn">Compare →</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.nbd-version-row').forEach(row => {
+    row.addEventListener('click', () => loadVersionCompare(Number(row.dataset.compareIdx)));
+  });
 }
 
 function loadVersionCompare(idx) {
@@ -1427,7 +1451,21 @@ function runSearch() {
   if (!q) { results.innerHTML = ''; none.style.display='none'; return; }
 
   let hits = [];
-  const highlight = txt => txt.replace(new RegExp(q,'gi'), m => `<span class="sr-match">${m}</span>`);
+  // Escape regex metacharacters in the query so a malicious admin typing
+  // `<script>` doesn't compile into a regex object.
+  const qEscaped = String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Build a safe highlight: escape the input text first so any HTML in the
+  // source data can never execute, THEN wrap matches in <span> markers
+  // bracketed with placeholder tokens so we can re-insert them as real tags
+  // after the escape pass.
+  const HL_OPEN = '\u0001HL_OPEN\u0001';
+  const HL_CLOSE = '\u0001HL_CLOSE\u0001';
+  const highlight = txt => {
+    const marked = String(txt || '').replace(new RegExp(qEscaped, 'gi'), m => HL_OPEN + m + HL_CLOSE);
+    return escHtml(marked)
+      .replace(new RegExp(HL_OPEN, 'g'), '<span class="sr-match">')
+      .replace(new RegExp(HL_CLOSE, 'g'), '</span>');
+  };
 
   // Search sessions
   if (_searchFilters.includes('all') || _searchFilters.includes('decisions')) {
@@ -1460,9 +1498,12 @@ function runSearch() {
     return;
   }
   none.style.display = 'none';
+  // h.text is already safe: highlight() escapes the raw text and only
+  // re-inserts <span class="sr-match"> around the matched substring.
+  // h.session is unescaped authored content — escape it defensively here.
   results.innerHTML = hits.map(h => `
     <div class="search-result">
-      <div class="sr-session">${h.session}</div>
+      <div class="sr-session">${escHtml(h.session)}</div>
       <div class="sr-text">${h.text}</div>
     </div>`).join('');
 }

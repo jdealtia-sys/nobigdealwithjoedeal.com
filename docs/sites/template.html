@@ -2,13 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Company Name | City, ST</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+  <script type="module" src="/sites/js/marketing-firebase-init.js"></script>
   <script>
     /**
      * NBD Pro Company Site Template
@@ -283,10 +282,13 @@
   </footer>
 
   <script>
-    // ── Firebase Init ──
-    firebase.initializeApp(COMPANY_CONFIG.firebaseConfig);
-    const db = firebase.firestore();
-    const functions = firebase.functions();
+    // ── Firebase is initialized by /sites/js/marketing-firebase-init.js.
+    //    The modular SDK helper is exposed on window._nbdSubmitLead for
+    //    form submissions; nothing else in this template needs direct
+    //    db access. COMPANY_CONFIG.firebaseConfig is ignored on this
+    //    migrated template because every instance targets the same
+    //    marketing project (nobigdealwithjoedeal). Revisit if multi-
+    //    tenant per-project isolation is ever re-introduced.
 
     // ── Apply CSS custom properties from config ──
     function applyTheme() {
@@ -399,18 +401,20 @@
         message: document.getElementById('leadMessage').value.trim(),
         companyId: COMPANY_CONFIG.id,
         companyName: COMPANY_CONFIG.name,
-        source: 'company-site',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        source: 'company-site'
+        // createdAt + status are added by submitMarketingLead().
       };
 
       try {
-        await db.collection('leads').add(data);
-        try {
-          const notifyFn = functions.httpsCallable('notifyNewLead');
-          await notifyFn({ name: data.name, phone: data.phone, email: data.email, service: data.service, message: data.message, companyId: data.companyId });
-        } catch (fnErr) {
-          console.warn('Notification function error (lead still saved):', fnErr);
+        if (typeof window._nbdSubmitLead !== 'function') {
+          throw new Error('marketing Firebase helper not loaded');
         }
+        await window._nbdSubmitLead(data);
+        // Lead notification is now handled by the Stripe/lead webhooks on
+        // the main nobigdeal-pro project, not the marketing project.
+        // The old client-side `notifyNewLead` callable has moved to
+        // require App Check and an OTP-verified phone — see
+        // functions/verify-functions.js. Client-side call is removed.
         msg.textContent = 'Thank you! We\'ll be in touch shortly.';
         msg.className = 'form-msg success';
         e.target.reset();

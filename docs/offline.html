@@ -4,6 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Offline | No Big Deal Home Solutions</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--white:#fff}
@@ -11,22 +12,58 @@
 body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:var(--white);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
 .icon{font-size:72px;margin-bottom:16px}
 h1{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;margin-bottom:12px}
-p{color:rgba(255,255,255,.7);font-size:15px;max-width:400px;line-height:1.6;margin-bottom:24px}
-.btn{display:inline-block;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;background:var(--orange);color:var(--white);border:none;cursor:pointer;transition:transform .15s}
+p{color:rgba(255,255,255,.8);font-size:15px;max-width:460px;line-height:1.6;margin-bottom:12px}
+.muted{color:rgba(255,255,255,.5);font-size:13px;max-width:460px;line-height:1.55;margin-bottom:24px}
+.btn{display:inline-block;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;background:var(--orange);color:var(--white);border:none;cursor:pointer;transition:transform .15s;margin:4px}
 .btn:hover{transform:translateY(-2px)}
-.tip{margin-top:40px;padding:20px;border:1px solid rgba(255,255,255,.1);border-radius:12px;max-width:400px}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.2);color:var(--white)}
+.tip{margin-top:32px;padding:20px;border:1px solid rgba(255,255,255,.1);border-radius:12px;max-width:460px;text-align:left}
 .tip-title{font-weight:700;font-size:13px;margin-bottom:8px;color:var(--orange)}
-.tip-text{font-size:12px;color:rgba(255,255,255,.5);line-height:1.5}
+.tip-text{font-size:12px;color:rgba(255,255,255,.6);line-height:1.55}
+.status{margin-top:16px;font-size:11px;color:rgba(255,255,255,.35);font-family:monospace}
 </style>
 </head>
 <body>
 <div class="icon">📡</div>
 <h1>You're Offline</h1>
-<p>No internet connection detected. Some features like the CRM and map may still work from cache — try navigating to the dashboard.</p>
-<button class="btn" onclick="window.location.reload()">Try Again</button>
+<p>We couldn't reach the network. Signed-in pages (dashboard, customer profiles, admin) require a live connection for security reasons — they are never served from cache.</p>
+<p class="muted">Your device will automatically reconnect when it can. Any changes you make once you're back online will sync in the background.</p>
+
+<div>
+  <button class="btn" id="tryAgain">Try Again</button>
+  <a href="/" class="btn btn-ghost">Public Site</a>
+</div>
+
 <div class="tip">
   <div class="tip-title">Field Mode Tip</div>
-  <div class="tip-text">If you're door knocking in a low-signal area, your recent leads, pins, and map tiles are cached and should still load. Any changes you make will sync when you're back online.</div>
+  <div class="tip-text">If you were in the middle of something in the dashboard, don't worry — offline edits are queued locally and replayed automatically the moment you reconnect. Cached map tiles, photo thumbnails, and your most recent leads are still available after you sign back in.</div>
 </div>
+
+<div class="status" id="netStatus">Network: checking…</div>
+
+<script>
+  // Try-again button — hard reload so the new SW can claim the page if it
+  // was waiting. Using location.reload(true) is deprecated in modern
+  // browsers; use location.href reassignment which bypasses bfcache.
+  document.getElementById('tryAgain').addEventListener('click', function () {
+    window.location.href = window.location.href;
+  });
+
+  // Show live online/offline state so users know to retry when it flips.
+  function updateStatus() {
+    var el = document.getElementById('netStatus');
+    if (!el) return;
+    el.textContent = 'Network: ' + (navigator.onLine ? 'online — tap Try Again' : 'offline');
+    el.style.color = navigator.onLine ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.35)';
+  }
+  window.addEventListener('online', updateStatus);
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+
+  // Auto-refresh the moment the device comes back online.
+  window.addEventListener('online', function () {
+    setTimeout(function () { window.location.href = window.location.href; }, 500);
+  });
+</script>
 </body>
 </html>

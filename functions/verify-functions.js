@@ -26,10 +26,12 @@
  *   4. Link your phone number to the Campaign
  *   This process takes 1-5 business days for approval.
  */
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const twilio = require('twilio');
+const { enforceRateLimit, clientIp } = require('./rate-limit');
 
 // Secrets (some already defined in sms-functions.js — Firebase deduplicates)
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
@@ -39,18 +41,22 @@ const TWILIO_VERIFY_SID = defineSecret('TWILIO_VERIFY_SID');
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
 
-// Joe's contact info for notifications
-const JOE_PHONE = '+18594207382';
-const JOE_EMAIL = 'jonathandeal459@gmail.com';
+// Joe's contact info for notifications. Stored as secrets rather than
+// hardcoded so they can be rotated without a code change if Joe is being
+// spammed.
+const JOE_PHONE_SECRET = defineSecret('JOE_NOTIFY_PHONE');
+const JOE_EMAIL_SECRET = defineSecret('JOE_NOTIFY_EMAIL');
+const JOE_PHONE_FALLBACK = '+18594207382';
+const JOE_EMAIL_FALLBACK = 'jonathandeal459@gmail.com';
 
 /**
- * Format phone to E.164
+ * Format phone to E.164 — US/Canada only.
+ * International numbers are explicitly rejected to block SMS-pumping fraud.
  */
 function formatPhone(phone) {
-  const cleaned = phone.replace(/\D/g, '');
+  const cleaned = String(phone || '').replace(/\D/g, '');
   if (cleaned.length === 10) return '+1' + cleaned;
   if (cleaned.length === 11 && cleaned.startsWith('1')) return '+' + cleaned;
-  if (phone.startsWith('+') && cleaned.length >= 10) return '+' + cleaned;
   return null;
 }
 /**
@@ -74,12 +80,25 @@ async function checkOTPRateLimit(db, phone) {
 exports.sendVerificationCode = onCall(
   {
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SID],
+    enforceAppCheck: true, // now required — blocks curl/script abuse
     maxInstances: 10,
+    concurrency: 20,
     timeoutSeconds: 15,
     memory: '256MiB',
-    // No enforceAppCheck since homeowners aren't authenticated
   },
   async (request) => {
+    const ip = clientIp(request.rawRequest || {});
+
+    // Per-IP cap — 5 OTP sends per 10 minutes from one IP.
+    try {
+      await enforceRateLimit('sendVerificationCode:ip', ip, 5, 10 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        throw new HttpsError('resource-exhausted', 'Too many verification requests. Try again shortly.');
+      }
+      throw e;
+    }
+
     const { phone } = request.data || {};
     if (!phone) {
       return { success: false, error: 'Phone number required' };
@@ -87,13 +106,14 @@ exports.sendVerificationCode = onCall(
 
     const formatted = formatPhone(phone);
     if (!formatted) {
-      return { success: false, error: 'Invalid phone number format' };
+      // Reject international numbers — SMS pumping prevention.
+      return { success: false, error: 'Only US/Canada phone numbers are supported' };
     }
 
     try {
       const db = admin.firestore();
 
-      // Rate limit check
+      // Per-phone cap — 3 OTP sends per 10 minutes.
       const allowed = await checkOTPRateLimit(db, formatted);
       if (!allowed) {
         return { success: false, error: 'Too many verification attempts. Please wait 10 minutes.' };
@@ -103,7 +123,7 @@ exports.sendVerificationCode = onCall(
       await db.collection('otp_requests').add({
         phone: formatted,
         requestedAt: admin.firestore.FieldValue.serverTimestamp(),
-        ip: request.rawRequest?.ip || 'unknown'
+        ip,
       });
 
       // Send verification via Twilio Verify
@@ -118,7 +138,7 @@ exports.sendVerificationCode = onCall(
           channel: 'sms'
         });
 
-      console.log(`OTP sent to ${formatted}, status: ${verification.status}`);
+      logger.info('otp_sent', { status: verification.status });
 
       return {
         success: true,
@@ -126,7 +146,7 @@ exports.sendVerificationCode = onCall(
       };
 
     } catch (e) {
-      console.error('Send OTP error:', e);
+      logger.error('sendVerificationCode error', { err: e.message });
       return {
         success: false,
         error: 'Failed to send verification code. Please try again.'
@@ -139,13 +159,25 @@ exports.sendVerificationCode = onCall(
 // verifyCode — Check OTP via Twilio Verify
 // ═══════════════════════════════════════════════════════════════════
 
-exports.verifyCode = onCall(  {
+exports.verifyCode = onCall(
+  {
     secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SID],
+    enforceAppCheck: true,
     maxInstances: 10,
+    concurrency: 20,
     timeoutSeconds: 15,
     memory: '256MiB',
   },
   async (request) => {
+    const ip = clientIp(request.rawRequest || {});
+    try {
+      await enforceRateLimit('verifyCode:ip', ip, 20, 10 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        throw new HttpsError('resource-exhausted', 'Too many attempts. Try again shortly.');
+      }
+      throw e;
+    }
     const { phone, code } = request.data || {};
 
     if (!phone || !code) {
@@ -173,7 +205,7 @@ exports.verifyCode = onCall(  {
           code: code
         });
 
-      console.log(`OTP check for ${formatted}: ${check.status}`);
+      logger.info('otp_check', { status: check.status });
 
       if (check.status === 'approved') {
         // Log successful verification
@@ -189,7 +221,7 @@ exports.verifyCode = onCall(  {
       }
 
     } catch (e) {
-      console.error('Verify OTP error:', e);
+      logger.error('verifyCode error', { err: e.message });
 
       // Twilio returns 404 if verification expired
       if (e.status === 404) {
@@ -209,17 +241,45 @@ exports.verifyCode = onCall(  {
 
 exports.notifyNewLead = onCall(
   {
-    secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, RESEND_API_KEY, EMAIL_FROM],
+    secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, RESEND_API_KEY, EMAIL_FROM, JOE_PHONE_SECRET, JOE_EMAIL_SECRET],
+    enforceAppCheck: true,
     maxInstances: 10,
+    concurrency: 20,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
   async (request) => {
+    const ip = clientIp(request.rawRequest || {});
+
+    // Per-IP: 10 lead notifications per hour. Anything more is abuse.
+    try {
+      await enforceRateLimit('notifyNewLead:ip', ip, 10, 3_600_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        throw new HttpsError('resource-exhausted', 'Too many notifications. Try again later.');
+      }
+      throw e;
+    }
+
     const { name, phone, email, address, service, timeline, verified, requestType } = request.data || {};
 
     if (!name || !phone) {
       return { success: false, error: 'Name and phone required' };
     }
+
+    // Reject international phone numbers up front.
+    const formattedLeadPhone = formatPhone(phone);
+    if (!formattedLeadPhone) {
+      return { success: false, error: 'Only US/Canada phone numbers are supported' };
+    }
+
+    // Confirm OTP-verified status server-side rather than trusting `verified`
+    // in the payload — the old code just echoed whatever the client sent.
+    let trulyVerified = false;
+    try {
+      const vSnap = await admin.firestore().doc(`verified_phones/${formattedLeadPhone}`).get();
+      trulyVerified = vSnap.exists;
+    } catch (_) {}
 
     const serviceLabels = {
       'roof-replacement': 'Roof Replacement',
@@ -236,7 +296,7 @@ exports.notifyNewLead = onCall(
 
     const serviceName = serviceLabels[service] || service || 'Unknown';
     const timelineName = timelineLabels[timeline] || timeline || 'Unknown';
-    const verifiedBadge = verified ? '✅ VERIFIED' : '⚠️ Unverified';
+    const verifiedBadge = trulyVerified ? '✅ VERIFIED' : '⚠️ Unverified';
     const urgencyFlag = timeline === 'asap' ? '🚨 URGENT — ' : '';
     const requestLabels = {
       'inspection': 'Wants Inspection',
@@ -246,26 +306,32 @@ exports.notifyNewLead = onCall(
     const requestLabel = requestLabels[requestType] || '';
 
     try {
-      // ── SMS to Joe ──
-      let smsBody = `${urgencyFlag}NEW LEAD 🏠\n` +
-        `${name} — ${serviceName}\n` +
-        `📞 ${phone} ${verifiedBadge}\n` +
-        `📍 ${address || 'No address'}\n` +
-        `⏱ ${timelineName}\n` +
-        `📧 ${email || 'No email'}`;
-        if (requestLabel) smsBody += `\n${requestLabel}`;
+      // ── SMS to Joe (only when the lead phone is OTP-verified) ──
+      // Unverified leads still email Joe, but skip SMS so the lead form cannot
+      // be used as a cost-DoS vector against Joe's phone.
+      const joePhone = JOE_PHONE_SECRET.value() || JOE_PHONE_FALLBACK;
+      if (trulyVerified) {
+        let smsBody = `${urgencyFlag}NEW LEAD 🏠\n` +
+          `${name} — ${serviceName}\n` +
+          `📞 ${formattedLeadPhone} ${verifiedBadge}\n` +
+          `📍 ${address || 'No address'}\n` +
+          `⏱ ${timelineName}\n` +
+          `📧 ${email || 'No email'}`;
+          if (requestLabel) smsBody += `\n${requestLabel}`;
 
-      const client = twilio(
-        TWILIO_ACCOUNT_SID.value(),
-        TWILIO_AUTH_TOKEN.value()
-      );
-      await client.messages.create({
-        body: smsBody.substring(0, 1600),
-        from: TWILIO_PHONE_NUMBER.value(),
-        to: JOE_PHONE
-      });
-
-      console.log(`Lead notification SMS sent to Joe for: ${name}`);
+        const client = twilio(
+          TWILIO_ACCOUNT_SID.value(),
+          TWILIO_AUTH_TOKEN.value()
+        );
+        await client.messages.create({
+          body: smsBody.substring(0, 1600),
+          from: TWILIO_PHONE_NUMBER.value(),
+          to: joePhone,
+        });
+        logger.info('lead_sms_sent_to_joe', { name });
+      } else {
+        logger.info('lead_sms_skipped_unverified', { name });
+      }
 
       // ── Email to Joe ──
       const { Resend } = require('resend');
@@ -331,23 +397,24 @@ exports.notifyNewLead = onCall(
 </body>
 </html>`;
 
+      const joeEmail = JOE_EMAIL_SECRET.value() || JOE_EMAIL_FALLBACK;
       await resend.emails.send({
         from: fromEmail,
-        to: JOE_EMAIL,
+        to: joeEmail,
         subject: `${urgencyFlag}New Lead: ${name} — ${serviceName}`,
         html: emailHtml
       });
 
-      console.log(`Lead notification email sent to Joe for: ${name}`);
+      logger.info('lead_notification_email_sent');
 
       return { success: true };
 
     } catch (e) {
-      console.error('Lead notification error:', e);
+      logger.error('notifyNewLead error', { err: e.message });
       // Don't fail the estimate — notification is non-critical
       return { success: false, error: 'Notification delivery issue' };
     }
   }
 );
 
-console.log('✅ Verify & Lead Notification Functions loaded');
+logger.info('verify_functions_loaded');

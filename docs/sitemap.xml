@@ -69,17 +69,10 @@
   <!-- NBD Sites (contractor website service) -->
   <url><loc>https://www.nobigdealwithjoedeal.com/sites/</loc><lastmod>2026-04-09</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
 
-  <!-- Oaks Roofing (hosted client site) -->
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/</loc><lastmod>2026-04-08</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/about.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/contact.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/gallery.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/service-areas.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/services/roof-replacement.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/services/roof-repair.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/services/siding-replacement.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/services/siding-repair.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://www.nobigdealwithjoedeal.com/sites/oaks/services/gutter-replacement.html</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <!-- NOTE: /sites/oaks/ is an unlisted private preview site for a
+       prospective client and is intentionally NOT in the sitemap or
+       robots.txt. Do not add it back. -->
+
 
   <!-- Blog -->
   <url><loc>https://www.nobigdealwithjoedeal.com/blog/</loc><lastmod>2026-04-08</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>

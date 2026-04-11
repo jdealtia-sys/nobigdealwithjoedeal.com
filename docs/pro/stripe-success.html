@@ -67,7 +67,7 @@ h1{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;lett
       <input type="text" id="newName" placeholder="Joe Deal" autocomplete="name">
     </div>
     <div id="errorBox2" class="error-box"></div>
-    <button class="btn" onclick="createAndActivate()">Create Account &amp; Activate →</button>
+    <button type="button" class="btn" id="createAndActivateBtn">Create Account &amp; Activate →</button>
     <p class="note">Already have an account? <a href="/pro/login.html" style="color:var(--orange);">Sign in here →</a></p>
   </div>
 
@@ -82,103 +82,6 @@ h1{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;lett
   </div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-const app = initializeApp({
-  apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-  authDomain:"nobigdeal-pro.firebaseapp.com",
-  projectId:"nobigdeal-pro",
-  storageBucket:"nobigdeal-pro.firebasestorage.app",
-  messagingSenderId:"717435841570",
-  appId:"1:717435841570:web:c2338e11052c96fde02e7b"
-});
-const auth = getAuth(app);
-const db   = getFirestore(app);
-
-const params  = new URLSearchParams(window.location.search);
-const session = params.get('session_id') || '';
-const plan    = params.get('plan') || 'professional';
-
-function show(id)  { document.getElementById(id).style.display = 'block'; }
-function hide(id)  { document.getElementById(id).style.display = 'none'; }
-function err(msg)  { const e=document.getElementById('errorBox'); e.textContent=msg; e.style.display='block'; }
-function err2(msg) { const e=document.getElementById('errorBox2'); e.textContent=msg; e.style.display='block'; }
-
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    // Already logged in — activate immediately
-    show('stepActivate');
-    await activateSubscription(user);
-  } else {
-    // New user — show account creation form
-    show('stepCreate');
-    setTimeout(() => document.getElementById('newEmail').focus(), 200);
-  }
-});
-
-async function activateSubscription(user) {
-  try {
-    // Write to both subscriptions and users collections
-    await Promise.all([
-      setDoc(doc(db, 'subscriptions', user.uid), {
-        plan, status: 'active',
-        stripeSessionId: session,
-        source: 'stripe_checkout',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }),
-      setDoc(doc(db, 'users', user.uid), {
-        plan, onboarded: false
-      }, { merge: true })
-    ]);
-    hide('stepActivate');
-    show('stepDone');
-  } catch(e) {
-    err('Activation failed: ' + e.message + ' — Contact jd@nobigdealwithjoedeal.com');
-  }
-}
-
-window.createAndActivate = async function() {
-  const email = document.getElementById('newEmail').value.trim();
-  const pass  = document.getElementById('newPass').value;
-  const name  = document.getElementById('newName').value.trim();
-
-  if (!email || !pass) { err2('Email and password are required.'); return; }
-  if (pass.length < 8)  { err2('Password must be at least 8 characters.'); return; }
-
-  const btn = document.querySelector('#stepCreate .btn');
-  btn.textContent = 'Creating account...';
-  btn.disabled = true;
-
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    if (name) await updateProfile(cred.user, { displayName: name });
-
-    // Write user doc
-    const nameParts = name.split(' ');
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      firstName: nameParts[0] || '',
-      lastName: nameParts.slice(1).join(' ') || '',
-      email, plan, role: 'member',
-      onboarded: false,
-      createdAt: serverTimestamp()
-    });
-
-    await activateSubscription(cred.user);
-    hide('stepCreate');
-  } catch(e) {
-    btn.textContent = 'Create Account & Activate →';
-    btn.disabled = false;
-    if (e.code === 'auth/email-already-in-use') {
-      err2('That email already has an account. <a href="/pro/login.html" style="color:#e8720c;">Sign in instead →</a>');
-    } else {
-      err2(e.message);
-    }
-  }
-};
-</script>
+<script type="module" src="js/pages/stripe-success.js"></script>
 </body>
 </html>

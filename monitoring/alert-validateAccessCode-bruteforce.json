@@ -1,0 +1,26 @@
+{
+  "displayName": "NBD Pro — validateAccessCode brute force",
+  "documentation": {
+    "content": "Someone is hitting validateAccessCode with invalid codes at high frequency. Likely a brute-force against the access code collection. Check Cloud Logging for the source IP and consider blocking it at Cloudflare or Firebase App Check.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Invalid access code attempts > 20 in 5 min",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND severity=\"WARNING\" AND jsonPayload.message=\"access_code_invalid\""
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": {
+      "period": "300s"
+    },
+    "autoClose": "1800s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

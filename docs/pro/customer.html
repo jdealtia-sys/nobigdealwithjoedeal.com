@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
+<!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
+<script type="module" src="js/dom-safe.js"></script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
@@ -1617,26 +1619,32 @@ function updateDocUploadPreview() {
   uploadBtn.style.display = 'inline-flex';
   countSpan.textContent = window._docUploadQueue.length;
   
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   preview.innerHTML = window._docUploadQueue.map((item, idx) => {
-    const fileType = item.file.name.split('.').pop().toUpperCase();
+    const fileName = String(item.file.name || '');
+    const fileType = (fileName.split('.').pop() || '').toUpperCase();
+    const sizeKb = Number.isFinite(+item.file.size) ? (+item.file.size / 1024).toFixed(1) : '0.0';
     return `
       <div class="preview-item" style="aspect-ratio:auto;padding:12px;display:flex;align-items:center;gap:8px;">
         <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
         <div style="flex:1;overflow:hidden;">
           <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${item.file.name}
+            ${esc(fileName)}
           </div>
           <div style="font-size:10px;color:var(--m);">
-            ${fileType} • ${(item.file.size / 1024).toFixed(1)}KB
+            ${esc(fileType)} • ${esc(sizeKb)}KB
           </div>
         </div>
-        ${item.uploading ? 
-          `<div style="font-size:10px;color:var(--blue);">${Math.round(item.progress)}%</div>` :
-          `<button onclick="removeDocFromQueue(${idx})" class="preview-remove">×</button>`
+        ${item.uploading
+          ? `<div style="font-size:10px;color:var(--blue);">${Math.round(Number(item.progress) || 0)}%</div>`
+          : `<button type="button" class="preview-remove nbd-remove-doc" data-queue-idx="${idx}">×</button>`
         }
       </div>
     `;
   }).join('');
+  preview.querySelectorAll('.nbd-remove-doc').forEach(btn => {
+    btn.addEventListener('click', () => removeDocFromQueue(Number(btn.dataset.queueIdx)));
+  });
 }
 
 window.removeDocFromQueue = function(index) {
@@ -1736,13 +1744,16 @@ async function loadDocuments(leadId) {
     }
 
     window._customerDocs = docSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    const html = window._customerDocs.map(doc => {
+
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const html = window._customerDocs.map((doc, idx) => {
       const uploadDate = doc.uploadedAt?.toDate ? doc.uploadedAt.toDate().toLocaleDateString() : '—';
-      const fileType = doc.filename.split('.').pop().toUpperCase();
-      
+      const filename = String(doc.filename || '');
+      const fileType = (filename.split('.').pop() || '').toUpperCase();
+      const sizeKb = Number.isFinite(+doc.size) ? (+doc.size / 1024).toFixed(1) : '0.0';
+
       return `
-        <div class="document-item" style="
+        <div class="document-item nbd-doc-row" data-doc-idx="${idx}" style="
           display:flex;
           align-items:center;
           gap:12px;
@@ -1753,14 +1764,14 @@ async function loadDocuments(leadId) {
           margin-bottom:8px;
           cursor:pointer;
           transition:all .2s;
-        " onclick="window.open('${doc.url}', '_blank')">
+        ">
           <div style="opacity:.6;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           <div style="flex:1;overflow:hidden;">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${doc.filename}
+              ${esc(filename)}
             </div>
             <div style="font-size:11px;color:var(--m);">
-              ${fileType} • ${uploadDate} • ${(doc.size / 1024).toFixed(1)}KB
+              ${esc(fileType)} • ${esc(uploadDate)} • ${esc(sizeKb)}KB
             </div>
           </div>
           <div style="opacity:.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M4 10h12M12 6l4 4-4 4"/></svg></div>
@@ -1779,6 +1790,15 @@ async function loadDocuments(leadId) {
       item.addEventListener('mouseleave', () => {
         item.style.background = 'var(--s2)';
         item.style.borderColor = 'var(--br)';
+      });
+    });
+    // Click to open — validate URL scheme first, no inline onclick.
+    document.querySelectorAll('.nbd-doc-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const idx = Number(row.dataset.docIdx);
+        const d = (window._customerDocs || [])[idx];
+        const url = d && d.url;
+        if (/^https?:/i.test(url)) window.open(url, '_blank', 'noopener,noreferrer');
       });
     });
   } catch (e) {
@@ -1859,11 +1879,15 @@ async function loadNotes(leadId) {
       return;
     }
 
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const html = noteSnap.docs.map(d => {
       const note = d.data();
       const createdDate = note.createdAt?.toDate ? note.createdAt.toDate() : new Date();
       const timeAgo = getTimeAgo(createdDate);
-      
+
+      // Escape every user-controlled field. Preserve newlines in the note body
+      // by escaping first then converting \n → <br>.
+      const bodyHtml = esc(note.text).replace(/\n/g, '<br>');
       return `
         <div style="
           padding:12px;
@@ -1872,10 +1896,10 @@ async function loadNotes(leadId) {
           border-radius:4px;
         ">
           <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">
-            ${note.text}
+            ${bodyHtml}
           </div>
           <div style="font-size:10px;color:var(--m);">
-            ${note.createdBy} • ${timeAgo}
+            ${esc(note.createdBy)} • ${esc(timeAgo)}
           </div>
         </div>
       `;
@@ -2241,8 +2265,10 @@ async function loadCustomerData(id) {
       document.getElementById('infoLoanAmount').textContent = lead.loanAmount ? '$' + parseFloat(lead.loanAmount).toLocaleString() : '—';
       document.getElementById('infoLoanStatus').textContent = lead.loanStatus || lead.softPullStatus || '—';
       const preQualLink = lead.preQualLink;
-      if (preQualLink) {
-        document.getElementById('infoPreQualLink').innerHTML = `<a href="${preQualLink}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
+      if (preQualLink && /^https?:/i.test(String(preQualLink))) {
+        const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+        document.getElementById('infoPreQualLink').innerHTML =
+          `<a href="${esc(preQualLink)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:underline;">Open Link</a>`;
       }
     }
 
@@ -2538,22 +2564,24 @@ async function loadTimeline(leadId, lead) {
   // Sort by time (newest first)
   timeline.sort((a, b) => b.time - a.time);
 
-  // Render
+  // Render. `item.icon` is a hardcoded SVG literal built above; every other
+  // field is potentially user-controlled (title, desc from lead notes /
+  // communication content) so it MUST be escaped before innerHTML assignment.
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   const html = timeline.map(item => {
-    const dtype = item.type || 'note';
+    const dtype = esc(item.type || 'note');
     if (item.isTask) {
       return `
-        <div class="timeline-item" data-type="${dtype}" style="cursor:pointer;" onclick="toggleTask('${item.taskId}', ${!item.taskDone})">
+        <div class="timeline-item nbd-tl-task" data-type="${dtype}" data-task-id="${esc(item.taskId)}" data-task-done="${item.taskDone ? '1' : '0'}" style="cursor:pointer;">
           <div class="timeline-icon">${item.icon}</div>
           <div class="timeline-content">
             <div class="timeline-title" style="display:flex;align-items:center;gap:8px;">
-              <input type="checkbox" ${item.taskDone ? 'checked' : ''}
-                style="width:16px;height:16px;cursor:pointer;"
-                onclick="event.stopPropagation();toggleTask('${item.taskId}', !this.checked)">
-              <span style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.title}</span>
+              <input type="checkbox" ${item.taskDone ? 'checked' : ''} class="nbd-tl-task-check" data-task-id="${esc(item.taskId)}"
+                style="width:16px;height:16px;cursor:pointer;">
+              <span style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${esc(item.title)}</span>
             </div>
-            <div class="timeline-desc" style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${item.desc}</div>
-            <div class="timeline-time">${item.time.toLocaleString()}</div>
+            <div class="timeline-desc" style="${item.taskDone ? 'text-decoration:line-through;opacity:0.6;' : ''}">${esc(item.desc)}</div>
+            <div class="timeline-time">${esc(item.time.toLocaleString())}</div>
           </div>
         </div>
       `;
@@ -2562,9 +2590,9 @@ async function loadTimeline(leadId, lead) {
         <div class="timeline-item" data-type="${dtype}">
           <div class="timeline-icon">${item.icon}</div>
           <div class="timeline-content">
-            <div class="timeline-title">${item.title}</div>
-            <div class="timeline-desc">${item.desc}</div>
-            <div class="timeline-time">${item.time.toLocaleString()}</div>
+            <div class="timeline-title">${esc(item.title)}</div>
+            <div class="timeline-desc">${esc(item.desc)}</div>
+            <div class="timeline-time">${esc(item.time.toLocaleString())}</div>
           </div>
         </div>
       `;
@@ -2573,6 +2601,25 @@ async function loadTimeline(leadId, lead) {
 
   document.getElementById('timelineList').innerHTML = html ||
     '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
+
+  // Wire task toggles via event listeners rather than inline onclick.
+  const tlListEl = document.getElementById('timelineList');
+  tlListEl.querySelectorAll('.nbd-tl-task').forEach(row => {
+    row.addEventListener('click', (ev) => {
+      // Ignore clicks on the checkbox itself — handled below.
+      if (ev.target.closest('.nbd-tl-task-check')) return;
+      const id = row.dataset.taskId;
+      const done = row.dataset.taskDone === '1';
+      if (id) toggleTask(id, !done);
+    });
+  });
+  tlListEl.querySelectorAll('.nbd-tl-task-check').forEach(cb => {
+    cb.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const id = cb.dataset.taskId;
+      if (id) toggleTask(id, !cb.checked);
+    });
+  });
 
   // Apply collapse (show only last 5 by default)
   window._tlCollapsed = true;
@@ -2597,12 +2644,15 @@ async function loadPhotos(leadId) {
     }
 
     window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    const html = window._customerPhotos.map((photo, idx) => 
-      `<div class="photo-item" onclick="if(window.NBDPhotoEditor)window.NBDPhotoEditor.open(window._customerPhotos[${idx}].url,window._customerPhotos[${idx}].id,window._customerId);else openLightbox(${idx});">
-        <img src="${photo.url}" alt="Property photo">
-      </div>`
-    ).join('');
+
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const html = window._customerPhotos.map((photo, idx) => {
+      // Only accept http(s) and Firebase Storage URLs.
+      const safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
+      return `<div class="photo-item nbd-photo-item" data-photo-idx="${idx}">
+        <img src="${esc(safeUrl)}" alt="Property photo" referrerpolicy="no-referrer">
+      </div>`;
+    }).join('');
 
     document.getElementById('photoList').innerHTML = `
       <div class="photo-grid">${html}</div>
@@ -2615,6 +2665,18 @@ async function loadPhotos(leadId) {
         </button>
       </div>
     `;
+    document.querySelectorAll('.nbd-photo-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = Number(item.dataset.photoIdx);
+        const photo = (window._customerPhotos || [])[idx];
+        if (!photo) return;
+        if (window.NBDPhotoEditor && /^https?:/i.test(photo.url || '')) {
+          window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId);
+        } else {
+          openLightbox(idx);
+        }
+      });
+    });
   } catch (e) {
     console.error('Error loading photos:', e);
     document.getElementById('photoList').innerHTML = `
@@ -2653,27 +2715,39 @@ async function loadEstimates(leadId) {
       return;
     }
 
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const html = window._customerEstimates.map(est => {
-      const tier = est.tier || est.tierName || '';
+      const tier = String(est.tier || est.tierName || '');
       const tierColor = tier==='best'?'#22C55E':tier==='better'?'#9B6DFF':'#e8720c';
-      const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${tier}</span>` : '';
+      const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${esc(tier)}</span>` : '';
+      const dateStr = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
       return `
-        <div class="estimate-item" onclick="viewEstimate('${est.id}')" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
+        <div class="estimate-item nbd-est-row" data-est-id="${esc(est.id)}" style="cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--br);">
           <div>
-            <div class="estimate-title" style="display:flex;align-items:center;">${est.title || 'Estimate'}${tierLabel}</div>
-            <div style="font-size:11px;color:var(--m);margin-top:2px;">${est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—'}</div>
+            <div class="estimate-title" style="display:flex;align-items:center;">${esc(est.title || 'Estimate')}${tierLabel}</div>
+            <div style="font-size:11px;color:var(--m);margin-top:2px;">${esc(dateStr)}</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
-            <button onclick="event.stopPropagation();exportCustomerEstimate('${est.id}')" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
-            <button onclick="event.stopPropagation();generateCertFromEstimate('${est.id}')" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:#e8720c;cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
+            <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
+            <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:#e8720c;cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
           </div>
         </div>
       `;
     }).join('');
 
-    document.getElementById('estimateList').innerHTML = html;
-    
+    const estListEl = document.getElementById('estimateList');
+    estListEl.innerHTML = html;
+    estListEl.querySelectorAll('.nbd-est-row').forEach(row => {
+      row.addEventListener('click', () => viewEstimate(row.dataset.estId));
+    });
+    estListEl.querySelectorAll('.nbd-est-export').forEach(btn => {
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); exportCustomerEstimate(btn.dataset.estId); });
+    });
+    estListEl.querySelectorAll('.nbd-est-cert').forEach(btn => {
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); generateCertFromEstimate(btn.dataset.estId); });
+    });
+
     // Add hover effect via CSS
     document.querySelectorAll('.estimate-item').forEach(item => {
       item.addEventListener('mouseenter', () => {
@@ -2928,11 +3002,12 @@ window.toggleTask = async function(taskId, newDoneState) {
 // Error display
 function showError(title, message) {
   const container = document.querySelector('.container');
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
   container.innerHTML = `
     <div style="text-align:center; padding:60px 20px;">
       <div style="font-size:64px; margin-bottom:20px;">⚠️</div>
-      <div style="font-size:24px; font-weight:700; margin-bottom:12px;">${title}</div>
-      <div style="color:var(--m); margin-bottom:24px;">${message}</div>
+      <div style="font-size:24px; font-weight:700; margin-bottom:12px;">${esc(title)}</div>
+      <div style="color:var(--m); margin-bottom:24px;">${esc(message)}</div>
       <a href="dashboard.html" class="btn btn-orange">← Back to Dashboard</a>
     </div>
   `;
@@ -3208,6 +3283,8 @@ window.viewEstimate = function(estimateId) {
   
   window._currentEstimateId = estimateId;
   
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
   // Parse line items if they exist
   let lineItemsHTML = '';
   if (estimate.lineItems && Array.isArray(estimate.lineItems) && estimate.lineItems.length > 0) {
@@ -3218,8 +3295,8 @@ window.viewEstimate = function(estimateId) {
           ${estimate.lineItems.map(item => `
             <div style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--br);">
               <div>
-                <div style="font-size:13px;font-weight:600;margin-bottom:2px;">${item.description || item.name || 'Item'}</div>
-                ${item.quantity ? `<div style="font-size:11px;color:var(--m);">Qty: ${item.quantity} ${item.unit || ''}</div>` : ''}
+                <div style="font-size:13px;font-weight:600;margin-bottom:2px;">${esc(item.description || item.name || 'Item')}</div>
+                ${item.quantity ? `<div style="font-size:11px;color:var(--m);">Qty: ${esc(item.quantity)} ${esc(item.unit || '')}</div>` : ''}
               </div>
               <div style="font-size:14px;font-weight:700;color:var(--orange);">
                 ${item.amount ? `$${parseFloat(item.amount).toLocaleString()}` : '—'}
@@ -3270,29 +3347,30 @@ window.viewEstimate = function(estimateId) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
       <div>
         <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Title</div>
-        <div style="font-size:14px;font-weight:600;">${estimate.title || 'Untitled Estimate'}</div>
+        <div style="font-size:14px;font-weight:600;">${esc(estimate.title || 'Untitled Estimate')}</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Status</div>
-        <div style="font-size:13px;font-weight:600;color:${statusColor};">${status}</div>
+        <div style="font-size:13px;font-weight:600;color:${statusColor};">${esc(status)}</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Created</div>
-        <div style="font-size:13px;">${createdDate}</div>
+        <div style="font-size:13px;">${esc(createdDate)}</div>
       </div>
       <div>
         <div style="font-size:11px;color:var(--m);margin-bottom:4px;">Estimate #</div>
-        <div style="font-size:13px;font-family:'DM Mono',monospace;">${estimate.id.substring(0,8).toUpperCase()}</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;">${esc(String(estimate.id || '').substring(0,8).toUpperCase())}</div>
       </div>
     </div>
   `;
-  
-  // Notes
-  const notesHTML = estimate.notes ? `
+
+  // Notes — escape + convert newlines to <br>
+  const notesBodyHtml = estimate.notes ? esc(estimate.notes).replace(/\n/g, '<br>') : '';
+  const notesHTML = notesBodyHtml ? `
     <div style="margin-bottom:20px;">
       <div style="font-size:12px;font-weight:600;color:var(--m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Notes</div>
       <div style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:12px;font-size:13px;line-height:1.6;color:var(--m);">
-        ${estimate.notes}
+        ${notesBodyHtml}
       </div>
     </div>
   ` : '';
@@ -4081,6 +4159,8 @@ window.loadInvoices = async function(leadId) {
       return;
     }
 
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const ALLOWED_STATUSES = new Set(['draft','sent','viewed','paid','overdue','cancelled']);
     let totalAmount = 0;
     let totalPaid = 0;
     let html = '';
@@ -4093,18 +4173,20 @@ window.loadInvoices = async function(leadId) {
       totalAmount += amount;
       if (isPaid) totalPaid += amount;
 
+      const safeStatus = ALLOWED_STATUSES.has(inv.status) ? inv.status : 'draft';
+      const safePayUrl = /^https?:/i.test(String(inv.paymentUrl || '')) ? inv.paymentUrl : null;
       const date = inv.date?.toDate ? inv.date.toDate() : new Date(inv.date);
       html += `
         <div class="invoice-item">
           <div class="invoice-left">
-            <div class="invoice-date">${date.toLocaleDateString()}</div>
-            <div class="invoice-desc">${inv.description || 'Invoice'}</div>
+            <div class="invoice-date">${esc(date.toLocaleDateString())}</div>
+            <div class="invoice-desc">${esc(inv.description || 'Invoice')}</div>
           </div>
           <div class="invoice-right">
             <div class="invoice-amount">$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-            <div class="invoice-status ${inv.status}">${inv.status || 'draft'}</div>
-            ${inv.status !== 'paid' && inv.paymentUrl ? `
-              <a href="${inv.paymentUrl}" target="_blank" rel="noopener noreferrer" class="doc-btn">Pay</a>
+            <div class="invoice-status ${safeStatus}">${safeStatus}</div>
+            ${safeStatus !== 'paid' && safePayUrl ? `
+              <a href="${esc(safePayUrl)}" target="_blank" rel="noopener noreferrer" class="doc-btn">Pay</a>
             ` : ''}
           </div>
         </div>
@@ -4191,8 +4273,9 @@ function renderPhotoGrid() {
   });
 
   var phaseColors = { 'Before': '#3b82f6', 'During': '#e8720c', 'After': '#22c55e' };
+  var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
   var html = '';
-  
+
   ['Before', 'During', 'After'].forEach(function(phase) {
     var list = phases[phase];
     if (list.length === 0) return;
@@ -4201,24 +4284,25 @@ function renderPhotoGrid() {
     html += '<div class="photo-phase" style="margin-bottom:20px;">';
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
     html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
-    html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + phase + ' Phase</div>';
+    html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + esc(phase) + ' Phase</div>';
     html += '<span style="font-size:12px;color:var(--muted);">(' + list.length + ')</span>';
     html += '</div>';
     html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
 
     list.forEach(function(photo) {
       var badges = '';
-      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:#e8720c;">' + photo.damageType + '</span>';
+      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:#e8720c;">' + esc(photo.damageType) + '</span>';
       if (photo.severity) {
         var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
-        badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + photo.severity + '</span>';
+        badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
       }
       if (photo.isAnnotated) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
 
       var globalIdx = (window._allPhotos || []).indexOf(photo);
+      var safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
 
-      html += '<div class="photo-item" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);transition:transform .2s;" onclick="showPhotoActions(' + globalIdx + ', event)" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'\'">';
-      html += '<img src="' + photo.url + '" alt="Photo" style="width:100%;height:100%;object-fit:cover;">';
+      html += '<div class="photo-item nbd-phase-photo" data-photo-global-idx="' + globalIdx + '" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);transition:transform .2s;">';
+      html += '<img src="' + esc(safeUrl) + '" alt="Photo" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">';
       if (badges) html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:flex;flex-wrap:wrap;gap:2px;">' + badges + '</div>';
       html += '</div>';
     });
@@ -4226,7 +4310,13 @@ function renderPhotoGrid() {
     html += '</div></div>';
   });
 
-  document.getElementById('photosByPhase').innerHTML = html;
+  var pbpEl = document.getElementById('photosByPhase');
+  pbpEl.innerHTML = html;
+  pbpEl.querySelectorAll('.nbd-phase-photo').forEach(function(el){
+    el.addEventListener('click', function(ev){ showPhotoActions(Number(el.dataset.photoGlobalIdx), ev); });
+    el.addEventListener('mouseover', function(){ el.style.transform = 'scale(1.03)'; });
+    el.addEventListener('mouseout', function(){ el.style.transform = ''; });
+  });
 }
 
 window.loadPhotosByPhase = async function(leadId) {
@@ -4302,9 +4392,13 @@ window.loadReports = async function(leadId) {
       return;
     }
 
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let html = '';
+    const reportDocs = [];
     snap.forEach(doc => {
       const report = doc.data();
+      reportDocs.push(report);
+      const idx = reportDocs.length - 1;
       const date = report.date?.toDate ? report.date.toDate() : new Date(report.date);
       const icon = report.type === 'inspection' ? '📋' : report.type === 'damage' ? '⚠️' : '✓';
 
@@ -4312,18 +4406,28 @@ window.loadReports = async function(leadId) {
         <div class="doc-item">
           <div class="doc-icon">${icon}</div>
           <div class="doc-content">
-            <div class="doc-type">${report.type || 'Report'}</div>
-            <div class="doc-name">${report.title || report.type || 'Report'}</div>
-            <div class="doc-date">${date.toLocaleDateString()}</div>
+            <div class="doc-type">${esc(report.type || 'Report')}</div>
+            <div class="doc-name">${esc(report.title || report.type || 'Report')}</div>
+            <div class="doc-date">${esc(date.toLocaleDateString())}</div>
           </div>
           <div class="doc-actions">
-            <button class="doc-btn" onclick="window.open('${report.htmlUrl || '#'}', '_blank')">View</button>
+            <button class="doc-btn nbd-report-view" data-report-idx="${idx}">View</button>
           </div>
         </div>
       `;
     });
 
-    document.getElementById('reportList').innerHTML = html;
+    const reportListEl = document.getElementById('reportList');
+    reportListEl.innerHTML = html;
+    reportListEl.querySelectorAll('.nbd-report-view').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = reportDocs[Number(btn.dataset.reportIdx)];
+        const url = r && r.htmlUrl;
+        if (/^https?:/i.test(String(url || ''))) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      });
+    });
   } catch (error) {
     console.error('Reports load error:', error);
     document.getElementById('reportList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load reports</div>';
@@ -4342,6 +4446,7 @@ window.loadSharedDocuments = async function(leadId) {
       return;
     }
 
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let html = '';
     snap.forEach(doc => {
       const docData = doc.data();
@@ -4353,17 +4458,18 @@ window.loadSharedDocuments = async function(leadId) {
         'insurance': '📋'
       };
       const icon = icons[docData.type] || '📄';
+      const safeUrl = /^https?:/i.test(String(docData.url || '')) ? docData.url : '#';
 
       html += `
         <div class="doc-item">
           <div class="doc-icon">${icon}</div>
           <div class="doc-content">
-            <div class="doc-type">${docData.type || 'Document'}</div>
-            <div class="doc-name">${docData.name || 'Document'}</div>
-            <div class="doc-date">${date.toLocaleDateString()}</div>
+            <div class="doc-type">${esc(docData.type || 'Document')}</div>
+            <div class="doc-name">${esc(docData.name || 'Document')}</div>
+            <div class="doc-date">${esc(date.toLocaleDateString())}</div>
           </div>
           <div class="doc-actions">
-            <a href="${docData.url}" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>
+            <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>
           </div>
         </div>
       `;
@@ -4422,18 +4528,22 @@ window.loadCommunicationLog = async function(leadId) {
       return;
     }
 
+    // Every field below is user-controlled (email subject/body, SMS body from
+    // incoming webhook or outbound send). Escape everything before innerHTML.
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let html = '';
     comms.forEach(comm => {
       const dateStr = comm.date.toLocaleDateString() + ' ' + comm.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const safeType = comm.type === 'sms' ? 'sms' : 'email';
       html += `
         <div class="comm-item">
           <div class="comm-header">
-            <div class="comm-type ${comm.type}">${comm.type.toUpperCase()}</div>
-            <div class="comm-status">${comm.status}</div>
-            <div class="comm-date">${dateStr}</div>
+            <div class="comm-type ${safeType}">${safeType.toUpperCase()}</div>
+            <div class="comm-status">${esc(comm.status)}</div>
+            <div class="comm-date">${esc(dateStr)}</div>
           </div>
-          <div class="comm-subject">${comm.subject}</div>
-          ${comm.preview ? `<div class="comm-preview">${comm.preview}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}
+          <div class="comm-subject">${esc(comm.subject)}</div>
+          ${comm.preview ? `<div class="comm-preview">${esc(comm.preview)}${comm.preview.length > 100 ? '...' : ''}</div>` : ''}
         </div>
       `;
     });
@@ -4766,20 +4876,21 @@ window.generateCustomerDoc = function(type) {
 
   if (!check.ok) {
     // Show prerequisite warning with specific missing items
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const label = check.label || type;
-    const items = check.missing.map(m => '• ' + m).join('\n');
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
       <div style="background:var(--card,#111);border:1px solid var(--border,#333);border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${label}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
         <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
         <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
-          ${check.missing.map(m => '<div style="font-size:13px;color:#e8720c;padding:4px 0;">• ' + m + '</div>').join('')}
+          ${check.missing.map(m => '<div style="font-size:13px;color:#e8720c;padding:4px 0;">• ' + esc(m) + '</div>').join('')}
         </div>
-        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:12px 28px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
+        <button class="nbd-preq-close" style="padding:12px 28px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
       </div>`;
+    modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     return;
@@ -4801,22 +4912,24 @@ window.generateCustomerDoc = function(type) {
 window.logGeneratedDoc = function(type, data) { return logGeneratedDoc(type, data); };
 
 function logGeneratedDoc(type, data) {
+  var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
   var typeName = (window.NBDDocGen.DOCUMENT_TYPES[type] || {}).name || type;
   var listEl = document.getElementById('generatedDocList');
   if (!listEl) return;
-  
+
   // Remove empty state
   var empty = listEl.querySelector('.empty');
   if (empty) listEl.innerHTML = '';
-  
+
   var item = document.createElement('div');
   item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--br);';
   item.innerHTML = '<div>' +
-    '<div style="font-size:13px;font-weight:600;color:var(--text);">' + typeName + '</div>' +
-    '<div style="font-size:11px;color:var(--muted);">' + (data.homeownerName || 'Customer') + ' &middot; ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--text);">' + esc(typeName) + '</div>' +
+    '<div style="font-size:11px;color:var(--muted);">' + esc(data.homeownerName || 'Customer') + ' &middot; ' + esc(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) + '</div>' +
     '</div>' +
-    '<button class="btn" onclick="generateCustomerDoc(\'' + type + '\')" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
-  
+    '<button type="button" class="btn nbd-regen-doc" data-doc-type="' + esc(type) + '" style="font-size:11px;padding:4px 10px;">Regenerate</button>';
+  item.querySelector('.nbd-regen-doc').addEventListener('click', function(){ generateCustomerDoc(type); });
+
   listEl.insertBefore(item, listEl.firstChild);
 }
 

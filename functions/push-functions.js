@@ -21,6 +21,7 @@
 
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
 const db = admin.firestore();
@@ -43,7 +44,7 @@ async function isNotificationEnabled(uid, category) {
     const prefs = userDoc.data().notificationPrefs || {};
     return prefs[category] !== false;
   } catch (err) {
-    console.error('[Push] Error checking notification preference:', err);
+    logger.error('[Push] Error checking notification preference:', err);
     return true; // Default to enabled on error
   }
 }
@@ -72,7 +73,7 @@ async function getUserFCMTokens(uid) {
     
     return { tokens, invalidTokens };
   } catch (err) {
-    console.error('[Push] Error getting FCM tokens:', err);
+    logger.error('[Push] Error getting FCM tokens:', err);
     return { tokens: [], invalidTokens: [] };
   }
 }
@@ -83,7 +84,7 @@ async function getUserFCMTokens(uid) {
  */
 async function sendPushNotification(uid, title, body, data = {}) {
   if (!uid || !title || !body) {
-    console.warn('[Push] Missing required parameters');
+    logger.warn('[Push] Missing required parameters');
     return { sent: 0, failed: 0, errors: [] };
   }
   
@@ -91,7 +92,7 @@ async function sendPushNotification(uid, title, body, data = {}) {
     const { tokens } = await getUserFCMTokens(uid);
     
     if (tokens.length === 0) {
-      console.log('[Push] No FCM tokens for user:', uid);
+      logger.info('[Push] No FCM tokens for user:', uid);
       return { sent: 0, failed: 0, errors: [] };
     }
     
@@ -130,7 +131,7 @@ async function sendPushNotification(uid, title, body, data = {}) {
     });
     
     // Log results
-    console.log('[Push] Sent:', response.successCount, 'Failed:', response.failureCount);
+    logger.info('[Push] Sent:', response.successCount, 'Failed:', response.failureCount);
     
     // Handle failures and clean up invalid tokens
     const failureErrors = [];
@@ -145,7 +146,7 @@ async function sendPushNotification(uid, title, body, data = {}) {
           
           const userRef = db.collection('users').doc(uid);
           userRef.collection('fcmTokens').doc(token.docId).delete()
-            .catch(err => console.error('[Push] Error deleting token:', err));
+            .catch(err => logger.error('push_delete_token_failed', { err: err.message }));
         }
       }
     });
@@ -156,7 +157,7 @@ async function sendPushNotification(uid, title, body, data = {}) {
       errors: failureErrors
     };
   } catch (err) {
-    console.error('[Push] Error sending notification:', err);
+    logger.error('[Push] Error sending notification:', err);
     return { sent: 0, failed: 0, errors: [err.message] };
   }
 }
@@ -174,7 +175,7 @@ async function logNotificationSent(uid, notificationType, details = {}) {
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-    console.error('[Push] Error logging notification:', err);
+    logger.error('[Push] Error logging notification:', err);
   }
 }
 
@@ -191,7 +192,7 @@ exports.onNewLead = onDocumentCreated('leads/{leadId}', async (event) => {
   const leadId = event.params.leadId;
   
   if (!leadData || !leadData.assignedTo) {
-    console.log('[Push] No assigned rep for lead:', leadId);
+    logger.info('[Push] No assigned rep for lead:', leadId);
     return;
   }
   
@@ -200,7 +201,7 @@ exports.onNewLead = onDocumentCreated('leads/{leadId}', async (event) => {
   // Check if notifications enabled
   const enabled = await isNotificationEnabled(uid, 'newLead');
   if (!enabled) {
-    console.log('[Push] New lead notifications disabled for user:', uid);
+    logger.info('[Push] New lead notifications disabled for user:', uid);
     return;
   }
   
@@ -235,7 +236,7 @@ exports.onAppointmentReminder = onSchedule(
     const now = new Date();
     const in30min = new Date(now.getTime() + 30 * 60 * 1000);
     
-    console.log('[Push] Checking for appointments between', now, 'and', in30min);
+    logger.info('[Push] Checking for appointments between', now, 'and', in30min);
     
     try {
       // Find all leads with appointments in the next 30 minutes
@@ -290,10 +291,10 @@ exports.onAppointmentReminder = onSchedule(
       });
       
       await Promise.allSettled(sendPromises);
-      console.log('[Push] Appointment reminder check complete');
+      logger.info('[Push] Appointment reminder check complete');
       
     } catch (err) {
-      console.error('[Push] Error checking appointments:', err);
+      logger.error('[Push] Error checking appointments:', err);
     }
   }
 );
@@ -313,7 +314,7 @@ exports.onFollowUpDue = onSchedule(
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    console.log('[Push] Checking for follow-ups due on:', today.toDateString());
+    logger.info('[Push] Checking for follow-ups due on:', today.toDateString());
     
     try {
       const leadsRef = db.collection('leads');
@@ -365,10 +366,10 @@ exports.onFollowUpDue = onSchedule(
       });
       
       await Promise.allSettled(sendPromises);
-      console.log('[Push] Follow-up reminder check complete');
+      logger.info('[Push] Follow-up reminder check complete');
       
     } catch (err) {
-      console.error('[Push] Error checking follow-ups:', err);
+      logger.error('[Push] Error checking follow-ups:', err);
     }
   }
 );
@@ -392,7 +393,7 @@ exports.onClaimStageChange = onDocumentUpdated('leads/{leadId}', async (event) =
   
   const enabled = await isNotificationEnabled(uid, 'claimUpdate');
   if (!enabled) {
-    console.log('[Push] Claim update notifications disabled for user:', uid);
+    logger.info('[Push] Claim update notifications disabled for user:', uid);
     return;
   }
   
@@ -427,7 +428,7 @@ exports.sendTeamNotification = async (teamId, title, body, data = {}) => {
     const teamDoc = await teamRef.get();
     
     if (!teamDoc.exists) {
-      console.warn('[Push] Team not found:', teamId);
+      logger.warn('[Push] Team not found:', teamId);
       return [];
     }
     
@@ -457,7 +458,7 @@ exports.sendTeamNotification = async (teamId, title, body, data = {}) => {
     
     return await Promise.allSettled(sendPromises);
   } catch (err) {
-    console.error('[Push] Error sending team notification:', err);
+    logger.error('[Push] Error sending team notification:', err);
     return [];
   }
 };

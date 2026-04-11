@@ -274,11 +274,43 @@
   // ─────────────────────────────────────────────────────────
   // Service Worker message handler
   // ─────────────────────────────────────────────────────────
+  // Auth-gated paths that MUST reload when a new SW claims the page.
+  // Matches the NO_CACHE_HTML set in sw.js.
+  const AUTH_GATED_PATHS = new Set([
+    '/pro/', '/pro/dashboard.html', '/pro/customer.html', '/pro/vault.html',
+    '/pro/login.html', '/pro/register.html', '/pro/analytics.html',
+    '/pro/leaderboard.html', '/pro/ask-joe.html', '/pro/project-codex.html',
+    '/pro/ai-tree.html', '/pro/ai-tool-finder.html', '/pro/understand.html',
+    '/pro/stripe-success.html', '/pro/landing.html',
+  ]);
+
+  function isOnAuthGatedPath() {
+    const p = window.location.pathname;
+    if (AUTH_GATED_PATHS.has(p)) return true;
+    if (p.startsWith('/admin/')) return true;
+    return false;
+  }
+
   function handleSWMessage(event) {
     const msg = event.data;
 
     if (msg.type === 'SW_UPDATE_AVAILABLE') {
-      showUpdateNotification();
+      // If we are sitting on an auth-gated page when a new SW activates,
+      // the old HTML in the DOM may be running stale JS that no longer
+      // matches the deployed Firestore rules / Cloud Functions. Force
+      // a hard reload so the user picks up the new shell. Non-auth pages
+      // (marketing, public forms) get a soft toast instead.
+      if (isOnAuthGatedPath()) {
+        // Avoid an infinite reload loop: only force-reload once per SW
+        // activation. The flag is scoped to the tab via sessionStorage.
+        const flag = 'nbd_sw_reload_' + (msg.version || 'unknown');
+        if (!sessionStorage.getItem(flag)) {
+          sessionStorage.setItem(flag, '1');
+          window.location.reload();
+        }
+      } else {
+        showUpdateNotification();
+      }
     } else if (msg.type === 'OFFLINE_SYNC_COMPLETE') {
       if (msg.synced > 0) {
         showOfflineToast(

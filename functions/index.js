@@ -18,12 +18,15 @@
  *   });
  */
 
-const { onRequest } = require('firebase-functions/v2/https');
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const Stripe = require('stripe');
 
 admin.initializeApp();
+
+const { enforceRateLimit, httpRateLimit, clientIp } = require('./rate-limit');
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
@@ -32,95 +35,107 @@ const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 const STRIPE_PRICE_FOUNDATION = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
 
-// CORS origins
-const CORS_ORIGINS = ['https://nobigdealwithjoedeal.com', 'https://nobigdeal-pro.web.app'];
+// CORS origins — exact match, no startsWith, no wildcards.
+const CORS_ORIGINS = [
+  'https://nobigdealwithjoedeal.com',
+  'https://www.nobigdealwithjoedeal.com',
+  'https://nobigdeal-pro.web.app',
+];
+
+// Shared helper: verify Firebase auth + optional admin role via custom claims.
+async function requireAuth(req, { adminOnly = false } = {}) {
+  const authHeader = req.headers.authorization || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!idToken) return { error: { status: 401, body: { error: 'Missing authorization token' } } };
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(idToken, true);
+  } catch (e) {
+    if (e.code === 'auth/id-token-expired') {
+      return { error: { status: 401, body: { error: 'Token expired — please re-authenticate' } } };
+    }
+    return { error: { status: 401, body: { error: 'Invalid token' } } };
+  }
+  if (adminOnly && decoded.role !== 'admin') {
+    return { error: { status: 403, body: { error: 'Admin access required' } } };
+  }
+  return { decoded };
+}
+
+// Anthropic model allowlist — Opus removed; too expensive to expose to end users.
+const ALLOWED_CLAUDE_MODELS = new Set([
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-20250514',
+]);
+const CLAUDE_MAX_TOKENS_CAP = 1024;
+const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
+const CLAUDE_PER_MIN_LIMIT = 20;
 
 exports.claudeProxy = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 100,
+    concurrency: 80,
+    minInstances: 0,
     timeoutSeconds: 60,
     memory: '256MiB',
   },
   async (req, res) => {
-    // Only POST allowed
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-
-    if (!idToken) {
-      res.status(401).json({ error: 'Missing authorization token' });
-      return;
-    }
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
 
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      if (!decoded.uid) {
-        res.status(401).json({ error: 'Invalid token' });
+      // Subscription gate — server-trusted Firestore doc written only by Stripe webhook.
+      const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
+      const sub = subSnap.exists ? subSnap.data() : null;
+      const isAdmin = decoded.role === 'admin';
+      const hasPaidPlan = sub && sub.plan && sub.plan !== 'free' && sub.status === 'active';
+      if (!isAdmin && !hasPaidPlan) {
+        res.status(403).json({ error: 'AI features require an active paid subscription.' });
         return;
       }
 
-      // Subscription check — only paid plans can use AI proxy
-      const bypassEmails = ['demo@nobigdeal.pro', 'vip@nobigdeal.pro', 'admin@nobigdeal.pro', 'jd@nobigdealwithjoedeal.com'];
-      const isDemoUser = bypassEmails.includes(decoded.email);
-      if (!isDemoUser) {
-        const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
-        const sub = subSnap.exists ? subSnap.data() : null;
-        const plan = sub?.plan || 'free';
-        const status = sub?.status || 'inactive';
-        if (plan === 'free' || status !== 'active') {
-          res.status(403).json({ error: 'AI features require an active paid subscription.' });
-          return;
-        }
+      // Per-uid rate limit (admin-SDK-only Firestore doc so clients cannot reset it).
+      try {
+        await enforceRateLimit('claudeProxy:uid', decoded.uid, CLAUDE_PER_MIN_LIMIT, 60_000);
+      } catch (e) {
+        if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' }); return; }
+        throw e;
       }
 
-      // Rate limiting check (simple — per-user, per-minute)
-      const userRef = admin.firestore().doc(`rate_limits/${decoded.uid}`);
-      const userSnap = await userRef.get();
-      const now = Date.now();
-      const windowMs = 60000; // 1 minute
-      const maxRequests = 30;  // 30 requests per minute
-
-      if (userSnap.exists) {
-        const data = userSnap.data();
-        const windowStart = data.windowStart || 0;
-        const count = data.count || 0;
-
-        if (now - windowStart < windowMs && count >= maxRequests) {
-          res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' });
-          return;
-        }
-
-        if (now - windowStart >= windowMs) {
-          await userRef.set({ windowStart: now, count: 1 });
-        } else {
-          await userRef.update({ count: count + 1 });
-        }
-      } else {
-        await userRef.set({ windowStart: now, count: 1 });
+      // Per-day token budget (rolling 24h, tracked via api_usage sum).
+      const dayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 86_400_000);
+      const usageSnap = await admin.firestore().collection('api_usage')
+        .where('uid', '==', decoded.uid)
+        .where('timestamp', '>', dayAgo)
+        .get();
+      let consumed = 0;
+      usageSnap.forEach(d => {
+        const r = d.data();
+        consumed += (r.inputTokens || 0) + (r.outputTokens || 0);
+      });
+      if (!isAdmin && consumed >= CLAUDE_DAILY_TOKEN_BUDGET) {
+        res.status(429).json({ error: 'Daily AI budget exceeded. Resets in 24 hours.' });
+        return;
       }
 
-      // Forward to Anthropic
-      const { model, max_tokens, messages, system, temperature } = req.body;
-
-      if (!messages || !Array.isArray(messages)) {
+      // Validate inputs.
+      const { model, max_tokens, messages, system, temperature } = req.body || {};
+      if (!Array.isArray(messages) || messages.length === 0) {
         res.status(400).json({ error: 'messages array required' });
         return;
       }
+      const safeModel = ALLOWED_CLAUDE_MODELS.has(model) ? model : 'claude-haiku-4-5-20251001';
+      const safeMaxTokens = Math.min(Number(max_tokens) || 500, CLAUDE_MAX_TOKENS_CAP);
 
-      const anthropicBody = {
-        model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: Math.min(max_tokens || 1000, 4096), // Cap at 4096
-        messages,
-      };
-      if (system) anthropicBody.system = system;
-      if (temperature !== undefined) anthropicBody.temperature = temperature;
+      const anthropicBody = { model: safeModel, max_tokens: safeMaxTokens, messages };
+      if (typeof system === 'string') anthropicBody.system = system.slice(0, 4000);
+      if (typeof temperature === 'number') anthropicBody.temperature = Math.max(0, Math.min(1, temperature));
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -133,13 +148,8 @@ exports.claudeProxy = onRequest(
       });
 
       const data = await response.json();
+      if (!response.ok) { res.status(response.status).json(data); return; }
 
-      if (!response.ok) {
-        res.status(response.status).json(data);
-        return;
-      }
-
-      // Log usage for analytics
       try {
         await admin.firestore().collection('api_usage').add({
           uid: decoded.uid,
@@ -149,19 +159,13 @@ exports.claudeProxy = onRequest(
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (e) {
-        // Non-critical — don't fail the request
-        console.warn('Usage logging failed:', e);
+        logger.warn('api_usage logging failed', { uid: decoded.uid, err: e.message });
       }
 
       res.json(data);
-
     } catch (e) {
-      console.error('Claude proxy error:', e);
-      if (e.code === 'auth/id-token-expired') {
-        res.status(401).json({ error: 'Token expired — please re-authenticate' });
-      } else {
-        res.status(500).json({ error: 'Internal server error', debug: e.message || String(e) });
-      }
+      logger.error('claudeProxy error', { uid: decoded?.uid, err: e.message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 );
@@ -176,7 +180,9 @@ exports.createCheckoutSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
@@ -186,22 +192,19 @@ exports.createCheckoutSession = onRequest(
       return;
     }
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    // Per-IP rate limit — 10 checkout sessions / hour from a single IP.
+    if (!(await httpRateLimit(req, res, 'createCheckoutSession:ip', 10, 3_600_000))) return;
 
-    if (!idToken) {
-      res.status(401).json({ error: 'Missing authorization token' });
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
+    if (!decoded.email) { res.status(401).json({ error: 'Account has no email' }); return; }
+    if (!decoded.email_verified) {
+      res.status(403).json({ error: 'Please verify your email before starting a paid subscription.' });
       return;
     }
 
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      if (!decoded.uid || !decoded.email) {
-        res.status(401).json({ error: 'Invalid token' });
-        return;
-      }
-
       const { plan } = req.body;
 
       // Validate plan
@@ -209,6 +212,9 @@ exports.createCheckoutSession = onRequest(
         res.status(400).json({ error: 'Invalid plan. Must be "foundation" or "professional".' });
         return;
       }
+      // Remove the "free subscription while checkout is open" loophole — any prior
+      // client-side self-write to subscriptions gets overwritten on webhook return
+      // anyway, but the rules now block client writes entirely.
 
       // Get price ID based on plan
       const priceId = plan === 'foundation'
@@ -238,12 +244,12 @@ exports.createCheckoutSession = onRequest(
         },
       });
 
-      console.log(`Checkout session created: ${session.id} for user ${decoded.uid} (plan: ${plan})`);
+      logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, plan });
 
       res.json({ url: session.url });
 
     } catch (e) {
-      console.error('Checkout session creation error:', e);
+      logger.error('createCheckoutSession error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -281,7 +287,7 @@ exports.stripeWebhook = onRequest(
     try {
       event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
     } catch (e) {
-      console.error('Webhook signature verification failed:', e.message);
+      logger.error('stripeWebhook signature verification failed', { err: e.message });
       res.status(400).json({ error: 'Webhook signature verification failed' });
       return;
     }
@@ -296,7 +302,7 @@ exports.stripeWebhook = onRequest(
           const customerId = session.customer;
 
           if (!uid) {
-            console.warn('checkout.session.completed: no client_reference_id');
+            logger.warn('stripeWebhook.checkout_session_completed missing client_reference_id');
             break;
           }
 
@@ -314,7 +320,7 @@ exports.stripeWebhook = onRequest(
             { merge: true }
           );
 
-          console.log(`Subscription activated for user ${uid} (session: ${session.id})`);
+          logger.info('subscription_activated', { uid, sessionId: session.id });
           break;
         }
 
@@ -330,7 +336,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`customer.subscription.updated: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.subscription_updated no matching user', { customerId });
             break;
           }
 
@@ -343,7 +349,7 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Subscription updated for user ${uid} (status: ${subscription.status})`);
+          logger.info('subscription_updated', { uid, status: subscription.status });
           break;
         }
 
@@ -359,7 +365,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`customer.subscription.deleted: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.subscription_deleted no matching user', { customerId });
             break;
           }
 
@@ -371,7 +377,7 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Subscription cancelled for user ${uid}`);
+          logger.info('subscription_cancelled', { uid });
           break;
         }
 
@@ -387,7 +393,7 @@ exports.stripeWebhook = onRequest(
             .get();
 
           if (snapshot.empty) {
-            console.warn(`invoice.payment_failed: no user found for customer ${customerId}`);
+            logger.warn('stripeWebhook.invoice_payment_failed no matching user', { customerId });
             break;
           }
 
@@ -399,18 +405,18 @@ exports.stripeWebhook = onRequest(
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          console.log(`Payment failed for user ${uid} (invoice: ${invoice.id})`);
+          logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
           break;
         }
 
         default:
-          console.log(`Unhandled webhook event type: ${event.type}`);
+          logger.info('stripeWebhook.unhandled_event_type', { type: event.type });
       }
 
       res.json({ received: true });
 
     } catch (e) {
-      console.error('Webhook processing error:', e);
+      logger.error('stripeWebhook processing error', { err: e.message });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }
@@ -425,7 +431,9 @@ exports.createCustomerPortalSession = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
@@ -434,23 +442,13 @@ exports.createCustomerPortalSession = onRequest(
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
+    if (!(await httpRateLimit(req, res, 'createCustomerPortalSession:ip', 20, 3_600_000))) return;
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-
-    if (!idToken) {
-      res.status(401).json({ error: 'Missing authorization token' });
-      return;
-    }
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
 
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      if (!decoded.uid) {
-        res.status(401).json({ error: 'Invalid token' });
-        return;
-      }
-
       const db = admin.firestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
@@ -473,12 +471,12 @@ exports.createCustomerPortalSession = onRequest(
         return_url: 'https://nobigdealwithjoedeal.com/pro/settings',
       });
 
-      console.log(`Billing portal session created for user ${decoded.uid}`);
+      logger.info('billing_portal_session_created', { uid: decoded.uid });
 
       res.json({ url: portalSession.url });
 
     } catch (e) {
-      console.error('Billing portal session creation error:', e);
+      logger.error('createCustomerPortalSession error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -496,7 +494,9 @@ exports.createCustomerPortalSession = onRequest(
 exports.getSubscriptionStatus = onRequest(
   {
     cors: CORS_ORIGINS,
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 50,
+    concurrency: 80,
     timeoutSeconds: 10,
     memory: '256MiB',
   },
@@ -506,22 +506,11 @@ exports.getSubscriptionStatus = onRequest(
       return;
     }
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-
-    if (!idToken) {
-      res.status(401).json({ error: 'Missing authorization token' });
-      return;
-    }
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
 
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      if (!decoded.uid) {
-        res.status(401).json({ error: 'Invalid token' });
-        return;
-      }
-
       const db = admin.firestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
@@ -539,7 +528,7 @@ exports.getSubscriptionStatus = onRequest(
       });
 
     } catch (e) {
-      console.error('Get subscription status error:', e);
+      logger.error('getSubscriptionStatus error', { err: e.message });
       if (e.code === 'auth/id-token-expired') {
         res.status(401).json({ error: 'Token expired — please re-authenticate' });
       } else {
@@ -560,18 +549,16 @@ exports.getSubscriptionStatus = onRequest(
 exports.setStorageCors = onRequest(
   {
     cors: CORS_ORIGINS,
+    enforceAppCheck: true,
     maxInstances: 1,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
   async (req, res) => {
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    if (!idToken) { res.status(401).json({ error: 'Missing auth token' }); return; }
-
+    // Admin-only — uses custom claims, not a self-owned Firestore role doc.
+    const authResult = await requireAuth(req, { adminOnly: true });
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     try {
-      await admin.auth().verifyIdToken(idToken);
       const bucket = admin.storage().bucket();
       await bucket.setCorsConfiguration([
         {
@@ -585,10 +572,10 @@ exports.setStorageCors = onRequest(
           responseHeader: ['Content-Type', 'Authorization', 'Content-Length', 'User-Agent'],
         },
       ]);
-      console.log('Storage CORS configuration updated successfully');
+      logger.info('storage_cors_updated');
       res.json({ success: true, message: 'CORS configuration applied to storage bucket' });
     } catch (e) {
-      console.error('setCors error:', e);
+      logger.error('setStorageCors error', { err: e.message });
       res.status(500).json({ error: e.message });
     }
   }
@@ -601,38 +588,60 @@ exports.setStorageCors = onRequest(
 exports.imageProxy = onRequest(
   {
     cors: CORS_ORIGINS,
-    maxInstances: 20,
+    enforceAppCheck: true,
+    maxInstances: 50,
+    concurrency: 80,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
   async (req, res) => {
     if (req.method !== 'GET') { res.status(405).end(); return; }
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    if (!idToken) {
-      res.status(401).json({ error: 'Authorization required' });
-      return;
-    }
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
 
-    let decoded;
+    // Per-IP and per-uid rate limit — imageProxy is a bandwidth amplifier.
+    if (!(await httpRateLimit(req, res, 'imageProxy:ip', 120, 60_000))) return;
     try {
-      decoded = await admin.auth().verifyIdToken(idToken);
+      await enforceRateLimit('imageProxy:uid', decoded.uid, 120, 60_000);
     } catch (e) {
-      res.status(401).json({ error: 'Invalid token' });
-      return;
+      if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded' }); return; }
+      throw e;
     }
 
-    const filePath = req.query.path;
-    // Validate path: must exist, no traversal, must start with allowed prefix
-    const ALLOWED_PREFIXES = ['photos/', 'portals/', 'galleries/', 'reports/', 'docs/'];
-    const hasAllowedPrefix = ALLOWED_PREFIXES.some(p => filePath && filePath.startsWith(p));
-
-    if (!filePath || filePath.includes('..') || !hasAllowedPrefix) {
+    // Normalize and validate path.
+    let filePath = req.query.path;
+    if (typeof filePath !== 'string') { res.status(400).json({ error: 'Invalid path' }); return; }
+    // Reject encoded traversal variants + null bytes + backslashes + semicolons.
+    if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
       res.status(400).json({ error: 'Invalid path' });
       return;
     }
+    // Allowed patterns — owner-scoped only. Caller's uid MUST appear as the 2nd path segment.
+    // photos/<uid>/<file>, portals/<uid>/<file>, galleries/<uid>/<file>, reports/<uid>/<file>.
+    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
+    const [, bucketKey, ownerUid] = match;
+
+    const isOwner = ownerUid === decoded.uid;
+    const isAdmin = decoded.role === 'admin';
+
+    // If not owner or admin, allow only if caller is a manager in the same company.
+    let allowed = isOwner || isAdmin;
+    if (!allowed) {
+      try {
+        const repSnap = await admin.firestore().doc(`reps/${decoded.uid}`).get();
+        const ownerRepSnap = await admin.firestore().doc(`reps/${ownerUid}`).get();
+        if (repSnap.exists && ownerRepSnap.exists
+            && repSnap.data().role === 'manager'
+            && repSnap.data().companyId
+            && repSnap.data().companyId === ownerRepSnap.data().companyId) {
+          allowed = true;
+        }
+      } catch (e) { /* fall through */ }
+    }
+    if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
 
     try {
       const bucket = admin.storage().bucket();
@@ -641,12 +650,13 @@ exports.imageProxy = onRequest(
       if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
 
       const [metadata] = await file.getMetadata();
-      res.set('Content-Type', metadata.contentType || 'image/png');
-      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('Content-Type', metadata.contentType || 'application/octet-stream');
+      res.set('Cache-Control', 'private, max-age=300');
+      res.set('X-Content-Type-Options', 'nosniff');
 
       file.createReadStream().pipe(res);
     } catch (e) {
-      console.error('imageProxy error:', e);
+      logger.error('imageProxy error', { uid: decoded.uid, err: e.message });
       res.status(500).json({ error: 'Failed to proxy image' });
     }
   }
@@ -685,7 +695,9 @@ exports.createStripePaymentLink = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 20,
+    concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
@@ -695,22 +707,13 @@ exports.createStripePaymentLink = onRequest(
       return;
     }
 
-    // Verify Firebase auth token
-    const authHeader = req.headers.authorization || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!(await httpRateLimit(req, res, 'createStripePaymentLink:ip', 30, 60_000))) return;
 
-    if (!idToken) {
-      res.status(401).json({ error: 'Missing authorization token' });
-      return;
-    }
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
 
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      if (!decoded.uid) {
-        res.status(401).json({ error: 'Invalid token' });
-        return;
-      }
-
       const { invoiceId } = req.body;
 
       if (!invoiceId) {
@@ -735,44 +738,69 @@ exports.createStripePaymentLink = onRequest(
         return;
       }
 
-      // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-
-      // Build line items for payment link
-      const lineItems = (invoice.items || []).map(item => ({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: item.description,
-            description: `Invoice ${invoiceId}`,
+      // Recompute totals server-side from canonical product prices where possible.
+      // For items with a productId, look up the catalog; otherwise use the
+      // client-provided total but enforce sanity bounds to block $0.01/absurd values.
+      const MIN_CENTS = 100;            // $1.00 minimum per line
+      const MAX_CENTS = 10_000_000;     // $100k maximum per line
+      const lineItems = [];
+      for (const item of (invoice.items || [])) {
+        let cents;
+        if (item.productId) {
+          const prodSnap = await db.doc(`products/${item.productId}`).get();
+          if (prodSnap.exists && prodSnap.data().userId === decoded.uid) {
+            const unit = prodSnap.data().unitPrice;
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            if (typeof unit === 'number' && unit > 0) {
+              cents = Math.round(unit * qty * 100);
+            }
+          }
+        }
+        if (cents === undefined) {
+          cents = Math.round(Number(item.total || 0) * 100);
+        }
+        if (!Number.isFinite(cents) || cents < MIN_CENTS || cents > MAX_CENTS) {
+          res.status(400).json({ error: 'Line item amount out of allowed range' });
+          return;
+        }
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: String(item.description || 'Invoice line item').slice(0, 250),
+              description: `Invoice ${invoiceId}`,
+            },
+            unit_amount: cents,
           },
-          unit_amount: Math.round(item.total * 100), // Convert to cents
-        },
-        quantity: 1,
-      }));
+          quantity: 1,
+        });
+      }
+      if (lineItems.length === 0) {
+        res.status(400).json({ error: 'Invoice has no line items' });
+        return;
+      }
 
-      // Create Payment Link
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
       const paymentLink = await stripe.paymentLinks.create({
         line_items: lineItems,
+        metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
+        payment_intent_data: {
+          metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
+        },
         after_completion: {
           type: 'redirect',
           redirect: {
-            url: `https://nobigdeal-pro.web.app/pro/invoice-success.html?invoiceId=${invoiceId}`,
+            url: `https://nobigdealwithjoedeal.com/pro/invoice-success.html?invoiceId=${encodeURIComponent(invoiceId)}`,
           },
         },
       });
 
-      console.log(`Payment link created: ${paymentLink.url} for invoice ${invoiceId}`);
-
+      logger.info('payment_link_created', { invoiceId, uid: decoded.uid, paymentLinkId: paymentLink.id });
       res.json({ url: paymentLink.url, paymentLinkId: paymentLink.id });
 
     } catch (e) {
-      console.error('createStripePaymentLink error:', e);
-      if (e.code === 'auth/id-token-expired') {
-        res.status(401).json({ error: 'Token expired — please re-authenticate' });
-      } else {
-        res.status(500).json({ error: 'Failed to create payment link' });
-      }
+      logger.error('createStripePaymentLink error', { uid: decoded.uid, err: e.message });
+      res.status(500).json({ error: 'Failed to create payment link' });
     }
   }
 );
@@ -810,7 +838,7 @@ exports.invoiceWebhook = onRequest(
           STRIPE_WEBHOOK_SECRET.value()
         );
       } catch (err) {
-        console.error('Webhook signature verification failed:', err.message);
+        logger.error('invoiceWebhook signature verification failed', { err: err.message });
         res.status(400).json({ error: 'Invalid signature' });
         return;
       }
@@ -820,24 +848,37 @@ exports.invoiceWebhook = onRequest(
         const paymentIntent = event.data.object;
         const metadata = paymentIntent.metadata || {};
         const invoiceId = metadata.invoiceId;
+        const claimedUserId = metadata.userId;
 
         if (invoiceId) {
           const db = admin.firestore();
-          await db.collection('invoices').doc(invoiceId).update({
-            status: 'paid',
-            paidAt: admin.firestore.FieldValue.serverTimestamp(),
-            stripePaymentIntentId: paymentIntent.id,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-
-          console.log(`Invoice ${invoiceId} marked as paid via Stripe`);
+          const invRef = db.collection('invoices').doc(invoiceId);
+          const invSnap = await invRef.get();
+          if (!invSnap.exists) {
+            logger.warn('invoiceWebhook: invoice not found', { invoiceId });
+          } else if (claimedUserId && invSnap.data().createdBy !== claimedUserId) {
+            // Metadata tampering — record the event but do not mark paid.
+            logger.error('invoiceWebhook: metadata userId mismatch', {
+              invoiceId,
+              claimedUserId,
+              actualCreatedBy: invSnap.data().createdBy,
+            });
+          } else {
+            await invRef.update({
+              status: 'paid',
+              paidAt: admin.firestore.FieldValue.serverTimestamp(),
+              stripePaymentIntentId: paymentIntent.id,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            logger.info('invoice_paid', { invoiceId });
+          }
         }
       }
 
       res.json({ received: true });
 
     } catch (e) {
-      console.error('invoiceWebhook error:', e);
+      logger.error('invoiceWebhook error', { err: e.message });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }
@@ -848,144 +889,247 @@ exports.invoiceWebhook = onRequest(
 const verifyFunctions = require('./verify-functions');
 Object.assign(exports, verifyFunctions);
 
-// ═══════════════════════════════════════════════════════════════════
-// seedDemoData — One-time trigger to populate demo account with sample data
-// Call: POST https://us-central1-nobigdeal-pro.cloudfunctions.net/seedDemoData
-// ═══════════════════════════════════════════════════════════════════
-exports.seedDemoData = onRequest(
-  { cors: CORS_ORIGINS, maxInstances: 1, timeoutSeconds: 60, memory: '512MiB' },
+// ── Audit log triggers ──
+const auditLog = require('./audit-log');
+Object.assign(exports, auditLog);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// publicVisualizerAI — Public homeowner visualizer endpoint.
+//
+// The marketing-site visualizer.html calls this to get an AI-generated
+// assessment of a home photo. Homeowners are NOT authenticated, so we
+// cannot use the claudeProxy subscription gate. Instead:
+//   - enforceAppCheck: true (blocks curl/bot replay of the reCAPTCHA token)
+//   - per-IP rolling-window rate limit: 5 requests / hour
+//   - model locked to Haiku (cheapest tier)
+//   - max_tokens hard-capped at 800
+//   - system prompt is server-owned, client cannot inject one
+//   - image payload must be a base64-encoded JPEG/PNG under 1.5 MB
+// ═══════════════════════════════════════════════════════════════════════════
+const VISUALIZER_MAX_B64_BYTES = Math.round(1.5 * 1024 * 1024 * 4 / 3); // ~2 MB base64
+const VISUALIZER_SYSTEM_PROMPT = "You are Joe Deal, owner of No Big Deal Home Solutions in Greater Cincinnati, OH. You're a roofing and exterior contractor — honest, plain-spoken, helpful. A homeowner has uploaded a photo of their house and selected exterior options they want to visualize. Give them: (1) a practical assessment of what their home currently has (roof, siding, gutters you can see), (2) specific honest feedback on how their chosen options would look on THIS house, (3) any recommendations. Keep it conversational, 150-200 words, then a short visual description prefixed with 'CANVAS:' that describes colors and materials as hex values for the canvas overlay.";
+
+exports.publicVisualizerAI = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 10,
+    concurrency: 20,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+  },
   async (req, res) => {
-    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Per-IP cap — 5 visualizer calls / hour from a single IP. Each call is
+    // a ~$0.01 Haiku request; 5/hour caps cost per IP at ~$0.05/hour worst case.
+    if (!(await httpRateLimit(req, res, 'publicVisualizerAI:ip', 5, 3_600_000))) return;
+
     try {
-      const { seed } = require('./seed-demo');
-      await seed();
-      res.json({ success: true, message: 'Demo data seeded successfully' });
+      const { imageBase64, mediaType, selectionsText, notes } = req.body || {};
+
+      if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+        res.status(400).json({ error: 'imageBase64 required' });
+        return;
+      }
+      if (imageBase64.length > VISUALIZER_MAX_B64_BYTES) {
+        res.status(413).json({ error: 'Image too large (max 1.5 MB)' });
+        return;
+      }
+      const allowedMedia = new Set(['image/jpeg', 'image/png', 'image/webp']);
+      const safeMediaType = allowedMedia.has(mediaType) ? mediaType : 'image/jpeg';
+      const safeSelections = String(selectionsText || '').slice(0, 400);
+      const safeNotes = String(notes || '').slice(0, 400);
+
+      const anthropicBody = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system: VISUALIZER_SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: safeMediaType, data: imageBase64 } },
+            { type: 'text', text: `Selections: ${safeSelections}.${safeNotes ? ' Notes: ' + safeNotes : ''}` },
+          ],
+        }],
+      };
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn('publicVisualizerAI: upstream error', { status: response.status });
+        res.status(response.status).json({ error: 'Upstream AI error' });
+        return;
+      }
+
+      // Return only the text content, never the full upstream payload.
+      const text = Array.isArray(data.content)
+        ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+        : '';
+      res.json({ text });
     } catch (e) {
-      console.error('Seed error:', e);
-      res.status(500).json({ error: e.message });
+      logger.error('publicVisualizerAI error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
     }
   }
 );
 
 // ═══════════════════════════════════════════════════════════════════
-// validateAccessCode — Server-side access code validation
-// Returns credentials for client-side signInWithEmailAndPassword
+// seedDemoData — REMOVED.
+// Previously this was an unauthenticated POST that ran the full demo
+// seeder. It's a destructive cost-DoS vector. Demo data is now seeded
+// manually via the Firebase Admin CLI against a local emulator, not
+// via a deployed Cloud Function.
 // ═══════════════════════════════════════════════════════════════════
-const { onCall } = require('firebase-functions/v2/https');
 
+// ═══════════════════════════════════════════════════════════════════
+// validateAccessCode — hardened.
+//
+// Security notes:
+// - Codes live in Firestore (`access_codes/{CODE}`) and are writable only
+//   via admin SDK. Clients cannot enumerate or read this collection.
+// - Never returns a password. Instead mints a Firebase custom token that
+//   the client exchanges via `signInWithCustomToken`.
+// - The `admin` role is NEVER granted via access code. Admin access is
+//   provisioned by a Joe-only CLI script that calls setCustomUserClaims.
+// - Per-IP rate limit (5 requests / 5 minutes). Failed attempts logged.
+// - Requires App Check so random curl/script callers are blocked.
+// ═══════════════════════════════════════════════════════════════════
 exports.validateAccessCode = onCall(
   {
-    maxInstances: 10,
+    enforceAppCheck: true,
+    maxInstances: 5,
+    concurrency: 10,
     timeoutSeconds: 15,
     memory: '256MiB',
   },
   async (request) => {
-    const { code } = request.data || {};
+    const ip = clientIp(request.rawRequest || {});
 
-    if (!code || typeof code !== 'string') {
-      return { success: false, error: 'Access code required' };
+    // Per-IP rate limit — tight. 5 attempts / 5 minutes.
+    try {
+      await enforceRateLimit('validateAccessCode:ip', ip, 5, 5 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        throw new HttpsError('resource-exhausted', 'Too many attempts. Try again in a few minutes.');
+      }
+      throw e;
     }
 
-    const normalized = code.trim().toUpperCase();
-
-    // Each code maps to a known email + deterministic password (hashed from code)
-    // trialDays: null = permanent Pro, number = trial duration
-    const ACCESS_CODES = {
-      // Demo codes — 14-day trial
-      'NBD-DEMO':  { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
-      'DEMO':      { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
-      'TRYIT':     { email: 'demo@nobigdeal.pro',        role: 'demo',   trialDays: 14 },
-      // Beta invite codes — 90-day trial
-      'NBD-2026':  { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
-      'DEAL-2026': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
-      'ROOFCON26': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
-      'NBD-STORM': { email: 'invite.2026@nobigdeal.pro', role: 'member', trialDays: 90 },
-      // VIP codes — permanent Pro (no expiry)
-      'NBD-JOE':   { email: 'vip@nobigdeal.pro',         role: 'member', trialDays: null },
-      'NBD-ADMIN': { email: 'admin@nobigdeal.pro',        role: 'admin',  trialDays: null },
-    };
-
-    const creds = ACCESS_CODES[normalized];
-    if (!creds) {
-      console.warn(`Invalid access code attempt: ${normalized}`);
-      return { success: false, error: 'Code not recognized' };
+    const rawCode = (request.data && request.data.code) || '';
+    if (typeof rawCode !== 'string' || rawCode.length < 3 || rawCode.length > 40) {
+      throw new HttpsError('invalid-argument', 'Code not recognized');
+    }
+    const normalized = rawCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    if (!normalized) {
+      throw new HttpsError('invalid-argument', 'Code not recognized');
     }
 
-    // Generate a deterministic password from email (stable across calls)
-    const crypto = require('crypto');
-    const stablePassword = 'NBD_' + crypto.createHash('sha256')
-      .update(creds.email + '_nbd_pro_2026')
-      .digest('hex')
-      .substring(0, 24);
+    const db = admin.firestore();
+    const codeRef = db.collection('access_codes').doc(normalized);
+    const codeSnap = await codeRef.get();
+    if (!codeSnap.exists) {
+      logger.warn('access_code_invalid', { ip, normalized });
+      throw new HttpsError('not-found', 'Code not recognized');
+    }
+    const code = codeSnap.data();
+    if (code.active !== true) {
+      logger.warn('access_code_inactive', { ip, normalized });
+      throw new HttpsError('permission-denied', 'Code not recognized');
+    }
+    if (code.expiresAt && code.expiresAt.toMillis && code.expiresAt.toMillis() < Date.now()) {
+      throw new HttpsError('permission-denied', 'Code expired');
+    }
+    if (typeof code.maxUses === 'number' && typeof code.useCount === 'number' && code.useCount >= code.maxUses) {
+      throw new HttpsError('resource-exhausted', 'Code fully redeemed');
+    }
+    // Hard rule: access codes NEVER grant admin.
+    const role = code.role === 'manager' ? 'manager' : 'member';
+    const email = typeof code.email === 'string' && code.email.includes('@') ? code.email : null;
+    if (!email) {
+      logger.error('access_code_missing_email', { normalized });
+      throw new HttpsError('failed-precondition', 'Code misconfigured. Contact support.');
+    }
 
     try {
-      // Look up or create the Firebase user with a known password
+      // Look up or create the user — but do not overwrite passwords.
       let userRecord;
       try {
-        userRecord = await admin.auth().getUserByEmail(creds.email);
-        // Update password to ensure it matches the deterministic one
-        await admin.auth().updateUser(userRecord.uid, { password: stablePassword });
+        userRecord = await admin.auth().getUserByEmail(email);
       } catch (e) {
         if (e.code === 'auth/user-not-found') {
           userRecord = await admin.auth().createUser({
-            email: creds.email,
-            password: stablePassword,
-            displayName: creds.role === 'demo' ? 'Demo User' : 'Invited Member'
+            email,
+            emailVerified: false,
+            displayName: code.displayName || 'NBD Member',
           });
         } else {
           throw e;
         }
       }
 
-      // Set custom claims for role
-      await admin.auth().setCustomUserClaims(userRecord.uid, {
-        role: creds.role,
-        accessCode: normalized
-      });
+      // Set role claim (never admin).
+      await admin.auth().setCustomUserClaims(userRecord.uid, { role });
 
-      // Create/update subscription doc so dashboard auth gate passes
-      const plan = creds.trialDays === null ? 'professional' : 'foundation';
+      // Create subscription doc via admin SDK. Trust only the fields from the
+      // Firestore-stored access code record.
+      const planFromCode = code.plan === 'professional' ? 'professional' : 'foundation';
       const subData = {
-        plan: plan,
+        plan: planFromCode,
         status: 'active',
         source: 'access_code',
         accessCode: normalized,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
-      if (creds.trialDays !== null) {
-        const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + creds.trialDays);
+      if (typeof code.trialDays === 'number' && code.trialDays > 0) {
+        const trialEnd = new Date(Date.now() + code.trialDays * 86_400_000);
         subData.trialEndsAt = admin.firestore.Timestamp.fromDate(trialEnd);
       }
-      await admin.firestore().doc(`subscriptions/${userRecord.uid}`).set(subData, { merge: true });
+      const subRef = db.doc(`subscriptions/${userRecord.uid}`);
+      if (!(await subRef.get()).exists) {
+        subData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      }
+      await subRef.set(subData, { merge: true });
 
-      // Also create user doc if missing
-      const userDocRef = admin.firestore().doc(`users/${userRecord.uid}`);
+      // Create user profile doc if missing. Role is set via claim, not via the
+      // users/<uid>.role field (which clients can write).
+      const userDocRef = db.doc(`users/${userRecord.uid}`);
       const userDocSnap = await userDocRef.get();
       if (!userDocSnap.exists) {
         await userDocRef.set({
-          email: creds.email,
-          role: creds.role,
+          email,
           displayName: userRecord.displayName || 'NBD Member',
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       }
 
-      console.log(`Access code validated: ${normalized} → ${creds.email} (plan: ${plan}, trial: ${creds.trialDays || 'permanent'})`);
+      // Increment usage counter.
+      await codeRef.update({
+        useCount: admin.firestore.FieldValue.increment(1),
+        lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-      // Return email + password for client signInWithEmailAndPassword
-      return {
-        success: true,
-        email: creds.email,
-        password: stablePassword,
-        role: creds.role,
-        trialDays: creds.trialDays
-      };
-
+      // Mint a short-lived custom token. Client exchanges via signInWithCustomToken.
+      const customToken = await admin.auth().createCustomToken(userRecord.uid, { role });
+      logger.info('access_code_redeemed', { normalized, uid: userRecord.uid, role });
+      return { success: true, customToken, role };
     } catch (e) {
-      console.error('validateAccessCode error:', e);
-      return { success: false, error: 'Authentication error. Please try again.' };
+      if (e instanceof HttpsError) throw e;
+      logger.error('validateAccessCode error', { normalized, err: e.message });
+      throw new HttpsError('internal', 'Authentication error. Please try again.');
     }
   }
 );

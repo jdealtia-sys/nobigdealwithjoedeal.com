@@ -1,0 +1,26 @@
+{
+  "displayName": "NBD Pro — Rate-limit denial spike",
+  "documentation": {
+    "content": "Rate-limit denials are spiking. Something (an attacker, a bad deploy, a bot, a broken client) is hitting our endpoints far above normal. Check which namespace is being denied (validateAccessCode:ip, publicVisualizerAI:ip, claudeProxy:uid, etc) and correlate to the source IP in Cloud Logging. The namespace is in jsonPayload.namespace.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "rate_limit_denied log events",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND severity=\"WARNING\" AND jsonPayload.message=\"rate_limit_denied\""
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": {
+      "period": "600s"
+    },
+    "autoClose": "1800s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════
+// NBD MARKETING SITE — Firestore Rules — HARDENED (2026-04-11)
+//
+// Project: `nobigdealwithjoedeal`
+//   apiKey: AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ
+//
+// Scope: this file ONLY covers the marketing project. The NBD Pro SaaS app
+// lives in the `nobigdeal-pro` project and uses /firestore.rules at the
+// repo root.
+//
+// HOW TO DEPLOY:
+//   1. Clone/check out this file into the marketing-site Firebase project
+//      directory (or use `firebase deploy --only firestore:rules --project
+//      nobigdealwithjoedeal` from a directory configured for that project).
+//   2. Run `firebase deploy --only firestore:rules` against the marketing
+//      project.
+//
+// The marketing site only needs ONE public-write collection: `leads`
+// (from the homepage/oaks/template contact forms). Everything else is
+// denied by default.
+// ═══════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── LEADS (marketing funnel — public create only) ─────
+    // Any visitor can submit a lead, but:
+    //   - Reads/updates/deletes are disabled (admin SDK via Functions only).
+    //   - Shape + size checks block garbage and spam.
+    //   - Rate limiting must be enforced at the Cloud Function / reCAPTCHA
+    //     layer on the client, since Firestore rules cannot rate-limit.
+    match /leads/{leadId} {
+      allow create: if
+        request.resource.data.keys().hasAll(['firstName','email','phone','source','createdAt','status']) &&
+        request.resource.data.firstName is string &&
+        request.resource.data.firstName.size() > 0 &&
+        request.resource.data.firstName.size() < 200 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 3 &&
+        request.resource.data.email.size() < 200 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() > 6 &&
+        request.resource.data.phone.size() < 30 &&
+        request.resource.data.source is string &&
+        request.resource.data.source.size() < 200 &&
+        // Optional fields get size caps if present.
+        (!('lastName' in request.resource.data) || (request.resource.data.lastName is string && request.resource.data.lastName.size() < 200)) &&
+        (!('zip' in request.resource.data) || (request.resource.data.zip is string && request.resource.data.zip.size() < 20)) &&
+        (!('service' in request.resource.data) || (request.resource.data.service is string && request.resource.data.service.size() < 200)) &&
+        (!('message' in request.resource.data) || (request.resource.data.message is string && request.resource.data.message.size() < 4000)) &&
+        (!('companyId' in request.resource.data) || (request.resource.data.companyId is string && request.resource.data.companyId.size() < 50)) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() < 200)) &&
+        (!('page' in request.resource.data) || (request.resource.data.page is string && request.resource.data.page.size() < 500)) &&
+        request.resource.data.status in ['new','contacted','qualified','closed','archived'];
+      allow read, update, delete: if false;
+    }
+
+    // ── DEFAULT DENY ─────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

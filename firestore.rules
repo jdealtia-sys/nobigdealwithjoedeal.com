@@ -1,367 +1,364 @@
 rules_version = '2';
 
-// NBD Pro Firestore Security Rules
+// NBD Pro Firestore Security Rules — HARDENED (2026-04-11)
 // Deploy: firebase deploy --only firestore:rules
+//
+// Security model:
+//   - Roles come from custom claims (`request.auth.token.role`), not from a
+//     user-writable `users/{uid}.role` field.
+//   - Broad `allow read: if isAuth()` is a footgun — every collection here
+//     scopes reads to the resource owner, their company, or an admin.
+//   - Subscription, rate_limits, access_codes, audit_log are admin-SDK-only.
+//   - Public-write collections keep strict shape checks.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helper functions ──────────────────────────────
-    function isAuth() {
-      return request.auth != null;
+    function isAuth()    { return request.auth != null; }
+    function isOwner(userId) { return isAuth() && request.auth.uid == userId; }
+    function isAdmin()   { return isAuth() && request.auth.token.role == 'admin'; }
+    function isManager() { return isAuth() && request.auth.token.role == 'manager'; }
+
+    function myCompanyId() {
+      return request.auth.token.companyId;
     }
 
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
+    function sameCompanyAsResource() {
+      return isAuth()
+        && request.auth.token.companyId != null
+        && resource.data.companyId == request.auth.token.companyId;
     }
 
-    function isDocOwner() {
-      return isAuth() && resource.data.userId == request.auth.uid;
+    // Field-diff helper used by users/<uid> to block privilege escalation.
+    function didNotChange(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
     // ── LEADS ─────────────────────────────────────────
-    // Users can only read/write their own leads (userId field)
     match /leads/{leadId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // Nested leads path (crm-leads.js architecture)
     match /leads/{uid}/leads/{leadId} {
-      allow read, write: if isOwner(uid);
-
-      // Activity sub-collection
-      match /activity/{activityId} {
-        allow read, write: if isOwner(uid);
-      }
-
-      // Tasks sub-collection
-      match /tasks/{taskId} {
-        allow read, write: if isOwner(uid);
-      }
+      allow read, write: if isOwner(uid) || isAdmin();
+      match /activity/{activityId} { allow read, write: if isOwner(uid) || isAdmin(); }
+      match /tasks/{taskId}        { allow read, write: if isOwner(uid) || isAdmin(); }
+      match /notes/{noteId}        { allow read, write: if isOwner(uid) || isAdmin(); }
     }
 
     // ── ESTIMATES ─────────────────────────────────────
     match /estimates/{estimateId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── PHOTOS ────────────────────────────────────────
-    // Photos scoped to owner (userId field required on every photo doc)
     match /photos/{photoId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── MAP PINS ──────────────────────────────────────
     match /pins/{pinId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── TASKS ─────────────────────────────────────────
     match /tasks/{taskId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── NOTIFICATIONS ─────────────────────────────────
     match /notifications/{notifId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
-      allow create: if isAuth();
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Creation is server-side (admin SDK). Allow self-create too for client-initiated flows
+      // but only if the userId matches the caller, to prevent cross-tenant spam.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── EMAILS (sent log) ─────────────────────────────
     match /emails/{emailId} {
       allow read: if isAuth() && resource.data.sentBy == request.auth.token.email;
-      allow create: if isAuth();
+      allow create: if isAuth() && request.resource.data.sentBy == request.auth.token.email;
     }
 
     // ── DOCUMENTS ─────────────────────────────────────
     match /documents/{docId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── NOTES ─────────────────────────────────────────
     match /notes/{noteId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // ── USER SETTINGS ─────────────────────────────────
+    // ── USER SETTINGS / PROFILE ───────────────────────
+    // Profile is self-owned but privileged fields are locked to the server.
     match /users/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && !request.resource.data.keys().hasAny(['role','plan','accessCode','isAdmin','companyId']);
+      allow update: if isOwner(uid)
+        && didNotChange(['role','plan','accessCode','isAdmin','companyId']);
+      allow delete: if isAdmin();
 
       match /{subcol}/{docId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if isOwner(uid) || isAdmin();
       }
     }
 
     match /userSettings/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────
-    // Users can read their own subscription; only server/registration can create/update
+    // READ-ONLY for the owner. All writes go through the Stripe webhook or
+    // the hardened validateAccessCode Cloud Function (admin SDK).
     match /subscriptions/{uid} {
-      allow read: if isOwner(uid);
-      // Allow create during registration (user creating their own sub doc)
-      allow create: if isOwner(uid)
-        && request.resource.data.plan is string
-        && request.resource.data.status is string;
-      // Allow update only if user is updating their own doc
-      // (Stripe webhooks should use admin SDK which bypasses rules)
-      allow update: if isOwner(uid);
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
     }
 
     // ── ACCESS CODES ──────────────────────────────────
-    // Read-only for all authenticated users (registration validation)
+    // Admin-SDK-only. Clients can neither read nor write.
     match /access_codes/{codeId} {
-      allow read: if isAuth();
+      allow read, write: if false;
     }
 
-    // ── LEADERBOARD (read-only for all auth users, write for self) ──
+    // ── LEADERBOARD ───────────────────────────────────
+    // Readable only within the same company (or admin). Writable only by the owner.
     match /leaderboard/{uid} {
-      allow read: if isAuth();
+      allow read: if isAdmin()
+        || isOwner(uid)
+        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       allow write: if isOwner(uid);
     }
 
     // ── API USAGE LOGGING ─────────────────────────────
+    // Writes happen via admin SDK (Cloud Function). Reads: own usage or admin.
     match /api_usage/{docId} {
-      allow create: if isAuth();
-      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+      allow read: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if false;
     }
 
-    // ── RATE LIMITS (Cloud Function managed) ──────────
-    match /rate_limits/{uid} {
-      allow read, write: if isOwner(uid);
-    }
+    // ── RATE LIMITS (admin-SDK only) ──────────────────
+    match /rate_limits/{uid}        { allow read, write: if false; }
+    match /_rate_limits_ip/{docId}  { allow read, write: if false; }
 
     // ── DAILY SUCCESS ─────────────────────────────────
     match /daily_entries/{uid}/entries/{entryId} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // ── DAILY TRACKER (dashboard widget) ─────────────
+    // ── DAILY TRACKER ────────────────────────────────
     match /dailyTracker/{docId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // ── D2D KNOCKS (door-to-door tracking) ─────────────
+    // ── D2D KNOCKS ────────────────────────────────────
     match /knocks/{knockId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || (isManager() && sameCompanyAsResource());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
-    }
-
-    // ── D2D KNOCKS (team-scoped reads for managers) ──
-    // Managers can read all knocks for their company
-    match /knocks/{knockId} {
-      allow read: if isAuth() && resource.data.companyId != null
-        && exists(/databases/$(database)/documents/reps/$(request.auth.uid))
-        && get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.role == 'manager'
-        && resource.data.companyId == get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.companyId;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // ── REPS (team member profiles) ──────────────────
+    // Reads scoped to same company or admin. Never globally enumerable.
     match /reps/{repId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && repId == request.auth.uid;
-      allow update: if isOwner(repId);
-      allow delete: if isOwner(repId);
+      allow read: if isAdmin()
+        || isOwner(repId)
+        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
+      allow create: if isOwner(repId)
+        && !request.resource.data.keys().hasAny(['role','isAdmin']);
+      allow update: if (isOwner(repId) && didNotChange(['role','isAdmin','companyId']))
+        || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // ── TERRITORIES (D2D territory polygons) ─────────
+    // ── TERRITORIES ──────────────────────────────────
     match /territories/{territoryId} {
-      allow read: if isAuth();
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
-    // ── PRODUCTS (user-scoped product catalog) ────────
+    // ── PRODUCTS ──────────────────────────────────────
     match /products/{productId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // ── TEMPLATES (user-scoped template library) ──────
+    // ── TEMPLATES ─────────────────────────────────────
     match /templates/{templateId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // ── COMPANIES (company profiles & team) ───────────
+    // ── COMPANIES ─────────────────────────────────────
     match /companies/{companyId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && resource.data.ownerId == request.auth.uid;
+      // Readable by members of that company, the owner, or admin.
+      allow read: if isAdmin()
+        || (isAuth() && resource.data.ownerId == request.auth.uid)
+        || (isAuth() && myCompanyId() == companyId);
       allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
 
-      // Team members sub-collection
+      // Members subcollection is writable only by the company owner or admin.
       match /members/{memberId} {
-        allow read: if isAuth();
-        allow write: if isAuth();
+        allow read: if isAdmin()
+          || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid)
+          || (isAuth() && request.auth.uid == memberId);
+        allow create, update, delete: if isAdmin()
+          || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid);
       }
     }
 
-    // ── TRAINING SESSIONS (sales training progress) ──
+    // ── TRAINING SESSIONS ────────────────────────────
     match /training_sessions/{sessionId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || (isManager() && sameCompanyAsResource());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
-    // ── TRAINING SESSIONS (team reads for managers) ──
-    match /training_sessions/{sessionId} {
-      allow read: if isAuth() && resource.data.companyId != null
-        && exists(/databases/$(database)/documents/reps/$(request.auth.uid))
-        && get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.role == 'manager'
-        && resource.data.companyId == get(/databases/$(database)/documents/reps/$(request.auth.uid)).data.companyId;
-    }
-
-    // ── GUIDE LEADS (public lead capture — no auth required to submit) ──
+    // ── PUBLIC LEAD FORMS ────────────────────────────
+    // Create-only by unauthenticated homeowners. Strict shape. Reads restricted to admin.
     match /guide_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'source'])
+      allow create: if request.resource.data.keys().hasAll(['name','email','source'])
         && request.resource.data.name is string
         && request.resource.data.email is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() < 200
-        && request.resource.data.email.size() > 3
-        && request.resource.data.email.size() < 200;
-      allow read: if isAuth();
-      allow delete: if false;
+        && request.resource.data.source is string
+        && request.resource.data.name.size() > 0  && request.resource.data.name.size() < 200
+        && request.resource.data.email.size() > 3 && request.resource.data.email.size() < 200
+        && request.resource.data.source.size() < 200;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // ── CONTACT LEADS (homepage form — no auth required to submit) ──
     match /contact_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['firstName', 'phone', 'source'])
+      allow create: if request.resource.data.keys().hasAll(['firstName','phone','source'])
         && request.resource.data.firstName is string
         && request.resource.data.phone is string
-        && request.resource.data.firstName.size() > 0
-        && request.resource.data.firstName.size() < 200
-        && request.resource.data.phone.size() > 6
-        && request.resource.data.phone.size() < 30;
-      allow read: if isAuth();
-      allow delete: if false;
+        && request.resource.data.source is string
+        && request.resource.data.firstName.size() > 0 && request.resource.data.firstName.size() < 200
+        && request.resource.data.phone.size() > 6    && request.resource.data.phone.size() < 30
+        && request.resource.data.source.size() < 200;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // ── ESTIMATE LEADS (instant estimate tool — no auth required) ──
     match /estimate_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(["address", "source"])
+      allow create: if request.resource.data.keys().hasAll(['address','source'])
         && request.resource.data.address is string
-        && request.resource.data.address.size() > 3
-        && request.resource.data.address.size() < 500;
-      allow read: if isAuth();
-      allow delete: if false;
+        && request.resource.data.source is string
+        && request.resource.data.address.size() > 3 && request.resource.data.address.size() < 500
+        && request.resource.data.source.size() < 200;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // ── STORM ALERT SUBSCRIBERS (public SMS opt-in) ──
     match /storm_alert_subscribers/{subId} {
-      allow create: if request.resource.data.keys().hasAll(["name", "phone", "zip", "source"])
+      allow create: if request.resource.data.keys().hasAll(['name','phone','zip','source'])
         && request.resource.data.name is string
         && request.resource.data.phone is string
         && request.resource.data.zip is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.phone.size() > 6
+        && request.resource.data.source is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 200
+        && request.resource.data.phone.size() > 6 && request.resource.data.phone.size() < 30
         && request.resource.data.zip.size() == 5;
-      allow read: if isAuth();
-      allow update: if false;
-      allow delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     // ── STORM ALERTS SENT LOG (Cloud Function only) ──
     match /storm_alerts_sent/{alertId} {
-      allow read: if isAuth();
-      allow create: if false;  // Only Cloud Function (admin SDK) can write
-      allow delete: if false;
+      allow read: if isAdmin();
+      allow write: if false;
     }
+
+    // ── OTP / VERIFIED PHONES (admin-SDK only) ───────
+    match /otp_requests/{docId}    { allow read, write: if false; }
+    match /verified_phones/{phone} { allow read, write: if false; }
+    match /unmatched_sms/{docId}   { allow read: if isAdmin(); allow write: if false; }
 
     // ── INVOICES ─────────────────────────────────────
     match /invoices/{invoiceId} {
-      allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.createdBy) || isAdmin();
       allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
-      allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
     }
 
     // ── EMAIL DRIP ───────────────────────────────────
     match /drip_queue/{docId} {
-      allow read, write: if isAuth();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
     match /drip_log/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow write: if false;
     }
 
-    // ── EMAIL LOG ────────────────────────────────────
+    // ── EMAIL / SMS LOG (admin-SDK write, owner read) ─
     match /email_log/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
+      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow write: if false;
     }
-
-    // ── SMS LOG ──────────────────────────────────────
     match /sms_log/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
+      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow write: if false;
     }
 
     // ── LEAD DOCUMENTS ───────────────────────────────
-    // Queried by leadId + userId in customer.html
     match /lead_documents/{docId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
     // ── REFERRALS ────────────────────────────────────
     match /referrals/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // ── REVIEW REQUESTS ──────────────────────────────
     match /review_requests/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // ── REPORTS ──────────────────────────────────────
     match /reports/{docId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
-    // ── DEFAULT: Deny everything else ─────────────────
+    // ── INVITES (admin-SDK only) ─────────────────────
+    match /invites/{token} { allow read, write: if false; }
+
+    // ── AUDIT LOG (admin-only reads, admin-SDK writes) ─
+    match /audit_log/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

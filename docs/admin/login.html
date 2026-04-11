@@ -315,16 +315,26 @@ body {
         <p>Enter your access code to continue</p>
       </div>
 
-      <form onsubmit="handleLogin(event)">
+      <form autocomplete="off">
         <div class="form-group">
-          <label class="form-label" for="passcode">Access Code</label>
-          <input 
-            type="password" 
-            id="passcode" 
-            class="form-input" 
-            placeholder="••••••••"
-            autocomplete="off"
+          <label class="form-label" for="adminEmail">Admin Email</label>
+          <input
+            type="email"
+            id="adminEmail"
+            class="form-input"
+            placeholder="jd@nobigdealwithjoedeal.com"
+            autocomplete="username"
             autofocus
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="adminPassword">Password</label>
+          <input
+            type="password"
+            id="adminPassword"
+            class="form-input"
+            placeholder="••••••••"
+            autocomplete="current-password"
           />
         </div>
 
@@ -364,79 +374,12 @@ body {
         </a>
       </div>
 
-      <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+      <button type="button" class="logout-btn">🚪 Logout</button>
     </div>
   </div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-const app = initializeApp({
-  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-  authDomain: "nobigdeal-pro.firebaseapp.com",
-  projectId: "nobigdeal-pro",
-  storageBucket: "nobigdeal-pro.firebasestorage.app",
-  messagingSenderId: "717435841570",
-  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-});
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// If already signed in as admin, go straight to vault
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : null;
-      if (role === 'admin' || user.email === 'demo@nobigdeal.pro') {
-        window.location.href = 'vault.html';
-        return;
-      }
-    } catch(e) {}
-  }
-  // Not admin — show login form
-  document.getElementById('loginForm').style.display = 'block';
-});
-
-// Expose handleLogin globally for the form onsubmit
-window.handleLogin = async function(event) {
-  event.preventDefault();
-  const input = document.getElementById('passcode');
-  const errorDiv = document.getElementById('errorMsg');
-  const btn = document.getElementById('loginBtn');
-  const value = input.value.trim();
-
-  errorDiv.textContent = '';
-  if (!value) { errorDiv.textContent = 'Please enter your email'; return; }
-
-  btn.disabled = true;
-  btn.textContent = 'Verifying...';
-
-  try {
-    // Try signing in with email + passcode as password
-    const cred = await signInWithEmailAndPassword(auth, value, document.getElementById('passfield')?.value || '');
-    // Verify admin role
-    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-    const role = userDoc.exists() ? userDoc.data().role : null;
-    if (role === 'admin' || cred.user.email === 'demo@nobigdeal.pro') {
-      window.location.href = 'vault.html';
-    } else {
-      errorDiv.textContent = 'Account does not have admin access.';
-      btn.disabled = false;
-      btn.textContent = 'Unlock Admin Access';
-    }
-  } catch(e) {
-    errorDiv.textContent = 'Invalid credentials. Please try again.';
-    btn.disabled = false;
-    btn.textContent = 'Unlock Admin Access';
-    input.value = '';
-    input.focus();
-  }
-};
-</script>
+<script type="module" src="js/pages/login.js"></script>
 
 </body>
 </html>
