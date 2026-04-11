@@ -893,6 +893,100 @@ Object.assign(exports, verifyFunctions);
 const auditLog = require('./audit-log');
 Object.assign(exports, auditLog);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// publicVisualizerAI — Public homeowner visualizer endpoint.
+//
+// The marketing-site visualizer.html calls this to get an AI-generated
+// assessment of a home photo. Homeowners are NOT authenticated, so we
+// cannot use the claudeProxy subscription gate. Instead:
+//   - enforceAppCheck: true (blocks curl/bot replay of the reCAPTCHA token)
+//   - per-IP rolling-window rate limit: 5 requests / hour
+//   - model locked to Haiku (cheapest tier)
+//   - max_tokens hard-capped at 800
+//   - system prompt is server-owned, client cannot inject one
+//   - image payload must be a base64-encoded JPEG/PNG under 1.5 MB
+// ═══════════════════════════════════════════════════════════════════════════
+const VISUALIZER_MAX_B64_BYTES = Math.round(1.5 * 1024 * 1024 * 4 / 3); // ~2 MB base64
+const VISUALIZER_SYSTEM_PROMPT = "You are Joe Deal, owner of No Big Deal Home Solutions in Greater Cincinnati, OH. You're a roofing and exterior contractor — honest, plain-spoken, helpful. A homeowner has uploaded a photo of their house and selected exterior options they want to visualize. Give them: (1) a practical assessment of what their home currently has (roof, siding, gutters you can see), (2) specific honest feedback on how their chosen options would look on THIS house, (3) any recommendations. Keep it conversational, 150-200 words, then a short visual description prefixed with 'CANVAS:' that describes colors and materials as hex values for the canvas overlay.";
+
+exports.publicVisualizerAI = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 10,
+    concurrency: 20,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Per-IP cap — 5 visualizer calls / hour from a single IP. Each call is
+    // a ~$0.01 Haiku request; 5/hour caps cost per IP at ~$0.05/hour worst case.
+    if (!(await httpRateLimit(req, res, 'publicVisualizerAI:ip', 5, 3_600_000))) return;
+
+    try {
+      const { imageBase64, mediaType, selectionsText, notes } = req.body || {};
+
+      if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+        res.status(400).json({ error: 'imageBase64 required' });
+        return;
+      }
+      if (imageBase64.length > VISUALIZER_MAX_B64_BYTES) {
+        res.status(413).json({ error: 'Image too large (max 1.5 MB)' });
+        return;
+      }
+      const allowedMedia = new Set(['image/jpeg', 'image/png', 'image/webp']);
+      const safeMediaType = allowedMedia.has(mediaType) ? mediaType : 'image/jpeg';
+      const safeSelections = String(selectionsText || '').slice(0, 400);
+      const safeNotes = String(notes || '').slice(0, 400);
+
+      const anthropicBody = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system: VISUALIZER_SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: safeMediaType, data: imageBase64 } },
+            { type: 'text', text: `Selections: ${safeSelections}.${safeNotes ? ' Notes: ' + safeNotes : ''}` },
+          ],
+        }],
+      };
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn('publicVisualizerAI: upstream error', { status: response.status });
+        res.status(response.status).json({ error: 'Upstream AI error' });
+        return;
+      }
+
+      // Return only the text content, never the full upstream payload.
+      const text = Array.isArray(data.content)
+        ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+        : '';
+      res.json({ text });
+    } catch (e) {
+      logger.error('publicVisualizerAI error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
+
 // ═══════════════════════════════════════════════════════════════════
 // seedDemoData — REMOVED.
 // Previously this was an unauthenticated POST that ran the full demo

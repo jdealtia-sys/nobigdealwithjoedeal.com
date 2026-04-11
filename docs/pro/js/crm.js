@@ -300,11 +300,14 @@ function renderLeads(leads, filtered){
       alertBox.innerHTML=overdue.slice(0,5).map(l=>`
         <div class="follow-up-alert">
           <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
-          <span class="fa-name">${l.firstName||''} ${l.lastName||''}</span>
-          <span style="color:var(--m);font-size:11px;">${(l.address||'').split(',')[0]}</span>
-          <span class="fa-date">Due: ${l.followUp}</span>
-          <button class="fa-btn" onclick="editLead('${l.id}')">View →</button>
+          <span class="fa-name">${escHtml(l.firstName||'')} ${escHtml(l.lastName||'')}</span>
+          <span style="color:var(--m);font-size:11px;">${escHtml((l.address||'').split(',')[0])}</span>
+          <span class="fa-date">Due: ${escHtml(l.followUp)}</span>
+          <button class="fa-btn nbd-fa-edit" data-lead-id="${escHtml(l.id)}">View →</button>
         </div>`).join('');
+      alertBox.querySelectorAll('.nbd-fa-edit').forEach(btn => {
+        btn.addEventListener('click', () => editLead(btn.dataset.leadId));
+      });
     } else { alertBox.style.display='none'; }
   }
 
@@ -808,31 +811,55 @@ function renderNotifItem(n, opts = {}) {
   const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.default;
   const hasLead = n.leadId && !n.leadId.startsWith('d-');
 
+  // Notification.message is populated from incoming SMS + push content via
+  // Cloud Functions, so it can contain attacker-controlled HTML. Every field
+  // is escaped and all IDs are data-attributes consumed by event listeners
+  // (see wireNotifListeners below) instead of inline onclick handlers.
   return `
-    <div style="padding:10px 14px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s;${isUnread && !isDismissed ? 'background:var(--og);' : ''}${isDismissed ? 'opacity:0.65;' : ''}"
-         onclick="notifAction('${n.id}','${n.leadId||''}',${isDismissed})"
-         onmouseenter="this.style.background='var(--s2)'"
-         onmouseleave="this.style.background='${isUnread && !isDismissed ? 'var(--og)' : ''}'">
+    <div class="nbd-notif-row" data-notif-id="${escHtml(n.id)}" data-notif-lead="${escHtml(n.leadId||'')}" data-notif-dismissed="${isDismissed ? '1' : '0'}" data-notif-type="${escHtml(n.type||'')}" style="padding:10px 14px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s;${isUnread && !isDismissed ? 'background:var(--og);' : ''}${isDismissed ? 'opacity:0.65;' : ''}">
       <div style="display:flex;gap:10px;align-items:start;">
         <div style="font-size:20px;flex-shrink:0;">${icon}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:${isUnread ? '600' : '400'};margin-bottom:3px;color:var(--t);">
-            ${n.title || 'Notification'}
+            ${escHtml(n.title || 'Notification')}
           </div>
           <div style="font-size:12px;color:var(--m);margin-bottom:3px;line-height:1.4;">
-            ${n.message || ''}
+            ${escHtml(n.message || '')}
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:10px;color:var(--m);opacity:0.8;">${timeAgo}</span>
+            <span style="font-size:10px;color:var(--m);opacity:0.8;">${escHtml(timeAgo)}</span>
             ${hasLead && !isDismissed ? `<span style="font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.03em;">→ VIEW LEAD</span>` : ''}
-            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span onclick="event.stopPropagation();sendFollowUpSMS('${n.leadId}')" style="font-size:9px;color:var(--green,#2ECC8A);font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
-            ${isDismissed ? `<span onclick="event.stopPropagation();restoreNotification('${n.id}')" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
+            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span class="nbd-notif-sms" style="font-size:9px;color:var(--green,#2ECC8A);font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
+            ${isDismissed ? `<span class="nbd-notif-restore" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
           </div>
         </div>
         ${isUnread && !isDismissed ? `<div style="width:8px;height:8px;background:var(--orange);border-radius:50%;flex-shrink:0;margin-top:4px;"></div>` : ''}
-        ${!isDismissed ? `<button onclick="event.stopPropagation();dismissNotification('${n.id}')" title="Dismiss" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.4;flex-shrink:0;line-height:1;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.4'">✕</button>` : ''}
+        ${!isDismissed ? `<button class="nbd-notif-dismiss" title="Dismiss" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.4;flex-shrink:0;line-height:1;">✕</button>` : ''}
       </div>
     </div>`;
+}
+
+// Wire event listeners on all rendered notification rows. Called after every
+// innerHTML = list.map(renderNotifItem) so handlers attach to the new DOM.
+function wireNotifListeners(container) {
+  if (!container) return;
+  container.querySelectorAll('.nbd-notif-row').forEach(row => {
+    const id = row.dataset.notifId;
+    const leadId = row.dataset.notifLead || '';
+    const dismissed = row.dataset.notifDismissed === '1';
+    row.addEventListener('mouseenter', () => { row.style.background = 'var(--s2)'; });
+    row.addEventListener('mouseleave', () => { row.style.background = dismissed ? '' : row.dataset.notifBg || ''; });
+    row.addEventListener('click', () => notifAction(id, leadId, dismissed));
+
+    const smsBtn = row.querySelector('.nbd-notif-sms');
+    if (smsBtn) smsBtn.addEventListener('click', (e) => { e.stopPropagation(); sendFollowUpSMS(leadId); });
+
+    const restoreBtn = row.querySelector('.nbd-notif-restore');
+    if (restoreBtn) restoreBtn.addEventListener('click', (e) => { e.stopPropagation(); restoreNotification(id); });
+
+    const dismissBtn = row.querySelector('.nbd-notif-dismiss');
+    if (dismissBtn) dismissBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissNotification(id); });
+  });
 }
 
 function renderNotifications() {
@@ -865,6 +892,7 @@ function renderNotifications() {
   }
 
   list.innerHTML = window._notifications.map(n => renderNotifItem(n)).join('');
+  wireNotifListeners(list);
 
   // Render dismissed list if open
   renderDismissedNotifications();
@@ -1052,6 +1080,7 @@ function renderDismissedNotifications() {
     return;
   }
   list.innerHTML = dismissed.map(n => renderNotifItem(n, {dismissed:true})).join('');
+  wireNotifListeners(list);
 }
 
 async function markAllNotificationsRead() {

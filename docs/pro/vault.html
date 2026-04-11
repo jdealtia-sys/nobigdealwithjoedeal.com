@@ -1105,31 +1105,35 @@ function renderOverview() {
   document.getElementById('blockerBadge').textContent = blockerCount;
   document.getElementById('sessionsBadge').textContent = CODEX.sessions.length;
   
-  // Render blockers
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+  // Render blockers — every CODEX.* field is authored data but render is still
+  // defence-in-depth escaped so the admin vault can never be self-XSS'd.
   const blockersHTML = CODEX.blockers
     .filter(b => b.status === 'open' && b.severity === 'critical')
     .map(b => `
       <div style="margin-bottom:12px; padding:12px; background:var(--red-dim); border:1px solid rgba(224,82,82,0.3); border-radius:var(--r)">
-        <strong style="color:var(--red)">${b.title}</strong><br>
-        <span style="font-size:13px; color:var(--text3)">Open for ${b.sessionsOpen} sessions</span>
+        <strong style="color:var(--red)">${esc(b.title)}</strong><br>
+        <span style="font-size:13px; color:var(--text3)">Open for ${Number(b.sessionsOpen) || 0} sessions</span>
       </div>
     `).join('');
-  
+
   document.getElementById('blockersPreview').innerHTML = blockersHTML || '<em style="color:var(--text3)">No critical blockers 🎉</em>';
-  
+
   // Next session mission - update UI elements if they exist
   const titleEl = document.getElementById('nextSessionTitle');
   const btnEl = document.getElementById('startNextSessionBtn');
   const missionEl = document.getElementById('nextSessionMission');
-  
+
   if (titleEl) titleEl.textContent = `🎯 Session ${nextSessionNum} Mission`;
   if (btnEl) btnEl.textContent = `🚀 Start Session ${nextSessionNum}`;
-  
+
   if (missionEl) {
-    const mission = extractNextMission(latestSession, nextSessionNum);
-    missionEl.innerHTML = mission;
+    // Use textContent — mission text is free-form authored data and we don't
+    // need HTML formatting in this preview card.
+    missionEl.textContent = extractNextMission(latestSession, nextSessionNum);
   }
-  
+
   // Recent sessions - with null-safe meta access
   const recentHTML = CODEX.sessions
     .slice(-5)
@@ -1137,15 +1141,20 @@ function renderOverview() {
     .map(s => {
       const date = s.meta?.date || s.date || 'No date';
       const title = s.meta?.title || s.title || 'Untitled';
+      const num = Number(s.num) || 0;
       return `
-        <div style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer" onclick="viewSession(${s.num})">
-          <strong style="color:var(--text)">Session ${s.num}</strong> — ${date}<br>
-          <span style="font-size:13px; color:var(--text3)">${title}</span>
+        <div class="nbd-recent-session" data-session-num="${num}" style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer">
+          <strong style="color:var(--text)">Session ${num}</strong> — ${esc(date)}<br>
+          <span style="font-size:13px; color:var(--text3)">${esc(title)}</span>
         </div>
       `;
     }).join('');
-  
-  document.getElementById('recentSessions').innerHTML = recentHTML;
+
+  const recentEl = document.getElementById('recentSessions');
+  recentEl.innerHTML = recentHTML;
+  recentEl.querySelectorAll('.nbd-recent-session').forEach(row => {
+    row.addEventListener('click', () => viewSession(Number(row.dataset.sessionNum)));
+  });
 }
 
 function extractNextMission(latestSession, nextSessionNum) {
@@ -1877,11 +1886,12 @@ function executeSearch() {
   const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
   
   if (totalResults === 0) {
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     resultsDiv.innerHTML = `
       <div class="card" style="margin-top:24px;">
         <div class="card-body" style="text-align:center; padding:48px;">
           <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🔍</div>
-          <div style="font-size:16px; color:var(--text3);">No results found for "${query}"</div>
+          <div style="font-size:16px; color:var(--text3);">No results found for "${esc(query)}"</div>
         </div>
       </div>
     `;

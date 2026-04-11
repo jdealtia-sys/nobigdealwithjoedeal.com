@@ -11,12 +11,41 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v4',  // bumped for pre-demo sweep critical fixes
-  cdn: 'nbd-cdn-v4',      // bumped — forces re-fetch of JS + CSS modules
+  shell: 'nbd-shell-v5',  // bumped — Phase 2 XSS/auth hardening, purges old shells
+  cdn: 'nbd-cdn-v5',      // bumped — forces re-fetch of JS + CSS modules
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v1'
 };
+
+// Auth-gated pages — never cached. A stale shell can render after logout or
+// after a policy change, which both leaks state and lets an ex-user see the
+// old UI. Every path here falls through to network-first with no cache
+// storage on success, and a short offline message on failure.
+const NO_CACHE_HTML = new Set([
+  '/pro/',
+  '/pro/dashboard.html',
+  '/pro/customer.html',
+  '/pro/vault.html',
+  '/pro/login.html',
+  '/pro/register.html',
+  '/pro/analytics.html',
+  '/pro/leaderboard.html',
+  '/pro/ask-joe.html',
+  '/pro/project-codex.html',
+  '/pro/ai-tree.html',
+  '/pro/ai-tool-finder.html',
+  '/pro/understand.html',
+  '/pro/stripe-success.html',
+  '/pro/landing.html',
+]);
+
+function isAuthGatedHTML(url) {
+  if (url.origin !== self.location.origin) return false;
+  if (NO_CACHE_HTML.has(url.pathname)) return true;
+  if (url.pathname.startsWith('/admin/')) return true;
+  return false;
+}
 
 const OFFLINE_QUEUE_DB_NAME = 'nbd-offline-db';
 const OFFLINE_QUEUE_STORE = 'pending-writes';
@@ -26,16 +55,15 @@ const SYNC_TAG = 'nbd-sync-queue';
 // INSTALL: Precache app shell
 // ─────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
+  // Precache ONLY assets that are never auth-gated: the manifest and the
+  // offline fallback page. HTML shells for authenticated pages must never
+  // be served from cache — see NO_CACHE_HTML + fetch() handler below.
   event.waitUntil(
     caches.open(CACHE_VERSIONS.shell).then(cache => {
       return cache.addAll([
-        '/pro/',
-        '/pro/dashboard.html',
-        '/pro/customer.html',
-        '/pro/login.html',
-        '/pro/manifest.json'
+        '/pro/manifest.json',
+        '/offline.html'
       ]).catch(err => {
-        // Fail open: some files may not exist yet
         console.warn('App shell cache error (non-fatal):', err);
       });
     }).then(() => self.skipWaiting())
@@ -91,6 +119,15 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Auth-gated HTML pages: never serve from cache, never store in cache.
+  // This prevents logged-out users from seeing stale dashboard/vault shells
+  // and kills XSS pivots that rely on cached old code still running after
+  // a deploy that patches a sink.
+  if (isAuthGatedHTML(url)) {
+    event.respondWith(handleAuthGatedHTML(request));
+    return;
+  }
+
   // Route based on path/resource type
   if (isMapTile(url)) {
     event.respondWith(handleMapTileRequest(request));
@@ -104,6 +141,26 @@ self.addEventListener('fetch', event => {
     event.respondWith(handleAssetRequest(request, CACHE_VERSIONS.shell));
   }
 });
+
+// Network-only handler for auth-gated HTML. If the network is unreachable,
+// fall back to the /offline.html page (a static, non-authenticated notice).
+// The goal is to make it IMPOSSIBLE for a logged-out user to see a cached
+// authenticated shell.
+async function handleAuthGatedHTML(request) {
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    // Defensive: if the server responds with a redirect to /pro/login.html,
+    // honour it; otherwise return the network response unchanged.
+    return response;
+  } catch (e) {
+    const cache = await caches.open(CACHE_VERSIONS.shell);
+    const offline = await cache.match('/offline.html');
+    return offline || new Response('You are offline. Please reconnect to continue.', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+}
 
 // ─────────────────────────────────────────────────────────
 // BACKGROUND SYNC: Replay queued writes on reconnect
@@ -189,8 +246,9 @@ async function handleAssetRequest(request, cacheName) {
     if (response) return response;
     return new Response('Offline — please check connection', { status: 503 });
   } catch (err) {
-    return cache.match('/pro/dashboard.html') ||
-           new Response('Offline — please check connection', { status: 503 });
+    // Never fall back to the dashboard HTML shell — it's auth-gated and
+    // should not be served from cache. Return a generic offline response.
+    return new Response('Offline — please check connection', { status: 503 });
   }
 }
 

@@ -115,11 +115,28 @@ Run these as a freshly-registered free user, a paid user, and an admin:
 - [ ] Watch Anthropic usage dashboard for 24h.
 - [ ] If any spend spike > $25/hour, revoke keys again and investigate.
 
-## 10. Known follow-ups (not blocking this deploy)
+## 10. Phase-2 items (landed in the same branch)
 
-- Full innerHTML sink sweep in `dashboard.html` / `customer.html` / `vault.html` (181 occurrences across 11 files). The CSP header + `dom-safe.js` helper + highest-risk sinks are fixed in this PR; the rest is tracked as a follow-up.
-- Migrate public `visualizer.html` to anonymous Firebase Auth + App Check + `claudeProxy` so the AI assessment text can come back online.
-- Migrate `rate_limits` out of Firestore to Upstash/Memorystore for per-ms latency.
-- Rebuild the marketing site (`nobigdealwithjoedeal` project) with the same hardening. That project's rules are not in this repo and need a separate sweep.
-- Replace `docs/pro/sw.js` with an auth-aware service worker that doesn't cache authenticated HTML shells.
-- Populate `functions/data/zip-to-county.json` with the full zip→county map for every service area before re-enabling storm alerts.
+- **innerHTML sweep** — every stored-XSS-reachable sink in `dashboard.html`, `customer.html`, `pro/vault.html`, and `docs/pro/js/crm.js` (notifications list = the incoming-SMS pivot) is now escaped via `window.nbdEsc`. Inline `onclick` handlers replaced with `addEventListener` so strict CSP can drop `'unsafe-inline'` in a future follow-up.
+- **visualizer.html rebuild** — now calls a new `publicVisualizerAI` Cloud Function protected by App Check + per-IP rate limit (5/hour), model locked to Haiku, max_tokens 800, system prompt server-owned. Set `window.__NBD_RECAPTCHA_KEY__` in a script before the App Check bootstrap (or hard-code it in the `<head>`) to enable the endpoint. Until the key is set, the visualizer falls through to the canned fallback assessment.
+- **sw.js** — now refuses to cache or serve auth-gated HTML (`/pro/dashboard.html`, `customer.html`, `vault.html`, `login.html`, `register.html`, `admin/**`, etc). A logged-out user can no longer see a stale cached dashboard. Cache versions bumped to `v5`.
+- **Marketing site (`nobigdealwithjoedeal` project)** — a separate `marketing-site-firestore.rules` file has been added at the repo root. Deploy it against the marketing project with `firebase deploy --only firestore:rules --project nobigdealwithjoedeal`. This only allows `create` on `leads` with strict shape + size checks, and denies everything else.
+
+### Phase-2 deploy steps
+
+After completing sections 1–9 above, also do:
+
+- [ ] `firebase deploy --only firestore:rules --project nobigdealwithjoedeal` from a directory pointing at `marketing-site-firestore.rules`.
+- [ ] Register App Check with reCAPTCHA Enterprise for the `nobigdeal-pro` project and get the site key.
+- [ ] Edit `docs/visualizer.html` and hard-code the reCAPTCHA site key in the `window.__NBD_RECAPTCHA_KEY__` script tag (or add it as a separate script before the module bootstrap), then redeploy hosting. Until this is done, the visualizer AI will silently fall back to the canned assessment.
+- [ ] `firebase deploy --only functions:publicVisualizerAI` to ship the new public visualizer endpoint.
+- [ ] Test the visualizer end-to-end: upload a photo, confirm the AI text comes back. Confirm 6th call from the same IP in an hour returns a 429.
+- [ ] Test logging out of the dashboard, reloading `/pro/dashboard.html` with the tab offline → should get the offline page, NOT a stale cached dashboard.
+- [ ] Re-run the XSS smoke tests on the dashboard and customer pages: create a lead with `firstName` = `"<img src=x onerror=alert(1)>"`, create a note with the same payload, add a contact_lead via the public form with `firstName` containing HTML → none should execute.
+
+## 11. Still open (documented, not blocking this deploy)
+
+- **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
+- **Full `unsafe-inline` removal** — the CSP still allows `script-src 'unsafe-inline'` because the HTML files have inline `<script>` blocks. Next follow-up: move every inline block to an external file with a `nonce-` or `sha-` CSP entry, then drop `'unsafe-inline'` entirely.
+- **Populate `functions/data/zip-to-county.json`** with the full zip→county map for every service area before re-enabling storm alerts.
+- **Remaining medium-risk innerHTML sinks** — some admin-only pages (`admin/analytics.html`, `admin/project-codex.html`, small bits of `pro/vault.html`) have a handful of sinks rendering authored data. They're admin-only behind the custom-claims gate, so exploit requires an existing admin, but they should be swept in the next pass.
