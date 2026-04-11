@@ -9,19 +9,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script>
-    firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
-    const db = firebase.firestore();
-  </script>
+  <script type="module" src="/sites/js/marketing-firebase-init.js"></script>
   <link rel="canonical" href="https://www.nobigdealwithjoedeal.com/sites/oaks/services/roof-repair.html">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Roof Repair | Oaks Roofing & Construction">
   <meta property="og:description" content="Expert roof repair services in Goshen, OH. Fast response for leaks, storm damage, and emergency repairs with a 5-year labor warranty.">
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/sites/oaks/services/roof-repair.html">
 </head>
-<body>
+<body data-render-cta="cta-1" data-render-quote-form-id="quote-form-1" data-render-quote-form-title="Request Roof Repair Service" data-render-quote-form-blurb="Let us know about your roof issue and we&#39;ll respond with availability and an estimate as soon as possible.">
 
 <div id="site-banner"></div>
 <div id="site-nav"></div>
@@ -210,9 +205,5 @@
 <div id="site-footer"></div>
 
   <script src="../shared.js"></script>
-  <script>
-    renderCTA('cta-1');
-    renderQuoteForm('quote-form-1', 'Request Roof Repair Service', 'Let us know about your roof issue and we\'ll respond with availability and an estimate as soon as possible.');
-  </script>
 </body>
 </html>

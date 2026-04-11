@@ -167,10 +167,57 @@ After completing sections 1–10:
 - [ ] Open the dashboard in a real browser with devtools open → watch for CSP-Report-Only violations. Each one is a remaining inline script/handler that needs to be migrated before flipping the enforced CSP to strict. Track them in a follow-up ticket.
 - [ ] Smoke test the SW upgrade: on an already-signed-in browser, deploy, then reload. Should do one automatic reload and land on the new shell.
 
-## 12. Still open (documented, not blocking this deploy)
+## 12. Strict CSP partial rollout (landed in commit ae35e46)
+
+12 auth-gated pages were fully migrated to strict CSP (no `'unsafe-inline'`, no `script-src-attr`):
+`/pro/login.html`, `/pro/register.html`, `/pro/stripe-success.html`, `/pro/analytics.html`,
+`/pro/leaderboard.html`, `/pro/ask-joe.html`, `/pro/diagnostic.html`, `/pro/understand.html`,
+`/pro/ai-tree.html`, `/admin/index.html`, `/admin/login.html`, `/admin/analytics.html`.
+
+Each page has a per-path `Content-Security-Policy` header in `firebase.json` that drops
+`'unsafe-inline'` from `script-src` and sets `script-src-attr 'none'`. The global CSP
+(default `**/*.html`) still allows `'unsafe-inline'` so the non-migrated pages continue
+to work; the per-path headers take precedence on the migrated ones.
+
+**Stripe success flow change** — `/pro/stripe-success.html` was broken by the Phase-1
+firestore.rules (the page tried to write `subscriptions/{uid}` + `users/{uid}.role`
+directly). It was rewritten to poll the subscription doc via `onSnapshot` and wait for
+the Stripe webhook to flip it active. Test the full checkout → webhook → success page
+flow on staging before deploying.
+
+## 13. Marketing site modular SDK migration (landed in this commit)
+
+`docs/sites/**` previously used the Firebase compat SDK with `firebase.initializeApp(...)`
+and `db.collection('leads').add(...)` inline. Every page has been migrated to:
+
+  - A shared `/sites/js/marketing-firebase.js` module that initializes the modular
+    SDK and attaches Firebase App Check (reCAPTCHA Enterprise, currently disabled
+    until Joe sets the site key).
+  - A glue `/sites/js/marketing-firebase-init.js` module that exposes
+    `window._nbdSubmitLead(data)` so non-module host scripts (like
+    `sites/oaks/shared.js`) can keep using a single global.
+  - Every host page (`sites/index.html`, `sites/oaks.html`, `sites/template.html`,
+    `sites/oaks/*.html`, `sites/oaks/services/*.html`) loads the modular init via
+    `<script type="module" src="/sites/js/marketing-firebase-init.js">` instead of
+    the old compat `<script>` pair + inline `firebase.initializeApp(...)`.
+  - The `sites/template.html` lead submission no longer calls `notifyNewLead` from
+    the client — that callable now requires App Check and an OTP-verified phone,
+    both of which are out of scope for an unauthenticated marketing form.
+
+### To enable App Check on the marketing site
+
+- [ ] Register the marketing Firebase project (`nobigdealwithjoedeal`) in the
+      Firebase Console → App Check → Web app.
+- [ ] Create a reCAPTCHA Enterprise site key and copy it.
+- [ ] Edit `docs/sites/js/marketing-firebase.js` and set
+      `const MARKETING_RECAPTCHA_SITE_KEY = '...'`.
+- [ ] `firebase deploy --only hosting` to push the updated marketing site.
+- [ ] Turn on App Check enforcement on the marketing project in the console.
+
+## 14. Still open (documented, not blocking this deploy)
 
 - **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
-- **Full inline-script removal** — the CSP enforces `'unsafe-inline'` today. The new Report-Only CSP header will give you a full list of violations in devtools console. Next follow-up: move every inline `<script>` block + `onclick=` attribute to external files with per-deploy nonces, then flip the Report-Only directive into the enforced one and delete the enforced `'unsafe-inline'`. ~375 onclick handlers remain in dashboard.html alone; plan for a focused half-day sprint.
+- **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.
 - **Populate `functions/data/zip-to-county.json`** with the full zip→county map for every service area before re-enabling storm alerts.
 - **`docs/pro/js/_archive/` directory** — 33 legacy JS files, ~1.1 MB, not loaded by any current HTML. Can be deleted once you're confident nothing references them.
-- **Marketing site modular SDK migration** — `docs/sites/**` still uses the `compat` Firebase SDK. Migrate to the modular SDK so App Check can be attached to marketing-site form submissions.
+- **Inline `<style>` tags on migrated pages** — the strict CSP on migrated pages still keeps `style-src 'unsafe-inline'` because every page has inline `<style>` blocks. Removing this requires per-page stylesheet extraction. Low priority; `style-src 'unsafe-inline'` is not an XSS vector on its own.

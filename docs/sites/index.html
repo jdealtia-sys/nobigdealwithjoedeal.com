@@ -14,12 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script>
-    firebase.initializeApp({apiKey:"AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ",authDomain:"nobigdealwithjoedeal.firebaseapp.com",projectId:"nobigdealwithjoedeal",storageBucket:"nobigdealwithjoedeal.firebasestorage.app",messagingSenderId:"140387052359",appId:"1:140387052359:web:e95a34024e498e16e6e1a1"});
-    const db = firebase.firestore();
-  </script>
+  <script type="module" src="/sites/js/marketing-firebase-init.js"></script>
+  <script src="/sites/js/sites-landing.js"></script>
   <style>
     :root {
       --bg: #FAFBFC;
@@ -612,7 +608,7 @@
     <div class="form-wrap">
       <h3>Get Your Site Started</h3>
       <p class="sub">Tell us about your business and we'll have a draft ready within 48 hours.</p>
-      <form id="siteLeadForm" onsubmit="return submitSiteLead(event)">
+      <form id="siteLeadForm">
         <div class="form-row">
           <div class="form-group"><label>Your Name</label><input type="text" name="name" placeholder="Joe Smith" required></div>
           <div class="form-group"><label>Company Name</label><input type="text" name="company" placeholder="Smith Roofing" required></div>
@@ -656,37 +652,6 @@
   </div>
 </div>
 
-<script>
-async function submitSiteLead(e) {
-  e.preventDefault();
-  const form = e.target;
-  const data = {
-    name: form.name.value,
-    company: form.company.value,
-    email: form.email.value,
-    phone: form.phone.value,
-    services: form.services.value,
-    area: form.area.value,
-    plan: form.plan.value,
-    message: form.message.value,
-    source: 'nbd-sites-landing',
-    type: 'site-inquiry',
-    createdAt: new Date(),
-    status: 'new'
-  };
-  try {
-    const btn = form.querySelector('.form-submit');
-    btn.textContent = 'Sending...';
-    btn.disabled = true;
-    await db.collection('leads').add(data);
-    form.style.display = 'none';
-    document.getElementById('formSuccess').style.display = 'block';
-  } catch (err) {
-    console.error('Form error:', err);
-    alert('Something went wrong. Please call us at (859) 420-7382.');
-  }
-}
-</script>
 
 </body>
 </html>

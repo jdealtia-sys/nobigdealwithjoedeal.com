@@ -229,6 +229,9 @@ function renderCTA(containerId, heading, text) {
 }
 
 // ═══ FORM SUBMISSION ═══
+// Uses the shared modular Firebase helper instead of the compat global.
+// The marketing-firebase.js module is loaded via <script type="module"> on
+// every host page before this file runs; it exposes window._nbdSubmitLead.
 async function submitLead(e, containerId) {
   e.preventDefault();
   const form = e.target;
@@ -243,20 +246,23 @@ async function submitLead(e, containerId) {
     companyId: 'oaks',
     companyName: 'Oaks Roofing & Construction',
     source: 'website',
-    page: window.location.pathname,
-    createdAt: new Date(),
-    status: 'new'
+    page: window.location.pathname
+    // `status` and `createdAt` are added by submitMarketingLead().
   };
+  const btn = form.querySelector('.form-submit');
   try {
-    const btn = form.querySelector('.form-submit');
-    btn.textContent = 'Sending...';
-    btn.disabled = true;
-    await db.collection('leads').add(data);
+    if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
+    if (typeof window._nbdSubmitLead !== 'function') {
+      throw new Error('marketing Firebase helper not loaded');
+    }
+    await window._nbdSubmitLead(data);
     form.style.display = 'none';
-    document.getElementById('formSuccess-' + containerId).style.display = 'block';
+    const successEl = document.getElementById('formSuccess-' + containerId);
+    if (successEl) successEl.style.display = 'block';
   } catch (err) {
     console.error('Form error:', err);
     alert('Something went wrong. Please call us at (513) 827-5297.');
+    if (btn) { btn.textContent = 'Send Message'; btn.disabled = false; }
   }
 }
 
@@ -266,4 +272,18 @@ document.addEventListener('DOMContentLoaded', () => {
   renderNav();
   renderPageLogo();
   renderFooter();
+
+  // Auto-init page-specific CTA + quote forms from data-* attributes on
+  // <body>, so service pages can stop using inline <script>renderCTA(...)</script>
+  // blocks and pass strict CSP.
+  const body = document.body;
+  if (!body) return;
+
+  const ctaId = body.dataset.renderCta;
+  if (ctaId && typeof renderCTA === 'function') renderCTA(ctaId);
+
+  const qfId    = body.dataset.renderQuoteFormId;
+  const qfTitle = body.dataset.renderQuoteFormTitle || '';
+  const qfBlurb = body.dataset.renderQuoteFormBlurb || '';
+  if (qfId && typeof renderQuoteForm === 'function') renderQuoteForm(qfId, qfTitle, qfBlurb);
 });
