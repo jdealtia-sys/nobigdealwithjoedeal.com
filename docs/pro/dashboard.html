@@ -8014,7 +8014,10 @@ function switchScTab(tab, btn) {
           <div class="page-title">Reports</div>
           <div class="page-sub">Generate visual rep and business reports for meetings</div>
         </div>
-        <button class="btn btn-orange" id="btnOpenReportGenerator" onclick="if(window.NBDReports){window.NBDReports.openGenerator()}else{showToast('Report engine loading...','error')}">＋ New Report</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" id="btnEnrichData" onclick="if(window.NBDReports){window.NBDReports.enrichData()}else{showToast('Report engine loading...','error')}" title="One-time analytics enrichment: reverse-geocode knock GPS coords into city/zip and derive time-of-day buckets. Enables the Top Territories and Heatmap metrics on historical data.">✨ Enrich Data</button>
+          <button class="btn btn-orange" id="btnOpenReportGenerator" onclick="if(window.NBDReports){window.NBDReports.openGenerator()}else{showToast('Report engine loading...','error')}">＋ New Report</button>
+        </div>
       </div>
 
       <!-- Generator container — shows template picker + date range -->
@@ -12450,7 +12453,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
-<script defer src="js/rep-report-generator.js?v=3"></script>
+<script defer src="js/rep-report-generator.js?v=4"></script>
 
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=4"></script>

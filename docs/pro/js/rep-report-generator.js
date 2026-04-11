@@ -2158,6 +2158,73 @@
     init();
   }
 
+  // ─── Analytics enrichment (backfill) ─────────────────────
+  // Calls the backfillAnalytics Cloud Function to:
+  //   1. Derive hourOfDay + dayOfWeek from every knock's timestamp
+  //   2. Reverse-geocode knock lat/lng -> city/zip/state (if the
+  //      GOOGLE_GEOCODING_API_KEY secret is set in Firebase)
+  //   3. Parse lead addresses -> city/zip/state
+  //   4. Backfill closedAt for won/lost leads
+  //
+  // One call per user per 10 minutes (rate-limited server-side).
+  async function enrichData() {
+    if (typeof showToast !== 'function') return;
+    if (!window._user?.uid) {
+      showToast('Not signed in', 'error');
+      return;
+    }
+    // eslint-disable-next-line no-alert
+    if (!window.confirm('Run one-time analytics enrichment?\n\n'
+      + 'This will:\n'
+      + '\u2022 Derive time-of-day buckets from every knock timestamp\n'
+      + '\u2022 Reverse-geocode knock GPS coordinates into city/zip\n'
+      + '\u2022 Parse lead addresses into city/state/zip fields\n\n'
+      + 'Safe to run \u2014 only enriches missing fields, never overwrites data. Takes up to a few minutes if you have thousands of knocks. Limited to one run per 10 minutes.')) {
+      return;
+    }
+    const btn = document.getElementById('btnEnrichData');
+    const originalText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 Enriching...'; }
+    showToast('Starting backfill \u2014 this may take a minute...', 'info');
+    try {
+      // Use Firebase callable functions SDK via window.functions
+      // (the client is initialized elsewhere in dashboard.html).
+      if (!window._functions) {
+        const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = getFunctions();
+        window._httpsCallable = httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'backfillAnalytics');
+      const result = await fn({});
+      const summary = result.data || {};
+      const lines = [
+        '\u2713 Backfill complete',
+        summary.knocksProcessed + ' knocks processed (' + (summary.knocksEnriched || 0) + ' enriched)',
+        summary.leadsProcessed + ' leads processed (' + (summary.leadsEnriched || 0) + ' enriched)',
+        summary.knocksGeocoded > 0 ? (summary.knocksGeocoded + ' knocks reverse-geocoded') : 'Geocoding skipped (no API key set)'
+      ];
+      if (summary.warnings && summary.warnings.length) {
+        lines.push('Warnings: ' + summary.warnings.length);
+        console.warn('[Enrich] warnings:', summary.warnings);
+      }
+      // eslint-disable-next-line no-alert
+      window.alert(lines.join('\n'));
+      showToast('\u2713 Data enriched \u2014 reports now have full analytics', 'success');
+    } catch (e) {
+      console.error('[Enrich] failed:', e);
+      const msg = e.message || 'Unknown error';
+      if (msg.includes('resource-exhausted')) {
+        showToast('Please wait 10 minutes between enrichment runs', 'error');
+      } else if (msg.includes('unauthenticated')) {
+        showToast('Sign-in expired \u2014 refresh the page', 'error');
+      } else {
+        showToast('Enrichment failed: ' + msg.substring(0, 100), 'error');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    }
+  }
+
   // ─── Public API ──────────────────────────────────────────
   window.NBDReports = {
     __sentinel: 'nbd-reports-v1',
@@ -2167,6 +2234,7 @@
     setQuickRange,
     generateSelected,
     generate,
+    enrichData,
     listSavedReports,
     openSavedReport,
     deleteSavedReport,
