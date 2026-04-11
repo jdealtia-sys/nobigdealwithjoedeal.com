@@ -82,3 +82,67 @@ chmod +x scripts/deploy.sh
 
 Deploys in this order: Firestore rules → Storage rules → Cloud Functions
 → Hosting → marketing-project Firestore rules.
+
+## `scripts/bootstrap.sh` — the one-shot go-live
+
+Chains every local step for a first-time deploy:
+1. Prompts you to confirm App Check + reCAPTCHA site key are set
+2. Rotates all shared secrets (calls rotate-secrets.sh)
+3. Grants admin custom claim
+4. Seeds access_codes
+5. Deletes compromised users
+6. Runs firebase deploy
+7. Runs the post-deploy smoke tests
+
+Every step is interactive and re-runnable. You can answer "skip" to any
+stage you've already done.
+
+```bash
+./scripts/bootstrap.sh
+```
+
+## `scripts/rotate-secrets.sh` — interactive secret rotation
+
+Walks through every Firebase Cloud Functions secret the hardened code
+needs (Anthropic, Stripe, Stripe webhook, Stripe prices, Twilio, Resend,
+Joe notification targets). For each one: opens the relevant vendor URL
+in your default browser, waits for you to paste the new value, pushes it
+to Firebase with `firebase functions:secrets:set`.
+
+Hit ENTER without typing anything to skip a secret you already rotated.
+
+```bash
+./scripts/rotate-secrets.sh
+```
+
+## `scripts/verify-deploy.sh` — post-deploy smoke tests
+
+Runs the attack-payload curls from the security audit against the live
+site. Every test should FAIL (return 4xx). If any test succeeds, the
+site still has a hole — the script exits non-zero and tells you which.
+
+Safe to run anytime, read-only probes.
+
+```bash
+./scripts/verify-deploy.sh
+```
+
+## Auto-deploy via GitHub Actions
+
+There's a `.github/workflows/firebase-deploy.yml` workflow that runs
+`firebase deploy` automatically on every push to `main`. To enable it:
+
+1. Firebase Console → Project Settings → Service Accounts →
+   "Generate new private key" → download the JSON.
+2. GitHub repo → Settings → Secrets and variables → Actions →
+   "New repository secret":
+   - Name: `FIREBASE_SERVICE_ACCOUNT`
+   - Value: paste the ENTIRE JSON file contents
+3. Delete the JSON from your laptop — it's in GitHub Secrets now.
+4. Push to main (or manually trigger the workflow in the Actions tab).
+
+Once the secret is set, you never have to run `./scripts/deploy.sh`
+by hand again. Every `git push` to main triggers the deploy.
+
+You can also trigger a deploy without a push:
+GitHub → Actions → "Firebase deploy" → "Run workflow".

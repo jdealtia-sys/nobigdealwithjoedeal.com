@@ -1,0 +1,164 @@
+name: Firebase deploy
+
+# Auto-deploys the site to Firebase on every push to main.
+#
+# Deploys in the correct order:
+#   1. Firestore rules (pro project)
+#   2. Storage rules
+#   3. Cloud Functions
+#   4. Hosting
+#   5. Marketing-project Firestore rules (separate project)
+#
+# Also includes a manual trigger (workflow_dispatch) so you can re-deploy
+# without pushing a commit — useful if a deploy gets stuck or you rotate
+# a secret and want to force functions to pick it up.
+#
+# ─────────────────────────────────────────────────────────────
+# REQUIRED GITHUB ACTIONS SECRET
+# ─────────────────────────────────────────────────────────────
+# Name:  FIREBASE_SERVICE_ACCOUNT
+# Value: the contents of a Firebase service-account JSON file with
+#        Cloud Functions Deployer + Cloud Datastore User + Firebase
+#        Hosting Admin + Firebase Rules Admin roles.
+#
+# How to generate:
+#   1. Firebase Console → Project Settings → Service accounts
+#      → "Generate new private key" → download JSON
+#   2. GitHub repo → Settings → Secrets and variables → Actions
+#      → New repository secret → name: FIREBASE_SERVICE_ACCOUNT,
+#      value: paste the entire JSON file contents
+#   3. NEVER commit the JSON to the repo. GitHub Secrets are the
+#      only place it should live.
+#
+# The workflow uses `npx firebase-tools` with
+# GOOGLE_APPLICATION_CREDENTIALS pointed at a temp file, so the
+# service account JSON is never written to a persistent location.
+# ─────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Don't trigger on docs-only changes (GO_LIVE.md etc)
+      - 'docs/**'
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'storage.rules'
+      - 'marketing-site-firestore.rules'
+      - 'firebase.json'
+      - '.github/workflows/firebase-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'What to deploy (default: everything)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - hosting
+          - functions
+          - rules
+          - marketing-rules
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Firebase
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PRO_PROJECT: nobigdeal-pro
+      MKT_PROJECT: nobigdealwithjoedeal
+      NODE_VERSION: '22'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Cloud Functions dependencies
+        working-directory: functions
+        run: npm ci || npm install
+
+      - name: Write service-account JSON to a temp file
+        id: sa
+        run: |
+          SA_FILE="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$SA_FILE"
+          if [ ! -s "$SA_FILE" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is empty or missing."
+            exit 1
+          fi
+          echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Firestore rules (pro)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only firestore:rules --project "$PRO_PROJECT" --non-interactive
+
+      - name: Deploy Storage rules (pro)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
+
+      - name: Deploy Cloud Functions
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive
+
+      - name: Deploy Hosting
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive
+
+      - name: Deploy marketing-project Firestore rules
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'marketing-rules' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: |
+          # Swap the pro rules for the marketing rules, deploy against
+          # the marketing project, then restore. Always restore on exit
+          # so the pro rules never get orphaned.
+          set -e
+          if [ ! -f marketing-site-firestore.rules ]; then
+            echo "::warning::marketing-site-firestore.rules not found — skipping"
+            exit 0
+          fi
+          cp firestore.rules /tmp/firestore.rules.pro.bak
+          trap 'cp /tmp/firestore.rules.pro.bak firestore.rules; rm -f /tmp/firestore.rules.pro.bak' EXIT
+          cp marketing-site-firestore.rules firestore.rules
+          npx firebase-tools deploy --only firestore:rules --project "$MKT_PROJECT" --non-interactive
+
+      - name: Wipe service-account JSON from runner
+        if: always()
+        run: rm -f "${{ steps.sa.outputs.sa_path }}"
+
+      - name: Deploy summary
+        if: success()
+        run: |
+          echo "### ✓ Firebase deploy complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Component | Project | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Firestore rules | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Storage rules | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cloud Functions | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Hosting | $PRO_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Marketing Firestore rules | $MKT_PROJECT | deployed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: run \`./scripts/verify-deploy.sh\` against the live URLs to confirm the smoke tests pass." >> "$GITHUB_STEP_SUMMARY"
