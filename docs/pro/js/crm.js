@@ -336,10 +336,16 @@ function renderLeads(leads, filtered){
   setEl('crmFollowUps', overdue.length);
   const fp=document.getElementById('followUpPill');
   if(fp) fp.style.display = overdue.length ? 'flex':'none';
+  // Follow-up alerts — render into the inner div, show/hide the wrapper.
+  // Respect the dismiss flag so the user can hide them for the session.
+  const alertWrap=document.getElementById('followUpAlertsWrap');
   const alertBox=document.getElementById('followUpAlerts');
-  if(alertBox){
-    if(overdue.length){
-      alertBox.style.display='block';
+  const dismissed = localStorage.getItem('nbd_crm_followup_hidden') === '1';
+  if(alertWrap && alertBox){
+    if(overdue.length && !dismissed){
+      alertWrap.style.display='block';
+      const label = document.getElementById('followUpAlertsLabel');
+      if (label) label.textContent = overdue.length + ' Follow-up' + (overdue.length === 1 ? '' : 's') + ' Due';
       alertBox.innerHTML=overdue.slice(0,5).map(l=>`
         <div class="follow-up-alert">
           <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
@@ -347,11 +353,12 @@ function renderLeads(leads, filtered){
           <span style="color:var(--m);font-size:11px;">${escHtml((l.address||'').split(',')[0])}</span>
           <span class="fa-date">Due: ${escHtml(l.followUp)}</span>
           <button class="fa-btn nbd-fa-edit" data-lead-id="${escHtml(l.id)}">View →</button>
-        </div>`).join('');
+        </div>`).join('')
+        + (overdue.length > 5 ? `<div style="font-size:11px;color:var(--m);padding:6px 0;">+ ${overdue.length - 5} more</div>` : '');
       alertBox.querySelectorAll('.nbd-fa-edit').forEach(btn => {
         btn.addEventListener('click', () => editLead(btn.dataset.leadId));
       });
-    } else { alertBox.style.display='none'; }
+    } else { alertWrap.style.display='none'; }
   }
 
   // ── Build kanban columns ──

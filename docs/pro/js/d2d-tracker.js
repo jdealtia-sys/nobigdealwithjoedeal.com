@@ -1123,7 +1123,7 @@
       bounceAtZoomLimits: false     // smoother UX on iOS
     }).setView(CINCINNATI, 13);
 
-    L.tileLayer(ESRI_TILES, { attribution: 'ESRI', maxZoom: 18 }).addTo(d2dMap);
+    L.tileLayer(ESRI_TILES, { attribution: 'ESRI', maxNativeZoom: 19, maxZoom: 22 }).addTo(d2dMap);
 
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {

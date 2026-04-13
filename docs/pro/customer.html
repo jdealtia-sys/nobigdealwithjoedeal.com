@@ -3229,7 +3229,15 @@ window.uploadPhotos = async function() {
     
   } catch (error) {
     console.error('Upload error:', error);
-    alert('Upload failed. Please try again.');
+    // Mark failed items so the preview shows their error state,
+    // then clear them after a brief display so the user doesn't
+    // have to force-refresh to get rid of stuck uploads.
+    window._uploadQueue.forEach(item => { item.failed = true; });
+    updateUploadPreview();
+    alert('Some uploads failed. Failed photos have been cleared — you can retry.');
+    // Clear the queue so stuck files disappear
+    window._uploadQueue = [];
+    updateUploadPreview();
   } finally {
     uploadBtn.disabled = false;
     uploadBtn.textContent = '📤 Upload Photos';

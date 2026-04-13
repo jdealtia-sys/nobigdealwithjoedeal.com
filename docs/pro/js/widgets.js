@@ -546,9 +546,25 @@ function renderWidgetHome() {
     const w = WIDGETS.find(x => x.id === id);
     if(!w) return;
 
+    // Widget → view navigation map. Clicking a widget card takes
+    // you to the most relevant CRM view for that metric. Cards
+    // without a mapping are informational only (no click nav).
+    const NAV_MAP = {
+      'pipeline-value': 'crm', 'hot-leads': 'crm', 'win-rate': 'crm',
+      'revenue-month': 'crm', 'task-checklist': 'crm', 'd2d-summary': 'd2d',
+      'stage-funnel': 'crm', 'recent-activity': 'crm', 'door-knock-heat': 'd2d'
+    };
     const card = document.createElement('div');
     card.className = 'w-card w-' + w.size;
     card.dataset.widgetId = w.id;
+    if (NAV_MAP[w.id]) {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', (e) => {
+        // Don't navigate if user clicked the remove button
+        if (e.target.closest('.w-card-remove')) return;
+        if (typeof window.goTo === 'function') window.goTo(NAV_MAP[w.id]);
+      });
+    }
     card.innerHTML = `
       <div class="w-card-hdr">
         <span class="w-card-icon">${w.icon}</span>

@@ -94,8 +94,8 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=11" as="script">
-<link rel="preload" href="js/maps.js?v=7" as="script">
+<link rel="preload" href="js/crm.js?v=12" as="script">
+<link rel="preload" href="js/maps.js?v=8" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -4995,9 +4995,12 @@ body {
 .k-card-checkbox {
   position: absolute;
   top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
+  /* Moved to LEFT side to avoid collision with the price badge
+     which sits at top-right. Previously both were at right:8px,
+     making the checkbox unclickable when a price was displayed. */
+  left: 8px;
+  width: 24px;
+  height: 24px;
   background: var(--s);
   border: 2px solid var(--br);
   border-radius: 4px;
@@ -5006,6 +5009,7 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all .2s;
+  z-index: 10;
 }
 .bulk-mode-active .k-card-checkbox {
   display: flex;
@@ -7495,8 +7499,14 @@ function switchScTab(tab, btn) {
 
 
 
-    <!-- FOLLOW-UP ALERTS (collapsed by default) -->
-    <div id="followUpAlerts" style="display:none;padding:0 16px 8px;"></div>
+    <!-- FOLLOW-UP ALERTS (collapsible) -->
+    <div id="followUpAlertsWrap" style="display:none;padding:0 16px 8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span id="followUpAlertsLabel" style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Follow-ups Due</span>
+        <button onclick="document.getElementById('followUpAlertsWrap').style.display='none';localStorage.setItem('nbd_crm_followup_hidden','1');" style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Dismiss</button>
+      </div>
+      <div id="followUpAlerts"></div>
+    </div>
 
     <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
     <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
@@ -12570,7 +12580,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading...','error')}">
         💰 Invoice
       </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){closeCardDetailModal();document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',window._cardDetailLeadId)}else{showToast('Report engine loading...','error')}">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){const _lid=window._cardDetailLeadId;closeCardDetailModal();setTimeout(()=>{document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',_lid)},200)}else{showToast('Report engine loading...','error')}">
         📋 Report
       </button>
     </div>
@@ -12611,17 +12621,18 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/demo.js?v=3"></script>
 <script src="js/icons.js?v=3"></script>
 <script src="js/claude-proxy.js?v=3"></script>
-<script src="js/crm.js?v=11"></script>
+<script src="js/crm.js?v=12"></script>
 <script src="js/tasks.js?v=3"></script>
 <script src="js/photo-engine.js?v=3"></script>
 <script src="js/invoice-pipeline.js?v=3"></script>
 <script src="js/inspection-report-engine.js?v=3"></script>
-<script src="js/maps.js?v=7"></script>
-<script src="js/widgets.js?v=4"></script>
+<script src="js/maps.js?v=8"></script>
+<script src="js/widgets.js?v=5"></script>
 <script src="js/ui.js?v=3"></script>
 <script src="js/estimates.js?v=5"></script>
 <script src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/document-generator.js?v=1"></script>
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
@@ -12632,7 +12643,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/academy-admin.js?v=2"></script>
 <script defer src="js/real-deal-academy-lab.js?v=1"></script>
 <script defer src="js/real-deal-academy.js?v=2"></script>
-<script defer src="js/d2d-tracker.js?v=4"></script>
+<script defer src="js/d2d-tracker.js?v=5"></script>
 <script defer src="js/storm-center.js?v=1"></script>
 <script defer src="js/storm-integration.js?v=1"></script>
 <script defer src="js/decision-engine.js?v=1"></script>
