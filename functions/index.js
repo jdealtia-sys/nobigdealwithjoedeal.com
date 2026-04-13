@@ -1708,13 +1708,75 @@ exports.activateInvitedRep = onCall(
         displayName: request.auth.token.name || email.split('@')[0]
       }, { merge: true });
 
-      logger.info('activateInvitedRep: success', { uid, companyId, role });
+      logger.info('activateInvitedRep: success');
       return { activated: true, companyId, role };
 
     } catch (e) {
       logger.error('activateInvitedRep error', { uid, err: e.message });
       throw new HttpsError('internal', 'Activation failed');
     }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// rotateAccessCodes — platform-admin-only kill switch for legacy
+// hardcoded access codes (C-2).
+//
+// Until this runs, NBD-2026 and the other pre-rotation codes are
+// still live in Firestore because the old seed script wrote them.
+// Calling this deactivates them server-side. After this, the seed
+// script is the only way to mint new codes — and it prints them
+// to stdout only.
+//
+// Platform admin only. Intentionally very loud in logs — every
+// call creates an audit_log entry.
+// ═════════════════════════════════════════════════════════════
+const LEGACY_ACCESS_CODES = [
+  'NBD-2026', 'NBD-DEMO', 'DEMO', 'TRYIT',
+  'DEAL-2026', 'ROOFCON26', 'NBD-STORM'
+];
+
+exports.rotateAccessCodes = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    if (request.auth.token.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Platform admin required');
+    }
+
+    const db = admin.firestore();
+    const deactivated = [];
+    for (const codeId of LEGACY_ACCESS_CODES) {
+      const ref = db.doc(`access_codes/${codeId}`);
+      const snap = await ref.get();
+      if (!snap.exists) continue;
+      const cur = snap.data();
+      if (cur.active === false) continue;
+      await ref.update({
+        active: false,
+        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rotatedBy: uid,
+        rotatedReason: 'legacy hardcoded code auto-disabled'
+      });
+      deactivated.push(codeId);
+    }
+    logger.warn('rotateAccessCodes: legacy codes disabled', { by: uid, deactivated });
+    // Write an audit_log entry explicitly — this predates the audit
+    // triggers, so we record it here too.
+    await db.collection('audit_log').add({
+      type: 'rotate_access_codes',
+      actorUid: uid,
+      deactivated,
+      ts: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { success: true, deactivated };
   }
 );
 

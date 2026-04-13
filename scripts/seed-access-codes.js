@@ -1,65 +1,136 @@
 /**
  * scripts/seed-access-codes.js
  *
- * Populates the `access_codes` Firestore collection that the hardened
- * validateAccessCode Cloud Function reads.
+ * Populates the `access_codes` Firestore collection with RANDOM codes,
+ * prints them to stdout ONCE, and never writes them to disk. Anything
+ * committed here is meant to be read by humans, so hardcoded codes =
+ * public codes. Whoever pulls this repo (including ex-employees, old
+ * laptops, forks) used to get a working Pro account.
  *
- * Before the security audit, access codes were a hardcoded object literal
- * inside validateAccessCode. That was removed; codes are now data, and
- * this script is how you create them. Safe to re-run — it overwrites by
- * code id.
+ * Previously this file hardcoded NBD-2026, DEMO, NBD-STORM, etc. All
+ * of those were exploitable; everyone who viewed the repo could mint
+ * themselves a free Growth-plan account by typing one on /pro/login.
  *
- * NO CODE IN THIS FILE GRANTS THE ADMIN ROLE. Admin access is claims-only
- * and is set via scripts/grant-admin-claim.js. Do not add an admin code.
+ * NEW FLOW:
+ *   1. Set the number of each class of code via env:
+ *        BETA_COUNT=10 DEMO_COUNT=3 node scripts/seed-access-codes.js
+ *   2. This script mints `BETA_COUNT` beta codes + `DEMO_COUNT` demo
+ *      codes, random 16-char alphanumeric, writes them to Firestore
+ *      with maxUses + expiresAt, and PRINTS them ONCE to stdout.
+ *   3. Copy the codes into your CRM / password manager / Notion. They
+ *      are not re-derivable.
+ *   4. To rotate, run the `rotateAccessCodes` Cloud Function from the
+ *      admin dashboard or re-run this script — old codes are auto-
+ *      expired by setting `active: false`.
+ *
+ * NO CODE IN THIS FILE GRANTS THE ADMIN ROLE. Admin access is claims-
+ * only and is set via scripts/grant-admin-claim.js.
  *
  * SETUP (once):
  *   export GOOGLE_APPLICATION_CREDENTIALS=~/.nbd/nobigdeal-pro-sa.json
  *
  * RUN:
- *   node scripts/seed-access-codes.js
- *
- * To add or rotate a code: edit the `codes` object below + re-run.
+ *   BETA_COUNT=10 DEMO_COUNT=3 node scripts/seed-access-codes.js
  */
 
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
-const codes = {
-  // Demo codes — 14-day trial
-  'NBD-DEMO':  { active: true, email: 'demo@nobigdeal.pro',         role: 'member', plan: 'foundation',   trialDays: 14,  displayName: 'Demo User' },
-  'DEMO':      { active: true, email: 'demo@nobigdeal.pro',         role: 'member', plan: 'foundation',   trialDays: 14,  displayName: 'Demo User' },
-  'TRYIT':     { active: true, email: 'demo@nobigdeal.pro',         role: 'member', plan: 'foundation',   trialDays: 14,  displayName: 'Demo User' },
+const BETA_COUNT = Number(process.env.BETA_COUNT || 0);
+const DEMO_COUNT = Number(process.env.DEMO_COUNT || 0);
+const EXPIRE_BETA_DAYS = Number(process.env.EXPIRE_BETA_DAYS || 90);
+const EXPIRE_DEMO_DAYS = Number(process.env.EXPIRE_DEMO_DAYS || 14);
+const MAX_USES = Number(process.env.MAX_USES || 1);
 
-  // Beta invite codes — 90-day trial
-  'NBD-2026':  { active: true, email: 'invite.2026@nobigdeal.pro', role: 'member', plan: 'foundation',   trialDays: 90,  displayName: 'Beta Member' },
-  'DEAL-2026': { active: true, email: 'invite.2026@nobigdeal.pro', role: 'member', plan: 'foundation',   trialDays: 90,  displayName: 'Beta Member' },
-  'ROOFCON26': { active: true, email: 'invite.2026@nobigdeal.pro', role: 'member', plan: 'foundation',   trialDays: 90,  displayName: 'Beta Member' },
-  'NBD-STORM': { active: true, email: 'invite.2026@nobigdeal.pro', role: 'member', plan: 'foundation',   trialDays: 90,  displayName: 'Beta Member' },
+if (BETA_COUNT === 0 && DEMO_COUNT === 0) {
+  console.error('Set BETA_COUNT and/or DEMO_COUNT env vars. Nothing to do.');
+  process.exit(2);
+}
 
-  // Intentionally NOT present:
-  // - 'NBD-ADMIN' — admin is claims-only, not a code
-  // - 'NBD-JOE'   — use scripts/grant-admin-claim.js to become admin
-};
+function mintCode(prefix) {
+  // 10 random chars + a prefix, e.g. "NBD-7K3M4X2P9L".
+  // crypto.randomBytes avoids Math.random's predictability. Base32
+  // alphabet avoids easy-confusable chars.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(10);
+  let body = '';
+  for (const b of bytes) body += alphabet[b % alphabet.length];
+  return prefix + '-' + body;
+}
 
-function init() {
+async function main() {
   try {
     admin.initializeApp({ credential: admin.credential.applicationDefault() });
   } catch (e) {
     if (!String(e.message || '').includes('already exists')) throw e;
   }
-}
-
-async function main() {
-  init();
   const db = admin.firestore();
 
-  let written = 0;
-  for (const [id, data] of Object.entries(codes)) {
-    await db.doc('access_codes/' + id).set(data);
-    console.log('✓ seeded', id.padEnd(12), '→', data.email, '(' + data.plan + ', ' + data.trialDays + 'd trial)');
-    written++;
+  // Step 1: deactivate any existing `active: true` codes that look like
+  // legacy hardcoded ones. This renders every pre-rotation code dead.
+  const LEGACY_IDS = ['NBD-2026','NBD-DEMO','DEMO','TRYIT','DEAL-2026','ROOFCON26','NBD-STORM'];
+  for (const legacy of LEGACY_IDS) {
+    const ref = db.doc('access_codes/' + legacy);
+    const snap = await ref.get();
+    if (snap.exists) {
+      await ref.update({
+        active: false,
+        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rotatedReason: 'legacy hardcoded code — auto-disabled on rotation'
+      });
+      console.log('✗ deactivated legacy code ' + legacy);
+    }
   }
-  console.log('\nWrote ' + written + ' access codes.');
-  console.log('Test by signing in with one of the codes on /pro/login.html.');
+
+  const now = Date.now();
+  const minted = [];
+
+  for (let i = 0; i < BETA_COUNT; i++) {
+    const id = mintCode('NBD');
+    await db.doc('access_codes/' + id).set({
+      active: true,
+      email: 'invite@nobigdeal.pro',
+      role: 'member',
+      plan: 'foundation',
+      trialDays: EXPIRE_BETA_DAYS,
+      displayName: 'Beta Member',
+      maxUses: MAX_USES,
+      useCount: 0,
+      expiresAt: admin.firestore.Timestamp.fromMillis(now + EXPIRE_BETA_DAYS * 86_400_000),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      kind: 'beta'
+    });
+    minted.push({ id, kind: 'beta', expiresInDays: EXPIRE_BETA_DAYS });
+  }
+
+  for (let i = 0; i < DEMO_COUNT; i++) {
+    const id = mintCode('DEMO');
+    await db.doc('access_codes/' + id).set({
+      active: true,
+      email: 'demo@nobigdeal.pro',
+      role: 'member',
+      plan: 'foundation',
+      trialDays: EXPIRE_DEMO_DAYS,
+      displayName: 'Demo User',
+      maxUses: MAX_USES,
+      useCount: 0,
+      expiresAt: admin.firestore.Timestamp.fromMillis(now + EXPIRE_DEMO_DAYS * 86_400_000),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      kind: 'demo'
+    });
+    minted.push({ id, kind: 'demo', expiresInDays: EXPIRE_DEMO_DAYS });
+  }
+
+  // ─── Print once. Never write to a file. ─────────────────────
+  console.log('\n=============================================');
+  console.log(' NEW ACCESS CODES — COPY NOW, NOT RECOVERABLE');
+  console.log('=============================================\n');
+  for (const m of minted) {
+    console.log(' ' + m.id.padEnd(16) + '  ' + m.kind + '  expires in ' + m.expiresInDays + 'd');
+  }
+  console.log('\nStore these in your password manager. Any codes left in');
+  console.log('this terminal window should be cleared after saving.');
+  console.log('\nLegacy codes (NBD-2026 etc) have been deactivated.');
   process.exit(0);
 }
 
