@@ -5913,6 +5913,24 @@ body.theme-frosted {
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/dashboard">
 </head>
 <body>
+<!-- NBD Pro loading spinner — shown until DOMContentLoaded fires,
+     then fades out. Makes the 75-script load feel instant. -->
+<div id="nbd-loader" style="position:fixed;inset:0;z-index:99999;background:#0A0C0F;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity .4s;">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:#fff;letter-spacing:.06em;">NBD <span style="color:#e8720c;">PRO</span></div>
+  <div style="width:120px;height:3px;background:#1e2228;border-radius:2px;overflow:hidden;">
+    <div style="width:40%;height:100%;background:#e8720c;border-radius:2px;animation:nbd-load-bar 1.2s ease-in-out infinite;"></div>
+  </div>
+  <style>@keyframes nbd-load-bar{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>
+</div>
+<script>
+  // Remove loader once DOM is ready + a tiny delay for paint
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      var loader = document.getElementById('nbd-loader');
+      if (loader) { loader.style.opacity = '0'; setTimeout(function() { loader.remove(); }, 400); }
+    }, 300);
+  });
+</script>
 <script>
 // ── Professional Mode (DE-MOJI) — early boot ──
 // Set the body class BEFORE paint so emojis never flash then disappear.
