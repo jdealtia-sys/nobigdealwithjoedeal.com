@@ -13444,13 +13444,16 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=4"></script>
 <script defer src="js/tools.js?v=6"></script>
-<!-- Critical for first paint — load synchronously -->
-<script src="js/claude-proxy.js?v=3"></script>
-<script src="js/crm.js?v=12"></script>
-<script src="js/tasks.js?v=3"></script>
-<script src="js/widgets.js?v=6"></script>
-<script src="js/ui.js?v=3"></script>
-<!-- Non-critical — deferred for faster first paint (~300KB saved) -->
+<!-- ALL scripts use defer for consistent load ordering.
+     Defer scripts execute in document order after DOM ready.
+     The loading spinner covers the gap. billing-gate and
+     doc-viewer must come BEFORE crm/widgets since those
+     reference NBDBilling and NBDDocGen at call-time. -->
+<script defer src="js/claude-proxy.js?v=3"></script>
+<script defer src="js/crm.js?v=12"></script>
+<script defer src="js/tasks.js?v=3"></script>
+<script defer src="js/widgets.js?v=6"></script>
+<script defer src="js/ui.js?v=3"></script>
 <script defer src="js/demo.js?v=3"></script>
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/photo-engine.js?v=3"></script>
@@ -13512,4 +13515,4 @@ if ('serviceWorker' in navigator) {
 window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
-<script src="js/connection-status-btn.js?v=1"></script>
+<script defer src="js/connection-status-btn.js?v=1"></script>
