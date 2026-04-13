@@ -380,33 +380,29 @@
     const isDemoAccount = user.email === 'demo@nobigdeal.pro';
     
     if (!isDemoAccount) {
-      // Subscription check — soft enforcement. Log the status but
-      // DON'T redirect away from the dashboard. The billing-gate
-      // module handles soft limits. Redirecting breaks the UX for
-      // users who signed up via access code or are in trial.
+      // Subscription check — SOFT. Never block the dashboard load.
+      // The billing-gate module handles limits via soft gates.
+      // Access code users, free tier, and trial users all have no
+      // subscription doc — that's normal, not an error.
       try {
         const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
-        if (!subSnap.exists()) {
-          console.log('No subscription doc — user on free tier or access code');
-          // Do NOT redirect — let the billing gate handle limits
+        if (subSnap.exists()) {
+          const subscription = subSnap.data();
+          window._subscription = subscription;
+          window._userPlan = subscription.plan || 'free';
+          try { localStorage.setItem('nbd_user_plan', subscription.plan); } catch(e) {}
+          console.log('✓ Subscription:', subscription.plan, subscription.status);
+        } else {
+          // No subscription doc — normal for access code / free tier users
+          window._subscription = { plan: 'free', status: 'active' };
+          window._userPlan = 'free';
+          console.log('No subscription doc — defaulting to free tier');
         }
-        const subscription = subSnap.data();
-        if (subscription.status !== 'active') {
-          console.log('Inactive subscription - redirecting to pricing');
-          window.location.replace("/pro/landing.html#pricing");
-          return;
-        }
-        window._subscription = subscription;
-        window._userPlan = subscription.plan;
-        try { localStorage.setItem('nbd_user_plan', subscription.plan); } catch(e) {}
-        console.log(`✓ Active subscription: ${subscription.plan}`);
       } catch (error) {
-        console.error('Subscription check error:', error);
-        // Fail open on network error — don't bounce paying users for a Firestore hiccup
-        // They'll be re-checked on next load. Show a soft warning instead.
-        window._subscription = { plan: 'professional', status: 'active', _failOpen: true };
-        window._userPlan = 'professional';
-        console.warn('⚠️ Subscription check failed — failing open. Will retry on next load.');
+        // Fail open — don't block the app for a Firestore hiccup
+        console.warn('Subscription check failed — failing open:', error.message);
+        window._subscription = { plan: 'free', status: 'active', _failOpen: true };
+        window._userPlan = 'free';
       }
     } else {
       // Demo account - grant access
