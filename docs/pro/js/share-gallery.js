@@ -9,6 +9,15 @@
 (function() {
   'use strict';
 
+  // HTML escape — critical for share-gallery because the generated
+  // HTML is served from Firebase Storage to customers. Any unescaped
+  // photo metadata (damageType, description, location) would be a
+  // stored XSS vector visible to every person who opens the gallery.
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   const BRAND = {
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
@@ -134,14 +143,14 @@
       list.forEach(function(photo) {
         var badges = '';
         if (photo.damageType) {
-          badges += '<span style="display:inline-block;background:rgba(255,255,255,.12);color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">' + photo.damageType + '</span>';
+          badges += '<span style="display:inline-block;background:rgba(255,255,255,.12);color:#fff;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">' + esc(photo.damageType) + '</span>';
         }
         if (photo.severity) {
           var sevColor = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
-          badges += '<span style="display:inline-block;background:' + sevColor + '22;color:' + sevColor + ';padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;text-transform:capitalize;">' + photo.severity + '</span>';
+          badges += '<span style="display:inline-block;background:' + sevColor + '22;color:' + sevColor + ';padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;text-transform:capitalize;">' + esc(photo.severity) + '</span>';
         }
         if (photo.location) {
-          badges += '<span style="display:inline-block;background:rgba(59,130,246,.15);color:#60a5fa;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">' + photo.location + '</span>';
+          badges += '<span style="display:inline-block;background:rgba(59,130,246,.15);color:#60a5fa;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">' + esc(photo.location) + '</span>';
         }
         if (photo.isAnnotated) {
           badges += '<span style="display:inline-block;background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">Annotated</span>';
@@ -153,7 +162,7 @@
         phaseSections += '</div>';
         phaseSections += '<div style="padding:12px;">';
         if (badges) phaseSections += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">' + badges + '</div>';
-        if (photo.description) phaseSections += '<div style="font-size:13px;color:#cbd5e1;margin-bottom:4px;">' + photo.description + '</div>';
+        if (photo.description) phaseSections += '<div style="font-size:13px;color:#cbd5e1;margin-bottom:4px;">' + esc(photo.description) + '</div>';
         if (photo.date) phaseSections += '<div style="font-size:11px;color:#64748b;">' + photo.date + '</div>';
         phaseSections += '</div></div>';
       });
@@ -163,7 +172,7 @@
     var projectDate = lead.projectDate || lead.inspectionDate || lead.createdAt;
     var dateStr = projectDate && projectDate.toDate ? projectDate.toDate().toLocaleDateString() : '';
 
-    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Project Photos - ' + customerName + '</title>'
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Project Photos - ' + esc(customerName) + '</title>'
       + '<style>'
       + '*{margin:0;padding:0;box-sizing:border-box;}'
       + 'body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;}'
@@ -187,7 +196,7 @@
       + '<div class="brand-mark">NBD</div>'
       + '<div class="brand-name">' + BRAND.name + '</div>'
       + '<h1>Project Photos</h1>'
-      + '<div class="meta">' + customerName + (address ? ' &middot; ' + address : '') + (damageType ? ' &middot; ' + damageType + ' Damage' : '') + (dateStr ? ' &middot; ' + dateStr : '') + '</div>'
+      + '<div class="meta">' + esc(customerName) + (address ? ' &middot; ' + address : '') + (damageType ? ' &middot; ' + esc(damageType) + ' Damage' : '') + (dateStr ? ' &middot; ' + dateStr : '') + '</div>'
       + '<div class="stats"><span style="background:rgba(255,255,255,.1);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;">' + statsHtml + '</span></div>'
       + (tagsHtml ? '<div style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">' + tagsHtml + '</div>' : '')
       + '</div>'
@@ -215,7 +224,7 @@
 
     var smsBody = encodeURIComponent('Check out your project photos: ' + url);
     var emailSubject = encodeURIComponent('Your Project Photos - ' + customerName);
-    var emailBody = encodeURIComponent('Hi ' + customerName + ',\n\nHere are your project photos:\n' + url + '\n\nBest regards,\nNo Big Deal Home Solutions\n(859) 420-7382');
+    var emailBody = encodeURIComponent('Hi ' + esc(customerName) + ',\n\nHere are your project photos:\n' + url + '\n\nBest regards,\nNo Big Deal Home Solutions\n(859) 420-7382');
 
     var dialog = document.createElement('div');
     dialog.style.cssText = 'background:#1a1a2e;border:1px solid #2a2a4e;border-radius:16px;padding:28px;max-width:440px;width:90%;color:#fff;font-family:system-ui,sans-serif;';
@@ -225,7 +234,7 @@
       + '<button onclick="this.closest(\'#nbd-share-dialog-overlay\').remove()" style="background:none;border:none;color:#999;font-size:24px;cursor:pointer;">&times;</button>'
       + '</div>'
       + '<div style="background:#16213e;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#94a3b8;word-break:break-all;">' + url + '</div>'
-      + '<div style="text-align:center;margin-bottom:16px;font-size:13px;color:#64748b;">' + photoCount + ' photos shared with ' + customerName + '</div>'
+      + '<div style="text-align:center;margin-bottom:16px;font-size:13px;color:#64748b;">' + photoCount + ' photos shared with ' + esc(customerName) + '</div>'
       + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
       + '<button onclick="navigator.clipboard.writeText(\'' + url.replace(/'/g, "\\'") + '\');this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy Link\';}.bind(this),2000);" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#e8720c;color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Copy Link</button>'
       + (phone ? '<a href="sms:' + phone + '?body=' + smsBody + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#22c55e;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">Text</a>' : '')

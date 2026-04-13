@@ -7,6 +7,13 @@
 // Use var to avoid redeclaration collision with dashboard.html inline script
 var _piCache = _piCache || {};
 
+// HTML escape helper — prevents XSS when interpolating user data
+// (owner names, addresses, auditor URLs) into innerHTML templates.
+function _piEsc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ──────────────────────────────────────────────────────────────
 // FREE DATA SOURCE HELPERS
 // ──────────────────────────────────────────────────────────────
@@ -341,10 +348,10 @@ function renderIntelCard(targetElId, intel, county, address) {
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;justify-content:space-between;">
         <div style="flex:1;">
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;flex-wrap:wrap;">
-            <span class="pi-owner">${ownerName}</span>
+            <span class="pi-owner">${_piEsc(ownerName)}</span>
             ${isLLC ? '<span class="pi-llc-flag">🏢 LLC/Corp</span>' : ''}
           </div>
-          <div class="pi-addr-line">${address}</div>
+          <div class="pi-addr-line">${_piEsc(address)}</div>
         </div>
         <div style="text-align:right;min-width:120px;">
           <div style="font-size:11px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Roof Score</div>
@@ -370,8 +377,8 @@ function renderIntelCard(targetElId, intel, county, address) {
         ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${intel.parcelId}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-        ${intel.auditorUrl ? `<a class="pi-link" href="${intel.auditorUrl}" target="_blank" style="flex:1;">↗ View County Record</a>` : ''}
-        <button class="pi-lead-btn" onclick="createLeadFromProperty('${address}', '${ownerName}')" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
+        ${intel.auditorUrl && /^https?:\/\//i.test(intel.auditorUrl) ? `<a class="pi-link" href="${_piEsc(intel.auditorUrl)}" target="_blank" rel="noopener" style="flex:1;">↗ View County Record</a>` : ''}
+        <button class="pi-lead-btn" onclick="createLeadFromProperty('${_piEsc(address)}', '${_piEsc(ownerName)}')" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
       </div>
     </div>
   </div>`;
