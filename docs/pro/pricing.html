@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#e8720c">
+<title>NBD Pro Pricing — Contractor-Built, Contractor-Priced</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:#0A0C0F;color:#f0f0f0;min-height:100vh;}
+.header{text-align:center;padding:60px 24px 40px;position:relative;}
+.header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:120px;height:4px;background:#e8720c;border-radius:2px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2em;color:#e8720c;text-transform:uppercase;margin-bottom:12px;}
+.headline{font-family:'Barlow Condensed',sans-serif;font-size:clamp(36px,6vw,56px);font-weight:800;text-transform:uppercase;line-height:1;margin-bottom:16px;}
+.headline span{color:#e8720c;}
+.subhead{font-size:16px;color:#8b9bb4;max-width:520px;margin:0 auto;line-height:1.5;}
+.north-star{font-size:12px;color:#e8720c;font-weight:700;letter-spacing:.08em;margin-top:16px;text-transform:uppercase;}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1100px;margin:40px auto 0;padding:0 20px;}
+@media(max-width:900px){.grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:550px){.grid{grid-template-columns:1fr;}}
+
+.card{background:#111418;border:2px solid #1e2228;border-radius:14px;padding:32px 24px;display:flex;flex-direction:column;transition:all .2s;}
+.card:hover{border-color:#e8720c;transform:translateY(-4px);}
+.card.popular{border-color:#e8720c;position:relative;}
+.card.popular::before{content:'MOST POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#e8720c;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:.15em;padding:4px 14px;border-radius:20px;}
+
+.tier-icon{font-size:32px;margin-bottom:12px;}
+.tier-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.tier-price{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:#e8720c;line-height:1;margin-bottom:4px;}
+.tier-price .mo{font-size:14px;color:#8b9bb4;font-weight:600;}
+.tier-desc{font-size:12px;color:#8b9bb4;margin-bottom:20px;line-height:1.4;}
+
+.features{list-style:none;flex:1;margin-bottom:24px;}
+.features li{font-size:12px;padding:6px 0;border-bottom:1px solid #1e2228;display:flex;align-items:center;gap:8px;color:#c7cad1;}
+.features li::before{content:'✓';color:#e8720c;font-weight:800;font-size:14px;}
+.features li.disabled{color:#555;text-decoration:line-through;}
+.features li.disabled::before{content:'—';color:#444;}
+
+.cta{display:block;width:100%;padding:14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-align:center;cursor:pointer;transition:all .15s;border:none;text-decoration:none;}
+.cta-primary{background:#e8720c;color:#fff;}
+.cta-primary:hover{background:#ff8420;}
+.cta-ghost{background:transparent;border:2px solid #2a2f35;color:#8b9bb4;}
+.cta-ghost:hover{border-color:#e8720c;color:#e8720c;}
+
+.faq{max-width:700px;margin:60px auto;padding:0 20px 60px;}
+.faq-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:24px;}
+.faq-item{border-bottom:1px solid #1e2228;padding:16px 0;}
+.faq-q{font-size:14px;font-weight:700;color:#f0f0f0;cursor:pointer;}
+.faq-a{font-size:13px;color:#8b9bb4;margin-top:8px;line-height:1.5;display:none;}
+.faq-item.open .faq-a{display:block;}
+
+.footer{text-align:center;padding:30px 20px;color:#555;font-size:11px;}
+.footer a{color:#e8720c;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">NBD PRO</div>
+  <div class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></div>
+  <div class="subhead">The only roofing CRM that costs 1/3 of the competition and was built by a contractor who actually knocks doors.</div>
+  <div class="north-star">Always 1/3 of competitor pricing</div>
+</div>
+
+<div class="grid">
+  <!-- FREE -->
+  <div class="card">
+    <div class="tier-icon">🆓</div>
+    <div class="tier-name">Free</div>
+    <div class="tier-price">$0 <span class="mo">forever</span></div>
+    <div class="tier-desc">Get started with the basics. No credit card required.</div>
+    <ul class="features">
+      <li>10 leads per month</li>
+      <li>Basic CRM pipeline</li>
+      <li>D2D door knock tracker</li>
+      <li>Drawing tool</li>
+      <li>1 theme</li>
+      <li class="disabled">Reports</li>
+      <li class="disabled">AI tools</li>
+      <li class="disabled">Team features</li>
+    </ul>
+    <a href="/pro/register.html" class="cta cta-ghost">Get Started Free</a>
+  </div>
+
+  <!-- STARTER -->
+  <div class="card">
+    <div class="tier-icon">🚀</div>
+    <div class="tier-name">Starter</div>
+    <div class="tier-price">$99 <span class="mo">/mo</span></div>
+    <div class="tier-desc">Solo operator. Everything you need to run your business.</div>
+    <ul class="features">
+      <li>50 leads per month</li>
+      <li>Full CRM + pipeline views</li>
+      <li>D2D tracker + territories</li>
+      <li>Drawing tool + estimates</li>
+      <li>2 reports per month</li>
+      <li>20 AI calls per month</li>
+      <li>155 themes + Professional Mode</li>
+      <li>24 document templates</li>
+      <li class="disabled">Team features</li>
+    </ul>
+    <a href="#" onclick="subscribe('starter')" class="cta cta-primary">Subscribe — $99/mo</a>
+  </div>
+
+  <!-- GROWTH -->
+  <div class="card popular">
+    <div class="tier-icon">📈</div>
+    <div class="tier-name">Growth</div>
+    <div class="tier-price">$249 <span class="mo">/mo</span></div>
+    <div class="tier-desc">Small team. Scale your operation with reps and data.</div>
+    <ul class="features">
+      <li>500 leads per month</li>
+      <li>Full CRM + all pipeline views</li>
+      <li>Unlimited reports</li>
+      <li>Unlimited AI tools</li>
+      <li>Up to 5 team reps</li>
+      <li>Rep leaderboard + coaching</li>
+      <li>Territory management</li>
+      <li>Customer portals</li>
+      <li>Priority support</li>
+    </ul>
+    <a href="#" onclick="subscribe('growth')" class="cta cta-primary">Start 14-Day Free Trial</a>
+  </div>
+
+  <!-- ENTERPRISE -->
+  <div class="card">
+    <div class="tier-icon">🏢</div>
+    <div class="tier-name">Enterprise</div>
+    <div class="tier-price">Custom</div>
+    <div class="tier-desc">Unlimited everything. Multi-tenant. White-label ready.</div>
+    <ul class="features">
+      <li>Unlimited leads</li>
+      <li>Unlimited reports + AI</li>
+      <li>Unlimited reps</li>
+      <li>Multi-tenant architecture</li>
+      <li>Custom branding / white-label</li>
+      <li>Dedicated support</li>
+      <li>Custom integrations</li>
+      <li>SLA guarantee</li>
+      <li>On-site training</li>
+    </ul>
+    <a href="mailto:joe@nobigdeal.pro?subject=Enterprise%20Inquiry" class="cta cta-ghost">Contact Sales</a>
+  </div>
+</div>
+
+<div class="faq">
+  <div class="faq-title">Frequently Asked Questions</div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">Can I switch plans anytime?</div>
+    <div class="faq-a">Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">What happens when I hit my lead limit?</div>
+    <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">Is there a contract or commitment?</div>
+    <div class="faq-a">No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">What's the 14-day free trial?</div>
+    <div class="faq-a">New users get 14 days of Growth-tier access with no credit card required. After 14 days, you choose a plan or continue on Free.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">Why are you 1/3 the price of competitors?</div>
+    <div class="faq-a">Because this was built by a contractor who knows what you actually need. No bloated features, no enterprise overhead. Every dollar goes into tools that help you close more deals.</div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a><br>
+  No Big Deal Home Solutions · nobigdealwithjoedeal.com
+</div>
+
+<script>
+function subscribe(plan) {
+  // In test mode, show a message. In production, redirect to Stripe Checkout.
+  alert('Subscription flow coming soon! Plan: ' + plan.toUpperCase() + '\n\nStripe Checkout will open here when billing goes live.\n\nFor now, use your access code to get full access.');
+  // TODO: Replace with actual Stripe Checkout redirect:
+  // window.location.href = '/api/create-checkout-session?plan=' + plan;
+}
+</script>
+
+</body>
+</html>

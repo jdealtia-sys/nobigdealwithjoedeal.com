@@ -8880,21 +8880,45 @@ function switchScTab(tab, btn) {
 
       <!-- ══ TAB: BILLING ══ -->
       <div class="stab-panel" id="stab-panel-billing" style="display:none;">
+
+        <!-- CURRENT PLAN STATUS -->
         <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-hdr"><div><div class="panel-label">Current Plan</div><div class="panel-title">NBD Pro · Full Access</div></div></div>
-          <div class="panel-body">
+          <div class="panel-hdr"><div><div class="panel-label">Current Plan</div><div class="panel-title" id="billingPlanTitle">Loading...</div></div></div>
+          <div class="panel-body" id="billingCurrentPlan">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px;background:linear-gradient(135deg,rgba(232,114,12,.15),rgba(232,114,12,.05));border:2px solid var(--orange);border-radius:10px;margin-bottom:14px;">
               <div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">FOUNDER · LIFETIME</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;">Full Access</div>
-                <div style="font-size:11px;color:var(--m);margin-top:4px;">All features, unlimited leads, no limits</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);" id="billingPlanBadge">LOADING</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;" id="billingPlanName">—</div>
+                <div style="font-size:11px;color:var(--m);margin-top:4px;" id="billingPlanDesc">Checking subscription status...</div>
               </div>
-              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:#fff;border-radius:3px;letter-spacing:.1em;">ACTIVE</span>
+              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:#fff;border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
             </div>
-            <p style="font-size:12px;color:var(--m);">Joe's operator account. Unlimited everything. No billing charges.</p>
+            <!-- Usage meters -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="billingUsageMeters">
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Leads</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingLeadsUsed">—</div>
+                <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingLeadsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Reports</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingReportsUsed">—</div>
+                <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingReportsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+                <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">AI Calls</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingAIUsed">—</div>
+                <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingAIBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <a href="/pro/pricing.html" class="btn btn-orange" style="font-size:11px;padding:8px 14px;text-decoration:none;">View All Plans</a>
+              <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" onclick="if(typeof openCustomerPortalSession==='function')openCustomerPortalSession();else showToast('Manage subscription from the pricing page','info')">Manage Subscription</button>
+            </div>
           </div>
         </div>
 
+        <!-- AI USAGE -->
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Platform</div><div class="panel-title">Ask Joe AI Usage</div></div></div>
           <div class="panel-body">
@@ -8919,21 +8943,81 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
+        <!-- PLAN COMPARISON -->
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Subscription</div><div class="panel-title">Future Billing (When Licensed)</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Plans</div><div class="panel-title">Compare Features</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">When NBD Pro is ready to license to other contractors, subscription tiers will live here. Built on Stripe Checkout.</p>
-            <ul style="font-size:12px;color:var(--t);line-height:1.8;padding-left:20px;">
-              <li>Starter — solo operator, 50 leads/mo, $99/mo</li>
-              <li>Growth — small team, 500 leads/mo, $249/mo</li>
-              <li>Enterprise — unlimited + multi-tenant, custom pricing</li>
-            </ul>
-            <div style="margin-top:12px;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:11px;color:var(--m);">
-              <strong>North Star:</strong> Always 1/3 of competitor pricing. Contractor-built, contractor-priced.
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;" id="billingPlanCards">
+              <!-- Rendered by JS below -->
+            </div>
+            <div style="text-align:center;">
+              <a href="/pro/pricing.html" style="font-size:12px;color:var(--orange);text-decoration:none;font-weight:600;">View full pricing page with feature comparison →</a>
             </div>
           </div>
         </div>
       </div><!-- /stab-panel-billing -->
+
+      <script>
+      // ── Billing tab renderer ──
+      // Populates the billing settings tab with live plan data
+      // from the NBDBilling module when the tab is opened.
+      function renderBillingTab() {
+        if (!window.NBDBilling) return;
+        const info = window.NBDBilling.getPlan();
+        const limits = info.limits;
+
+        // Plan status
+        document.getElementById('billingPlanTitle').textContent = 'NBD Pro · ' + info.label;
+        document.getElementById('billingPlanBadge').textContent = info.isTrialing ? 'TRIAL' : info.label.toUpperCase();
+        document.getElementById('billingPlanName').textContent = info.label + (info.isTrialing ? ' (14-day trial)' : '');
+        document.getElementById('billingPlanDesc').textContent = info.isActive
+          ? (limits.leads === Infinity ? 'Unlimited everything' : limits.leads + ' leads/mo · ' + (limits.reports === Infinity ? '∞' : limits.reports) + ' reports · ' + (limits.aiCalls === Infinity ? '∞' : limits.aiCalls) + ' AI calls')
+          : (info.isCancelled ? 'Subscription cancelled — downgraded to Free' : 'No active subscription');
+        document.getElementById('billingStatusBadge').textContent = info.isPastDue ? 'PAST DUE' : (info.isActive ? 'ACTIVE' : 'INACTIVE');
+        document.getElementById('billingStatusBadge').style.background = info.isPastDue ? '#c53030' : (info.isActive ? 'var(--orange)' : '#666');
+
+        // Usage meters
+        var leadsLim = limits.leads === Infinity ? '∞' : limits.leads;
+        var reportsLim = limits.reports === Infinity ? '∞' : limits.reports;
+        var aiLim = limits.aiCalls === Infinity ? '∞' : limits.aiCalls;
+        document.getElementById('billingLeadsUsed').textContent = (info.usage.leads || 0) + ' / ' + leadsLim;
+        document.getElementById('billingReportsUsed').textContent = (info.usage.reports || 0) + ' / ' + reportsLim;
+        document.getElementById('billingAIUsed').textContent = (info.usage.aiCalls || 0) + ' / ' + aiLim;
+        document.getElementById('billingLeadsBar').style.width = Math.min(100, window.NBDBilling.usagePct('leads') * 100) + '%';
+        document.getElementById('billingReportsBar').style.width = Math.min(100, window.NBDBilling.usagePct('reports') * 100) + '%';
+        document.getElementById('billingAIBar').style.width = Math.min(100, window.NBDBilling.usagePct('aiCalls') * 100) + '%';
+
+        // Plan cards
+        var plans = window.NBDBilling.PLANS;
+        var cards = document.getElementById('billingPlanCards');
+        if (cards) {
+          cards.innerHTML = Object.entries(plans).map(function(entry) {
+            var key = entry[0], p = entry[1];
+            var isCurrent = key === info.plan;
+            return '<div style="background:' + (isCurrent ? 'rgba(232,114,12,.08)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? '#e8720c' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
+              + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;color:var(--t);text-transform:uppercase;margin-bottom:4px;">' + p.label + '</div>'
+              + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:' + (isCurrent ? '#e8720c' : 'var(--t)') + ';">' + (p.price === null ? 'Custom' : (p.price === 0 ? 'Free' : '$' + p.price)) + '</div>'
+              + '<div style="font-size:10px;color:var(--m);margin-top:4px;">' + (p.leads === Infinity ? '∞' : p.leads) + ' leads/mo</div>'
+              + (isCurrent ? '<div style="font-size:9px;color:#e8720c;font-weight:700;margin-top:6px;letter-spacing:.08em;">CURRENT PLAN</div>' : '')
+              + '</div>';
+          }).join('');
+        }
+      }
+      // Auto-render when billing tab is shown
+      var _origSwitchSettings = window.switchSettingsTab;
+      if (typeof _origSwitchSettings === 'function') {
+        window.switchSettingsTab = function(tab) {
+          _origSwitchSettings(tab);
+          if (tab === 'billing') {
+            if (window.NBDBilling) {
+              window.NBDBilling.loadSubscription().then(renderBillingTab);
+            } else {
+              renderBillingTab();
+            }
+          }
+        };
+      }
+      </script>
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
       <div class="stab-panel" id="stab-panel-notifications" style="display:none;">
@@ -12989,6 +13073,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
+<script defer src="js/billing-gate.js?v=1"></script>
 <script defer src="js/rep-report-generator.js?v=4"></script>
 
 <script defer src="js/property-intel.js?v=3"></script>

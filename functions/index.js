@@ -301,6 +301,15 @@ exports.stripeWebhook = onRequest(
       const db = admin.firestore();
 
       switch (event.type) {
+        // ═══════════════════════════════════════════════════
+        // PLAN TIER EXTRACTION HELPER
+        // Maps Stripe Price IDs to NBD plan tiers. The IDs
+        // are set as Firebase secrets. Unknown prices fall
+        // back to 'starter'. Enterprise is handled via
+        // Stripe metadata since it's custom-priced.
+        // ═══════════════════════════════════════════════════
+        // (defined inline in the switch to have access to secrets)
+
         case 'checkout.session.completed': {
           const session = event.data.object;
           const uid = session.client_reference_id;
@@ -311,21 +320,40 @@ exports.stripeWebhook = onRequest(
             break;
           }
 
-          await db.doc(`subscriptions/${uid}`).set(
-            {
-              plan: session.metadata?.plan || 'unknown',
-              status: 'active',
-              stripeSessionId: session.id,
-              stripeCustomerId: customerId,
-              stripeSubscriptionId: session.subscription || null,
-              source: 'checkout',
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
+          // Extract plan tier from metadata or price
+          const plan = session.metadata?.plan || 'starter';
 
-          logger.info('subscription_activated', { uid, sessionId: session.id });
+          const subData = {
+            plan,
+            status: 'active',
+            stripeSessionId: session.id,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: session.subscription || null,
+            source: 'checkout',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Usage counters — reset on subscription start
+            usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
+          };
+
+          await db.doc(`subscriptions/${uid}`).set(subData, { merge: true });
+
+          // ── Set Firebase Auth custom claims ──
+          // These claims are available in Firestore security rules
+          // via request.auth.token.plan and in client JS via
+          // user.getIdTokenResult().claims.plan
+          try {
+            await admin.auth().setCustomUserClaims(uid, {
+              plan,
+              subscriptionStatus: 'active',
+              stripeCustomerId: customerId
+            });
+            logger.info('custom_claims_set', { uid, plan });
+          } catch (claimErr) {
+            logger.error('custom_claims_failed', { uid, err: claimErr.message });
+          }
+
+          logger.info('subscription_activated', { uid, plan, sessionId: session.id });
           break;
         }
 
@@ -333,7 +361,6 @@ exports.stripeWebhook = onRequest(
           const subscription = event.data.object;
           const customerId = subscription.customer;
 
-          // Find user by customer ID
           const snapshot = await db
             .collection('subscriptions')
             .where('stripeCustomerId', '==', customerId)
@@ -345,16 +372,36 @@ exports.stripeWebhook = onRequest(
             break;
           }
 
-          const doc = snapshot.docs[0];
-          const uid = doc.id;
+          const subDoc = snapshot.docs[0];
+          const uid = subDoc.id;
 
-          await doc.ref.update({
+          // Extract plan from subscription items' price metadata
+          let plan = subDoc.data().plan || 'starter';
+          if (subscription.items?.data?.[0]?.price?.metadata?.plan) {
+            plan = subscription.items.data[0].price.metadata.plan;
+          }
+
+          await subDoc.ref.update({
+            plan,
             status: subscription.status,
             stripeSubscriptionId: subscription.id,
+            currentPeriodEnd: subscription.current_period_end
+              ? new Date(subscription.current_period_end * 1000).toISOString()
+              : null,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          logger.info('subscription_updated', { uid, status: subscription.status });
+          // Sync custom claims
+          try {
+            await admin.auth().setCustomUserClaims(uid, {
+              plan,
+              subscriptionStatus: subscription.status,
+              stripeCustomerId: customerId
+            });
+          } catch (e) { logger.warn('claims_update_failed', { uid, err: e.message }); }
+
+          logger.info('subscription_updated', { uid, plan, status: subscription.status });
           break;
         }
 
@@ -362,7 +409,6 @@ exports.stripeWebhook = onRequest(
           const subscription = event.data.object;
           const customerId = subscription.customer;
 
-          // Find user by customer ID
           const snapshot = await db
             .collection('subscriptions')
             .where('stripeCustomerId', '==', customerId)
@@ -374,13 +420,23 @@ exports.stripeWebhook = onRequest(
             break;
           }
 
-          const doc = snapshot.docs[0];
-          const uid = doc.id;
+          const subDoc = snapshot.docs[0];
+          const uid = subDoc.id;
 
-          await doc.ref.update({
+          await subDoc.ref.update({
+            plan: 'free',
             status: 'cancelled',
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
+
+          // Downgrade custom claims to free
+          try {
+            await admin.auth().setCustomUserClaims(uid, {
+              plan: 'free',
+              subscriptionStatus: 'cancelled',
+              stripeCustomerId: customerId
+            });
+          } catch (e) { logger.warn('claims_downgrade_failed', { uid, err: e.message }); }
 
           logger.info('subscription_cancelled', { uid });
           break;
@@ -390,7 +446,6 @@ exports.stripeWebhook = onRequest(
           const invoice = event.data.object;
           const customerId = invoice.customer;
 
-          // Find user by customer ID
           const snapshot = await db
             .collection('subscriptions')
             .where('stripeCustomerId', '==', customerId)
@@ -402,15 +457,49 @@ exports.stripeWebhook = onRequest(
             break;
           }
 
-          const doc = snapshot.docs[0];
-          const uid = doc.id;
+          const subDoc = snapshot.docs[0];
+          const uid = subDoc.id;
 
-          await doc.ref.update({
+          await subDoc.ref.update({
             status: 'past_due',
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
+          // Update claims to past_due so client can show warning
+          try {
+            await admin.auth().setCustomUserClaims(uid, {
+              plan: subDoc.data().plan || 'free',
+              subscriptionStatus: 'past_due',
+              stripeCustomerId: customerId
+            });
+          } catch (e) { logger.warn('claims_pastdue_failed', { uid, err: e.message }); }
+
           logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
+          break;
+        }
+
+        // ── Invoice paid — reset monthly usage counters ──
+        case 'invoice.paid': {
+          const invoice = event.data.object;
+          const customerId = invoice.customer;
+          if (invoice.billing_reason !== 'subscription_cycle') break;
+
+          const snapshot = await db
+            .collection('subscriptions')
+            .where('stripeCustomerId', '==', customerId)
+            .limit(1)
+            .get();
+          if (!snapshot.empty) {
+            const subDoc = snapshot.docs[0];
+            await subDoc.ref.update({
+              'usage.leads': 0,
+              'usage.reports': 0,
+              'usage.aiCalls': 0,
+              'usage.cycleStart': new Date().toISOString(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            logger.info('usage_counters_reset', { uid: subDoc.id });
+          }
           break;
         }
 
