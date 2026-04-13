@@ -1252,10 +1252,12 @@
   //   Weather — NOAA NEXRAD radar overlay
   //   Heat    — knock density heatmap
   // ════════════════════════════════════════════════════════════
-  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false };
+  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false, territory: false };
   let d2dJobMarkers = [];
   let d2dStormLayer = null;
   let d2dWeatherLayer = null;
+  let d2dDrawControl = null;
+  let d2dTerritoryGroup = null;  // L.featureGroup holding drawn polygons
 
   function createLayerPanel() {
     if (!d2dMap) return;
@@ -1271,10 +1273,11 @@
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
 
     const layers = [
-      { key: 'knocks',  icon: '📍', label: 'Knocks' },
-      { key: 'jobs',    icon: '💰', label: 'Jobs' },
-      { key: 'weather', icon: '⛈️', label: 'Radar' },
-      { key: 'heat',    icon: '🔥', label: 'Heat' }
+      { key: 'knocks',    icon: '📍', label: 'Knocks' },
+      { key: 'jobs',      icon: '💰', label: 'Jobs' },
+      { key: 'weather',   icon: '⛈️', label: 'Radar' },
+      { key: 'heat',      icon: '🔥', label: 'Heat' },
+      { key: 'territory', icon: '🗺️', label: 'Zone' }
     ];
 
     layers.forEach(ly => {
@@ -1345,6 +1348,13 @@
       case 'heat':
         showHeat = d2dLayerState.heat;
         refreshMapMarkers();
+        break;
+      case 'territory':
+        if (d2dLayerState.territory) {
+          showTerritoryDrawing();
+        } else {
+          hideTerritoryDrawing();
+        }
         break;
     }
     updateLayerPanel();
@@ -1437,6 +1447,160 @@
     }
     d2dWeatherLayer.addTo(d2dMap);
     window.showToast?.('Storm radar + precipitation loaded', 'info');
+  }
+
+  // ── Territory drawing (Leaflet.Draw) ──
+  // Lets the user draw polygons on the map to define "zones" (territories).
+  // Saved polygons persist to the Firestore 'territories' collection via
+  // the existing saveTerritory() function that was already in the codebase.
+  // Drawn polygons are orange-outlined so they're visually distinct from
+  // knock markers and job overlays.
+  function showTerritoryDrawing() {
+    if (!d2dMap) return;
+    if (typeof L.Draw === 'undefined') {
+      window.showToast?.('Drawing library not loaded — refresh and try again', 'error');
+      return;
+    }
+
+    // Create the feature group that holds drawn shapes
+    if (!d2dTerritoryGroup) {
+      d2dTerritoryGroup = new L.FeatureGroup();
+      d2dMap.addLayer(d2dTerritoryGroup);
+    }
+
+    // Load existing territories from Firestore and render them
+    renderSavedTerritories();
+
+    // Add the Leaflet.Draw control if not already present
+    if (!d2dDrawControl) {
+      d2dDrawControl = new L.Control.Draw({
+        position: 'topright',
+        draw: {
+          polygon: {
+            allowIntersection: false,
+            shapeOptions: {
+              color: '#e8720c',
+              weight: 3,
+              fillColor: '#e8720c',
+              fillOpacity: 0.08
+            }
+          },
+          rectangle: {
+            shapeOptions: {
+              color: '#e8720c',
+              weight: 3,
+              fillColor: '#e8720c',
+              fillOpacity: 0.08
+            }
+          },
+          // Disable non-polygon shapes — territories are areas
+          polyline: false,
+          circle: false,
+          circlemarker: false,
+          marker: false
+        },
+        edit: {
+          featureGroup: d2dTerritoryGroup,
+          remove: true
+        }
+      });
+      d2dMap.addControl(d2dDrawControl);
+
+      // Listen for new shapes drawn
+      d2dMap.on(L.Draw.Event.CREATED, async function (e) {
+        const layer = e.layer;
+        d2dTerritoryGroup.addLayer(layer);
+
+        // Prompt for a name
+        const name = window.prompt('Name this territory zone:', 'Zone ' + (territories.length + 1));
+        if (!name) {
+          d2dTerritoryGroup.removeLayer(layer);
+          return;
+        }
+
+        // Extract GeoJSON coordinates for Firestore storage
+        const geoJSON = layer.toGeoJSON();
+        await saveTerritory({
+          name: name.trim().substring(0, 80),
+          type: e.layerType,
+          geoJSON: geoJSON,
+          bounds: layer.getBounds ? {
+            north: layer.getBounds().getNorth(),
+            south: layer.getBounds().getSouth(),
+            east: layer.getBounds().getEast(),
+            west: layer.getBounds().getWest()
+          } : null
+        });
+        window.showToast?.('✓ Territory "' + name + '" saved', 'success');
+
+        // Add label to the polygon
+        addTerritoryLabel(layer, name);
+      });
+
+      // Listen for deleted shapes
+      d2dMap.on(L.Draw.Event.DELETED, function (e) {
+        // For now, removing from the map only — Firestore deletion
+        // would need matching the layer to its territory ID. We can
+        // add that when territory management becomes a full feature.
+        window.showToast?.('Territory removed from map', 'info');
+      });
+    }
+
+    window.showToast?.('Draw a polygon to define your territory zone', 'info');
+  }
+
+  function hideTerritoryDrawing() {
+    if (d2dDrawControl && d2dMap) {
+      d2dMap.removeControl(d2dDrawControl);
+      d2dDrawControl = null;
+    }
+    if (d2dTerritoryGroup && d2dMap) {
+      d2dMap.removeLayer(d2dTerritoryGroup);
+      d2dTerritoryGroup = null;
+    }
+  }
+
+  // Render previously saved territories from Firestore
+  async function renderSavedTerritories() {
+    if (!d2dMap || !d2dTerritoryGroup) return;
+    // Load if not already loaded
+    if (territories.length === 0) await loadTerritories();
+
+    territories.forEach(t => {
+      if (!t.geoJSON) return;
+      try {
+        const layer = L.geoJSON(t.geoJSON, {
+          style: {
+            color: '#e8720c',
+            weight: 2,
+            fillColor: '#e8720c',
+            fillOpacity: 0.06,
+            dashArray: '6,4'
+          }
+        });
+        layer.addTo(d2dTerritoryGroup);
+        // Add a label tooltip with the territory name
+        layer.eachLayer(function (l) {
+          if (l.getBounds) {
+            addTerritoryLabel(l, t.name || 'Zone');
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to render territory:', t.name, e.message);
+      }
+    });
+  }
+
+  // Add a text label at the center of a territory polygon
+  function addTerritoryLabel(layer, name) {
+    if (!layer.getBounds) return;
+    const center = layer.getBounds().getCenter();
+    const label = L.divIcon({
+      html: '<div style="background:rgba(232,114,12,.85);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;">' + esc(name) + '</div>',
+      className: '',
+      iconAnchor: [0, 0]
+    });
+    L.marker(center, { icon: label, interactive: false }).addTo(d2dTerritoryGroup);
   }
 
   // ============================================================================
