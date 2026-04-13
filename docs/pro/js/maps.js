@@ -523,6 +523,44 @@ function initDrawMap() {
   drawMapLayers.satellite.addTo(drawMap);
   currentLayerType = 'satellite';
 
+  // ── Touch support (April 2026) ──
+  // Detect touch device and add a Draw/Navigate mode toggle.
+  // In Draw mode: map panning is disabled, taps place points.
+  // In Navigate mode: normal pan/zoom, no drawing.
+  // Two-finger always zooms regardless of mode.
+  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  let drawNavMode = 'draw'; // 'draw' | 'navigate'
+  if (isTouchDevice) {
+    // Create floating mode toggle button
+    const modeBtn = document.createElement('button');
+    modeBtn.id = 'drawModeToggle';
+    modeBtn.style.cssText = 'position:absolute;top:10px;left:10px;z-index:1000;'
+      + 'background:var(--orange,#e8720c);color:#fff;border:none;border-radius:8px;'
+      + 'padding:10px 16px;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;'
+      + 'font-weight:800;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);'
+      + 'transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:44px;';
+    modeBtn.textContent = '✏️ DRAW MODE';
+    modeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (drawNavMode === 'draw') {
+        drawNavMode = 'navigate';
+        modeBtn.textContent = '🗺️ NAVIGATE';
+        modeBtn.style.background = 'var(--s2,#181C22)';
+        modeBtn.style.border = '1px solid var(--br,#2a2f35)';
+        drawMap.dragging.enable();
+        drawMap.touchZoom.enable();
+      } else {
+        drawNavMode = 'draw';
+        modeBtn.textContent = '✏️ DRAW MODE';
+        modeBtn.style.background = 'var(--orange,#e8720c)';
+        modeBtn.style.border = 'none';
+        if (drawOn) drawMap.dragging.disable();
+      }
+    });
+    const mapEl = document.getElementById('drawMap');
+    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(modeBtn); }
+  }
+
   drawMap.on('click', e => {
     if(shadowMode) { handleShadowClick(e.latlng); return; }
     if(!drawOn) return;
@@ -793,10 +831,17 @@ function toggleDraw() {
   if(drawOn) {
     btn.textContent = '⏹ Stop'; btn.className = 'draw-btn stop';
     drawMap.getContainer().style.cursor = 'crosshair';
+    // On touch devices in Draw mode, disable map dragging so
+    // taps register as drawing points instead of panning.
+    if (typeof drawNavMode !== 'undefined' && drawNavMode === 'draw') {
+      drawMap.dragging.disable();
+    }
   } else {
     btn.textContent = '▶ Draw'; btn.className = 'draw-btn go';
     drawMap.getContainer().style.cursor = '';
     drawStart = null; clearTemp();
+    // Re-enable dragging when drawing stops
+    drawMap.dragging.enable();
   }
 }
 
@@ -816,8 +861,53 @@ function finalizeLine(p1, p2, dot1, dot2) {
   lbl.on('click', () => editLineLength(id));
   const id = Date.now() + Math.random();
   drawnLines.push({id, type:drawLT, name:lt.name, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
+  // ── Click line on map → type picker popup (April 2026) ──
+  line.on('click', function(e) {
+    L.DomEvent.stopPropagation(e);
+    if (drawOn) return; // don't open picker while actively drawing
+    openLineTypePicker(id, e.latlng);
+  });
   clearTemp(); renderLineList(); recalc(); autoSaveDrawing();
   return id;
+}
+
+// ── LINE TYPE PICKER POPUP ──
+// Shows a popup with common 6 types + "More" expand when user
+// clicks a drawn line on the map. Replaces the old workflow of
+// selecting a line in the sidebar then changing the type dropdown.
+function openLineTypePicker(lineId, latlng) {
+  const COMMON = [5, 4, 0, 2, 3, 10]; // Eave, Rake, Ridge, Hip, Valley, Gutters
+  const EXTRA = [1, 6, 7, 8, 9];       // Ridge Vent, Flashing, Step Flash, Drip Edge, Parapet
+
+  const makeBtn = (idx) => {
+    const lt = LT[idx];
+    return '<button style="background:' + lt.color + '20;border:2px solid ' + lt.color + ';color:' + lt.color + ';'
+      + 'padding:6px 10px;border-radius:5px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
+      + 'font-size:11px;font-weight:700;letter-spacing:.03em;white-space:nowrap;'
+      + 'transition:all .12s;min-height:32px;" '
+      + 'onclick="retypeLine(' + lineId + ',' + idx + ');drawMap.closePopup();" '
+      + 'onmouseenter="this.style.background=\'' + lt.color + '\';this.style.color=\'#fff\';" '
+      + 'onmouseleave="this.style.background=\'' + lt.color + '20\';this.style.color=\'' + lt.color + '\';"'
+      + '>' + lt.n + '</button>';
+  };
+
+  const commonBtns = COMMON.map(makeBtn).join('');
+  const extraBtns = EXTRA.map(makeBtn).join('');
+
+  const html = '<div style="min-width:200px;">'
+    + '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#e8720c;margin-bottom:6px;">Change Line Type</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">' + commonBtns + '</div>'
+    + '<details style="margin-top:4px;"><summary style="font-size:10px;color:#888;cursor:pointer;user-select:none;">More types \u25bc</summary>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + extraBtns + '</div></details>'
+    + '<div style="margin-top:8px;display:flex;gap:4px;">'
+    + '<button onclick="deleteLine(' + lineId + ');drawMap.closePopup();" style="flex:1;background:#E0525220;border:1px solid #E05252;color:#E05252;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Delete</button>'
+    + '<button onclick="editLineLength(' + lineId + ');drawMap.closePopup();" style="flex:1;background:transparent;border:1px solid #888;color:#888;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Edit Length</button>'
+    + '</div></div>';
+
+  L.popup({ closeButton: true, className: 'nbd-line-picker-popup' })
+    .setLatLng(latlng)
+    .setContent(html)
+    .openOn(drawMap);
 }
 
 // ── LINE LENGTH EDITING ──────────────────────
@@ -1429,6 +1519,92 @@ async function searchDraw() {
   drawMap.setView([d.lat,d.lon],19);
 }
 
+// ═══════════════════════════════════════════════════════════
+// SAVE DRAWING TO CUSTOMER (Firestore)
+// Saves the full drawing state as GeoJSON + metadata to
+// leads/{leadId}/drawings/{drawingId}. Includes version history.
+// ═══════════════════════════════════════════════════════════
+async function saveDrawingToCustomer() {
+  const addr = (document.getElementById('drawSearch')?.value || '').trim();
+  if (!addr) {
+    showToast('Enter an address first so we can match to a customer', 'error');
+    return;
+  }
+  if (!window._user?.uid || !window._db) {
+    showToast('Not signed in — cannot save', 'error');
+    return;
+  }
+  if (!drawnLines.length && !facets.length) {
+    showToast('Nothing to save — draw some lines first', 'error');
+    return;
+  }
+
+  // Find matching lead by address
+  const leads = window._leads || [];
+  const addrNorm = addr.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const matched = leads.find(l => {
+    const lNorm = (l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return lNorm && addrNorm && (lNorm.includes(addrNorm.substring(0, 12)) || addrNorm.includes(lNorm.substring(0, 12)));
+  });
+
+  let leadId = matched?.id;
+  if (!leadId) {
+    // No match — ask if they want to create a new lead
+    if (!confirm('No customer found for "' + addr + '". Save as an unlinked drawing?\n\n(You can link it to a customer later.)')) return;
+    leadId = '_unlinked_' + window._user.uid;
+  }
+
+  // Build the drawing data (GeoJSON + metadata)
+  const drawingData = {
+    address: addr,
+    measurements: {
+      totalAreaSF: parseFloat(document.getElementById('cr-base')?.textContent) || 0,
+      pitchedAreaSF: parseFloat(document.getElementById('cr-pitched')?.textContent) || 0,
+      withWasteSF: parseFloat(document.getElementById('cr-waste')?.textContent) || 0,
+      squares: parseFloat(document.getElementById('cr-sq')?.textContent) || 0,
+      ridgeLF: drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0),
+      eaveLF: drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0),
+      rakeLF: drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0),
+      hipLF: drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0),
+      valleyLF: drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0)
+    },
+    lines: drawnLines.map(l => ({
+      type: l.type, name: l.name, dist: l.dist,
+      p1: { lat: l.p1.lat, lng: l.p1.lng },
+      p2: { lat: l.p2.lat, lng: l.p2.lng }
+    })),
+    facets: facets.map(f => ({
+      name: f.name, pitch: f.pitch, closed: f.closed, baseArea: f.baseArea,
+      points: f.points.map(p => ({ lat: p.lat, lng: p.lng }))
+    })),
+    pitch: document.getElementById('pitchSel')?.value || '1.202',
+    waste: document.getElementById('wasteSel')?.value || '1.17',
+    userId: window._user.uid,
+    leadId: leadId,
+    version: 1,
+    createdAt: window.serverTimestamp(),
+    updatedAt: window.serverTimestamp()
+  };
+
+  try {
+    // Check for existing drawings to increment version
+    if (leadId && !leadId.startsWith('_unlinked_')) {
+      const existing = await window.getDocs(window.collection(window._db, 'leads', leadId, 'drawings'));
+      drawingData.version = existing.size + 1;
+    }
+
+    const collPath = leadId.startsWith('_unlinked_')
+      ? window.collection(window._db, 'drawings')
+      : window.collection(window._db, 'leads', leadId, 'drawings');
+
+    await window.addDoc(collPath, drawingData);
+    showToast('Drawing saved' + (matched ? ' to ' + (matched.firstName || matched.address || 'customer') : ' (unlinked)') + ' — v' + drawingData.version, 'success');
+  } catch (e) {
+    console.error('Save drawing failed:', e);
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
 function exportDrawReport() {
   const addr=document.getElementById('drawSearch').value||'No Address';
   const lines=drawnLines;
@@ -1517,8 +1693,8 @@ function tryRestoreDrawing() {
     const raw = localStorage.getItem(key);
     if(!raw) return;
     const data = JSON.parse(raw);
-    // Only restore if less than 7 days old
-    if(Date.now() - (data.ts||0) > 7*24*60*60*1000) { localStorage.removeItem(key); return; }
+    // Only restore if less than 30 days old (extended from 7 days)
+    if(Date.now() - (data.ts||0) > 30*24*60*60*1000) { localStorage.removeItem(key); return; }
     if(!data.lines || !data.lines.length) return;
 
     // Restore lines
