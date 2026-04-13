@@ -1371,22 +1371,56 @@ function screenshotMap() {
 }
 
 function importToEstimate() {
-  const addr=document.getElementById('drawSearch').value||'';
-  const rawSqft=parseFloat(document.getElementById('cr-base').textContent)||0;
-  const ridgeLns=drawnLines.filter(l=>l.type===0);
-  const eaveLns=drawnLines.filter(l=>l.type===5);
-  const hipLns=drawnLines.filter(l=>l.type===2);
-  goTo('est');
-  startNewEstimate();
-  setTimeout(()=>{
-    document.getElementById('estAddr').value=addr;
-    document.getElementById('estRawSqft').value=Math.round(rawSqft);
-    document.getElementById('estRidge').value=Math.round(ridgeLns.reduce((s,l)=>s+l.dist,0));
-    document.getElementById('estEave').value=Math.round(eaveLns.reduce((s,l)=>s+l.dist,0));
-    document.getElementById('estHip').value=Math.round(hipLns.reduce((s,l)=>s+l.dist,0));
-    document.getElementById('drawImportNote').style.display='block';
-    updateEstCalc();
-  },100);
+  // Collect all measurements from the drawing tool
+  const addr = document.getElementById('drawSearch').value || '';
+  const rawSqft = parseFloat(document.getElementById('cr-base').textContent) || 0;
+  // Line types: 0=ridge, 1=valley, 2=hip, 3=rake, 4=wall, 5=eave
+  const ridgeLf = Math.round(drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0));
+  const eaveLf = Math.round(drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0));
+  const hipLf = Math.round(drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0));
+  const valleyLf = Math.round(drawnLines.filter(l => l.type === 1).reduce((s, l) => s + l.dist, 0));
+  const rakeLf = Math.round(drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0));
+  const wallLf = Math.round(drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0));
+
+  // Ask which builder to use
+  const useV2 = window.openEstimateV2Builder && confirm(
+    'Open V2 Builder (line-item mode) with these measurements?\n\n'
+    + 'Raw area: ' + Math.round(rawSqft) + ' SF\n'
+    + 'Eave: ' + eaveLf + ' LF · Ridge: ' + ridgeLf + ' LF\n'
+    + 'Rake: ' + rakeLf + ' LF · Hip: ' + hipLf + ' LF\n'
+    + 'Valley: ' + valleyLf + ' LF · Wall: ' + wallLf + ' LF\n\n'
+    + 'Click OK for V2 Builder, Cancel for Classic Builder.'
+  );
+
+  if (useV2) {
+    // Pre-fill V2 Builder measurements via its state object
+    window.openEstimateV2Builder();
+    // The V2 Builder opens as a full-screen modal — wait for it
+    // to render, then set the measurement fields via DOM inputs.
+    setTimeout(() => {
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); } };
+      setVal('v2rawSqft', Math.round(rawSqft));
+      setVal('v2eaveLf', eaveLf);
+      setVal('v2ridgeLf', ridgeLf);
+      setVal('v2rakeLf', rakeLf);
+      setVal('v2hipLf', hipLf);
+      setVal('v2valleyLf', valleyLf);
+      if (typeof showToast === 'function') showToast('Drawing measurements imported into V2 Builder', 'success');
+    }, 300);
+  } else {
+    // Classic builder flow (original behavior)
+    goTo('est');
+    startNewEstimate();
+    setTimeout(() => {
+      document.getElementById('estAddr').value = addr;
+      document.getElementById('estRawSqft').value = Math.round(rawSqft);
+      document.getElementById('estRidge').value = ridgeLf;
+      document.getElementById('estEave').value = eaveLf;
+      document.getElementById('estHip').value = hipLf;
+      document.getElementById('drawImportNote').style.display = 'block';
+      updateEstCalc();
+    }, 100);
+  }
 }
 
 async function searchDraw() {
