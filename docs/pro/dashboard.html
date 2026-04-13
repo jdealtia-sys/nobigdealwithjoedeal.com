@@ -95,7 +95,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm.js?v=12" as="script">
-<link rel="preload" href="js/maps.js?v=8" as="script">
+<link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -2727,13 +2727,13 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
    the sidebar expands to its natural content height and the
    parent page scrolls instead of the sidebar scrolling. */
 .map-view{display:none;flex:1;min-height:0;}
-.map-view.active{display:flex;min-height:0;}
+.map-view.active{display:flex;min-height:0;height:100%;}
 .map-sidebar{width:280px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);overflow-y:auto;padding:14px;min-height:0;max-height:100%;}
 .map-sidebar::-webkit-scrollbar{width:3px;}
 .map-sidebar::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
 .map-sidebar::-webkit-scrollbar-thumb:hover{background:var(--orange);}
-.map-area{flex:1;position:relative;min-height:0;}
-.map-area > div[id$="Map"]{width:100%;height:100%;}
+.map-area{flex:1;position:relative;min-height:300px;}
+.map-area > div[id$="Map"]{position:absolute;top:0;left:0;right:0;bottom:0;min-height:300px;}
 
 /* COMPONENTS */
 .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
@@ -4479,6 +4479,17 @@ body {
     max-height:calc(100dvh - 250px)!important;
     overflow-y:auto!important;
   }
+  /* Drawing tool — map view must NOT collapse in standalone.
+     The .view.active above sets overflow-y:auto which can cause
+     the map-view flex child to lose its height. Force explicit
+     dimensions so Leaflet always has a non-zero container. */
+  #view-draw.active { overflow:hidden!important; }
+  #view-draw .map-view.active { height:100%!important; min-height:0!important; }
+  #view-draw .map-area { min-height:calc(100dvh - 120px)!important; }
+  /* Maps & Pins view — same treatment */
+  #view-map.active { overflow:hidden!important; }
+  #view-map .map-view.active { height:100%!important; min-height:0!important; }
+  #view-map .map-area { min-height:calc(100dvh - 120px)!important; }
 }
 
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
@@ -7284,7 +7295,7 @@ function switchScTab(tab, btn) {
 
   <!-- ══ DRAWING TOOL ══ -->
   <div class="view" id="view-draw">
-    <div class="map-view active" style="flex:1;height:100%;min-height:500px;">
+    <div class="map-view active">
       <div class="map-sidebar" id="map-sidebar-draw">
         <!-- BREADCRUMB -->
         <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
@@ -7483,8 +7494,8 @@ function switchScTab(tab, btn) {
         <div id="comparisonResults" style="display:none;margin-top:6px;"></div>
 
       </div>
-      <div class="map-area" style="min-height:400px;height:calc(100vh - 60px);height:calc(100dvh - 60px);">
-        <div id="drawMap" style="width:100%;height:100%;min-height:400px;"></div>
+      <div class="map-area">
+        <div id="drawMap"></div>
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-draw')">☰ Draw Tools</button>
         <div class="map-badge" style="color:#22C55E;border-color:rgba(34,197,94,.3);">✏️ DRAWING TOOL</div>
       </div>
@@ -10443,11 +10454,55 @@ function goTo(name, params = {}) {
     const t = setInterval(() => {
       tries++;
       if (typeof window[fnName] === 'function') { clearInterval(t); cb(); }
-      else if (tries > 80) { clearInterval(t); console.error(fnName + ' never loaded'); } // 4 seconds max
+      else if (tries > 80) { clearInterval(t); console.error(fnName + ' never loaded'); }
     }, 50);
   }
-  if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ waitForMapFn('initMainMap', ()=>{ initMainMap();  mapInited.map=true;  }); }); }
-  if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ waitForMapFn('initDrawMap', ()=>{ initDrawMap();  mapInited.draw=true; setTimeout(()=>{ if(drawMap) drawMap.invalidateSize(); }, 300); }); }); }
+  // Helper: ensure Leaflet map is properly sized after view becomes visible.
+  // Uses rAF → rAF to guarantee the browser has painted the container with
+  // real dimensions before Leaflet measures it.
+  function ensureMapSize(mapObj, retries) {
+    if (!mapObj) return;
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        mapObj.invalidateSize();
+        // Extra retries to cover Safari standalone paint delays
+        if (retries !== false) {
+          setTimeout(function() { if(mapObj) mapObj.invalidateSize(); }, 200);
+          setTimeout(function() { if(mapObj) mapObj.invalidateSize(); }, 800);
+          setTimeout(function() { if(mapObj) mapObj.invalidateSize(); }, 2000);
+        }
+      });
+    });
+  }
+  if(name==='map') {
+    if (!mapInited.map) {
+      waitForLeaflet(()=>{ waitForMapFn('initMainMap', ()=>{
+        requestAnimationFrame(()=>{ initMainMap(); mapInited.map=true; ensureMapSize(mainMap); });
+      }); });
+    } else if (typeof mainMap !== 'undefined' && mainMap) {
+      ensureMapSize(mainMap);
+    }
+  }
+  if(name==='draw') {
+    if (!mapInited.draw) {
+      waitForLeaflet(()=>{ waitForMapFn('initDrawMap', ()=>{
+        requestAnimationFrame(()=>{ initDrawMap(); mapInited.draw=true; ensureMapSize(drawMap); });
+      }); });
+    } else if (typeof drawMap !== 'undefined' && drawMap) {
+      // Re-entry: map already created, just refresh the size
+      ensureMapSize(drawMap);
+    }
+  }
+  // CRM: re-render kanban on every entry (not just first)
+  if(name==='crm') {
+    if (typeof renderLeads === 'function' && window._leads?.length) {
+      // Ensure kanban columns exist
+      if (!document.getElementById('kanbanBoard')?.children?.length && typeof window.buildKanbanColumns === 'function') {
+        window.buildKanbanColumns(window._currentViewKey || 'insurance');
+      }
+      renderLeads(window._leads, window._filteredLeads);
+    }
+  }
   if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
   if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
   if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
@@ -13600,7 +13655,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=12"></script>
+<script defer src="js/crm.js?v=13"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=3"></script>
@@ -13609,7 +13664,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/photo-engine.js?v=3"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=3"></script>
-<script defer src="js/maps.js?v=8"></script>
+<script defer src="js/maps.js?v=9"></script>
 <script defer src="js/estimates.js?v=5"></script>
 <script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
@@ -13653,10 +13708,70 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/pro/sw.js', { scope: '/pro/' })
-      .then(reg => console.log('✓ SW registered:', reg.scope))
+      .then(reg => {
+        console.log('✓ SW registered:', reg.scope);
+        // Check for updates every 60s
+        setInterval(() => reg.update(), 60000);
+      })
       .catch(err => console.warn('SW registration failed:', err));
   });
+  // Auto-reload when SW pushes new code
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'SW_UPDATE_AVAILABLE') {
+      console.log('🔄 New version available:', e.data.version);
+      // Reload after a short delay to let SW activate
+      setTimeout(() => window.location.reload(), 500);
+    }
+  });
 }
+// ── Runtime Diagnostic — call window.nbdDiag() from console ──
+window.nbdDiag = function() {
+  const r = {};
+  // Auth
+  r.user = window._user ? { uid: window._user.uid, email: window._user.email } : null;
+  r.plan = window._userPlan || 'unknown';
+  r.subscription = window._subscription ? { plan: window._subscription.plan, status: window._subscription.status } : null;
+  // Firebase
+  r.firebase = { db: !!window.db, auth: !!window.auth, collection: typeof window.collection };
+  // Leads
+  r.leads = { count: window._leads?.length ?? 0, filteredCount: window._filteredLeads?.length ?? 'null' };
+  // Stage system
+  r.stages = { keys: window._stageKeys, viewKey: window._currentViewKey, STAGES: window.STAGES?.length };
+  // Kanban DOM
+  const board = document.getElementById('kanbanBoard');
+  r.kanban = { boardExists: !!board, boardChildren: board?.children?.length ?? 0, boardHTML: board?.innerHTML?.length ?? 0 };
+  if (window._stageKeys) {
+    r.kanban.columns = {};
+    window._stageKeys.forEach(k => {
+      const body = document.getElementById('kbody-' + k);
+      r.kanban.columns[k] = { exists: !!body, cards: body?.querySelectorAll('.k-card')?.length ?? 0 };
+    });
+  }
+  // CRM functions
+  r.functions = {
+    renderLeads: typeof renderLeads, loadLeads: typeof window._loadLeads,
+    buildKanbanColumns: typeof window.buildKanbanColumns,
+    initDrawMap: typeof initDrawMap, initMainMap: typeof initMainMap,
+    goTo: typeof goTo
+  };
+  // Drawing tool
+  r.drawMap = {
+    container: !!document.getElementById('drawMap'),
+    containerH: document.getElementById('drawMap')?.offsetHeight ?? 0,
+    containerW: document.getElementById('drawMap')?.offsetWidth ?? 0,
+    mapObj: typeof drawMap !== 'undefined' && !!drawMap,
+    mapInited: typeof mapInited !== 'undefined' ? JSON.stringify(mapInited) : 'undefined',
+    leaflet: typeof L !== 'undefined' ? L.version : 'NOT LOADED'
+  };
+  // View state
+  const active = document.querySelector('.view.active');
+  r.activeView = active ? active.id : 'none';
+  // SW
+  r.sw = navigator.serviceWorker?.controller ? 'active' : 'none';
+  console.table(r);
+  console.log('Full diagnostic:', JSON.stringify(r, null, 2));
+  return r;
+};
 
 // ── Onboarding flow: dead (DOM does not exist). See audit C2. ──
 // checkAndShowOnboarding() references #onboardingModal and ~10 other IDs
