@@ -81,7 +81,11 @@ function closeLeadModal(){
   const pib = document.getElementById('pullIntelBtn');
   if(pib) { pib.classList.remove('loading'); pib.innerHTML='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M2 10l8-7 8 7"/><path d="M4 9v7a1 1 0 001 1h10a1 1 0 001-1V9"/></svg> Pull Property Intel'; }
 }
-document.getElementById('leadModal').addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
+// Null-guarded — if leadModal doesn't exist yet (deferred script
+// running before DOM is fully painted in web app standalone mode),
+// this would crash and kill ALL of crm.js including renderLeads().
+const _leadModal = document.getElementById('leadModal');
+if (_leadModal) _leadModal.addEventListener('click',e=>{if(e.target===document.getElementById('leadModal'))closeLeadModal();});
 document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementById('taskModal');if(tm)tm.addEventListener('click',e=>{if(e.target===tm)closeTaskModal();});});
 
 async function saveLead(){
