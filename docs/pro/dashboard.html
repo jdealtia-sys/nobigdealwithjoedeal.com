@@ -10435,8 +10435,19 @@ function goTo(name, params = {}) {
   updateBreadcrumb(name, params);
   
   // View-specific initialization
-  if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ initMainMap();  mapInited.map=true;   }); }
-  if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ initDrawMap();  mapInited.draw=true;  }); }
+  // Maps require both Leaflet (sync) AND maps.js (deferred) to be loaded.
+  // waitForLeaflet handles the first; we also need to wait for initDrawMap/initMainMap.
+  function waitForMapFn(fnName, cb) {
+    if (typeof window[fnName] === 'function') { cb(); return; }
+    let tries = 0;
+    const t = setInterval(() => {
+      tries++;
+      if (typeof window[fnName] === 'function') { clearInterval(t); cb(); }
+      else if (tries > 80) { clearInterval(t); console.error(fnName + ' never loaded'); } // 4 seconds max
+    }, 50);
+  }
+  if(name==='map'   && !mapInited.map)   { waitForLeaflet(()=>{ waitForMapFn('initMainMap', ()=>{ initMainMap();  mapInited.map=true;  }); }); }
+  if(name==='draw'  && !mapInited.draw)  { waitForLeaflet(()=>{ waitForMapFn('initDrawMap', ()=>{ initDrawMap();  mapInited.draw=true; setTimeout(()=>{ if(drawMap) drawMap.invalidateSize(); }, 300); }); }); }
   if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
   if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
   if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
