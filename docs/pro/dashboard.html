@@ -155,7 +155,7 @@
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -358,6 +358,7 @@
   window._onAuthStateChanged = onAuthStateChanged;
   window.setDoc = setDoc;
   window.writeBatch = writeBatch;
+  window.sendPasswordResetEmail = sendPasswordResetEmail;
 
   // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
   // Log errors to console only. NEVER show toasts from global
@@ -6983,7 +6984,8 @@ function switchScTab(tab, btn) {
   </div>
 
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
-  
+  <div class="ni" onclick="goTo('admin')" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
+
 </nav>
 
 <!-- CONTENT AREA -->
@@ -9737,6 +9739,151 @@ function switchScTab(tab, btn) {
 
     </div><!-- /view-scroll -->
   </div><!-- /view-settings -->
+
+  <!-- ══ ADMIN — TEAM ACCOUNT MANAGER ══ -->
+  <div class="view" id="view-admin">
+    <div class="view-scroll" style="max-width:1100px;padding-bottom:40px;">
+
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Team Manager</div>
+          <div class="page-sub">Admin-only · create reps, assign roles, deactivate accounts</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="adminRoleBadge" style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(232,114,12,.15);border:1px solid var(--orange);color:var(--orange);border-radius:3px;letter-spacing:.08em;text-transform:uppercase;">Admin</span>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" onclick="window.AdminManager && window.AdminManager.refresh()">↻ Refresh</button>
+          <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.openCreate()">+ New User</button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px;" id="adminSummaryCards">
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Total Members</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);" id="adminStatTotal">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Active</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--green);" id="adminStatActive">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Pending Invite</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--orange);" id="adminStatInvited">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Deactivated</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--m);" id="adminStatDeactivated">—</div>
+        </div>
+      </div>
+
+      <!-- Roster table -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Roster</div>
+            <div class="panel-title">Team Members</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input id="adminRosterFilter" placeholder="Filter by name, email, role..." style="font-size:11px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:4px;color:var(--t);width:220px;"/>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div id="adminRosterContainer">
+            <div class="empty" style="padding:30px;"><div class="empty-icon">👥</div>Loading team roster…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Selected User</div>
+            <div class="panel-title" id="adminActivityTitle">Activity Feed</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="adminActivityFeed" style="font-size:12px;color:var(--m);">Select a team member to view recent activity (leads, knocks, logins).</div>
+        </div>
+      </div>
+
+    </div><!-- /view-scroll -->
+  </div><!-- /view-admin -->
+
+  <!-- ══ ADMIN — Create User Modal ══ -->
+  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(480px,92vw);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
+          <div style="font-size:20px;font-weight:800;color:var(--t);">Create Team Member</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">×</button>
+      </div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Email</label>
+          <input id="adminNewEmail" type="email" placeholder="rep@company.com" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
+        </div>
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Display Name</label>
+          <input id="adminNewName" type="text" placeholder="Jane Doe" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
+        </div>
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <select id="adminNewRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
+            <option value="sales_rep">Sales Rep — create leads, log knocks</option>
+            <option value="manager">Manager — see all team leads + reports</option>
+            <option value="viewer">Viewer — read-only</option>
+          </select>
+        </div>
+        <div style="font-size:11px;color:var(--m);padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
+          We'll create the Firebase account and send an invite via the password reset flow. The rep sets their own password on first login.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">Cancel</button>
+          <button id="adminNewSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitCreate()">Create User</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ADMIN — Edit User Modal ══ -->
+  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(520px,92vw);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
+          <div style="font-size:20px;font-weight:800;color:var(--t);" id="adminEditTitle">Edit Member</div>
+          <div style="font-size:11px;color:var(--m);" id="adminEditSub">—</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">×</button>
+      </div>
+      <div style="display:grid;gap:14px;">
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <select id="adminEditRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
+            <option value="sales_rep">Sales Rep</option>
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </div>
+        <div id="adminEditStatusBlock" style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
+          <div style="font-size:11px;color:var(--m);margin-bottom:8px;">Account status: <strong id="adminEditStatusText" style="color:var(--t);">—</strong></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="adminEditDeactivateBtn" class="btn btn-red" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.toggleDeactivate()">Deactivate Account</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">Cancel</button>
+          <button id="adminEditSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitEdit()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══ PRODUCTS ══ -->
   <div class="view" id="view-products">
@@ -13799,3 +13946,4 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=1"></script>
+<script defer src="js/admin-manager.js?v=1"></script>

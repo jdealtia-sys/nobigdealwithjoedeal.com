@@ -1701,3 +1701,418 @@ exports.activateInvitedRep = onCall(
     }
   }
 );
+
+// ═════════════════════════════════════════════════════════════
+// ADMIN ACCOUNT MANAGER — Team lifecycle Cloud Functions
+//
+// These callables back the "Team" admin view. Only a global admin
+// OR the company owner can invoke them. All writes go through the
+// Admin SDK so they bypass Firestore rules — meaning the auth check
+// below is the ONLY thing standing between the caller and the data.
+// Treat every guard as load-bearing.
+//
+// Roles: admin | manager | sales_rep | viewer
+// ═════════════════════════════════════════════════════════════
+
+const TEAM_ROLES = ['admin', 'manager', 'sales_rep', 'viewer'];
+
+// Resolve the caller's company and confirm they can manage it.
+// Returns { uid, companyId, isOwner, isGlobalAdmin } or throws HttpsError.
+async function requireTeamAdmin(request, targetCompanyId = null) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+  const claims = request.auth.token || {};
+  const isGlobalAdmin = claims.role === 'admin';
+  // Solo operators own a company keyed by their uid. Team members carry a
+  // companyId claim set by onRepSignup. Fall back to uid for solo owners.
+  const callerCompanyId = claims.companyId || uid;
+  const companyId = targetCompanyId || callerCompanyId;
+
+  // Cross-company ops are admin-only.
+  if (!isGlobalAdmin && companyId !== callerCompanyId) {
+    throw new HttpsError('permission-denied', 'Cannot manage another company');
+  }
+
+  // Verify ownership against the company doc if one exists.
+  const db = admin.firestore();
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnap = await companyRef.get();
+  const ownerId = companySnap.exists ? (companySnap.data().ownerId || null) : null;
+  const isOwner = ownerId === uid || (!companySnap.exists && companyId === uid);
+
+  if (!isGlobalAdmin && !isOwner) {
+    // Managers can list their team but not mutate — the caller gates mutations.
+    throw new HttpsError('permission-denied', 'Owner or admin access required');
+  }
+
+  return { uid, companyId, isOwner, isGlobalAdmin, companyRef };
+}
+
+function normalizeRole(role, { allowAdmin = false } = {}) {
+  if (typeof role !== 'string') return null;
+  const r = role.trim().toLowerCase();
+  if (!TEAM_ROLES.includes(r)) return null;
+  if (r === 'admin' && !allowAdmin) return null;
+  return r;
+}
+
+function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const e = email.trim().toLowerCase();
+  if (!e.includes('@') || e.length < 5 || e.length > 200) return null;
+  return e;
+}
+
+// ── createTeamMember ─────────────────────────────────────────
+// Creates (or adopts) a Firebase Auth user, stamps role + companyId
+// claims, and records the member in companies/{companyId}/members.
+// The target's default status is 'active' if we created them fresh,
+// 'invited' if they don't have a password set yet.
+exports.createTeamMember = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+
+    const email = normalizeEmail(request.data && request.data.email);
+    if (!email) throw new HttpsError('invalid-argument', 'Valid email required');
+
+    // Global admin can grant admin; company owners cannot.
+    const allowAdmin = request.auth.token.role === 'admin';
+    const role = normalizeRole(request.data && request.data.role, { allowAdmin });
+    if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
+
+    const displayName = typeof request.data?.displayName === 'string'
+      ? request.data.displayName.trim().slice(0, 120)
+      : '';
+
+    const db = admin.firestore();
+
+    // Make sure the company doc exists so security rules for members work.
+    const companySnap = await companyRef.get();
+    if (!companySnap.exists) {
+      await companyRef.set({
+        ownerId: callerUid,
+        name: (request.auth.token.name || 'My Company'),
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    let userRecord;
+    let created = false;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (e) {
+      if (e.code === 'auth/user-not-found') {
+        userRecord = await admin.auth().createUser({
+          email,
+          emailVerified: false,
+          displayName: displayName || email.split('@')[0],
+          disabled: false
+        });
+        created = true;
+      } else {
+        throw e;
+      }
+    }
+
+    // Block cross-company poaching: if the target already has a different
+    // companyId claim, require global admin to reassign.
+    const existingClaims = userRecord.customClaims || {};
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && request.auth.token.role !== 'admin') {
+      throw new HttpsError('already-exists', 'User is already a member of another company');
+    }
+
+    // Merge claims — preserve plan/subscriptionStatus if present.
+    const newClaims = {
+      ...existingClaims,
+      companyId,
+      role
+    };
+    await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
+
+    const memberRef = db.doc(`companies/${companyId}/members/${email}`);
+    await memberRef.set({
+      email,
+      role,
+      displayName: displayName || userRecord.displayName || email.split('@')[0],
+      uid: userRecord.uid,
+      status: created ? 'invited' : 'active',
+      invitedAt: admin.firestore.FieldValue.serverTimestamp(),
+      invitedBy: callerUid,
+      active: true
+    }, { merge: true });
+
+    // Seed user profile doc so the user list query has a name to show.
+    await db.doc(`users/${userRecord.uid}`).set({
+      email,
+      displayName: displayName || userRecord.displayName || email.split('@')[0],
+      companyId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    logger.info('createTeamMember', { companyId, email, role, created });
+    return {
+      success: true,
+      uid: userRecord.uid,
+      email,
+      role,
+      status: created ? 'invited' : 'active',
+      created
+    };
+  }
+);
+
+// ── updateUserRole ───────────────────────────────────────────
+// Change an existing team member's role. Rewrites custom claims
+// and the member doc. Won't let a non-admin promote to admin or
+// demote the company owner.
+exports.updateUserRole = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+
+    const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
+    const targetEmail = normalizeEmail(request.data && request.data.email);
+    if (!targetUid && !targetEmail) {
+      throw new HttpsError('invalid-argument', 'Target uid or email required');
+    }
+
+    const allowAdmin = request.auth.token.role === 'admin';
+    const role = normalizeRole(request.data && request.data.role, { allowAdmin });
+    if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
+
+    // Resolve the target user.
+    let userRecord;
+    try {
+      userRecord = targetUid
+        ? await admin.auth().getUser(targetUid)
+        : await admin.auth().getUserByEmail(targetEmail);
+    } catch (e) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+
+    const existingClaims = userRecord.customClaims || {};
+    // Block changing a user from a different company unless global admin.
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && !allowAdmin) {
+      throw new HttpsError('permission-denied', 'User belongs to another company');
+    }
+
+    // Prevent demoting the company owner through this path.
+    const companySnap = await companyRef.get();
+    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    if (ownerId && userRecord.uid === ownerId && role !== 'admin' && !allowAdmin) {
+      throw new HttpsError('failed-precondition', 'Cannot demote the company owner');
+    }
+
+    await admin.auth().setCustomUserClaims(userRecord.uid, {
+      ...existingClaims,
+      companyId,
+      role
+    });
+
+    const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
+    if (emailKey) {
+      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+        role,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: callerUid
+      }, { merge: true });
+    }
+
+    logger.info('updateUserRole', { companyId, targetUid: userRecord.uid, role });
+    return { success: true, uid: userRecord.uid, role };
+  }
+);
+
+// ── deactivateUser ───────────────────────────────────────────
+// Disable the Firebase Auth account and mark the member doc
+// deactivated. Data is preserved; toggle `reactivate: true` to
+// re-enable. Won't let anyone deactivate the company owner.
+exports.deactivateUser = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+
+    const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
+    const targetEmail = normalizeEmail(request.data && request.data.email);
+    if (!targetUid && !targetEmail) {
+      throw new HttpsError('invalid-argument', 'Target uid or email required');
+    }
+    const reactivate = request.data?.reactivate === true;
+
+    let userRecord;
+    try {
+      userRecord = targetUid
+        ? await admin.auth().getUser(targetUid)
+        : await admin.auth().getUserByEmail(targetEmail);
+    } catch (e) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+
+    const existingClaims = userRecord.customClaims || {};
+    const isGlobalAdmin = request.auth.token.role === 'admin';
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
+      throw new HttpsError('permission-denied', 'User belongs to another company');
+    }
+
+    // Safety: never kill the owner's login from this path.
+    const companySnap = await companyRef.get();
+    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    if (ownerId && userRecord.uid === ownerId) {
+      throw new HttpsError('failed-precondition', 'Cannot deactivate the company owner');
+    }
+    // Don't let the caller lock themselves out.
+    if (userRecord.uid === callerUid) {
+      throw new HttpsError('failed-precondition', 'Cannot deactivate your own account');
+    }
+
+    await admin.auth().updateUser(userRecord.uid, { disabled: !reactivate });
+    // Revoke tokens when deactivating so existing sessions die.
+    if (!reactivate) {
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
+    }
+
+    const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
+    if (emailKey) {
+      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+        status: reactivate ? 'active' : 'deactivated',
+        active: !!reactivate,
+        deactivatedAt: reactivate ? null : admin.firestore.FieldValue.serverTimestamp(),
+        deactivatedBy: reactivate ? null : callerUid
+      }, { merge: true });
+    }
+
+    logger.info(reactivate ? 'reactivateUser' : 'deactivateUser', {
+      companyId, targetUid: userRecord.uid
+    });
+    return { success: true, uid: userRecord.uid, disabled: !reactivate };
+  }
+);
+
+// ── listTeamMembers ──────────────────────────────────────────
+// Returns the team roster enriched with Auth data (lastSignInTime,
+// disabled) and a lead count per member. The member doc by itself
+// has email/role/status; the extras come from Auth + a cheap
+// collectionGroup count on leads.
+exports.listTeamMembers = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+    const claims = request.auth.token || {};
+    const isGlobalAdmin = claims.role === 'admin';
+    const isManager = claims.role === 'manager';
+    const callerCompanyId = claims.companyId || uid;
+    const companyId = (request.data && request.data.companyId) || callerCompanyId;
+
+    // Managers and owners can list their own team. Admins can list any.
+    if (!isGlobalAdmin && companyId !== callerCompanyId) {
+      throw new HttpsError('permission-denied', 'Cannot view another company');
+    }
+
+    const db = admin.firestore();
+    const companySnap = await db.doc(`companies/${companyId}`).get();
+    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    if (!isGlobalAdmin && !isManager && ownerId !== uid) {
+      throw new HttpsError('permission-denied', 'Owner, manager, or admin required');
+    }
+
+    const membersSnap = await db.collection(`companies/${companyId}/members`).get();
+    const members = [];
+
+    // Always include the owner card first.
+    if (ownerId) {
+      try {
+        const ownerRecord = await admin.auth().getUser(ownerId);
+        members.push({
+          uid: ownerId,
+          email: (ownerRecord.email || '').toLowerCase(),
+          displayName: ownerRecord.displayName || 'Owner',
+          role: 'admin',
+          status: ownerRecord.disabled ? 'deactivated' : 'active',
+          isOwner: true,
+          disabled: !!ownerRecord.disabled,
+          lastSignInTime: ownerRecord.metadata?.lastSignInTime || null,
+          creationTime: ownerRecord.metadata?.creationTime || null,
+          leadCount: 0
+        });
+      } catch (e) {
+        logger.warn('listTeamMembers: owner lookup failed', { ownerId, err: e.message });
+      }
+    }
+
+    for (const doc of membersSnap.docs) {
+      const m = doc.data() || {};
+      if (!m.email) continue;
+      if (m.uid && m.uid === ownerId) continue; // owner already listed
+
+      let authMeta = null;
+      try {
+        const u = m.uid
+          ? await admin.auth().getUser(m.uid)
+          : await admin.auth().getUserByEmail(m.email);
+        authMeta = {
+          uid: u.uid,
+          disabled: !!u.disabled,
+          lastSignInTime: u.metadata?.lastSignInTime || null,
+          creationTime: u.metadata?.creationTime || null
+        };
+      } catch (e) { /* invited but not signed up yet */ }
+
+      // Lead count — skip if member never activated (no uid to match).
+      let leadCount = 0;
+      if (authMeta?.uid) {
+        try {
+          const leadsSnap = await db.collection('leads')
+            .where('userId', '==', authMeta.uid)
+            .count()
+            .get();
+          leadCount = leadsSnap.data().count || 0;
+        } catch (e) { /* counts may fail on missing index; leave 0 */ }
+      }
+
+      members.push({
+        uid: authMeta?.uid || m.uid || null,
+        email: m.email,
+        displayName: m.displayName || m.email.split('@')[0],
+        role: m.role || 'sales_rep',
+        status: authMeta?.disabled
+          ? 'deactivated'
+          : (m.status || (authMeta ? 'active' : 'invited')),
+        isOwner: false,
+        disabled: !!authMeta?.disabled,
+        lastSignInTime: authMeta?.lastSignInTime || null,
+        creationTime: authMeta?.creationTime || m.invitedAt?.toDate?.()?.toISOString() || null,
+        leadCount
+      });
+    }
+
+    return { success: true, companyId, members, count: members.length };
+  }
+);
