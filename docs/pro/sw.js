@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v7',  // bumped — April 12 mega session: 9 sprints + brand audit + fonts + sizing
-  cdn: 'nbd-cdn-v7',      // bumped — forces re-fetch of all JS + CSS modules
+  shell: 'nbd-shell-v8',  // bumped — April 13: crm.js null guard + maps.js crash fixes + drawing map height
+  cdn: 'nbd-cdn-v8',      // bumped — forces re-fetch of all JS + CSS modules
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2' // bumped — purges the old blue-tree PWA icons from cache
