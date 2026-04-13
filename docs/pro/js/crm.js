@@ -192,6 +192,21 @@ function renderLeads(leads, filtered){
     list = list.filter(l => !l.isProspect);
   }
 
+  // ─── Rep scoping (Enterprise) ─────────────────
+  // When a user has a 'role' custom claim that is NOT 'admin' or
+  // 'owner', they only see their own leads. Managers see all leads
+  // in their company. Owners/admins see everything (no filter).
+  // The claims are set by the onRepSignup blocking auth trigger
+  // and are available on window._userClaims after login.
+  const _userRole = (window._userClaims && window._userClaims.role) || null;
+  if (_userRole === 'sales_rep') {
+    // Sales reps see only their own leads
+    list = list.filter(l => l.userId === window._user?.uid);
+  } else if (_userRole === 'viewer') {
+    // Viewers see all leads but read-only (handled in UI, not here)
+  }
+  // Owners, admins, managers see all leads (no filter)
+
   // ── Per-pipeline filter: only show leads that belong to the active track ──
   // Simple view: show all leads (no filter)
   // Insurance view: show insurance + unset jobType leads (NBD defaults to insurance)

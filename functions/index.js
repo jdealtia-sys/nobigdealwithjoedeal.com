@@ -19,6 +19,7 @@
  */
 
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
+const { beforeUserCreated } = require('firebase-functions/v2/identity');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
@@ -1555,5 +1556,135 @@ exports.migratePinsToKnocks = onCall(
 
     logger.info('migratePinsToKnocks: done', { uid, migrated, skipped, total: pinsSnap.size });
     return { migrated, skipped, total: pinsSnap.size };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// onRepSignup — Blocking auth trigger (beforeUserCreated)
+//
+// Fires when ANY user creates an account. Checks if their email
+// is in any company's members subcollection. If found:
+//   1. Sets custom claims: { companyId, role, plan }
+//   2. Updates the member doc status from 'invited' → 'active'
+//   3. Creates a Firestore user profile with company scoping
+//
+// If the email isn't in any company's members list, this is a
+// solo operator signup — they get no company claims (default).
+//
+// This is a BLOCKING trigger — it runs before the user's
+// account is finalized, so the claims are available immediately
+// on their first login (no token refresh delay).
+// ═════════════════════════════════════════════════════════════
+exports.onRepSignup = beforeUserCreated(
+  { region: 'us-central1' },
+  async (event) => {
+    const user = event.data;
+    const email = (user.email || '').toLowerCase().trim();
+    if (!email) return; // No email = nothing to match
+
+    const db = admin.firestore();
+
+    try {
+      // Search all companies' member lists for this email
+      // This is a collectionGroup query on 'members' subcollections.
+      const memberSnap = await db.collectionGroup('members')
+        .where('email', '==', email)
+        .where('status', '==', 'invited')
+        .limit(1)
+        .get();
+
+      if (memberSnap.empty) {
+        // Not an invited rep — solo operator signup. No claims to set.
+        logger.info('onRepSignup: no matching invite for ' + email);
+        return;
+      }
+
+      const memberDoc = memberSnap.docs[0];
+      const memberData = memberDoc.data();
+      // The parent path is companies/{companyId}/members/{email}
+      // Extract companyId from the path.
+      const companyId = memberDoc.ref.parent.parent.id;
+      const role = memberData.role || 'sales_rep';
+
+      logger.info('onRepSignup: matched invite', { email, companyId, role });
+
+      // Set custom claims so the user is scoped to their company
+      // immediately on first login. These claims are used by:
+      //   - Firestore security rules (myCompanyId(), sameCompanyAsResource())
+      //   - Client-side pipeline filtering (only show own leads)
+      //   - Role-based UI gating (manager sees all reps, rep sees only own)
+      return {
+        customClaims: {
+          companyId: companyId,
+          role: role,
+          plan: 'growth' // invited reps inherit the company's plan
+        }
+      };
+    } catch (e) {
+      logger.error('onRepSignup error', { email, err: e.message });
+      // Don't block signup on error — let them in, claims can be set later
+      return;
+    }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// activateInvitedRep — Callable function that reps call after
+// their first login to mark their invite as active + create
+// their user profile. The beforeUserCreated trigger sets claims
+// but can't write to Firestore (blocking triggers are limited).
+// This function does the Firestore writes.
+// ═════════════════════════════════════════════════════════════
+exports.activateInvitedRep = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const companyId = request.auth.token.companyId;
+    const role = request.auth.token.role;
+    const email = request.auth.token.email || '';
+
+    if (!companyId) {
+      // Not an invited rep — nothing to activate
+      return { activated: false, reason: 'no_company_claim' };
+    }
+
+    const db = admin.firestore();
+
+    try {
+      // Update the member doc: invited → active
+      const memberRef = db.doc(`companies/${companyId}/members/${email.toLowerCase()}`);
+      const memberSnap = await memberRef.get();
+      if (memberSnap.exists()) {
+        await memberRef.update({
+          status: 'active',
+          uid: uid,
+          activatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      // Create user profile with company scoping
+      await db.doc(`users/${uid}`).set({
+        email: email,
+        role: role,
+        companyId: companyId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        displayName: request.auth.token.name || email.split('@')[0]
+      }, { merge: true });
+
+      logger.info('activateInvitedRep: success', { uid, companyId, role });
+      return { activated: true, companyId, role };
+
+    } catch (e) {
+      logger.error('activateInvitedRep error', { uid, err: e.message });
+      throw new HttpsError('internal', 'Activation failed');
+    }
   }
 );

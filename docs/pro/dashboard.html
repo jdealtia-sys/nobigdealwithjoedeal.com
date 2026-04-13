@@ -429,6 +429,21 @@
       }, 2000);
     }
     window._user = user;
+    // Load custom claims for role-based access (Enterprise)
+    // Claims include: companyId, role, plan, subscriptionStatus
+    try {
+      const tokenResult = await user.getIdTokenResult();
+      window._userClaims = tokenResult.claims || {};
+      // If this is a newly invited rep, activate their membership
+      if (window._userClaims.companyId && !localStorage.getItem('nbd_rep_activated')) {
+        try {
+          const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          const fn = httpsCallable(getFunctions(), 'activateInvitedRep');
+          await fn({});
+          localStorage.setItem('nbd_rep_activated', '1');
+        } catch (e) { console.warn('Rep activation skipped:', e.message); }
+      }
+    } catch (e) { window._userClaims = {}; }
     requestNotifPermission();
     // Pick up pending warranty cert from customer page
     try {
