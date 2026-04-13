@@ -145,20 +145,28 @@ function hideWeatherLayer() { if(weatherLayer) mainMap.removeLayer(weatherLayer)
 // ── PIN CONFIRM FLOW ─────────────────────────────
 function openPinConfirm(lat, lng) {
   pendingPin = { lat, lng, status: curPinStatus, color: curPinColor };
-  document.getElementById('pcd-dot').style.background = curPinColor;
-  document.getElementById('pcd-label').textContent = PIN_LABELS[curPinStatus] || curPinStatus;
-  document.getElementById('pcd-coords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  document.getElementById('pcd-notes').value = '';
-  document.getElementById('pinConfirmOverlay').classList.add('open');
+  const dot   = document.getElementById('pcd-dot');
+  const lbl   = document.getElementById('pcd-label');
+  const coord = document.getElementById('pcd-coords');
+  const notes = document.getElementById('pcd-notes');
+  const ov    = document.getElementById('pinConfirmOverlay');
+  if (dot)   dot.style.background = curPinColor;
+  if (lbl)   lbl.textContent = PIN_LABELS[curPinStatus] || curPinStatus;
+  if (coord) coord.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  if (notes) notes.value = '';
+  if (ov)    ov.classList.add('open');
 }
 function cancelPinConfirm() {
   pendingPin = null;
-  document.getElementById('pinConfirmOverlay').classList.remove('open');
+  const ov = document.getElementById('pinConfirmOverlay');
+  if (ov) ov.classList.remove('open');
 }
 async function commitPin() {
   if(!pendingPin) return;
-  const notes = document.getElementById('pcd-notes').value.trim();
-  document.getElementById('pinConfirmOverlay').classList.remove('open');
+  const notesEl = document.getElementById('pcd-notes');
+  const notes = notesEl ? notesEl.value.trim() : '';
+  const ov = document.getElementById('pinConfirmOverlay');
+  if (ov) ov.classList.remove('open');
   await dropPin(pendingPin.lat, pendingPin.lng, pendingPin.status, pendingPin.color, null, notes);
   refreshHeatLayer();
   pendingPin = null;
@@ -168,7 +176,8 @@ async function commitPin() {
 
 // ── DROP PIN BY ADDRESS ──────────────────────────
 async function dropPinByAddress() {
-  const addr = document.getElementById('pinAddrInput').value.trim();
+  const addrEl = document.getElementById('pinAddrInput');
+  const addr = addrEl ? addrEl.value.trim() : '';
   let lat, lng;
   if(addr) {
     showToast('Geocoding address...');
@@ -181,7 +190,7 @@ async function dropPinByAddress() {
     lat = c.lat; lng = c.lng;
   }
   openPinConfirm(lat, lng);
-  document.getElementById('pinAddrInput').value = '';
+  if (addrEl) addrEl.value = '';
 }
 
 // ── ORIGINAL PIN FUNCTIONS (updated) ────────────────
@@ -376,7 +385,9 @@ async function deletePin(id) { if(pinMarkers[id]){if(pinClusterGroup)pinClusterG
 function clearAllPins() { if(pinClusterGroup){pinClusterGroup.clearLayers();}else{Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m));} pinMarkers={}; }
 
 async function searchMap() {
-  const q=document.getElementById('mapSearch').value.trim(); if(!q)return;
+  const searchEl = document.getElementById('mapSearch');
+  const q = searchEl ? searchEl.value.trim() : '';
+  if(!q)return;
   hideAcDrop('mapSearch');
   const data=await geocode(q); if(!data) return;
   mainMap.setView([data.lat,data.lon],19);
@@ -384,8 +395,10 @@ async function searchMap() {
   const parts = data.display_name.split(',');
   const shortAddr = parts.slice(0,3).join(',').trim();
   // Show loading state immediately
-  document.getElementById('propCard').style.display='block';
-  document.getElementById('propCardInner').innerHTML=`
+  const propCard = document.getElementById('propCard');
+  const propInner = document.getElementById('propCardInner');
+  if (propCard) propCard.style.display='block';
+  if (propInner) propInner.innerHTML=`
     <div class="pi-card">
       <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
       <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
@@ -992,12 +1005,16 @@ function handlePerimClick(latlng) {
 }
 
 function showReChooser() {
-  document.getElementById('reChooser').classList.add('visible');
-  document.getElementById('perimBar').classList.remove('visible');
+  const rc = document.getElementById('reChooser');
+  const pb = document.getElementById('perimBar');
+  if (rc) rc.classList.add('visible');
+  if (pb) pb.classList.remove('visible');
 }
 function hideReChooser() {
-  document.getElementById('reChooser').classList.remove('visible');
-  if(drawMode==='perim') document.getElementById('perimBar').classList.add('visible');
+  const rc = document.getElementById('reChooser');
+  const pb = document.getElementById('perimBar');
+  if (rc) rc.classList.remove('visible');
+  if (drawMode==='perim' && pb) pb.classList.add('visible');
   perimPendingP1 = null;
   perimPendingP2 = null;
 }
@@ -1224,8 +1241,10 @@ function recalcGutters() {
   const gutterLines = drawnLines.filter(l => l.type === 10);
   const total = gutterLines.reduce((s, l) => s + l.dist, 0);
   const ds = Math.ceil(total / 40);
-  document.getElementById('gr-total').textContent = total.toFixed(1) + ' ft';
-  document.getElementById('gr-ds').textContent = ds;
+  const totalEl = document.getElementById('gr-total');
+  const dsEl    = document.getElementById('gr-ds');
+  if (totalEl) totalEl.textContent = total.toFixed(1) + ' ft';
+  if (dsEl)    dsEl.textContent = ds;
   const el = document.getElementById('gutterResult');
   if(el) el.classList.toggle('visible', gutterLines.length > 0);
 }
@@ -1315,7 +1334,8 @@ function clearDraw() {
   perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
   perimBaseArea = 0; selectedLineId = null;
   hideReChooser();
-  document.getElementById('perimBar').textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
+  const pb = document.getElementById('perimBar');
+  if (pb) pb.textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
   renderLineList(); renderFacetList(); recalc(); recalcGutters();
   clearSavedDrawing();
 }
@@ -1424,10 +1444,13 @@ function recalc() {
   }
 
   const w = pitched * waste, sq = w / 100;
-  document.getElementById('cr-base').textContent    = base.toFixed(0) + ' sf';
-  document.getElementById('cr-pitched').textContent = pitched.toFixed(0) + ' sf';
-  document.getElementById('cr-waste').textContent   = w.toFixed(0) + ' sf';
-  document.getElementById('cr-sq').textContent      = sq.toFixed(2) + ' sq';
+  // Draw-tool readout — only present when #view-draw is in DOM. Guard
+  // each one so a partial-view render doesn't blow up the calc loop.
+  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setTxt('cr-base',    base.toFixed(0) + ' sf');
+  setTxt('cr-pitched', pitched.toFixed(0) + ' sf');
+  setTxt('cr-waste',   w.toFixed(0) + ' sf');
+  setTxt('cr-sq',      sq.toFixed(2) + ' sq');
 }
 
 // ── ZOOM TO FIT ──────────────────────────────
