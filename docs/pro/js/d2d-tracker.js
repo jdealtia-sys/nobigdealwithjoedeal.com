@@ -2660,6 +2660,7 @@
     loadTerritories,
     saveTerritory,
     toggleTeamMode: () => { teamMode = !teamMode; loadKnocks().then(() => renderD2D()); },
+    refreshMap: () => { if (d2dMap) { d2dMap.invalidateSize(); } },
     DISPOSITIONS,
     DISPO_ORDER,
     CARRIERS
