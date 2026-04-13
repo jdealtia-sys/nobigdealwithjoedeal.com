@@ -74,8 +74,24 @@ const ALLOWED_CLAUDE_MODELS = new Set([
   'claude-sonnet-4-20250514',
 ]);
 const CLAUDE_MAX_TOKENS_CAP = 1024;
+// H-5: per-uid budget stays as a per-seat fairness floor, but we now
+// also enforce a per-COMPANY budget. Previously, with free signups
+// (pre-C-2) and no company cap, an attacker could spray 10 burner
+// accounts on NBD-2026 and multiply the per-uid limit by 10x.
+// Per-plan caps:
+//   lite        →  10k tokens/day/company
+//   foundation  →  50k tokens/day/company
+//   growth      → 250k tokens/day/company
+//   professional→ 1M  tokens/day/company
 const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
 const CLAUDE_PER_MIN_LIMIT = 20;
+const CLAUDE_COMPANY_BUDGET = {
+  lite:          10_000,
+  foundation:    50_000,
+  growth:       250_000,
+  professional: 1_000_000
+};
+const CLAUDE_COMPANY_BUDGET_DEFAULT = 10_000;
 
 exports.claudeProxy = onRequest(
   {
@@ -116,17 +132,44 @@ exports.claudeProxy = onRequest(
 
       // Per-day token budget (rolling 24h, tracked via api_usage sum).
       const dayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 86_400_000);
-      const usageSnap = await admin.firestore().collection('api_usage')
-        .where('uid', '==', decoded.uid)
-        .where('timestamp', '>', dayAgo)
-        .get();
-      let consumed = 0;
-      usageSnap.forEach(d => {
-        const r = d.data();
-        consumed += (r.inputTokens || 0) + (r.outputTokens || 0);
-      });
-      if (!isAdmin && consumed >= CLAUDE_DAILY_TOKEN_BUDGET) {
-        res.status(429).json({ error: 'Daily AI budget exceeded. Resets in 24 hours.' });
+      const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
+      // Fetch both per-uid AND per-company usage in parallel. The
+      // per-company query uses `companyId`, which we now stamp on
+      // every api_usage doc below.
+      const [perUidSnap, perCompanySnap] = await Promise.all([
+        admin.firestore().collection('api_usage')
+          .where('uid', '==', decoded.uid)
+          .where('timestamp', '>', dayAgo)
+          .get(),
+        admin.firestore().collection('api_usage')
+          .where('companyId', '==', callerCompanyId)
+          .where('timestamp', '>', dayAgo)
+          .get()
+      ]);
+      const sumTokens = (snap) => {
+        let s = 0;
+        snap.forEach(d => {
+          const r = d.data();
+          s += (r.inputTokens || 0) + (r.outputTokens || 0);
+        });
+        return s;
+      };
+      const consumedUid     = sumTokens(perUidSnap);
+      const consumedCompany = sumTokens(perCompanySnap);
+
+      // Resolve per-company cap from the plan on the subscription doc.
+      const plan = (sub && sub.plan) || 'lite';
+      const companyCap = CLAUDE_COMPANY_BUDGET[plan] ?? CLAUDE_COMPANY_BUDGET_DEFAULT;
+
+      if (!isAdmin && consumedUid >= CLAUDE_DAILY_TOKEN_BUDGET) {
+        res.status(429).json({ error: 'Daily AI budget exceeded for your account. Resets in 24 hours.' });
+        return;
+      }
+      if (!isAdmin && consumedCompany >= companyCap) {
+        res.status(429).json({
+          error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
+          plan, capacity: companyCap
+        });
         return;
       }
 
@@ -159,13 +202,15 @@ exports.claudeProxy = onRequest(
       try {
         await admin.firestore().collection('api_usage').add({
           uid: decoded.uid,
+          companyId: callerCompanyId,   // H-5: per-company budget query
+          plan,
           model: anthropicBody.model,
           inputTokens: data.usage?.input_tokens || 0,
           outputTokens: data.usage?.output_tokens || 0,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (e) {
-        logger.warn('api_usage logging failed', { uid: decoded.uid, err: e.message });
+        logger.warn('api_usage logging failed', { err: e.message });
       }
 
       res.json(data);
@@ -298,10 +343,27 @@ exports.stripeWebhook = onRequest(
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
-    let event;
+    // H-6: Stripe requires the RAW request body for signature
+    // verification. If rawBody is missing (middleware re-parsed as
+    // JSON, body-parser mounted before onRequest, etc.) we MUST
+    // reject rather than fall back to req.body — the fallback would
+    // either never verify OR accept a forged event if the signature
+    // library is lenient. Explicit check + explicit tolerance.
+    if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+      logger.error('stripeWebhook missing rawBody — misconfigured middleware');
+      res.status(400).json({ error: 'Invalid request body' });
+      return;
+    }
+    if (typeof sig !== 'string' || !sig.length) {
+      res.status(400).json({ error: 'Missing Stripe signature' });
+      return;
+    }
 
+    let event;
     try {
-      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+      // 300s tolerance is Stripe's default; setting it explicitly so
+      // it's not silently widened by a future SDK upgrade.
+      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret, 300);
     } catch (e) {
       logger.error('stripeWebhook signature verification failed', { err: e.message });
       res.status(400).json({ error: 'Webhook signature verification failed' });
@@ -743,21 +805,39 @@ exports.imageProxy = onRequest(
     const [, bucketKey, ownerUid] = match;
 
     const isOwner = ownerUid === decoded.uid;
-    const isAdmin = decoded.role === 'admin';
+    // Platform admin can cross-tenant for support; everything else
+    // must share a company. H-3: previously platform admin was the
+    // only cross-tenant escape, but pre-C-1 that claim was grantable
+    // through the invite flow. With invite-role allowlisting landed,
+    // a legitimate platform admin is the only caller that hits this
+    // branch, and it's now narrow (support workflow only).
+    const isPlatformAdmin = decoded.role === 'admin';
 
-    // If not owner or admin, allow only if caller is a manager in the same company.
-    let allowed = isOwner || isAdmin;
+    // Tenant-scoped manager / company_admin: must share companyId
+    // with the file's owner. Claims are the cheap path; fall back
+    // to a Firestore lookup only if the claim is missing.
+    let allowed = isOwner || isPlatformAdmin;
     if (!allowed) {
-      try {
-        const repSnap = await admin.firestore().doc(`reps/${decoded.uid}`).get();
-        const ownerRepSnap = await admin.firestore().doc(`reps/${ownerUid}`).get();
-        if (repSnap.exists && ownerRepSnap.exists
-            && repSnap.data().role === 'manager'
-            && repSnap.data().companyId
-            && repSnap.data().companyId === ownerRepSnap.data().companyId) {
-          allowed = true;
-        }
-      } catch (e) { /* fall through */ }
+      const callerCompanyId = decoded.companyId || null;
+      const callerRole = decoded.role || '';
+      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
+        try {
+          // Look up the file-owner's company. Prefer the users/{uid}
+          // doc (authoritative), falling back to reps/{uid} for older
+          // seeded data.
+          const db = admin.firestore();
+          const [userDoc, repDoc] = await Promise.all([
+            db.doc(`users/${ownerUid}`).get(),
+            db.doc(`reps/${ownerUid}`).get()
+          ]);
+          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
+            || (repDoc.exists  && repDoc.data().companyId)
+            || null;
+          if (ownerCompanyId && ownerCompanyId === callerCompanyId) {
+            allowed = true;
+          }
+        } catch (e) { /* fall through → 403 */ }
+      }
     }
     if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
 
@@ -797,6 +877,13 @@ Object.assign(exports, emailFunctions);
 // ═══════════════════════════════════════════════════════════════
 const smsFunctions = require('./sms-functions');
 Object.assign(exports, smsFunctions);
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIT LOG TRIGGERS (H-4)
+// Loaded from a sibling module to keep index.js tractable.
+// ═══════════════════════════════════════════════════════════════
+const auditTriggers = require('./audit-triggers');
+Object.assign(exports, auditTriggers);
 
 // ═══════════════════════════════════════════════════════════════
 // INVOICE FUNCTIONS
@@ -947,13 +1034,30 @@ exports.invoiceWebhook = onRequest(
       const signature = req.headers['stripe-signature'] || '';
       const stripe = new Stripe(STRIPE_SECRET_KEY.value());
 
-      // Verify Stripe signature
+      // H-6: same rawBody requirement as stripeWebhook. The previous
+      // `req.rawBody || req.body` fallback is a footgun — it gives
+      // stripe.constructEvent a parsed object that never yields a
+      // valid signature match, silently 400ing legit events, or (on
+      // older SDKs) re-serialising into a different byte sequence
+      // and accepting forgeries.
+      if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+        logger.error('invoiceWebhook missing rawBody');
+        res.status(400).json({ error: 'Invalid request body' });
+        return;
+      }
+      if (!signature) {
+        res.status(400).json({ error: 'Missing signature' });
+        return;
+      }
+
+      // Verify Stripe signature with explicit replay tolerance.
       let event;
       try {
         event = stripe.webhooks.constructEvent(
-          req.rawBody || req.body,
+          req.rawBody,
           signature,
-          STRIPE_WEBHOOK_SECRET.value()
+          STRIPE_WEBHOOK_SECRET.value(),
+          300
         );
       } catch (err) {
         logger.error('invoiceWebhook signature verification failed', { err: err.message });
