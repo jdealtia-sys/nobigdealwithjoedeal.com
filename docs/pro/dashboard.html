@@ -6643,7 +6643,7 @@ function switchScTab(tab, btn) {
     </div>
     <div class="nav-section-content open" id="section-tools">
       <div class="ni" onclick="goTo('d2d')" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
-      <div class="ni" onclick="goTo('map')" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
+      <div class="ni" onclick="goTo('d2d');if(!localStorage.getItem('nbd_maps_redirect_seen')){showToast('Maps features are now part of D2D Tracker — use the layer toggles on the map','info');localStorage.setItem('nbd_maps_redirect_seen','1')}" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
       <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
       <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
       <div class="ni" onclick="goTo('products')" id="nav-products"><span class="ni-icon">📦</span>Products</div>
@@ -12643,7 +12643,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/academy-admin.js?v=2"></script>
 <script defer src="js/real-deal-academy-lab.js?v=1"></script>
 <script defer src="js/real-deal-academy.js?v=2"></script>
-<script defer src="js/d2d-tracker.js?v=5"></script>
+<script defer src="js/d2d-tracker.js?v=6"></script>
 <script defer src="js/storm-center.js?v=1"></script>
 <script defer src="js/storm-integration.js?v=1"></script>
 <script defer src="js/decision-engine.js?v=1"></script>

@@ -1140,6 +1140,7 @@
 
     watchLocationAndCenter();
     refreshMapMarkers();
+    createLayerPanel();
   }
 
   function watchLocationAndCenter() {
@@ -1234,6 +1235,208 @@
     showHeat = !showHeat;
     refreshMapMarkers();
     window.showToast?.(showHeat ? 'Heat map enabled' : 'Heat map disabled', 'info');
+    updateLayerPanel();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // FLOATING LAYER TOGGLE PANEL (April 2026)
+  //
+  // A small panel that floats over the D2D map. Each toggle
+  // controls a visual layer: Knocks, Jobs, Weather, Heatmap.
+  // This replaces the separate Maps & Pins view — all map
+  // features are now consolidated into D2D.
+  //
+  // Layers:
+  //   Knocks  — the default knock markers (disposition circles)
+  //   Jobs    — active CRM leads with $ value labels (green/blue)
+  //   Weather — NOAA NEXRAD radar overlay
+  //   Heat    — knock density heatmap
+  // ════════════════════════════════════════════════════════════
+  let d2dLayerState = { knocks: true, jobs: false, weather: false, heat: false };
+  let d2dJobMarkers = [];
+  let d2dStormLayer = null;
+  let d2dWeatherLayer = null;
+
+  function createLayerPanel() {
+    if (!d2dMap) return;
+    // Don't re-create if it already exists
+    if (document.getElementById('d2d-layer-panel')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'd2d-layer-panel';
+    panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:1000;'
+      + 'background:rgba(10,12,15,.92);border:1px solid rgba(232,114,12,.3);'
+      + 'border-radius:10px;padding:8px;display:flex;gap:4px;'
+      + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
+      + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
+
+    const layers = [
+      { key: 'knocks',  icon: '📍', label: 'Knocks' },
+      { key: 'jobs',    icon: '💰', label: 'Jobs' },
+      { key: 'weather', icon: '⛈️', label: 'Radar' },
+      { key: 'heat',    icon: '🔥', label: 'Heat' }
+    ];
+
+    layers.forEach(ly => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'd2d-layer-' + ly.key;
+      btn.title = ly.label;
+      btn.style.cssText = 'background:' + (d2dLayerState[ly.key] ? 'rgba(232,114,12,.2)' : 'transparent') + ';'
+        + 'border:1px solid ' + (d2dLayerState[ly.key] ? '#e8720c' : 'rgba(255,255,255,.12)') + ';'
+        + 'color:' + (d2dLayerState[ly.key] ? '#fff' : '#8b8e96') + ';'
+        + 'padding:6px 10px;border-radius:6px;cursor:pointer;'
+        + "font-family:'Barlow Condensed',sans-serif;font-size:11px;"
+        + 'font-weight:700;letter-spacing:.04em;display:flex;align-items:center;'
+        + 'gap:4px;transition:all .15s;-webkit-tap-highlight-color:transparent;'
+        + 'min-height:36px;';
+      btn.innerHTML = ly.icon + ' ' + ly.label;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLayer(ly.key);
+      });
+      panel.appendChild(btn);
+    });
+
+    // Append to the map container (not the map tiles) so it floats above
+    const mapEl = document.getElementById('d2dMap');
+    if (mapEl) {
+      mapEl.style.position = 'relative';
+      mapEl.appendChild(panel);
+    }
+  }
+
+  function updateLayerPanel() {
+    Object.keys(d2dLayerState).forEach(key => {
+      const btn = document.getElementById('d2d-layer-' + key);
+      if (!btn) return;
+      const on = d2dLayerState[key];
+      btn.style.background = on ? 'rgba(232,114,12,.2)' : 'transparent';
+      btn.style.borderColor = on ? '#e8720c' : 'rgba(255,255,255,.12)';
+      btn.style.color = on ? '#fff' : '#8b8e96';
+    });
+  }
+
+  function toggleLayer(key) {
+    d2dLayerState[key] = !d2dLayerState[key];
+    switch (key) {
+      case 'knocks':
+        if (d2dLayerState.knocks) {
+          d2dMap.addLayer(d2dCluster);
+        } else {
+          d2dMap.removeLayer(d2dCluster);
+        }
+        break;
+      case 'jobs':
+        if (d2dLayerState.jobs) {
+          buildD2DJobsLayer();
+        } else {
+          d2dJobMarkers.forEach(m => d2dMap.removeLayer(m));
+        }
+        break;
+      case 'weather':
+        if (d2dLayerState.weather) {
+          showD2DWeatherLayer();
+        } else {
+          if (d2dStormLayer) d2dMap.removeLayer(d2dStormLayer);
+          if (d2dWeatherLayer) d2dMap.removeLayer(d2dWeatherLayer);
+        }
+        break;
+      case 'heat':
+        showHeat = d2dLayerState.heat;
+        refreshMapMarkers();
+        break;
+    }
+    updateLayerPanel();
+    window.showToast?.((d2dLayerState[key] ? 'Showing ' : 'Hiding ') + key, 'info');
+  }
+
+  // ── Jobs layer (ported from maps.js) ──
+  // Shows active CRM leads as markers with $ value labels.
+  // Uses lead lat/lng directly if available (from D2D knock
+  // auto-convert or manual entry), falling back to Nominatim
+  // geocoding for leads that only have an address string.
+  async function buildD2DJobsLayer() {
+    if (!d2dMap) return;
+    d2dJobMarkers.forEach(m => d2dMap.removeLayer(m));
+    d2dJobMarkers = [];
+
+    const leads = window._leads || [];
+    const JOB_STAGES = new Set([
+      'contract_signed', 'job_created', 'permit_pulled', 'materials_ordered',
+      'materials_delivered', 'crew_scheduled', 'install_in_progress',
+      'install_complete', 'final_photos', 'deductible_collected',
+      'final_payment', 'closed', 'In Progress', 'Complete', 'Finalizing'
+    ]);
+    const active = leads.filter(l => {
+      const sk = l._stageKey || l.stage || '';
+      return JOB_STAGES.has(sk);
+    });
+
+    for (const lead of active) {
+      let lat = Number(lead.lat);
+      let lng = Number(lead.lng);
+      // If no coords, try Nominatim geocoding (rate-limited)
+      if (!lat || !lng) {
+        const addr = lead.address || '';
+        if (!addr) continue;
+        try {
+          const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(addr) + '&limit=1',
+            { headers: { 'User-Agent': 'NBDPro/1.0' } });
+          const data = await res.json();
+          if (data && data[0]) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
+          await new Promise(r => setTimeout(r, 200)); // rate limit
+        } catch (e) { continue; }
+      }
+      if (!lat || !lng) continue;
+
+      const val = parseFloat(lead.jobValue || lead.contractValue || lead.value || 0);
+      const label = val > 0 ? '$' + val.toLocaleString() : (lead.stage || 'Job');
+      const stageLower = (lead._stageKey || lead.stage || '').toLowerCase();
+      const color = stageLower.includes('complete') || stageLower === 'closed' ? '#34D399'
+        : stageLower.includes('install') ? '#4A9EFF' : '#EAB308';
+      const name = esc([lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'Lead');
+
+      const icon = L.divIcon({
+        html: '<div style="background:' + color + ';color:#0A0C0F;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">\ud83d\udcb0 ' + label + '</div>',
+        iconAnchor: [0, 0], className: ''
+      });
+      const marker = L.marker([lat, lng], { icon })
+        .bindPopup('<div style="font-family:sans-serif;min-width:160px;">'
+          + '<b style="font-size:13px;color:' + color + ';">' + name + '</b>'
+          + '<p style="font-size:11px;color:#666;margin:4px 0;">' + esc(lead.address || '') + '</p>'
+          + '<p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ' + esc(lead.stage || '') + '</p>'
+          + (val > 0 ? '<p style="font-size:12px;font-weight:700;color:' + color + ';">$' + val.toLocaleString() + '</p>' : '')
+          + '</div>');
+      d2dJobMarkers.push(marker);
+      marker.addTo(d2dMap);
+    }
+    if (d2dJobMarkers.length === 0) {
+      window.showToast?.('No active jobs with locations to display', 'info');
+    }
+  }
+
+  // ── Weather layer (ported from maps.js) ──
+  // NOAA NEXRAD radar composite + RainViewer precipitation
+  function showD2DWeatherLayer() {
+    if (!d2dMap) return;
+    if (!d2dStormLayer) {
+      d2dStormLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.6, attribution: 'NOAA/IEM', maxZoom: 20, tms: false }
+      );
+    }
+    d2dStormLayer.addTo(d2dMap);
+    // RainViewer layer
+    if (!d2dWeatherLayer) {
+      const now = Math.floor(Date.now() / 600000) * 600;
+      d2dWeatherLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + now + '/256/{z}/{x}/{y}/2/1_1.png',
+        { opacity: 0.45, attribution: 'RainViewer', maxZoom: 20 }
+      );
+    }
+    d2dWeatherLayer.addTo(d2dMap);
+    window.showToast?.('Storm radar + precipitation loaded', 'info');
   }
 
   // ============================================================================
