@@ -373,9 +373,112 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
+  // ════════════════════════════════════════════════════════
+  // Photo-Only Portal (April 2026)
+  //
+  // A minimal gallery page showing ONLY before/during/after
+  // photos — no project status, no estimates, no notes.
+  // Perfect for showing a homeowner "look at our work on
+  // your neighbor's house" at the door.
+  // ════════════════════════════════════════════════════════
+  async function generatePhotoPortal(leadId) {
+    if (!leadId || !window._user) {
+      if (typeof showToast === 'function') showToast('Must be logged in', 'error');
+      return null;
+    }
+    if (typeof showToast === 'function') showToast('Generating photo gallery...', 'ok');
+    try {
+      const lead = (window._leads || []).find(l => l.id === leadId);
+      if (!lead) throw new Error('Lead not found');
+
+      let photos = [];
+      try {
+        const photoSnap = await window.getDocs(window.query(
+          window.collection(window.db, 'photos'),
+          window.where('leadId', '==', leadId),
+          window.where('userId', '==', window._user.uid)
+        ));
+        photos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(e) { console.warn('Photo portal: photos load failed', e.message); }
+
+      const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Property';
+      const addr = lead.address || '';
+      const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      const photoGrid = photos.length > 0 ? photos.map(p => `
+        <div style="border-radius:10px;overflow:hidden;aspect-ratio:4/3;background:#1a1a2e;">
+          <img src="${esc(p.url)}" alt="${esc(p.name || 'Photo')}"
+               style="width:100%;height:100%;object-fit:cover;cursor:pointer;transition:transform .2s;"
+               onclick="this.style.position=this.style.position==='fixed'?'':'fixed';this.style.inset='0';this.style.width=this.style.width==='100vw'?'100%':'100vw';this.style.height=this.style.height==='100vh'?'100%':'100vh';this.style.zIndex=this.style.zIndex==='9999'?'':'9999';this.style.objectFit='contain';this.style.background='rgba(0,0,0,0.95);'">
+        </div>
+      `).join('') : '<div style="text-align:center;padding:60px 20px;color:#888;font-size:16px;">No photos uploaded yet.</div>';
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photo Gallery — ${esc(name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Barlow',sans-serif;background:#0a0c0f;color:#f0f0f0;min-height:100vh;}
+  .header{background:linear-gradient(135deg,#1e3a6e,#0a0c0f);padding:40px 24px 32px;text-align:center;border-bottom:4px solid #e8720c;}
+  .header h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .header .addr{font-size:14px;color:#8b8e96;margin-bottom:4px;}
+  .header .brand{font-size:11px;color:#e8720c;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-top:12px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:20px;max-width:1200px;margin:0 auto;}
+  .footer{text-align:center;padding:30px 20px;color:#555;font-size:11px;}
+  .footer a{color:#e8720c;text-decoration:none;}
+  .count{font-size:13px;color:#e8720c;font-weight:700;letter-spacing:.08em;margin-top:8px;}
+  @media(max-width:600px){.grid{grid-template-columns:1fr 1fr;gap:8px;padding:12px;}.header h1{font-size:24px;}}
+</style></head><body>
+  <div class="header">
+    <h1>${esc(name)}</h1>
+    <div class="addr">${esc(addr)}</div>
+    <div class="count">${photos.length} Photo${photos.length !== 1 ? 's' : ''}</div>
+    <div class="brand">No Big Deal Home Solutions</div>
+  </div>
+  <div class="grid">${photoGrid}</div>
+  <div class="footer">Generated ${esc(now)} · <a href="https://${BRAND.website}">${BRAND.website}</a></div>
+</body></html>`;
+
+      // Upload to Firebase Storage under a separate path
+      const storageRef = window.ref(window.storage, `portals/${window._user.uid}/${leadId}-photos.html`);
+      const blob = new Blob([html], { type: 'text/html' });
+      await window.uploadBytes(storageRef, blob, { contentType: 'text/html' });
+      const shareUrl = await window.getDownloadURL(storageRef);
+
+      await window.updateDoc(window.doc(window.db, 'leads', leadId), {
+        photoPortalUrl: shareUrl,
+        photoPortalGeneratedAt: window.serverTimestamp()
+      });
+
+      lead.photoPortalUrl = shareUrl;
+      if (typeof showToast === 'function') showToast('Photo gallery ready!', 'ok');
+      try { await navigator.clipboard.writeText(shareUrl); } catch(e) {}
+      return shareUrl;
+    } catch(e) {
+      console.error('Photo portal generation failed:', e);
+      if (typeof showToast === 'function') showToast('Photo gallery failed: ' + e.message, 'error');
+      return null;
+    }
+  }
+
+  // ── Preview portal (opens in NBDDocViewer or new tab) ──
+  function previewPortal(leadId, type) {
+    const lead = (window._leads || []).find(l => l.id === leadId);
+    if (!lead) return;
+    const url = type === 'photo' ? lead.photoPortalUrl : lead.portalUrl;
+    if (!url) {
+      if (typeof showToast === 'function') showToast('Generate the portal first', 'info');
+      return;
+    }
+    window.open(url, '_blank', 'noopener');
+  }
+
   // Expose to window
   window.CustomerPortal = {
     generate: generatePortal,
+    generatePhotoPortal: generatePhotoPortal,
+    preview: previewPortal,
     shareSMS: sharePortalSMS,
     shareEmail: sharePortalEmail
   };
