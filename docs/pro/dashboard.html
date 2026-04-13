@@ -111,6 +111,8 @@
 <script src="js/standalone-compat.js"></script>
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
+<!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
+<script src="js/script-loader.js?v=1"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Leaflet.Draw — polygon drawing for territory boundaries -->
@@ -445,7 +447,9 @@
       }
     } catch (e) { window._userClaims = {}; }
     requestNotifPermission();
-    // Pick up pending warranty cert from customer page
+    // Pick up pending warranty cert from customer page.
+    // warranty-cert.js is lazy-loaded via ScriptLoader when the Docs
+    // view activates, so wait for that before invoking the wizard.
     try {
       const pending = sessionStorage.getItem('_pendingCert');
       if (pending) {
@@ -453,7 +457,12 @@
         const data = JSON.parse(pending);
         setTimeout(() => {
           goTo('docs');
-          openWarrantyCertWizard(data);
+          const preload = (window.ScriptLoader && window.ScriptLoader.preloadForView)
+            ? window.ScriptLoader.preloadForView('docs')
+            : Promise.resolve();
+          preload.then(() => {
+            if (typeof openWarrantyCertWizard === 'function') openWarrantyCertWizard(data);
+          });
         }, 800);
       }
     } catch(e) {}
@@ -10592,7 +10601,15 @@ function goTo(name, params = {}) {
   
   // Update breadcrumb
   updateBreadcrumb(name, params);
-  
+
+  // Lazy-load the view's script bundle. ScriptLoader resolves an
+  // already-eager-loaded bundle immediately, so this is a no-op for
+  // views not in the bundle map. Returning a promise lets specific
+  // views below chain init onto it when their module ships lazy.
+  const _lazyPreload = (window.ScriptLoader && typeof window.ScriptLoader.preloadForView === 'function')
+    ? window.ScriptLoader.preloadForView(name)
+    : Promise.resolve();
+
   // View-specific initialization
   // Maps require both Leaflet (sync) AND maps.js (deferred) to be loaded.
   // waitForLeaflet handles the first; we also need to wait for initDrawMap/initMainMap.
@@ -10651,9 +10668,12 @@ function goTo(name, params = {}) {
       renderLeads(window._leads, window._filteredLeads);
     }
   }
-  if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
-  if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
-  if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
+  // These views' modules are lazy-loaded — chain init onto the preload
+  // promise so the init call runs AFTER the module has defined the
+  // window global it needs.
+  if(name==='storm')      { _lazyPreload.then(() => { if (window.StormCenter) window.StormCenter.init(); }); }
+  if(name==='closeboard') { _lazyPreload.then(() => { if (window.CloseBoard)  window.CloseBoard.init();  }); }
+  if(name==='repos')      { _lazyPreload.then(() => { if (window.RepOS)       window.RepOS.init();       }); }
   if(name==='board') { if(window.AnalyticsKPI) window.AnalyticsKPI.render('analyticsContainer'); renderLeaderboard(); }
   if(name==='photos') {
     renderPhotoLeads();
@@ -10691,8 +10711,15 @@ function goTo(name, params = {}) {
       });
     });
   }
-  if(name==='training') { if(window.SalesTraining) window.SalesTraining.init(); }
-  if(name==='academy') { if(window.RealDealAcademy) { window.RealDealAcademy.init(); window.RealDealAcademy.renderAcademy('academyContainer'); } }
+  if(name==='training') { _lazyPreload.then(() => { if (window.SalesTraining) window.SalesTraining.init(); }); }
+  if(name==='academy') {
+    _lazyPreload.then(() => {
+      if (window.RealDealAcademy) {
+        window.RealDealAcademy.init();
+        window.RealDealAcademy.renderAcademy('academyContainer');
+      }
+    });
+  }
   if(name==='products') {
     const pc = document.getElementById('productLibraryContainer');
     if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
@@ -10709,12 +10736,13 @@ function goTo(name, params = {}) {
     }
   }
   if(name==='reports') {
-    // Lazy-init the Rep Report Generator on first open. The module
-    // renders the generator UI (template picker + date range) and
-    // loads the My Reports history from Firestore.
-    if (window.NBDReports && typeof window.NBDReports.init === 'function') {
-      window.NBDReports.init();
-    }
+    // rep-report-generator is lazy-loaded via ScriptLoader.preloadForView.
+    // Chain init so it runs once the module has registered NBDReports.
+    _lazyPreload.then(() => {
+      if (window.NBDReports && typeof window.NBDReports.init === 'function') {
+        window.NBDReports.init();
+      }
+    });
   }
   // ── AI tool iframes — lazy-load on first open ──
   // Each AI tool page is embedded as an iframe inside its view.
@@ -13809,10 +13837,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
 <script defer src="js/billing-gate.js?v=1"></script>
-<script defer src="js/rep-report-generator.js?v=4"></script>
+<!-- LAZY: rep-report-generator (reports view) loaded via ScriptLoader -->
 
 <script defer src="js/property-intel.js?v=3"></script>
-<script defer src="js/warranty-cert.js?v=4"></script>
+<!-- LAZY: warranty-cert (docs view wizard) loaded via ScriptLoader -->
 <script defer src="js/tools.js?v=6"></script>
 <!-- ALL scripts use defer for consistent load ordering.
      Defer scripts execute in document order after DOM ready.
@@ -13838,20 +13866,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
-<script defer src="js/sales-training.js?v=1"></script>
-<script defer src="js/academy-insurance-tree.js?v=1"></script>
-<script defer src="js/academy-retail-tree.js?v=1"></script>
-<script defer src="js/academy-courses.js?v=1"></script>
-<script defer src="js/academy-admin.js?v=2"></script>
-<script defer src="js/real-deal-academy-lab.js?v=1"></script>
-<script defer src="js/real-deal-academy.js?v=2"></script>
+<!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
+     close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
 <script defer src="js/d2d-tracker.js?v=8"></script>
-<script defer src="js/storm-center.js?v=1"></script>
-<script defer src="js/storm-integration.js?v=1"></script>
-<script defer src="js/decision-engine.js?v=1"></script>
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
-<script defer src="js/close-board.js?v=1"></script>
-<script defer src="js/rep-os.js?v=1"></script>
 <script defer src="js/product-data.js?v=1"></script>
 <script defer src="js/roofivent-catalog.js?v=1"></script>
 <script defer src="js/estimate-builder-v2.js?v=1"></script>
@@ -13946,4 +13964,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=1"></script>
+<!-- admin-manager must load eagerly — it gates the #nav-admin visibility
+     based on the user's claims. Lazy-loading would hide the nav entry
+     until the admin explicitly typed #/admin, defeating the gate UX. -->
 <script defer src="js/admin-manager.js?v=1"></script>

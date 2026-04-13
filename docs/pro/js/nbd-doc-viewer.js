@@ -459,7 +459,12 @@
   function open(opts) {
     opts = opts || {};
     if (!opts.html || typeof opts.html !== 'string') {
-      console.error('[NBDDocViewer] open() requires an html string');
+      // Surface the failure to the user — previously we only logged,
+      // which produced the "preview button does nothing" symptom.
+      console.error('[NBDDocViewer] open() requires an html string', opts);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Could not open preview — document body was empty.', 'error');
+      }
       return;
     }
     ensureStyles();

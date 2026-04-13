@@ -1099,13 +1099,24 @@
   // ═════════════════════════════════════════════════════════
 
   function finalize(format) {
+    // Normalize format defensively — buttons pass 'insurance-scope' |
+    // 'retail-quote' | 'internal-view', but older call sites also use
+    // 'internal'. Map legacy aliases so the formatter + titleMap both
+    // resolve correctly.
+    const FORMAT_ALIASES = { internal: 'internal-view', retail: 'retail-quote', insurance: 'insurance-scope' };
+    format = FORMAT_ALIASES[format] || format;
+
+    const toast = (msg, kind) => (typeof window.showToast === 'function')
+      ? window.showToast(msg, kind || 'error')
+      : console.warn('[V2 preview]', kind || 'info', msg);
+
     const estimate = getCurrentEstimate();
     if (!estimate) {
-      alert('Add line items to the scope first.');
+      toast('Add line items to the scope before generating a preview.', 'error');
       return;
     }
     if (!window.EstimateFinalization) {
-      alert('Finalization module not loaded.');
+      toast('Preview engine still loading — try again in a moment.', 'error');
       return;
     }
     const meta = {
@@ -1151,7 +1162,23 @@
         };
       }
     }
-    const result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
+    // formatEstimate can throw if a required field in the catalog item
+    // is malformed. Wrap so the user gets a real error instead of a
+    // silent nothing — the single biggest reason "previews not showing"
+    // is the call threw and the exception bubbled unnoticed.
+    let result;
+    try {
+      result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
+    } catch (e) {
+      console.error('[V2 finalize] formatEstimate threw:', e);
+      toast('Preview failed to render: ' + (e.message || 'unknown error'), 'error');
+      return;
+    }
+    if (!result || typeof result.html !== 'string' || !result.html.length) {
+      console.error('[V2 finalize] formatter returned no html', { format, result });
+      toast('Preview formatter returned no document. Check console for details.', 'error');
+      return;
+    }
     // Route through the Universal Document Viewer so the user
     // can Save, Email, Print, or Download PDF without being
     // dumped into a blank popup with no way back.
@@ -1159,9 +1186,9 @@
       const titleMap = {
         'insurance-scope': 'Insurance Scope',
         'retail-quote': 'Retail Quote',
-        'internal': 'Internal Estimate View'
+        'internal-view': 'Internal Estimate View'
       };
-      const titleSuffix = state.customer.address
+      const titleSuffix = state.customer && state.customer.address
         ? ' — ' + state.customer.address
         : '';
       window.NBDDocViewer.open({
@@ -1177,8 +1204,13 @@
         }
       });
     } else {
-      // Fallback: original popup behavior if the viewer isn't loaded
-      window.EstimateFinalization.openInNewWindow(result);
+      // Fallback: original popup behavior if the viewer isn't loaded.
+      // window.open returns null when blocked by a popup blocker —
+      // tell the user explicitly instead of letting the click vanish.
+      const w = window.EstimateFinalization.openInNewWindow(result);
+      if (!w) {
+        toast('Popup blocked by browser. Allow popups for this site to view previews.', 'error');
+      }
     }
   }
 
