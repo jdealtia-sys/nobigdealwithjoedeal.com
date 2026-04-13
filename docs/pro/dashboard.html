@@ -2662,6 +2662,32 @@ body.professional-mode .kcol-header { letter-spacing: 0; }
 body.professional-mode .mm-item { gap: 6px; }
 /* ══ END PROFESSIONAL MODE ══ */
 
+/* ══ SITE-WIDE SIZING SYSTEM ══
+   --nbd-scale is set on :root by the nbdSetSize() JS function.
+   These rules multiply key spacing/font values by the scale so
+   one toggle changes the feel of the entire app.
+   compact=0.85  default=1.0  comfortable=1.12  large=1.25 */
+:root { --nbd-scale: 1; }
+body[data-nbd-size="compact"] .panel-body   { padding: calc(14px * var(--nbd-scale)) calc(16px * var(--nbd-scale)) !important; }
+body[data-nbd-size="comfortable"] .panel-body { padding: calc(22px * var(--nbd-scale)) calc(24px * var(--nbd-scale)) !important; }
+body[data-nbd-size="large"] .panel-body     { padding: calc(26px * var(--nbd-scale)) calc(28px * var(--nbd-scale)) !important; }
+body[data-nbd-size="compact"] .k-card       { padding: calc(10px * var(--nbd-scale)) calc(12px * var(--nbd-scale)) !important; }
+body[data-nbd-size="comfortable"] .k-card   { padding: calc(18px * var(--nbd-scale)) calc(20px * var(--nbd-scale)) !important; }
+body[data-nbd-size="large"] .k-card         { padding: calc(22px * var(--nbd-scale)) calc(24px * var(--nbd-scale)) !important; }
+body[data-nbd-size="compact"] .btn          { padding: calc(6px * var(--nbd-scale)) calc(12px * var(--nbd-scale)); font-size: calc(12px * var(--nbd-scale)); }
+body[data-nbd-size="comfortable"] .btn      { padding: calc(11px * var(--nbd-scale)) calc(18px * var(--nbd-scale)); font-size: calc(14px * var(--nbd-scale)); }
+body[data-nbd-size="large"] .btn            { padding: calc(14px * var(--nbd-scale)) calc(22px * var(--nbd-scale)); font-size: calc(15px * var(--nbd-scale)); }
+body[data-nbd-size="compact"] .ni           { padding: 4px 8px; font-size: 12px; }
+body[data-nbd-size="comfortable"] .ni       { padding: 10px 16px; font-size: 14px; }
+body[data-nbd-size="large"] .ni             { padding: 12px 18px; font-size: 15px; }
+body[data-nbd-size="compact"] .page-title   { font-size: 18px !important; }
+body[data-nbd-size="comfortable"] .page-title { font-size: 26px !important; }
+body[data-nbd-size="large"] .page-title     { font-size: 30px !important; }
+body[data-nbd-size="compact"] .view-scroll  { padding: 14px 16px !important; }
+body[data-nbd-size="comfortable"] .view-scroll { padding: 26px 28px !important; }
+body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
+/* ══ END SIZING SYSTEM ══ */
+
 /* MAP VIEWS */
 /* min-height:0 on every flex ancestor is REQUIRED so the
    sidebar's overflow-y:auto actually triggers. Without it,
@@ -5897,6 +5923,107 @@ body.theme-frosted {
     document.body.classList.add('professional-mode');
   }
 })();
+// ── Site-wide sizing system ──
+// 4 presets that scale --nbd-scale on :root, which every
+// padding/font/gap rule multiplies against. The CSS uses
+// calc() with the scale variable so one change ripples everywhere.
+const NBD_SIZE_SCALES = { compact: 0.85, default: 1.0, comfortable: 1.12, large: 1.25 };
+(function() {
+  var saved = localStorage.getItem('nbd_ui_size') || 'default';
+  var scale = NBD_SIZE_SCALES[saved] || 1.0;
+  document.documentElement.style.setProperty('--nbd-scale', scale);
+  document.body.dataset.nbdSize = saved;
+})();
+function nbdSetSize(size) {
+  var scale = NBD_SIZE_SCALES[size] || 1.0;
+  document.documentElement.style.setProperty('--nbd-scale', scale);
+  document.body.dataset.nbdSize = size;
+  localStorage.setItem('nbd_ui_size', size);
+  // Highlight active button
+  document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
+    var active = b.dataset.size === size;
+    b.style.borderColor = active ? '#e8720c' : '';
+    b.style.color = active ? '#e8720c' : '';
+    b.style.background = active ? 'rgba(232,114,12,.08)' : '';
+  });
+  if (typeof showToast === 'function') showToast('UI size: ' + size, 'info');
+}
+// Sync size buttons on settings open
+document.addEventListener('DOMContentLoaded', function() {
+  var saved = localStorage.getItem('nbd_ui_size') || 'default';
+  document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
+    var active = b.dataset.size === saved;
+    b.style.borderColor = active ? '#e8720c' : '';
+    b.style.color = active ? '#e8720c' : '';
+    b.style.background = active ? 'rgba(232,114,12,.08)' : '';
+  });
+});
+
+// ── Expanded font system ──
+// 16 font families (doubled from original 8). Each one loads
+// from Google Fonts on demand and sets --nbd-font-body + --nbd-font-heading.
+var NBD_FONTS = [
+  { id: 'barlow',     label: 'Barlow',        body: "'Barlow',sans-serif",             heading: "'Barlow Condensed',sans-serif",    gf: 'Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600' },
+  { id: 'inter',      label: 'Inter',         body: "'Inter',sans-serif",              heading: "'Inter',sans-serif",               gf: 'Inter:wght@400;500;600;700;800' },
+  { id: 'poppins',    label: 'Poppins',       body: "'Poppins',sans-serif",            heading: "'Poppins',sans-serif",             gf: 'Poppins:wght@400;500;600;700;800' },
+  { id: 'roboto',     label: 'Roboto',        body: "'Roboto',sans-serif",             heading: "'Roboto Condensed',sans-serif",    gf: 'Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;700' },
+  { id: 'nunito',     label: 'Nunito',        body: "'Nunito',sans-serif",             heading: "'Nunito',sans-serif",              gf: 'Nunito:wght@400;600;700;800' },
+  { id: 'dm-sans',    label: 'DM Sans',       body: "'DM Sans',sans-serif",            heading: "'DM Sans',sans-serif",             gf: 'DM+Sans:wght@400;500;700' },
+  { id: 'space',      label: 'Space Grotesk', body: "'Space Grotesk',sans-serif",      heading: "'Space Grotesk',sans-serif",       gf: 'Space+Grotesk:wght@400;500;600;700' },
+  { id: 'outfit',     label: 'Outfit',        body: "'Outfit',sans-serif",             heading: "'Outfit',sans-serif",              gf: 'Outfit:wght@400;500;600;700;800' },
+  { id: 'montserrat', label: 'Montserrat',    body: "'Montserrat',sans-serif",         heading: "'Montserrat',sans-serif",          gf: 'Montserrat:wght@400;500;600;700;800' },
+  { id: 'lato',       label: 'Lato',          body: "'Lato',sans-serif",               heading: "'Lato',sans-serif",                gf: 'Lato:wght@400;700;900' },
+  { id: 'raleway',    label: 'Raleway',       body: "'Raleway',sans-serif",            heading: "'Raleway',sans-serif",             gf: 'Raleway:wght@400;500;600;700;800' },
+  { id: 'source',     label: 'Source Sans',   body: "'Source Sans 3',sans-serif",      heading: "'Source Sans 3',sans-serif",        gf: 'Source+Sans+3:wght@400;600;700;800' },
+  { id: 'work-sans',  label: 'Work Sans',     body: "'Work Sans',sans-serif",          heading: "'Work Sans',sans-serif",           gf: 'Work+Sans:wght@400;500;600;700;800' },
+  { id: 'manrope',    label: 'Manrope',       body: "'Manrope',sans-serif",            heading: "'Manrope',sans-serif",             gf: 'Manrope:wght@400;500;600;700;800' },
+  { id: 'sora',       label: 'Sora',          body: "'Sora',sans-serif",               heading: "'Sora',sans-serif",                gf: 'Sora:wght@400;500;600;700;800' },
+  { id: 'figtree',    label: 'Figtree',       body: "'Figtree',sans-serif",            heading: "'Figtree',sans-serif",             gf: 'Figtree:wght@400;500;600;700;800' }
+];
+var _nbdLoadedFonts = {};
+function nbdApplyFont(fontId) {
+  var font = NBD_FONTS.find(function(f) { return f.id === fontId; });
+  if (!font) font = NBD_FONTS[0]; // fallback to Barlow
+  // Load Google Font if not already loaded
+  if (!_nbdLoadedFonts[font.id]) {
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=' + font.gf + '&display=swap';
+    document.head.appendChild(link);
+    _nbdLoadedFonts[font.id] = true;
+  }
+  document.documentElement.style.setProperty('--nbd-font-body', font.body);
+  document.documentElement.style.setProperty('--nbd-font-heading', font.heading);
+  document.body.style.fontFamily = font.body;
+  localStorage.setItem('nbd_font', fontId);
+  // Highlight active font card
+  document.querySelectorAll('.nbd-font-card').forEach(function(c) {
+    var active = c.dataset.fontId === fontId;
+    c.style.borderColor = active ? '#e8720c' : 'var(--br)';
+    c.style.background = active ? 'rgba(232,114,12,.06)' : 'var(--s2)';
+  });
+  if (typeof showToast === 'function') showToast('Font: ' + font.label, 'info');
+}
+// Render font grid into settings
+function nbdRenderFontGrid() {
+  var grid = document.getElementById('settings-font-grid');
+  if (!grid) return;
+  var saved = localStorage.getItem('nbd_font') || 'barlow';
+  grid.innerHTML = NBD_FONTS.map(function(f) {
+    var active = f.id === saved;
+    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'rgba(232,114,12,.06)' : 'var(--s2)') + ';border:2px solid ' + (active ? '#e8720c' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
+      + '<div style="font-family:' + f.body + ';font-size:18px;font-weight:700;color:var(--t);margin-bottom:4px;">Aa</div>'
+      + '<div style="font-size:10px;color:var(--m);font-weight:600;">' + f.label + '</div>'
+      + '</div>';
+  }).join('');
+}
+// Boot: apply saved font
+(function() {
+  var saved = localStorage.getItem('nbd_font');
+  if (saved && saved !== 'barlow') nbdApplyFont(saved);
+})();
+document.addEventListener('DOMContentLoaded', nbdRenderFontGrid);
+
 function toggleProfessionalMode(on) {
   if (on) {
     document.body.classList.add('professional-mode');
@@ -8353,11 +8480,26 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Fonts</div><div class="panel-title">Typography</div></div></div>
+        <!-- Typography: fonts + sizing -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Typography</div><div class="panel-title">Fonts & Sizing</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Choose a font pairing for your dashboard.</p>
-            <div id="settings-font-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
+
+            <!-- SITE-WIDE SIZING SELECTOR -->
+            <div style="margin-bottom:20px;">
+              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">UI Size</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;" id="sizingBtnGroup">
+                <button class="btn btn-ghost nbd-size-btn" data-size="compact" onclick="nbdSetSize('compact')" style="font-size:11px;padding:8px 14px;">Compact</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="default" onclick="nbdSetSize('default')" style="font-size:11px;padding:8px 14px;">Default</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="comfortable" onclick="nbdSetSize('comfortable')" style="font-size:11px;padding:8px 14px;">Comfortable</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="large" onclick="nbdSetSize('large')" style="font-size:11px;padding:8px 14px;">Large</button>
+              </div>
+              <div style="font-size:10px;color:var(--m);margin-top:6px;">Scales text, padding, and spacing across the entire app.</div>
+            </div>
+
+            <!-- FONT FAMILY PICKER -->
+            <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">Font Family</label>
+            <div id="settings-font-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px;"></div>
           </div>
         </div>
 
