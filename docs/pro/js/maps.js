@@ -3834,12 +3834,12 @@ window.deletePin = deletePin;
 window.clearAllPins = clearAllPins;
 // damageNearMePhotos is defined in dashboard.html, not maps.js
 if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
-window.toggleMapSidebar = toggleMapSidebar;
-window.spyglassSearch = spyglassSearch;
-window.spyglassGoToLocation = spyglassGoToLocation;
-window.fabToggle = fabToggle;
-window.quickStormCheck = quickStormCheck;
-window.updatePinStats = updatePinStats;
+if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
+if (typeof spyglassSearch === 'function') window.spyglassSearch = spyglassSearch;
+if (typeof spyglassGoToLocation === 'function') window.spyglassGoToLocation = spyglassGoToLocation;
+if (typeof fabToggle === 'function') window.fabToggle = fabToggle;
+if (typeof quickStormCheck === 'function') window.quickStormCheck = quickStormCheck;
+if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;
 window.startZoneDraw = startZoneDraw;
 window.cancelZoneDraw = cancelZoneDraw;
 window.saveZone = saveZone;
