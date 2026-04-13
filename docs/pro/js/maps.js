@@ -563,6 +563,8 @@ function initDrawMap() {
 
   drawMap.on('click', e => {
     if(shadowMode) { handleShadowClick(e.latlng); return; }
+    // Accessory placement mode takes priority
+    if(accessoryMode) { placeAccessory(e.latlng); return; }
     if(!drawOn) return;
     const snapped = snapToVertex(e.latlng);
     if(drawMode === 'line') handleLineClick(snapped);
@@ -1604,6 +1606,92 @@ async function saveDrawingToCustomer() {
     showToast('Save failed: ' + e.message, 'error');
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+// ROOF ACCESSORIES (pipes, skylights, chimneys, vents, etc.)
+// Click-to-place icons on the map + count form in sidebar.
+// Counts auto-populate in estimates.
+// ═══════════════════════════════════════════════════════════
+const ACCESSORIES = [
+  { id: 'pipe',      icon: '🔵', label: 'Pipe Boot',       color: '#4A9EFF' },
+  { id: 'skylight',  icon: '🟦', label: 'Skylight',        color: '#38BDF8' },
+  { id: 'chimney',   icon: '🟫', label: 'Chimney',         color: '#92400E' },
+  { id: 'vent',      icon: '⬜', label: 'Roof Vent',       color: '#6B7280' },
+  { id: 'satellite',  icon: '📡', label: 'Satellite Dish',  color: '#9B6DFF' },
+  { id: 'turbine',   icon: '🌀', label: 'Turbine Vent',    color: '#14B8A6' }
+];
+let placedAccessories = []; // { id, type, latlng, marker }
+let accessoryMode = null; // null = not placing, or accessory type id
+
+function toggleAccessoryMode(typeId) {
+  if (accessoryMode === typeId) {
+    // Turn off
+    accessoryMode = null;
+    drawMap.getContainer().style.cursor = '';
+    showToast('Accessory placement off', 'info');
+  } else {
+    accessoryMode = typeId;
+    const acc = ACCESSORIES.find(a => a.id === typeId);
+    drawMap.getContainer().style.cursor = 'crosshair';
+    showToast('Click the roof to place: ' + (acc?.label || typeId), 'info');
+  }
+  renderAccessoryPanel();
+}
+
+function placeAccessory(latlng) {
+  if (!accessoryMode) return false;
+  const acc = ACCESSORIES.find(a => a.id === accessoryMode);
+  if (!acc) return false;
+
+  const icon = L.divIcon({
+    html: '<div style="background:' + acc.color + '20;border:2px solid ' + acc.color + ';width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.3);">' + acc.icon + '</div>',
+    iconSize: [28, 28],
+    className: ''
+  });
+
+  const marker = L.marker(latlng, { icon, draggable: true }).addTo(drawMap);
+  const id = Date.now() + Math.random();
+  placedAccessories.push({ id, type: accessoryMode, latlng, marker });
+
+  // Click to remove
+  marker.on('click', function() {
+    if (confirm('Remove this ' + acc.label + '?')) {
+      drawMap.removeLayer(marker);
+      placedAccessories = placedAccessories.filter(a => a.id !== id);
+      renderAccessoryPanel();
+      autoSaveDrawing();
+    }
+  });
+
+  renderAccessoryPanel();
+  autoSaveDrawing();
+  return true;
+}
+
+function getAccessoryCounts() {
+  const counts = {};
+  ACCESSORIES.forEach(a => { counts[a.id] = 0; });
+  placedAccessories.forEach(a => { counts[a.type] = (counts[a.type] || 0) + 1; });
+  return counts;
+}
+
+function renderAccessoryPanel() {
+  const panel = document.getElementById('accessoryPanel');
+  if (!panel) return;
+  const counts = getAccessoryCounts();
+  panel.innerHTML = ACCESSORIES.map(a => {
+    const isActive = accessoryMode === a.id;
+    const count = counts[a.id] || 0;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">'
+      + '<button onclick="toggleAccessoryMode(\'' + a.id + '\')" style="background:' + (isActive ? a.color + '20' : 'transparent') + ';border:1px solid ' + (isActive ? a.color : 'var(--br,#2a2f35)') + ';color:' + (isActive ? a.color : 'var(--m,#888)') + ';padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;flex:1;text-align:left;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.03em;transition:all .15s;">'
+      + a.icon + ' ' + a.label + '</button>'
+      + '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;color:' + (count > 0 ? 'var(--t,#fff)' : 'var(--m,#888)') + ';min-width:24px;text-align:center;">' + count + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+// Hook into map click — place accessory if in accessory mode
+// (called from the main drawMap.on('click') handler)
 
 function exportDrawReport() {
   const addr=document.getElementById('drawSearch').value||'No Address';

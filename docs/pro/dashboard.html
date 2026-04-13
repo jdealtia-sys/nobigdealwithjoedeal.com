@@ -7357,6 +7357,18 @@ function switchScTab(tab, btn) {
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
 
+        <!-- ACCESSORIES -->
+        <div class="slabel2">Accessories</div>
+        <div id="accessoryPanel" style="margin-bottom:8px;">
+          <p style="font-size:10px;color:var(--m);text-align:center;padding:4px;">Click an accessory, then click the roof to place it.</p>
+        </div>
+        <script>
+          // Render the accessory panel once maps.js loads
+          document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() { if (typeof renderAccessoryPanel === 'function') renderAccessoryPanel(); }, 2000);
+          });
+        </script>
+
         <!-- STRUCTURES -->
         <div class="slabel2">Structures</div>
         <div id="structureList"><p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p></div>
