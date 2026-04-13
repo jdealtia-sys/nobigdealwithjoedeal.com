@@ -7761,6 +7761,9 @@ function switchScTab(tab, btn) {
         </div>
         <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload</button>
       </div>
+      <div style="font-size:11px;color:var(--m);padding:0 0 10px;display:flex;gap:12px;align-items:center;">
+        <span>Click a template to fill & generate. Use the <strong>Blank</strong> button to print an empty copy for hand-fill.</span>
+      </div>
 
       <!-- CATEGORY FILTER BUTTONS -->
       <div class="tl-filters" id="tlFilters">
@@ -11306,6 +11309,38 @@ function openDocTemplate(key){
 function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }
 function printDoc(){ window.print(); }
 function openUploadDoc(){ document.getElementById('docUploadArea').style.display='block'; }
+
+// ── Inject "Blank" buttons on every template row ──
+// Runs once after DOM is ready. Each .tl-doc-row that calls
+// NBDDocGen.fillAndGenerate('type') gets a small "Blank" button
+// inserted before the arrow. Clicking it calls generateBlank()
+// instead, producing a printable empty copy.
+(function injectBlankButtons() {
+  document.querySelectorAll('.tl-doc-row').forEach(function(row) {
+    var onclick = row.getAttribute('onclick') || '';
+    var match = onclick.match(/fillAndGenerate\(['"]([^'"]+)['"]\)/);
+    if (!match) return;
+    var type = match[1];
+    var btn = document.createElement('button');
+    btn.textContent = 'Blank';
+    btn.title = 'Print a blank copy to fill by hand';
+    btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;';
+    btn.addEventListener('mouseenter', function() { btn.style.borderColor = '#e8720c'; btn.style.color = '#e8720c'; });
+    btn.addEventListener('mouseleave', function() { btn.style.borderColor = 'var(--br)'; btn.style.color = 'var(--m)'; });
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (window.NBDDocGen && typeof window.NBDDocGen.generateBlank === 'function') {
+        window.NBDDocGen.generateBlank(type);
+      } else {
+        if (typeof showToast === 'function') showToast('Doc generator not loaded', 'error');
+      }
+    });
+    // Insert before the arrow
+    var arrow = row.querySelector('.tl-doc-arrow');
+    if (arrow) row.insertBefore(btn, arrow);
+    else row.appendChild(btn);
+  });
+})();
 function closeUploadDoc(){ document.getElementById('docUploadArea').style.display='none'; }
 let _docFile = null;
 function handleDocUpload(inp){ _docFile = inp.files[0]; showToast('File selected: '+(_docFile?.name||''),'ok'); }

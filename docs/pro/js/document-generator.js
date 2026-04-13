@@ -153,6 +153,36 @@ window.NBDDocGen = {
   },
 
   /**
+   * Generate a blank copy of the template with placeholder lines
+   * instead of filled data. User can print and fill by hand.
+   * @param {string} type - Document type
+   */
+  generateBlank(type) {
+    // Build blank data with underline placeholders for hand-fill
+    const blankData = {
+      homeownerName: '________________________________',
+      address: '________________________________',
+      phone: '________________',
+      email: '________________________________',
+      projectDescription: '________________________________________________________________',
+      totalPrice: '$__________',
+      warrantyTier: '____________',
+      warrantyTerms: '________________________________',
+      startDate: '____ / ____ / ________',
+      endDate: '____ / ____ / ________',
+      signature: '________________________________',
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      // Keep company info filled since that's the contractor's data
+      companyName: this.COMPANY.name,
+      companyPhone: this.COMPANY.phone,
+      companyEmail: this.COMPANY.email,
+      companyWebsite: this.COMPANY.website,
+      companyTagline: this.COMPANY.tagline
+    };
+    this.generate(type, blankData);
+  },
+
+  /**
    * Merge template fields with data
    * @param {string} template - HTML template with {{field}} placeholders
    * @param {object} data - Data object

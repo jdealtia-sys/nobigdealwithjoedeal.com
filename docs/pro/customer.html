@@ -1124,6 +1124,25 @@ header {
         </div>
       </div>
 
+      <!-- UPLOAD SIGNED DOCUMENT -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="panel-title" style="margin:0;">Upload Signed Documents</div>
+          <div style="font-size:11px;color:var(--muted);">Camera scan or file upload</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-orange" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" onclick="uploadSignedDoc('camera')">
+            📷 Scan with Camera
+          </button>
+          <button class="btn" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" onclick="uploadSignedDoc('file')">
+            📄 Upload File
+          </button>
+        </div>
+        <input type="file" id="signedDocFileInput" accept="image/*,.pdf" capture="environment" style="display:none;" onchange="handleSignedDocUpload(this)">
+        <input type="file" id="signedDocBrowseInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" onchange="handleSignedDocUpload(this)">
+        <div id="signedDocsList" style="margin-top:12px;"></div>
+      </div>
+
       <div class="content-grid">
         <div>
           <!-- INVOICES & PAYMENTS -->
@@ -5132,6 +5151,96 @@ function copyPortalUrl(inputId) {
     if (typeof showToast === 'function') showToast('Press Ctrl+C to copy', 'info');
   });
 }
+</script>
+<script>
+// ── Signed Document Upload (Sprint 6) ──
+// Camera scan or file upload for signed paper documents.
+// Uploads to Firebase Storage under docs/{uid}/{customerId}/
+// and saves a record to the lead's document subcollection.
+
+function uploadSignedDoc(mode) {
+  if (mode === 'camera') {
+    document.getElementById('signedDocFileInput').click();
+  } else {
+    document.getElementById('signedDocBrowseInput').click();
+  }
+}
+
+async function handleSignedDocUpload(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = ''; // reset for re-use
+
+  const uid = window.auth?.currentUser?.uid;
+  if (!uid || !window._customerId) {
+    if (typeof showToast === 'function') showToast('Not signed in or no customer selected', 'error');
+    return;
+  }
+
+  // Validate
+  const maxSize = 20 * 1024 * 1024; // 20MB
+  if (file.size > maxSize) {
+    if (typeof showToast === 'function') showToast('File too large (max 20MB)', 'error');
+    return;
+  }
+
+  if (typeof showToast === 'function') showToast('Uploading ' + file.name + '...', 'info');
+
+  try {
+    const timestamp = Date.now();
+    const safeName = (file.name || 'document').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 100);
+    const path = 'docs/' + uid + '/' + window._customerId + '/' + timestamp + '_' + safeName;
+    const storageRef = window.ref(window.storage, path);
+    await window.uploadBytes(storageRef, file);
+    const downloadURL = await window.getDownloadURL(storageRef);
+
+    // Save record to Firestore
+    await window.addDoc(window.collection(window.db, 'leads', window._customerId, 'documents'), {
+      name: safeName,
+      url: downloadURL,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      uploadedAt: window.serverTimestamp(),
+      uploadedBy: uid,
+      source: 'signed_upload'
+    });
+
+    if (typeof showToast === 'function') showToast('Document uploaded successfully', 'success');
+    loadSignedDocs();
+  } catch (e) {
+    console.error('Signed doc upload failed:', e);
+    if (typeof showToast === 'function') showToast('Upload failed: ' + (e.message || 'unknown'), 'error');
+  }
+}
+
+async function loadSignedDocs() {
+  const list = document.getElementById('signedDocsList');
+  if (!list || !window._customerId) return;
+  try {
+    const snap = await window.getDocs(window.collection(window.db, 'leads', window._customerId, 'documents'));
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!docs.length) { list.innerHTML = ''; return; }
+
+    list.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Uploaded Documents (' + docs.length + ')</div>'
+      + docs.map(function(d) {
+        var name = d.name || 'Document';
+        var size = d.size ? (d.size / 1024).toFixed(0) + ' KB' : '';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--s);border:1px solid var(--br);border-radius:6px;margin-bottom:4px;">'
+          + '<span style="font-size:16px;">📄</span>'
+          + '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + name + '</div>'
+          + '<div style="font-size:10px;color:var(--m);">' + size + (d.source === 'signed_upload' ? ' · Uploaded' : '') + '</div></div>'
+          + '<a href="' + (d.url || '#') + '" target="_blank" rel="noopener" style="color:var(--orange);font-size:11px;font-weight:600;text-decoration:none;">View</a>'
+          + '</div>';
+      }).join('');
+  } catch (e) {
+    console.warn('loadSignedDocs failed:', e.message);
+  }
+}
+
+// Load on page init
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(loadSignedDocs, 2000);
+});
 </script>
 <script src="js/customer-portal.js?v=3"></script>
 <script src="js/clipboard-fix.js?v=1"></script>
