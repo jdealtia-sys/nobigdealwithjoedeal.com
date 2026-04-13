@@ -610,27 +610,27 @@
       closeTaskModal();
     }
     
-    // N - New lead
-    if (e.key === 'n' || e.key === 'N') {
+    // N - New lead (toggleable)
+    if ((e.key === 'n' || e.key === 'N') && isHotkeyEnabled('hk_n')) {
       goTo('crm');
       setTimeout(() => openLeadModal(), 100);
     }
-    
-    // E - New estimate
-    if (e.key === 'e' || e.key === 'E') {
+
+    // E - New estimate (toggleable)
+    if ((e.key === 'e' || e.key === 'E') && isHotkeyEnabled('hk_e')) {
       goTo('est');
       setTimeout(() => startNewEstimate(), 100);
     }
-    
-    // / - Focus search (if implemented)
-    if (e.key === '/') {
+
+    // / - Focus search (toggleable)
+    if (e.key === '/' && isHotkeyEnabled('hk_slash')) {
       e.preventDefault();
       const searchInput = document.querySelector('#crmSearch, #mapSearch');
       if (searchInput) searchInput.focus();
     }
-    
-    // ? - Show shortcuts help
-    if (e.key === '?') {
+
+    // ? - Show shortcuts help (toggleable)
+    if (e.key === '?' && isHotkeyEnabled('hk_help')) {
       showShortcutsHelp();
     }
   });
@@ -8899,6 +8899,53 @@ function switchScTab(tab, btn) {
 
       <!-- ══ TAB: HELP ══ -->
       <div class="stab-panel" id="stab-panel-help" style="display:none;">
+
+        <!-- Hotkey Toggles -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Keyboard</div><div class="panel-title">Hotkey Toggles</div></div></div>
+          <div class="panel-body">
+            <p style="color:var(--m);font-size:12px;margin-bottom:14px;">Toggle individual keyboard shortcuts on or off. Disable any that you accidentally trigger while typing.</p>
+            <div id="hotkeyTogglesGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            </div>
+          </div>
+        </div>
+        <script>
+        // ── Hotkey toggle system ──
+        // Each hotkey has a localStorage flag. The keydown handler
+        // checks the flag before firing. Settings panel renders
+        // the toggle grid from the HOTKEYS registry.
+        window._HOTKEYS = [
+          { key: 'n', label: 'New Lead', desc: 'Opens the Add Lead modal', id: 'hk_n' },
+          { key: 'e', label: 'New Estimate', desc: 'Opens the Estimate builder', id: 'hk_e' },
+          { key: '/', label: 'Focus Search', desc: 'Jumps cursor to the search bar', id: 'hk_slash' },
+          { key: '?', label: 'Show Shortcuts', desc: 'Opens the shortcuts help overlay', id: 'hk_help' }
+        ];
+        function isHotkeyEnabled(id) {
+          return localStorage.getItem('nbd_hk_disabled_' + id) !== '1';
+        }
+        function toggleHotkey(id, on) {
+          if (on) localStorage.removeItem('nbd_hk_disabled_' + id);
+          else localStorage.setItem('nbd_hk_disabled_' + id, '1');
+          renderHotkeyToggles();
+        }
+        function renderHotkeyToggles() {
+          var grid = document.getElementById('hotkeyTogglesGrid');
+          if (!grid) return;
+          grid.innerHTML = window._HOTKEYS.map(function(hk) {
+            var on = isHotkeyEnabled(hk.id);
+            return '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;">'
+              + '<input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="toggleHotkey(\'' + hk.id + '\',this.checked)" style="accent-color:#e8720c;width:16px;height:16px;">'
+              + '<div>'
+              + '<div style="font-size:12px;font-weight:600;color:var(--t);display:flex;align-items:center;gap:6px;">'
+              + '<kbd style="background:var(--s);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-family:monospace;font-size:11px;">' + hk.key + '</kbd> '
+              + hk.label + '</div>'
+              + '<div style="font-size:10px;color:var(--m);margin-top:2px;">' + hk.desc + '</div>'
+              + '</div></label>';
+          }).join('');
+        }
+        document.addEventListener('DOMContentLoaded', renderHotkeyToggles);
+        </script>
+
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Quick Reference</div><div class="panel-title">Shortcuts & How-To Guide</div></div></div>
           <div class="panel-body">
