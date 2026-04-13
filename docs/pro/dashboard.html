@@ -8947,41 +8947,179 @@ function switchScTab(tab, btn) {
 
       <!-- ══ TAB: TEAM ══ -->
       <div class="stab-panel" id="stab-panel-team" style="display:none;">
+
+        <!-- CURRENT TEAM -->
         <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-hdr"><div><div class="panel-label">Team Members</div><div class="panel-title">Solo Operator Mode</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Your Team</div><div class="panel-title">Team Members</div></div></div>
           <div class="panel-body">
+            <!-- Owner card (always shows) -->
             <div style="padding:16px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:12px;">
               <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:var(--t);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">JD</div>
-                <div>
-                  <div style="font-size:14px;font-weight:700;color:var(--t);">Joe Deal</div>
+                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;" id="teamOwnerInitials">JD</div>
+                <div style="flex:1;">
+                  <div style="font-size:14px;font-weight:700;color:var(--t);" id="teamOwnerName">Loading...</div>
                   <div style="font-size:11px;color:var(--m);">Owner / Operator · Admin · All permissions</div>
                 </div>
+                <span style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--orange);color:#fff;border-radius:12px;letter-spacing:.08em;">OWNER</span>
               </div>
             </div>
-            <p style="font-size:12px;color:var(--m);">NBD Pro is currently in single-operator mode. You're the only user on this account.</p>
+
+            <!-- Team members list (populated by JS) -->
+            <div id="teamMembersList" style="margin-bottom:14px;"></div>
+
+            <!-- Invite form -->
+            <div style="border-top:1px solid var(--br);padding-top:14px;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Invite a Rep</div>
+              <div style="display:flex;gap:8px;align-items:flex-end;">
+                <div style="flex:1;">
+                  <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Email Address</label>
+                  <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:13px;">
+                </div>
+                <div>
+                  <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+                  <select id="inviteRepRole" style="background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:12px;">
+                    <option value="sales_rep">Sales Rep</option>
+                    <option value="manager">Manager</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+                <button class="btn btn-orange" style="padding:10px 16px;white-space:nowrap;" onclick="inviteTeamMember()">Send Invite</button>
+              </div>
+              <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link scoped to your company. They see only their own leads and territory.</div>
+            </div>
           </div>
         </div>
 
+        <!-- ROLE PERMISSIONS -->
         <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-hdr"><div><div class="panel-label">Roadmap</div><div class="panel-title">Multi-User Enterprise Tier</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Access Control</div><div class="panel-title">Role Permissions</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Team features coming in the Enterprise rebuild (spec'd but not yet built):</p>
-            <ul style="font-size:12px;color:var(--t);line-height:1.8;padding-left:20px;">
-              <li>Company → Team → Rep hierarchy</li>
-              <li>Territory assignment per rep with "where are they now" live map</li>
-              <li>Rep leaderboards tracking knocks, inspections, signed deals, close rate</li>
-              <li>Conversion-based payout tracking</li>
-              <li>Role-based access control (Owner / Admin / Manager / Sales Rep / Viewer)</li>
-              <li>Per-rep Ask Joe AI usage limits + cost tracking</li>
-              <li>Cross-rep deal assignment and handoffs</li>
-            </ul>
-            <div style="margin-top:14px;padding:10px 14px;background:var(--og);border-left:3px solid var(--orange);border-radius:0 4px 4px 0;font-size:11px;color:var(--t);">
-              <strong>Coming soon:</strong> When you're ready to onboard your first rep, the multi-tenant architecture will be rebuilt from the ground up. See <code>site_wide_spec_20260410.md</code> for the locked Enterprise scope.
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">
+              <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;">
+                <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px;">Owner / Admin</div>
+                <div style="font-size:11px;color:var(--m);line-height:1.5;">Full access. Billing, team management, all leads, all data, all settings.</div>
+              </div>
+              <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;">
+                <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px;">Manager</div>
+                <div style="font-size:11px;color:var(--m);line-height:1.5;">See all reps' leads. Assign territories. View reports. Cannot manage billing.</div>
+              </div>
+              <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;">
+                <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:6px;">Sales Rep</div>
+                <div style="font-size:11px;color:var(--m);line-height:1.5;">Own leads only. D2D, estimates, photos, documents. Scoped to assigned territory.</div>
+              </div>
+              <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;">
+                <div style="font-size:12px;font-weight:700;color:var(--m);margin-bottom:6px;">Viewer</div>
+                <div style="font-size:11px;color:var(--m);line-height:1.5;">Read-only access to pipeline + reports. No editing, no lead creation.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTERPRISE ROADMAP -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Enterprise</div><div class="panel-title">Growth Roadmap</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">NBD Pro's multi-user architecture is designed for scale. The foundation is live — Firestore collections, security rules, role-based access control, and company scoping are production-ready. These features activate as your team grows:</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+              <div style="padding:12px;background:rgba(232,114,12,.05);border:1px solid rgba(232,114,12,.15);border-radius:6px;">
+                <div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;">Live Now</div>
+                <ul style="font-size:11px;color:var(--t);line-height:1.7;padding-left:16px;margin:0;">
+                  <li>Company + member data model</li>
+                  <li>Role-based security rules</li>
+                  <li>Owner invite flow</li>
+                  <li>Per-rep pipeline scoping</li>
+                </ul>
+              </div>
+              <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;">
+                <div style="font-size:11px;font-weight:700;color:var(--m);margin-bottom:4px;">Coming Next</div>
+                <ul style="font-size:11px;color:var(--m);line-height:1.7;padding-left:16px;margin:0;">
+                  <li>Live rep location map</li>
+                  <li>Rep leaderboards + coaching</li>
+                  <li>Conversion-based payout tracking</li>
+                  <li>Cross-rep deal handoffs</li>
+                </ul>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--m);padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;">
+              <strong style="color:var(--orange);">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Growth tier ($249/mo, up to 5 reps) and scales with Enterprise (unlimited, custom pricing).
             </div>
           </div>
         </div>
       </div><!-- /stab-panel-team -->
+
+      <script>
+      // ── Team management functions ──
+      async function inviteTeamMember() {
+        var email = (document.getElementById('inviteRepEmail')?.value || '').trim();
+        var role = document.getElementById('inviteRepRole')?.value || 'sales_rep';
+        if (!email || !email.includes('@')) {
+          if (typeof showToast === 'function') showToast('Enter a valid email address', 'error');
+          return;
+        }
+        if (!window._user?.uid) {
+          if (typeof showToast === 'function') showToast('Not signed in', 'error');
+          return;
+        }
+        try {
+          // Create or get the company doc
+          var companyId = window._user.uid; // solo operator = their own company
+          await window.setDoc(window.doc(window.db, 'companies', companyId), {
+            ownerId: window._user.uid,
+            name: window._user.displayName || 'My Company',
+            createdAt: window.serverTimestamp()
+          }, { merge: true });
+          // Add the invited member
+          await window.setDoc(window.doc(window.db, 'companies', companyId, 'members', email.toLowerCase()), {
+            email: email.toLowerCase(),
+            role: role,
+            status: 'invited',
+            invitedAt: window.serverTimestamp(),
+            invitedBy: window._user.uid
+          });
+          document.getElementById('inviteRepEmail').value = '';
+          if (typeof showToast === 'function') showToast('Invite sent to ' + email, 'success');
+          loadTeamMembers();
+        } catch (e) {
+          console.error('Invite failed:', e);
+          if (typeof showToast === 'function') showToast('Invite failed: ' + e.message, 'error');
+        }
+      }
+      async function loadTeamMembers() {
+        var list = document.getElementById('teamMembersList');
+        if (!list || !window._user?.uid) return;
+        // Populate owner card
+        var nameEl = document.getElementById('teamOwnerName');
+        var initEl = document.getElementById('teamOwnerInitials');
+        if (nameEl) nameEl.textContent = window._user.displayName || window._user.email || 'Owner';
+        if (initEl) {
+          var name = window._user.displayName || window._user.email || 'O';
+          initEl.textContent = name.split(' ').map(function(w){return w[0]}).join('').toUpperCase().substring(0,2);
+        }
+        try {
+          var snap = await window.getDocs(window.collection(window.db, 'companies', window._user.uid, 'members'));
+          if (snap.empty) { list.innerHTML = ''; return; }
+          list.innerHTML = snap.docs.map(function(d) {
+            var m = d.data();
+            var roleColors = { sales_rep:'var(--green)', manager:'var(--blue)', viewer:'var(--m)' };
+            return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">'
+              + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + (m.email||'?')[0].toUpperCase() + '</div>'
+              + '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--t);">' + (m.email||'') + '</div>'
+              + '<div style="font-size:10px;color:var(--m);">' + (m.role||'rep').replace(/_/g,' ') + ' · ' + (m.status||'invited') + '</div></div>'
+              + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + (m.role||'rep').replace(/_/g,' ') + '</span>'
+              + '</div>';
+          }).join('');
+        } catch(e) { console.warn('loadTeamMembers:', e.message); }
+      }
+      // Load team when tab opens
+      var _origSwitch2 = window.switchSettingsTab;
+      if (typeof _origSwitch2 === 'function') {
+        var _prev = window.switchSettingsTab;
+        window.switchSettingsTab = function(tab) {
+          _prev(tab);
+          if (tab === 'team') loadTeamMembers();
+        };
+      }
+      </script>
 
       <!-- ══ TAB: ACCESS ══ -->
       <div class="stab-panel" id="stab-panel-access" style="display:none;">
