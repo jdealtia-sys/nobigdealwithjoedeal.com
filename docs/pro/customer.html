@@ -133,8 +133,18 @@ header {
 @media (max-width:900px) {
   .content-grid { grid-template-columns:1fr; }
   .info-grid { grid-template-columns:1fr; }
-  .quick-actions { flex-direction:column; }
+  /* 2-column grid on mobile so buttons don't eat the entire
+     viewport. Much more compact than the old vertical stack. */
+  .quick-actions {
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
   .quick-actions .btn { width:100%; justify-content:center; }
+  /* Gallery share panel spans full width */
+  .quick-actions #gallerySharePanel { grid-column: 1 / -1; }
+  /* Stage progress button (orange, full-width) spans both columns */
+  .quick-actions .btn-orange { grid-column: 1 / -1; }
 }
 @media (max-width:640px) {
   html { -webkit-text-size-adjust:100%; }

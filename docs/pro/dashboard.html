@@ -4212,18 +4212,37 @@ body {
 }
 
 /* ── CRM SECONDARY HEADER TABS ── */
+/* Compact secondary toolbar — horizontal icon+label buttons
+   in a single-row strip. Intentionally short so it doesn't eat
+   screen real estate above the kanban. */
 .crm-secondary-header {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: var(--s2, #1a1d23);
   border-bottom: 1px solid var(--br, #2a2d35);
   position: sticky;
   top: 0;
   z-index: 50;
   transition: transform .25s ease, opacity .25s ease;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.crm-secondary-header::-webkit-scrollbar { display: none; }
+/* Override the vertical icon-above-label layout to horizontal
+   icon-beside-label, cutting the height roughly in half. */
+.crm-sec-btn {
+  flex-direction: row !important;
+  gap: 5px !important;
+  padding: 6px 10px !important;
+  white-space: nowrap;
+  min-height: 36px;
+}
+.crm-sec-icon { width: 16px !important; height: 16px !important; }
+.crm-sec-icon svg { width: 14px !important; height: 14px !important; }
+.crm-sec-label { font-size: 10px !important; }
 .crm-secondary-header.hidden {
   transform: translateY(-100%);
   opacity: 0;
