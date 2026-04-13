@@ -1349,3 +1349,110 @@ function parseAddress(addr) {
   }
   return result;
 }
+
+// ═════════════════════════════════════════════════════════════
+// migratePinsToKnocks — one-time migration of the old 'pins'
+// collection into 'knocks' so the Maps retirement is complete.
+//
+// Pin status → knock disposition mapping:
+//   Signed       → appointment
+//   Interested   → interested
+//   Not Home     → not_home
+//   Not Interested → not_interested
+//   Callback     → interested  (closest match)
+//   Do Not Knock → do_not_knock
+//   Left Material → interested
+//   Follow Up    → interested
+//
+// Scope: owner-only. Migrates only the calling user's pins.
+// Idempotent: pins with migrated:true are skipped on re-runs.
+// ═════════════════════════════════════════════════════════════
+exports.migratePinsToKnocks = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    timeoutSeconds: 300,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const db = admin.firestore();
+    const STATUS_TO_DISPO = {
+      'Signed':         'appointment',
+      'Interested':     'interested',
+      'Not Home':       'not_home',
+      'Not Interested': 'not_interested',
+      'Callback':       'interested',
+      'Do Not Knock':   'do_not_knock',
+      'Left Material':  'interested',
+      'Follow Up':      'interested'
+    };
+
+    // Load all non-migrated pins for this user
+    const pinsSnap = await db.collection('pins')
+      .where('userId', '==', uid)
+      .limit(5000)
+      .get();
+
+    let migrated = 0;
+    let skipped = 0;
+    let batch = db.batch();
+    let batchCount = 0;
+
+    for (const pinDoc of pinsSnap.docs) {
+      const pin = pinDoc.data();
+      if (pin.migrated) { skipped++; continue; }
+
+      const disposition = STATUS_TO_DISPO[pin.status] || 'not_home';
+      const knockDoc = {
+        userId: uid,
+        repId: uid,
+        companyId: pin.companyId || 'default',
+        address: pin.notes || pin.address || '',
+        lat: pin.lat || null,
+        lng: pin.lng || null,
+        homeowner: '',
+        phone: '',
+        email: '',
+        disposition: disposition,
+        notes: 'Migrated from Maps pin: ' + (pin.status || 'unknown'),
+        stage: disposition === 'appointment' ? 'appointment' : 'knock',
+        attemptNumber: 1,
+        createdAt: pin.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        convertedToLead: false,
+        estimateValue: 0,
+        closedDealValue: 0,
+        insCarrier: '',
+        claimNumber: '',
+        photoUrls: [],
+        voiceUrl: '',
+        followUpTime: '',
+        _migratedFromPin: pinDoc.id
+      };
+
+      // Create knock
+      const knockRef = db.collection('knocks').doc();
+      batch.set(knockRef, knockDoc);
+
+      // Mark pin as migrated (don't delete — keep for audit)
+      batch.update(pinDoc.ref, { migrated: true, migratedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+      batchCount += 2;
+      migrated++;
+
+      if (batchCount >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) await batch.commit();
+
+    logger.info('migratePinsToKnocks: done', { uid, migrated, skipped, total: pinsSnap.size });
+    return { migrated, skipped, total: pinsSnap.size };
+  }
+);
