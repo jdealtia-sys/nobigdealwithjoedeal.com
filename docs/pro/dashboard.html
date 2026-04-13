@@ -2636,6 +2636,32 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 /* ══ END HOVER NEUTRALIZATION ══ */
 
+/* ══ PROFESSIONAL MODE (DE-MOJI) ══
+   When body.professional-mode is active, decorative emojis
+   throughout the app are hidden via CSS. The nav icons, stat
+   card icons, widget icons, kanban stage emojis, panel labels,
+   and metric prefixes all disappear, leaving a clean text-only
+   corporate-style interface.
+
+   Toggled via Settings → Appearance → Professional Mode checkbox.
+   Persisted in localStorage('nbd_professional_mode'). */
+body.professional-mode .ni-icon,
+body.professional-mode .stat-icon,
+body.professional-mode .w-card-icon,
+body.professional-mode .mm-item-icon,
+body.professional-mode .mn-icon,
+body.professional-mode .empty-icon {
+  display: none !important;
+}
+/* Sidebar nav items — remove left gap where emoji was */
+body.professional-mode .ni { gap: 4px; }
+body.professional-mode .mn-item { gap: 1px; }
+/* Kanban stage headers — emoji prefixes are inline text, hide via font-size trick */
+body.professional-mode .kcol-header { letter-spacing: 0; }
+/* Mobile nav items */
+body.professional-mode .mm-item { gap: 6px; }
+/* ══ END PROFESSIONAL MODE ══ */
+
 /* MAP VIEWS */
 /* min-height:0 on every flex ancestor is REQUIRED so the
    sidebar's overflow-y:auto actually triggers. Without it,
@@ -5861,6 +5887,35 @@ body.theme-frosted {
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/dashboard">
 </head>
 <body>
+<script>
+// ── Professional Mode (DE-MOJI) — early boot ──
+// Set the body class BEFORE paint so emojis never flash then disappear.
+// The toggle function is also defined here so it's available to the
+// Settings checkbox before any deferred scripts load.
+(function() {
+  if (localStorage.getItem('nbd_professional_mode') === '1') {
+    document.body.classList.add('professional-mode');
+  }
+})();
+function toggleProfessionalMode(on) {
+  if (on) {
+    document.body.classList.add('professional-mode');
+    localStorage.setItem('nbd_professional_mode', '1');
+  } else {
+    document.body.classList.remove('professional-mode');
+    localStorage.removeItem('nbd_professional_mode');
+  }
+  // Sync the Settings checkbox if it exists
+  var cb = document.getElementById('professionalModeToggle');
+  if (cb) cb.checked = !!on;
+  if (typeof showToast === 'function') showToast(on ? 'Professional Mode enabled' : 'Professional Mode disabled', 'info');
+}
+// On Settings tab open, sync the checkbox state
+document.addEventListener('DOMContentLoaded', function() {
+  var cb = document.getElementById('professionalModeToggle');
+  if (cb) cb.checked = localStorage.getItem('nbd_professional_mode') === '1';
+});
+</script>
 <!-- ═══════════════════════════════════════════════════════════════
      NBD PRO UNIVERSAL NAV BAR v1.0
      Drop this block into any NBD Pro tool page.
@@ -8250,6 +8305,20 @@ function switchScTab(tab, btn) {
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
               <input type="checkbox" id="te-sound-toggle" onchange="if(window.ThemeSounds)window.ThemeSounds.setEnabled(this.checked)"> Ambient Sound
+            </label>
+          </div>
+        </div>
+
+        <!-- Professional Mode (DE-MOJI) -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Display</div><div class="panel-title">Professional Mode</div></div></div>
+          <div class="panel-body">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;">
+              <input type="checkbox" id="professionalModeToggle" style="accent-color:#e8720c;width:18px;height:18px;" onchange="toggleProfessionalMode(this.checked)">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--t);">Hide decorative emojis</div>
+                <div style="font-size:11px;color:var(--m);margin-top:2px;">Strips emoji icons from the sidebar, kanban, widgets, and panels for a clean corporate look. Data and functionality are unchanged.</div>
+              </div>
             </label>
           </div>
         </div>
