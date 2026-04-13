@@ -212,17 +212,23 @@ exports.createCheckoutSession = onRequest(
     try {
       const { plan } = req.body;
 
-      // Validate plan
-      if (!['foundation', 'professional'].includes(plan)) {
-        res.status(400).json({ error: 'Invalid plan. Must be "foundation" or "professional".' });
+      // Validate plan — accept both old names (foundation/professional)
+      // and new names (starter/growth) for backwards compatibility
+      const VALID_PLANS = ['foundation', 'professional', 'starter', 'growth'];
+      if (!VALID_PLANS.includes(plan)) {
+        res.status(400).json({ error: 'Invalid plan. Must be starter, growth, foundation, or professional.' });
         return;
       }
+      // Normalize old names → new names for consistent storage
+      const normalizedPlan = plan === 'foundation' ? 'starter' : (plan === 'professional' ? 'growth' : plan);
       // Remove the "free subscription while checkout is open" loophole — any prior
       // client-side self-write to subscriptions gets overwritten on webhook return
       // anyway, but the rules now block client writes entirely.
 
       // Get price ID based on plan
-      const priceId = plan === 'foundation'
+      // Maps both old and new plan names to Stripe Price IDs.
+      // STRIPE_PRICE_FOUNDATION = Starter ($99), STRIPE_PRICE_PROFESSIONAL = Growth ($249)
+      const priceId = (normalizedPlan === 'starter')
         ? STRIPE_PRICE_FOUNDATION.value()
         : STRIPE_PRICE_PROFESSIONAL.value();
 
@@ -239,14 +245,18 @@ exports.createCheckoutSession = onRequest(
             quantity: 1,
           },
         ],
-        success_url: `https://nobigdealwithjoedeal.com/pro/stripe-success.html?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
-        cancel_url: 'https://nobigdealwithjoedeal.com/pro/landing.html?cancelled=true',
+        success_url: `https://nobigdealwithjoedeal.com/pro/stripe-success.html?session_id={CHECKOUT_SESSION_ID}&plan=${normalizedPlan}`,
+        cancel_url: 'https://nobigdealwithjoedeal.com/pro/pricing.html?cancelled=true',
         client_reference_id: decoded.uid,
         customer_email: decoded.email,
         metadata: {
           firebaseUid: decoded.uid,
-          plan,
+          plan: normalizedPlan,
         },
+        // 14-day trial on Growth tier — no card required upfront
+        ...(normalizedPlan === 'growth' ? {
+          subscription_data: { trial_period_days: 14 }
+        } : {}),
       });
 
       logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, plan });

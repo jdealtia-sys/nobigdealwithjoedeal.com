@@ -176,13 +176,69 @@ body{font-family:'Barlow',sans-serif;background:#0A0C0F;color:#f0f0f0;min-height
   No Big Deal Home Solutions · nobigdealwithjoedeal.com
 </div>
 
-<script>
-function subscribe(plan) {
-  // In test mode, show a message. In production, redirect to Stripe Checkout.
-  alert('Subscription flow coming soon! Plan: ' + plan.toUpperCase() + '\n\nStripe Checkout will open here when billing goes live.\n\nFor now, use your access code to get full access.');
-  // TODO: Replace with actual Stripe Checkout redirect:
-  // window.location.href = '/api/create-checkout-session?plan=' + plan;
-}
+<script type="module">
+  // Firebase auth for getting the ID token
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+  const app = initializeApp({
+    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
+    authDomain: "nobigdeal-pro.firebaseapp.com",
+    projectId: "nobigdeal-pro"
+  });
+  const auth = getAuth(app);
+
+  window.subscribe = async function(plan) {
+    // Check if user is signed in
+    const user = auth.currentUser;
+    if (!user) {
+      if (confirm('You need to sign in first. Go to login page?')) {
+        window.location.href = '/pro/login.html?redirect=pricing&plan=' + plan;
+      }
+      return;
+    }
+
+    // Get ID token
+    try {
+      const btn = event?.target;
+      if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
+
+      const idToken = await user.getIdToken();
+      const response = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCheckoutSession', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + idToken
+        },
+        body: JSON.stringify({ plan: plan })
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        alert('Error: ' + (data.error || 'Could not create checkout session. Try again.'));
+        if (btn) { btn.textContent = 'Subscribe'; btn.disabled = false; }
+      }
+    } catch (e) {
+      console.error('Checkout error:', e);
+      alert('Connection error. Please try again.');
+      if (event?.target) { event.target.textContent = 'Subscribe'; event.target.disabled = false; }
+    }
+  };
+
+  // Update buttons based on auth state
+  onAuthStateChanged(auth, function(user) {
+    document.querySelectorAll('.cta-primary').forEach(function(btn) {
+      if (user) {
+        btn.style.opacity = '1';
+      } else {
+        // Still allow clicking — subscribe() will redirect to login
+      }
+    });
+  });
 </script>
 
 </body>
