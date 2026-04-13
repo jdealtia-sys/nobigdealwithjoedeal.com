@@ -2991,7 +2991,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .meas-field label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
 .meas-field input,.meas-field select{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 10px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;transition:border-color .2s;}
 .meas-field input:focus,.meas-field select:focus{border-color:var(--orange);}
-.li-table{width:100%;border-collapse:collapse;font-size:12px;}
+.li-table{width:100%;border-collapse:collapse;font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .li-table th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);padding:6px 10px;border-bottom:1px solid var(--br);text-align:left;}
 .li-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);}
 .li-table .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;}
@@ -4488,7 +4488,8 @@ body {
   .step-item{flex-shrink:0;}
   .doc-grid{grid-template-columns:1fr!important;}
   .lb-row{flex-wrap:wrap;gap:4px;}
-  #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:2000;height:62px;background:rgba(10,12,15,.96);border-top:1px solid var(--br);justify-content:space-around;align-items:center;padding:0 4px 2px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+  /* z-index:1900 so modals (2000) render ABOVE the bottom nav */
+  #mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:1900;height:62px;background:rgba(10,12,15,.96);border-top:1px solid var(--br);justify-content:space-around;align-items:center;padding:0 4px 2px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
   .mn-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px 4px;cursor:pointer;border-radius:12px;flex:1;transition:all .18s ease;position:relative;-webkit-tap-highlight-color:transparent;min-width:0;}
   .mn-item::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;background:var(--orange);border-radius:0 0 3px 3px;transition:width .2s ease;}
   .mn-item.active::before{width:28px;}
@@ -5444,8 +5445,9 @@ body.theme-frosted {
 .npm-copy-btn:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); }
 
 /* ── HOW-TO MODAL ──────────────────────────────────────────────────── */
-#nbd-howto-modal { position: fixed; top:0;right:0;bottom:0;left:0; z-index: 2100; background: rgba(0,0,0,.8); -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px; }
+#nbd-howto-modal { position: fixed; top:0;right:0;bottom:0;left:0; z-index: 2100; background: rgba(0,0,0,.8); -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 #nbd-howto-modal.open { display: flex; }
+#nbd-howto-modal > div { max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
 .nhm-inner { background: #0d1017; border: 1px solid #1e2530; border-radius: 12px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 20px; font-family: 'DM Mono', monospace; box-shadow: 0 24px 80px rgba(0,0,0,.7); }
 .nhm-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
 .nhm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: .1em; color: var(--t); }
@@ -11729,7 +11731,7 @@ const DOC_TEMPLATES = {
   contract: {
     title: 'Roofing Contract',
     content: `<h2>ROOFING CONTRACT</h2>
-<p><strong>Contractor:</strong> No Big Deal Home Solutions · Joe Deal · (859) 420-7382 · jd@nobigdealwithjoedeal.com</p>
+<p><strong>Contractor:</strong> No Big Deal Home Solutions · <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> · (859) 420-7382</p>
 <p><strong>Homeowner:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Property Address:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Scope of Work:</strong> Complete roof replacement including tear-off, decking inspection, synthetic underlayment, architectural shingles (GAF Timberline series), ridge cap, flashing, pipe boots, drip edge, and full cleanup.</p>
