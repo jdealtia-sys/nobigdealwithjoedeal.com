@@ -6703,10 +6703,10 @@ function switchScTab(tab, btn) {
       <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-ai-tools">
-      <div class="ni" onclick="window.location.href='/pro/ai-tree.html'"><span class="ni-icon">⚡</span>Decision Engine</div>
-      <div class="ni" onclick="window.location.href='/pro/understand.html'"><span class="ni-icon">🔬</span>Deep Dive</div>
-      <div class="ni" onclick="window.location.href='/pro/project-codex.html'"><span class="ni-icon">📋</span>Project Intel</div>
-      <div class="ni" onclick="window.location.href='/pro/analytics.html'" id="nav-analytics"><span class="ni-icon">📊</span>AI Usage</div>
+      <div class="ni" onclick="goTo('aitree')" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
+      <div class="ni" onclick="goTo('understand')" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
+      <div class="ni" onclick="goTo('projectcodex')" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
+      <div class="ni" onclick="goTo('aiusage')" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
     </div>
   </div>
 
@@ -7673,6 +7673,24 @@ function switchScTab(tab, btn) {
         <div class="empty"><div class="empty-icon">🎯</div>Loading Rep OS...</div>
       </div>
     </div>
+  </div>
+
+  <!-- ══ AI TOOLS (embedded as iframes inside dashboard views) ══ -->
+  <!-- April 2026: These were standalone HTML pages that felt
+       disconnected from the CRM. Now embedded inside dashboard
+       views so the sidebar nav stays visible + same theme wraps
+       the tool. Each iframe loads lazily on first view open. -->
+  <div class="view" id="view-aitree">
+    <iframe id="iframe-aitree" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/ai-tree.html"></iframe>
+  </div>
+  <div class="view" id="view-understand">
+    <iframe id="iframe-understand" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/understand.html"></iframe>
+  </div>
+  <div class="view" id="view-projectcodex">
+    <iframe id="iframe-projectcodex" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/project-codex.html"></iframe>
+  </div>
+  <div class="view" id="view-aiusage">
+    <iframe id="iframe-aiusage" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/analytics.html"></iframe>
   </div>
 
   <!-- ══ TEMPLATES ══ -->
@@ -9609,6 +9627,23 @@ function goTo(name, params = {}) {
     // loads the My Reports history from Firestore.
     if (window.NBDReports && typeof window.NBDReports.init === 'function') {
       window.NBDReports.init();
+    }
+  }
+  // ── AI tool iframes — lazy-load on first open ──
+  // Each AI tool page is embedded as an iframe inside its view.
+  // The iframe src is stored in data-src and only set on first
+  // navigation, so pages don't load until the user actually opens
+  // the tool. This keeps dashboard startup fast.
+  const _iframeMap = {
+    'aitree': 'iframe-aitree',
+    'understand': 'iframe-understand',
+    'projectcodex': 'iframe-projectcodex',
+    'aiusage': 'iframe-aiusage'
+  };
+  if (_iframeMap[name]) {
+    const iframe = document.getElementById(_iframeMap[name]);
+    if (iframe && !iframe.src && iframe.dataset.src) {
+      iframe.src = iframe.dataset.src;
     }
   }
 }
@@ -12438,7 +12473,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
   <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
-  <div class="mm-item" onclick="window.location.href='/pro/analytics.html';closeMobileMore()">
+  <div class="mm-item" onclick="goTo('aiusage');closeMobileMore()">
     <span class="mm-item-icon">💰</span>API Analytics
   </div>
 
