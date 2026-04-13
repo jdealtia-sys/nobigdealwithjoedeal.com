@@ -71,29 +71,30 @@ window.NBDDocGen = {
     contract:              { name: 'Roofing Contract',                template: 'renderContract' },
     inspectionHomeowner:   { name: 'Inspection Report (Homeowner)',   template: 'renderInspectionHomeowner' },
     inspectionInsurance:   { name: 'Inspection Report (Insurance)',   template: 'renderInspectionInsurance' },
-    // 20+ document types that use the generic branded template.
-    // Each one produces a real, professional, printable document
-    // with the correct title, fields, and NBD branding.
-    invoice:               { name: 'Invoice',                         template: 'renderGenericDoc' },
-    warranty_certificate:  { name: 'Warranty Certificate',            template: 'renderGenericDoc' },
-    certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderGenericDoc' },
-    supplement_request:    { name: 'Supplement Request',              template: 'renderGenericDoc' },
-    scope_of_work:         { name: 'Scope of Work',                   template: 'renderGenericDoc' },
-    assignment_of_benefits:{ name: 'Assignment of Benefits',          template: 'renderGenericDoc' },
-    change_order:          { name: 'Change Order',                    template: 'renderGenericDoc' },
-    work_authorization:    { name: 'Work Authorization',              template: 'renderGenericDoc' },
-    payment_agreement:     { name: 'Payment Agreement',               template: 'renderGenericDoc' },
-    material_delivery:     { name: 'Material Delivery Receipt',       template: 'renderGenericDoc' },
-    thank_you:             { name: 'Thank You Letter',                template: 'renderGenericDoc' },
-    company_intro:         { name: 'Company Introduction',            template: 'renderGenericDoc' },
-    financing_options:     { name: 'Financing Options',               template: 'renderGenericDoc' },
-    storm_checklist:       { name: 'Storm Damage Checklist',          template: 'renderGenericDoc' },
-    claim_guide:           { name: 'Insurance Claim Guide',           template: 'renderGenericDoc' },
-    referral_card:         { name: 'Referral Card',                   template: 'renderGenericDoc' },
-    before_after_report:   { name: 'Before & After Report',           template: 'renderGenericDoc' },
-    door_hanger:           { name: 'Door Hanger',                     template: 'renderGenericDoc' },
-    neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderGenericDoc' },
-    testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderGenericDoc' }
+    // 20 document types with dedicated render functions in
+    // document-generator-templates.js. Each produces a fully branded,
+    // professional document specific to its purpose. Falls back to
+    // renderGenericDoc if the template file isn't loaded yet.
+    invoice:               { name: 'Invoice',                         template: 'renderInvoice' },
+    warranty_certificate:  { name: 'Warranty Certificate',            template: 'renderWarrantyCertificate' },
+    certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderCertificateOfCompletion' },
+    supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
+    scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork' },
+    assignment_of_benefits:{ name: 'Assignment of Benefits',          template: 'renderAssignmentOfBenefits' },
+    change_order:          { name: 'Change Order',                    template: 'renderChangeOrder' },
+    work_authorization:    { name: 'Work Authorization',              template: 'renderWorkAuthorization' },
+    payment_agreement:     { name: 'Payment Agreement',               template: 'renderPaymentAgreement' },
+    material_delivery:     { name: 'Material Delivery Receipt',       template: 'renderMaterialDelivery' },
+    thank_you:             { name: 'Thank You Letter',                template: 'renderThankYou' },
+    company_intro:         { name: 'Company Introduction',            template: 'renderCompanyIntro' },
+    financing_options:     { name: 'Financing Options',               template: 'renderFinancingOptions' },
+    storm_checklist:       { name: 'Storm Damage Checklist',          template: 'renderStormChecklist' },
+    claim_guide:           { name: 'Insurance Claim Guide',           template: 'renderClaimGuide' },
+    referral_card:         { name: 'Referral Card',                   template: 'renderReferralCard' },
+    before_after_report:   { name: 'Before & After Report',           template: 'renderBeforeAfterReport' },
+    door_hanger:           { name: 'Door Hanger',                     template: 'renderDoorHanger' },
+    neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderNeighborhoodMailer' },
+    testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderTestimonialSheet' }
   },
 
   // ============================================================================
@@ -163,7 +164,12 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   getHTML(type, data = {}) {
-    const template = this[this.DOCUMENT_TYPES[type]?.template];
+    // Try the dedicated template first, fall back to generic if the
+    // extended templates file hasn't loaded yet (deferred script).
+    let template = this[this.DOCUMENT_TYPES[type]?.template];
+    if (!template && this.DOCUMENT_TYPES[type]) {
+      template = this.renderGenericDoc; // fallback
+    }
     if (!template) {
       console.error(`Unknown document type: ${type}`);
       return null;
