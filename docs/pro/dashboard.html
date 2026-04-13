@@ -8482,7 +8482,53 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">GX Effects</div><div class="panel-title">Glow & Animation</div></div></div>
           <div class="panel-body">
-            <div id="gx-settings-panel"></div>
+            <div id="gx-settings-panel">
+              <!-- Master toggle -->
+              <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;">
+                <input type="checkbox" id="gxMasterToggle" checked onchange="if(window.ThemeGX)ThemeGX.setEnabled(this.checked)" style="accent-color:var(--orange);width:18px;height:18px;">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--t);">Enable GX Effects</div>
+                  <div style="font-size:11px;color:var(--m);">Glow borders, animated backgrounds, and neon highlights</div>
+                </div>
+              </label>
+
+              <!-- Glow toggle -->
+              <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;">
+                <input type="checkbox" id="gxGlowToggle" checked onchange="if(window.ThemeGX)ThemeGX.setGlow(this.checked)" style="accent-color:var(--orange);width:16px;height:16px;">
+                <span style="font-size:12px;color:var(--t);">Glow borders on cards & panels</span>
+              </label>
+
+              <!-- Animated background toggle -->
+              <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;">
+                <input type="checkbox" id="gxBgToggle" checked onchange="if(window.ThemeGX)ThemeGX.setAnimatedBg(this.checked)" style="accent-color:var(--orange);width:16px;height:16px;">
+                <span style="font-size:12px;color:var(--t);">Animated gradient background</span>
+              </label>
+
+              <!-- Intensity slider -->
+              <div style="margin-bottom:16px;">
+                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Glow Intensity</label>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:10px;color:var(--m);">Subtle</span>
+                  <input type="range" id="gxIntensitySlider" min="0" max="100" value="60" oninput="if(window.ThemeGX)ThemeGX.setIntensity(this.value/100);document.getElementById('gxIntensityVal').textContent=this.value+'%'" style="flex:1;accent-color:var(--orange);">
+                  <span style="font-size:10px;color:var(--m);">Neon</span>
+                  <span id="gxIntensityVal" style="font-size:11px;color:var(--orange);font-weight:700;min-width:35px;">60%</span>
+                </div>
+              </div>
+
+              <!-- Accent color override -->
+              <div style="margin-bottom:12px;">
+                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Custom Accent Color</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input type="color" id="gxAccentPicker" value="#e8720c" onchange="if(window.ThemeGX)ThemeGX.setAccent(this.value)" style="width:40px;height:32px;border:1px solid var(--br);border-radius:4px;cursor:pointer;background:none;">
+                  <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="if(window.ThemeGX){ThemeGX.clearAccentOverride();document.getElementById('gxAccentPicker').value='#e8720c';}">Reset to Default</button>
+                </div>
+              </div>
+
+              <!-- Hover effects info -->
+              <div style="font-size:11px;color:var(--m);padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-top:12px;">
+                GX also adds: card hover lift/tilt, shimmer on stat cards, and neon highlight on focused inputs. These activate automatically with the master toggle.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -8498,7 +8544,110 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Builder</div><div class="panel-title">Create Your Own Theme</div></div></div>
           <div class="panel-body">
-            <div id="te-builder-panel"></div>
+            <div id="te-builder-panel">
+              <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Create a custom theme with your own colors. Changes apply instantly — save when you're happy.</p>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Accent Color</label>
+                  <input type="color" id="tbAccent" value="#e8720c" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Background</label>
+                  <input type="color" id="tbBg" value="#0A0C0F" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Surface (Cards)</label>
+                  <input type="color" id="tbSurface" value="#181C22" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Text Color</label>
+                  <input type="color" id="tbText" value="#E8EAF0" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Muted Text</label>
+                  <input type="color" id="tbMuted" value="#6B7280" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Border</label>
+                  <input type="color" id="tbBorder" value="#2a2d35" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                </div>
+              </div>
+
+              <div style="margin-bottom:14px;">
+                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Theme Name</label>
+                <input type="text" id="tbName" placeholder="My Custom Theme" maxlength="30" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:13px;">
+              </div>
+
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-orange" style="flex:1;justify-content:center;" onclick="saveCustomTheme()">Save Theme</button>
+                <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="resetCustomTheme()">Reset to Default</button>
+              </div>
+            </div>
+
+            <script>
+            function applyCustomTheme() {
+              var R = document.documentElement.style;
+              var v = function(id) { return document.getElementById(id)?.value || ''; };
+              R.setProperty('--orange', v('tbAccent'));
+              R.setProperty('--bg', v('tbBg'));
+              R.setProperty('--s', v('tbBg')); // sidebar matches bg
+              R.setProperty('--s2', v('tbSurface'));
+              R.setProperty('--s3', v('tbSurface'));
+              R.setProperty('--t', v('tbText'));
+              R.setProperty('--m', v('tbMuted'));
+              R.setProperty('--br', v('tbBorder'));
+              document.body.style.background = v('tbBg');
+              // Also update GX accent if active
+              if (window.ThemeGX && window.ThemeGX.isEnabled()) {
+                window.ThemeGX.setAccent(v('tbAccent'));
+              }
+            }
+            function saveCustomTheme() {
+              var name = (document.getElementById('tbName')?.value || '').trim() || 'Custom Theme';
+              var theme = {
+                name: name,
+                accent: document.getElementById('tbAccent')?.value,
+                bg: document.getElementById('tbBg')?.value,
+                surface: document.getElementById('tbSurface')?.value,
+                text: document.getElementById('tbText')?.value,
+                muted: document.getElementById('tbMuted')?.value,
+                border: document.getElementById('tbBorder')?.value
+              };
+              localStorage.setItem('nbd_custom_theme', JSON.stringify(theme));
+              if (typeof showToast === 'function') showToast('Custom theme "' + name + '" saved', 'success');
+            }
+            function resetCustomTheme() {
+              localStorage.removeItem('nbd_custom_theme');
+              var R = document.documentElement.style;
+              ['--orange','--bg','--s','--s2','--s3','--t','--m','--br'].forEach(function(v) { R.removeProperty(v); });
+              document.body.style.background = '';
+              // Reset picker values
+              document.getElementById('tbAccent').value = '#e8720c';
+              document.getElementById('tbBg').value = '#0A0C0F';
+              document.getElementById('tbSurface').value = '#181C22';
+              document.getElementById('tbText').value = '#E8EAF0';
+              document.getElementById('tbMuted').value = '#6B7280';
+              document.getElementById('tbBorder').value = '#2a2d35';
+              if (typeof showToast === 'function') showToast('Reset to default NBD theme', 'info');
+            }
+            // Load saved custom theme on boot
+            (function() {
+              try {
+                var saved = JSON.parse(localStorage.getItem('nbd_custom_theme'));
+                if (saved && saved.accent) {
+                  document.getElementById('tbAccent').value = saved.accent;
+                  document.getElementById('tbBg').value = saved.bg || '#0A0C0F';
+                  document.getElementById('tbSurface').value = saved.surface || '#181C22';
+                  document.getElementById('tbText').value = saved.text || '#E8EAF0';
+                  document.getElementById('tbMuted').value = saved.muted || '#6B7280';
+                  document.getElementById('tbBorder').value = saved.border || '#2a2d35';
+                  document.getElementById('tbName').value = saved.name || '';
+                  applyCustomTheme();
+                }
+              } catch(e) {}
+            })();
+            </script>
           </div>
         </div>
 
@@ -9032,6 +9181,19 @@ function switchScTab(tab, btn) {
             } else {
               renderBillingTab();
             }
+          }
+          // Sync GX panel controls when Appearance tab opens
+          if (tab === 'appearance' && window.ThemeGX) {
+            var gxState = window.ThemeGX.getState();
+            var el;
+            el = document.getElementById('gxMasterToggle');  if (el) el.checked = gxState.enabled;
+            el = document.getElementById('gxGlowToggle');    if (el) el.checked = gxState.glowEnabled;
+            el = document.getElementById('gxBgToggle');      if (el) el.checked = gxState.animatedBgEnabled;
+            el = document.getElementById('gxIntensitySlider');if (el) el.value = Math.round(gxState.intensity * 100);
+            el = document.getElementById('gxIntensityVal');   if (el) el.textContent = Math.round(gxState.intensity * 100) + '%';
+            el = document.getElementById('gxAccentPicker');   if (el) el.value = gxState.accentOverride || gxState.currentAccent || '#e8720c';
+            // Also render font grid + sync size buttons
+            if (typeof nbdRenderFontGrid === 'function') nbdRenderFontGrid();
           }
         };
       }
