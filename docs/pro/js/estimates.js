@@ -365,14 +365,14 @@ function exportEstimate() {
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Roofing Estimate — ${esc(d.addr)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid var(--orange);margin-bottom:26px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
-  .brand span{color:#e8720c;}.sub{font-size:13px;color:#666;margin-top:2px;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+  .brand span{color:var(--orange);}.sub{font-size:13px;color:#666;margin-top:2px;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
   .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
   .est-date{font-size:12px;color:#666;}.est-by{font-size:12px;color:#666;}
-  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#e8720c;margin-top:10px;}
-  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#e8720c;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid #e8720c;}
+  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-top:10px;}
+  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:var(--orange);}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid var(--orange);}
   .prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:4px;}
   .prop-field label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
   .prop-field .v{font-size:15px;font-weight:700;color:#111;}
@@ -383,9 +383,9 @@ function exportEstimate() {
   thead tr{border-bottom:2px solid #111;}
   th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
   td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
-  .code{color:#e8720c;font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:13px;}
+  .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:13px;}
   .total-cell{font-weight:700;color:#111;}
-  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#e8720c;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
+  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--orange);border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
   .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
   @media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}
   </style></head><body>
@@ -495,7 +495,7 @@ function showEstimateTypeSelector() {
       + 'border:2px solid var(--br, #2a2d35);border-radius:10px;'
       + 'padding:20px;cursor:pointer;font-family:inherit;color:var(--t, #fff);'
       + 'transition:border-color .15s, transform .12s;';
-    card.addEventListener('mouseenter', () => { card.style.borderColor = '#e8720c'; });
+    card.addEventListener('mouseenter', () => { card.style.borderColor = 'var(--orange)'; });
     card.addEventListener('mouseleave', () => { card.style.borderColor = 'var(--br, #2a2d35)'; });
     card.addEventListener('click', () => {
       overlay.style.display = 'none';
@@ -548,7 +548,7 @@ function showEstimateTypeSelector() {
 
   grid.appendChild(makeCard({
     badge: 'V2 Beta — Line-Item',
-    badgeColor: '#e8720c',
+    badgeColor: 'var(--orange)',
     name: 'V2 Builder',
     desc: '270-line Xactimate-style catalog with presets, per-item qty overrides, and 3 output formats.',
     features: [
@@ -745,7 +745,7 @@ function showAssignLeadPicker(estimateId, estimate) {
       row.style.cssText = 'background:var(--s2);border:1px solid var(--br);'
         + 'border-radius:6px;padding:10px 14px;text-align:left;cursor:pointer;'
         + 'font-family:inherit;transition:border-color .15s;';
-      row.addEventListener('mouseenter', () => { row.style.borderColor = '#e8720c'; });
+      row.addEventListener('mouseenter', () => { row.style.borderColor = 'var(--orange)'; });
       row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--br)'; });
 
       const name = document.createElement('div');

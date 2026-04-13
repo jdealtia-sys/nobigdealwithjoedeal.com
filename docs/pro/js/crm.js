@@ -560,7 +560,7 @@ function buildCard(l){
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
       </div>
     </div>
-    <div class="kc-name">${name}${l.customerId ? ` <span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--orange,#e8720c);opacity:.8;margin-left:4px;">${escHtml(l.customerId)}</span>` : ''}</div>
+    <div class="kc-name">${name}${l.customerId ? ` <span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--orange,var(--orange));opacity:.8;margin-left:4px;">${escHtml(l.customerId)}</span>` : ''}</div>
     ${addr ? `<div class="kc-addr" title="${escHtml(l.address||'')}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">
       <a class="kc-phone-link nbd-kc-stop" href="tel:${phone.replace(/\D/g,'')}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> ${phone}</a>
@@ -670,12 +670,12 @@ function promptLostReason(lead) {
       btn.type = 'button';
       btn.textContent = r.label;
       btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--t);padding:10px 12px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;text-align:left;transition:all .15s;';
-      btn.addEventListener('mouseenter', () => { btn.style.borderColor = '#e8720c'; });
+      btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--orange)'; });
       btn.addEventListener('mouseleave', () => { if (selected !== r.key) btn.style.borderColor = 'var(--br)'; });
       btn.addEventListener('click', () => {
         selected = r.key;
         grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'var(--br)'; b.style.background = 'var(--s2)'; });
-        btn.style.borderColor = '#e8720c';
+        btn.style.borderColor = 'var(--orange)';
         btn.style.background = 'rgba(232,114,12,.08)';
         if (r.key === 'other') customInput.focus();
       });
@@ -714,7 +714,7 @@ function promptLostReason(lead) {
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.textContent = 'Mark Lost';
-    saveBtn.style.cssText = 'background:#e8720c;border:1px solid #e8720c;color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;';
+    saveBtn.style.cssText = 'background:var(--orange);border:1px solid var(--orange);color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;';
     saveBtn.addEventListener('click', () => {
       const custom = customInput.value.trim();
       let reason = null;
@@ -1055,7 +1055,7 @@ function renderNotifItem(n, opts = {}) {
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:10px;color:var(--m);opacity:0.8;">${escHtml(timeAgo)}</span>
             ${hasLead && !isDismissed ? `<span style="font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.03em;">→ VIEW LEAD</span>` : ''}
-            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span class="nbd-notif-sms" style="font-size:9px;color:var(--green,#2ECC8A);font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
+            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span class="nbd-notif-sms" style="font-size:9px;color:var(--green,var(--green));font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
             ${isDismissed ? `<span class="nbd-notif-restore" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
           </div>
         </div>

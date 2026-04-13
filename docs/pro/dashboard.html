@@ -3,7 +3,7 @@
 <html lang="en" data-theme="nbd-original">
 <head>
 <style id="theme-system">
-:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
+:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:var(--s3);--ink:var(--t);--rule:rgba(255,255,255,.09); }
 :root[data-theme="midnight"] { --orange:#6366F1;--ob:#818CF8;--og:rgba(99,102,241,.2);--bg:#0F0F1A;--s:#141425;--s2:#1A1A33;--s3:#22223F;--br:rgba(255,255,255,.08);--t:#E2E8F0;--m:#64748B;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1A1A33;--ink:#E2E8F0;--rule:rgba(255,255,255,.1); }
 :root[data-theme="cobalt"] { --orange:#2563EB;--ob:#3B82F6;--og:rgba(37,99,235,.2);--bg:#0A1628;--s:#0F1E3A;--s2:#142348;--s3:#1A2A56;--br:rgba(255,255,255,.08);--t:#EFF6FF;--m:#60A5FA;--blue:#38BDF8;--green:#34D399;--purple:#818CF8;--red:#F87171;--gold:#FBBF24;--paper:#142348;--ink:#EFF6FF;--rule:rgba(255,255,255,.1); }
 :root[data-theme="forest"] { --orange:#16A34A;--ob:#22C55E;--og:rgba(22,163,74,.2);--bg:#0A1A0F;--s:#0F2218;--s2:#142B20;--s3:#1A3428;--br:rgba(255,255,255,.08);--t:#ECFDF5;--m:#6EE7B7;--blue:#38BDF8;--green:#4ADE80;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#142B20;--ink:#ECFDF5;--rule:rgba(255,255,255,.1); }
@@ -89,7 +89,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="NBD Pro">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0A0C0F">
+<meta name="theme-color" content="var(--bg)">
 <link rel="manifest" href="/pro/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
@@ -140,14 +140,14 @@
           const banner = document.createElement('div');
           banner.id = 'trial-banner';
           banner.className = urgency;
-          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:#fff;background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
           document.body.prepend(banner);
         }
       } else if (NBDAuth.isTrialExpired) {
         const banner = document.createElement('div');
         banner.id = 'trial-banner';
         banner.className = 'trial-expired';
-        banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the free Lite plan (25 leads). Upgrade to unlock everything.</span><a href="/pro/register.html?plan=pro" style="color:#fff;background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Go Pro — $79/mo →</a>`;
+        banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the free Lite plan (25 leads). Upgrade to unlock everything.</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Go Pro — $79/mo →</a>`;
         document.body.prepend(banner);
       }
     }
@@ -419,10 +419,10 @@
       setTimeout(() => {
         const banner = document.createElement('div');
         banner.id = 'liteBanner';
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#111418,#181C22);border-top:2px solid #e8720c;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
         banner.innerHTML = `
-          <span>🚀 You're on <strong style="color:#e8720c;">NBD Pro Lite</strong> (25 leads max)</span>
-          <a href="/pro/landing.html#pricing" style="background:#e8720c;color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
+          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
           <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
         document.body.appendChild(banner);
@@ -1933,7 +1933,7 @@
   --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229;
   --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280;
   --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017;
-  --paper:#1E2229; --ink:#E8EAF0; --rule:rgba(255,255,255,.09);
+  --paper:var(--s3); --ink:var(--t); --rule:rgba(255,255,255,.09);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;-webkit-tap-highlight-color:transparent;}
@@ -1942,7 +1942,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:
 header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;z-index:1000;}
 .logo{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
 .logo span{color:var(--orange);}
-.logo-mark{width:36px;height:36px;background:#e8720c;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:#fff;letter-spacing:.5px;flex-shrink:0;}
+.logo-mark{width:36px;height:36px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--t);letter-spacing:.5px;flex-shrink:0;}
 .hbadge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 7px;border-radius:2px;margin-left:8px;}
 .hright{display:flex;align-items:center;gap:10px;}
 .upill{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;}
@@ -2513,7 +2513,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 .toast-btn-primary{
   background:var(--orange);
-  color:#fff;
+  color:var(--t);
 }
 .toast-btn-primary:hover{
   background:var(--ob);
@@ -2554,7 +2554,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 .ni.active{color:var(--orange);background:rgba(232,114,12,.1);border-left-color:var(--orange);font-weight:600;}
 .ni.active .ni-icon{transform:scale(1.1);}
 .ni-icon{font-size:15px;width:20px;text-align:center;transition:transform .2s;}
-.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:2px 7px;min-width:18px;text-align:center;}
+.nbadge{margin-left:auto;background:var(--red);color:var(--t);font-size:9px;font-weight:700;border-radius:10px;padding:2px 7px;min-width:18px;text-align:center;}
 .health-indicator{
   display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:7px;
   transition:all .3s ease;opacity:0;box-shadow:0 0 0 0 currentColor;
@@ -2707,7 +2707,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .page-sub{font-size:12px;color:var(--m);margin-top:2px;}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:all .2s;}
-.btn-orange{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
+.btn-orange{background:var(--orange);color:var(--t);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
 .btn-orange:hover{background:var(--ob);}
 .btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
 .btn-ghost:hover{border-color:var(--orange);color:var(--orange);}
@@ -2723,7 +2723,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .ob-toggle input{opacity:0;width:0;height:0;position:absolute;}
 .ob-toggle span{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334;border-radius:20px;transition:.3s;}
 .ob-toggle span::before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.3s;}
-.ob-toggle input:checked + span{background:var(--orange,#e8720c);}
+.ob-toggle input:checked + span{background:var(--orange,var(--orange));}
 .ob-toggle input:checked + span::before{transform:translateX(18px);}
 .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
 .stat-card{background:var(--s);border:1px solid var(--br);border-radius:9px;padding:16px 18px;display:flex;align-items:center;gap:12px;}
@@ -2796,7 +2796,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .ac-item b{font-weight:700;}
 .ac-spinner{padding:8px 12px;font-size:11px;color:var(--m);text-align:center;}
 /* ── MAKE THIS A LEAD BUTTON ── */
-.make-lead-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;background:linear-gradient(135deg,var(--orange),var(--ob));color:#fff;border:none;border-radius:7px;padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:10px;transition:all .2s;box-shadow:0 2px 12px var(--og);}
+.make-lead-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;background:linear-gradient(135deg,var(--orange),var(--ob));color:var(--t);border:none;border-radius:7px;padding:10px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:10px;transition:all .2s;box-shadow:0 2px 12px var(--og);}
 .make-lead-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--og);}
 /* ── PIN LEAD POPUP ── */
 .pin-lead-popup{font-family:'Barlow',sans-serif;min-width:220px;max-width:260px;background:var(--s);border-radius:8px;overflow:hidden;}
@@ -2810,7 +2810,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .plp-key{color:var(--m);}
 .plp-val{color:var(--t);font-weight:600;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .plp-btns{padding:10px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--rule);}
-.plp-btn-go{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--orange);color:#fff;border:none;border-radius:6px;padding:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
+.plp-btn-go{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--orange);color:var(--t);border:none;border-radius:6px;padding:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-go:hover{background:var(--ob);}
 .plp-btn-del{display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-del:hover{background:rgba(224,82,82,.1);}
@@ -2842,7 +2842,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .dc-perm:hover{background:rgba(224,82,82,.18);}
 .deleted-empty{text-align:center;padding:40px 20px;color:var(--m);font-size:13px;}
 .btn-trash-toggle{position:relative;}
-.trash-count-badge{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;display:none;}
+.trash-count-badge{position:absolute;top:-6px;right:-6px;background:var(--red);color:var(--t);border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;display:none;}
 .prop-card-inner{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:4px;}
 .prop-card-addr{font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;}
 .prop-card-coords{font-size:10px;color:var(--m);}
@@ -2859,11 +2859,11 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .pi-stat-val{font-size:12px;font-weight:700;color:var(--t);}
 .pi-stat-key{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;}
 .pi-roof-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
-.pi-roof-new{background:rgba(46,204,138,.15);color:#2ECC8A;border:1px solid rgba(46,204,138,.3);}
-.pi-roof-mid{background:rgba(234,179,8,.15);color:#EAB308;border:1px solid rgba(234,179,8,.3);}
-.pi-roof-old{background:rgba(224,82,82,.15);color:#E05252;border:1px solid rgba(224,82,82,.3);}
-.pi-roof-ancient{background:rgba(155,109,255,.15);color:#9B6DFF;border:1px solid rgba(155,109,255,.3);}
-.pi-llc-flag{display:inline-flex;align-items:center;gap:4px;background:rgba(74,158,255,.12);color:#4A9EFF;border:1px solid rgba(74,158,255,.25);border-radius:10px;font-size:9px;font-weight:700;padding:2px 8px;letter-spacing:.05em;text-transform:uppercase;margin-left:6px;}
+.pi-roof-new{background:rgba(46,204,138,.15);color:var(--green);border:1px solid rgba(46,204,138,.3);}
+.pi-roof-mid{background:rgba(234,179,8,.15);color:var(--gold);border:1px solid rgba(234,179,8,.3);}
+.pi-roof-old{background:rgba(224,82,82,.15);color:var(--red);border:1px solid rgba(224,82,82,.3);}
+.pi-roof-ancient{background:rgba(155,109,255,.15);color:var(--purple);border:1px solid rgba(155,109,255,.3);}
+.pi-llc-flag{display:inline-flex;align-items:center;gap:4px;background:rgba(74,158,255,.12);color:var(--blue);border:1px solid rgba(74,158,255,.25);border-radius:10px;font-size:9px;font-weight:700;padding:2px 8px;letter-spacing:.05em;text-transform:uppercase;margin-left:6px;}
 .pi-link{font-size:10px;color:var(--orange);text-decoration:none;display:flex;align-items:center;gap:3px;margin-top:6px;}
 .pi-link:hover{text-decoration:underline;}
 .pi-loading{display:flex;align-items:center;gap:8px;padding:12px;font-size:11px;color:var(--m);}
@@ -2883,10 +2883,10 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .mir-item span{color:var(--t);font-weight:600;}
 /* Roof age badge on kanban card */
 .kct-roof{font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.05em;}
-.kct-roof-new{background:rgba(46,204,138,.15);color:#2ECC8A;}
-.kct-roof-mid{background:rgba(234,179,8,.15);color:#EAB308;}
-.kct-roof-old{background:rgba(224,82,82,.15);color:#E05252;}
-.kct-roof-ancient{background:rgba(155,109,255,.15);color:#9B6DFF;}
+.kct-roof-new{background:rgba(46,204,138,.15);color:var(--green);}
+.kct-roof-mid{background:rgba(234,179,8,.15);color:var(--gold);}
+.kct-roof-old{background:rgba(224,82,82,.15);color:var(--red);}
+.kct-roof-ancient{background:rgba(155,109,255,.15);color:var(--purple);}
 .pin-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
 /* DRAW PANEL */
@@ -2931,7 +2931,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .draw-btns{display:flex;gap:5px;margin-bottom:10px;}
 .draw-btn{flex:1;padding:8px 5px;border:1px solid var(--br);border-radius:6px;background:var(--s2);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
 .draw-btn:hover{border-color:var(--orange);color:var(--orange);}
-.draw-btn.go{background:var(--green);border-color:var(--green);color:#0A0C0F;}
+.draw-btn.go{background:var(--green);border-color:var(--green);color:var(--bg);}
 .draw-btn.go:hover{background:#25b87a;}
 .draw-btn.stop{background:rgba(224,82,82,.12);border-color:var(--red);color:var(--red);}
 .line-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:10px;}
@@ -2957,8 +2957,8 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .est-step:last-child::after{display:none;}
 .step-circle{width:28px;height:28px;border-radius:50%;border:2px solid var(--br);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;margin:0 auto 5px;position:relative;z-index:1;transition:all .3s;}
 .step-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);}
-.est-step.active .step-circle{border-color:var(--orange);background:var(--orange);color:#fff;}
-.est-step.done .step-circle{border-color:var(--green);background:var(--green);color:#fff;}
+.est-step.active .step-circle{border-color:var(--orange);background:var(--orange);color:var(--t);}
+.est-step.done .step-circle{border-color:var(--green);background:var(--green);color:var(--t);}
 .est-step.active .step-label,.est-step.done .step-label{color:var(--t);}
 .tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
 .tier-card{background:var(--s2);border:2px solid var(--br);border-radius:10px;padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;}
@@ -3037,20 +3037,20 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 }
 .est-lead-chip.assigned { color: #4ade80; border-color: rgba(74,222,128,.35); background: rgba(74,222,128,.06); }
 .est-lead-chip.unassigned { color: var(--m, #888); background: var(--s3, #1a1d23); }
-.est-lead-chip.unassigned:hover { color: #e8720c; border-color: #e8720c; }
+.est-lead-chip.unassigned:hover { color: var(--orange); border-color: var(--orange); }
 .est-src-chip {
   font-size: 9px; font-weight: 700;
   letter-spacing: .1em;
   padding: 2px 7px; border-radius: 3px;
   text-transform: uppercase;
 }
-.est-src-chip.v2 { background: rgba(232,114,12,.12); color: #e8720c; border: 1px solid rgba(232,114,12,.3); }
+.est-src-chip.v2 { background: rgba(232,114,12,.12); color: var(--orange); border: 1px solid rgba(232,114,12,.3); }
 .est-src-chip.classic { background: rgba(96,165,250,.08); color: #60a5fa; border: 1px solid rgba(96,165,250,.25); }
 .est-date { font-size: 10px; color: var(--m, #888); margin-left: auto; }
 .nbd-est-card .est-card-total {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 22px; font-weight: 700;
-  color: var(--orange, #e8720c);
+  color: var(--orange, var(--orange));
   flex-shrink: 0;
 }
 .nbd-est-card .est-card-actions {
@@ -3077,7 +3077,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.est-act-btn:hover { color: var(--orange, #e8720c); border-color: var(--orange, #e8720c); background: rgba(232,114,12,.06); }
+.est-act-btn:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); background: rgba(232,114,12,.06); }
 .est-act-btn.danger:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,.06); }
 @media (max-width: 600px) {
   .nbd-est-card .est-card-main { flex-wrap: wrap; }
@@ -3118,7 +3118,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .tl-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
 .tl-filter-btn:hover{background:var(--s2);color:var(--t);border-color:rgba(232,114,12,.3);}
 .tl-filter-btn:active{transform:scale(.96);}
-.tl-filter-active{background:var(--orange)!important;color:#fff!important;border-color:var(--orange)!important;}
+.tl-filter-active{background:var(--orange)!important;color:var(--t)!important;border-color:var(--orange)!important;}
 .tl-filter-count{font-size:11px;opacity:.7;font-weight:400;}
 .tl-category{margin:0 16px 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;transition:box-shadow .2s;}
 .tl-category:hover{box-shadow:0 2px 12px rgba(0,0,0,.08);}
@@ -3215,10 +3215,10 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .mfield select option{background:var(--s2);}
 .mfield textarea{resize:vertical;min-height:65px;}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.msave{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
+.msave{width:100%;background:var(--orange);color:var(--t);border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
 .msave:hover{background:var(--ob);}
 .merr{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:#ff7070;margin-bottom:10px;display:none;}
-.mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:#2ecc8a;margin-bottom:10px;display:none;}
+.mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:var(--green);margin-bottom:10px;display:none;}
 
 /* TIPS MODAL */
 .tip-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
@@ -3231,7 +3231,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .toast.success,.toast.ok{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
 .toast.info{border-color:var(--blue);color:var(--blue);}
-.toast.warning{border-color:var(--gold,#D4A017);color:var(--gold,#D4A017);}
+.toast.warning{border-color:var(--gold,var(--gold));color:var(--gold,var(--gold));}
 .toast-progress{height:3px;background:currentColor;border-radius:3px;animation:toast-progress 2.8s linear;}
 @keyframes toast-progress{from{width:100%;}to{width:0%;}}
 
@@ -3257,17 +3257,17 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 
 
 /* MEAS LABEL */
-.meas-label{background:rgba(10,12,15,.88);color:#fff;border:1px solid rgba(232,114,12,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;cursor:pointer;pointer-events:auto;}
+.meas-label{background:rgba(10,12,15,.88);color:var(--t);border:1px solid rgba(232,114,12,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;cursor:pointer;pointer-events:auto;}
 
 /* DRAW TOOL — shortcut hint */
-.draw-shortcut-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,12,15,.92);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 24px;border-radius:8px;border:1px solid var(--orange);pointer-events:none;z-index:9000;animation:shintFade .7s ease-out forwards;}
+.draw-shortcut-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,12,15,.92);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 24px;border-radius:8px;border:1px solid var(--orange);pointer-events:none;z-index:9000;animation:shintFade .7s ease-out forwards;}
 @keyframes shintFade{0%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-60%) scale(.95);}}
 
 /* DRAW TOOL — facet area label on map */
-.facet-area-label{background:rgba(10,12,15,.85);color:#fff;border:1px solid rgba(74,158,255,.5);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;text-align:center;}
+.facet-area-label{background:rgba(10,12,15,.85);color:var(--t);border:1px solid rgba(74,158,255,.5);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;text-align:center;}
 
 /* DRAW TOOL — angle labels */
-.angle-label{background:rgba(10,12,15,.8);color:#EAB308;border:1px solid rgba(234,179,8,.4);border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;}
+.angle-label{background:rgba(10,12,15,.8);color:var(--gold);border:1px solid rgba(234,179,8,.4);border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;}
 .angle-label-marker{background:none!important;border:none!important;}
 
 /* DRAW TOOL — facet list in sidebar */
@@ -3296,11 +3296,11 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 /* DRAW TOOL — presentation overlay */
 #presentOverlay{position:absolute;top:0;right:0;bottom:0;left:0;z-index:900;pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end;}
 .present-bar{pointer-events:all;background:rgba(10,12,15,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:2px solid var(--orange);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.present-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;color:#fff;letter-spacing:.04em;}
+.present-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;color:var(--t);letter-spacing:.04em;}
 .present-controls{display:flex;align-items:center;gap:8px;}
 .present-btn{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--t);cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;}
 .present-btn:hover{border-color:var(--orange);color:var(--orange);}
-.present-btn-next{background:var(--orange);border-color:var(--orange);color:#fff;}
+.present-btn-next{background:var(--orange);border-color:var(--orange);color:var(--t);}
 .present-btn-next:hover{background:#B44A17;}
 .present-btn-close{border-color:var(--red);color:var(--red);}
 .present-step{font-size:11px;color:var(--m);font-weight:700;letter-spacing:.1em;}
@@ -3314,16 +3314,16 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .comp-theirs{color:var(--blue);}
 .comp-diff{width:50px;text-align:right;font-weight:700;font-size:10px;}
 .comp-match{background:rgba(46,204,138,.06);}.comp-match .comp-diff{color:var(--green);}
-.comp-warn{background:rgba(234,179,8,.06);}.comp-warn .comp-diff{color:#EAB308;}
+.comp-warn{background:rgba(234,179,8,.06);}.comp-warn .comp-diff{color:var(--gold);}
 .comp-off{background:rgba(239,68,68,.06);}.comp-off .comp-diff{color:var(--red);}
 
 /* MARKER CLUSTER — NBD Pro brand */
 .marker-cluster-small{background:rgba(232,114,12,0.35)!important}
-.marker-cluster-small div{background:rgba(232,114,12,0.7)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-small div{background:rgba(232,114,12,0.7)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 .marker-cluster-medium{background:rgba(232,114,12,0.45)!important}
-.marker-cluster-medium div{background:rgba(232,114,12,0.8)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-medium div{background:rgba(232,114,12,0.8)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 .marker-cluster-large{background:rgba(232,114,12,0.55)!important}
-.marker-cluster-large div{background:rgba(232,114,12,0.9)!important;color:#fff!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-large div{background:rgba(232,114,12,0.9)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 
 /* ═══ DAILY COMMAND CENTER WIDGET ═══ */
 .dt-widget{margin:0 0 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;}
@@ -3388,7 +3388,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .dt-rating{display:flex;gap:2px;padding-top:2px;}
 .dt-rating-dot{cursor:pointer;font-size:12px;color:var(--br);transition:color .15s;line-height:1;}
 .dt-rating-dot.active{color:#f59e0b;}
-.dt-rating-dot:hover{color:#e8720c;}
+.dt-rating-dot:hover{color:var(--orange);}
 
 /* Footer */
 .dt-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);}
@@ -3442,7 +3442,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .w-task-row input[type="checkbox"]{accent-color:var(--orange);}
 .w-funnel{display:flex;flex-direction:column;gap:4px;}
 .w-funnel-row{display:flex;align-items:center;gap:8px;}
-.w-funnel-bar{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;text-align:center;min-width:30px;}
+.w-funnel-bar{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;color:var(--t);text-align:center;min-width:30px;}
 .w-funnel-label{font-size:10px;color:var(--m);}
 .w-add-card{border-style:dashed;border-color:var(--br);cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .w-add-card:hover{border-color:var(--orange);}
@@ -3649,7 +3649,7 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 2px 6px rgba(0,0,0,.12);
 }
 .kc-btn.edit:hover { border-color: var(--orange); color: var(--orange); background: var(--og); }
-.kc-btn.del:hover { border-color: #E05252; color: #E05252; background: rgba(224,82,82,.08); }
+.kc-btn.del:hover { border-color: var(--red); color: var(--red); background: rgba(224,82,82,.08); }
 
 /* Card photo hover zoom */
 .kc-photo-thumb {
@@ -3842,7 +3842,7 @@ input:focus, select:focus, textarea:focus {
 }
 .empty-cta:hover {
   background: var(--orange);
-  color: #fff;
+  color:var(--t);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px var(--og);
 }
@@ -4311,7 +4311,7 @@ body {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  color: var(--m, #8b8e96);
+  color: var(--m, var(--m));
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 11px;
   letter-spacing: .04em;
@@ -4324,7 +4324,7 @@ body {
   background: rgba(232,114,12,.08);
 }
 .crm-sec-btn.active {
-  color: var(--orange, #e8720c);
+  color: var(--orange, var(--orange));
   background: rgba(232,114,12,.12);
 }
 .crm-sec-btn::before {
@@ -4365,7 +4365,7 @@ body {
   padding: 4px 0;
   background: var(--s2, #1a1d23);
   border-bottom: 1px solid var(--br, #2a2d35);
-  color: var(--m, #8b8e96);
+  color: var(--m, var(--m));
   font-size: 11px;
   cursor: pointer;
   font-family: 'Barlow Condensed', sans-serif;
@@ -4374,7 +4374,7 @@ body {
 }
 .crm-sec-restore:hover {
   background: rgba(232,114,12,.08);
-  color: var(--orange, #e8720c);
+  color: var(--orange, var(--orange));
 }
 
 /* ── TOGGLE SWITCH UPGRADE ── */
@@ -4483,7 +4483,7 @@ body {
   .mn-item:active{background:rgba(232,114,12,.08);transform:scale(.94);}
   .mn-icon{font-size:19px;line-height:1;transition:all .18s ease;color:var(--m);}
   .mn-lbl{font-size:8.5px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);transition:all .18s ease;white-space:nowrap;font-weight:600;}
-  .mn-badge{position:absolute;top:3px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4;}
+  .mn-badge{position:absolute;top:3px;right:calc(50% - 18px);background:var(--red);color:var(--t);font-size:8px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4;}
   #mobile-more-menu.open{display:block;}
   .mm-overlay.open{display:block;}
 
@@ -4713,7 +4713,7 @@ body {
 /* 48x48 tap target (iOS HIG 44x44 minimum + 4px cushion).
    Larger font, border that visually says 'tappable' */
 .mm-close{background:var(--s2);border:1px solid var(--br);border-radius:12px;color:var(--t);font-size:22px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all .15s;}
-.mm-close:hover,.mm-close:active{background:var(--orange);color:#fff;border-color:var(--orange);}
+.mm-close:hover,.mm-close:active{background:var(--orange);color:var(--t);border-color:var(--orange);}
 .mm-section{padding:8px 12px 4px;font-size:9px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--m);font-weight:700;}
 .mm-item{display:flex;align-items:center;gap:14px;padding:15px 20px;cursor:pointer;font-size:15px;color:var(--t);border-left:3px solid transparent;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:48px;}
 .mm-item:hover,.mm-item:active{background:var(--s2);border-left-color:var(--orange);color:var(--orange);}
@@ -4758,7 +4758,7 @@ body {
   white-space:nowrap;
 }
 .map-fab:hover{background:var(--og);border-color:var(--orange);color:var(--orange);}
-.map-fab.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+.map-fab.active{background:var(--orange);border-color:var(--orange);color:var(--t);}
 .map-fab-icon{font-size:13px;}
 /* divider between fab groups */
 .map-fab-div{width:1px;background:rgba(255,255,255,.1);align-self:stretch;margin:0 2px;}
@@ -4829,7 +4829,7 @@ body {
   font-size:11px;
   font-weight:700;
   letter-spacing:.06em;
-  color:#fff;
+  color:var(--t);
   cursor:pointer;
   flex-shrink:0;
   transition:background .15s;
@@ -4875,7 +4875,7 @@ body {
 #view-joe:not(.active) .joe-input-area { display:none!important; }
 #view-joe:not(.active) .joe-header { display:none!important; }
 .joe-header { flex-shrink:0; background:var(--s); border-bottom:1px solid var(--br); padding:14px 20px; display:flex; align-items:center; gap:12px; }
-.joe-avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--orange),#e8720c); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.joe-avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--orange),var(--orange)); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
 .joe-title { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--t); }
 .joe-subtitle { font-size:11px; color:var(--m); margin-top:1px; }
 .joe-status { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:10px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.08em; color:var(--green); }
@@ -4888,7 +4888,7 @@ body {
 .joe-msg.joe .joe-msg-avatar { background:linear-gradient(135deg,var(--orange),#c85010); }
 .joe-msg.user .joe-msg-avatar { background:var(--s3); }
 .joe-bubble { background:var(--s2); border:1px solid var(--br); border-radius:12px; padding:11px 14px; font-size:13px; line-height:1.6; color:var(--t); }
-.joe-msg.user .joe-bubble { background:var(--orange); border-color:var(--orange); color:#fff; border-radius:12px 12px 4px 12px; }
+.joe-msg.user .joe-bubble { background:var(--orange); border-color:var(--orange); color:var(--t); border-radius:12px 12px 4px 12px; }
 .joe-msg.joe .joe-bubble { border-radius:4px 12px 12px 12px; }
 .joe-bubble strong { font-weight:700; }
 .joe-bubble ul { margin:6px 0 4px 16px; }
@@ -4902,7 +4902,7 @@ body {
 .joe-input-row { display:flex; gap:10px; align-items:flex-end; }
 .joe-input { flex:1; background:var(--s2); border:1px solid var(--br); border-radius:10px; padding:10px 14px; font-family:'Barlow',sans-serif; font-size:13px; color:var(--t); outline:none; resize:none; max-height:120px; min-height:42px; line-height:1.5; }
 .joe-input:focus { border-color:var(--orange); }
-.joe-send { background:var(--orange); color:#fff; border:none; border-radius:10px; padding:10px 16px; font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; cursor:pointer; transition:background .15s; flex-shrink:0; height:42px; }
+.joe-send { background:var(--orange); color:var(--t); border:none; border-radius:10px; padding:10px 16px; font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; cursor:pointer; transition:background .15s; flex-shrink:0; height:42px; }
 .joe-send:hover { background:var(--ob); }
 .joe-send:disabled { opacity:.4; cursor:not-allowed; }
 .joe-quick-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
@@ -4933,7 +4933,7 @@ body {
 .task-add-row input[type=text]:focus{border-color:var(--orange);}
 .task-add-row input[type=date]{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 8px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);outline:none;width:130px;}
 .task-add-row input[type=date]:focus{border-color:var(--orange);}
-.task-add-btn{background:var(--orange);color:#fff;border:none;border-radius:7px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.task-add-btn{background:var(--orange);color:var(--t);border:none;border-radius:7px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .task-add-btn:hover{background:var(--ob);}
 .task-list{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;}
 .task-list::-webkit-scrollbar{width:3px;}.task-list::-webkit-scrollbar-thumb{background:var(--br);}
@@ -4996,7 +4996,7 @@ body {
 .tc-active-badge {
   display: none;
   position: absolute; top: 8px; right: 8px;
-  background: var(--orange); color: #fff;
+  background: var(--orange); color:var(--t);
   font-size: 9px; font-weight: 700; letter-spacing: .06em;
   padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
 }
@@ -5012,22 +5012,22 @@ body {
   .kcol-count{background:rgba(255,255,255,.12);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;}
   .kh-new{background:#1e2a3a;color:#9CA3AF;border-bottom:2px solid #374151;}
   .kh-contacted{background:#1a2440;color:#60a5fa;border-bottom:2px solid #2563eb;}
-  .kh-insp{background:#1a2e4a;color:#4A9EFF;border-bottom:2px solid #2d5a8e;}
+  .kh-insp{background:#1a2e4a;color:var(--blue);border-bottom:2px solid #2d5a8e;}
   .kh-claim{background:#221a3a;color:#a78bfa;border-bottom:2px solid #7c3aed;}
   .kh-adj{background:#2a1a3a;color:#c084fc;border-bottom:2px solid #a855f7;}
   .kh-adjdone{background:#251a38;color:#a78bfa;border-bottom:2px solid #8b5cf6;}
   .kh-scope{background:#2a2010;color:#fbbf24;border-bottom:2px solid #d97706;}
-  .kh-est{background:#2a2414;color:#D4A017;border-bottom:2px solid #6b5010;}
+  .kh-est{background:#2a2414;color:var(--gold);border-bottom:2px solid #6b5010;}
   .kh-supp{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
   .kh-suppok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
   .kh-neg{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
   .kh-prequal{background:#0a2a2a;color:#22d3ee;border-bottom:2px solid #0891b2;}
   .kh-loanok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
   .kh-contract{background:#0f2a1a;color:#22C55E;border-bottom:2px solid #16a34a;}
-  .kh-appr{background:#221a3a;color:#9B6DFF;border-bottom:2px solid #5a3da0;}
+  .kh-appr{background:#221a3a;color:var(--purple);border-bottom:2px solid #5a3da0;}
   .kh-prog{background:#142a22;color:#22C55E;border-bottom:2px solid #166534;}
   .kh-done{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #16a34a;}
-  .kh-lost{background:#2a1414;color:#E05252;border-bottom:2px solid #7f1d1d;}
+  .kh-lost{background:#2a1414;color:var(--red);border-bottom:2px solid #7f1d1d;}
   /* Job board header colors */
   .kh-jobcr{background:#0a1e3a;color:#38bdf8;border-bottom:2px solid #0369a1;}
   .kh-permit{background:#1a1a3a;color:#818cf8;border-bottom:2px solid #4338ca;}
@@ -5043,7 +5043,7 @@ body {
   /* View switcher buttons */
   .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
-  .kview-btn.active{background:var(--orange);color:#fff;border-color:var(--orange);}
+  .kview-btn.active{background:var(--orange);color:var(--t);border-color:var(--orange);}
   .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 260px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
@@ -5098,7 +5098,7 @@ body {
 }
 .k-card-checkbox-icon {
   font-size: 12px;
-  color: #fff;
+  color:var(--t);
   display: none;
 }
 .k-card.bulk-selected .k-card-checkbox-icon {
@@ -5122,10 +5122,10 @@ body {
   #kbody-adjuster_meeting_scheduled .k-card{border-left-color:#a855f7;}
   #kbody-adjuster_inspection_done .k-card{border-left-color:#8b5cf6;}
   #kbody-scope_received .k-card{border-left-color:#d97706;}
-  #kbody-estimate_submitted .k-card{border-left-color:#D4A017;}
+  #kbody-estimate_submitted .k-card{border-left-color:var(--gold);}
   #kbody-supplement_requested .k-card{border-left-color:#ea580c;}
   #kbody-supplement_approved .k-card{border-left-color:#16a34a;}
-  #kbody-estimate_sent_cash .k-card{border-left-color:#D4A017;}
+  #kbody-estimate_sent_cash .k-card{border-left-color:var(--gold);}
   #kbody-negotiating .k-card{border-left-color:#ea580c;}
   #kbody-prequal_sent .k-card{border-left-color:#0891b2;}
   #kbody-loan_approved .k-card{border-left-color:#16a34a;}
@@ -5141,15 +5141,15 @@ body {
   #kbody-deductible_collected .k-card{border-left-color:#14b8a6;}
   #kbody-final_payment .k-card{border-left-color:#0d9488;}
   #kbody-closed .k-card{border-left-color:#22C55E;}
-  #kbody-lost .k-card{border-left-color:#6b7280;opacity:.75;}
+  #kbody-lost .k-card{border-left-color:var(--m);opacity:.75;}
   /* Legacy compat — keep old IDs working during transition */
   #kbody-New .k-card{border-left-color:#374151;}
   #kbody-Inspected .k-card{border-left-color:#2d5a8e;}
-  #kbody-Estimate\ Sent .k-card{border-left-color:#D4A017;}
+  #kbody-Estimate\ Sent .k-card{border-left-color:var(--gold);}
   #kbody-Approved .k-card{border-left-color:#7c3aed;}
   #kbody-In\ Progress .k-card{border-left-color:#16a34a;}
   #kbody-Complete .k-card{border-left-color:#22C55E;}
-  #kbody-Lost .k-card{border-left-color:#6b7280;opacity:.75;}
+  #kbody-Lost .k-card{border-left-color:var(--m);opacity:.75;}
   .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-2px);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}
   /* Job value — big and prominent at top right */
@@ -5157,16 +5157,16 @@ body {
     position:absolute;top:10px;right:10px;
     font-family:'Barlow Condensed',sans-serif;
     font-size:15px;font-weight:800;
-    color:#e8720c;
+    color:var(--orange);
     letter-spacing:.02em;
   }
   .kc-name{font-weight:800;font-size:13px;margin-bottom:1px;color:#111;line-height:1.2;padding-right:60px;}
-  .kc-addr{font-size:10px;color:#6b7280;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kc-addr{font-size:10px;color:var(--m);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* Phone tap-to-call */
   .kc-phone-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;}
   .kc-phone-link{font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;display:flex;align-items:center;gap:3px;}
   .kc-phone-link:hover{color:#1d4ed8;}
-  .kc-email-line{font-size:10px;color:#6b7280;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kc-email-line{font-size:10px;color:var(--m);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* Carrier + claim row */
   .kc-ins-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;}
   .kc-carrier{font-size:10px;font-weight:700;color:#555;background:#f3f4f6;border-radius:4px;padding:2px 7px;}
@@ -5180,20 +5180,20 @@ body {
   .kc-photos{display:flex;gap:3px;margin-bottom:5px;}
   .kc-photo-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;border:1px solid #e5e7eb;cursor:pointer;}
   .kc-photo-more{width:32px;height:32px;border-radius:4px;background:#f3f4f6;border:1px solid #e5e7eb;
-    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#6b7280;cursor:pointer;}
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--m);cursor:pointer;}
   .kc-tags{display:flex!important;gap:3px;flex-wrap:wrap;margin-bottom:5px;}
   .kc-tag{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
-  .kct-dmg{background:rgba(74,158,255,.15);color:#4A9EFF;}
+  .kct-dmg{background:rgba(74,158,255,.15);color:var(--blue);}
   .kct-claim{background:rgba(34,197,94,.15);color:#16a34a;}
   .kct-val{background:rgba(232,114,12,.12);color:var(--orange);font-weight:800;}
-  .kct-due{background:rgba(224,82,82,.15);color:#E05252;}
+  .kct-due{background:rgba(224,82,82,.15);color:var(--red);}
   .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid var(--rule);margin-top:2px;}
-  .kc-phone{font-size:10px;color:#6b7280;}
+  .kc-phone{font-size:10px;color:var(--m);}
   .kc-actions{display:flex!important;gap:4px;}
-  .kc-btn{background:transparent;border:1px solid var(--rule);border-radius:4px;padding:3px 7px;font-size:10px;cursor:pointer;color:#6b7280;font-family:inherit;}
+  .kc-btn{background:transparent;border:1px solid var(--rule);border-radius:4px;padding:3px 7px;font-size:10px;cursor:pointer;color:var(--m);font-family:inherit;}
   .kc-btn:hover{background:var(--rule);color:var(--ink);}
   .kc-btn.edit:hover{border-color:var(--orange);color:var(--orange);}
-  .kc-btn.del:hover{border-color:#E05252;color:#E05252;}
+  .kc-btn.del:hover{border-color:var(--red);color:var(--red);}
   .kc-move{display:flex!important;gap:3px;}
   .kc-arrow{background:transparent;border:none;font-size:13px;cursor:pointer;color:#9b9b9b;padding:0 2px;line-height:1;transition:color .15s;}
   .kc-arrow:hover{color:var(--orange);}
@@ -5207,7 +5207,7 @@ body {
   .follow-up-alert{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex!important;align-items:center;gap:10px;font-size:12px;}
   .fa-name{font-weight:700;color:var(--t);}
   .fa-date{color:var(--orange);font-size:11px;}
-  .fa-btn{margin-left:auto;background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
+  .fa-btn{margin-left:auto;background:var(--orange);color:var(--t);border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
 
 /* ══════════════════════════════════════════════════════════════
    COMMAND PALETTE (Cmd+K)
@@ -5297,8 +5297,8 @@ body {
   text-transform:uppercase;flex-shrink:0;
 }
 .cmd-badge.recent{background:rgba(232,114,12,.12);color:var(--orange);}
-.cmd-badge.new{background:rgba(74,158,255,.12);color:#4A9EFF;}
-.cmd-badge.action{background:rgba(155,109,255,.12);color:#9B6DFF;}
+.cmd-badge.new{background:rgba(74,158,255,.12);color:var(--blue);}
+.cmd-badge.action{background:rgba(155,109,255,.12);color:var(--purple);}
 
 </style>
 <style id="nbd-theme-bridge">
@@ -5307,23 +5307,23 @@ body {
    Any time body has a theme class, sync DS vars from v5 vars.
    --orange → --ac, --t → text, --m → --muted, etc.            */
 body {
-  --ac:         var(--orange, #e8720c);
+  --ac:         var(--orange, var(--orange));
   --gold:       var(--orange-h, #f59e0b);
   --muted:      var(--m, #8a9ab0);
-  --bar:        var(--s, #111418);
-  --tabbar:     var(--s2, #181C22);
-  --taboff:     var(--s, #111418);
+  --bar:        var(--s, var(--s));
+  --tabbar:     var(--s2, var(--s2));
+  --taboff:     var(--s, var(--s));
   --rule:       var(--rule, #2a3040);
   --tt:         var(--m, #7a98c0);
-  --tb:         var(--s3, #1E2229);
-  --sbg:        var(--s2, #181C22);
+  --tb:         var(--s3, var(--s3));
+  --sbg:        var(--s2, var(--s2));
   --stxt:       var(--t, #ccd);
   --mbg:        var(--paper, #f5f3ef);
   /* paper and ink stay fixed — light card surfaces always readable */
   --paper:      #f5f3ef;
   --ink:        #1a1a1a;
   --grn:        #22c55e;
-  --blu:        #4A9EFF;
+  --blu:        var(--blue);
   --pur:        #5a2a7e;
   --shad:       0 2px 20px rgba(0,0,0,.55);
 }
@@ -5365,28 +5365,28 @@ body.theme-frosted {
   box-shadow: 0 24px 80px rgba(0,0,0,.7); font-family: 'DM Mono', monospace;
 }
 .npm-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #1e2530; flex-shrink: 0; }
-.npm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: .1em; color: #e8eaf0; }
+.npm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: .1em; color: var(--t); }
 .npm-subtitle { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .15em; color: #5a6478; margin-top: 2px; }
 .npm-close { background: rgba(255,255,255,.07); border: 1px solid #2a3040; border-radius: 6px; color: #8a93a8; font-size: 16px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: .15s; }
-.npm-close:hover { color: #fff; border-color: #556; }
+.npm-close:hover { color:var(--t); border-color: #556; }
 .npm-tabs { display: flex; border-bottom: 1px solid #1e2530; flex-shrink: 0; padding: 0 12px; gap: 2px; }
 .npm-tab { padding: 8px 14px; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #5a6478; cursor: pointer; border-bottom: 2px solid transparent; transition: .15s; background: none; border-left: none; border-right: none; border-top: none; }
-.npm-tab.on { color: var(--orange, #e8720c); border-bottom-color: var(--orange, #e8720c); }
+.npm-tab.on { color: var(--orange, var(--orange)); border-bottom-color: var(--orange, var(--orange)); }
 .npm-tab:hover:not(.on) { color: #8a93a8; }
 .npm-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .npm-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 .npm-panel.on { display: flex; }
 .npm-controls { padding: 10px 12px; border-bottom: 1px solid #1e2530; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
-.npm-search { flex: 1; min-width: 140px; background: #13171d; border: 1px solid #2a3040; border-radius: 6px; padding: 7px 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: #e8eaf0; outline: none; }
-.npm-search:focus { border-color: var(--orange, #e8720c); }
+.npm-search { flex: 1; min-width: 140px; background: #13171d; border: 1px solid #2a3040; border-radius: 6px; padding: 7px 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--t); outline: none; }
+.npm-search:focus { border-color: var(--orange, var(--orange)); }
 .npm-search::placeholder { color: #5a6478; }
 .npm-rnd { background: #13171d; border: 1px solid #2a3040; border-radius: 6px; padding: 7px 11px; font-family: 'DM Mono', monospace; font-size: 10px; color: #8a93a8; cursor: pointer; white-space: nowrap; transition: .15s; }
-.npm-rnd:hover { color: var(--orange, #e8720c); border-color: var(--orange, #e8720c); }
+.npm-rnd:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); }
 .npm-cats { padding: 8px 12px; display: flex; gap: 5px; overflow-x: auto; flex-shrink: 0; border-bottom: 1px solid #1e2530; scrollbar-width: none; }
 .npm-cats::-webkit-scrollbar { display: none; }
 .npm-cat { flex-shrink: 0; padding: 4px 11px; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; background: none; border: 1px solid #2a3040; border-radius: 20px; color: #8a93a8; cursor: pointer; transition: .15s; }
-.npm-cat.on { background: var(--orange, #e8720c); border-color: var(--orange, #e8720c); color: #000; }
-.npm-cat:hover:not(.on) { border-color: var(--orange, #e8720c); color: #e8eaf0; }
+.npm-cat.on { background: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); color: #000; }
+.npm-cat:hover:not(.on) { border-color: var(--orange, var(--orange)); color: var(--t); }
 .npm-grid { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
 .npm-grid::-webkit-scrollbar { width: 3px; }
 .npm-grid::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 2px; }
@@ -5404,12 +5404,12 @@ body.theme-frosted {
 .npm-bubble.active .npm-activedot { display: block; }
 .npm-fonts { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .npm-font-card { background: #0e1218; border: 1.5px solid #1e2530; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: .2s; }
-.npm-font-card:hover { border-color: var(--orange, #e8720c); background: #12181e; }
-.npm-font-card.active { border-color: var(--orange, #e8720c); box-shadow: 0 0 0 1px rgba(232,114,12,.2); }
-.npm-font-head { font-size: 9px; color: var(--orange, #e8720c); letter-spacing: .5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
-.npm-font-check { width: 8px; height: 8px; border-radius: 50%; background: var(--orange, #e8720c); display: none; }
+.npm-font-card:hover { border-color: var(--orange, var(--orange)); background: #12181e; }
+.npm-font-card.active { border-color: var(--orange, var(--orange)); box-shadow: 0 0 0 1px rgba(232,114,12,.2); }
+.npm-font-head { font-size: 9px; color: var(--orange, var(--orange)); letter-spacing: .5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+.npm-font-check { width: 8px; height: 8px; border-radius: 50%; background: var(--orange, var(--orange)); display: none; }
 .npm-font-card.active .npm-font-check { display: block; }
-.npm-font-display { font-size: 20px; font-weight: 700; letter-spacing: 1px; color: #e8eaf0; margin-bottom: 3px; line-height: 1.1; }
+.npm-font-display { font-size: 20px; font-weight: 700; letter-spacing: 1px; color: var(--t); margin-bottom: 3px; line-height: 1.1; }
 .npm-font-body { font-size: 11px; color: #8a93a8; line-height: 1.5; }
 .npm-font-mono { font-size: 9px; color: #5a6478; margin-top: 4px; letter-spacing: .3px; }
 .npm-custom { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -5418,35 +5418,35 @@ body.theme-frosted {
 .npm-custom-field label { display: block; font-size: 9px; letter-spacing: .1em; color: #8a93a8; margin-bottom: 5px; text-transform: uppercase; }
 .npm-cp { width: 100%; height: 40px; border: 1px solid #2a3040; border-radius: 6px; cursor: pointer; background: none; padding: 2px; }
 .npm-custom-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.npm-btn-apply { padding: 9px 18px; background: var(--orange, #e8720c); color: #000; border: none; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; cursor: pointer; transition: .15s; }
+.npm-btn-apply { padding: 9px 18px; background: var(--orange, var(--orange)); color: #000; border: none; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; cursor: pointer; transition: .15s; }
 .npm-btn-apply:hover { filter: brightness(1.1); }
 .npm-btn-save { padding: 9px 18px; background: #13171d; color: #8a93a8; border: 1px solid #2a3040; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; cursor: pointer; transition: .15s; }
-.npm-btn-save:hover { color: #e8eaf0; border-color: var(--orange, #e8720c); }
+.npm-btn-save:hover { color: var(--t); border-color: var(--orange, var(--orange)); }
 .npm-foot { padding: 10px 16px; border-top: 1px solid #1e2530; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .npm-active-lbl { font-size: 9px; color: #5a6478; letter-spacing: .1em; }
-.npm-active-lbl strong { color: var(--orange, #e8720c); }
+.npm-active-lbl strong { color: var(--orange, var(--orange)); }
 .npm-copy-btn { padding: 5px 12px; background: #13171d; border: 1px solid #2a3040; border-radius: 5px; color: #8a93a8; font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; transition: .15s; }
-.npm-copy-btn:hover { color: var(--orange, #e8720c); border-color: var(--orange, #e8720c); }
+.npm-copy-btn:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); }
 
 /* ── HOW-TO MODAL ──────────────────────────────────────────────────── */
 #nbd-howto-modal { position: fixed; top:0;right:0;bottom:0;left:0; z-index: 2100; background: rgba(0,0,0,.8); -webkit-backdrop-filter:blur(20px);backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px; }
 #nbd-howto-modal.open { display: flex; }
 .nhm-inner { background: #0d1017; border: 1px solid #1e2530; border-radius: 12px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 20px; font-family: 'DM Mono', monospace; box-shadow: 0 24px 80px rgba(0,0,0,.7); }
 .nhm-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
-.nhm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: .1em; color: #e8eaf0; }
+.nhm-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; letter-spacing: .1em; color: var(--t); }
 .nhm-sub { font-size: 9px; color: #5a6478; letter-spacing: .12em; margin-top: 2px; }
 .nhm-close { background: rgba(255,255,255,.07); border: 1px solid #2a3040; border-radius: 6px; color: #8a93a8; font-size: 14px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: .15s; }
-.nhm-close:hover { color: #fff; }
+.nhm-close:hover { color:var(--t); }
 .nhm-section { margin-bottom: 14px; }
-.nhm-section-title { font-size: 9px; color: var(--orange, #e8720c); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 8px; }
+.nhm-section-title { font-size: 9px; color: var(--orange, var(--orange)); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 8px; }
 .nhm-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 6px; }
-.nhm-num { width: 18px; height: 18px; border-radius: 50%; background: var(--orange, #e8720c); color: #000; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.nhm-num { width: 18px; height: 18px; border-radius: 50%; background: var(--orange, var(--orange)); color: #000; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
 .nhm-step-text { font-size: 10px; color: #8a93a8; line-height: 1.6; }
-.nhm-step-text strong { color: #e8eaf0; }
+.nhm-step-text strong { color: var(--t); }
 .nhm-tip { background: #0e1218; border: 1px solid #1e2530; border-radius: 6px; padding: 10px 12px; font-size: 9px; color: #8a93a8; line-height: 1.7; margin-top: 8px; }
 
 /* ── TOAST ─────────────────────────────────────────────────────────── */
-.nbd-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px); background: #1e2530; border: 1px solid #2a3040; border-radius: 8px; padding: 9px 18px; font-family: 'DM Mono', monospace; font-size: 11px; color: #e8eaf0; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 9999; }
+.nbd-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px); background: #1e2530; border: 1px solid #2a3040; border-radius: 8px; padding: 9px 18px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--t); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 9999; }
 .nbd-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ══ DOOR-TO-DOOR TRACKER ══════════════════════════════════════════════ */
@@ -5471,22 +5471,22 @@ body.theme-frosted {
 .d2d-textarea { resize:vertical; min-height:48px; }
 .d2d-field { margin-bottom:10px; }
 .d2d-field-row { display:flex; gap:8px; }
-.d2d-save-btn { width:100%; padding:14px; border:none; border-radius:10px; background:var(--br); color:#fff; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; letter-spacing:.04em; cursor:pointer; transition:all .15s; margin-top:10px; text-transform:uppercase; }
+.d2d-save-btn { width:100%; padding:14px; border:none; border-radius:10px; background:var(--br); color:var(--t); font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; letter-spacing:.04em; cursor:pointer; transition:all .15s; margin-top:10px; text-transform:uppercase; }
 .d2d-save-btn:not(:disabled):hover { filter:brightness(1.1); }
 .d2d-save-btn:disabled { opacity:.5; cursor:not-allowed; }
 .d2d-details { margin:8px 0; border:1px solid var(--br); border-radius:8px; overflow:hidden; }
 .d2d-details-summary, .d2d-details > summary { padding:10px 14px; cursor:pointer; font-size:12px; font-weight:600; color:var(--m); background:var(--s2); list-style:none; }
 .d2d-details-summary::-webkit-details-marker, .d2d-details > summary::-webkit-details-marker { display:none; }
 .d2d-extras-body { padding:12px; }
-.d2d-revenue-banner { background:color-mix(in srgb, var(--orange,#e8720c) 18%, var(--s2,#1a1a2e)); border:1px solid color-mix(in srgb, var(--orange,#e8720c) 25%, var(--br,rgba(255,255,255,.08))); border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; }
-.d2d-revenue-amount { font-size:18px; font-weight:800; color:var(--orange,#e8720c); font-family:'Barlow Condensed',sans-serif; line-height:1.1; }
+.d2d-revenue-banner { background:color-mix(in srgb, var(--orange,var(--orange)) 18%, var(--s2,#1a1a2e)); border:1px solid color-mix(in srgb, var(--orange,var(--orange)) 25%, var(--br,rgba(255,255,255,.08))); border-radius:10px; padding:10px 14px; margin-bottom:10px; text-align:left; }
+.d2d-revenue-amount { font-size:18px; font-weight:800; color:var(--orange,var(--orange)); font-family:'Barlow Condensed',sans-serif; line-height:1.1; }
 .d2d-revenue-label { font-size:10px; color:var(--m,#9ca3af); font-weight:600; margin-top:1px; text-transform:uppercase; letter-spacing:.08em; }
 .d2d-funnel { display:flex; align-items:center; gap:0; margin:14px 0; overflow:hidden; border-radius:8px; }
 .d2d-funnel-step { padding:8px 4px; text-align:center; transition:all .2s; min-width:0; }
-.d2d-funnel-count { font-size:16px; font-weight:900; color:#fff; font-family:'Barlow Condensed',sans-serif; }
+.d2d-funnel-count { font-size:16px; font-weight:900; color:var(--t); font-family:'Barlow Condensed',sans-serif; }
 .d2d-funnel-label { font-size:9px; color:rgba(255,255,255,.8); font-weight:600; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .d2d-action-bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; padding-top:14px; }
-.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:var(--t); border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
 .d2d-big-btn:hover { filter:brightness(1.1); }
 .d2d-big-btn-sec { background:var(--s2); color:var(--t); border:1px solid var(--br); }
 .d2d-big-btn-sec:hover { background:var(--br); }
@@ -5518,7 +5518,7 @@ body.theme-frosted {
 .d2d-feed-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
 .d2d-date-pills { display:flex; gap:4px; }
 .d2d-pill { padding:5px 12px; border-radius:20px; border:1px solid var(--br); background:var(--s2); color:var(--m); font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.04em; }
-.d2d-pill.active { background:var(--orange); color:#fff; border-color:var(--orange); }
+.d2d-pill.active { background:var(--orange); color:var(--t); border-color:var(--orange); }
 .d2d-select { padding:5px 10px; background:var(--s2); border:1px solid var(--br); border-radius:8px; color:var(--t); font-size:11px; cursor:pointer; }
 .d2d-knock-feed { display:flex; flex-direction:column; gap:4px; }
 .d2d-knock-card { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; transition:all .15s; }
@@ -5534,7 +5534,7 @@ body.theme-frosted {
 .d2d-action-btn:hover { filter:brightness(1.15); }
 .d2d-empty { text-align:center; padding:40px 20px; }
 .d2d-center-btn { position:absolute; bottom:16px; right:16px; z-index:1000; width:40px; height:40px; border-radius:50%; background:var(--s); border:2px solid var(--br); color:var(--t); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); transition:all .15s; }
-.d2d-center-btn:hover { background:var(--orange); color:#fff; border-color:var(--orange); }
+.d2d-center-btn:hover { background:var(--orange); color:var(--t); border-color:var(--orange); }
 .d2d-team-toggle { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; font-size:11px; color:var(--m); font-weight:600; transition:all .15s; }
 .d2d-team-toggle.active { background:color-mix(in srgb, var(--blue) 20%, var(--s2)); border-color:var(--blue); color:var(--blue); }
 .d2d-location-pulse { width:16px; height:16px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 0 0 0 rgba(74,158,255,.4); animation:d2dPulse 2s infinite; }
@@ -5708,8 +5708,8 @@ body.theme-frosted {
 .d2d-golden-hours { background:var(--s2); padding:12px; border-radius:8px; margin-bottom:14px; text-align:center; color:var(--t); font-size:13px; border:1px solid var(--br); }
 .d2d-hourly-chart { display:flex; gap:2px; height:70px; align-items:flex-end; margin-bottom:4px; }
 .d2d-hour-col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; }
-.d2d-hour-bar { background:var(--blue, #4A9EFF); border-radius:3px 3px 0 0; position:relative; transition:height .3s; }
-.d2d-hour-conv { position:absolute; bottom:0; left:0; right:0; background:var(--green, #2ECC8A); border-radius:0 0 3px 3px; }
+.d2d-hour-bar { background:var(--blue, var(--blue)); border-radius:3px 3px 0 0; position:relative; transition:height .3s; }
+.d2d-hour-conv { position:absolute; bottom:0; left:0; right:0; background:var(--green, var(--green)); border-radius:0 0 3px 3px; }
 .d2d-hour-labels { display:flex; gap:2px; margin-bottom:14px; }
 .d2d-hour-lbl { flex:1; text-align:center; font-size:9px; color:var(--m); font-weight:600; }
 .d2d-ins-list { display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
@@ -5744,7 +5744,7 @@ body.theme-frosted {
 .d2d-detail-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
 .d2d-detail-actions .d2d-action-btn { flex:1; min-width:calc(50% - 4px); justify-content:center; }
 /* ── D2D FAB (floating knock button on mobile) ── */
-.d2d-fab { display:none; position:fixed; bottom:80px; right:16px; z-index:999; width:60px; height:60px; border-radius:50%; background:var(--orange,#e8720c); color:white; border:none; box-shadow:0 4px 16px rgba(232,114,12,.5); font-size:24px; cursor:pointer; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; -webkit-tap-highlight-color:transparent; }
+.d2d-fab { display:none; position:fixed; bottom:80px; right:16px; z-index:999; width:60px; height:60px; border-radius:50%; background:var(--orange,var(--orange)); color:white; border:none; box-shadow:0 4px 16px rgba(232,114,12,.5); font-size:24px; cursor:pointer; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; -webkit-tap-highlight-color:transparent; }
 .d2d-fab:active { transform:scale(.92); box-shadow:0 2px 8px rgba(232,114,12,.4); }
 @media(max-width:768px) {
   .d2d-fab { display:flex; }
@@ -5770,16 +5770,16 @@ body.theme-frosted {
 .tc-new { font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
 
 /* Rapid Fire Banner */
-.rapid-banner { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid #4A9EFF30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
-.rapid-banner:hover { border-color: #4A9EFF; box-shadow: 0 4px 20px rgba(74,158,255,.2); }
+.rapid-banner { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid var(--blue)30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
+.rapid-banner:hover { border-color: var(--blue); box-shadow: 0 4px 20px rgba(74,158,255,.2); }
 .rb-left { display: flex; align-items: center; gap: 14px; }
 .rb-icon { font-size: 32px; }
-.rb-title { font-size: 16px; font-weight: 700; color: #fff; }
+.rb-title { font-size: 16px; font-weight: 700; color:var(--t); }
 .rb-sub { font-size: 12px; color: #8b9bb4; margin-top: 2px; }
 .rb-right { text-align: right; }
-.rb-best { font-size: 12px; color: #4A9EFF; font-weight: 600; }
-.rb-new { color: #2ECC8A; font-size: 14px; font-weight: 800; letter-spacing: .1em; }
-.rb-arrow { font-size: 22px; color: #4A9EFF; margin-top: 4px; }
+.rb-best { font-size: 12px; color: var(--blue); font-weight: 600; }
+.rb-new { color: var(--green); font-size: 14px; font-weight: 800; letter-spacing: .1em; }
+.rb-arrow { font-size: 22px; color: var(--blue); margin-top: 4px; }
 
 /* Stats Row */
 .tm-stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
@@ -5798,7 +5798,7 @@ body.theme-frosted {
 .sv-options { display: flex; flex-direction: column; gap: 10px; }
 .sv-option { display: flex; gap: 14px; align-items: flex-start; background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 16px; cursor: pointer; transition: all .2s; }
 .sv-option:hover { border-color: var(--orange); background: var(--orange)08; }
-.sv-opt-letter { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.sv-opt-letter { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color:var(--t); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
 .sv-opt-text { font-size: 13px; line-height: 1.6; color: var(--t); }
 
 /* Feedback */
@@ -5854,7 +5854,7 @@ body.theme-frosted {
 .rs-item { font-size: 12px; font-weight: 600; color: var(--m); }
 .rapid-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
 .rapid-context { font-size: 11px; color: #8b9bb4; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .1em; }
-.rapid-objection { font-size: 22px; font-weight: 700; color: #fff; line-height: 1.4; }
+.rapid-objection { font-size: 22px; font-weight: 700; color:var(--t); line-height: 1.4; }
 .rapid-options { display: flex; flex-direction: column; gap: 8px; }
 .rapid-opt { background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all .15s; }
 .rapid-opt:hover { border-color: var(--blue); }
@@ -5908,17 +5908,17 @@ body.theme-frosted {
 
 <style id="crm-var-bridge">
 /* Bridge CRM --orange → --ac for unified theme system */
-:root { --ac: var(--orange, #e8720c); --muted: var(--m, #6B7280); }
+:root { --ac: var(--orange, var(--orange)); --muted: var(--m, var(--m)); }
 </style>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/dashboard">
 </head>
 <body>
 <!-- NBD Pro loading spinner — shown until DOMContentLoaded fires,
      then fades out. Makes the 75-script load feel instant. -->
-<div id="nbd-loader" style="position:fixed;inset:0;z-index:99999;background:#0A0C0F;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity .4s;">
-  <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:#fff;letter-spacing:.06em;">NBD <span style="color:#e8720c;">PRO</span></div>
+<div id="nbd-loader" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity .4s;">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);letter-spacing:.06em;">NBD <span style="color:var(--orange);">PRO</span></div>
   <div style="width:120px;height:3px;background:#1e2228;border-radius:2px;overflow:hidden;">
-    <div style="width:40%;height:100%;background:#e8720c;border-radius:2px;animation:nbd-load-bar 1.2s ease-in-out infinite;"></div>
+    <div style="width:40%;height:100%;background:var(--orange);border-radius:2px;animation:nbd-load-bar 1.2s ease-in-out infinite;"></div>
   </div>
   <style>@keyframes nbd-load-bar{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>
 </div>
@@ -5960,8 +5960,8 @@ function nbdSetSize(size) {
   // Highlight active button
   document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
     var active = b.dataset.size === size;
-    b.style.borderColor = active ? '#e8720c' : '';
-    b.style.color = active ? '#e8720c' : '';
+    b.style.borderColor = active ? 'var(--orange)' : '';
+    b.style.color = active ? 'var(--orange)' : '';
     b.style.background = active ? 'rgba(232,114,12,.08)' : '';
   });
   if (typeof showToast === 'function') showToast('UI size: ' + size, 'info');
@@ -5971,8 +5971,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var saved = localStorage.getItem('nbd_ui_size') || 'default';
   document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
     var active = b.dataset.size === saved;
-    b.style.borderColor = active ? '#e8720c' : '';
-    b.style.color = active ? '#e8720c' : '';
+    b.style.borderColor = active ? 'var(--orange)' : '';
+    b.style.color = active ? 'var(--orange)' : '';
     b.style.background = active ? 'rgba(232,114,12,.08)' : '';
   });
 });
@@ -6017,7 +6017,7 @@ function nbdApplyFont(fontId) {
   // Highlight active font card
   document.querySelectorAll('.nbd-font-card').forEach(function(c) {
     var active = c.dataset.fontId === fontId;
-    c.style.borderColor = active ? '#e8720c' : 'var(--br)';
+    c.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
     c.style.background = active ? 'rgba(232,114,12,.06)' : 'var(--s2)';
   });
   if (typeof showToast === 'function') showToast('Font: ' + font.label, 'info');
@@ -6029,7 +6029,7 @@ function nbdRenderFontGrid() {
   var saved = localStorage.getItem('nbd_font') || 'barlow';
   grid.innerHTML = NBD_FONTS.map(function(f) {
     var active = f.id === saved;
-    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'rgba(232,114,12,.06)' : 'var(--s2)') + ';border:2px solid ' + (active ? '#e8720c' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
+    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'rgba(232,114,12,.06)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
       + '<div style="font-family:' + f.body + ';font-size:18px;font-weight:700;color:var(--t);margin-bottom:4px;">Aa</div>'
       + '<div style="font-size:10px;color:var(--m);font-weight:600;">' + f.label + '</div>'
       + '</div>';
@@ -6072,7 +6072,7 @@ document.addEventListener('DOMContentLoaded', function() {
   --nbd-nav-h: 52px;
   --nbd-nav-bg: #0f1d42;
   --nbd-nav-border: rgba(232,114,12,0.25);
-  --nbd-nav-orange: #e8720c;
+  --nbd-nav-orange: var(--orange);
   --nbd-nav-cyan: #00d4ff;
   --nbd-nav-text: #8b9bb4;
   --nbd-nav-white: #f0f6fc;
@@ -6113,7 +6113,7 @@ document.addEventListener('DOMContentLoaded', function() {
   border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 16px; color: #fff; letter-spacing: 1px;
+  font-size: 16px; color:var(--t); letter-spacing: 1px;
   flex-shrink: 0;
 }
 #nbd-pro-nav .nnav-wordmark {
@@ -6177,7 +6177,7 @@ document.addEventListener('DOMContentLoaded', function() {
 #nbd-pro-nav .nnav-login-btn {
   padding: 6px 14px;
   background: var(--nbd-nav-orange);
-  color: #fff; border: none; border-radius: 4px;
+  color:var(--t); border: none; border-radius: 4px;
   font-family: 'DM Mono', monospace;
   font-size: 9px; font-weight: 700; letter-spacing: 1px;
   text-transform: uppercase; cursor: pointer;
@@ -6345,7 +6345,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <a href="/pro/landing.html" class="nnav-logo">
     <div class="nnav-mark">NBD</div>
     <div>
-      <div class="nnav-wordmark"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
+      <div class="nnav-wordmark"><span style="color:var(--t);">NBD</span> <span style="color:var(--orange);">PRO</span></div>
     </div>
   </a>
 
@@ -6394,7 +6394,7 @@ document.addEventListener('DOMContentLoaded', function() {
    ─────────────────────────────────────────────────────────────── */
 const NBD_NAV_CONFIG = {
   position: 'top',      // 'top' | 'bottom' | 'dock'
-  activeColor: '#e8720c',
+  activeColor: 'var(--orange)',
   showLabels: true,
 };
 
@@ -6491,16 +6491,16 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="hright">
   <div style="display:flex;align-items:center;gap:4px;margin-right:8px;">
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
+      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
       <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
         <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
         <div id="recentList"></div>
       </div>
     </div>
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;position:relative;" onclick="toggleNotificationDropdown()" title="Notifications" id="notifBtn">
+      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;position:relative;" onclick="toggleNotificationDropdown()" title="Notifications" id="notifBtn">
         🔔
-        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:16px;text-align:center;">0</span>
+        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:var(--t);font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:16px;text-align:center;">0</span>
       </button>
       <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
@@ -6519,9 +6519,9 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="notifDismissedList" style="display:none;overflow-y:auto;max-height:200px;border-top:1px solid var(--br);background:var(--s2);"></div>
       </div>
     </div>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,#6B7280);font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
   </div>
     <div class="upill" onclick="goTo('settings')">
       <div class="av" id="userAvatar">J</div>
@@ -6954,7 +6954,7 @@ function switchScTab(tab, btn) {
         .kpi-card{background:var(--s2,#1a1d23);border:1px solid var(--br);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:border-color .15s;}
         .kpi-card:hover{border-color:var(--blue);}
         .kpi-primary{border-left:3px solid var(--blue);}
-        .kpi-green{border-left:3px solid var(--green,#2ECC8A);}
+        .kpi-green{border-left:3px solid var(--green,var(--green));}
         .kpi-warning{border-left:3px solid var(--orange);background:rgba(232,114,12,0.06);}
         .kpi-icon{font-size:22px;flex-shrink:0;}
         .kpi-data{min-width:0;}
@@ -7091,11 +7091,11 @@ function switchScTab(tab, btn) {
             <div class="overlay-toggle on" id="tog-pins" onclick="toggleOverlay('pins',this)" title="Every dispositioned door, color-coded"></div>
           </div>
           <div class="overlay-row">
-            <div class="overlay-label"><div class="overlay-dot" style="background:#4A9EFF;"></div>Jobs Overlay</div>
+            <div class="overlay-label"><div class="overlay-dot" style="background:var(--blue);"></div>Jobs Overlay</div>
             <div class="overlay-toggle" id="tog-jobs" onclick="toggleOverlay('jobs',this)" title="In Progress / Complete / Finalizing leads"></div>
           </div>
           <div class="overlay-row">
-            <div class="overlay-label"><div class="overlay-dot" style="background:#EAB308;"></div>Storm Activity</div>
+            <div class="overlay-label"><div class="overlay-dot" style="background:var(--gold);"></div>Storm Activity</div>
             <div class="overlay-toggle" id="tog-storm" onclick="toggleOverlay('storm',this)" title="NOAA hail & wind data"></div>
           </div>
           <div class="overlay-row">
@@ -7109,12 +7109,12 @@ function switchScTab(tab, btn) {
         <div class="zone-panel" id="zonePanel">
           <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
-            <div onclick="selectZoneColor('#4A9EFF',this)" style="width:18px;height:18px;border-radius:50%;background:#4A9EFF;cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('#2ECC8A',this)" style="width:18px;height:18px;border-radius:50%;background:#2ECC8A;cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('#e8720c',this)" style="width:18px;height:18px;border-radius:50%;background:#e8720c;cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('#9B6DFF',this)" style="width:18px;height:18px;border-radius:50%;background:#9B6DFF;cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('#EAB308',this)" style="width:18px;height:18px;border-radius:50%;background:#EAB308;cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('#E05252',this)" style="width:18px;height:18px;border-radius:50%;background:#E05252;cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+            <div onclick="selectZoneColor('var(--blue)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('var(--green)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('var(--orange)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('var(--purple)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('var(--gold)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
+            <div onclick="selectZoneColor('var(--red)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
           <div style="display:flex;gap:5px;">
             <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" onclick="saveZone()">💾 Save Zone</button>
@@ -7135,13 +7135,13 @@ function switchScTab(tab, btn) {
         </div>
         <div class="pin-grid">
           <button class="pin-btn active" onclick="selectPin('not-home','#9CA3AF',this)"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
-          <button class="pin-btn" onclick="selectPin('interested','#2ECC8A',this)"><div class="pin-dot" style="background:#2ECC8A"></div>Interested</button>
-          <button class="pin-btn" onclick="selectPin('not-interested','#E05252',this)"><div class="pin-dot" style="background:#E05252"></div>Not Interested</button>
-          <button class="pin-btn" onclick="selectPin('signed','#D4A017',this)"><div class="pin-dot" style="background:#D4A017"></div>⭐ Signed</button>
-          <button class="pin-btn" onclick="selectPin('callback','#4A9EFF',this)"><div class="pin-dot" style="background:#4A9EFF"></div>Callback</button>
+          <button class="pin-btn" onclick="selectPin('interested','var(--green)',this)"><div class="pin-dot" style="background:var(--green)"></div>Interested</button>
+          <button class="pin-btn" onclick="selectPin('not-interested','var(--red)',this)"><div class="pin-dot" style="background:var(--red)"></div>Not Interested</button>
+          <button class="pin-btn" onclick="selectPin('signed','var(--gold)',this)"><div class="pin-dot" style="background:var(--gold)"></div>⭐ Signed</button>
+          <button class="pin-btn" onclick="selectPin('callback','var(--blue)',this)"><div class="pin-dot" style="background:var(--blue)"></div>Callback</button>
           <button class="pin-btn" onclick="selectPin('do-not-knock','#374151',this)"><div class="pin-dot" style="background:#374151"></div>Do Not Knock</button>
-          <button class="pin-btn" onclick="selectPin('left-material','#9B6DFF',this)"><div class="pin-dot" style="background:#9B6DFF"></div>Left Material</button>
-          <button class="pin-btn" onclick="selectPin('follow-up','#e8720c',this)"><div class="pin-dot" style="background:#e8720c"></div>Follow Up</button>
+          <button class="pin-btn" onclick="selectPin('left-material','var(--purple)',this)"><div class="pin-dot" style="background:var(--purple)"></div>Left Material</button>
+          <button class="pin-btn" onclick="selectPin('follow-up','var(--orange)',this)"><div class="pin-dot" style="background:var(--orange)"></div>Follow Up</button>
         </div>
         <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map or enter address to drop pin</p>
         <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
@@ -7199,7 +7199,7 @@ function switchScTab(tab, btn) {
       <div class="del-confirm-name" id="delConfirmName">—</div>
       <div class="del-confirm-btns">
         <button class="btn btn-ghost" onclick="cancelDeleteConfirm()">Cancel</button>
-        <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:#fff;border-color:var(--red);" onclick="confirmDeleteLead()">Move to Deleted</button>
+        <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:var(--t);border-color:var(--red);" onclick="confirmDeleteLead()">Move to Deleted</button>
       </div>
     </div>
   </div>
@@ -7272,7 +7272,7 @@ function switchScTab(tab, btn) {
           <button class="lt-btn" onclick="selLT(4,this)"><div class="lt-dot" style="background:#EC4899"></div>Rake</button>
           <button class="lt-btn" onclick="selLT(5,this)"><div class="lt-dot" style="background:#BE185D"></div>Eave</button>
           <button class="lt-btn" onclick="selLT(6,this)"><div class="lt-dot" style="background:#F97316"></div>Flashing</button>
-          <button class="lt-btn" onclick="selLT(7,this)"><div class="lt-dot" style="background:#EAB308"></div>Step Flash</button>
+          <button class="lt-btn" onclick="selLT(7,this)"><div class="lt-dot" style="background:var(--gold)"></div>Step Flash</button>
           <button class="lt-btn" onclick="selLT(8,this)"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
           <button class="lt-btn" onclick="selLT(9,this)"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
           <button class="lt-btn" onclick="selLT(10,this)"><div class="lt-dot" style="background:#06B6D4;border:1px dashed #fff;"></div>Gutters</button>
@@ -7336,8 +7336,8 @@ function switchScTab(tab, btn) {
 
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Export Report</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#2ECC8A;color:#2ECC8A;" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#EAB308;color:#EAB308;" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
 
         <!-- STRUCTURES -->
         <div class="slabel2">Structures</div>
@@ -7439,7 +7439,7 @@ function switchScTab(tab, btn) {
           <button class="btn" onclick="startNewEstimateOriginal()" title="Classic 4-step builder with Good/Better/Best tiers">＋ Classic</button>
           <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="V2 builder with 270 line items, presets, and per-item qty overrides">
             ✨ V2 Builder
-            <span style="font-size:8px;background:#fff;color:#e8720c;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.1em;">BETA</span>
+            <span style="font-size:8px;background:#fff;color:var(--orange);padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.1em;">BETA</span>
           </button>
         </div>
       </div>
@@ -7465,7 +7465,7 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div><button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;gap:6px;" onclick="openQMImportModal()">📎 Import Quick Measure</button></div>
           <div class="panel-body">
             <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
-            <div id="qmImportNote" style="display:none;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.3);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#e8720c;">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
+            <div id="qmImportNote" style="display:none;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.3);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--orange);">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
             <div class="est-meas-grid">
               <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
             <input type="text" id="estAddr" placeholder="Property address" autocomplete="off">
@@ -7638,7 +7638,7 @@ function switchScTab(tab, btn) {
         <div style="display:flex;gap:8px;margin-left:auto;">
           <button class="btn btn-ghost" id="prospectsToggleBtn" onclick="toggleProspectsView()" style="font-size:11px;padding:6px 12px;position:relative;" title="Toggle prospects (raw knocks that haven't been promoted to full customers yet)">
             👀 <span id="prospectsBtnLabel">Show Prospects</span>
-            <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+            <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
           </button>
           <button class="btn btn-ghost" id="bulkModeBtn" onclick="toggleBulkMode()" style="font-size:11px;padding:6px 12px;" title="Select multiple leads">☑ Bulk</button>
           <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
@@ -7669,32 +7669,32 @@ function switchScTab(tab, btn) {
 
     <!-- SECONDARY TOOLBAR (auto-hides on scroll) -->
     <div class="crm-secondary-header" id="crmSecondaryHeader" style="display:flex;align-items:center;gap:2px;padding:6px 12px;background:var(--s2,#1a1d23);border-bottom:1px solid var(--br,#2a2d35);position:sticky;top:0;z-index:50;">
-      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Estimates</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Photos</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Documents</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Map</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Drawing Tool</span>
       </button>
-      <button class="crm-sec-btn" onclick="goTo('schedule')" title="Schedule appointments" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('schedule')" title="Schedule appointments" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="2" width="12" height="16" rx="1"/><path d="M8 6h4M6 10h8M6 14h8"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Schedule</span>
       </button>
       <div style="flex:1;"></div>
-      <button class="crm-sec-btn" onclick="goTo('dash')" title="Back to dashboard" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,#8b8e96);font-family:'Barlow Condensed',sans-serif;font-size:11px;">
+      <button class="crm-sec-btn" onclick="goTo('dash')" title="Back to dashboard" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
         <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
         <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Dashboard</span>
       </button>
@@ -7804,7 +7804,7 @@ function switchScTab(tab, btn) {
           <option value="">Select a property...</option>
         </select>
         <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;white-space:nowrap;font-size:11px;color:var(--m);">
-          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" style="accent-color:#e8720c;">
+          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" style="accent-color:var(--orange);">
           Only with photos
         </label>
         <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
@@ -7821,7 +7821,7 @@ function switchScTab(tab, btn) {
   </div>
 
   <!-- ══ INSPECTION REPORT BUILDER OVERLAY (works from any view) ══ -->
-  <div id="inspectionBuilderOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9990;background:var(--bg,#0A0C0F);overflow-y:auto;">
+  <div id="inspectionBuilderOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9990;background:var(--bg,var(--bg));overflow-y:auto;">
     <div style="max-width:900px;margin:0 auto;padding:20px;">
       <button onclick="document.getElementById('inspectionBuilderOverlay').style.display='none';document.getElementById('inspectionBuilderContainer').innerHTML='';" style="position:fixed;top:16px;right:20px;z-index:9991;background:var(--s2);border:1px solid var(--br);color:var(--t);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✕ Close Builder</button>
       <div id="inspectionBuilderContainer" style="padding:16px 0;"></div>
@@ -7935,13 +7935,13 @@ function switchScTab(tab, btn) {
           <div class="tl-cat-header" onclick="tlToggleCat(this)">
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">⚡</span>
-            <h3 class="tl-cat-title" style="color:#e8720c;">Generators</h3>
-            <span class="tl-cat-badge" style="background:rgba(232,114,12,.12);color:#e8720c;">Auto-fill from CRM</span>
+            <h3 class="tl-cat-title" style="color:var(--orange);">Generators</h3>
+            <span class="tl-cat-badge" style="background:rgba(232,114,12,.12);color:var(--orange);">Auto-fill from CRM</span>
             <span class="tl-cat-count">4 docs</span>
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('proposal')">
-              <div class="tl-doc-icon" style="background:rgba(232,114,12,.1);color:#e8720c;">📊</div>
+              <div class="tl-doc-icon" style="background:rgba(232,114,12,.1);color:var(--orange);">📊</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Proposal / Estimate</div>
                 <div class="tl-doc-desc">Branded proposal with tiered pricing, warranty details, and project photos</div>
@@ -7949,7 +7949,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('invoice')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💰</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💰</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Invoice</div>
                 <div class="tl-doc-desc">Professional invoice with line items, payment methods, and balance due</div>
@@ -7965,7 +7965,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('certificate_of_completion')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">✅</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✅</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Certificate of Completion</div>
                 <div class="tl-doc-desc">Job completion verification with inspection checklist and warranty activation</div>
@@ -7980,13 +7980,13 @@ function switchScTab(tab, btn) {
           <div class="tl-cat-header" onclick="tlToggleCat(this)">
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">🛡️</span>
-            <h3 class="tl-cat-title" style="color:#4A9EFF;">Insurance Documents</h3>
-            <span class="tl-cat-badge" style="background:rgba(74,158,255,.12);color:#4A9EFF;">Claims & Supplements</span>
+            <h3 class="tl-cat-title" style="color:var(--blue);">Insurance Documents</h3>
+            <span class="tl-cat-badge" style="background:rgba(74,158,255,.12);color:var(--blue);">Claims & Supplements</span>
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('supplement_request')">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📎</div>
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📎</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Supplement Request</div>
                 <div class="tl-doc-desc">Itemized supplement with codes, quantities, and justification for adjusters</div>
@@ -7994,7 +7994,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('scope_of_work')">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📐</div>
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📐</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Scope of Work</div>
                 <div class="tl-doc-desc">7-section scope with removal, decking, underlayment, flashing, shingles, ventilation, and cleanup</div>
@@ -8002,7 +8002,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('inspectionInsurance')">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📋</div>
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📋</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Inspection Report (Insurance)</div>
                 <div class="tl-doc-desc">Detailed damage assessment formatted for insurance claims with photo zones</div>
@@ -8010,7 +8010,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('assignment_of_benefits')">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">📄</div>
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Assignment of Benefits (AOB)</div>
                 <div class="tl-doc-desc">Legal assignment authorizing NBD to negotiate and receive insurance proceeds</div>
@@ -8018,7 +8018,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('change_order')">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:#4A9EFF;">🔄</div>
+              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">🔄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Change Order</div>
                 <div class="tl-doc-desc">Contract modification with added/removed items and revised project totals</div>
@@ -8033,13 +8033,13 @@ function switchScTab(tab, btn) {
           <div class="tl-cat-header" onclick="tlToggleCat(this)">
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">📝</span>
-            <h3 class="tl-cat-title" style="color:#2ECC8A;">Contracts & Agreements</h3>
-            <span class="tl-cat-badge" style="background:rgba(46,204,138,.12);color:#2ECC8A;">Signatures Required</span>
+            <h3 class="tl-cat-title" style="color:var(--green);">Contracts & Agreements</h3>
+            <span class="tl-cat-badge" style="background:rgba(46,204,138,.12);color:var(--green);">Signatures Required</span>
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('contract')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">📝</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">📝</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Roofing Contract</div>
                 <div class="tl-doc-desc">Full legal contract with terms, conditions, warranty, and signature blocks</div>
@@ -8047,7 +8047,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('work_authorization')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">✍️</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✍️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Work Authorization</div>
                 <div class="tl-doc-desc">Homeowner authorization to begin work with access instructions and cancellation notice</div>
@@ -8055,7 +8055,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('payment_agreement')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💳</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💳</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Payment Agreement</div>
                 <div class="tl-doc-desc">Payment schedule with deposit, progress, and final milestones plus accepted methods</div>
@@ -8063,7 +8063,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('material_delivery')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">🚚</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">🚚</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Material Delivery Notice</div>
                 <div class="tl-doc-desc">Professional delivery notice with material list, date, and homeowner instructions</div>
@@ -8071,7 +8071,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('thank_you')">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:#2ECC8A;">💌</div>
+              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💌</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Thank You Letter</div>
                 <div class="tl-doc-desc">Personal post-project letter with warranty reminder, maintenance tips, and referral ask</div>
@@ -8469,7 +8469,7 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Display</div><div class="panel-title">Professional Mode</div></div></div>
           <div class="panel-body">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;">
-              <input type="checkbox" id="professionalModeToggle" style="accent-color:#e8720c;width:18px;height:18px;" onchange="toggleProfessionalMode(this.checked)">
+              <input type="checkbox" id="professionalModeToggle" style="accent-color:var(--orange);width:18px;height:18px;" onchange="toggleProfessionalMode(this.checked)">
               <div>
                 <div style="font-size:13px;font-weight:600;color:var(--t);">Hide decorative emojis</div>
                 <div style="font-size:11px;color:var(--m);margin-top:2px;">Strips emoji icons from the sidebar, kanban, widgets, and panels for a clean corporate look. Data and functionality are unchanged.</div>
@@ -8803,7 +8803,7 @@ function switchScTab(tab, btn) {
           <div class="panel-body">
             <div style="padding:16px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:12px;">
               <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">JD</div>
+                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:var(--t);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">JD</div>
                 <div>
                   <div style="font-size:14px;font-weight:700;color:var(--t);">Joe Deal</div>
                   <div style="font-size:11px;color:var(--m);">Owner / Operator · Admin · All permissions</div>
@@ -8846,7 +8846,7 @@ function switchScTab(tab, btn) {
                 <div style="font-size:13px;font-weight:700;color:var(--t);">Email + Password</div>
                 <div style="font-size:11px;color:var(--m);">Standard Firebase Auth login</div>
               </div>
-              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
@@ -8854,7 +8854,7 @@ function switchScTab(tab, btn) {
                 <div style="font-size:13px;font-weight:700;color:var(--t);">Access Code</div>
                 <div style="font-size:11px;color:var(--m);">Shared team code · current: <code>NBD-2026</code></div>
               </div>
-              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
@@ -8862,7 +8862,7 @@ function switchScTab(tab, btn) {
                 <div style="font-size:13px;font-weight:700;color:var(--t);">Demo / Try It Mode</div>
                 <div style="font-size:11px;color:var(--m);">Read-only sandbox on landing page</div>
               </div>
-              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:#2ECC8A;border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
             </div>
           </div>
         </div>
@@ -8909,7 +8909,7 @@ function switchScTab(tab, btn) {
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;" id="billingPlanName">—</div>
                 <div style="font-size:11px;color:var(--m);margin-top:4px;" id="billingPlanDesc">Checking subscription status...</div>
               </div>
-              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:#fff;border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
+              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:var(--t);border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
             </div>
             <!-- Usage meters -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="billingUsageMeters">
@@ -9012,11 +9012,11 @@ function switchScTab(tab, btn) {
           cards.innerHTML = Object.entries(plans).map(function(entry) {
             var key = entry[0], p = entry[1];
             var isCurrent = key === info.plan;
-            return '<div style="background:' + (isCurrent ? 'rgba(232,114,12,.08)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? '#e8720c' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
+            return '<div style="background:' + (isCurrent ? 'rgba(232,114,12,.08)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
               + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;color:var(--t);text-transform:uppercase;margin-bottom:4px;">' + p.label + '</div>'
-              + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:' + (isCurrent ? '#e8720c' : 'var(--t)') + ';">' + (p.price === null ? 'Custom' : (p.price === 0 ? 'Free' : '$' + p.price)) + '</div>'
+              + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:' + (isCurrent ? 'var(--orange)' : 'var(--t)') + ';">' + (p.price === null ? 'Custom' : (p.price === 0 ? 'Free' : '$' + p.price)) + '</div>'
               + '<div style="font-size:10px;color:var(--m);margin-top:4px;">' + (p.leads === Infinity ? '∞' : p.leads) + ' leads/mo</div>'
-              + (isCurrent ? '<div style="font-size:9px;color:#e8720c;font-weight:700;margin-top:6px;letter-spacing:.08em;">CURRENT PLAN</div>' : '')
+              + (isCurrent ? '<div style="font-size:9px;color:var(--orange);font-weight:700;margin-top:6px;letter-spacing:.08em;">CURRENT PLAN</div>' : '')
               + '</div>';
           }).join('');
         }
@@ -9188,7 +9188,7 @@ function switchScTab(tab, btn) {
           grid.innerHTML = window._HOTKEYS.map(function(hk) {
             var on = isHotkeyEnabled(hk.id);
             return '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:6px;cursor:pointer;">'
-              + '<input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="toggleHotkey(\'' + hk.id + '\',this.checked)" style="accent-color:#e8720c;width:16px;height:16px;">'
+              + '<input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="toggleHotkey(\'' + hk.id + '\',this.checked)" style="accent-color:var(--orange);width:16px;height:16px;">'
               + '<div>'
               + '<div style="font-size:12px;font-weight:600;color:var(--t);display:flex;align-items:center;gap:6px;">'
               + '<kbd style="background:var(--s);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-family:monospace;font-size:11px;">' + hk.key + '</kbd> '
@@ -9428,7 +9428,7 @@ function switchScTab(tab, btn) {
     </div>
 
     <button onclick="saveQuickLead()"
-      style="width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
+      style="width:100%;background:var(--orange);color:var(--t);border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
       ＋ Add Lead
     </button>
     <button onclick="closeQuickAddLead();openLeadModal()"
@@ -10697,7 +10697,7 @@ async function loadStorm(){
         <div style="font-size:10px;color:var(--m);margin-top:3px;">${esc(String(p.headline||'').substring(0,120))}</div>
       </div>`;
     }).join('');
-    if(stormMap) alerts.forEach(a=>{if(a.geometry)L.geoJSON(a.geometry,{style:{color:'#E05252',weight:2,fillOpacity:.12}}).addTo(stormMap);});
+    if(stormMap) alerts.forEach(a=>{if(a.geometry)L.geoJSON(a.geometry,{style:{color:'var(--red)',weight:2,fillOpacity:.12}}).addTo(stormMap);});
   }catch(e){list.innerHTML='<div style="font-size:11px;color:var(--m);">Could not load alerts.</div>';}
 }
 
@@ -11210,24 +11210,24 @@ async function fetchPropertyIntelModal(geo, addr) {
   const yr = intel.yearBuilt;
   const age = yr ? (new Date().getFullYear() - parseInt(yr)) : null;
   const roofAge = intel.roofAge || age;
-  let roofColor = '#EAB308';
+  let roofColor = 'var(--gold)';
   if(roofAge !== null) {
-    if(roofAge < 10) roofColor = '#2ECC8A';
-    else if(roofAge < 20) roofColor = '#EAB308';
-    else if(roofAge < 30) roofColor = '#E05252';
-    else roofColor = '#9B6DFF';
+    if(roofAge < 10) roofColor = 'var(--green)';
+    else if(roofAge < 20) roofColor = 'var(--gold)';
+    else if(roofAge < 30) roofColor = 'var(--red)';
+    else roofColor = 'var(--purple)';
   }
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   resultEl.innerHTML = `
-    <div class="mir-owner">${esc(intel.ownerName||'Unknown Owner')}${intel.isLLC?'&nbsp;<span style="font-size:9px;color:#4A9EFF;font-weight:700;">LLC</span>':''}</div>
+    <div class="mir-owner">${esc(intel.ownerName||'Unknown Owner')}${intel.isLLC?'&nbsp;<span style="font-size:9px;color:var(--blue);font-weight:700;">LLC</span>':''}</div>
     <div class="mir-grid">
       ${yr ? `<div class="mir-item">Built <span>${esc(yr)}</span></div>` : ''}
       ${roofAge !== null ? `<div class="mir-item">Roof <span style="color:${esc(roofColor)};">${Number(roofAge)} yrs</span></div>` : ''}
       ${intel.marketValue ? `<div class="mir-item">Value <span>$${parseInt(intel.marketValue).toLocaleString()}</span></div>` : ''}
       ${intel.propertyType ? `<div class="mir-item">Type <span>${esc(intel.propertyType)}</span></div>` : ''}
       ${intel.bedrooms ? `<div class="mir-item">Beds <span>${esc(intel.bedrooms)}</span></div>` : ''}
-      ${intel.homestead ? `<div class="mir-item">Homestead <span style="color:#2ECC8A;">Yes</span></div>` : ''}
+      ${intel.homestead ? `<div class="mir-item">Homestead <span style="color:var(--green);">Yes</span></div>` : ''}
     </div>
     <div style="font-size:10px;color:var(--m);margin-top:5px;">✓ Owner name and notes pre-filled below</div>`;
   resultEl.classList.add('visible');
@@ -11429,10 +11429,10 @@ const DOC_TEMPLATES = {
   warranty: {
     title: 'NBD Warranty Certificate',
     content: `<div style="text-align:center;padding:20px 0 10px;">
-<div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;">No Big <span style="color:#e8720c;">Deal</span> Home Solutions</div>
-<div style="font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:3px 12px;border-radius:2px;display:inline-block;margin:6px 0;">Insurance Restoration Specialists · Greater Cincinnati</div>
+<div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;">No Big <span style="color:var(--orange);">Deal</span> Home Solutions</div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:3px 12px;border-radius:2px;display:inline-block;margin:6px 0;">Insurance Restoration Specialists · Greater Cincinnati</div>
 </div>
-<div style="text-align:center;padding:24px 0 16px;border-top:3px solid #e8720c;border-bottom:1px solid #eee;margin-bottom:24px;">
+<div style="text-align:center;padding:24px 0 16px;border-top:3px solid var(--orange);border-bottom:1px solid #eee;margin-bottom:24px;">
 <div style="font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#999;margin-bottom:6px;">Certificate of Guarantee</div>
 <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;">NBD Labor Guarantee</div>
 </div>
@@ -11595,7 +11595,7 @@ function openUploadDoc(){ document.getElementById('docUploadArea').style.display
     btn.textContent = 'Blank';
     btn.title = 'Print a blank copy to fill by hand';
     btn.style.cssText = 'background:var(--s2);border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;';
-    btn.addEventListener('mouseenter', function() { btn.style.borderColor = '#e8720c'; btn.style.color = '#e8720c'; });
+    btn.addEventListener('mouseenter', function() { btn.style.borderColor = 'var(--orange)'; btn.style.color = 'var(--orange)'; });
     btn.addEventListener('mouseleave', function() { btn.style.borderColor = 'var(--br)'; btn.style.color = 'var(--m)'; });
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -11757,7 +11757,7 @@ const DS_NBD_CFG = 'nbd_user_config';
 const DS_THEME_KEY = 'ds-theme';
 
 const DS_THEMES = [
-  { key:'nbd-original', label:'NBD Original', dot:'#e8720c' },
+  { key:'nbd-original', label:'NBD Original', dot:'var(--orange)' },
   { key:'midnight',     label:'Midnight',     dot:'#6366f1' },
   { key:'cobalt',       label:'Cobalt',       dot:'#2563eb' },
   { key:'forest',       label:'Forest',       dot:'#16a34a' },
@@ -12028,10 +12028,10 @@ function spyglassGoToLocation() {
       if(window._locMarker) mainMap.removeLayer(window._locMarker);
       if(window._locRing) mainMap.removeLayer(window._locRing);
       window._locMarker = L.circleMarker([lat,lng], {
-        radius:8, color:'#fff', fillColor:'#4A9EFF', fillOpacity:1, weight:2
+        radius:8, color:'#fff', fillColor:'var(--blue)', fillOpacity:1, weight:2
       }).addTo(mainMap);
       window._locRing = L.circleMarker([lat,lng], {
-        radius:20, color:'#4A9EFF', fillColor:'transparent', weight:2, opacity:.5, className:'loc-pulse-ring'
+        radius:20, color:'var(--blue)', fillColor:'transparent', weight:2, opacity:.5, className:'loc-pulse-ring'
       }).addTo(mainMap);
       showToast('Located ✓');
     },
@@ -12096,8 +12096,8 @@ function updatePinStats() {
       <span style="font-weight:700;color:var(--t);">${total}</span>
       <span style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Doors</span>
     </div>
-    ${signed ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#D4A017;"></div><span style="color:#D4A017;font-weight:700;">${signed} Signed</span></div>` : ''}
-    ${interested ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#2ECC8A;"></div><span style="color:#2ECC8A;font-weight:700;">${interested} Interested</span></div>` : ''}
+    ${signed ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:var(--gold);"></div><span style="color:var(--gold);font-weight:700;">${signed} Signed</span></div>` : ''}
+    ${interested ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:var(--green);"></div><span style="color:var(--green);font-weight:700;">${interested} Interested</span></div>` : ''}
     ${notHome ? `<div class="pin-stat-pill"><div class="pin-stat-dot" style="background:#9CA3AF;"></div><span style="color:var(--m);">${notHome} Not Home</span></div>` : ''}`;
 }
 
@@ -12107,7 +12107,7 @@ let zoneDrawing = false;
 let zonePoints = [];
 let zoneDots = [];
 let zoneTempPoly = null;
-let zoneColor = '#4A9EFF';
+let zoneColor = 'var(--blue)';
 let zoneDrawLayer = null;
 
 function selectZoneColor(color, el) {
@@ -12192,7 +12192,7 @@ function renderZoneList() {
   if(!zones.length) { el.innerHTML=''; return; }
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   // Only accept hex colors; reject anything else to block style-attr injection.
-  const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4A9EFF';
+  const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : 'var(--blue)';
   el.innerHTML = zones.map(z => `
     <div class="zone-item">
       <div class="zone-dot" style="background:${safeColor(z.color)};"></div>
@@ -12938,10 +12938,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       <div class="npm-panel" id="npm-panel-custom">
         <div class="npm-custom">
           <div class="npm-custom-row">
-            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="var(--bg)" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="var(--orange)" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="var(--t)" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
           </div>
           <div class="npm-custom-btns">
@@ -12950,7 +12950,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
           </div>
           <div style="font-size:9px;color:#5a6478;line-height:1.7;margin-top:4px;">
             Custom themes saved to your device.<br>
-            Requires <strong style="color:var(--orange,#e8720c)">NBD Command</strong> plan to save.
+            Requires <strong style="color:var(--orange,var(--orange))">NBD Command</strong> plan to save.
           </div>
         </div>
       </div>

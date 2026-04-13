@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0A0C0F">
+<meta name="theme-color" content="var(--bg)">
 <!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -88,7 +88,7 @@ header {
 }
 .stage-badge.stage-new, .stage-badge.stage-new-lead { background:#1e2a3a; color:#9CA3AF; border-color:#374151; }
 .stage-badge.stage-contacted { background:#1a2440; color:#60a5fa; border-color:#2563eb; }
-.stage-badge.stage-inspected, .stage-badge.stage-inspection { background:#1a2e4a; color:#4A9EFF; border-color:#2d5a8e; }
+.stage-badge.stage-inspected, .stage-badge.stage-inspection { background:#1a2e4a; color:var(--blue); border-color:#2d5a8e; }
 .stage-badge.stage-claim-filed { background:#221a3a; color:#a78bfa; border-color:#7c3aed; }
 .stage-badge.stage-adjuster-meeting-scheduled { background:#2a1a3a; color:#c084fc; border-color:#a855f7; }
 .stage-badge.stage-adjuster-inspection-done { background:#251a38; color:#a78bfa; border-color:#8b5cf6; }
@@ -100,19 +100,19 @@ header {
 .stage-badge.stage-negotiating { background:#2a1a10; color:#fb923c; border-color:#ea580c; }
 .stage-badge.stage-prequal-sent { background:#0a2a2a; color:#22d3ee; border-color:#0891b2; }
 .stage-badge.stage-loan-approved { background:#142a22; color:#4ade80; border-color:#16a34a; }
-.stage-badge.stage-contract-signed, .stage-badge.stage-approved { background:#0f2a1a; color:#22C55E; border-color:#16a34a; }
+.stage-badge.stage-contract-signed, .stage-badge.stage-approved { background:#0f2a1a; color:var(--green); border-color:#16a34a; }
 .stage-badge.stage-job-created { background:#0a1e3a; color:#38bdf8; border-color:#0369a1; }
 .stage-badge.stage-permit-pulled { background:#1a1a3a; color:#818cf8; border-color:#4338ca; }
 .stage-badge.stage-materials-ordered { background:#2a1e10; color:#fbbf24; border-color:#b45309; }
 .stage-badge.stage-materials-delivered { background:#2a2010; color:#facc15; border-color:#a16207; }
 .stage-badge.stage-crew-scheduled { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
-.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:#22C55E; border-color:#166534; }
-.stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:#22c55e; }
+.stage-badge.stage-install-in-progress, .stage-badge.stage-in-progress { background:#142a22; color:var(--green); border-color:#166534; }
+.stage-badge.stage-install-complete { background:#0f2a1a; color:#4ade80; border-color:var(--green); }
 .stage-badge.stage-final-photos { background:#0a2a20; color:#6ee7b7; border-color:#10b981; }
 .stage-badge.stage-deductible-collected { background:#0a2a28; color:#5eead4; border-color:#14b8a6; }
 .stage-badge.stage-final-payment { background:#0a2a28; color:#2dd4bf; border-color:#0d9488; }
 .stage-badge.stage-closed, .stage-badge.stage-complete, .stage-badge.stage-done { background:#0f2a1a; color:#4ade80; border-color:#16a34a; }
-.stage-badge.stage-lost { background:#2a1414; color:#E05252; border-color:#7f1d1d; }
+.stage-badge.stage-lost { background:#2a1414; color:var(--red); border-color:#7f1d1d; }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
 }
@@ -695,7 +695,7 @@ header {
         <span class="stage-badge" id="customerStage">New</span>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
-        <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:#e8720c;padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
+        <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
       </div>
       <div class="meta-item">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
@@ -1017,8 +1017,8 @@ header {
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
           <button class="btn photo-filter-btn active" onclick="filterPhotos('all',this)" style="font-size:11px;padding:5px 12px;">All</button>
           <button class="btn photo-filter-btn" onclick="filterPhotos('Before',this)" style="font-size:11px;padding:5px 12px;border-color:#3b82f6;color:#3b82f6;">Before</button>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('During',this)" style="font-size:11px;padding:5px 12px;border-color:#e8720c;color:#e8720c;">During</button>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:#22c55e;color:#22c55e;">After</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('During',this)" style="font-size:11px;padding:5px 12px;border-color:var(--orange);color:var(--orange);">During</button>
+          <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:var(--green);color:var(--green);">After</button>
           <span style="width:1px;height:20px;background:var(--br);margin:0 4px;"></span>
           <button class="btn photo-filter-btn" onclick="filterPhotos('annotated',this)" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
         </div>
@@ -1026,7 +1026,7 @@ header {
         <div id="photosByPhase">
           <div class="empty"><div class="empty-icon">&#128248;</div>Loading photos...</div>
         </div>
-        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='#e8720c'" onmouseout="this.style.borderColor=''">
+        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor=''">
           <div style="font-size:28px;margin-bottom:6px;">+</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse — JPG, PNG, HEIC, WebP, AVIF · up to 15 MB each · 25 per batch</div>
@@ -1046,77 +1046,77 @@ header {
           <div style="font-size:11px;color:var(--muted);">Auto-filled with customer data</div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="docTemplateGrid">
-          <div class="doc-template-card" onclick="generateCustomerDoc('proposal')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('proposal')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128196;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Proposal / Estimate</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Branded estimate with scope & pricing</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('contract')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('contract')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128221;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Roofing Contract</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Full contract with terms & signatures</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('work_authorization')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('work_authorization')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#9989;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Work Authorization</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Permission to proceed form</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('scope_of_work')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('scope_of_work')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128203;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Scope of Work</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Detailed project scope breakdown</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionHomeowner')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionHomeowner')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128270;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Inspection Report</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Homeowner-friendly inspection report</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionInsurance')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('inspectionInsurance')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#127970;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Insurance Report</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Adjuster-ready inspection report</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('supplement_request')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('supplement_request')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128200;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Supplement Request</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Additional scope supplement for insurance</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('warranty_certificate')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('warranty_certificate')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128737;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Warranty Certificate</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Branded warranty with tier details</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('certificate_of_completion')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('certificate_of_completion')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#127942;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Certificate of Completion</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Final sign-off & completion record</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('invoice')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('invoice')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128176;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Invoice</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Professional payment invoice</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('change_order')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('change_order')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128260;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Change Order</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Scope or price modification form</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('before_after_report')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('before_after_report')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128247;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Before & After Report</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Visual transformation with photos</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('financing_options')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('financing_options')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#128179;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Financing Options</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Payment plan options for customer</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('company_intro')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('company_intro')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#127969;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Company Introduction</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">About us packet for new prospects</div>
           </div>
-          <div class="doc-template-card" onclick="generateCustomerDoc('referral_card')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#e8720c';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
+          <div class="doc-template-card" onclick="generateCustomerDoc('referral_card')" style="padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='var(--orange)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='';this.style.transform=''">
             <div style="font-size:20px;margin-bottom:6px;">&#127873;</div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">Referral Card</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">Shareable referral with incentives</div>
@@ -1438,7 +1438,7 @@ window.generatePhotoReport = async function() {
     const doc = new jsPDF();
     
     // NBD Branding Header
-    doc.setFillColor(232, 114, 12); // NBD orange #e8720c
+    doc.setFillColor(232, 114, 12); // NBD orange var(--orange)
     doc.rect(0, 0, 210, 35, 'F');
     
     doc.setTextColor(255, 255, 255);
@@ -2797,7 +2797,7 @@ async function loadEstimates(leadId) {
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const html = window._customerEstimates.map(est => {
       const tier = String(est.tier || est.tierName || '');
-      const tierColor = tier==='best'?'#22C55E':tier==='better'?'#9B6DFF':'#e8720c';
+      const tierColor = tier==='best'?'var(--green)':tier==='better'?'#9B6DFF':'var(--orange)';
       const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${esc(tier)}</span>` : '';
       const dateStr = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
       return `
@@ -2809,7 +2809,7 @@ async function loadEstimates(leadId) {
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
             <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
-            <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:#e8720c;cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
+            <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--orange);cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
           </div>
         </div>
       `;
@@ -2879,22 +2879,22 @@ window.exportCustomerEstimate = function(estId) {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Estimate — ${est.addr||est.address||''}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid var(--orange);margin-bottom:26px;}
   .brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
-  .brand span{color:#e8720c;}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+  .brand span{color:var(--orange);}.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
   .est-hdr{text-align:right;}.est-type{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#111;}
   .est-date{font-size:12px;color:#666;}
-  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#e8720c;margin-top:10px;}
-  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#e8720c;}
-  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid #e8720c;}
+  .est-total-lbl{font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-top:10px;}
+  .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:var(--orange);}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid var(--orange);}
   .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
   .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
   .mf .v{font-size:18px;font-weight:700;color:#111;}
   table{width:100%;border-collapse:collapse;}thead tr{border-bottom:2px solid #111;}
   th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;text-align:left;color:#111;}
   td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;}
-  .code{color:#e8720c;font-weight:700;font-family:'Barlow Condensed',sans-serif;}
-  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#e8720c;border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
+  .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;}
+  .grand-row td{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--orange);border-top:3px solid #111;background:#fff8f5;padding:12px 10px;}
   .footer{margin-top:32px;padding-top:14px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
   @page{margin:1.8cm 2cm;size:letter;}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
@@ -3635,22 +3635,22 @@ window.generateCertFromEstimate = async function(estimateId) {
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Georgia',serif;background:#f8f6f1;display:flex;justify-content:center;align-items:center;min-height:100vh;min-height:100dvh;padding:20px;}
-  .cert{background:#fff;border:3px double #e8720c;padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
+  .cert{background:#fff;border:3px double var(--orange);padding:50px 60px;max-width:700px;width:100%;text-align:center;position:relative;}
   .cert::before{content:'';position:absolute;inset:8px;border:1px solid #d4a017;pointer-events:none;}
-  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:#e8720c;letter-spacing:3px;margin-bottom:4px;}
-  .logo-sub{font-size:11px;color:#e8720c;letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
-  h1{font-size:32px;color:#e8720c;margin-bottom:6px;letter-spacing:2px;}
+  .logo{font-family:'Arial Black',sans-serif;font-size:28px;color:var(--orange);letter-spacing:3px;margin-bottom:4px;}
+  .logo-sub{font-size:11px;color:var(--orange);letter-spacing:4px;text-transform:uppercase;margin-bottom:30px;}
+  h1{font-size:32px;color:var(--orange);margin-bottom:6px;letter-spacing:2px;}
   .seal{font-size:14px;color:#666;margin-bottom:30px;letter-spacing:1px;}
   .details{text-align:left;margin:24px 0;padding:20px;background:#fafaf8;border:1px solid #e8e4d8;border-radius:4px;}
   .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #ddd;}
   .row:last-child{border:none;}
   .label{color:#888;font-size:13px;}
-  .value{color:#e8720c;font-weight:bold;font-size:14px;}
+  .value{color:var(--orange);font-weight:bold;font-size:14px;}
   .footer{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end;}
   .sig{text-align:center;}
   .sig-line{width:180px;border-top:1px solid #333;margin-top:40px;padding-top:6px;font-size:11px;color:#888;}
-  .print-btn{margin-top:24px;padding:12px 32px;background:#e8720c;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
-  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double #e8720c;}}
+  .print-btn{margin-top:24px;padding:12px 32px;background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;}
+  @media print{.print-btn{display:none;} body{background:#fff;} .cert{border:3px double var(--orange);}}
 </style></head><body>
 <div class="cert">
   <div class="logo">NBD</div>
@@ -4369,7 +4369,7 @@ function renderPhotoGrid() {
     phases[ph].push(p);
   });
 
-  var phaseColors = { 'Before': '#3b82f6', 'During': '#e8720c', 'After': '#22c55e' };
+  var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
   var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
   var html = '';
 
@@ -4388,7 +4388,7 @@ function renderPhotoGrid() {
 
     list.forEach(function(photo) {
       var badges = '';
-      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:#e8720c;">' + esc(photo.damageType) + '</span>';
+      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:var(--orange);">' + esc(photo.damageType) + '</span>';
       if (photo.severity) {
         var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
         badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
@@ -4471,8 +4471,8 @@ function updatePhotoStats() {
   
   var html = '<span style="font-weight:700;color:var(--text);">' + photos.length + ' Photos</span>';
   if (before) html += '<span style="color:#3b82f6;">&#9679; ' + before + ' Before</span>';
-  if (during) html += '<span style="color:#e8720c;">&#9679; ' + during + ' During</span>';
-  if (after) html += '<span style="color:#22c55e;">&#9679; ' + after + ' After</span>';
+  if (during) html += '<span style="color:var(--orange);">&#9679; ' + during + ' During</span>';
+  if (after) html += '<span style="color:var(--green);">&#9679; ' + after + ' After</span>';
   if (annotated) html += '<span style="color:#a855f7;">&#9679; ' + annotated + ' Annotated</span>';
   bar.innerHTML = html;
 }
@@ -4681,7 +4681,7 @@ window.showPhotoActions = function(idx, event) {
   popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
   popup.onclick = function(e) { if (e.target === popup) popup.remove(); };
   
-  var phaseColors = { 'Before': '#3b82f6', 'During': '#e8720c', 'After': '#22c55e' };
+  var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
   var sevColors = { 'minor': '#eab308', 'moderate': '#f97316', 'severe': '#ef4444' };
   
   var card = document.createElement('div');
@@ -4739,7 +4739,7 @@ window.showPhotoActions = function(idx, event) {
     '</div>' +
     
     '<div style="display:flex;gap:8px;">' +
-    '<button onclick="openPhotoInEditor(' + idx + ');document.getElementById(\'photoActionPopup\').remove();" style="flex:2;padding:10px;background:#e8720c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
+    '<button onclick="openPhotoInEditor(' + idx + ');document.getElementById(\'photoActionPopup\').remove();" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
     '<button onclick="deletePhoto(\'' + photo.id + '\')" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
     '</div>';
   
@@ -4752,12 +4752,12 @@ window.quickSetPhase = function(phase, btn) {
   if (!photo) return;
   photo.phase = phase;
   
-  var phaseColors = { 'Before': '#3b82f6', 'During': '#e8720c', 'After': '#22c55e' };
+  var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
   document.querySelectorAll('#qePhaseButtons button').forEach(function(b) {
     b.style.background = 'transparent';
     b.style.color = b.style.borderColor;
   });
-  btn.style.background = phaseColors[phase] || '#e8720c';
+  btn.style.background = phaseColors[phase] || 'var(--orange)';
   btn.style.color = '#fff';
   
   quickSaveMeta();
@@ -4983,9 +4983,9 @@ window.generateCustomerDoc = function(type) {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
         <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
         <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
-          ${check.missing.map(m => '<div style="font-size:13px;color:#e8720c;padding:4px 0;">• ' + esc(m) + '</div>').join('')}
+          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange);padding:4px 0;">• ' + esc(m) + '</div>').join('')}
         </div>
-        <button class="nbd-preq-close" style="padding:12px 28px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
+        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
       </div>`;
     modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
     document.body.appendChild(modal);

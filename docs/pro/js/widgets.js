@@ -22,7 +22,7 @@ const WIDGETS = [
       });
       const stageBar = Object.entries(stages).filter(([,v])=>v>0).map(([s,v])=>{
         const pct = total > 0 ? (v/total*100) : 0;
-        const colors = {New:'#4A9EFF',Contacted:'#A855F7','Est. Sent':'#F97316',Negotiating:'#EAB308',Won:'#22C55E'};
+        const colors = {New:'var(--blue)',Contacted:'#A855F7','Est. Sent':'#F97316',Negotiating:'var(--gold)',Won:'var(--green)'};
         return `<div style="flex:${pct};background:${colors[s]||'#666'};height:8px;min-width:2px;" title="${s}: $${v.toLocaleString()}"></div>`;
       }).join('');
       el.innerHTML = `
@@ -101,7 +101,7 @@ const WIDGETS = [
       const max = Math.max(...counts, 1);
       el.innerHTML = `<div class="w-funnel">` + stages.map((s, i) => {
         const pct = 40 + (1 - i/(stages.length-1)) * 60;
-        const colors = ['#4A9EFF','#A855F7','#F97316','#EAB308','#22C55E'];
+        const colors = ['var(--blue)','#A855F7','#F97316','var(--gold)','var(--green)'];
         return `<div class="w-funnel-row">
           <div class="w-funnel-bar" style="width:${pct}%;background:${colors[i]};">${counts[i]}</div>
           <span class="w-funnel-label">${s}</span>
@@ -117,7 +117,7 @@ const WIDGETS = [
       el.innerHTML = leads.map(l => {
         const ago = _timeAgo(l.updatedAt || l.createdAt);
         return `<div class="w-activity-row">
-          <div class="w-activity-dot" style="background:${l.stage==='Won'?'#22C55E':l.stage==='Lost'?'#EF4444':'var(--orange)'}"></div>
+          <div class="w-activity-dot" style="background:${l.stage==='Won'?'var(--green)':l.stage==='Lost'?'#EF4444':'var(--orange)'}"></div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;font-size:11px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name||l.address||'Lead'}</div>
             <div style="font-size:10px;color:var(--m);">${l.stage} • ${ago}</div>
@@ -422,7 +422,7 @@ const WIDGETS = [
       leads.forEach(l => { const dt = l.damageType || l.damage || 'Unknown'; types[dt] = (types[dt]||0)+1; });
       const entries = Object.entries(types).sort((a,b) => b[1]-a[1]);
       const total = leads.length || 1;
-      const colors = ['#e8720c','#4A9EFF','#22C55E','#A855F7','#EAB308','#EC4899','#06B6D4'];
+      const colors = ['var(--orange)','var(--blue)','var(--green)','#A855F7','var(--gold)','#EC4899','#06B6D4'];
       el.innerHTML = entries.slice(0,5).map(([ name, count], i) => {
         const pct = (count/total*100).toFixed(0);
         return `<div style="margin-bottom:6px;">
