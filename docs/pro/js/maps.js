@@ -1697,6 +1697,131 @@ function renderAccessoryPanel() {
 // Customer-facing document showing what work will be performed,
 // derived from the drawing measurements. Different from the
 // measurement report (which is technical/internal).
+// ═══════════════════════════════════════════════════════════
+// GOOGLE SOLAR API INTEGRATION
+// Shows sun exposure heatmap overlay on the drawing. Uses
+// Google Solar API ($0.05/lookup) if a key is configured,
+// otherwise shows a static sun path estimate based on lat/lng.
+// ═══════════════════════════════════════════════════════════
+async function runSolarAnalysis() {
+  const center = drawMap ? drawMap.getCenter() : null;
+  if (!center) { showToast('Open the drawing tool first', 'error'); return; }
+
+  const addr = document.getElementById('drawSearch')?.value || '';
+  showToast('Running solar analysis...', 'info');
+
+  // Check for Google Solar API key in localStorage
+  const apiKey = localStorage.getItem('nbd_google_solar_key') || '';
+
+  if (apiKey) {
+    // Real Google Solar API call
+    try {
+      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${center.lat}&location.longitude=${center.lng}&requiredQuality=HIGH&key=${apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('API returned ' + response.status);
+      const data = await response.json();
+
+      // Render solar data overlay
+      renderSolarOverlay(data);
+      showToast('Solar analysis complete — ' + (data.solarPotential?.maxSunshineHoursPerYear || 0).toFixed(0) + ' hours/year max sun', 'success');
+    } catch (e) {
+      console.error('Solar API failed:', e);
+      showToast('Solar API error: ' + e.message + '. Showing estimate instead.', 'warning');
+      renderSolarEstimate(center.lat);
+    }
+  } else {
+    // No API key — show estimated sun path
+    renderSolarEstimate(center.lat);
+    showToast('Solar estimate shown. Add Google Solar API key in Settings for precise data.', 'info');
+  }
+}
+
+function renderSolarOverlay(data) {
+  // Remove previous overlay
+  if (window._solarOverlay) { drawMap.removeLayer(window._solarOverlay); }
+
+  const sp = data.solarPotential;
+  if (!sp || !sp.roofSegmentStats) return;
+
+  const group = L.layerGroup();
+
+  // Draw roof segments colored by sun exposure
+  sp.roofSegmentStats.forEach((seg, i) => {
+    const hours = seg.stats?.sunshineQuantiles?.[5] || 0; // median sunshine
+    const maxHours = sp.maxSunshineHoursPerYear || 1500;
+    const ratio = Math.min(1, hours / maxHours);
+    // Red = most sun, blue = least sun
+    const r = Math.round(255 * ratio);
+    const b = Math.round(255 * (1 - ratio));
+    const color = `rgb(${r},${Math.round(100 * ratio)},${b})`;
+
+    if (seg.center) {
+      L.circle([seg.center.latitude, seg.center.longitude], {
+        radius: Math.sqrt(seg.stats?.areaMeters2 || 50) * 2,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.4,
+        weight: 1
+      }).bindPopup(`<b>Segment ${i + 1}</b><br>${hours.toFixed(0)} hrs/yr sunshine<br>${(seg.stats?.areaMeters2 * 10.764 || 0).toFixed(0)} SF`).addTo(group);
+    }
+  });
+
+  // Summary label
+  const center = drawMap.getCenter();
+  L.marker(center, {
+    icon: L.divIcon({
+      html: `<div style="background:rgba(234,179,8,.9);color:#000;padding:6px 12px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);">☀️ ${sp.maxSunshineHoursPerYear?.toFixed(0) || '—'} hrs/yr max · ${sp.roofSegmentStats?.length || 0} segments</div>`,
+      className: '', iconAnchor: [0, 0]
+    })
+  }).addTo(group);
+
+  group.addTo(drawMap);
+  window._solarOverlay = group;
+}
+
+function renderSolarEstimate(lat) {
+  // Simple estimate based on latitude — no API call
+  // US average: 1000-2500 kWh/kW/yr depending on location
+  if (window._solarOverlay) { drawMap.removeLayer(window._solarOverlay); }
+
+  const absLat = Math.abs(lat);
+  const sunHours = Math.round(2500 - (absLat - 25) * 30); // rough estimate
+  const center = drawMap.getCenter();
+
+  const group = L.layerGroup();
+
+  // Orange-to-red gradient circle showing general sun exposure
+  L.circle(center, {
+    radius: 80,
+    color: '#EAB308',
+    fillColor: '#EAB308',
+    fillOpacity: 0.15,
+    weight: 2,
+    dashArray: '6,4'
+  }).addTo(group);
+
+  // Sun path arc (simplified)
+  const arcPoints = [];
+  for (let angle = -80; angle <= 80; angle += 10) {
+    const rad = angle * Math.PI / 180;
+    arcPoints.push([
+      center.lat + Math.cos(rad) * 0.0008,
+      center.lng + Math.sin(rad) * 0.001
+    ]);
+  }
+  L.polyline(arcPoints, { color: '#EAB308', weight: 2, dashArray: '4,4', opacity: 0.6 }).addTo(group);
+
+  L.marker(center, {
+    icon: L.divIcon({
+      html: `<div style="background:rgba(234,179,8,.9);color:#000;padding:6px 12px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);">☀️ Est. ${sunHours} hrs/yr · Lat ${lat.toFixed(1)}° · <span style="font-size:10px;font-weight:400;">Add API key for precise data</span></div>`,
+      className: '', iconAnchor: [0, 0]
+    })
+  }).addTo(group);
+
+  group.addTo(drawMap);
+  window._solarOverlay = group;
+}
+
 function generateScopeFromDrawing() {
   const addr = document.getElementById('drawSearch')?.value || 'Property Address';
   const area = document.getElementById('cr-base')?.textContent || '0 sf';
