@@ -866,6 +866,25 @@
     if(window.NBDWidgets && document.getElementById('view-home')?.classList.contains('active')) {
       setTimeout(()=>window.NBDWidgets.render(), 500);
     }
+    // ── CRITICAL: Re-render kanban after deferred scripts load ──
+    // crm.js (deferred) defines renderLeads(). loadLeads() fires
+    // from the module script which runs BEFORE defer scripts.
+    // The initial renderLeads() call at 500ms may miss if crm.js
+    // is still loading. This retry at 1500ms and 3000ms ensures
+    // the kanban renders even on slow connections.
+    function retryRender() {
+      if (typeof renderLeads === 'function' && window._leads?.length) {
+        renderLeads(window._leads);
+        if (typeof restoreCrmSearch === 'function') restoreCrmSearch();
+        if (typeof updatePipeline === 'function') updatePipeline(window._leads);
+        if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
+        return true;
+      }
+      return false;
+    }
+    if (!retryRender()) {
+      setTimeout(() => { if (!retryRender()) setTimeout(retryRender, 3000); }, 1500);
+    }
   });
 
   // ══════════════════════════════════════════════════════════════
