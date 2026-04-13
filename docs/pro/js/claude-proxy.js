@@ -28,13 +28,13 @@ const PROXY_CHECK_INTERVAL = 300000; // Re-check every 5 minutes
  * @returns {Promise<object>} — Anthropic API response
  */
 async function callClaude(params) {
+  let result;
   // Try Cloud Function first (if available or unknown)
   if (_proxyAvailable !== false || Date.now() - _proxyLastCheck > PROXY_CHECK_INTERVAL) {
     try {
-      const result = await _callViaProxy(params);
+      result = await _callViaProxy(params);
       _proxyAvailable = true;
       _proxyLastCheck = Date.now();
-      return result;
     } catch (e) {
       console.warn('Cloud Function unavailable, falling back to direct call:', e.message);
       _proxyAvailable = false;
@@ -43,7 +43,39 @@ async function callClaude(params) {
   }
 
   // Fallback: direct browser call with localStorage key
-  return _callDirect(params);
+  if (!result) result = await _callDirect(params);
+
+  // Track usage for the analytics page
+  _trackUsage(result, params.model);
+  return result;
+}
+
+// ── Usage tracking → localStorage → AI Usage analytics page ──
+// Pricing per million tokens (Haiku 4.5 defaults, adjust if model changes)
+const _MODEL_PRICING = {
+  'claude-haiku-4-5-20251001':  { input: 1.00, output: 5.00 },
+  'claude-sonnet-4-20250514':   { input: 3.00, output: 15.00 },
+  'claude-opus-4-20250514':     { input: 15.00, output: 75.00 },
+};
+function _trackUsage(response, model) {
+  try {
+    if (!response?.usage) return;
+    const inp = response.usage.input_tokens || 0;
+    const out = response.usage.output_tokens || 0;
+    const total = inp + out;
+    const pricing = _MODEL_PRICING[model] || _MODEL_PRICING['claude-haiku-4-5-20251001'];
+    const cost = (inp / 1e6) * pricing.input + (out / 1e6) * pricing.output;
+
+    const now = new Date();
+    const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const raw = localStorage.getItem('nbd_ai_usage') || '{}';
+    const usage = JSON.parse(raw);
+    if (!usage[monthKey]) usage[monthKey] = { calls: 0, tokens: 0, cost: 0 };
+    usage[monthKey].calls += 1;
+    usage[monthKey].tokens += total;
+    usage[monthKey].cost = Math.round((usage[monthKey].cost + cost) * 10000) / 10000;
+    localStorage.setItem('nbd_ai_usage', JSON.stringify(usage));
+  } catch (_) { /* non-critical — never break the API call */ }
 }
 
 /**
