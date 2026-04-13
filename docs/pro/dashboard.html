@@ -360,24 +360,16 @@
   window.writeBatch = writeBatch;
 
   // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
-  // Catch uncaught errors and unhandled promise rejections.
-  // Only surface critical errors to the user — expected failures
-  // (network timeouts, missing optional data) are logged silently.
+  // Log errors to console only. NEVER show toasts from global
+  // handlers — they fire on benign Firebase rejections, network
+  // hiccups, and deferred-script timing issues that don't affect
+  // the user. Real errors should be caught locally by the
+  // functions that throw them, with specific user-friendly messages.
   window.addEventListener('error', e => {
     console.error('Uncaught error:', e.error || e.message);
-    // Don't toast on script load errors or ResizeObserver (common, harmless)
-    const msg = String(e.message || '');
-    if (msg.includes('ResizeObserver') || msg.includes('Loading chunk')) return;
   });
   window.addEventListener('unhandledrejection', e => {
     console.warn('Unhandled promise rejection:', e.reason);
-    // Don't toast on common Firebase/network rejections
-    const msg = String(e.reason?.message || e.reason || '');
-    if (msg.includes('permission-denied') || msg.includes('not-found') || msg.includes('unavailable') || msg.includes('deadline-exceeded')) return;
-    // Only toast on truly unexpected failures
-    if (typeof showToast === 'function' && msg.length > 0 && !msg.includes('null')) {
-      showToast('Something unexpected happened — details in console', 'error');
-    }
   });
 
   onAuthStateChanged(auth, async user => {
