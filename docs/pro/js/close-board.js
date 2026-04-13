@@ -699,10 +699,10 @@ function submitDeal() {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-            <button onclick="window.CloseBoard.preview('${d.id}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
-            <button onclick="window.CloseBoard.sendSMS('${d.id}')" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
-            <button onclick="window.CloseBoard.sendEmail('${d.id}')" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
-            <button onclick="window.CloseBoard.copyLink('${d.id}')" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
+            <button onclick="window.CloseBoard.preview('${esc(d.id)}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
+            <button onclick="window.CloseBoard.sendSMS('${esc(d.id)}')" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
+            <button onclick="window.CloseBoard.sendEmail('${esc(d.id)}')" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
+            <button onclick="window.CloseBoard.copyLink('${esc(d.id)}')" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
           </div>
         </div>
         <div style="font-size:10px;color:var(--m);margin-top:8px;">Created ${timeAgo(d.createdAt)} · Expires ${fmtDate(d.expiresAt)}</div>
