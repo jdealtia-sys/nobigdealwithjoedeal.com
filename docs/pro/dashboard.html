@@ -6048,10 +6048,11 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// ── Expanded font system ──
-// 16 font families (doubled from original 8). Each one loads
-// from Google Fonts on demand and sets --nbd-font-body + --nbd-font-heading.
-var NBD_FONTS = [
+// ── Expanded font system (legacy inline picker) ──
+// 16 font families. Renamed to _NBD_LEGACY_FONTS to avoid colliding
+// with the const NBD_FONTS in maps.js (theme engine font pairings).
+// That collision caused a SyntaxError that killed maps.js entirely.
+var _NBD_LEGACY_FONTS = [
   { id: 'barlow',     label: 'Barlow',        body: "'Barlow',sans-serif",             heading: "'Barlow Condensed',sans-serif",    gf: 'Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600' },
   { id: 'inter',      label: 'Inter',         body: "'Inter',sans-serif",              heading: "'Inter',sans-serif",               gf: 'Inter:wght@400;500;600;700;800' },
   { id: 'poppins',    label: 'Poppins',       body: "'Poppins',sans-serif",            heading: "'Poppins',sans-serif",             gf: 'Poppins:wght@400;500;600;700;800' },
@@ -6071,8 +6072,8 @@ var NBD_FONTS = [
 ];
 var _nbdLoadedFonts = {};
 function nbdApplyFont(fontId) {
-  var font = NBD_FONTS.find(function(f) { return f.id === fontId; });
-  if (!font) font = NBD_FONTS[0]; // fallback to Barlow
+  var font = _NBD_LEGACY_FONTS.find(function(f) { return f.id === fontId; });
+  if (!font) font = _NBD_LEGACY_FONTS[0]; // fallback to Barlow
   // Load Google Font if not already loaded
   if (!_nbdLoadedFonts[font.id]) {
     var link = document.createElement('link');
@@ -6098,7 +6099,7 @@ function nbdRenderFontGrid() {
   var grid = document.getElementById('settings-font-grid');
   if (!grid) return;
   var saved = localStorage.getItem('nbd_font') || 'barlow';
-  grid.innerHTML = NBD_FONTS.map(function(f) {
+  grid.innerHTML = _NBD_LEGACY_FONTS.map(function(f) {
     var active = f.id === saved;
     return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'rgba(232,114,12,.06)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
       + '<div style="font-family:' + f.body + ';font-size:18px;font-weight:700;color:var(--t);margin-bottom:4px;">Aa</div>'

@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v9',  // bumped v9 — April 13: goTo re-entry fix, drawMap absolute CSS, kanban re-render, diag
-  cdn: 'nbd-cdn-v9',      // bumped v9 — forces re-fetch of all JS + CSS
+  shell: 'nbd-shell-v10', // v10 — CRITICAL: fix NBD_FONTS collision killing maps.js
+  cdn: 'nbd-cdn-v10',     // v10 — forces re-fetch of all JS + CSS
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
