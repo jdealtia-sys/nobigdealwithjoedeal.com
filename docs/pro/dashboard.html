@@ -7649,13 +7649,16 @@ function switchScTab(tab, btn) {
           <button class="btn btn-ghost" onclick="if(window.InspectionReportEngine){InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId||'')}else{showToast('Report engine loading...','error')}" style="font-size:12px;">📄 New Report</button>
         </div>
       </div>
-      <!-- Quick actions bar -->
-      <div style="display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;">
-        <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Damage Near Me</button>
-        <button class="btn btn-ghost" onclick="goTo('map')" style="font-size:11px;padding:6px 12px;">🗺 View on Map</button>
-        <select id="photoLeadSelect" onchange="window._currentPhotoLeadId=this.value;if(window.PhotoEngine)PhotoEngine.openGallery('photoGalleryContainer',this.value);" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:7px 10px;font-size:11px;color:var(--t);max-width:200px;">
+      <!-- Search + Quick actions bar -->
+      <div style="display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;align-items:center;">
+        <div style="position:relative;flex:1;min-width:180px;max-width:320px;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
+          <input type="text" id="photoSearchInput" placeholder="Search jobs by name or address..." oninput="filterPhotoLeads(this.value)" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px 8px 30px;font-size:12px;color:var(--t);font-family:inherit;">
+        </div>
+        <select id="photoLeadSelect" onchange="window._currentPhotoLeadId=this.value;if(window.PhotoEngine)PhotoEngine.openGallery('photoGalleryContainer',this.value);" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:11px;color:var(--t);max-width:220px;">
           <option value="">Select a property...</option>
         </select>
+        <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
       </div>
       <!-- Photo gallery container (rendered by PhotoEngine) -->
       <div id="photoGalleryContainer" style="padding:0 16px;">
@@ -10229,6 +10232,13 @@ async function loadPhotoCounts() {
   }
 }
 
+// Photo search — filters the photo leads list by name/address
+window._photoSearchQuery = '';
+function filterPhotoLeads(query) {
+  window._photoSearchQuery = (query || '').toLowerCase().trim();
+  renderPhotoLeads();
+}
+
 async function renderPhotoLeads(){
   const wrap=document.getElementById('photoLeadsList');
 
@@ -10244,7 +10254,15 @@ async function renderPhotoLeads(){
   // Exclude prospects (hidden from kanban, should also be hidden
   // from the Photos Near Me picker — they're not real customers).
   const counts = window._photoCountByLead || {};
-  const realLeads = allLeads.filter(l => !l.isProspect);
+  let realLeads = allLeads.filter(l => !l.isProspect);
+  // Apply search filter if the user typed in the photo search bar
+  const _pq = window._photoSearchQuery || '';
+  if (_pq) {
+    realLeads = realLeads.filter(l => {
+      const text = [l.firstName, l.lastName, l.address, l.phone, l.name].filter(Boolean).join(' ').toLowerCase();
+      return text.includes(_pq);
+    });
+  }
 
   if(!realLeads.length){
     wrap.innerHTML='<div class="empty"><div class="empty-icon">📸</div>No customers yet. Add a lead or promote a prospect to attach photos.</div>';
@@ -12835,7 +12853,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script src="js/invoice-pipeline.js?v=3"></script>
 <script src="js/inspection-report-engine.js?v=3"></script>
 <script src="js/maps.js?v=8"></script>
-<script src="js/widgets.js?v=5"></script>
+<script src="js/widgets.js?v=6"></script>
 <script src="js/ui.js?v=3"></script>
 <script src="js/estimates.js?v=5"></script>
 <script src="js/ai.js?v=4"></script>

@@ -66,10 +66,34 @@ window.NBDDocGen = {
    * Registry of available document types
    */
   DOCUMENT_TYPES: {
-    proposal: { name: 'Proposal/Estimate', template: 'renderProposal' },
-    contract: { name: 'Roofing Contract', template: 'renderContract' },
-    inspectionHomeowner: { name: 'Inspection Report (Homeowner)', template: 'renderInspectionHomeowner' },
-    inspectionInsurance: { name: 'Inspection Report (Insurance)', template: 'renderInspectionInsurance' }
+    // 4 dedicated templates with custom render functions
+    proposal:              { name: 'Proposal / Estimate',             template: 'renderProposal' },
+    contract:              { name: 'Roofing Contract',                template: 'renderContract' },
+    inspectionHomeowner:   { name: 'Inspection Report (Homeowner)',   template: 'renderInspectionHomeowner' },
+    inspectionInsurance:   { name: 'Inspection Report (Insurance)',   template: 'renderInspectionInsurance' },
+    // 20+ document types that use the generic branded template.
+    // Each one produces a real, professional, printable document
+    // with the correct title, fields, and NBD branding.
+    invoice:               { name: 'Invoice',                         template: 'renderGenericDoc' },
+    warranty_certificate:  { name: 'Warranty Certificate',            template: 'renderGenericDoc' },
+    certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderGenericDoc' },
+    supplement_request:    { name: 'Supplement Request',              template: 'renderGenericDoc' },
+    scope_of_work:         { name: 'Scope of Work',                   template: 'renderGenericDoc' },
+    assignment_of_benefits:{ name: 'Assignment of Benefits',          template: 'renderGenericDoc' },
+    change_order:          { name: 'Change Order',                    template: 'renderGenericDoc' },
+    work_authorization:    { name: 'Work Authorization',              template: 'renderGenericDoc' },
+    payment_agreement:     { name: 'Payment Agreement',               template: 'renderGenericDoc' },
+    material_delivery:     { name: 'Material Delivery Receipt',       template: 'renderGenericDoc' },
+    thank_you:             { name: 'Thank You Letter',                template: 'renderGenericDoc' },
+    company_intro:         { name: 'Company Introduction',            template: 'renderGenericDoc' },
+    financing_options:     { name: 'Financing Options',               template: 'renderGenericDoc' },
+    storm_checklist:       { name: 'Storm Damage Checklist',          template: 'renderGenericDoc' },
+    claim_guide:           { name: 'Insurance Claim Guide',           template: 'renderGenericDoc' },
+    referral_card:         { name: 'Referral Card',                   template: 'renderGenericDoc' },
+    before_after_report:   { name: 'Before & After Report',           template: 'renderGenericDoc' },
+    door_hanger:           { name: 'Door Hanger',                     template: 'renderGenericDoc' },
+    neighborhood_mailer:   { name: 'Neighborhood Mailer',             template: 'renderGenericDoc' },
+    testimonial_sheet:     { name: 'Testimonial Sheet',               template: 'renderGenericDoc' }
   },
 
   // ============================================================================
@@ -82,6 +106,9 @@ window.NBDDocGen = {
    * @param {object} data - Merge field data
    */
   generate(type, data = {}) {
+    // Pass the document type through data so renderGenericDoc can
+    // use it for the title (the generic template handles 20+ types).
+    data._documentType = type;
     const html = this.getHTML(type, data);
     if (!html) {
       if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
@@ -1465,6 +1492,76 @@ window.NBDDocGen = {
    * Render and display fill form modal
    * @param {string} documentType - Type of document
    */
+  // ═══════════════════════════════════════════════════════════
+  // GENERIC DOCUMENT TEMPLATE
+  // Professional branded document for any type that doesn't have
+  // a dedicated custom render function yet. Covers invoice,
+  // warranty, scope of work, change order, etc. Produces a clean
+  // printable page with NBD branding, merged field data, and
+  // signature blocks.
+  // ═══════════════════════════════════════════════════════════
+  renderGenericDoc(data = {}) {
+    const type = data._documentType || 'document';
+    const typeName = this.DOCUMENT_TYPES[type]?.name || type.replace(/_/g, ' ');
+    const d = { ...data };
+    const name = d.homeownerName || d.customerName || '';
+    const addr = d.address || '';
+    const date = d.date || new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const phone = d.phone || '';
+    const email = d.email || '';
+    const desc = d.projectDescription || d.scopeSummary || d.workDescription || d.notes || '';
+    const price = d.totalPrice || d.totalAmount || d.contractPrice || '';
+
+    // Collect all non-empty fields into a data table
+    const skipFields = new Set(['_documentType','date','companyName','companyPhone','companyEmail','companyWebsite','companyTagline']);
+    const fieldRows = Object.entries(d)
+      .filter(([k,v]) => v && !skipFields.has(k) && typeof v === 'string' && v.trim())
+      .map(([k,v]) => {
+        const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).replace(/_/g, ' ');
+        return `<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${String(v).substring(0, 500)}</td></tr>`;
+      }).join('');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${typeName} — ${name || 'NBD Pro'}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;color:#1a1a2e;}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}
+.brand span{color:#e8720c;}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+.doc-type{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;color:#1e3a6e;text-align:right;}
+.doc-date{font-size:12px;color:#666;text-align:right;margin-top:4px;}
+h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:#e8720c;margin:24px 0 12px;padding-bottom:4px;border-bottom:1px solid #eee;}
+table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+.desc{background:#f8f8f8;border-left:4px solid #e8720c;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.6;border-radius:0 6px 6px 0;}
+.sig-block{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:2px solid #eee;}
+.sig-line{border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666;margin-top:50px;}
+.footer{margin-top:40px;padding-top:16px;border-top:1px solid #eee;display:flex;justify-content:space-between;font-size:10px;color:#999;}
+@media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}
+</style></head><body>
+<div class="hdr">
+  <div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">${typeName}</div></div>
+  <div><div class="doc-type">${typeName}</div><div class="doc-date">${date}</div></div>
+</div>
+${name || addr ? `<h2>Customer Information</h2>
+<table>
+  ${name ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Homeowner</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + name + '</td></tr>' : ''}
+  ${addr ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + addr + '</td></tr>' : ''}
+  ${phone ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + phone + '</td></tr>' : ''}
+  ${email ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Email</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + email + '</td></tr>' : ''}
+</table>` : ''}
+${fieldRows ? '<h2>Details</h2><table>' + fieldRows + '</table>' : ''}
+${desc ? '<h2>Description</h2><div class="desc">' + desc + '</div>' : ''}
+${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:12px;color:#666;">Total:</span> <span style="font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:800;color:#e8720c;">' + (String(price).startsWith('$') ? price : '$' + price) + '</span></div>' : ''}
+<div class="sig-block">
+  <div><div class="sig-line">Homeowner Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
+  <div><div class="sig-line">Contractor Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
+</div>
+<div class="footer"><span>${this.COMPANY.name} · ${this.COMPANY.phone} · ${this.COMPANY.website}</span><span>Generated by NBD Pro</span></div>
+</body></html>`;
+  },
+
   renderFillFormModal(documentType) {
     const fields = this.getFormFieldsForDocumentType(documentType);
     const docName = this.DOCUMENT_TYPES[documentType]?.name || documentType;

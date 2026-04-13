@@ -546,25 +546,33 @@ function renderWidgetHome() {
     const w = WIDGETS.find(x => x.id === id);
     if(!w) return;
 
-    // Widget → view navigation map. Clicking a widget card takes
-    // you to the most relevant CRM view for that metric. Cards
-    // without a mapping are informational only (no click nav).
+    // Widget → view navigation map. Clicking ANY widget card takes
+    // you to a relevant view. Specific widgets get specific targets,
+    // everything else defaults to 'crm' since that's where the data
+    // lives for most pipeline/sales metrics.
     const NAV_MAP = {
       'pipeline-value': 'crm', 'hot-leads': 'crm', 'win-rate': 'crm',
-      'revenue-month': 'crm', 'task-checklist': 'crm', 'd2d-summary': 'd2d',
-      'stage-funnel': 'crm', 'recent-activity': 'crm', 'door-knock-heat': 'd2d'
+      'revenue-month': 'crm', 'task-checklist': 'crm', 'stale-leads': 'crm',
+      'close-board': 'closeboard', 'source-breakdown': 'crm',
+      'stage-funnel': 'crm', 'recent-activity': 'crm', 'recent-estimates': 'est',
+      'recent-docs': 'docs', 'damage-type-chart': 'crm', 'monthly-trend': 'crm',
+      'd2d-summary': 'd2d', 'd2d-kpi': 'd2d', 'door-knock-heat': 'd2d',
+      'weather-radar': 'd2d', 'storm-alerts': 'storm',
+      'quick-estimate': 'est', 'quick-draw': 'draw', 'booking-link': 'schedule',
+      'ask-joe-mini': 'joe', 'team-leaderboard': 'board',
+      'today-schedule': 'schedule', 'material-watch': 'products'
     };
     const card = document.createElement('div');
     card.className = 'w-card w-' + w.size;
     card.dataset.widgetId = w.id;
-    if (NAV_MAP[w.id]) {
-      card.style.cursor = 'pointer';
-      card.addEventListener('click', (e) => {
-        // Don't navigate if user clicked the remove button
-        if (e.target.closest('.w-card-remove')) return;
-        if (typeof window.goTo === 'function') window.goTo(NAV_MAP[w.id]);
-      });
-    }
+    // EVERY widget is clickable — NAV_MAP for specific targets,
+    // default to 'crm' for anything not explicitly mapped.
+    const navTarget = NAV_MAP[w.id] || 'crm';
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.w-card-remove')) return;
+      if (typeof window.goTo === 'function') window.goTo(navTarget);
+    });
     card.innerHTML = `
       <div class="w-card-hdr">
         <span class="w-card-icon">${w.icon}</span>
