@@ -76,7 +76,7 @@
       let photos = [];
       try {
         const photoSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'photos'),
+          window.collection(window.db, "photos"),
           window.where('leadId', '==', leadId),
           window.where('userId', '==', window._user.uid)
         ));
@@ -394,7 +394,7 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
       let photos = [];
       try {
         const photoSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'photos'),
+          window.collection(window.db, "photos"),
           window.where('leadId', '==', leadId),
           window.where('userId', '==', window._user.uid)
         ));

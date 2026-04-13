@@ -2799,7 +2799,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .overlay-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s;}
 .overlay-toggle.on::after{transform:translateX(16px);}
 /* Pin confirm dialog */
-.pin-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2000;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
+.pin-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2050;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;}
 .pin-confirm-overlay.open{display:flex;}
 .pin-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:20px;width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
 .pin-confirm-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t);margin-bottom:6px;}
@@ -2818,7 +2818,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 /* ── ADDRESS AUTOCOMPLETE ── */
 .ac-wrap{position:relative;width:100%;}
 .ac-wrap input{width:100%;box-sizing:border-box;}
-.ac-drop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--s2);border:1px solid var(--orange);border-radius:7px;z-index:3000;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;max-height:240px;overflow-y:auto;}
+.ac-drop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--s2);border:1px solid var(--orange);border-radius:7px;z-index:2800;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;max-height:240px;overflow-y:auto;}
 .ac-item{padding:9px 12px;font-size:11px;color:var(--t);cursor:pointer;border-bottom:1px solid var(--rule);line-height:1.4;}
 .ac-item:last-child{border-bottom:none;}
 .ac-item:hover,.ac-item.ac-active{background:var(--og);color:var(--orange);}
@@ -2844,7 +2844,7 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .plp-btn-del{display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-del:hover{background:rgba(224,82,82,.1);}
 /* ── DELETE CONFIRM MODAL ── */
-.del-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2100;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
+.del-confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2150;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
 .del-confirm-overlay.open{display:flex;}
 .del-confirm-box{background:var(--s);border:1px solid var(--br);border-radius:10px;padding:22px;width:300px;box-shadow:0 20px 60px rgba(0,0,0,.7);}
 .del-confirm-icon{font-size:28px;margin-bottom:8px;}

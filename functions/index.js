@@ -311,6 +311,19 @@ exports.stripeWebhook = onRequest(
     try {
       const db = admin.firestore();
 
+      // ── Idempotency guard ──
+      // Stripe retries webhooks up to 15 times. Check if this event
+      // ID was already processed to prevent duplicate writes to
+      // subscriptions, custom claims, and usage counters.
+      const eventRef = db.doc(`stripe_events/${event.id}`);
+      const eventSnap = await eventRef.get();
+      if (eventSnap.exists()) {
+        logger.info('stripeWebhook.duplicate_event', { eventId: event.id });
+        res.json({ received: true, duplicate: true });
+        return;
+      }
+      await eventRef.set({ type: event.type, processedAt: admin.firestore.FieldValue.serverTimestamp() });
+
       switch (event.type) {
         // ═══════════════════════════════════════════════════
         // PLAN TIER EXTRACTION HELPER

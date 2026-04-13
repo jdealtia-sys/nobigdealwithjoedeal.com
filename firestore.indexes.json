@@ -409,7 +409,7 @@
           "order": "DESCENDING"
         }
       ]
-    }
+    },
     {
       "collectionGroup": "api_usage",
       "queryScope": "COLLECTION",

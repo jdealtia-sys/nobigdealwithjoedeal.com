@@ -272,7 +272,7 @@ async function sendJoeMessage() {
 
   appendJoeMessage('user', text);
   _joeTyping = true;
-  document.getElementById('joeSendBtn').disabled = true;
+  var _jSB=document.getElementById("joeSendBtn");if(_jSB)_jSB.disabled=true;
   showJoeTyping();
 
   const ctx = buildJoeContext();
@@ -293,7 +293,7 @@ async function sendJoeMessage() {
         hideJoeTyping();
         appendJoeMessage('joe', '⚙️ To activate Joe AI, add your Anthropic API key in **Settings → Ask Joe AI**. Get a free key at console.anthropic.com — it takes 2 minutes.');
         _joeTyping = false;
-        document.getElementById('joeSendBtn').disabled = false;
+        var _jSB=document.getElementById("joeSendBtn");if(_jSB)_jSB.disabled=false;
         return;
       }
     }
@@ -317,7 +317,7 @@ async function sendJoeMessage() {
   }
 
   _joeTyping = false;
-  document.getElementById('joeSendBtn').disabled = false;
+  var _jSB=document.getElementById("joeSendBtn");if(_jSB)_jSB.disabled=false;
   updateJoeContextBar(ctx);
 }
 

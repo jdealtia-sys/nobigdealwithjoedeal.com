@@ -133,10 +133,10 @@ async function openTaskModal(leadId,event){
   document.getElementById('taskModalAddr').textContent=lead?(lead.address||'').split(',').slice(0,2).join(','):'';
   document.getElementById('taskInput').value='';
   document.getElementById('taskDue').value='';
-  document.getElementById('taskModal').classList.add('open');
+  var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.add("open");
   renderTaskList(await _loadTasks(leadId));
 }
-function closeTaskModal(){document.getElementById('taskModal').classList.remove('open');_taskModalLeadId=null;renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
+function closeTaskModal(){var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.remove("open");_taskModalLeadId=null;renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
 function _taskDueLabel(ds){const d=new Date(ds+'T12:00:00'),t=new Date(),tm=new Date(t);t.setHours(0,0,0,0);tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);const dd=new Date(d);dd.setHours(0,0,0,0);if(dd.getTime()===t.getTime())return'Today';if(dd.getTime()===tm.getTime())return'Tomorrow';if(dd<t)return'Overdue';return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function renderTaskList(tasks){
   const el=document.getElementById('taskList');if(!el)return;
