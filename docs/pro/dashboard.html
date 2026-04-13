@@ -2770,7 +2770,10 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
 .search-row input::placeholder{color:#3a3f48;}
 
 /* PIN GRID */
-.slabel2{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin:10px 0 6px;}
+/* Drawing sidebar section labels — click to collapse/expand */
+.slabel2{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin:10px 0 6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(232,114,12,.15);user-select:none;-webkit-tap-highlight-color:transparent;}
+.slabel2::after{content:'−';font-size:14px;color:var(--m);transition:transform .15s;}
+.slabel2.collapsed::after{content:'+';}
 .pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
 .pin-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:500;color:var(--t);transition:all .2s;}
 .pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:rgba(232,114,12,.08);}
@@ -7353,7 +7356,8 @@ function switchScTab(tab, btn) {
 
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;background:var(--green);border-color:var(--green);" onclick="saveDrawingToCustomer()">💾 Save to Customer</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Export Report</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Measurement Report</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="generateScopeFromDrawing()">📋 Scope of Work</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
 
@@ -7366,6 +7370,18 @@ function switchScTab(tab, btn) {
           // Render the accessory panel once maps.js loads
           document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() { if (typeof renderAccessoryPanel === 'function') renderAccessoryPanel(); }, 2000);
+            // Collapsible sidebar sections — click .slabel2 to toggle
+            document.querySelectorAll('.map-sidebar .slabel2').forEach(function(label) {
+              label.addEventListener('click', function() {
+                label.classList.toggle('collapsed');
+                // Hide all siblings until the next .slabel2
+                var next = label.nextElementSibling;
+                while (next && !next.classList.contains('slabel2')) {
+                  next.style.display = label.classList.contains('collapsed') ? 'none' : '';
+                  next = next.nextElementSibling;
+                }
+              });
+            });
           });
         </script>
 

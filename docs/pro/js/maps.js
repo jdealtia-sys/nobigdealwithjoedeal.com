@@ -1693,6 +1693,84 @@ function renderAccessoryPanel() {
 // Hook into map click — place accessory if in accessory mode
 // (called from the main drawMap.on('click') handler)
 
+// ── Generate Scope of Work from Drawing ──
+// Customer-facing document showing what work will be performed,
+// derived from the drawing measurements. Different from the
+// measurement report (which is technical/internal).
+function generateScopeFromDrawing() {
+  const addr = document.getElementById('drawSearch')?.value || 'Property Address';
+  const area = document.getElementById('cr-base')?.textContent || '0 sf';
+  const pitched = document.getElementById('cr-pitched')?.textContent || '0 sf';
+  const sq = document.getElementById('cr-sq')?.textContent || '0 sq';
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const ridgeLF = drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  const eaveLF = drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  const rakeLF = drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  const hipLF = drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  const valleyLF = drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  const counts = typeof getAccessoryCounts === 'function' ? getAccessoryCounts() : {};
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Scope of Work — ${addr}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
+.hdr{display:flex;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:24px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:#e8720c;}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#e8720c;margin:22px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
+.scope-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;}
+.scope-check{color:#22c55e;font-weight:800;font-size:16px;flex-shrink:0;margin-top:1px;}
+.scope-text{flex:1;line-height:1.5;}
+.scope-qty{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:#1e3a6e;min-width:80px;text-align:right;}
+.meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.meas-card{background:#f8f8f8;border:1px solid #eee;border-radius:6px;padding:12px;text-align:center;}
+.meas-val{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:#e8720c;}
+.meas-lbl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+.sig{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}.sig-line{border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666;margin-top:50px;}
+.foot{margin-top:30px;font-size:10px;color:#999;display:flex;justify-content:space-between;}
+@media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}</style></head><body>
+<div class="hdr"><div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">Scope of Work</div></div>
+<div style="text-align:right;"><div style="font-size:14px;font-weight:600;">${addr}</div><div style="font-size:11px;color:#666;">${date}</div></div></div>
+
+<h2>Project Measurements</h2>
+<div class="meas-grid">
+  <div class="meas-card"><div class="meas-val">${area}</div><div class="meas-lbl">Roof Area</div></div>
+  <div class="meas-card"><div class="meas-val">${pitched}</div><div class="meas-lbl">Pitched Area</div></div>
+  <div class="meas-card"><div class="meas-val">${sq}</div><div class="meas-lbl">Squares</div></div>
+</div>
+
+<h2>Scope of Work</h2>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Remove existing roof covering (tear-off 1 layer)</span><span class="scope-qty">${sq}</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install synthetic underlayment over entire deck</span><span class="scope-qty">${sq}</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install ice & water shield at eaves and valleys</span><span class="scope-qty">${eaveLF} LF + ${valleyLF} LF</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install architectural shingles (GAF Timberline series)</span><span class="scope-qty">${sq}</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install starter strip at eaves</span><span class="scope-qty">${eaveLF} LF</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install drip edge at eaves and rakes</span><span class="scope-qty">${(parseFloat(eaveLF) + parseFloat(rakeLF)).toFixed(0)} LF</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install ridge cap shingles</span><span class="scope-qty">${ridgeLF} LF</span></div>
+${parseFloat(hipLF) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install hip cap shingles</span><span class="scope-qty">' + hipLF + ' LF</span></div>' : ''}
+${parseFloat(valleyLF) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install valley flashing / weave</span><span class="scope-qty">' + valleyLF + ' LF</span></div>' : ''}
+${(counts.pipe || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Replace pipe boot flashings</span><span class="scope-qty">' + counts.pipe + ' EA</span></div>' : ''}
+${(counts.skylight || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Re-flash skylights</span><span class="scope-qty">' + counts.skylight + ' EA</span></div>' : ''}
+${(counts.chimney || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Re-flash chimney</span><span class="scope-qty">' + counts.chimney + ' EA</span></div>' : ''}
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install ridge ventilation</span><span class="scope-qty">${ridgeLF} LF</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Complete cleanup and debris removal</span><span class="scope-qty">1 JOB</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Final inspection and walkthrough with homeowner</span><span class="scope-qty">1 JOB</span></div>
+
+<h2>Terms</h2>
+<p style="font-size:12px;line-height:1.6;color:#333;">All work performed by No Big Deal Home Solutions includes industry-standard materials and labor. Work area will be protected during installation. Final cleanup includes magnet sweep of yard and driveway. Manufacturer warranties apply per selected material tier.</p>
+
+<div class="sig"><div><div class="sig-line">Homeowner Signature</div></div><div><div class="sig-line">Contractor Signature</div></div></div>
+<div class="foot"><span>No Big Deal Home Solutions · (859) 420-7382 · nobigdealwithjoedeal.com</span><span>Generated by NBD Pro</span></div>
+</body></html>`;
+
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    window.NBDDocViewer.open({ html, title: 'Scope of Work — ' + addr, filename: 'NBD-Scope-' + date.replace(/\s/g, '') + '.pdf' });
+  } else {
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+}
+
 function exportDrawReport() {
   const addr=document.getElementById('drawSearch').value||'No Address';
   const lines=drawnLines;
@@ -2441,6 +2519,28 @@ function acceptAutoDetect() {
     renderLineList(); renderFacetList(); recalc(); autoSaveDrawing();
     showToast(`Auto-detected facet: ${perimBaseArea.toFixed(0)} sf — switch to Eave/Rake mode to classify edges`, 'ok');
   }
+  // ── ML FEEDBACK DATA PIPELINE (April 2026) ──
+  // Save the auto-detected outline (before) and the user's
+  // corrected version (after) as a training pair in Firestore.
+  // When we eventually train an ML model for roof edge detection,
+  // this labeled data is gold — real satellite images with
+  // human-corrected polygon boundaries.
+  if (window._db && window._user?.uid) {
+    try {
+      const trainingPair = {
+        userId: window._user.uid,
+        address: document.getElementById('drawSearch')?.value || '',
+        timestamp: window.serverTimestamp(),
+        autoDetected: ad.points.map(p => ({ lat: p.lat, lng: p.lng })),
+        userCorrected: perimPoints.map(p => ({ lat: p.lat, lng: p.lng })),
+        accepted: true, // user accepted (with possible corrections)
+        mapCenter: drawMap.getCenter ? { lat: drawMap.getCenter().lat, lng: drawMap.getCenter().lng } : null,
+        zoom: drawMap.getZoom ? drawMap.getZoom() : null
+      };
+      window.addDoc(window.collection(window._db, 'ml_training_data'), trainingPair);
+    } catch (e) { console.warn('ML training pair save failed:', e.message); }
+  }
+
   // Clean up preview
   if(ad.line) drawMap.removeLayer(ad.line);
   window._autoDetectPreview = null;
