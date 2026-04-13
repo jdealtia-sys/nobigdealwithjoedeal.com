@@ -4619,7 +4619,7 @@ body {
 
   /* Narrower columns on mobile so more fit */
   .kanban-col{min-width:195px!important;max-width:195px!important;}
-  .kcol-body{max-height:calc(100vh - 280px)!important;}
+  .kcol-body{max-height:calc(100vh - 280px)!important;max-height:calc(100dvh - 280px)!important;}
 
   /* Compact card on mobile */
   .k-card{ padding:9px 10px 8px!important; }
@@ -5042,7 +5042,7 @@ body {
 }
 .theme-card.active .tc-active-badge { display: block; }
 
-  #view-crm{display:none!important;flex-direction:column!important;height:100%;overflow:hidden!important;padding:0!important;}
+  #view-crm{display:none!important;flex-direction:column!important;height:100%;height:calc(100dvh - 60px);overflow:hidden!important;padding:0!important;}
   #view-crm.active{display:flex!important;}
   #kanbanBoard{display:flex!important;flex-direction:row!important;gap:10px;padding:0 16px 16px;overflow-x:auto!important;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-x;}
   #kanbanBoard::-webkit-scrollbar{height:6px;}
@@ -5084,7 +5084,7 @@ body {
   .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
   .kview-btn.active{background:var(--orange);color:var(--t);border-color:var(--orange);}
-  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 260px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
+  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 260px);max-height:calc(100dvh - 260px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
@@ -6560,7 +6560,7 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="notifDismissedList" style="display:none;overflow-y:auto;max-height:200px;border-top:1px solid var(--br);background:var(--s2);"></div>
       </div>
     </div>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdPickerOpen()" title="Change Theme &amp; Font">🎨</button>
+    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font">🎨</button>
     <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
     <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
   </div>
