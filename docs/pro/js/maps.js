@@ -512,6 +512,15 @@ let autoDetectActive = false;
 let comparisonData = null; // Parsed external report data
 
 function initDrawMap() {
+  // Guard: if already initialized, just refresh the size
+  if (drawMap) { drawMap.invalidateSize(); return; }
+
+  // Ensure the container is visible before Leaflet measures it.
+  // In Safari standalone, there can be a paint delay between
+  // classList.add('active') and the element actually being visible.
+  const container = document.getElementById('drawMap');
+  if (!container) { console.error('drawMap container not found'); return; }
+
   drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],19);
   // Map layers
   drawMapLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxNativeZoom:19,maxZoom:22});
@@ -522,6 +531,15 @@ function initDrawMap() {
   ]);
   drawMapLayers.satellite.addTo(drawMap);
   currentLayerType = 'satellite';
+
+  // Force Leaflet to recalculate container size multiple times.
+  // In Safari standalone/web app mode, the container reports
+  // zero dimensions during the first few paint frames even though
+  // the CSS has been applied. Without these retries, tiles load
+  // but appear as grey squares or don't appear at all.
+  setTimeout(function() { if(drawMap) drawMap.invalidateSize(); }, 100);
+  setTimeout(function() { if(drawMap) drawMap.invalidateSize(); }, 500);
+  setTimeout(function() { if(drawMap) drawMap.invalidateSize(); }, 1500);
 
   // ── Touch support (April 2026) ──
   // Detect touch device and add a Draw/Navigate mode toggle.
