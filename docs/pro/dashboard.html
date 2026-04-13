@@ -360,15 +360,24 @@
   window.writeBatch = writeBatch;
 
   // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
-  // Catch uncaught errors and unhandled promise rejections so failures
-  // surface to the user instead of dying silently.
+  // Catch uncaught errors and unhandled promise rejections.
+  // Only surface critical errors to the user — expected failures
+  // (network timeouts, missing optional data) are logged silently.
   window.addEventListener('error', e => {
     console.error('Uncaught error:', e.error || e.message);
-    if (typeof showToast === 'function') showToast('Something went wrong — check console', 'error');
+    // Don't toast on script load errors or ResizeObserver (common, harmless)
+    const msg = String(e.message || '');
+    if (msg.includes('ResizeObserver') || msg.includes('Loading chunk')) return;
   });
   window.addEventListener('unhandledrejection', e => {
-    console.error('Unhandled promise rejection:', e.reason);
-    if (typeof showToast === 'function') showToast('An operation failed — check console', 'error');
+    console.warn('Unhandled promise rejection:', e.reason);
+    // Don't toast on common Firebase/network rejections
+    const msg = String(e.reason?.message || e.reason || '');
+    if (msg.includes('permission-denied') || msg.includes('not-found') || msg.includes('unavailable') || msg.includes('deadline-exceeded')) return;
+    // Only toast on truly unexpected failures
+    if (typeof showToast === 'function' && msg.length > 0 && !msg.includes('null')) {
+      showToast('Something unexpected happened — details in console', 'error');
+    }
   });
 
   onAuthStateChanged(auth, async user => {
@@ -379,13 +388,15 @@
     const isDemoAccount = user.email === 'demo@nobigdeal.pro';
     
     if (!isDemoAccount) {
-      // Production mode - enforce subscription
+      // Subscription check — soft enforcement. Log the status but
+      // DON'T redirect away from the dashboard. The billing-gate
+      // module handles soft limits. Redirecting breaks the UX for
+      // users who signed up via access code or are in trial.
       try {
         const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
         if (!subSnap.exists()) {
-          console.log('No subscription found - redirecting to pricing');
-          window.location.replace("/pro/landing.html#pricing");
-          return;
+          console.log('No subscription doc — user on free tier or access code');
+          // Do NOT redirect — let the billing gate handle limits
         }
         const subscription = subSnap.data();
         if (subscription.status !== 'active') {

@@ -457,10 +457,13 @@ function showToast(msgOrOptions, typeArg) {
     options = msgOrOptions;
   }
   
+  // Duration by type: errors stay longer so user can read them.
+  // success: 4s, info: 5s, warning: 7s, error: 9s
+  const TYPE_DURATIONS = { success: 4000, info: 5000, warning: 7000, error: 9000 };
   const {
     message,
     type = 'info',
-    duration = 5000,
+    duration = TYPE_DURATIONS[options.type || typeArg || 'info'] || 5000,
     undoAction = null,
     undoText = 'Undo'
   } = options;
