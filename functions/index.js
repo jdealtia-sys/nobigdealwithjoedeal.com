@@ -1161,6 +1161,7 @@ exports.backfillAnalytics = onCall(
   {
     region: 'us-central1',
     cors: CORS_ORIGINS,
+    enforceAppCheck: true,
     secrets: [GOOGLE_GEOCODING_API_KEY],
     timeoutSeconds: 540, // 9 minutes — enough for ~5k docs
     memory: '256MiB'
@@ -1371,6 +1372,7 @@ exports.migratePinsToKnocks = onCall(
   {
     region: 'us-central1',
     cors: CORS_ORIGINS,
+    enforceAppCheck: true,
     timeoutSeconds: 300,
     memory: '256MiB'
   },

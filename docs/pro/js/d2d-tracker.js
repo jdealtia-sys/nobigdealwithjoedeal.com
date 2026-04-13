@@ -2153,7 +2153,7 @@
 
         ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" onclick="window.open('${esc(url)}','_blank')" onerror="this.parentNode.replaceChild(Object.assign(document.createElement('div'),{className:'d2d-photo-broken',textContent:'\ud83d\udcf7 Photo unavailable',style:'background:var(--s2);border:1px dashed var(--br);color:var(--m);padding:16px 12px;border-radius:6px;font-size:11px;text-align:center;'}),this);">`).join('')}</div></div>` : ''}
 
-        ${knock.voiceUrl ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Voice Memo</label><audio controls src="${knock.voiceUrl}" class="d2d-audio-player"></audio></div>` : ''}
+        ${knock.voiceUrl ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Voice Memo</label><audio controls src="${esc(knock.voiceUrl)}" class="d2d-audio-player"></audio></div>` : ''}
 
         <div class="d2d-detail-section">
           <label class="d2d-detail-label">📍 Address History (${history.length})</label>
