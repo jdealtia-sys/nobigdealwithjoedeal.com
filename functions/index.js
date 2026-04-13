@@ -1588,6 +1588,13 @@ exports.migratePinsToKnocks = onCall(
 // account is finalized, so the claims are available immediately
 // on their first login (no token refresh delay).
 // ═════════════════════════════════════════════════════════════
+// Role taxonomy — platform-wide allowlist. The `admin` role is PLATFORM
+// admin and is reserved for support/ops — it grants cross-tenant reads via
+// Firestore rules. Tenant-scoped admins use `company_admin`, which is
+// bounded to their own `companyId` claim. Nothing below platform admin
+// should ever be settable through the invite flow.
+const INVITE_ALLOWED_ROLES = new Set(['company_admin', 'manager', 'sales_rep', 'viewer']);
+
 exports.onRepSignup = beforeUserCreated(
   { region: 'us-central1' },
   async (event) => {
@@ -1597,6 +1604,7 @@ exports.onRepSignup = beforeUserCreated(
 
     const db = admin.firestore();
 
+    let companyId, role;
     try {
       // Search all companies' member lists for this email
       // This is a collectionGroup query on 'members' subcollections.
@@ -1608,36 +1616,44 @@ exports.onRepSignup = beforeUserCreated(
 
       if (memberSnap.empty) {
         // Not an invited rep — solo operator signup. No claims to set.
-        logger.info('onRepSignup: no matching invite for ' + email);
+        logger.info('onRepSignup: no matching invite');
         return;
       }
 
       const memberDoc = memberSnap.docs[0];
       const memberData = memberDoc.data();
       // The parent path is companies/{companyId}/members/{email}
-      // Extract companyId from the path.
-      const companyId = memberDoc.ref.parent.parent.id;
-      const role = memberData.role || 'sales_rep';
+      companyId = memberDoc.ref.parent.parent.id;
 
-      logger.info('onRepSignup: matched invite', { email, companyId, role });
+      // CRITICAL: hard allowlist. A malicious/compromised company owner
+      // could have written `role: 'admin'` into the invite doc in an
+      // attempt to mint platform-admin claims. Reject anything outside
+      // the invite allowlist and fall back to the lowest-privilege role.
+      const requested = typeof memberData.role === 'string' ? memberData.role : '';
+      if (!INVITE_ALLOWED_ROLES.has(requested)) {
+        logger.warn('onRepSignup: invite role outside allowlist', { companyId, requested });
+        role = 'sales_rep';
+      } else {
+        role = requested;
+      }
 
-      // Set custom claims so the user is scoped to their company
-      // immediately on first login. These claims are used by:
-      //   - Firestore security rules (myCompanyId(), sameCompanyAsResource())
-      //   - Client-side pipeline filtering (only show own leads)
-      //   - Role-based UI gating (manager sees all reps, rep sees only own)
-      return {
-        customClaims: {
-          companyId: companyId,
-          role: role,
-          plan: 'growth' // invited reps inherit the company's plan
-        }
-      };
+      logger.info('onRepSignup: matched invite', { companyId, role });
     } catch (e) {
-      logger.error('onRepSignup error', { email, err: e.message });
-      // Don't block signup on error — let them in, claims can be set later
-      return;
+      // Fail CLOSED. Previously we returned no claims and let signup
+      // succeed "so claims can be set later" — but that created a
+      // window where the user could read any doc missing a companyId
+      // field, since myCompanyId() was null. Block signup on error.
+      logger.error('onRepSignup error — blocking signup', { err: e.message });
+      throw new HttpsError('internal', 'Signup temporarily unavailable. Try again shortly.');
     }
+
+    return {
+      customClaims: {
+        companyId: companyId,
+        role: role,
+        plan: 'growth' // invited reps inherit the company's plan
+      }
+    };
   }
 );
 
@@ -1714,7 +1730,11 @@ exports.activateInvitedRep = onCall(
 // Roles: admin | manager | sales_rep | viewer
 // ═════════════════════════════════════════════════════════════
 
-const TEAM_ROLES = ['admin', 'manager', 'sales_rep', 'viewer'];
+// Tenant-scoped roles. `admin` (platform-global) is deliberately NOT in
+// this list — granting it requires manual admin SDK script, never a UI
+// path. Tenant admins use `company_admin`, which owns the company but
+// cannot read other tenants' data.
+const TEAM_ROLES = ['company_admin', 'manager', 'sales_rep', 'viewer'];
 
 // Resolve the caller's company and confirm they can manage it.
 // Returns { uid, companyId, isOwner, isGlobalAdmin } or throws HttpsError.
@@ -1749,11 +1769,16 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
   return { uid, companyId, isOwner, isGlobalAdmin, companyRef };
 }
 
-function normalizeRole(role, { allowAdmin = false } = {}) {
+// Platform admin role is NEVER grantable through this function — not
+// even by another platform admin. It is a manual admin-SDK script
+// operation so it leaves a clear paper trail and cannot be triggered
+// through a compromised browser session. The UI picker only offers
+// the four tenant-scoped roles.
+function normalizeRole(role) {
   if (typeof role !== 'string') return null;
   const r = role.trim().toLowerCase();
+  if (r === 'admin') return null;  // platform admin — blocked here
   if (!TEAM_ROLES.includes(r)) return null;
-  if (r === 'admin' && !allowAdmin) return null;
   return r;
 }
 
@@ -1784,8 +1809,7 @@ exports.createTeamMember = onCall(
     if (!email) throw new HttpsError('invalid-argument', 'Valid email required');
 
     // Global admin can grant admin; company owners cannot.
-    const allowAdmin = request.auth.token.role === 'admin';
-    const role = normalizeRole(request.data && request.data.role, { allowAdmin });
+    const role = normalizeRole(request.data && request.data.role);
     if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
 
     const displayName = typeof request.data?.displayName === 'string'
@@ -1890,9 +1914,10 @@ exports.updateUserRole = onCall(
       throw new HttpsError('invalid-argument', 'Target uid or email required');
     }
 
-    const allowAdmin = request.auth.token.role === 'admin';
-    const role = normalizeRole(request.data && request.data.role, { allowAdmin });
+    const role = normalizeRole(request.data && request.data.role);
     if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
+
+    const isGlobalAdmin = request.auth.token.role === 'admin';
 
     // Resolve the target user.
     let userRecord;
@@ -1905,15 +1930,17 @@ exports.updateUserRole = onCall(
     }
 
     const existingClaims = userRecord.customClaims || {};
-    // Block changing a user from a different company unless global admin.
-    if (existingClaims.companyId && existingClaims.companyId !== companyId && !allowAdmin) {
+    // Block changing a user from a different company unless platform admin.
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
       throw new HttpsError('permission-denied', 'User belongs to another company');
     }
 
-    // Prevent demoting the company owner through this path.
+    // Prevent demoting the company owner through this path. The owner
+    // must keep at least company_admin privileges; downgrade requires
+    // transferring ownership first.
     const companySnap = await companyRef.get();
     const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
-    if (ownerId && userRecord.uid === ownerId && role !== 'admin' && !allowAdmin) {
+    if (ownerId && userRecord.uid === ownerId && role !== 'company_admin' && !isGlobalAdmin) {
       throw new HttpsError('failed-precondition', 'Cannot demote the company owner');
     }
 
@@ -2054,7 +2081,7 @@ exports.listTeamMembers = onCall(
           uid: ownerId,
           email: (ownerRecord.email || '').toLowerCase(),
           displayName: ownerRecord.displayName || 'Owner',
-          role: 'admin',
+          role: 'company_admin',
           status: ownerRecord.disabled ? 'deactivated' : 'active',
           isOwner: true,
           disabled: !!ownerRecord.disabled,

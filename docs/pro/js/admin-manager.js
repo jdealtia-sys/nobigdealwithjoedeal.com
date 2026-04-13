@@ -17,17 +17,29 @@
 (function () {
   'use strict';
 
+  // Role taxonomy:
+  //   'admin'         → PLATFORM admin (hidden from UI; set only via
+  //                      admin SDK script). Callables refuse to grant
+  //                      this — it's shown here only so an owner
+  //                      viewing the roster sees what a platform
+  //                      admin would look like.
+  //   'company_admin' → tenant owner.
+  //   'manager'       → team-wide read, per-rep actions.
+  //   'sales_rep'     → owns own docs.
+  //   'viewer'        → read-only inside own company.
   const ROLE_LABELS = {
-    admin:     'Admin',
-    manager:   'Manager',
-    sales_rep: 'Sales Rep',
-    viewer:    'Viewer'
+    admin:          'Platform Admin',
+    company_admin:  'Company Admin',
+    manager:        'Manager',
+    sales_rep:      'Sales Rep',
+    viewer:         'Viewer'
   };
   const ROLE_COLORS = {
-    admin:     'var(--orange)',
-    manager:   'var(--blue, #4b8dff)',
-    sales_rep: 'var(--green)',
-    viewer:    'var(--m)'
+    admin:          'var(--red, #ff5c5c)',
+    company_admin:  'var(--orange)',
+    manager:        'var(--blue, #4b8dff)',
+    sales_rep:      'var(--green)',
+    viewer:         'var(--m)'
   };
 
   const state = {
@@ -66,7 +78,8 @@
     if (!window._user) { navEl.style.display = 'none'; state.canManage = false; return; }
 
     const claims = window._userClaims || {};
-    const isGlobalAdmin = claims.role === 'admin';
+    const isGlobalAdmin  = claims.role === 'admin';
+    const isCompanyAdmin = claims.role === 'company_admin';
     // Solo operator: no companyId claim → they own their own workspace.
     const isSoloOwner = !claims.companyId;
     // Team member with companyId: we need to check if they're the owner.
@@ -79,7 +92,7 @@
       } catch (e) { /* rules may deny — treat as non-owner */ }
     }
 
-    state.canManage = isGlobalAdmin || isSoloOwner || isCompanyOwner;
+    state.canManage = isGlobalAdmin || isCompanyAdmin || isSoloOwner || isCompanyOwner;
     navEl.style.display = state.canManage ? '' : 'none';
     state.gatedChecked = true;
   }

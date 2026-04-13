@@ -15,9 +15,22 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helper functions ──────────────────────────────
+    //
+    // Role taxonomy (custom claims):
+    //   'admin'          → PLATFORM admin (support/ops). Cross-tenant.
+    //                      Set only by a manual admin SDK script.
+    //   'company_admin'  → tenant owner. Full access within own company.
+    //   'manager'        → tenant manager. Read all team leads + reports.
+    //   'sales_rep'      → individual rep. Owns their own docs only.
+    //   'viewer'         → read-only inside their company.
+    //
+    // `isAdmin()` is now PLATFORM admin only — never use it on its own
+    // for multi-tenant resources. Always pair it with
+    // `sameCompanyAsResource()` or a company-scoped helper.
     function isAuth()    { return request.auth != null; }
     function isOwner(userId) { return isAuth() && request.auth.uid == userId; }
     function isAdmin()   { return isAuth() && request.auth.token.role == 'admin'; }
+    function isCompanyAdmin() { return isAuth() && request.auth.token.role == 'company_admin'; }
     function isManager() { return isAuth() && request.auth.token.role == 'manager'; }
 
     function myCompanyId() {
@@ -25,9 +38,19 @@ service cloud.firestore {
     }
 
     function sameCompanyAsResource() {
+      // CRITICAL: require BOTH sides to be non-null. A token without a
+      // companyId claim would otherwise pass this check against any
+      // legacy doc whose companyId field was never set.
       return isAuth()
         && request.auth.token.companyId != null
+        && resource.data.companyId != null
         && resource.data.companyId == request.auth.token.companyId;
+    }
+
+    // Company admin / manager acting inside their own tenant. Use this
+    // for "see any lead in my team" style rules — NOT isAdmin() alone.
+    function isCompanyStaff() {
+      return isCompanyAdmin() || isManager();
     }
 
     // Field-diff helper used by users/<uid> to block privilege escalation.

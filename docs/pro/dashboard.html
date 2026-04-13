@@ -9847,7 +9847,9 @@ function switchScTab(tab, btn) {
             <option value="sales_rep">Sales Rep — create leads, log knocks</option>
             <option value="manager">Manager — see all team leads + reports</option>
             <option value="viewer">Viewer — read-only</option>
+            <option value="company_admin">Company Admin — full control of your company</option>
           </select>
+          <div style="font-size:10px;color:var(--m);margin-top:4px;">Platform Admin (cross-tenant) cannot be granted here — contact support.</div>
         </div>
         <div style="font-size:11px;color:var(--m);padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
           We'll create the Firebase account and send an invite via the password reset flow. The rep sets their own password on first login.
@@ -9878,6 +9880,7 @@ function switchScTab(tab, btn) {
             <option value="sales_rep">Sales Rep</option>
             <option value="manager">Manager</option>
             <option value="viewer">Viewer</option>
+            <option value="company_admin">Company Admin</option>
           </select>
         </div>
         <div id="adminEditStatusBlock" style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
