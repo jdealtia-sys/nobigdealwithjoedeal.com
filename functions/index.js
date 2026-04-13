@@ -112,10 +112,19 @@ exports.claudeProxy = onRequest(
     const { decoded } = authResult;
 
     try {
+      // M-1: email-verification gate. An unverified email can be
+      // anything — squatters can burn legitimate emails by signing
+      // up first. Block unverified accounts from touching billable
+      // surfaces (AI proxy). Platform admin exempt for support.
+      const isAdmin = decoded.role === 'admin';
+      if (!isAdmin && decoded.email_verified !== true) {
+        res.status(403).json({ error: 'Verify your email before using AI features.' });
+        return;
+      }
+
       // Subscription gate — server-trusted Firestore doc written only by Stripe webhook.
       const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
       const sub = subSnap.exists ? subSnap.data() : null;
-      const isAdmin = decoded.role === 'admin';
       const hasPaidPlan = sub && sub.plan && sub.plan !== 'free' && sub.status === 'active';
       if (!isAdmin && !hasPaidPlan) {
         res.status(403).json({ error: 'AI features require an active paid subscription.' });
@@ -2161,7 +2170,11 @@ exports.createTeamMember = onCall(
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
-    logger.info('createTeamMember', { companyId, email, role, created });
+    // M-5: hash email before logging so Cloud Logging retention can't
+    // leak PII. Log the first 16 hex chars — enough for correlation
+    // between admins and audit_log entries, not enough for reversal.
+    const emailHash = require('crypto').createHash('sha256').update(email).digest('hex').slice(0, 16);
+    logger.info('createTeamMember', { companyId, emailHash, role, created });
     return {
       success: true,
       uid: userRecord.uid,
