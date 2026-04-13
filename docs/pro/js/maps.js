@@ -31,11 +31,9 @@ let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 
 function initMainMap() {
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
-  // maxNativeZoom:19 = highest zoom Esri serves tiles for most US areas.
-  // maxZoom:22 = Leaflet upscales z19 tiles so the user can zoom in
-  // further without hitting "Map data not yet available". Slightly
-  // blurry at z21+ but far better than a grey void.
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxNativeZoom:19,maxZoom:22}).addTo(mainMap);
+  // Google satellite — native zoom up to 22 (vs ESRI's 19). Much sharper
+  // imagery for roof-level inspection and pin placement.
+  L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',attribution:'© Google',maxNativeZoom:22,maxZoom:23}).addTo(mainMap);
   // Initialize marker cluster group for performance with many pins
   if(typeof L.markerClusterGroup === 'function') {
     pinClusterGroup = L.markerClusterGroup({ maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true, disableClusteringAtZoom:18 });
@@ -521,13 +519,13 @@ function initDrawMap() {
   const container = document.getElementById('drawMap');
   if (!container) { console.error('drawMap container not found'); return; }
 
-  drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],19);
-  // Map layers
-  drawMapLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxNativeZoom:19,maxZoom:22});
+  drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],20);
+  // Map layers — Google satellite for maximum zoom/clarity on roof measurements
+  drawMapLayers.satellite = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',attribution:'© Google',maxNativeZoom:22,maxZoom:23});
   drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:22});
   drawMapLayers.hybrid = L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:22}),
-    L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{maxNativeZoom:18,maxZoom:22,opacity:.7})
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',maxNativeZoom:22,maxZoom:23}),
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{subdomains:'0123',maxNativeZoom:22,maxZoom:23,opacity:.7})
   ]);
   drawMapLayers.satellite.addTo(drawMap);
   currentLayerType = 'satellite';

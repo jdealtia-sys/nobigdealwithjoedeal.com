@@ -39,7 +39,7 @@
 
   const MAX_ATTEMPTS = 5;
   const CINCINNATI = [39.10, -84.51];
-  const ESRI_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const GOOGLE_SAT_TILES = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -1130,7 +1130,7 @@
       bounceAtZoomLimits: false     // smoother UX on iOS
     }).setView(CINCINNATI, 13);
 
-    L.tileLayer(ESRI_TILES, { attribution: 'ESRI', maxNativeZoom: 19, maxZoom: 22 }).addTo(d2dMap);
+    L.tileLayer(GOOGLE_SAT_TILES, { subdomains: '0123', attribution: '© Google', maxNativeZoom: 22, maxZoom: 23 }).addTo(d2dMap);
 
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
