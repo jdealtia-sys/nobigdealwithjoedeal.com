@@ -1119,14 +1119,14 @@
 
     if (d2dMap) { d2dMap.invalidateSize(); return; }
 
-    // Safari standalone (Add to Home Screen) breaks Leaflet's tap handler —
-    // it fires ghost clicks that prevent marker popups from opening.
-    // Detect standalone mode and disable tap to fix pin clicks.
+    // Leaflet 1.9+ fixed the iOS standalone ghost-click bug, so we
+    // no longer need to disable the tap handler. Re-enabled for full
+    // touch interactivity in both browser and PWA modes.
     const isStandalone = window.navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches;
 
     d2dMap = L.map('d2dMap', {
-      tap: !isStandalone,          // disable Leaflet tap shim in standalone
+      tap: true,                    // re-enabled — Leaflet 1.9 fixed iOS tap bug
       bounceAtZoomLimits: false     // smoother UX on iOS
     }).setView(CINCINNATI, 13);
 

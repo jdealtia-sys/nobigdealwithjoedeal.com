@@ -4447,9 +4447,31 @@ body {
   /* Estimate builder — ensure scroll works in standalone */
   #est-builder { -webkit-overflow-scrolling:touch!important; overflow-y:auto!important; }
   .tier-grid { overflow:visible!important; }
-  /* Views — enable proper scroll in standalone */
-  .view.active { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
-  .view-scroll { overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
+  /* Views — enable proper scroll in standalone with explicit height.
+     Without height, flex layout collapses views to zero in standalone
+     because there's no browser chrome to anchor the viewport. */
+  .view.active {
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    height:calc(100dvh - 60px)!important; /* header height */
+    min-height:0!important;
+  }
+  .view-scroll {
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    flex:1!important;
+    min-height:0!important;
+  }
+  /* Kanban board needs explicit height in standalone */
+  #kanbanBoard {
+    max-height:calc(100dvh - 200px)!important;
+    overflow-x:auto!important;
+  }
+  /* Photos grid needs scroll in standalone */
+  #photoLeadsList {
+    max-height:calc(100dvh - 250px)!important;
+    overflow-y:auto!important;
+  }
 }
 
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
@@ -4731,8 +4753,8 @@ body {
 #mobile-nav{display:none;}
 #mobile-more-menu{
   display:none;position:fixed;bottom:0;left:0;right:0;top:0;z-index:2001;
-  background:rgba(10,12,15,.98);
-  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  background:var(--bg, #0a0c0f);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
   flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;
   /* Respect iPhone notch / status bar so header isn't under the chrome */
   padding:max(16px, env(safe-area-inset-top, 16px)) 0 80px;

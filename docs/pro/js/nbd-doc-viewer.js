@@ -265,7 +265,10 @@
     //     land inside the srcdoc.
     //   allow-modals      — permits alert/confirm/prompt inside
     //     the report (used by window.print() dialogs on some browsers)
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-popups allow-forms allow-scripts allow-modals');
+    // allow-popups-to-escape-sandbox: lets window.open() from inside
+    // the iframe work for print fallback. Without it, print() fails
+    // silently on Safari and the PDF export can't clone image nodes.
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-scripts allow-modals');
     body.appendChild(iframe);
 
     const status = document.createElement('div');
@@ -355,8 +358,25 @@
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
     } catch (e) {
-      console.warn('[NBDDocViewer] print failed, falling back to window.print:', e);
-      window.print();
+      console.warn('[NBDDocViewer] iframe print failed, opening in new window:', e);
+      // Fallback: open the HTML in a new window for printing.
+      // This bypasses sandbox restrictions that block print() in
+      // some browsers (Safari PWA, iOS).
+      try {
+        const html = iframe.srcdoc || (iframe.contentDocument && iframe.contentDocument.documentElement.outerHTML);
+        if (html) {
+          const win = window.open('', '_blank');
+          if (win) {
+            win.document.write(html);
+            win.document.close();
+            setTimeout(() => win.print(), 500);
+          }
+        } else {
+          window.print(); // last resort
+        }
+      } catch (e2) {
+        window.print();
+      }
     }
   }
 
@@ -391,8 +411,12 @@
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
     };
     try {
-      // Clone the body so we don't mutate what the user is viewing
+      // Clone the body so we don't mutate what the user is viewing.
+      // Wait briefly for images to load inside the clone — photo
+      // reports have external Firebase Storage URLs that need time.
       const clone = body.cloneNode(true);
+      // Give images 2 seconds to load before generating PDF
+      await new Promise(r => setTimeout(r, 2000));
       await window.html2pdf().set(opt).from(clone).save();
       flashStatus('✓ PDF downloaded');
       if (typeof window.showToast === 'function') {
