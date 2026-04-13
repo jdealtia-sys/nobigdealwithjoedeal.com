@@ -13259,19 +13259,21 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/property-intel.js?v=3"></script>
 <script defer src="js/warranty-cert.js?v=4"></script>
 <script defer src="js/tools.js?v=6"></script>
-<script src="js/demo.js?v=3"></script>
-<script src="js/icons.js?v=3"></script>
+<!-- Critical for first paint — load synchronously -->
 <script src="js/claude-proxy.js?v=3"></script>
 <script src="js/crm.js?v=12"></script>
 <script src="js/tasks.js?v=3"></script>
-<script src="js/photo-engine.js?v=3"></script>
-<script src="js/invoice-pipeline.js?v=3"></script>
-<script src="js/inspection-report-engine.js?v=3"></script>
-<script src="js/maps.js?v=8"></script>
 <script src="js/widgets.js?v=6"></script>
 <script src="js/ui.js?v=3"></script>
-<script src="js/estimates.js?v=5"></script>
-<script src="js/ai.js?v=4"></script>
+<!-- Non-critical — deferred for faster first paint (~300KB saved) -->
+<script defer src="js/demo.js?v=3"></script>
+<script defer src="js/icons.js?v=3"></script>
+<script defer src="js/photo-engine.js?v=3"></script>
+<script defer src="js/invoice-pipeline.js?v=3"></script>
+<script defer src="js/inspection-report-engine.js?v=3"></script>
+<script defer src="js/maps.js?v=8"></script>
+<script defer src="js/estimates.js?v=5"></script>
+<script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/document-generator.js?v=1"></script>
 <script defer src="js/share-gallery.js?v=2"></script>
@@ -13323,5 +13325,5 @@ if ('serviceWorker' in navigator) {
 // no-op until the onboarding modal is built.
 window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
-<script src="js/mobile-nav-customizer.js?v=1"></script>
+<script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script src="js/connection-status-btn.js?v=1"></script>
