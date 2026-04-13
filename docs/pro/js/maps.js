@@ -2902,7 +2902,7 @@ function handleComparisonFile(file) {
   reader.readAsText(file);
 }
 
-function parseComparisonReport(text, filename) {
+async function parseComparisonReport(text, filename) {
   // Try to extract common measurement values from report text
   const data = { source: filename, measurements: {} };
 
@@ -2928,6 +2928,35 @@ function parseComparisonReport(text, filename) {
   if(Object.keys(data.measurements).length === 0) {
     showToast('No measurements found in report — try a different file format', 'error');
     return;
+  }
+
+  comparisonData = data;
+
+  // If regex found <3 fields, try Claude AI extraction
+  if (Object.keys(data.measurements).length < 3 && typeof window.callClaude === 'function') {
+    showToast('Regex found limited data — trying AI extraction...', 'info');
+    try {
+      const result = await window.callClaude({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        system: 'Extract roofing measurements from this report text. Return ONLY a JSON object with these fields (numbers only, no units): totalArea, ridgeLF, hipLF, valleyLF, eaveLF, rakeLF, perimLF, pitch, squares, facets. If a field is not found, omit it.',
+        messages: [{ role: 'user', content: text.substring(0, 4000) }]
+      });
+      const aiText = result?.content?.[0]?.text || '';
+      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const aiData = JSON.parse(jsonMatch[0]);
+        // Merge AI results with regex results (AI fills gaps)
+        Object.keys(aiData).forEach(k => {
+          if (typeof aiData[k] === 'number' && !data.measurements[k]) {
+            data.measurements[k] = aiData[k];
+          }
+        });
+        showToast('AI extracted additional measurements', 'success');
+      }
+    } catch (e) {
+      console.warn('AI extraction failed:', e.message);
+    }
   }
 
   comparisonData = data;
@@ -2974,9 +3003,129 @@ function renderComparison() {
       </div>`;
     }).join('');
 
+  // Match score
+  const scored = comparisons.filter(c => c.theirs !== undefined && c.ours > 0);
+  const matchPcts = scored.map(c => 100 - Math.min(100, Math.abs((c.ours - c.theirs) / c.theirs * 100)));
+  const avgMatch = matchPcts.length > 0 ? Math.round(matchPcts.reduce((a, b) => a + b, 0) / matchPcts.length) : 0;
+
+  el.innerHTML += `<div style="margin-top:12px;padding:12px;background:var(--s2,#181c22);border:1px solid var(--br,#2a2f35);border-radius:6px;">
+    <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Match Score</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:${avgMatch >= 90 ? 'var(--green)' : avgMatch >= 70 ? 'var(--gold)' : 'var(--red)'};">${avgMatch}%</div>
+  </div>`;
+
+  // Supplement letter button (only show if differences > 5%)
+  const bigDiffs = comparisons.filter(c => c.theirs !== undefined && c.ours > 0 && Math.abs((c.ours - c.theirs) / c.theirs * 100) > 5);
+  if (bigDiffs.length > 0) {
+    el.innerHTML += `<button class="btn btn-orange" style="width:100%;margin-top:10px;justify-content:center;" onclick="generateSupplementFromComparison()">📝 Generate Supplement Letter</button>`;
+  }
+
+  // Manual entry link
+  el.innerHTML += `<button class="btn btn-ghost" style="width:100%;margin-top:6px;justify-content:center;font-size:10px;" onclick="openManualComparisonEntry()">✏️ Enter Report Values Manually</button>`;
+
   el.style.display = 'block';
   closeComparisonMode();
-  showToast('Comparison loaded — check results in sidebar', 'ok');
+  showToast('Comparison loaded — match score: ' + avgMatch + '%', avgMatch >= 80 ? 'success' : 'warning');
+}
+
+// ── Manual comparison entry ──
+function openManualComparisonEntry() {
+  const fields = ['totalArea','ridgeLF','hipLF','valleyLF','eaveLF','rakeLF','squares'];
+  const labels = ['Total Area (SF)','Ridge (LF)','Hip (LF)','Valley (LF)','Eave (LF)','Rake (LF)','Squares'];
+  const current = comparisonData?.measurements || {};
+  const html = fields.map((f, i) =>
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'
+    + '<label style="font-size:11px;color:var(--m);width:120px;">' + labels[i] + '</label>'
+    + '<input type="number" id="mc_' + f + '" value="' + (current[f] || '') + '" placeholder="0" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;color:var(--t);font-size:12px;">'
+    + '</div>'
+  ).join('');
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = '<div style="background:var(--s,#1a1d23);border:1px solid var(--br);border-radius:12px;padding:24px;max-width:400px;width:100%;">'
+    + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:14px;">Enter Report Measurements</div>'
+    + html
+    + '<div style="display:flex;gap:8px;margin-top:14px;">'
+    + '<button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="this.closest(\'div[style*=fixed]\').remove()">Cancel</button>'
+    + '<button class="btn btn-orange" style="flex:1;justify-content:center;" onclick="applyManualComparison();this.closest(\'div[style*=fixed]\').remove();">Compare</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function applyManualComparison() {
+  const fields = ['totalArea','ridgeLF','hipLF','valleyLF','eaveLF','rakeLF','squares'];
+  const data = { source: 'Manual Entry', measurements: {} };
+  fields.forEach(f => {
+    const val = parseFloat(document.getElementById('mc_' + f)?.value);
+    if (val > 0) data.measurements[f] = val;
+  });
+  if (Object.keys(data.measurements).length === 0) {
+    showToast('Enter at least one measurement', 'error');
+    return;
+  }
+  comparisonData = data;
+  renderComparison();
+}
+
+// ── Auto-generate supplement letter from comparison differences ──
+function generateSupplementFromComparison() {
+  if (!comparisonData) { showToast('Run a comparison first', 'error'); return; }
+  const ext = comparisonData.measurements;
+  const addr = document.getElementById('drawSearch')?.value || 'Property Address';
+  const ourArea = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
+  const ourRidge = drawnLines.filter(l => l.type === 0 || l.type === 1).reduce((s, l) => s + l.dist, 0);
+  const ourHip = drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0);
+  const ourValley = drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0);
+  const ourEave = drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0);
+  const ourRake = drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0);
+
+  const diffs = [
+    { label: 'Total Roof Area', ours: ourArea, theirs: ext.totalArea, unit: 'SF' },
+    { label: 'Ridge Length', ours: ourRidge, theirs: ext.ridgeLF, unit: 'LF' },
+    { label: 'Hip Length', ours: ourHip, theirs: ext.hipLF, unit: 'LF' },
+    { label: 'Valley Length', ours: ourValley, theirs: ext.valleyLF, unit: 'LF' },
+    { label: 'Eave Length', ours: ourEave, theirs: ext.eaveLF, unit: 'LF' },
+    { label: 'Rake Length', ours: ourRake, theirs: ext.rakeLF, unit: 'LF' }
+  ].filter(d => d.theirs && d.ours > 0 && Math.abs(d.ours - d.theirs) > 1);
+
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const diffRows = diffs.map(d => {
+    const diff = d.ours - d.theirs;
+    return `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">${d.label}</td>`
+      + `<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${d.theirs.toFixed(1)} ${d.unit}</td>`
+      + `<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${d.ours.toFixed(1)} ${d.unit}</td>`
+      + `<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;color:${diff > 0 ? '#c53030' : '#22c55e'};font-weight:700;">${diff > 0 ? '+' : ''}${diff.toFixed(1)} ${d.unit}</td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Supplement Request — ${addr}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
+.hdr{display:flex;justify-content:space-between;padding-bottom:18px;border-bottom:3px solid #e8720c;margin-bottom:24px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}.brand span{color:#e8720c;}
+.badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
+h2{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#e8720c;margin:20px 0 10px;border-bottom:1px solid #eee;padding-bottom:4px;}
+table{width:100%;border-collapse:collapse;}th{background:#0a0c0f;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;text-align:left;}
+td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;padding:14px;margin:16px 0;font-size:13px;line-height:1.6;}
+.sig{margin-top:40px;border-top:1px solid #eee;padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+.sig-line{border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666;margin-top:50px;}
+.foot{margin-top:30px;font-size:10px;color:#999;display:flex;justify-content:space-between;}
+@media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}</style></head><body>
+<div class="hdr"><div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">Supplement Request</div></div>
+<div style="text-align:right;"><div style="font-size:14px;font-weight:600;">${addr}</div><div style="font-size:11px;color:#666;">${date}</div></div></div>
+<p style="font-size:13px;line-height:1.6;margin-bottom:16px;">To Whom It May Concern,</p>
+<p style="font-size:13px;line-height:1.6;margin-bottom:16px;">After conducting our own detailed field measurements at the above property, we have identified discrepancies between our measurements and the carrier's approved scope. We respectfully request a supplemental review based on the following documented differences:</p>
+<h2>Measurement Comparison</h2>
+<table><thead><tr><th>Measurement</th><th style="text-align:right;">Report Value</th><th style="text-align:right;">Our Measurement</th><th style="text-align:right;">Difference</th></tr></thead><tbody>${diffRows}</tbody></table>
+<div class="note"><strong>Note:</strong> Our measurements were taken using satellite imagery analysis with the NBD Pro Drawing Tool and verified against on-site inspection. All measurements are in linear feet (LF) or square feet (SF) as indicated.</div>
+<p style="font-size:13px;line-height:1.6;margin-top:16px;">We kindly request that the scope be adjusted to reflect the accurate measurements documented above. We are available to meet with the adjuster on-site to verify these measurements if needed.</p>
+<div class="sig"><div><div class="sig-line">Contractor Signature</div></div><div><div class="sig-line">Date</div></div></div>
+<div class="foot"><span>No Big Deal Home Solutions · (859) 420-7382 · nobigdealwithjoedeal.com</span><span>Generated by NBD Pro</span></div>
+</body></html>`;
+
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    window.NBDDocViewer.open({ html, title: 'Supplement Request — ' + addr, filename: 'NBD-Supplement-' + date.replace(/\s/g, '') + '.pdf' });
+  } else {
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
 }
 
 
