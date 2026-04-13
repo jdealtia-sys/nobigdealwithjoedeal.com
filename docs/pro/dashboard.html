@@ -483,7 +483,31 @@
         btn.classList.toggle('active', btn.dataset.view === savedView);
       });
     }
-    loadLeads(); loadEstimates(); loadPins();
+    loadLeads().then(() => {
+      // Retry renderLeads in case crm.js (deferred) hasn't loaded yet
+      function retryRender() {
+        if (typeof renderLeads === 'function' && window._leads?.length) {
+          renderLeads(window._leads);
+          if (typeof restoreCrmSearch === 'function') restoreCrmSearch();
+          if (typeof updatePipeline === 'function') updatePipeline(window._leads);
+          if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
+          if (typeof refreshTrashBadge === 'function') refreshTrashBadge();
+          if (typeof renderKPIRow === 'function') renderKPIRow();
+          if (window.NBDWidgets) window.NBDWidgets.render();
+          return true;
+        }
+        return false;
+      }
+      // Try immediately, then retry at 1s, 2s, 4s until crm.js loads
+      if (!retryRender()) {
+        setTimeout(() => { if (!retryRender()) {
+          setTimeout(() => { if (!retryRender()) {
+            setTimeout(retryRender, 4000);
+          }}, 2000);
+        }}, 1000);
+      }
+    });
+    loadEstimates(); loadPins();
     
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
     const urlParams = new URLSearchParams(window.location.search);
@@ -857,35 +881,11 @@
     // SupplierPricing archived (see js/_archive/) — feature disabled
   }
   window._loadLeads = loadLeads;
-  // Refresh trash badge after leads load
-  loadLeads().then(()=>{
-    if(typeof refreshTrashBadge==='function') setTimeout(refreshTrashBadge,800);
-    // Re-render KPI row after leads are loaded (fixes $0 / 0% on first load)
-    if(typeof renderKPIRow==='function') setTimeout(renderKPIRow, 300);
-    // Re-render home widgets if on home view
-    if(window.NBDWidgets && document.getElementById('view-home')?.classList.contains('active')) {
-      setTimeout(()=>window.NBDWidgets.render(), 500);
-    }
-    // ── CRITICAL: Re-render kanban after deferred scripts load ──
-    // crm.js (deferred) defines renderLeads(). loadLeads() fires
-    // from the module script which runs BEFORE defer scripts.
-    // The initial renderLeads() call at 500ms may miss if crm.js
-    // is still loading. This retry at 1500ms and 3000ms ensures
-    // the kanban renders even on slow connections.
-    function retryRender() {
-      if (typeof renderLeads === 'function' && window._leads?.length) {
-        renderLeads(window._leads);
-        if (typeof restoreCrmSearch === 'function') restoreCrmSearch();
-        if (typeof updatePipeline === 'function') updatePipeline(window._leads);
-        if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
-        return true;
-      }
-      return false;
-    }
-    if (!retryRender()) {
-      setTimeout(() => { if (!retryRender()) setTimeout(retryRender, 3000); }, 1500);
-    }
-  });
+  // DO NOT call loadLeads() here at module parse time.
+  // Auth hasn't fired yet so window._user is null → loadLeads
+  // gets no uid → returns empty → kanban shows 0 cards.
+  // loadLeads() is called at line 486 INSIDE onAuthStateChanged
+  // where the user is guaranteed to exist.
 
   // ══════════════════════════════════════════════════════════════
   // LOAD SAMPLE DATA (for testing when account has zero leads)
