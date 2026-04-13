@@ -107,6 +107,14 @@
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<!--
+  App Check (C-4): the reCAPTCHA v3 site key is origin-bound and
+  safe to embed. Set it by editing the content attribute below OR
+  by injecting window.__NBD_APP_CHECK_KEY earlier. Keep it in sync
+  across dashboard.html, customer.html, and any other page that
+  talks to the Firebase SDK.
+-->
+<script>window.__NBD_APP_CHECK_KEY = "";</script>
 <!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
 <script src="js/standalone-compat.js"></script>
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
@@ -157,6 +165,7 @@
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
@@ -331,6 +340,35 @@
 
   document.documentElement.style.visibility="hidden";
   const app     = initializeApp(firebaseConfig);
+
+  // ─── App Check (C-4) ──────────────────────────────────────
+  // Functions declare `enforceAppCheck: true` but previously nothing
+  // on this page was minting attestation tokens. That meant either:
+  //  (a) enforcement was silently off in the project (curl could
+  //      hit claudeProxy / imageProxy with just an ID token), or
+  //  (b) enforcement was on and half the app was failing silently.
+  // Either way the guarantee was broken. We now initialize App Check
+  // with ReCaptchaV3 so every Firebase SDK request (auth callables,
+  // Firestore, Functions) carries a real token.
+  //
+  // The site key lives in window.__NBD_APP_CHECK_KEY, set via a
+  // <meta> tag below. Keys are per-origin and safe to include in
+  // HTML (they're validated by reCAPTCHA, not secret). An unset key
+  // falls back to an init-skipped warning so dev/local still works.
+  const APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
+  if (APP_CHECK_KEY) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(APP_CHECK_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+    } catch (e) {
+      console.error('App Check init failed:', e);
+    }
+  } else {
+    console.warn('App Check not configured. Set window.__NBD_APP_CHECK_KEY via the meta tag in dashboard.html <head>. Callable functions with enforceAppCheck: true WILL reject these requests in production.');
+  }
+
   const auth    = getAuth(app);
   const db      = getFirestore(app);
   const storage = getStorage(app);
