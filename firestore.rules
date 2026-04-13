@@ -257,52 +257,29 @@ service cloud.firestore {
     }
 
     // ── PUBLIC LEAD FORMS ────────────────────────────
-    // Create-only by unauthenticated homeowners. Strict shape. Reads restricted to admin.
+    // Direct client creates are DISABLED (C-3). Public forms must now
+    // post through the `submitPublicLead` Cloud Function, which enforces
+    // App Check + per-IP rate limit + honeypot + origin allowlist before
+    // writing here via the admin SDK. Rules can't rate-limit, so direct
+    // creates are an unbounded spam/billing DoS vector.
     match /guide_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['name','email','source'])
-        && request.resource.data.name is string
-        && request.resource.data.email is string
-        && request.resource.data.source is string
-        && request.resource.data.name.size() > 0  && request.resource.data.name.size() < 200
-        && request.resource.data.email.size() > 3 && request.resource.data.email.size() < 200
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /contact_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['firstName','phone','source'])
-        && request.resource.data.firstName is string
-        && request.resource.data.phone is string
-        && request.resource.data.source is string
-        && request.resource.data.firstName.size() > 0 && request.resource.data.firstName.size() < 200
-        && request.resource.data.phone.size() > 6    && request.resource.data.phone.size() < 30
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /estimate_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['address','source'])
-        && request.resource.data.address is string
-        && request.resource.data.source is string
-        && request.resource.data.address.size() > 3 && request.resource.data.address.size() < 500
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /storm_alert_subscribers/{subId} {
-      allow create: if request.resource.data.keys().hasAll(['name','phone','zip','source'])
-        && request.resource.data.name is string
-        && request.resource.data.phone is string
-        && request.resource.data.zip is string
-        && request.resource.data.source is string
-        && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 200
-        && request.resource.data.phone.size() > 6 && request.resource.data.phone.size() < 30
-        && request.resource.data.zip.size() == 5;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     // ── STORM ALERTS SENT LOG (Cloud Function only) ──
