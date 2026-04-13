@@ -7785,6 +7785,10 @@ function switchScTab(tab, btn) {
         <select id="photoLeadSelect" onchange="window._currentPhotoLeadId=this.value;if(window.PhotoEngine)PhotoEngine.openGallery('photoGalleryContainer',this.value);" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:11px;color:var(--t);max-width:220px;">
           <option value="">Select a property...</option>
         </select>
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;white-space:nowrap;font-size:11px;color:var(--m);">
+          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" style="accent-color:#e8720c;">
+          Only with photos
+        </label>
         <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
       </div>
       <!-- Photo gallery container (rendered by PhotoEngine) -->
@@ -10404,6 +10408,10 @@ async function renderPhotoLeads(){
       const text = [l.firstName, l.lastName, l.address, l.phone, l.name].filter(Boolean).join(' ').toLowerCase();
       return text.includes(_pq);
     });
+  }
+  // "Only with photos" toggle — hides jobs that have zero photos
+  if (window._photosOnlyWithPhotos) {
+    realLeads = realLeads.filter(l => (counts[l.id] || 0) > 0);
   }
 
   if(!realLeads.length){

@@ -117,7 +117,10 @@ function createButton() {
   const btn = document.createElement('button');
   btn.id = 'nbd-conn-btn';
   btn.setAttribute('data-tooltip', 'Checking connection…');
-  btn.innerHTML = '<span class="conn-dot loading"></span>';
+  btn.title = 'Tap to refresh / sync data';
+  btn.innerHTML = '<span class="conn-dot loading"></span><span style="font-size:11px;margin-left:2px;opacity:.5;transition:opacity .15s;">↻</span>';
+  btn.onmouseenter = function() { btn.querySelector('span:last-child').style.opacity = '1'; };
+  btn.onmouseleave = function() { btn.querySelector('span:last-child').style.opacity = '.5'; };
   btn.onclick = handleTap;
 
   // Find the header icon row — it's the div with gap:4px inside .hright
