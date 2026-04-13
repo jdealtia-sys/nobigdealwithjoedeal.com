@@ -15,13 +15,18 @@
     ins_needs_file: { label: 'Insurance - Needs Filing', color: '#D946EF', icon: '📝', short: 'FIL', autoFollowUp: 1 },
     ins_denied:     { label: 'Insurance - Denied',      color: '#78350F', icon: '❌', short: 'DEN',  autoFollowUp: 3 },
     do_not_knock:   { label: 'Do Not Knock',            color: '#1F2937', icon: '🚫', short: 'DNK',  autoFollowUp: null },
-    cold_dead:      { label: 'Cold / Dead Lead',        color: '#374151', icon: '💀', short: 'DEAD', autoFollowUp: null }
+    cold_dead:      { label: 'Cold / Dead Lead',        color: '#374151', icon: '💀', short: 'DEAD', autoFollowUp: null },
+    // ── New dispositions (April 2026) ──
+    left_material:  { label: 'Left Material',           color: '#0EA5E9', icon: '📬', short: 'MAT',  autoFollowUp: 3 },
+    callback:       { label: 'Callback Requested',      color: '#14B8A6', icon: '📞', short: 'CBR',  autoFollowUp: 1 },
+    tenant:         { label: 'Tenant (Not Owner)',       color: '#94A3B8', icon: '🔑', short: 'TNT',  autoFollowUp: null },
+    vacant:         { label: 'Vacant Property',          color: '#475569', icon: '🏚️', short: 'VAC', autoFollowUp: 7 }
   };
 
   const DISPO_ORDER = [
-    'appointment','interested','storm_damage','come_back',
-    'ins_has_claim','ins_needs_file','ins_denied',
-    'not_home','not_interested','do_not_knock','cold_dead'
+    'appointment','interested','storm_damage','come_back','callback',
+    'left_material','ins_has_claim','ins_needs_file','ins_denied',
+    'not_home','tenant','vacant','not_interested','do_not_knock','cold_dead'
   ];
 
   const INS_DISPOSITIONS = ['ins_has_claim','ins_needs_file','ins_denied'];
@@ -710,7 +715,7 @@
   }
 
   // Dispositions that should auto-offer lead conversion
-  const HOT_DISPOSITIONS = ['appointment', 'interested', 'storm_damage', 'ins_has_claim', 'ins_needs_file'];
+  const HOT_DISPOSITIONS = ['appointment', 'interested', 'storm_damage', 'ins_has_claim', 'ins_needs_file', 'callback'];
 
   async function convertToLead(knockId) {
     try {
@@ -724,6 +729,8 @@
       let stage = 'new';
       if (knock.disposition === 'appointment') stage = 'inspected';
       else if (knock.disposition === 'interested') stage = 'contacted';
+      else if (knock.disposition === 'callback') stage = 'contacted';
+      else if (knock.disposition === 'left_material') stage = 'contacted';
       else if (INS_DISPOSITIONS.includes(knock.disposition)) stage = 'claim_filed';
       else if (knock.disposition === 'storm_damage') stage = 'contacted';
 
@@ -2260,16 +2267,30 @@
     // ─── FEED TAB ───
     if (currentTab === 'feed') {
       html += `
-        <!-- Follow-ups Due Banner -->
+        <!-- Follow-ups Due — Full Interactive List -->
         ${metrics.followUpsDue.length > 0 ? `
           <div class="d2d-followups-banner">
-            <div class="d2d-followups-title">📋 ${metrics.followUpsDue.length} Follow-up${metrics.followUpsDue.length !== 1 ? 's' : ''} Due</div>
-            <div class="d2d-followups-list">
-              ${metrics.followUpsDue.slice(0, 3).map(k => `
-                <div class="d2d-followup-item" onclick="window.D2D.openKnockDetail('${k.id}')">
-                  <strong>${esc(k.address?.substring(0, 40) || '')}</strong> — ${DISPOSITIONS[k.disposition]?.label || ''}
-                </div>
-              `).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div class="d2d-followups-title">📋 ${metrics.followUpsDue.length} Follow-up${metrics.followUpsDue.length !== 1 ? 's' : ''} Due</div>
+              <button style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;" onclick="this.closest('.d2d-followups-banner').style.display='none'">Dismiss</button>
+            </div>
+            <div class="d2d-followups-list" style="max-height:300px;overflow-y:auto;">
+              ${metrics.followUpsDue.map(k => {
+                const dispo = DISPOSITIONS[k.disposition];
+                const fDate = k.followUpDate ? new Date(k.followUpDate instanceof Date ? k.followUpDate : (k.followUpDate.seconds ? k.followUpDate.seconds * 1000 : k.followUpDate)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                return `
+                <div class="d2d-followup-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:6px;margin-bottom:4px;cursor:pointer;" onclick="window.D2D.openKnockDetail('${esc(k.id)}')">
+                  <div style="font-size:18px;flex-shrink:0;">${dispo?.icon || '📋'}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;font-weight:600;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(k.address?.substring(0, 50) || 'No address')}</div>
+                    <div style="font-size:10px;color:var(--m);margin-top:2px;">${dispo?.label || ''} ${fDate ? '· Due ' + fDate : ''} ${k.homeowner ? '· ' + esc(k.homeowner) : ''}</div>
+                  </div>
+                  <div style="display:flex;gap:4px;flex-shrink:0;">
+                    ${k.phone ? `<button style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();window.open('tel:'+encodeURIComponent('${esc(k.phone)}'))">📞</button>` : ''}
+                    <button style="background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();window.D2D.openQuickKnock({address:'${esc(k.address || '')}',lat:${Number(k.lat) || 'null'},lng:${Number(k.lng) || 'null'}})">↻</button>
+                  </div>
+                </div>`;
+              }).join('')}
             </div>
           </div>
         ` : ''}

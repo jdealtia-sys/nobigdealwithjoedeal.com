@@ -715,9 +715,25 @@ header {
       <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
         → Move to Next Stage
       </button>
-      <button class="btn" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.generate(window._customerId).then(url=>{if(url)prompt('Portal link (copied):',url)})" title="Generate shareable customer portal">
+      <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
+      <!-- Gallery share panel — shows the live URL, copy, delete/recreate -->
+      <div id="gallerySharePanel" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;margin-top:10px;width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Gallery Share Link</span>
+          <span id="galleryShareStatus" style="font-size:10px;color:var(--green);"></span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" id="galleryShareUrl" readonly style="flex:1;background:var(--s);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;">
+          <button class="btn btn-orange" style="font-size:11px;padding:8px 12px;white-space:nowrap;" onclick="copyGalleryUrl()">📋 Copy</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="regenerateGalleryLink()">↻ Regenerate Link</button>
+          <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;color:var(--red);" onclick="deleteGalleryLink()">🗑 Delete Link</button>
+          <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="document.getElementById('gallerySharePanel').style.display='none'">Close</button>
+        </div>
+      </div>
       <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(window._customerId)" title="Generate before/after photo report">
         📸 Photo Report
       </button>
@@ -5027,6 +5043,114 @@ console.log('✓ Customer page enhancements loaded');
 
 </script>
 <script src="js/email_system.js"></script>
+<script>
+// ── Gallery Share Panel Functions ──
+// Manages the persistent gallery share URL for a customer.
+// Uses the CustomerPortal module to generate/delete portal links.
+// The URL is stored on the lead doc as 'portalUrl' for instant
+// retrieval on next page load (no re-generation needed).
+
+window._galleryUrl = null;
+
+async function openGallerySharePanel() {
+  const panel = document.getElementById('gallerySharePanel');
+  const urlInput = document.getElementById('galleryShareUrl');
+  const status = document.getElementById('galleryShareStatus');
+  if (!panel || !urlInput) return;
+  panel.style.display = 'block';
+
+  // Check if we already have a stored URL on the lead doc
+  try {
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    const data = leadSnap.exists() ? leadSnap.data() : {};
+    if (data.portalUrl) {
+      window._galleryUrl = data.portalUrl;
+      urlInput.value = data.portalUrl;
+      status.textContent = '✓ Active';
+      return;
+    }
+  } catch (e) { /* proceed to generate */ }
+
+  // No existing URL — generate one
+  urlInput.value = 'Generating...';
+  status.textContent = '';
+  try {
+    if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
+    const url = await CustomerPortal.generate(window._customerId);
+    if (url) {
+      window._galleryUrl = url;
+      urlInput.value = url;
+      status.textContent = '✓ Created';
+      // Persist the URL on the lead doc for instant retrieval next time
+      await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
+        portalUrl: url, updatedAt: window.serverTimestamp()
+      });
+    } else {
+      urlInput.value = 'Generation failed — try again';
+      status.textContent = '';
+    }
+  } catch (e) {
+    console.error('Gallery share generation failed:', e);
+    urlInput.value = 'Error: ' + (e.message || 'unknown').substring(0, 60);
+  }
+}
+
+function copyGalleryUrl() {
+  const urlInput = document.getElementById('galleryShareUrl');
+  if (!urlInput || !urlInput.value || urlInput.value.startsWith('Error') || urlInput.value.startsWith('Generating')) return;
+  navigator.clipboard.writeText(urlInput.value).then(() => {
+    const status = document.getElementById('galleryShareStatus');
+    if (status) status.textContent = '✓ Copied!';
+    if (typeof showToast === 'function') showToast('Gallery link copied to clipboard', 'success');
+    setTimeout(() => { if (status) status.textContent = '✓ Active'; }, 2000);
+  }).catch(() => {
+    // Fallback: select the input so user can Ctrl+C
+    urlInput.select();
+    if (typeof showToast === 'function') showToast('Press Ctrl+C to copy', 'info');
+  });
+}
+
+async function regenerateGalleryLink() {
+  if (!window.confirm('Regenerate the gallery link? The old link will stop working.')) return;
+  const urlInput = document.getElementById('galleryShareUrl');
+  const status = document.getElementById('galleryShareStatus');
+  if (urlInput) urlInput.value = 'Regenerating...';
+  if (status) status.textContent = '';
+  try {
+    if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
+    const url = await CustomerPortal.generate(window._customerId);
+    if (url) {
+      window._galleryUrl = url;
+      if (urlInput) urlInput.value = url;
+      if (status) status.textContent = '✓ Regenerated';
+      await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
+        portalUrl: url, updatedAt: window.serverTimestamp()
+      });
+    }
+  } catch (e) {
+    console.error('Regenerate failed:', e);
+    if (urlInput) urlInput.value = 'Error: ' + (e.message || 'unknown').substring(0, 60);
+  }
+}
+
+async function deleteGalleryLink() {
+  if (!window.confirm('Delete the gallery link? It will stop working immediately.')) return;
+  try {
+    await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
+      portalUrl: null, updatedAt: window.serverTimestamp()
+    });
+    window._galleryUrl = null;
+    const urlInput = document.getElementById('galleryShareUrl');
+    const status = document.getElementById('galleryShareStatus');
+    if (urlInput) urlInput.value = '';
+    if (status) status.textContent = 'Deleted';
+    document.getElementById('gallerySharePanel').style.display = 'none';
+    if (typeof showToast === 'function') showToast('Gallery link deleted', 'info');
+  } catch (e) {
+    console.error('Delete gallery link failed:', e);
+  }
+}
+</script>
 <script src="js/customer-portal.js?v=2"></script>
 <script src="js/clipboard-fix.js?v=1"></script>
 <!-- html2pdf.js — powers NBDDocViewer's client-side PDF generation -->
