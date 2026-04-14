@@ -189,11 +189,27 @@ jobs:
           fi
           exit 0
 
+      # Storage rules deploy. Tolerant of failure here — a missing
+      # Firebase Storage Admin IAM role or an uninitialized default
+      # bucket leaves the EXISTING storage rules in place (which are
+      # strict; we're only hardening them further). Functions +
+      # Hosting can still ship. Fix IAM (add roles/firebasestorage.admin
+      # to the deploy service account) then re-run via workflow_dispatch
+      # with scope=rules to pick up the new storage.rules.
       - name: Deploy Storage rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
+        run: |
+          set +e
+          npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
+          EXIT=$?
+          if [ $EXIT -eq 0 ]; then
+            echo "✓ Storage rules deployed."
+          else
+            echo "::warning::Storage rules deploy returned $EXIT. Usually means the service account is missing roles/firebasestorage.admin or Firebase Storage isn't initialized for the project. Existing rules remain in effect. Fix IAM and re-run with scope=rules."
+          fi
+          exit 0
 
       - name: Deploy Cloud Functions
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
