@@ -1216,6 +1216,72 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('Q1: clientIp XFF parsing (F-13 follow-up)');
+{
+  // Live-load the function and actually exercise it. This is the one
+  // place in smoke.test.js we run real code — clientIp is too
+  // security-critical to trust regex on.
+  const orig = process.env.NBD_TRUSTED_PROXY_HOPS;
+  try {
+    // Force the module to evaluate with the default 1-hop config.
+    // (Node caches module state, so delete from require cache first.)
+    delete process.env.NBD_TRUSTED_PROXY_HOPS;
+    delete require.cache[require.resolve(path.join(FUNCTIONS, 'rate-limit.js'))];
+    const { clientIp } = require(path.join(FUNCTIONS, 'rate-limit.js'));
+
+    // Google External HTTPS LB appends `<client-ip>,<gfr-ip>` to any
+    // inbound XFF. The real client is therefore always at index
+    // `length - 2` (TRUSTED_PROXY_HOPS=1 default). Tests model the
+    // production shape, not test-harness shapes.
+    assert('Q1: two-entry XFF → client is left entry',
+      clientIp({ headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' } }) === '1.2.3.4');
+    assert('Q1: 3-entry XFF (attacker spoofed 1 value) → real client wins',
+      clientIp({ headers: { 'x-forwarded-for': 'fake-spoof, 9.9.9.9, 10.0.0.1' } }) === '9.9.9.9');
+    assert('Q1: deep spoof attempt still pins real client at LB-appended slot',
+      clientIp({ headers: { 'x-forwarded-for': 'a,b,c,d, 5.5.5.5, 10.0.0.1' } }) === '5.5.5.5');
+    assert('Q1: short chain (no LB append) falls back to socket IP',
+      clientIp({ headers: { 'x-forwarded-for': '1.2.3.4' }, ip: '7.7.7.7' }) === '7.7.7.7');
+    assert('Q1: missing XFF falls back to socket IP',
+      clientIp({ ip: '7.7.7.7' }) === '7.7.7.7');
+    assert('Q1: empty XFF falls back to socket IP',
+      clientIp({ headers: { 'x-forwarded-for': '' }, ip: '8.8.8.8' }) === '8.8.8.8');
+    assert('Q1: whitespace-only XFF falls back to socket IP',
+      clientIp({ headers: { 'x-forwarded-for': '   ' }, ip: '8.8.8.8' }) === '8.8.8.8');
+
+    // Source-level checks — the hop config must be bounded + overridable.
+    const rlSrc = read(path.join(FUNCTIONS, 'rate-limit.js'));
+    assert('Q1: trusted-hop count is configurable via env',
+      /NBD_TRUSTED_PROXY_HOPS/.test(rlSrc));
+    assert('Q1: trusted-hop count is clamped to a safe range',
+      /v >= 0 && v <= 10/.test(rlSrc));
+    assert('Q1: fallback chain reaches socket.remoteAddress',
+      /socket\?\.remoteAddress/.test(rlSrc));
+  } finally {
+    if (orig === undefined) delete process.env.NBD_TRUSTED_PROXY_HOPS;
+    else process.env.NBD_TRUSTED_PROXY_HOPS = orig;
+  }
+}
+
+section('Q4: Turnstile fetch is aborted before handler budget expires');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/turnstile.js'));
+  assert('Q4: verifyTurnstile passes an AbortSignal to fetch',
+    /AbortSignal\.timeout\(\s*5000\s*\)/.test(src));
+  assert('Q4: fail-closed on verifier error path preserved',
+    /verify-error[\s\S]{0,60}fail CLOSED/i.test(src) ||
+    /Fail CLOSED on verifier error/i.test(src));
+}
+
+section('Q6: deploy bundle excludes seed / find-secrets helpers');
+{
+  const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));
+  const ignore = (fb.functions && fb.functions[0] && fb.functions[0].ignore) || [];
+  for (const name of ['seed-companies.js', 'seed-demo.js', 'find-secrets.js',
+                      'verify-functions.js']) {
+    assert('Q6: functions.ignore contains ' + name, ignore.includes(name));
+  }
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);

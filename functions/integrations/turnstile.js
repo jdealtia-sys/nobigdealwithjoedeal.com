@@ -46,7 +46,13 @@ async function verifyTurnstile(token, remoteip) {
     const res = await fetch(VERIFY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString()
+      body: body.toString(),
+      // Q4: bound the outbound call so a Turnstile incident cannot
+      // hold our function instances open for the full 15s handler
+      // budget. At 10K-user spikes an unterminated fetch drains the
+      // concurrency pool in seconds; a 5s abort lets the caller fail
+      // fast with the existing fail-closed path below.
+      signal: AbortSignal.timeout(5000)
     });
     const data = await res.json();
     // Turnstile returns { success: true|false, "error-codes": [...] }
