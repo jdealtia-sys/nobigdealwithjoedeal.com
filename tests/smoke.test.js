@@ -232,10 +232,18 @@ section('H-5: per-company Claude budget');
   const src = read(path.join(FUNCTIONS, 'index.js'));
   assert('CLAUDE_COMPANY_BUDGET table exists',
     /CLAUDE_COMPANY_BUDGET\s*=\s*\{/.test(src));
-  assert('claudeProxy queries api_usage by companyId',
-    /where\('companyId', '==', callerCompanyId\)/.test(src));
+  // M2: per-company budget enforcement moved off the range-scan of
+  // api_usage onto a materialized counter (api_usage_daily). The
+  // per-call audit write still stamps companyId so drill-downs work.
+  assert('claudeProxy uses per-company materialized daily counter (M2)',
+    /doc\(`api_usage_daily\/\$\{dayKey\}__co__\$\{callerCompanyId\}`\)/.test(src));
+  assert('claudeProxy uses per-uid materialized daily counter (M2)',
+    /doc\(`api_usage_daily\/\$\{dayKey\}__uid__\$\{decoded\.uid\}`\)/.test(src));
   assert('claudeProxy stamps companyId on api_usage writes',
     /api_usage[\s\S]{0,400}companyId: callerCompanyId/.test(src));
+  assert('api_usage_daily locked to admin SDK in rules (M2)',
+    /match \/api_usage_daily\/\{docId\}[\s\S]{0,200}allow read: if isAdmin\(\)[\s\S]{0,80}allow write: if false/
+      .test(read(path.join(ROOT, 'firestore.rules'))));
   const idx = read(path.join(ROOT, 'firestore.indexes.json'));
   assert('firestore index for (companyId, timestamp DESC) on api_usage',
     /"collectionGroup":\s*"api_usage"[\s\S]{0,200}"fieldPath":\s*"companyId"[\s\S]{0,200}"fieldPath":\s*"timestamp"[\s\S]{0,100}"order":\s*"DESCENDING"/.test(idx));

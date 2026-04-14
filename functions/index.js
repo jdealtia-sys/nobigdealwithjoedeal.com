@@ -166,32 +166,40 @@ exports.claudeProxy = onRequest(
         throw e;
       }
 
-      // Per-day token budget (rolling 24h, tracked via api_usage sum).
-      const dayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 86_400_000);
+      // M2: per-day token budget via materialized counters rather
+      // than a range scan of api_usage.
+      //
+      // The previous implementation issued two parallel .where()
+      // queries scanning every api_usage doc for the last 24h on
+      // every single request. At 10K concurrent users × 1k
+      // calls/day each, that was 20k reads/sec against a cold
+      // collection — fragile under load and billing-expensive.
+      //
+      // Replacement: two counter docs, each a single read, keyed
+      // by the UTC calendar day:
+      //   api_usage_daily/{YYYY-MM-DD}__uid__{uid}
+      //   api_usage_daily/{YYYY-MM-DD}__co__{companyId}
+      // updated via FieldValue.increment() atomically on every
+      // successful call. Rules lock the collection to admin-SDK
+      // only (clients can neither read nor write — clients see
+      // budget headroom only via the 429 response).
+      //
+      // The original api_usage collection is still dual-written
+      // below, preserving per-lead cost attribution (C6) and
+      // analytics drill-downs; only the HOT-PATH budget check
+      // moved to the counter.
       const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
-      // Fetch both per-uid AND per-company usage in parallel. The
-      // per-company query uses `companyId`, which we now stamp on
-      // every api_usage doc below.
-      const [perUidSnap, perCompanySnap] = await Promise.all([
-        admin.firestore().collection('api_usage')
-          .where('uid', '==', decoded.uid)
-          .where('timestamp', '>', dayAgo)
-          .get(),
-        admin.firestore().collection('api_usage')
-          .where('companyId', '==', callerCompanyId)
-          .where('timestamp', '>', dayAgo)
-          .get()
+      const dayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+      const uidCounterRef = admin.firestore()
+        .doc(`api_usage_daily/${dayKey}__uid__${decoded.uid}`);
+      const coCounterRef  = admin.firestore()
+        .doc(`api_usage_daily/${dayKey}__co__${callerCompanyId}`);
+      const [uidCounterSnap, coCounterSnap] = await Promise.all([
+        uidCounterRef.get(),
+        coCounterRef.get()
       ]);
-      const sumTokens = (snap) => {
-        let s = 0;
-        snap.forEach(d => {
-          const r = d.data();
-          s += (r.inputTokens || 0) + (r.outputTokens || 0);
-        });
-        return s;
-      };
-      const consumedUid     = sumTokens(perUidSnap);
-      const consumedCompany = sumTokens(perCompanySnap);
+      const consumedUid     = (uidCounterSnap.exists ? uidCounterSnap.data().tokens : 0) || 0;
+      const consumedCompany = (coCounterSnap.exists  ? coCounterSnap.data().tokens  : 0) || 0;
 
       // Resolve per-company cap from the plan on the subscription doc.
       const plan = (sub && sub.plan) || 'lite';
@@ -242,17 +250,39 @@ exports.claudeProxy = onRequest(
         // string on leadId).
         const leadId  = typeof req.body?.leadId  === 'string' ? req.body.leadId.slice(0, 80)  : null;
         const feature = typeof req.body?.feature === 'string' ? req.body.feature.slice(0, 60) : null;
-        await admin.firestore().collection('api_usage').add({
-          uid: decoded.uid,
-          companyId: callerCompanyId,   // H-5: per-company budget query
-          leadId,                        // C6: per-lead cost attribution
-          feature,                       // e.g. 'ask-joe', 'decision-engine', 'rep-report'
-          plan,
-          model: anthropicBody.model,
-          inputTokens: data.usage?.input_tokens || 0,
-          outputTokens: data.usage?.output_tokens || 0,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        const inTok  = Number(data.usage?.input_tokens)  || 0;
+        const outTok = Number(data.usage?.output_tokens) || 0;
+        const total  = inTok + outTok;
+
+        // M2: write both the audit row AND the two counter docs in
+        // parallel. Counter writes use set({merge:true}) + increment
+        // so a first-of-day call creates the doc and subsequent
+        // calls accumulate atomically. Set serverTimestamp only on
+        // the counter's updatedAt so we can alert on stale counters
+        // if the cron ever drifts.
+        const inc = admin.firestore.FieldValue.increment(total);
+        const srv = admin.firestore.FieldValue.serverTimestamp();
+        await Promise.all([
+          admin.firestore().collection('api_usage').add({
+            uid: decoded.uid,
+            companyId: callerCompanyId,   // H-5: per-company budget query
+            leadId,                        // C6: per-lead cost attribution
+            feature,                       // e.g. 'ask-joe', 'decision-engine', 'rep-report'
+            plan,
+            model: anthropicBody.model,
+            inputTokens: inTok,
+            outputTokens: outTok,
+            timestamp: srv,
+          }),
+          uidCounterRef.set({
+            tokens: inc, updatedAt: srv,
+            uid: decoded.uid, dayKey, scope: 'uid'
+          }, { merge: true }),
+          coCounterRef.set({
+            tokens: inc, updatedAt: srv,
+            companyId: callerCompanyId, dayKey, scope: 'company'
+          }, { merge: true })
+        ]);
       } catch (e) {
         logger.warn('api_usage logging failed', { err: e.message });
       }

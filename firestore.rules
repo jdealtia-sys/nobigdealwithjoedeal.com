@@ -226,6 +226,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── API USAGE DAILY COUNTERS (admin-SDK only) ─────
+    // M2: materialized per-(day, uid) and per-(day, company) token
+    // counters that replace the N-doc range scan on the claudeProxy
+    // hot path. Clients see budget headroom only via the 429
+    // response — direct reads would be an information-leak surface
+    // AND an abuse vector (a client that can read the counter could
+    // time-probe it for competitor intel).
+    match /api_usage_daily/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ── RATE LIMITS (admin-SDK only) ──────────────────
     match /rate_limits/{uid}        { allow read, write: if false; }
     match /_rate_limits_ip/{docId}  { allow read, write: if false; }
