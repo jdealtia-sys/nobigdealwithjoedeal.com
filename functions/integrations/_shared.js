@@ -35,7 +35,9 @@ const SECRETS = {
 
   // Business integrations
   HOVER_API_KEY:         defineSecret('HOVER_API_KEY'),
+  HOVER_WEBHOOK_SECRET:  defineSecret('HOVER_WEBHOOK_SECRET'),
   EAGLEVIEW_API_KEY:     defineSecret('EAGLEVIEW_API_KEY'),
+  EAGLEVIEW_WEBHOOK_SECRET: defineSecret('EAGLEVIEW_WEBHOOK_SECRET'),
   NEARMAP_API_KEY:       defineSecret('NEARMAP_API_KEY'),
   BOLDSIGN_API_KEY:      defineSecret('BOLDSIGN_API_KEY'),
   BOLDSIGN_WEBHOOK_SECRET: defineSecret('BOLDSIGN_WEBHOOK_SECRET'),

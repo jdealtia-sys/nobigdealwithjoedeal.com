@@ -31,6 +31,7 @@
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const { getSecret, hasSecret, PROVIDERS, notConfigured, SECRETS } = require('./_shared');
 
 const CORS_ORIGINS = [
@@ -229,9 +230,51 @@ function parseSync(data) {
 // ─── Webhook: provider pushes completed job ─────────────────
 // Configure each vendor to POST back to
 //   https://us-central1-nobigdeal-pro.cloudfunctions.net/measurementWebhook?provider=hover
+//
+// F-02: vendor signatures are now VERIFIED. Previously the endpoint
+// accepted any POST that named a provider, letting an attacker forge
+// roof-measurement updates against any known externalJobId. Fail
+// closed unless the webhook secret for the provider is set AND the
+// signature matches.
+//
+// Per-provider verification:
+//   HOVER     — HMAC SHA-256 of rawBody with HOVER_WEBHOOK_SECRET,
+//               hex in X-Hover-Signature.
+//   EAGLEVIEW — HMAC SHA-256 of rawBody with EAGLEVIEW_WEBHOOK_SECRET,
+//               hex in X-EV-Signature. (EagleView docs describe a JWT
+//               variant; if/when we negotiate that, swap in a JWKS
+//               fetch here — HMAC is the baseline both vendors support.)
+function verifyWebhookHmac(provider, rawBody, headerValue) {
+  const secretName = provider === 'hover'
+    ? 'HOVER_WEBHOOK_SECRET'
+    : provider === 'eagleview'
+      ? 'EAGLEVIEW_WEBHOOK_SECRET'
+      : null;
+  if (!secretName) return { ok: false, reason: 'unknown-provider' };
+  if (!hasSecret(secretName)) return { ok: false, reason: 'secret-not-configured' };
+  if (!rawBody || !Buffer.isBuffer(rawBody)) return { ok: false, reason: 'missing-raw-body' };
+  if (typeof headerValue !== 'string' || headerValue.length < 8) {
+    return { ok: false, reason: 'missing-signature' };
+  }
+  // Some vendors send "sha256=<hex>"; tolerate both shapes.
+  const provided = headerValue.replace(/^sha256=/i, '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(provided)) return { ok: false, reason: 'malformed-signature' };
+  const expected = crypto
+    .createHmac('sha256', getSecret(secretName))
+    .update(rawBody)
+    .digest('hex');
+  // Constant-time compare — both are 64-byte hex so length is fixed.
+  const a = Buffer.from(provided, 'hex');
+  const b = Buffer.from(expected, 'hex');
+  if (a.length !== b.length) return { ok: false, reason: 'length-mismatch' };
+  if (!crypto.timingSafeEqual(a, b)) return { ok: false, reason: 'signature-mismatch' };
+  return { ok: true };
+}
+
 exports.measurementWebhook = onRequest(
   {
     region: 'us-central1',
+    secrets: [SECRETS.HOVER_WEBHOOK_SECRET, SECRETS.EAGLEVIEW_WEBHOOK_SECRET],
     maxInstances: 10,
     timeoutSeconds: 15,
     memory: '256MiB'
@@ -239,12 +282,30 @@ exports.measurementWebhook = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).end(); return; }
     const provider = String(req.query.provider || '');
-    const body = req.body || {};
 
-    // TODO: verify vendor signature — each provider has its own.
-    // HOVER: X-Hover-Signature HMAC SHA-256 over rawBody.
-    // EagleView: signed JWT in X-EV-Signature.
-    // We accept unsigned for now but restrict the path shape.
+    // Signature verification is now mandatory and happens against
+    // the raw body. If the runtime didn't preserve rawBody we refuse
+    // rather than fall through — otherwise an attacker can force a
+    // parsed-body path that can't be signature-checked.
+    const sigHeader = provider === 'hover'
+      ? (req.headers['x-hover-signature'] || '')
+      : provider === 'eagleview'
+        ? (req.headers['x-ev-signature'] || '')
+        : '';
+    const sigResult = verifyWebhookHmac(provider, req.rawBody, sigHeader);
+    if (!sigResult.ok) {
+      logger.warn('measurementWebhook: signature rejected', {
+        provider, reason: sigResult.reason
+      });
+      // Fail closed. If the secret is unset the provider effectively
+      // loses webhook write access until ops provisions it — correct
+      // behaviour for an unconfigured trust relationship.
+      res.status(sigResult.reason === 'secret-not-configured' ? 503 : 401)
+         .json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const body = req.body || {};
 
     // Normalize to our fields.
     let externalJobId, measurements, status;
