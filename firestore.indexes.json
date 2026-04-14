@@ -9,6 +9,22 @@
       ]
     },
     {
+      "collectionGroup": "recordings",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "recordedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recordings",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "hardDeleteAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "photos",
       "queryScope": "COLLECTION",
       "fields": [

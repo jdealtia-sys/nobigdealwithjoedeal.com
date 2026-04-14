@@ -793,6 +793,142 @@ exports.reprocessRecording = onCall(
   }
 );
 
+// ─── Retention cron (C5) ────────────────────────────────────────
+//
+// Two-phase retention matches the SECURITY_SWEEP §14 policy:
+//   1. Soft-delete recordings older than the company retention
+//      window (default 90 days, override via
+//      companies/{id}.recordingRetentionDays).
+//      → status='soft_deleted', deletedAt=now,
+//        hardDeleteAt=now+30d.
+//   2. Hard-delete recordings whose hardDeleteAt has passed —
+//      remove the Firestore doc AND the Storage audio file.
+//      Right-to-be-forgotten requires the payload, not just the
+//      pointer, actually leave the bucket.
+//
+// Runs daily at 05:00 America/Chicago (1h after backup cron so
+// backups capture the about-to-be-deleted state).
+//
+// Page size 100 per phase — 540s timeout handles tens of thousands
+// of recordings; beyond that the next run picks up the backlog.
+const RETENTION_DEFAULT_DAYS = 90;
+const HARD_DELETE_GRACE_DAYS = 30;
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+
+exports.recordingRetentionCron = onSchedule(
+  {
+    region: 'us-central1',
+    schedule: 'every day 05:00',
+    timeZone: 'America/Chicago',
+    timeoutSeconds: 540,
+    memory: '512MiB'
+  },
+  async () => {
+    const db = admin.firestore();
+    const bucket = admin.storage().bucket();
+    const now = admin.firestore.Timestamp.now();
+
+    // Resolve each company's retention override in one pass.
+    // Small N (<10k companies at SaaS scale) makes this cheap.
+    const retentionByCompany = new Map();
+    async function getRetentionDays(companyId) {
+      if (retentionByCompany.has(companyId)) return retentionByCompany.get(companyId);
+      let days = RETENTION_DEFAULT_DAYS;
+      try {
+        const snap = await db.doc('companies/' + companyId).get();
+        if (snap.exists) {
+          const d = Number(snap.data().recordingRetentionDays);
+          if (Number.isFinite(d) && d >= 7 && d <= 3650) days = d;
+        }
+      } catch (_) {}
+      retentionByCompany.set(companyId, days);
+      return days;
+    }
+
+    // ── Phase 1: soft-delete ──
+    // We can't do a single collectionGroup query for "older than
+    // per-company-retention" because the cutoff is per company.
+    // Sweep pages of completed recordings older than the MIN
+    // retention (7 days = lowest allowed override); filter
+    // per-company inside the loop.
+    const minCutoff = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() - (7 * 86_400_000)
+    );
+    let softDeleted = 0;
+    try {
+      let lastDoc = null;
+      for (let page = 0; page < 50; page++) {
+        let q = db.collectionGroup('recordings')
+          .where('status', '==', 'complete')
+          .where('recordedAt', '<', minCutoff)
+          .orderBy('recordedAt')
+          .limit(100);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const snap = await q.get();
+        if (snap.empty) break;
+        for (const d of snap.docs) {
+          const rec = d.data();
+          const days = await getRetentionDays(rec.companyId || 'unknown');
+          const cutoff = now.toMillis() - (days * 86_400_000);
+          if ((rec.recordedAt && rec.recordedAt.toMillis ? rec.recordedAt.toMillis() : 0) < cutoff) {
+            await d.ref.update({
+              status: 'soft_deleted',
+              deletedAt: now,
+              hardDeleteAt: admin.firestore.Timestamp.fromMillis(
+                now.toMillis() + (HARD_DELETE_GRACE_DAYS * 86_400_000)
+              ),
+              updatedAt: now
+            });
+            softDeleted++;
+          }
+        }
+        lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.size < 100) break;
+      }
+    } catch (e) {
+      logger.warn('retention: soft-delete phase error', { err: e.message });
+    }
+
+    // ── Phase 2: hard-delete (past the 30-day grace) ──
+    let hardDeleted = 0;
+    try {
+      let lastDoc = null;
+      for (let page = 0; page < 50; page++) {
+        let q = db.collectionGroup('recordings')
+          .where('status', '==', 'soft_deleted')
+          .where('hardDeleteAt', '<', now)
+          .orderBy('hardDeleteAt')
+          .limit(100);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const snap = await q.get();
+        if (snap.empty) break;
+        for (const d of snap.docs) {
+          const rec = d.data();
+          // Delete Storage payload first — if we lose power between
+          // steps the orphaned doc can still be cleaned up next run;
+          // losing the audio without losing the doc pointer leaves
+          // the UI showing a broken "play" button indefinitely.
+          if (rec.audioPath) {
+            try { await bucket.file(rec.audioPath).delete({ ignoreNotFound: true }); }
+            catch (e) { logger.warn('retention: audio delete failed', { path: rec.audioPath, err: e.message }); }
+          }
+          await d.ref.delete();
+          hardDeleted++;
+        }
+        lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.size < 100) break;
+      }
+    } catch (e) {
+      logger.warn('retention: hard-delete phase error', { err: e.message });
+    }
+
+    logger.info('recordingRetentionCron', {
+      softDeleted, hardDeleted, companiesResolved: retentionByCompany.size
+    });
+  }
+);
+
 module.exports = Object.assign(module.exports, {
   // Helpers exported for unit testing:
   _parseAudioPath: parseAudioPath,

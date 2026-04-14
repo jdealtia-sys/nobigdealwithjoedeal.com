@@ -525,6 +525,69 @@ export function initVoiceIntel({
     return { cleanup() {} };
   }
 
+  // C5: feature-flag gate. Reads feature_flags/_default.voice_intelligence_enabled
+  // + the per-uid override feature_flags/{uid}.voice_intelligence_enabled
+  // (same shape as F9 feature flags for AI usage). Off → the tab
+  // renders a placeholder and the rest of the module stays dormant.
+  //
+  // Default: false. Ops flips the flag on in Firestore when the
+  // feature is ready for a given company / cohort.
+  // Mutable closure so the async feature-flag branch can install
+  // the real cleanup handle once the UI mounts. Caller's
+  // cleanup() call fires whatever's installed at that moment —
+  // no-op before mount, real teardown after.
+  let realCleanup = null;
+
+  isVoiceIntelEnabled({ db, uid: user.uid }).then((enabled) => {
+    if (enabled) {
+      const instance = mountVoiceIntel({
+        leadId, containerEl, auth, db, storage, user
+      });
+      realCleanup = instance && instance.cleanup;
+    } else {
+      containerEl.innerHTML =
+        '<div class="nbd-voice-empty">' +
+        'Voice Intelligence is coming soon to your workspace. ' +
+        'Ask ops to enable the voice_intelligence_enabled feature flag for your account.' +
+        '</div>';
+    }
+  }).catch(() => {
+    // Fail-CLOSED: an error reading the flag doc leaves the feature
+    // OFF. Opening the feature on a Firestore hiccup would surprise
+    // users; keeping it closed is the boring safe choice.
+    containerEl.innerHTML =
+      '<div class="nbd-voice-err">Could not check feature availability. Reload the page.</div>';
+  });
+
+  return {
+    cleanup() {
+      try { realCleanup && realCleanup(); } catch (_) {}
+    }
+  };
+}
+
+async function isVoiceIntelEnabled({ db, uid }) {
+  // Per-uid override wins over the default.
+  try {
+    const own = await getDoc(doc(db, 'feature_flags', uid));
+    if (own.exists()) {
+      const v = own.data().voice_intelligence_enabled;
+      if (typeof v === 'boolean') return v;
+    }
+  } catch (_) {}
+  try {
+    const def = await getDoc(doc(db, 'feature_flags', '_default'));
+    if (def.exists()) {
+      return def.data().voice_intelligence_enabled === true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+// Everything below here is the pre-C5 UI mount logic, moved into
+// its own function so the feature-flag gate above can call it.
+function mountVoiceIntel({ leadId, containerEl, auth, db, storage, user }) {
+
   // Skeleton DOM — no inline handlers, all wired via addEventListener.
   containerEl.innerHTML =
     '<div class="nbd-voice-root">' +

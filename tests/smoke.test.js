@@ -1251,6 +1251,65 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C5: Voice Intel retention cron + monitoring + feature flag');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/voice-intelligence.js'));
+  const client = read(path.join(ROOT, 'docs/pro/js/voice-intelligence.js'));
+  const indexes = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+
+  // Scheduled function
+  assert('C5: recordingRetentionCron exported as onSchedule',
+    /exports\.recordingRetentionCron\s*=\s*onSchedule/.test(src));
+  assert('C5: schedule runs daily at 05:00 (1h after backup cron)',
+    /schedule:\s*'every day 05:00'/.test(src));
+  assert('C5: two-phase retention — soft-delete then hard-delete',
+    /Phase 1: soft-delete[\s\S]{0,3000}Phase 2: hard-delete/.test(src));
+  assert('C5: default retention is 90 days',
+    /RETENTION_DEFAULT_DAYS = 90/.test(src));
+  assert('C5: 30-day grace between soft + hard delete',
+    /HARD_DELETE_GRACE_DAYS = 30/.test(src));
+  assert('C5: per-company recordingRetentionDays override (bounded 7-3650)',
+    /recordingRetentionDays[\s\S]{0,400}d >= 7 && d <= 3650/.test(src));
+  assert('C5: hard-delete removes Storage payload BEFORE deleting Firestore doc',
+    /bucket\.file\(rec\.audioPath\)\.delete[\s\S]{0,200}d\.ref\.delete\(\)/.test(src));
+  assert('C5: hard-delete tolerates missing Storage files (ignoreNotFound)',
+    /ignoreNotFound: true/.test(src));
+
+  // Composite indexes for the retention queries
+  const byStatusRecordedAt = indexes.indexes.find(i =>
+    i.collectionGroup === 'recordings' &&
+    i.fields.length === 2 &&
+    i.fields[0].fieldPath === 'status' &&
+    i.fields[1].fieldPath === 'recordedAt');
+  const byStatusHardDeleteAt = indexes.indexes.find(i =>
+    i.collectionGroup === 'recordings' &&
+    i.fields.length === 2 &&
+    i.fields[0].fieldPath === 'status' &&
+    i.fields[1].fieldPath === 'hardDeleteAt');
+  assert('C5: index (status ASC, recordedAt ASC) for soft-delete sweep', !!byStatusRecordedAt);
+  assert('C5: index (status ASC, hardDeleteAt ASC) for hard-delete sweep', !!byStatusHardDeleteAt);
+
+  // Feature flag gate (client module)
+  assert('C5: client checks feature_flags/_default.voice_intelligence_enabled',
+    /feature_flags[\s\S]{0,200}voice_intelligence_enabled/.test(client));
+  assert('C5: per-uid feature_flags override takes precedence',
+    /getDoc\(doc\(db, 'feature_flags', uid\)\)[\s\S]{0,400}getDoc\(doc\(db, 'feature_flags', '_default'\)\)/.test(client));
+  assert('C5: feature flag fails CLOSED on read error',
+    /Fail-CLOSED[\s\S]{0,400}Could not check feature availability/.test(client));
+  assert('C5: cleanup plumbs through async mount (mutable closure)',
+    /let realCleanup = null;[\s\S]{0,800}realCleanup = instance && instance\.cleanup/.test(client));
+
+  // Monitoring alert
+  const alertPath = path.join(ROOT, 'monitoring/alert-voice-processing-failures.json');
+  const alert = JSON.parse(read(alertPath));
+  assert('C5: monitoring alert policy file valid JSON + displayName',
+    alert.displayName && /Voice Intel/.test(alert.displayName));
+  assert('C5: alert filter targets onAudioUploaded service',
+    (alert.conditions[0].conditionThreshold.filter || '').includes('onAudioUploaded'));
+  assert('C5: alert notification channel placeholder present',
+    Array.isArray(alert.notificationChannels) && alert.notificationChannels[0].includes('NOTIFICATION_CHANNEL_ID'));
+}
+
 section('C4: Voice Intel tab mounted in customer.html');
 {
   const html = read(path.join(ROOT, 'docs/pro/customer.html'));
