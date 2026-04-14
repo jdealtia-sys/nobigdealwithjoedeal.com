@@ -95,7 +95,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm.js?v=13" as="script">
-<link rel="preload" href="js/maps.js?v=9" as="script">
+<link rel="preload" href="js/maps.js?v=10" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
@@ -2983,6 +2983,11 @@ body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
    sidebar's overflow-y:auto actually triggers. Without it,
    the sidebar expands to its natural content height and the
    parent page scrolls instead of the sidebar scrolling. */
+/* Map/draw views must not scroll — the Leaflet map handles its own interaction.
+   overflow:hidden gives the view a definite height so that child height:100%
+   resolves correctly in all browsers (including iOS Safari where height:100%
+   on a flex item inside overflow:auto fails silently). */
+#view-draw.active,#view-map.active,#view-d2d.active{overflow:hidden!important;}
 .map-view{display:none;flex:1;min-height:0;}
 .map-view.active{display:flex;min-height:0;height:100%;}
 .map-sidebar{width:280px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);overflow-y:auto;padding:14px;min-height:0;max-height:100%;}
@@ -14293,7 +14298,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/photo-engine.js?v=3"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=3"></script>
-<script defer src="js/maps.js?v=9"></script>
+<script defer src="js/maps.js?v=10"></script>
 <script defer src="js/estimates.js?v=5"></script>
 <script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>

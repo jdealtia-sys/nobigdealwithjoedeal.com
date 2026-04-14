@@ -586,8 +586,13 @@ function initDrawMap() {
         if (drawOn) drawMap.dragging.disable();
       }
     });
+    // Append to .map-area (position:relative parent of #drawMap), NOT to #drawMap itself.
+    // Appending to #drawMap and setting it to position:relative would override the
+    // CSS position:absolute rule that stretches the map to fill .map-area, causing
+    // Leaflet to measure a 0-height container and tiles to render incorrectly.
     const mapEl = document.getElementById('drawMap');
-    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(modeBtn); }
+    const mapArea = mapEl ? mapEl.parentElement : null;
+    if (mapArea) mapArea.appendChild(modeBtn);
   }
 
   drawMap.on('click', e => {
