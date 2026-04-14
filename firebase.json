@@ -179,7 +179,13 @@
       "codebase": "default",
       "ignore": [
         "node_modules",
-        ".git"
+        ".git",
+        "seed-companies.js",
+        "seed-demo.js",
+        "find-secrets.js",
+        "verify-functions.js",
+        "verify-functions-company-enhancement.js",
+        "SEED_COMPANIES_README.md"
       ]
     }
   ]
