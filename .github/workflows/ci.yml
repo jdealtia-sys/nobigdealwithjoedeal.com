@@ -80,6 +80,15 @@ jobs:
           else
             npm install --silent --no-audit --no-fund
           fi
+
+      # Fail the build on moderate+ npm advisories. The known LOW
+      # transitive advisories (see functions/NPM_AUDIT_ACCEPTED.md)
+      # are below this threshold and intentionally not addressed
+      # until the upstream Google Cloud SDK chain releases a fix.
+      - name: Audit dependencies (moderate and above)
+        run: |
+          cd functions
+          npm audit --audit-level=moderate
       - name: Require every integration module
         run: |
           cd functions
