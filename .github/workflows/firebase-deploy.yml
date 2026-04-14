@@ -316,11 +316,19 @@ jobs:
       #
       # --force still auto-confirms deletion of orphaned functions —
       # that's intentional and Git-driven.
+      #
+      # --debug surfaces the underlying Cloud Run / Cloud Build /
+      # Identity Platform error behind each "Failed to update
+      # function X" summary line. Without it, firebase-tools rolls
+      # up per-function errors into the unhelpful summary and the
+      # real cause (IAM miss, runtime SA delete, API disabled) is
+      # invisible in CI logs. Added 2026-04-14 after two consecutive
+      # full-batch deploy failures with no actionable log output.
       - name: Deploy Cloud Functions
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
+        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force --debug
 
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
