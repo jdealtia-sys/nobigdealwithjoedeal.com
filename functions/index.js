@@ -372,7 +372,11 @@ exports.createCheckoutSession = onRequest(
 exports.stripeWebhook = onRequest(
   {
     cors: false, // Webhook should not use CORS
-    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
+    // F-08: price secrets are read inside the handler to map
+    // Stripe Price IDs to our plan tier. Must be declared here
+    // so .value() resolves at runtime.
+    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+              STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
     maxInstances: 10,
     timeoutSeconds: 30,
     memory: '256MiB',
@@ -418,17 +422,27 @@ exports.stripeWebhook = onRequest(
       const db = admin.firestore();
 
       // ── Idempotency guard ──
-      // Stripe retries webhooks up to 15 times. Check if this event
-      // ID was already processed to prevent duplicate writes to
-      // subscriptions, custom claims, and usage counters.
+      // Stripe retries webhooks up to 15 times. F-07: the previous
+      // check-then-write pattern left a window where two concurrent
+      // deliveries of the same event.id could both pass the exists()
+      // check and both process. Use create() — atomic, fails if the
+      // doc already exists.
       const eventRef = db.doc(`stripe_events/${event.id}`);
-      const eventSnap = await eventRef.get();
-      if (eventSnap.exists) {
-        logger.info('stripeWebhook.duplicate_event', { eventId: event.id });
-        res.json({ received: true, duplicate: true });
-        return;
+      try {
+        await eventRef.create({
+          type: event.type,
+          processedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {
+        // code 6 = ALREADY_EXISTS. Duplicate delivery — ack Stripe so
+        // it stops retrying, but do nothing else.
+        if (e.code === 6 || /already exists/i.test(String(e.message))) {
+          logger.info('stripeWebhook.duplicate_event', { eventId: event.id });
+          res.json({ received: true, duplicate: true });
+          return;
+        }
+        throw e;
       }
-      await eventRef.set({ type: event.type, processedAt: admin.firestore.FieldValue.serverTimestamp() });
 
       switch (event.type) {
         // ═══════════════════════════════════════════════════
@@ -505,11 +519,18 @@ exports.stripeWebhook = onRequest(
           const subDoc = snapshot.docs[0];
           const uid = subDoc.id;
 
-          // Extract plan from subscription items' price metadata
-          let plan = subDoc.data().plan || 'starter';
-          if (subscription.items?.data?.[0]?.price?.metadata?.plan) {
-            plan = subscription.items.data[0].price.metadata.plan;
-          }
+          // F-08: derive plan from Stripe Price ID via an in-code
+          // map, not from price.metadata.plan. Stripe metadata is
+          // editable in the dashboard — trusting it for authorization
+          // puts tier grants one click from anyone with Stripe write
+          // access. Price IDs are immutable secrets known only to
+          // deploy.
+          const PRICE_TO_PLAN = {
+            [STRIPE_PRICE_FOUNDATION.value()]:   'starter',
+            [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
+          };
+          const priceId = subscription.items?.data?.[0]?.price?.id || '';
+          let plan = PRICE_TO_PLAN[priceId] || subDoc.data().plan || 'starter';
 
           await subDoc.ref.update({
             plan,
@@ -1487,13 +1508,16 @@ exports.getHomeownerPortalView = onRequest(
     secrets: [_intSecrets.BOLDSIGN_API_KEY]
   },
   async (req, res) => {
-    if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).end(); return; }
+    // F-06: POST only. Previously accepted GET with the token in the
+    // query string, which leaked via access logs / Referer / browser
+    // history on every homeowner pageload. portal.html now POSTs.
+    if (req.method !== 'POST') { res.status(405).end(); return; }
 
     // Rate-limit per IP — 30/min is plenty for a homeowner on the
     // page and stops an attacker from brute-forcing tokens.
     if (!(await httpRateLimit(req, res, 'portal:ip', 30, 60_000))) return;
 
-    const token = (req.method === 'GET' ? req.query.token : (req.body && req.body.token)) || '';
+    const token = (req.body && req.body.token) || '';
     if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
       res.status(400).json({ error: 'Invalid token' });
       return;
@@ -3188,5 +3212,71 @@ exports.listTeamMembers = onCall(
     }
 
     return { success: true, companyId, members, count: members.length };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// F-09: CSP violation report receiver.
+//
+// The Report-Only CSP in firebase.json is currently a no-op because
+// violations have nowhere to go. This endpoint accepts both the
+// classic `application/csp-report` body shape (report-uri) and the
+// newer `application/reports+json` array shape (Reporting API /
+// report-to) and logs a bounded subset of fields.
+//
+// We accept unauthenticated POSTs — the browser fires these without
+// credentials. Per-IP rate limit and hard size cap protect against
+// log-flooding. Firestore is intentionally NOT written; logs are
+// enough and cheaper.
+// ═════════════════════════════════════════════════════════════
+exports.cspReport = onRequest(
+  {
+    region: 'us-central1',
+    cors: false,
+    maxInstances: 5,
+    concurrency: 80,
+    timeoutSeconds: 5,
+    memory: '128MiB'
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    try {
+      // Hard size cap — bounded-budget log ingestion.
+      const raw = req.rawBody;
+      if (raw && Buffer.isBuffer(raw) && raw.length > 8192) {
+        res.status(413).end(); return;
+      }
+      // Per-IP rate limit — 60/min/IP. Normal reporting is well below
+      // this; a page stuck in a CSP loop could exceed. Soft fail OK.
+      try {
+        await httpRateLimit(req, res, 'cspReport:ip', 60, 60_000);
+      } catch (_) { /* ignore rate-limit errors; log pipeline */ }
+
+      const body = req.body || {};
+      // `report-uri` shape: { "csp-report": { ... } }
+      // `report-to` shape: [ { type: 'csp-violation', body: { ... } } ]
+      const reports = Array.isArray(body)
+        ? body.map(r => r && r.body).filter(Boolean)
+        : body['csp-report']
+          ? [body['csp-report']]
+          : [body];
+      for (const r of reports) {
+        logger.warn('csp_violation', {
+          documentURI:        String(r['document-uri']       || r.documentURL || '').slice(0, 400),
+          blockedURI:         String(r['blocked-uri']        || r.blockedURL  || '').slice(0, 400),
+          violatedDirective:  String(r['violated-directive'] || r.effectiveDirective || '').slice(0, 200),
+          originalPolicy:     String(r['original-policy']    || r.originalPolicy     || '').slice(0, 500),
+          disposition:        String(r.disposition || '').slice(0, 20),
+          sourceFile:         String(r['source-file']        || r.sourceFile || '').slice(0, 400),
+          lineNumber:         Number(r['line-number']        || r.lineNumber || 0) || null,
+          statusCode:         Number(r['status-code']        || r.statusCode || 0) || null,
+          userAgent:          String(req.headers['user-agent'] || '').slice(0, 200)
+        });
+      }
+      res.status(204).end();
+    } catch (e) {
+      logger.warn('cspReport error', { err: e.message });
+      res.status(204).end();  // Never signal failure to the browser — it'll retry.
+    }
   }
 );

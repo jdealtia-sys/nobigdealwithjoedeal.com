@@ -244,9 +244,16 @@
       return;
     }
     try {
-      const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView?token=' + encodeURIComponent(token), {
-        method: 'GET',
-        credentials: 'omit'
+      // F-06: token in POST body, not URL. Keeps the token out of
+      // access logs, Referer headers, and browser history. The same
+      // page URL still carries ?token= in the browser history (from
+      // the emailed link) but the *server-side* log chain no longer
+      // receives it.
+      const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
       });
       if (res.status === 410) {
         main.innerHTML = '<div class="error-state"><h2>This link has expired</h2><div>Contact your rep for a new one.</div></div>';
