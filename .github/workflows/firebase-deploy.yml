@@ -270,11 +270,17 @@ jobs:
           fi
           exit 0
 
+      # --force: auto-confirm deletion of functions that are in the
+      # live project but no longer exist in source. Git is the source
+      # of truth; if a function was removed in code it should be
+      # removed in the project too. Without this flag the CLI prompts
+      # interactively and dies in CI. The initial failure surfaced
+      # `seedDemoData` as a legacy function not in the current tree.
       - name: Deploy Cloud Functions
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive
+        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
 
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
