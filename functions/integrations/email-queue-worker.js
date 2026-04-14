@@ -58,8 +58,10 @@ exports.emailQueueWorker = onSchedule(
 
     // Claim up to 25 pending rows per tick. Anything that needs
     // faster delivery should go through the direct-send functions.
+    // Writers MUST set `status: 'pending'` explicitly (enforced by
+    // the enqueue call sites in compliance.js + dunning in index.js).
     const snap = await db.collection('email_queue')
-      .where('status', 'in', ['pending', null])
+      .where('status', '==', 'pending')
       .orderBy('createdAt')
       .limit(25)
       .get();

@@ -124,6 +124,14 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ── COMMUNICATIONS (call / email / SMS log) ───────
+    // Written from customer.html when a rep taps call / email / SMS
+    // shortcut buttons. Owner scope by userId.
+    match /communications/{commId} {
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+    }
+
     // ── NOTIFICATIONS ─────────────────────────────────
     match /notifications/{notifId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();

@@ -9544,6 +9544,26 @@ function switchScTab(tab, btn) {
             </div>
           </div>
         </div>
+
+        <!-- GDPR controls (D6 + D7). Every row here calls a Cloud
+             Function; no direct Firestore reads/writes. -->
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Your Rights (GDPR)</div><div class="panel-title">Download or Delete Your Account</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Under GDPR Articles 17 and 20 you can download a complete copy of your data or permanently delete your account. Both actions are logged in our audit trail.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-ghost" style="font-size:11px;"
+                      onclick="window._gdprExport && window._gdprExport()">
+                📦 Export All My Data (JSON)
+              </button>
+              <button class="btn btn-red" style="font-size:11px;"
+                      onclick="window._gdprRequestErasure && window._gdprRequestErasure()">
+                🗑 Permanently Delete My Account
+              </button>
+            </div>
+            <p style="font-size:10px;color:var(--m);margin-top:10px;">Export is rate-limited to 2 times per 24 hours. Deletion requires email confirmation.</p>
+          </div>
+        </div>
       </div><!-- /stab-panel-access -->
 
       <!-- ══ TAB: BILLING ══ -->
@@ -13662,6 +13682,48 @@ function openCardDetailModal(leadId) {
   document.getElementById('cardDetailModal').classList.add('open');
 }
 window.openCardDetailModal = openCardDetailModal;
+
+// ── GDPR Export (Article 20) + Erasure (Article 17) ─
+// D6/D7 from the enterprise-hardening sprint landed the server
+// callables but no UI called them. These two helpers fix that.
+window._gdprExport = async function () {
+  if (!window._user) { if (typeof showToast==='function') showToast('Sign in first','error'); return; }
+  if (!window.confirm('Download a JSON file containing every record tied to your account (profile, leads, estimates, photos, pins, tasks, documents, api_usage). The download link expires in 24 hours.\n\nProceed?')) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fn = mod.httpsCallable(mod.getFunctions(), 'exportMyData');
+    if (typeof showToast==='function') showToast('Building export… this can take up to a minute.', 'info');
+    const res = await fn({});
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No URL returned');
+    // Open in a new tab so the user can save the JSON themselves.
+    window.open(url, '_blank', 'noopener');
+    if (typeof showToast==='function') showToast('✓ Export ready — opening download.', 'success');
+  } catch (e) {
+    console.error('gdpr export failed', e);
+    if (typeof showToast==='function') showToast(e.message || 'Export failed', 'error');
+  }
+};
+
+window._gdprRequestErasure = async function () {
+  if (!window._user) { if (typeof showToast==='function') showToast('Sign in first','error'); return; }
+  const warning =
+    'PERMANENTLY DELETE YOUR ACCOUNT?\n\n' +
+    'This will delete every lead, estimate, photo, pin, task, note, and profile record you own. ' +
+    'Your account will be disabled. This CANNOT be undone.\n\n' +
+    'We will email you a confirmation link. The deletion only completes when you click it ' +
+    'within 24 hours. If the email doesn\'t arrive, check spam.';
+  if (!window.confirm(warning)) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fn = mod.httpsCallable(mod.getFunctions(), 'requestAccountErasure');
+    await fn({});
+    if (typeof showToast==='function') showToast('Confirmation email sent. Click the link within 24h to complete deletion.', 'success');
+  } catch (e) {
+    console.error('gdpr erasure request failed', e);
+    if (typeof showToast==='function') showToast(e.message || 'Request failed', 'error');
+  }
+};
 
 // ── Revoke &amp; Regenerate Portal Link ─────────────────
 // B4 + B5: first call revokePortalToken to invalidate every live

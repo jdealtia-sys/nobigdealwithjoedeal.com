@@ -626,6 +626,7 @@ exports.stripeWebhook = onRequest(
                     ? 'Link:    ' + invoice.hosted_invoice_url + '\n'
                     : '') +
                   '\nReach out to the customer to update their card. Stripe will auto-retry 3 more times.',
+                status: 'pending',   // F-wave fix: worker filters on this field
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 source: 'stripe_dunning'
               });

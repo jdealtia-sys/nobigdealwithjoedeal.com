@@ -270,6 +270,7 @@ exports.requestAccountErasure = onCall(
             'To confirm, open this link within 24 hours:\n' +
             confirmUrl + '\n\n' +
             'If you did not make this request, you can ignore this email — your account will remain active.',
+          status: 'pending',   // F-wave fix: worker query filters by status
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           source: 'requestAccountErasure'
         });
