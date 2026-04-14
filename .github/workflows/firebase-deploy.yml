@@ -180,25 +180,18 @@ jobs:
           set -e
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud config set project "$PRO_PROJECT" --quiet
-          # Every name that appears in a defineSecret(...) call anywhere
-          # in functions/. Keep this in sync with grep -r defineSecret
-          # when adding new integrations.
-          ALL_SECRETS="
-            SENTRY_DSN_FUNCTIONS
-            SLACK_WEBHOOK_URL
-            TURNSTILE_SECRET
-            UPSTASH_REDIS_REST_URL
-            UPSTASH_REDIS_REST_TOKEN
-            HOVER_API_KEY
-            EAGLEVIEW_API_KEY
-            NEARMAP_API_KEY
-            BOLDSIGN_API_KEY
-            BOLDSIGN_WEBHOOK_SECRET
-            REGRID_API_TOKEN
-            HAILTRACE_API_KEY
-            CALCOM_WEBHOOK_SECRET
-            DEEPGRAM_API_KEY
-          "
+          # Auto-discover every name referenced by a defineSecret(...)
+          # call in functions/. This catches both new integration
+          # secrets and any pre-existing secrets that happen to be
+          # unset in this project (e.g., GOOGLE_GEOCODING_API_KEY
+          # was declared in code but never provisioned). Secrets that
+          # already exist with real values are untouched — the check
+          # below only adds a version when missing.
+          ALL_SECRETS=$(grep -rhoE "defineSecret\(\s*['\"][A-Z0-9_]+['\"]" functions/ \
+            | sed -E "s/.*defineSecret\(\s*['\"]([A-Z0-9_]+)['\"].*/\1/" \
+            | sort -u)
+          echo "Discovered secrets: $(echo $ALL_SECRETS | wc -w)"
+          echo "$ALL_SECRETS"
           # Firebase CLI needs each secret to have an initial *non-empty*
           # version, otherwise it errors with "has no latest version".
           # Stub with the sentinel value __unset__ which the runtime
