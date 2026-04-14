@@ -35,9 +35,13 @@ async function run() {
 
   const { setDoc, doc, getDoc } = require('firebase/firestore');
 
-  // Seed some state via admin context bypass.
+  // ─── Seed ALL state in a single withSecurityRulesDisabled call.
+  // Multiple calls conflict on Firestore settings in v10+ of the
+  // firebase SDK, so we batch here. Tests below never call
+  // withSecurityRulesDisabled again.
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
+    // Original fixture
     await setDoc(doc(db, 'users/alice'), { firstName: 'Alice', role: 'member' });
     await setDoc(doc(db, 'subscriptions/alice'), { plan: 'free', status: 'inactive' });
     await setDoc(doc(db, 'leads/leadA'), { userId: 'alice', name: 'Alice Lead' });
@@ -46,6 +50,32 @@ async function run() {
     await setDoc(doc(db, 'email_log/log1'), { uid: 'alice', to: 'x@y.com' });
     await setDoc(doc(db, 'reps/alice'), { companyId: 'co-a', role: 'rep' });
     await setDoc(doc(db, 'reps/bob'),   { companyId: 'co-b', role: 'rep' });
+    // Contact lead fixture for test 13
+    await setDoc(doc(db, 'contact_leads/seed-a'), {
+      firstName: 'Test', phone: '+15551230000', source: 'unit-test'
+    });
+    // Portal tokens + parcel cache — used to assert admin-SDK-only reads
+    await setDoc(doc(db, 'portal_tokens/TOKEN123'), {
+      leadId: 'leadA', ownerUid: 'alice', uses: 0, maxUses: 100
+    });
+    await setDoc(doc(db, 'parcel_cache/abc'), { parcel: { owner: 'Smith' } });
+    // Measurements — owner read tests
+    await setDoc(doc(db, 'measurements/job-alice'), {
+      ownerId: 'alice', leadId: 'leadA', status: 'pending'
+    });
+    await setDoc(doc(db, 'measurements/job-bob'), {
+      ownerId: 'bob', leadId: 'leadB', status: 'pending'
+    });
+    // Appointments
+    await setDoc(doc(db, 'appointments/bk-alice'),
+      { userId: 'alice', bookingId: 'bk-alice', status: 'booked' });
+    await setDoc(doc(db, 'appointments/bk-bob'),
+      { userId: 'bob', bookingId: 'bk-bob', status: 'booked' });
+    // Audit log
+    await setDoc(doc(db, 'audit_log/evt1'), { type: 'x' });
+    // Company for members-rule test
+    await setDoc(doc(db, 'companies/co-a'),
+      { ownerId: 'alice', name: 'Alice Roofing' });
   });
 
   // 1. user cannot self-promote to admin via users/{uid}.role
@@ -75,8 +105,10 @@ async function run() {
   // 9. user cannot read another rep in a different company
   await assertFails(getDoc(doc(alice, 'reps/bob')));
 
-  // 10. admin CAN read access_codes (via getDoc)
-  await assertSucceeds(getDoc(doc(admin, 'access_codes/NBD-ADMIN')));
+  // 10. access_codes is admin-SDK only — even platform admin
+  //     cannot read from the client (tightened in the security
+  //     sprint; previously admin-readable).
+  await assertFails(getDoc(doc(admin, 'access_codes/NBD-ADMIN')));
 
   // 11. POST-C-3: unauthenticated client CANNOT create contact_leads
   //     directly (submissions must go through submitPublicLead).
@@ -94,50 +126,24 @@ async function run() {
   await assertFails(setDoc(doc(anon, 'storm_alert_subscribers/x'),
     { name: 'T', phone: '5551112222', zip: '45202', source: 'u' }));
 
-  // 13. admin CAN still read contact_leads (they're read-only to admins
-  //     for ops triage; writes are admin-SDK via submitPublicLead).
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'contact_leads/seed-a'), {
-      firstName: 'Test', phone: '+15551230000', source: 'unit-test'
-    });
-  });
+  // 13. admin CAN still read contact_leads (fixture seeded above).
   await assertSucceeds(getDoc(doc(admin, 'contact_leads/seed-a')));
 
   // ─── NEW COLLECTIONS (Wave B + integrations) ─────────────
   //
-  // 14. portal_tokens — admin-SDK only. No client read or write,
-  //     regardless of role. The homeowner portal page hits the
-  //     getHomeownerPortalView HTTP endpoint, which uses the admin SDK.
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'portal_tokens/TOKEN123'), {
-      leadId: 'leadA', ownerUid: 'alice', uses: 0, maxUses: 100
-    });
-  });
+  // 14. portal_tokens — admin-SDK only. Fixture seeded above.
   await assertFails(getDoc(doc(anon,    'portal_tokens/TOKEN123')));
   await assertFails(getDoc(doc(alice,   'portal_tokens/TOKEN123')));
   await assertFails(getDoc(doc(admin,   'portal_tokens/TOKEN123')));
   await assertFails(setDoc(doc(alice,   'portal_tokens/NEW'), { leadId: 'x' }));
   await assertFails(setDoc(doc(coAdmin, 'portal_tokens/NEW'), { leadId: 'x' }));
 
-  // 15. parcel_cache — admin-SDK only. Privacy issue: cache holds
-  //     address → owner lookup, accessible only via the lookupParcel
-  //     callable which owner-scopes.
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'parcel_cache/abc'), { parcel: { owner: 'Smith' } });
-  });
+  // 15. parcel_cache — admin-SDK only (fixture seeded above).
   await assertFails(getDoc(doc(alice, 'parcel_cache/abc')));
   await assertFails(getDoc(doc(admin, 'parcel_cache/abc')));
 
-  // 16. measurements — owner can READ their own jobs; all client
-  //     writes denied (webhook via admin SDK).
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'measurements/job-alice'), {
-      ownerId: 'alice', leadId: 'leadA', status: 'pending'
-    });
-    await setDoc(doc(ctx.firestore(), 'measurements/job-bob'), {
-      ownerId: 'bob', leadId: 'leadB', status: 'pending'
-    });
-  });
+  // 16. measurements — owner READ succeeds, cross-tenant + client
+  //     writes denied. Fixtures seeded above.
   await assertSucceeds(getDoc(doc(alice, 'measurements/job-alice')));
   await assertFails(getDoc(doc(alice,    'measurements/job-bob')));
   await assertFails(setDoc(doc(alice,    'measurements/job-alice'),
@@ -145,23 +151,13 @@ async function run() {
   // Platform admin can read any measurement (support context).
   await assertSucceeds(getDoc(doc(admin, 'measurements/job-bob')));
 
-  // 17. appointments — Cal.com webhook writes; owner reads.
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'appointments/bk-alice'),
-      { userId: 'alice', bookingId: 'bk-alice', status: 'booked' });
-    await setDoc(doc(ctx.firestore(), 'appointments/bk-bob'),
-      { userId: 'bob', bookingId: 'bk-bob', status: 'booked' });
-  });
+  // 17. appointments — owner read succeeds (fixtures seeded above).
   await assertSucceeds(getDoc(doc(alice, 'appointments/bk-alice')));
   await assertFails(getDoc(doc(alice,    'appointments/bk-bob')));
   await assertFails(setDoc(doc(alice,    'appointments/bk-alice'),
     { status: 'cancelled' }, { merge: true }));
 
-  // 18. audit_log — admin-only reads; all writes denied (trigger
-  //     writes via admin SDK).
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'audit_log/evt1'), { type: 'x' });
-  });
+  // 18. audit_log — admin-only reads; writes denied (fixture seeded).
   await assertFails(getDoc(doc(alice, 'audit_log/evt1')));
   await assertSucceeds(getDoc(doc(admin, 'audit_log/evt1')));
   await assertFails(setDoc(doc(admin, 'audit_log/evt2'), { type: 'y' }));
@@ -169,12 +165,7 @@ async function run() {
   // 19. companies/*/members — company_admin context (carol, co-a)
   //     should NOT be able to write without being the company owner
   //     OR platform admin. Owner check is via companies/{id}.ownerId.
-  //     Write attempts from carol (no company doc says she's owner)
-  //     must fail even though she carries role: company_admin.
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'companies/co-a'),
-      { ownerId: 'alice', name: 'Alice Roofing' });
-  });
+  //     Fixture for companies/co-a seeded above.
   // Carol has role: company_admin but isn't the ownerId — should fail.
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));

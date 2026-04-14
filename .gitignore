@@ -1,6 +1,18 @@
 # Dependencies — don't commit, rebuild in CI
 functions/node_modules/
 docs/pro/js/node_modules/
+tests/node_modules/
+
+# Emulator runtime artifacts
+tests/firestore-debug.log
+tests/database-debug.log
+tests/ui-debug.log
+tests/pubsub-debug.log
+tests/storage-debug.log
+*.firebase-debug.log
+
+# docs/pro/js doesn't have a project of its own
+docs/pro/js/package-lock.json
 
 # OS artifacts
 .DS_Store

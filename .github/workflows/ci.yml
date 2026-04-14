@@ -70,10 +70,13 @@ jobs:
           cache: npm
           cache-dependency-path: functions/package-lock.json
       - name: Install functions deps (CI)
+        # `npm ci` requires the lockfile to match package.json exactly.
+        # When a feature branch adds deps but we haven't regenerated the
+        # lock yet, fall back to `npm install` instead of failing CI.
         run: |
           cd functions
           if [ -f package-lock.json ]; then
-            npm ci --silent
+            npm ci --silent || npm install --silent --no-audit --no-fund
           else
             npm install --silent --no-audit --no-fund
           fi
