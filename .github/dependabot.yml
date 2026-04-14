@@ -1,0 +1,51 @@
+version: 2
+
+# NBD Pro — Dependabot for runtime + test deps + actions.
+# Security-only by default (set open-pull-requests-limit: 0 on the
+# `updates` ecosystem to silence noise; we still get Dependabot
+# Security Advisories for all of them).
+updates:
+  # Cloud Functions runtime
+  - package-ecosystem: npm
+    directory: /functions
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(functions)"
+    labels:
+      - dependencies
+      - functions
+    allow:
+      - dependency-type: direct
+      - dependency-type: indirect
+    groups:
+      non-major:
+        update-types: [patch, minor]
+
+  # Rules / smoke tests
+  - package-ecosystem: npm
+    directory: /tests
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(tests)"
+    labels:
+      - dependencies
+      - tests
+
+  # GitHub Actions pinning
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(actions)"
+    labels:
+      - dependencies
+      - ci

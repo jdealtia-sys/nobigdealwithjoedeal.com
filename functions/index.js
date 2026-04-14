@@ -33,6 +33,29 @@ admin.initializeApp();
 const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 const { withSentry } = require('./integrations/sentry');
 
+// ═════════════════════════════════════════════════════════════
+// D1: per-uid rate-limit guard for every mutation callable.
+// Use inside onCall handlers to throw a resource-exhausted error
+// when a single user is spamming. The Upstash-first adapter
+// transparently falls back to Firestore when unconfigured.
+//
+// Usage:
+//   await callableRateLimit(request, 'createPortalToken', 30, 60_000);
+// ═════════════════════════════════════════════════════════════
+async function callableRateLimit(request, name, limit, windowMs) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) return;  // unauth callers can't hit a callable anyway
+  try {
+    await enforceRateLimit('callable:' + name + ':uid', uid, limit, windowMs);
+  } catch (e) {
+    if (e.rateLimited) {
+      throw new HttpsError('resource-exhausted',
+        `Rate limit exceeded — try again in ${Math.ceil(windowMs / 1000)}s`);
+    }
+    throw e;
+  }
+}
+
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY');
@@ -581,6 +604,70 @@ exports.stripeWebhook = onRequest(
             });
           } catch (e) { logger.warn('claims_pastdue_failed', { uid, err: e.message }); }
 
+          // E1: dunning. Enqueue an email to the rep, Slack the ops
+          // channel, and stamp a lead activity row if the invoice
+          // has a leadId on its metadata (auto-invoice C5 sets it).
+          try {
+            const userRecord = await admin.auth().getUser(uid);
+            const email = userRecord.email;
+            const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
+            const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
+            const amount = ((invoice.amount_due || 0) / 100).toFixed(2);
+
+            if (email) {
+              await db.collection('email_queue').add({
+                to: email,
+                subject: 'Payment failed — $' + amount + ' — NBD Pro',
+                bodyPlain:
+                  'A customer payment attempt just failed.\n\n' +
+                  'Invoice: ' + invoice.id + '\n' +
+                  'Amount:  $' + amount + '\n' +
+                  (invoice.hosted_invoice_url
+                    ? 'Link:    ' + invoice.hosted_invoice_url + '\n'
+                    : '') +
+                  '\nReach out to the customer to update their card. Stripe will auto-retry 3 more times.',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                source: 'stripe_dunning'
+              });
+            }
+
+            if (leadId) {
+              await db.collection('leads/' + leadId + '/activity').add({
+                userId: uid,
+                type: 'stripe_payment_failed',
+                label: 'Payment failed ($' + amount + ')',
+                stripeInvoiceId: invoice.id,
+                stripeCustomerId: customerId,
+                amountCents: invoice.amount_due || 0,
+                hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+            }
+
+            // Slack — only posts when SLACK_WEBHOOK_URL secret is set.
+            const slack = require('./integrations/slack');
+            if (typeof slack.postSlack === 'function') {
+              await slack.postSlack({
+                text: '💳 Payment failed ($' + amount + ')',
+                blocks: [{
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text:
+                      '*💳 Stripe payment failed*\n' +
+                      'Amount: *$' + amount + '*\n' +
+                      'Invoice: `' + invoice.id + '`\n' +
+                      (estimateId ? 'Estimate: `' + estimateId + '`\n' : '') +
+                      (leadId ? 'Lead: `' + leadId + '`\n' : '') +
+                      (invoice.hosted_invoice_url ? 'Hosted: ' + invoice.hosted_invoice_url : '')
+                  }
+                }]
+              });
+            }
+          } catch (e) {
+            logger.warn('dunning: enqueue failed', { err: e.message });
+          }
+
           logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
           break;
         }
@@ -897,9 +984,24 @@ exports.imageProxy = onRequest(
   async (req, res) => {
     if (req.method !== 'GET') { res.status(405).end(); return; }
 
+    // D8: deprecation signals per RFC 8594 + RFC 9745. Clients that
+    // still use imageProxy should migrate to /signImageUrl. We keep
+    // serving bytes (don't break prod) but every hit logs + headers
+    // telegraph the sunset date, so ops can diff call sites that
+    // haven't migrated.
+    res.set('Deprecation', 'true');
+    res.set('Sunset', 'Wed, 01 Oct 2026 00:00:00 GMT');
+    res.set('Link', '</signImageUrl>; rel="successor-version"');
+
     const authResult = await requireAuth(req);
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
+
+    logger.warn('imageProxy DEPRECATED call', {
+      uidHash: require('crypto').createHash('sha256').update(decoded.uid).digest('hex').slice(0, 16),
+      referer: (req.headers.referer || '').slice(0, 200),
+      path: String(req.query.path || '').slice(0, 200)
+    });
 
     // Per-IP and per-uid rate limit — imageProxy is a bandwidth amplifier.
     if (!(await httpRateLimit(req, res, 'imageProxy:ip', 120, 60_000))) return;
@@ -1016,6 +1118,8 @@ const parcelIntegration      = require('./integrations/parcel');
 const hailIntegration        = require('./integrations/hail');
 const calcomIntegration      = require('./integrations/calcom');
 const hailCron               = require('./integrations/hail-cron');
+const complianceIntegration  = require('./integrations/compliance');
+const deviceAlertIntegration = require('./integrations/device-alert');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -1023,6 +1127,8 @@ Object.assign(exports, parcelIntegration);
 Object.assign(exports, hailIntegration);
 Object.assign(exports, calcomIntegration);
 Object.assign(exports, hailCron);
+Object.assign(exports, complianceIntegration);
+Object.assign(exports, deviceAlertIntegration);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -1104,6 +1210,9 @@ exports.createPortalToken = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    // D1: a compromised rep session could otherwise mint millions of
+    // tokens. 30/min/uid is way more than a human ever needs.
+    await callableRateLimit(request, 'createPortalToken', 30, 60_000);
     const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
     if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
 
@@ -1300,6 +1409,7 @@ exports.revokePortalToken = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    await callableRateLimit(request, 'revokePortalToken', 30, 60_000);
     const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
     const tokenId = typeof request.data?.token === 'string' ? request.data.token : null;
     if (!leadId && !tokenId) {
@@ -2710,6 +2820,7 @@ exports.createTeamMember = onCall(
   },
   async (request) => {
     const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'createTeamMember', 20, 60_000);
 
     const email = normalizeEmail(request.data && request.data.email);
     if (!email) throw new HttpsError('invalid-argument', 'Valid email required');
@@ -2817,6 +2928,7 @@ exports.updateUserRole = onCall(
   },
   async (request) => {
     const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'updateUserRole', 30, 60_000);
 
     const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
     const targetEmail = normalizeEmail(request.data && request.data.email);
@@ -2888,6 +3000,7 @@ exports.deactivateUser = onCall(
   },
   async (request) => {
     const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'deactivateUser', 20, 60_000);
 
     const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
     const targetEmail = normalizeEmail(request.data && request.data.email);

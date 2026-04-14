@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-tests:
+    name: Smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Smoke tests are dependency-free — just run them.
+      - name: Run smoke tests
+        run: node tests/smoke.test.js
+
+  syntax-check:
+    name: Node syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse every .js under functions/ and docs/pro/js/
+        run: |
+          set -e
+          for f in $(find functions docs/pro/js -name '*.js' -not -path '*/node_modules/*' -not -path '*/_archive/*'); do
+            node --check "$f"
+          done
+
+  firestore-rules:
+    name: Firestore rules tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent
+      - name: Install firebase-tools globally
+        run: npm install -g firebase-tools@13
+      - name: Run rules tests under emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
+
+  functions-parse:
+    name: Functions parse + dep install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Install functions deps (CI)
+        run: |
+          cd functions
+          if [ -f package-lock.json ]; then
+            npm ci --silent
+          else
+            npm install --silent --no-audit --no-fund
+          fi
+      - name: Require every integration module
+        run: |
+          cd functions
+          node -e "
+            const fs = require('fs');
+            const files = fs.readdirSync('integrations').filter(f => f.endsWith('.js'));
+            for (const f of files) {
+              try {
+                require('./integrations/' + f);
+                console.log('OK ', f);
+              } catch (e) {
+                console.error('FAIL ', f, e.message);
+                process.exit(1);
+              }
+            }
+          "
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Simple grep — look for patterns commonly committed by mistake.
+      # Full secret scanners (gitleaks, trufflehog) can be added later.
+      - name: Grep for obvious secrets
+        run: |
+          set -e
+          echo "== Checking for committed private keys / tokens =="
+          ! grep -rE '(-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----|sk_live_[A-Za-z0-9]+|sk-ant-[A-Za-z0-9-]{20,}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}|ghp_[A-Za-z0-9]{36})' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=_archive --include='*.js' --include='*.html' --include='*.json' --include='*.md' .

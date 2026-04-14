@@ -51,6 +51,17 @@ exports.sendEstimateForSignature = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+    // D1: BoldSign bills per envelope. 30/hour/uid is plenty for
+    // a real rep workflow and kills any runaway loop cheaply.
+    const { enforceRateLimit } = require('./upstash-ratelimit');
+    try {
+      await enforceRateLimit('callable:sendEstimateForSignature:uid', uid, 30, 60 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) throw new HttpsError('resource-exhausted', 'E-sign rate limit — try again in an hour.');
+      throw e;
+    }
+
     if (!hasSecret('BOLDSIGN_API_KEY')) {
       throw new HttpsError('failed-precondition', 'E-signature not configured. Contact support.');
     }

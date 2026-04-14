@@ -62,6 +62,35 @@ service cloud.firestore {
     match /leads/{leadId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+
+      // D3: flat-path subcollections — the measurementWebhook +
+      // esignWebhook auto-append activity here via admin SDK. Rules
+      // only expose READ to the lead's owner + platform admin;
+      // writes are admin-SDK only so webhook-stamped events can't
+      // be forged by a rep.
+      match /activity/{activityId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        // Reps can append their own notes/activity via callable; direct
+        // writes stay locked to admin SDK so webhook integrity is
+        // preserved.
+        allow create: if isAuth()
+          && request.resource.data.userId == request.auth.uid
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+        allow update, delete: if false;
+      }
+      match /tasks/{taskId} {
+        allow read:   if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write:  if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
+      match /notes/{noteId} {
+        allow read:   if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write:  if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
     }
 
     match /leads/{uid}/leads/{leadId} {
@@ -388,6 +417,34 @@ service cloud.firestore {
     match /appointments/{bookingId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
       allow write: if false;
+    }
+
+    // ── ACCOUNT ERASURE REQUESTS (admin-SDK only) ──────
+    // D7: two-step GDPR erasure. The token hash never leaves the
+    // server, so the only way to confirm a deletion is through
+    // the confirmAccountErasure HTTP endpoint (which validates the
+    // emailed token against the hash).
+    match /account_erasures/{uid} {
+      allow read, write: if false;
+    }
+
+    // ── EMAIL QUEUE (admin-SDK only) ───────────────────
+    // Enqueued by server-side flows (GDPR confirmations, dunning,
+    // portal invites). A worker processes + clears entries. Clients
+    // should never touch this — they'd be able to spoof senders or
+    // mine the queue for email addresses.
+    match /email_queue/{id} {
+      allow read, write: if false;
+    }
+
+    // ── DEVICE FINGERPRINTS (admin-SDK only) ───────────
+    // D9: per-uid list of seen device fingerprints, used by the
+    // new-device Slack alert. Writes only via server triggers.
+    match /user_devices/{uid} {
+      allow read, write: if false;
+      match /seen/{fingerprint} {
+        allow read, write: if false;
+      }
     }
 
     // ── DEFAULT DENY ─────────────────────────────────

@@ -757,6 +757,164 @@ section('Wave C6: per-lead Claude cost attribution');
     /"collectionGroup":\s*"api_usage"[\s\S]{0,400}"fieldPath":\s*"leadId"[\s\S]{0,200}"fieldPath":\s*"timestamp"[\s\S]{0,100}"order":\s*"DESCENDING"/.test(ix));
 }
 
+// ────────────────────────────────────────────────────────────
+//  WAVE D — ENTERPRISE-READY HARDENING
+// ────────────────────────────────────────────────────────────
+
+section('D1: mutation callables rate-limited');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('callableRateLimit helper defined',
+    /async function callableRateLimit/.test(idx));
+  for (const name of ['createPortalToken','revokePortalToken','createTeamMember','updateUserRole','deactivateUser']) {
+    assert(name + ' rate-limited',
+      new RegExp("callableRateLimit\\(request, '" + name + "'").test(idx));
+  }
+  const meas = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('requestMeasurement rate-limited',
+    /callable:requestMeasurement:uid/.test(meas));
+  const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('sendEstimateForSignature rate-limited',
+    /callable:sendEstimateForSignature:uid/.test(es));
+}
+
+section('D2: Storage rules — content-type + size guards');
+{
+  const src = read(path.join(ROOT, 'storage.rules'));
+  assert('isImage helper rejects null content-type',
+    /contentType != null[\s\S]{0,200}image\/\(jpeg\|png/.test(src));
+  assert('isDocType allowlist covers PDF + Office + text',
+    /application\/pdf/.test(src) && /openxmlformats-officedocument/.test(src));
+  assert('isHtmlOnly applied to portals path',
+    /match \/portals\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,300}isHtmlOnly\(\)/.test(src));
+  assert('delete rule requires owner or admin on photos',
+    /match \/photos\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,400}allow delete: if isOwner\(uid\) \|\| isAdmin\(\)/.test(src));
+}
+
+section('D3: leads/*/activity subcollection rules');
+{
+  const src = read(path.join(ROOT, 'firestore.rules'));
+  assert('flat-path activity subcollection rule present',
+    /match \/activity\/\{activityId\}[\s\S]{0,400}allow create: if isAuth\(\)/.test(src));
+  assert('activity writes restrict update/delete',
+    /activity[\s\S]{0,600}allow update, delete: if false/.test(src));
+}
+
+section('D4: audit_log retention cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('auditLogRetentionCron on a schedule', /exports\.auditLogRetentionCron/.test(src) && /onSchedule/.test(src));
+  assert('retention default is 7 years', /7 \* 365/.test(src));
+  assert('pages in 500-doc batches', /limit\(500\)/.test(src));
+}
+
+section('D5: nightly Firestore backup cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('nightlyFirestoreBackup on a schedule',
+    /exports\.nightlyFirestoreBackup/.test(src) && /every day 04:00/.test(src));
+  assert('exports to GCS bucket', /BACKUP_BUCKET/.test(src) && /:exportDocuments/.test(src));
+}
+
+section('D6: GDPR export-my-data');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('exportMyData callable defined', /exports\.exportMyData\s*=/.test(src));
+  assert('limited to 2 exports per 24h', /exportMyData:uid[\s\S]{0,100}2,\s*24 \* 3_600_000/.test(src));
+  assert('writes signed URL to docs/{uid}/', /docs\/\$\{uid\}\/gdpr-export/.test(src));
+}
+
+section('D7: GDPR two-step erasure');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('requestAccountErasure + confirmAccountErasure exported',
+    /exports\.requestAccountErasure\s*=/.test(src) && /exports\.confirmAccountErasure\s*=/.test(src));
+  assert('confirmation token hashed before storage',
+    /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/.test(src));
+  assert('cascade deletes user-owned docs',
+    /where\('userId', '==', uid\)\.limit\(500\)/.test(src));
+  assert('disables Auth account + revokes refresh tokens',
+    /updateUser\(uid, \{ disabled: true \}\)[\s\S]{0,60}revokeRefreshTokens/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('account_erasures collection locked to admin SDK',
+    /match \/account_erasures\/\{uid\}[\s\S]{0,120}allow read, write: if false/.test(rules));
+}
+
+section('D8: imageProxy deprecation signals');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('imageProxy sets Deprecation header',
+    /imageProxy[\s\S]*?res\.set\('Deprecation', 'true'\)/.test(src));
+  assert('imageProxy sets Sunset header',
+    /imageProxy[\s\S]*?res\.set\('Sunset',/.test(src));
+  assert('imageProxy logs every call',
+    /imageProxy DEPRECATED call/.test(src));
+}
+
+section('D9: new-device sign-in alert');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/device-alert.js'));
+  assert('registerDeviceFingerprint callable defined',
+    /exports\.registerDeviceFingerprint\s*=/.test(src));
+  assert('fingerprint is salted hash (uid included)',
+    /uid \+ '::' \+ String/.test(src));
+  assert('writes audit_log on new device',
+    /type: 'new_device_sign_in'/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('user_devices locked to admin SDK',
+    /match \/user_devices\/\{uid\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard invokes registerDeviceFingerprint on auth',
+    /registerDeviceFingerprint/.test(dash));
+}
+
+section('E1: Stripe dunning on payment failed');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('dunning enqueues email on payment_failed',
+    /invoice\.payment_failed[\s\S]{0,3000}email_queue/.test(src));
+  assert('dunning writes activity entry when leadId present',
+    /invoice\.payment_failed[\s\S]{0,3500}stripe_payment_failed/.test(src));
+  assert('dunning posts to Slack',
+    /invoice\.payment_failed[\s\S]{0,4000}postSlack/.test(src));
+}
+
+section('E2: CI workflow present');
+{
+  const ci = read(path.join(ROOT, '.github/workflows/ci.yml'));
+  assert('CI runs smoke tests',           /node tests\/smoke\.test\.js/.test(ci));
+  assert('CI runs firestore rules tests', /firestore-rules\.test\.js/.test(ci));
+  assert('CI does a syntax pass',         /node --check/.test(ci));
+  assert('CI secret-scans for private keys',
+    /PRIVATE KEY/.test(ci) && /sk-ant-/.test(ci) && /sk_live_/.test(ci));
+}
+
+section('E3: CODEOWNERS + PR template + Dependabot');
+{
+  assert('CODEOWNERS exists',      fs.existsSync(path.join(ROOT, '.github/CODEOWNERS')));
+  assert('PR template exists',     fs.existsSync(path.join(ROOT, '.github/pull_request_template.md')));
+  assert('Dependabot config exists', fs.existsSync(path.join(ROOT, '.github/dependabot.yml')));
+  const co = read(path.join(ROOT, '.github/CODEOWNERS'));
+  assert('CODEOWNERS covers firestore.rules + storage.rules',
+    /firestore\.rules/.test(co) && /storage\.rules/.test(co));
+  assert('CODEOWNERS covers functions/integrations/',
+    /functions\/integrations\//.test(co));
+  const pr = read(path.join(ROOT, '.github/pull_request_template.md'));
+  assert('PR template has security self-check',
+    /Security self-check/i.test(pr) && /enforceAppCheck/.test(pr));
+}
+
+section('E4: service-worker kill switch');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('SW bootstrap honors ?nosw=1',  /urlKill = params\.has\('nosw'\)/.test(dash));
+  assert('SW bootstrap checks /pro/nosw.txt', /fetch\('\/pro\/nosw\.txt'/.test(dash));
+  assert('SW kill unregisters + flushes caches',
+    /unregister\(\)[\s\S]{0,200}caches\.delete/.test(dash));
+  assert('README-killswitch.md documents the feature',
+    fs.existsSync(path.join(ROOT, 'docs/pro/README-killswitch.md')));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

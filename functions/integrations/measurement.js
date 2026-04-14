@@ -157,6 +157,20 @@ exports.requestMeasurement = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+    // D1: measurement jobs cost real money per provider API call.
+    // Cap at 20/hour/uid so a runaway loop or malicious caller
+    // can't $-bomb us.
+    const { enforceRateLimit } = require('./upstash-ratelimit');
+    try {
+      await enforceRateLimit('callable:requestMeasurement:uid', uid, 20, 60 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        throw new HttpsError('resource-exhausted',
+          'Measurement rate limit — try again in an hour (or contact support).');
+      }
+      throw e;
+    }
+
     const address = typeof request.data?.address === 'string'
       ? request.data.address.trim() : '';
     if (!address || address.length < 5 || address.length > 500) {

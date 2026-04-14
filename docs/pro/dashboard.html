@@ -600,6 +600,23 @@
     if (typeof window._subscribeEstimates === 'function') {
       try { window._subscribeEstimates(); } catch (e) { /* degrade to one-shot */ }
     }
+    // D9: register device fingerprint so new-device sign-ins fire
+    // a Slack alert. Fire-and-forget — failure is non-fatal.
+    (async () => {
+      try {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        const fns = mod.getFunctions();
+        const fn = mod.httpsCallable(fns, 'registerDeviceFingerprint');
+        const fp = [
+          screen.width + 'x' + screen.height,
+          navigator.language,
+          new Date().getTimezoneOffset(),
+          (navigator.hardwareConcurrency || ''),
+          (navigator.deviceMemory || '')
+        ].join('|');
+        await fn({ fingerprint: fp, userAgent: (navigator.userAgent || '').slice(0, 400) });
+      } catch (e) { /* silent */ }
+    })();
     
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
     const urlParams = new URLSearchParams(window.location.search);
@@ -14131,25 +14148,51 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/template-suite.js?v=1"></script>
 <script>
 // ── Service Worker registration (offline + PWA) ──
-if ('serviceWorker' in navigator) {
+// E4: two kill-switches in case a bad SW ships:
+//   1. ?nosw=1 on the URL → skips registration + unregisters existing.
+//      Drop this in a user's URL bar to unstick them in < 10s.
+//   2. Remote kill — if any GET to /pro/nosw.txt returns non-404, we
+//      unregister and refuse to register. Deploy that file to kill
+//      SW for every user in the next reload.
+(async function swBootstrap() {
+  if (!('serviceWorker' in navigator)) return;
+  const params = new URLSearchParams(location.search);
+  const urlKill = params.has('nosw');
+
+  // Remote kill — cheap HEAD request; 404 (normal) = SW allowed.
+  let remoteKill = false;
+  try {
+    const r = await fetch('/pro/nosw.txt', { method: 'HEAD', cache: 'no-store' });
+    remoteKill = r.ok;
+  } catch (e) { /* network flake — fail safe (SW allowed) */ }
+
+  if (urlKill || remoteKill) {
+    console.warn('SW kill-switch active (' + (urlKill ? 'url' : 'remote') + ') — unregistering');
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) { try { await r.unregister(); } catch (e) {} }
+    // Also nuke caches so stale assets don't hang around.
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch (e) {}
+    return;
+  }
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/pro/sw.js', { scope: '/pro/' })
       .then(reg => {
         console.log('✓ SW registered:', reg.scope);
-        // Check for updates every 60s
         setInterval(() => reg.update(), 60000);
       })
       .catch(err => console.warn('SW registration failed:', err));
   });
-  // Auto-reload when SW pushes new code
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data?.type === 'SW_UPDATE_AVAILABLE') {
       console.log('🔄 New version available:', e.data.version);
-      // Reload after a short delay to let SW activate
       setTimeout(() => window.location.reload(), 500);
     }
   });
-}
+})();
 // ── Runtime Diagnostic — call window.nbdDiag() from console ──
 window.nbdDiag = function() {
   const r = {};
