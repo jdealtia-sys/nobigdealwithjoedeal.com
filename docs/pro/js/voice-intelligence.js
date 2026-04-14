@@ -206,12 +206,466 @@ export function mimeToExt(contentType) {
   }
 }
 
-// ─── Placeholder main entry point ───────────────────────────────
-// C3b will flesh this out with the recorder UI, consent modal, and
-// list rendering. Shipped here as a no-op so the import in C4's
-// lead-detail.html works without errors.
-export function initVoiceIntel(_opts) {
+// ─── DOM helpers ────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function fmtSec(n) {
+  const s = Math.max(0, Math.floor(Number(n) || 0));
+  const mm = Math.floor(s / 60), ss = s % 60;
+  return mm + ':' + String(ss).padStart(2, '0');
+}
+function fmtCost(c) {
+  const d = (Number(c) || 0) / 100;
+  return '$' + d.toFixed(d < 1 ? 3 : 2);
+}
+
+// ─── Recorder state machine ─────────────────────────────────────
+// Wraps MediaRecorder with a clean event API. States:
+//   'idle' → 'requesting' → 'recording' → 'stopping' → 'done'
+// onEvent({type, ...}) is the only way state leaves the recorder.
+// Errors are their own event type so the UI can show a message
+// without having to decode MediaRecorder's opaque DOMException.
+function createRecorder({ onEvent }) {
+  let stream = null, rec = null, chunks = [];
+  let startedAt = 0, tickTimer = 0, state = 'idle';
+
+  async function start() {
+    if (state !== 'idle' && state !== 'done') return;
+    state = 'requesting';
+    onEvent({ type: 'state', state });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      state = 'idle';
+      onEvent({ type: 'error',
+        code: 'mic-denied',
+        message: e && e.name === 'NotAllowedError'
+          ? 'Microphone access was denied. Enable it in your browser settings.'
+          : ('Could not access microphone: ' + (e && e.message || e)) });
+      return;
+    }
+    // Pick the best supported MIME type. Safari lacks webm opus but
+    // speaks mp4/aac. Let the browser pick with no hint if neither
+    // explicit type is supported.
+    const preferred = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/mp4;codecs=mp4a'
+    ];
+    let mimeType = '';
+    for (const t of preferred) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) {
+        mimeType = t; break;
+      }
+    }
+    try {
+      rec = mimeType ? new MediaRecorder(stream, { mimeType })
+                     : new MediaRecorder(stream);
+    } catch (e) {
+      releaseStream();
+      state = 'idle';
+      onEvent({ type: 'error', code: 'recorder-init-failed',
+        message: 'MediaRecorder failed to initialize: ' + (e && e.message || e) });
+      return;
+    }
+    chunks = [];
+    rec.addEventListener('dataavailable', (ev) => {
+      if (ev.data && ev.data.size > 0) chunks.push(ev.data);
+    });
+    rec.addEventListener('error', (ev) => {
+      onEvent({ type: 'error', code: 'recorder-error',
+        message: 'Recorder error: ' + (ev.error && ev.error.message || 'unknown') });
+    });
+    rec.addEventListener('stop', () => {
+      state = 'done';
+      clearInterval(tickTimer); tickTimer = 0;
+      const blob = new Blob(chunks, { type: rec.mimeType || mimeType || 'audio/webm' });
+      const duration = Math.round((Date.now() - startedAt) / 1000);
+      releaseStream();
+      onEvent({ type: 'done', blob, duration, mimeType: blob.type });
+    });
+    rec.start(1000); // fire dataavailable every 1s so no data lost on crash
+    state = 'recording'; startedAt = Date.now();
+    onEvent({ type: 'state', state, startedAt });
+    tickTimer = setInterval(() => {
+      onEvent({ type: 'tick', elapsedSec: Math.round((Date.now() - startedAt) / 1000) });
+    }, 500);
+  }
+
+  function stop() {
+    if (state !== 'recording') return;
+    state = 'stopping';
+    onEvent({ type: 'state', state });
+    try { rec && rec.stop(); } catch (_) {}
+  }
+
+  function cancel() {
+    if (state === 'recording') {
+      try { rec && rec.stop(); } catch (_) {}
+    }
+    releaseStream();
+    state = 'idle';
+    onEvent({ type: 'state', state });
+  }
+
+  function releaseStream() {
+    if (stream) {
+      try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      stream = null;
+    }
+  }
+
+  return { start, stop, cancel, getState: () => state };
+}
+
+// ─── Consent modal ──────────────────────────────────────────────
+// Three paths based on companies/{id}.recordingConsentMode:
+//   one_party           → no modal, proceed.
+//   two_party_attested  → checkbox: "All parties have consented".
+//   two_party_verbal    → instruction page: "Before you start, ask
+//                         every party out loud and record their
+//                         'yes' answer in the first 20 seconds.
+//                         The system will verify."
+//
+// Returns a Promise<boolean> — true = proceed, false = user cancelled.
+function showConsentModal(consentMode) {
+  return new Promise((resolve) => {
+    if (consentMode === CONSENT_MODES.ONE_PARTY) { resolve(true); return; }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'nbd-voice-modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    const heading = consentMode === CONSENT_MODES.TWO_PARTY_VERBAL
+      ? 'Two-party consent — verbal'
+      : 'Two-party consent — attestation';
+    const body = consentMode === CONSENT_MODES.TWO_PARTY_VERBAL
+      ? 'Your company requires a VERBAL affirmation of consent from every party on this call. ' +
+        'Before saying anything else, ask: "I\'m recording this call — do I have your consent?" ' +
+        'The system will scan the first 20 seconds of the transcript and quarantine the recording if no affirmation is found.'
+      : 'Your company requires that all parties have consented to being recorded. ' +
+        'Confirm below that you have obtained consent from everyone on the call.';
+    const checkboxRow = consentMode === CONSENT_MODES.TWO_PARTY_ATTESTED
+      ? '<label class="nbd-voice-consent-check">' +
+        '<input type="checkbox" id="nbd-voice-consent-check">' +
+        ' I confirm all parties have consented to being recorded.' +
+        '</label>'
+      : '';
+
+    overlay.innerHTML =
+      '<div class="nbd-voice-modal">' +
+        '<h2>' + escHtml(heading) + '</h2>' +
+        '<p>' + escHtml(body) + '</p>' +
+        checkboxRow +
+        '<div class="nbd-voice-modal-actions">' +
+          '<button type="button" data-act="cancel">Cancel</button>' +
+          '<button type="button" data-act="ok" disabled>Start recording</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    const okBtn    = overlay.querySelector('[data-act="ok"]');
+    const cancelBtn= overlay.querySelector('[data-act="cancel"]');
+    const chk      = overlay.querySelector('#nbd-voice-consent-check');
+    if (chk) {
+      chk.addEventListener('change', () => { okBtn.disabled = !chk.checked; });
+    } else {
+      okBtn.disabled = false; // verbal mode: button live immediately
+    }
+    function close(result) {
+      overlay.remove();
+      resolve(result);
+    }
+    okBtn.addEventListener('click', () => close(true));
+    cancelBtn.addEventListener('click', () => close(false));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(false); // click outside = cancel
+    });
+    // Initial focus on the primary action for keyboard users.
+    (chk || okBtn).focus();
+  });
+}
+
+// ─── Recording-list renderer ────────────────────────────────────
+function renderRecordingList(listEl, docs) {
+  if (!listEl) return;
+  if (!docs || docs.length === 0) {
+    listEl.innerHTML =
+      '<div class="nbd-voice-empty">No recordings yet. Record or upload a call to get started.</div>';
+    return;
+  }
+  listEl.innerHTML = docs.map(d => {
+    const status = String(d.status || 'unknown');
+    const statusLabel = {
+      transcribing: 'Transcribing…',
+      analyzing:    'Analyzing…',
+      complete:     'Complete',
+      failed:       'Failed',
+      quarantined_consent: 'Quarantined — consent',
+      soft_deleted: 'Deleted'
+    }[status] || status;
+    const recordedAt = d.recordedAt && d.recordedAt.toDate
+      ? d.recordedAt.toDate().toLocaleString()
+      : (typeof d.recordedAt === 'string' ? d.recordedAt : '');
+    const summary = d.summary || {};
+    const speakers = Array.isArray(d.speakers) ? d.speakers : [];
+    const segments = Array.isArray(d.segments) ? d.segments : [];
+
+    const headerRow =
+      '<div class="nbd-voice-item-head">' +
+        '<span class="nbd-voice-status nbd-voice-status-' + escHtml(status) + '">' +
+          escHtml(statusLabel) +
+        '</span>' +
+        '<span class="nbd-voice-when">' + escHtml(recordedAt) + '</span>' +
+        '<span class="nbd-voice-duration">' + fmtSec(d.audioDurationSec) + '</span>' +
+        '<span class="nbd-voice-cost">' + fmtCost(d.costCents) + '</span>' +
+        '<span class="nbd-voice-calltype">' + escHtml(d.callType || 'other') + '</span>' +
+      '</div>';
+
+    const errorRow = d.statusError
+      ? '<div class="nbd-voice-err">' + escHtml(d.statusError) + '</div>'
+      : '';
+
+    const summaryBlock = status === 'complete' ? (
+      '<div class="nbd-voice-summary">' +
+        (summary.overview ? '<p><strong>Overview:</strong> ' + escHtml(summary.overview) + '</p>' : '') +
+        fieldList('Damage noted',  summary.damageNoted) +
+        fieldList('Objections',    summary.objections) +
+        commitmentList(summary.commitments) +
+        fieldList('Next actions',  summary.nextActions) +
+        insuranceBlock(summary.insuranceDetails) +
+        fieldList('Red flags',     summary.redFlags, 'red') +
+        speakerBlock(speakers) +
+      '</div>'
+    ) : '';
+
+    const transcriptBlock = (status === 'complete' && segments.length > 0) ? (
+      '<details class="nbd-voice-transcript">' +
+        '<summary>Transcript</summary>' +
+        '<div class="nbd-voice-segments">' +
+          segments.map(s =>
+            '<div class="nbd-voice-seg">' +
+              '<span class="nbd-voice-seg-t">' + fmtSec(s.start) + '</span> ' +
+              '<span class="nbd-voice-seg-s">' + escHtml(s.speaker || '') + '</span> ' +
+              escHtml(s.text) +
+            '</div>').join('') +
+        '</div>' +
+      '</details>'
+    ) : '';
+
+    return '<div class="nbd-voice-item" data-rec-id="' + escHtml(d.id) + '">' +
+      headerRow + errorRow + summaryBlock + transcriptBlock +
+      '</div>';
+  }).join('');
+}
+function fieldList(label, items, kind) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const cls = kind === 'red' ? ' nbd-voice-red' : '';
+  return '<div class="nbd-voice-list' + cls + '">' +
+    '<strong>' + escHtml(label) + ':</strong>' +
+    '<ul>' + items.map(x => '<li>' + escHtml(x) + '</li>').join('') + '</ul>' +
+    '</div>';
+}
+function commitmentList(items) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  return '<div class="nbd-voice-list"><strong>Commitments:</strong><ul>' +
+    items.map(c => '<li>' +
+      '<em>' + escHtml(c.who || '?') + '</em>: ' +
+      escHtml(c.what || '') +
+      (c.when ? ' <span class="nbd-voice-when-inline">(' + escHtml(c.when) + ')</span>' : '') +
+    '</li>').join('') +
+    '</ul></div>';
+}
+function insuranceBlock(ins) {
+  if (!ins) return '';
+  const parts = [
+    ins.carrier     && 'Carrier: '     + ins.carrier,
+    ins.claimNumber && 'Claim #: '     + ins.claimNumber,
+    ins.adjuster    && 'Adjuster: '    + ins.adjuster,
+    ins.deductible  && 'Deductible: '  + ins.deductible
+  ].filter(Boolean);
+  if (parts.length === 0) return '';
+  return '<div class="nbd-voice-list"><strong>Insurance:</strong><ul>' +
+    parts.map(p => '<li>' + escHtml(p) + '</li>').join('') +
+    '</ul></div>';
+}
+function speakerBlock(speakers) {
+  if (!speakers.length) return '';
+  return '<div class="nbd-voice-list"><strong>Speakers:</strong><ul>' +
+    speakers.map(s =>
+      '<li>' + escHtml(s.label) + ' — ' + escHtml(s.role) +
+      (typeof s.confidence === 'number'
+        ? ' <span class="nbd-voice-conf">(conf ' + Math.round(s.confidence * 100) + '%)</span>'
+        : '') +
+      '</li>').join('') +
+    '</ul></div>';
+}
+
+// ─── Main entry point ───────────────────────────────────────────
+// Wires everything together. Returns { cleanup } so the host page
+// can tear down the Firestore listener + any in-progress recorder
+// state when the tab unmounts.
+export function initVoiceIntel({
+  leadId, containerEl, auth, db, storage
+}) {
+  if (!leadId || !containerEl || !auth || !db || !storage) {
+    throw new VoiceClientError('client-init-bad-args',
+      'initVoiceIntel requires { leadId, containerEl, auth, db, storage }');
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    containerEl.innerHTML =
+      '<div class="nbd-voice-err">Sign in required to use Voice Intelligence.</div>';
+    return { cleanup() {} };
+  }
+
+  // Skeleton DOM — no inline handlers, all wired via addEventListener.
+  containerEl.innerHTML =
+    '<div class="nbd-voice-root">' +
+      '<div class="nbd-voice-controls">' +
+        '<button type="button" class="nbd-voice-record" data-act="record">' +
+          '<span class="nbd-voice-dot"></span> Record call' +
+        '</button>' +
+        '<label class="nbd-voice-upload">' +
+          '<input type="file" accept="audio/*" style="display:none" data-act="file">' +
+          '<span>or upload audio file</span>' +
+        '</label>' +
+        '<select class="nbd-voice-calltype-sel" data-act="calltype">' +
+          '<option value="other">Other</option>' +
+          '<option value="inspection">Inspection</option>' +
+          '<option value="adjuster">Adjuster</option>' +
+          '<option value="close">Close</option>' +
+          '<option value="followup">Follow-up</option>' +
+        '</select>' +
+        '<span class="nbd-voice-timer" data-slot="timer"></span>' +
+      '</div>' +
+      '<div class="nbd-voice-progress" data-slot="progress"></div>' +
+      '<div class="nbd-voice-list" data-slot="list"></div>' +
+    '</div>';
+
+  const recordBtn    = containerEl.querySelector('[data-act="record"]');
+  const fileInput    = containerEl.querySelector('[data-act="file"]');
+  const calltypeSel  = containerEl.querySelector('[data-act="calltype"]');
+  const timerSlot    = containerEl.querySelector('[data-slot="timer"]');
+  const progressSlot = containerEl.querySelector('[data-slot="progress"]');
+  const listSlot     = containerEl.querySelector('[data-slot="list"]');
+
+  let consentMode = CONSENT_MODES.TWO_PARTY_ATTESTED;
+  resolveCompanyConsentMode({ db, uid: user.uid }).then((r) => {
+    consentMode = r.consentMode;
+  }).catch(() => { /* keep safe default */ });
+
+  let activeRecorder = null;
+  let currentCallType = 'other';
+  calltypeSel.addEventListener('change', (e) => {
+    currentCallType = String(e.target.value || 'other');
+  });
+
+  async function beginRecording() {
+    if (activeRecorder) return;
+    const consented = await showConsentModal(consentMode);
+    if (!consented) return;
+    const rec = createRecorder({
+      onEvent: (ev) => {
+        if (ev.type === 'tick') {
+          timerSlot.textContent = '● ' + fmtSec(ev.elapsedSec);
+        } else if (ev.type === 'state') {
+          if (ev.state === 'recording') {
+            recordBtn.classList.add('is-recording');
+            recordBtn.textContent = 'Stop recording';
+          } else if (ev.state === 'idle' || ev.state === 'done') {
+            recordBtn.classList.remove('is-recording');
+            recordBtn.textContent = 'Record call';
+            timerSlot.textContent = '';
+          }
+        } else if (ev.type === 'error') {
+          showToast('err', ev.message);
+          activeRecorder = null;
+        } else if (ev.type === 'done') {
+          activeRecorder = null;
+          uploadBlob(ev.blob, ev.duration);
+        }
+      }
+    });
+    activeRecorder = rec;
+    rec.start();
+  }
+
+  function stopRecording() {
+    if (activeRecorder) activeRecorder.stop();
+  }
+
+  async function uploadBlob(blob, durationHint) {
+    const recordingId = newRecordingId();
+    progressSlot.innerHTML =
+      '<div class="nbd-voice-up">Uploading… <span data-slot="pct">0%</span></div>';
+    const pctSlot = progressSlot.querySelector('[data-slot="pct"]');
+    try {
+      await uploadAudioBlob({
+        storage, uid: user.uid, leadId, recordingId, blob,
+        onProgress: ({ percent }) => {
+          if (pctSlot) pctSlot.textContent = percent + '%';
+        }
+      });
+      progressSlot.innerHTML =
+        '<div class="nbd-voice-up">Uploaded — processing will start in a few seconds…</div>';
+      // The Storage trigger creates the Firestore doc; the
+      // onSnapshot listener will surface it in the list.
+      setTimeout(() => { progressSlot.innerHTML = ''; }, 8000);
+    } catch (e) {
+      progressSlot.innerHTML = '';
+      showToast('err',
+        e && e.isVoiceClientError ? e.message : ('Upload failed: ' + (e && e.message || e)));
+    }
+  }
+
+  recordBtn.addEventListener('click', () => {
+    if (recordBtn.classList.contains('is-recording')) stopRecording();
+    else beginRecording();
+  });
+  fileInput.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    e.target.value = ''; // allow re-upload of same filename
+    const consented = await showConsentModal(consentMode);
+    if (!consented) return;
+    uploadBlob(f, 0);
+  });
+
+  const unsubscribe = subscribeToRecordings({
+    db, leadId,
+    onChange: (docs) => {
+      // callType the user just picked propagates forward on the
+      // next upload — we don't back-fill existing docs from here.
+      renderRecordingList(listSlot, docs);
+    },
+    onError: (err) => {
+      listSlot.innerHTML =
+        '<div class="nbd-voice-err">Could not load recordings: ' + escHtml(err.message || err) + '</div>';
+    }
+  });
+
+  function showToast(kind, msg) {
+    const t = document.createElement('div');
+    t.className = 'nbd-voice-toast nbd-voice-toast-' + kind;
+    t.textContent = msg;
+    containerEl.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+  }
+
   return {
-    cleanup() { /* C3b */ }
+    cleanup() {
+      try { unsubscribe && unsubscribe(); } catch (_) {}
+      try { activeRecorder && activeRecorder.cancel(); } catch (_) {}
+    },
+    // Exposed for C4 integration — host page can forward the
+    // user's callType selection into future recordings.
+    getCurrentCallType() { return currentCallType; }
   };
 }

@@ -1251,6 +1251,72 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C3b: Voice Intel client module — UI layer');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/voice-intelligence.js'));
+
+  // Recorder state machine
+  assert('C3b: createRecorder wraps MediaRecorder',
+    /function createRecorder\([\s\S]{0,100}onEvent[\s\S]{0,2000}new MediaRecorder\(/.test(src));
+  assert('C3b: recorder releases microphone tracks on stop',
+    /releaseStream\(\)[\s\S]{0,200}stream\.getTracks\(\)\.forEach\(t => t\.stop\(\)\)/.test(src));
+  assert('C3b: recorder emits typed events (state, tick, error, done)',
+    /type: 'state'/.test(src) &&
+    /type: 'tick'/.test(src) &&
+    /type: 'error'/.test(src) &&
+    /type: 'done'/.test(src));
+  assert('C3b: recorder checks isTypeSupported before picking MIME',
+    /MediaRecorder\.isTypeSupported\(t\)/.test(src));
+  assert('C3b: recorder handles NotAllowedError with actionable message',
+    /NotAllowedError[\s\S]{0,200}Microphone access was denied/.test(src));
+  assert('C3b: recorder requests dataavailable every 1s (no data loss on crash)',
+    /rec\.start\(1000\)/.test(src));
+
+  // Consent modal
+  assert('C3b: showConsentModal skips for one_party',
+    /CONSENT_MODES\.ONE_PARTY[\s\S]{0,100}resolve\(true\)/.test(src));
+  assert('C3b: two_party_attested shows checkbox',
+    /CONSENT_MODES\.TWO_PARTY_ATTESTED[\s\S]{0,400}nbd-voice-consent-check/.test(src));
+  assert('C3b: two_party_verbal shows instruction (not just checkbox)',
+    /verbal[\s\S]{0,400}first 20 seconds/i.test(src));
+  assert('C3b: modal supports keyboard cancel via click-outside',
+    /e\.target === overlay[\s\S]{0,100}close\(false\)/.test(src));
+
+  // DOM / accessibility
+  assert('C3b: modal sets role=dialog + aria-modal',
+    /role[\s\S]{0,40}dialog[\s\S]{0,100}aria-modal[\s\S]{0,40}true/.test(src));
+  assert('C3b: all HTML output escaped via escHtml',
+    /function escHtml\(s\)[\s\S]{0,300}&amp;/.test(src));
+  assert('C3b: file input accepts audio only',
+    /accept="audio\/\*"/.test(src));
+
+  // Main factory
+  assert('C3b: initVoiceIntel validates required args',
+    /client-init-bad-args[\s\S]{0,200}initVoiceIntel requires/.test(src));
+  assert('C3b: initVoiceIntel returns cleanup + getCurrentCallType',
+    /cleanup\(\)[\s\S]{0,400}getCurrentCallType\(\)/.test(src));
+  assert('C3b: cleanup unsubscribes Firestore listener + cancels active recorder',
+    /cleanup\(\)[\s\S]{0,400}unsubscribe && unsubscribe\(\)[\s\S]{0,300}activeRecorder && activeRecorder\.cancel\(\)/.test(src));
+
+  // Recording list render — key fields present
+  assert('C3b: list renderer shows status badge + cost + duration',
+    /nbd-voice-status[\s\S]{0,2000}fmtSec\(d\.audioDurationSec\)[\s\S]{0,800}fmtCost\(d\.costCents\)/.test(src));
+  assert('C3b: complete recordings show summary + transcript details',
+    /status === 'complete'[\s\S]{0,4000}nbd-voice-transcript/.test(src));
+  assert('C3b: quarantined_consent status is shown with label',
+    /quarantined_consent:\s*'Quarantined[\s\S]{0,50}consent/.test(src));
+  assert('C3b: insurance details render all four fields when present',
+    /insuranceBlock[\s\S]{0,600}carrier[\s\S]{0,200}claimNumber[\s\S]{0,200}adjuster[\s\S]{0,200}deductible/.test(src));
+  assert('C3b: red flags rendered with dedicated class (visual distinction)',
+    /fieldList\('Red flags',[\s\S]{0,40}'red'\)/.test(src));
+
+  // No window.* pollution, all events addEventListener
+  assert('C3b: no inline onclick/onchange in rendered HTML',
+    !/onclick=|onchange=|onsubmit=/.test(src));
+  assert('C3b: no window.* globals assigned',
+    !/window\.[a-zA-Z_]+\s*=/.test(src));
+}
+
 section('C3a: Voice Intel client module — data layer');
 {
   const src = read(path.join(ROOT, 'docs/pro/js/voice-intelligence.js'));
