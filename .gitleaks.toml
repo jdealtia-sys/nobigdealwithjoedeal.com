@@ -1,0 +1,45 @@
+# Q5: gitleaks configuration for NBD Pro.
+#
+# Extends the default ruleset (130+ secret formats). Add allowlist
+# entries here only for confirmed false positives — never to
+# suppress a real secret. Every allowlist entry should include a
+# comment explaining why the match is safe.
+
+[extend]
+useDefault = true
+
+# ─── Allowlist ────────────────────────────────────────────────
+# Firebase Web API keys are expected to be public — they're domain-
+# restricted via the Firebase project's authorized-domains config,
+# not kept secret. See:
+#   https://firebase.google.com/docs/projects/api-keys
+[[allowlists]]
+description = "Firebase Web API keys are public by design"
+paths = [
+    '''docs/.*\.html''',
+    '''docs/.*\.js''',
+]
+regexes = [
+    '''apiKey:\s*["']AIza[0-9A-Za-z_-]{35}["']''',
+]
+
+# Test-only fixtures under tests/ and _archive/ never represent
+# real secrets — they're synthetic data used by smoke tests.
+[[allowlists]]
+description = "Synthetic test fixtures"
+paths = [
+    '''tests/.*''',
+    '''.*/_archive/.*''',
+]
+
+# Markdown SETUP instructions sometimes show the shape of a secret
+# (e.g. `sk-ant-...`) as placeholder text. Match only the obvious
+# non-secret patterns; real sk-ant- prefixed values with body chars
+# are still caught.
+[[allowlists]]
+description = "Placeholder values in docs"
+regexes = [
+    '''sk-ant-\.{3,}''',            # sk-ant-... placeholder
+    '''sk_live_\.{3,}''',           # sk_live_... placeholder
+    '''paste your sk[_-]''',        # "paste your sk_..." instructions
+]

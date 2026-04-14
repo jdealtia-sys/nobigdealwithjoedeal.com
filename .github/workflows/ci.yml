@@ -104,10 +104,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # Simple grep — look for patterns commonly committed by mistake.
-      # Full secret scanners (gitleaks, trufflehog) can be added later.
+      # Simple grep — fast first-pass for obvious patterns. Catches
+      # the big ones before a push even completes.
       - name: Grep for obvious secrets
         run: |
           set -e
           echo "== Checking for committed private keys / tokens =="
           ! grep -rE '(-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----|sk_live_[A-Za-z0-9]+|sk-ant-[A-Za-z0-9-]{20,}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}|ghp_[A-Za-z0-9]{36})' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=_archive --include='*.js' --include='*.html' --include='*.json' --include='*.md' .
+
+      # Q5: full gitleaks scan — catches 130+ secret formats the
+      # grep above doesn't (GCP SA JSON, Slack webhook, JWTs with
+      # recognizable signatures, etc.). Runs against the whole
+      # history so a secret that slipped in before gitleaks was
+      # wired surfaces now.
+      #
+      # If this starts failing on legitimate matches, add an entry
+      # to .gitleaksignore with the full fingerprint line from the
+      # scanner output.
+      - name: gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_SUMMARY: "true"
