@@ -863,6 +863,23 @@
   // STAGES, _dragId, _filteredLeads now declared at top-level (lines 91-93)
 
   // ── LEADS ──────────────────────────────────────
+
+  // Polls window._user?.uid until it resolves or the timeout expires.
+  // Avoids the fragile 1-second blind sleep when loadLeads() is called
+  // from contexts where onAuthStateChanged may not have fired yet.
+  function _waitForUid(timeoutMs = 5000) {
+    const uid = window._user?.uid;
+    if (uid) return Promise.resolve(uid);
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const iv = setInterval(() => {
+        const u = window._user?.uid;
+        if (u) { clearInterval(iv); resolve(u); }
+        else if (Date.now() - start >= timeoutMs) { clearInterval(iv); reject(new Error('Auth timeout')); }
+      }, 100);
+    });
+  }
+
   async function loadLeads() {
     // Update health indicator to loading
     const healthBadge = document.getElementById('crmHealthBadge');
@@ -870,37 +887,29 @@
       healthBadge.className = 'health-indicator loading';
       healthBadge.title = 'Loading CRM data...';
     }
-    
+
     // Show skeleton loading state (replaces old spinner)
     const kanbanBoard = document.getElementById('kanbanBoard');
     if (kanbanBoard && !window._leads?.length) {
       showKanbanSkeleton();
     }
-    
+
     try {
-      const uid = window._user?.uid;
-      
-      if (!uid) { 
-        console.warn('⚠️ loadLeads: No user ID — waiting for auth...');
-        // Wait a bit for auth to settle
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const retryUid = window._user?.uid;
-        if (!retryUid) {
-          console.error('❌ loadLeads: Still no user after retry — auth failure');
-          window._leads = [];
-          // Update health indicator to error
-          if (healthBadge) {
-            healthBadge.className = 'health-indicator error';
-            healthBadge.title = 'CRM Error: Authentication failed';
-          }
-          // Restore kanban empty state
-          if (typeof renderLeads === 'function') renderLeads([]);
-          return;
+      let uid;
+      try {
+        uid = await _waitForUid(5000);
+      } catch (_) {
+        console.error('❌ loadLeads: Still no user after 5s — auth failure');
+        window._leads = [];
+        if (healthBadge) {
+          healthBadge.className = 'health-indicator error';
+          healthBadge.title = 'CRM Error: Authentication failed';
         }
+        if (typeof renderLeads === 'function') renderLeads([]);
+        return;
       }
-      
-      const finalUid = window._user?.uid;
-      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',finalUid)));
+
+      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid)));
       
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
