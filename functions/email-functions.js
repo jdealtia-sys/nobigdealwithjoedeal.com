@@ -428,7 +428,7 @@ exports.sendEstimateEmail = onRequest(
 
       // Look up lead
       const leadSnap = await db.doc(`leads/${leadId}`).get();
-      if (!leadSnap.exists()) {
+      if (!leadSnap.exists) {
         res.status(404).json({ error: 'Lead not found' });
         return;
       }

@@ -423,7 +423,7 @@ exports.stripeWebhook = onRequest(
       // subscriptions, custom claims, and usage counters.
       const eventRef = db.doc(`stripe_events/${event.id}`);
       const eventSnap = await eventRef.get();
-      if (eventSnap.exists()) {
+      if (eventSnap.exists) {
         logger.info('stripeWebhook.duplicate_event', { eventId: event.id });
         res.json({ received: true, duplicate: true });
         return;
@@ -2531,7 +2531,7 @@ exports.activateInvitedRep = onCall(
       // Update the member doc: invited → active
       const memberRef = db.doc(`companies/${companyId}/members/${email.toLowerCase()}`);
       const memberSnap = await memberRef.get();
-      if (memberSnap.exists()) {
+      if (memberSnap.exists) {
         await memberRef.update({
           status: 'active',
           uid: uid,
