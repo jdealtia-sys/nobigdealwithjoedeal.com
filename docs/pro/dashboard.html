@@ -2099,19 +2099,21 @@
 
   window._exportAllData = function () {
     const leads = (window._leads || []).map(l => ({
-      id:        l.id,
-      firstName: l.firstName || l.fname || '',
-      lastName:  l.lastName  || l.lname || '',
-      email:     l.email     || '',
-      phone:     l.phone     || '',
-      address:   l.address   || '',
-      stage:     l.stage     || '',
-      source:    l.source    || '',
-      jobValue:  l.jobValue  || '',
-      insCarrier:   l.insCarrier   || '',
-      claimNumber:  l.claimNumber  || '',
-      createdAt:    l.createdAt?.toDate?.()?.toISOString() || '',
-      updatedAt:    l.updatedAt?.toDate?.()?.toISOString() || ''
+      id:         l.id,
+      firstName:  l.firstName || l.fname || '',
+      lastName:   l.lastName  || l.lname || '',
+      email:      l.email     || '',
+      phone:      l.phone     || '',
+      address:    l.address   || '',
+      stage:      l.stage     || '',
+      source:     l.source    || '',
+      damageType: l.damageType || '',
+      jobValue:   l.jobValue  || '',
+      carrier:    l.carrier   || '',
+      claimNumber: l.claimNumber || '',
+      notes:      l.notes || '',
+      createdAt:  l.createdAt?.toDate?.()?.toISOString() || '',
+      updatedAt:  l.updatedAt?.toDate?.()?.toISOString() || ''
     }));
     _downloadCsv(leads, 'nbd-leads-' + new Date().toISOString().slice(0, 10) + '.csv');
   };
@@ -2142,12 +2144,15 @@
       const rows = snap.docs.map(d => {
         const p = d.data();
         return {
-          id:        d.id,
-          leadId:    p.leadId || '',
-          storagePath: p.path || p.storagePath || '',
-          url:       p.url || '',
-          caption:   p.caption || '',
-          createdAt: p.createdAt?.toDate?.()?.toISOString() || ''
+          id:         d.id,
+          leadId:     p.leadId || '',
+          url:        p.url || '',
+          thumbUrl:   p.thumbUrl || '',
+          description: p.description || '',
+          tags:       Array.isArray(p.tags) ? p.tags.join('|') : '',
+          quality:    p.quality || '',
+          fileSize:   p.fileSize || '',
+          uploadedAt: p.uploadedAt?.toDate?.()?.toISOString() || (p.capturedAt ? new Date(p.capturedAt).toISOString() : '')
         };
       });
       _downloadCsv(rows, 'nbd-photos-manifest-' + new Date().toISOString().slice(0, 10) + '.csv');
