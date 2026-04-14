@@ -248,6 +248,177 @@ async function transcribeDeepgram(/* { bucket, path, mimeType } */) {
     'Deepgram adapter ships with Phase 2. Set NBD_VOICE_TRANSCRIPTION_PROVIDER=groq in the meantime.');
 }
 
+// ─── Analysis + consent (C1c) ────────────────────────────────────
+//
+// Two Claude calls share one Anthropic endpoint + shape. Both use
+// haiku for cost (analysis averages ~2k input / ~600 output tokens,
+// consent ~300 in / ~60 out). Never Opus — too expensive to run on
+// every call and the quality bump isn't worth the price.
+//
+// Model pinned explicitly rather than read from env, so a config
+// change can't quietly promote every user's voice analysis onto
+// an Opus-tier bill.
+const VOICE_ANALYSIS_MODEL = 'claude-haiku-4-5-20251001';
+const VOICE_ANALYSIS_MAX_TOKENS = 1200;
+const VOICE_CONSENT_MAX_TOKENS = 120;
+
+// Call Anthropic, return the parsed JSON object. Strips common
+// wrapper patterns (```json ... ``` fences, leading/trailing prose)
+// before JSON.parse so minor prompt compliance drift doesn't cause
+// a hard fail. Throws VoiceError on actual failures.
+async function callClaudeJson({ systemPrompt, userPrompt, maxTokens, purpose }) {
+  if (!hasSecret('ANTHROPIC_API_KEY')) {
+    throw new VoiceError('anthropic-not-configured',
+      'ANTHROPIC_API_KEY secret is unset');
+  }
+  const body = {
+    model: VOICE_ANALYSIS_MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: userPrompt }]
+  };
+  if (systemPrompt) body.system = systemPrompt;
+
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'x-api-key': getSecret('ANTHROPIC_API_KEY')
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60_000)
+    });
+  } catch (e) {
+    throw new VoiceError('analysis-network',
+      purpose + ' network error: ' + (e && e.message ? e.message : String(e)));
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+    throw new VoiceError('analysis-api-error',
+      purpose + ' rejected: ' + String(msg).slice(0, 300));
+  }
+  const text = data && data.content && Array.isArray(data.content)
+    ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+    : '';
+  if (!text) {
+    throw new VoiceError('analysis-empty-response',
+      purpose + ' returned no text');
+  }
+
+  // Strip ```json ... ``` fences + any leading/trailing prose.
+  let cleaned = text.trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenceMatch) cleaned = fenceMatch[1].trim();
+  // If the response still has prose before the first { or [, chop it.
+  const firstBrace = cleaned.search(/[{\[]/);
+  if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (e) {
+    throw new VoiceError('analysis-parse-error',
+      purpose + ' returned non-JSON: ' + text.slice(0, 200));
+  }
+
+  const usage = data.usage || {};
+  return {
+    parsed,
+    rawText: text,
+    inputTokens: Number(usage.input_tokens) || 0,
+    outputTokens: Number(usage.output_tokens) || 0
+  };
+}
+
+// analyzeTranscript: runs the roofing-specific structured-summary
+// prompt and returns {summary, speakers, tokens}. Caller stamps
+// tokens onto the recording doc for per-lead cost attribution.
+async function analyzeTranscript({ transcript, segments, leadName, callType }) {
+  const userPrompt = prompts.buildAnalyzePrompt({
+    leadName, callType, transcript, segments
+  });
+  const result = await callClaudeJson({
+    userPrompt,
+    maxTokens: VOICE_ANALYSIS_MAX_TOKENS,
+    purpose: 'analysis'
+  });
+
+  const p = result.parsed || {};
+  const speakers = Array.isArray(p.speakers) ? p.speakers.map(s => ({
+    label: String(s.label || '').slice(0, 32),
+    role:  String(s.role  || 'other').slice(0, 32),
+    confidence: Number(s.confidence) || 0
+  })) : [];
+
+  const rawSummary = p.summary || {};
+  const asStrArr = v => Array.isArray(v)
+    ? v.filter(x => typeof x === 'string' && x).map(x => x.slice(0, 600))
+    : [];
+
+  const summary = {
+    overview:     String(rawSummary.overview || '').slice(0, 2000),
+    damageNoted:  asStrArr(rawSummary.damageNoted),
+    objections:   asStrArr(rawSummary.objections),
+    commitments:  Array.isArray(rawSummary.commitments)
+      ? rawSummary.commitments.slice(0, 20).map(c => ({
+          who:  String((c && c.who) || '').slice(0, 32),
+          what: String((c && c.what) || '').slice(0, 500),
+          when: c && c.when ? String(c.when).slice(0, 80) : null
+        }))
+      : [],
+    nextActions:  asStrArr(rawSummary.nextActions),
+    insuranceDetails: {
+      carrier:     (rawSummary.insuranceDetails && rawSummary.insuranceDetails.carrier)     || null,
+      claimNumber: (rawSummary.insuranceDetails && rawSummary.insuranceDetails.claimNumber) || null,
+      adjuster:    (rawSummary.insuranceDetails && rawSummary.insuranceDetails.adjuster)    || null,
+      deductible:  (rawSummary.insuranceDetails && rawSummary.insuranceDetails.deductible)  || null
+    },
+    redFlags:     asStrArr(rawSummary.redFlags)
+  };
+
+  return {
+    speakers,
+    summary,
+    inputTokens:  result.inputTokens,
+    outputTokens: result.outputTokens
+  };
+}
+
+// checkVerbalConsent: scans the first ~20 seconds of transcript for
+// affirmative consent. Returns { consented, evidence, tokens }.
+// Only invoked when company.recordingConsentMode === 'two_party_verbal'.
+// Fails CLOSED — any error on this step quarantines the recording.
+async function checkVerbalConsent({ transcript, segments }) {
+  // Pick the opening window — prefer segments so we get a clean
+  // 20-second cut; fall back to the first 2000 chars of raw text.
+  let opening = '';
+  if (Array.isArray(segments) && segments.length > 0) {
+    opening = segments
+      .filter(s => s.start < 25)
+      .map(s => s.text)
+      .join(' ');
+  }
+  if (!opening) opening = String(transcript || '').slice(0, 2000);
+
+  const userPrompt = prompts.buildConsentPrompt({ openingTranscript: opening });
+  const result = await callClaudeJson({
+    userPrompt,
+    maxTokens: VOICE_CONSENT_MAX_TOKENS,
+    purpose: 'consent-check'
+  });
+
+  const p = result.parsed || {};
+  return {
+    consented: p.consented === true,
+    evidence:  typeof p.evidence === 'string' ? p.evidence.slice(0, 400) : null,
+    inputTokens:  result.inputTokens,
+    outputTokens: result.outputTokens
+  };
+}
+
 module.exports = {
   // Handlers wired in C1d:
   //   onAudioUploaded, triggerProcessRecording, reprocessRecording
@@ -259,12 +430,17 @@ module.exports = {
   _checkBudget: checkBudget,
   _incrementVoiceUsage: incrementVoiceUsage,
   _transcribeAudio: transcribeAudio,
+  _analyzeTranscript: analyzeTranscript,
+  _checkVerbalConsent: checkVerbalConsent,
   _VoiceError: VoiceError,
   _constants: {
     VOICE_COMPANY_BUDGET_SEC,
     VOICE_COMPANY_BUDGET_DEFAULT,
     MAX_AUDIO_BYTES,
     PIPELINE_TIMEOUT_MS,
-    ANTHROPIC_API_KEY_FOR_VOICE
+    ANTHROPIC_API_KEY_FOR_VOICE,
+    VOICE_ANALYSIS_MODEL,
+    VOICE_ANALYSIS_MAX_TOKENS,
+    VOICE_CONSENT_MAX_TOKENS
   }
 };
