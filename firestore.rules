@@ -68,15 +68,34 @@ service cloud.firestore {
       // only expose READ to the lead's owner + platform admin;
       // writes are admin-SDK only so webhook-stamped events can't
       // be forged by a rep.
+      //
+      // F-05: tightened. Reps can append manual notes/calls/sms/etc.
+      // but can NOT fabricate webhook- or payment-shaped entries.
+      // Every client-written activity must declare `source: 'rep'`
+      // and restrict `type` to the human-action allowlist. Any
+      // financial or webhook-scoped fields are disallowed on client
+      // writes; those come only from admin SDK (webhooks).
       match /activity/{activityId} {
         allow read:  if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
-        // Reps can append their own notes/activity via callable; direct
-        // writes stay locked to admin SDK so webhook integrity is
-        // preserved.
+        // Reps can append their own notes/activity via direct write; the
+        // rule enforces shape. Webhook-written activities (measurement,
+        // stripe, esign, calcom) bypass these rules via admin SDK.
         allow create: if isAuth()
           && request.resource.data.userId == request.auth.uid
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          && request.resource.data.source == 'rep'
+          && request.resource.data.type in [
+               'note', 'call', 'sms_out', 'email_out',
+               'photo_added', 'task_done', 'appointment_set',
+               'door_knock', 'follow_up', 'status_change'
+             ]
+          && !(request.resource.data.keys().hasAny([
+               'stripeInvoiceId', 'stripeCustomerId', 'stripePaymentIntentId',
+               'amountCents', 'hostedInvoiceUrl',
+               'signatureDocumentId', 'signatureProvider',
+               'externalJobId', 'measurements', 'reportUrl'
+             ]));
         allow update, delete: if false;
       }
       match /tasks/{taskId} {
