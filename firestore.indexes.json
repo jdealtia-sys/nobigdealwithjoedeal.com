@@ -425,16 +425,6 @@
       ]
     },
     {
-      "collectionGroup": "portal_tokens",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "leadId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "api_usage",
       "queryScope": "COLLECTION",
       "fields": [
