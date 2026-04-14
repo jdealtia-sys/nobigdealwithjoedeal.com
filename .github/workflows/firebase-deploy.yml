@@ -332,12 +332,19 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive
 
+      # Marketing-project deploy. Tolerant of failure — this is a
+      # SEPARATE Firebase project (nobigdealwithjoedeal) that may
+      # have been renamed, deleted, or never set up. When the
+      # project doesn't exist, the serviceusage API returns 400
+      # and we log a warning instead of failing the whole deploy.
+      # The pro-project deploys (the actual production site) are
+      # already done by this point.
       - name: Deploy marketing-project Firestore rules
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'marketing-rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
-          set -e
+          set +e
           if [ ! -f marketing-site-firestore.rules ]; then
             echo "::warning::marketing-site-firestore.rules not found — skipping"
             exit 0
@@ -349,6 +356,13 @@ jobs:
           trap 'cp /tmp/firestore.rules.pro.bak firestore.rules; rm -f /tmp/firestore.rules.pro.bak' EXIT
           cp marketing-site-firestore.rules firestore.rules
           npx firebase-tools deploy --only firestore:rules --project "$MKT_PROJECT" --non-interactive
+          EXIT=$?
+          if [ $EXIT -eq 0 ]; then
+            echo "✓ Marketing rules deployed."
+          else
+            echo "::warning::Marketing-project deploy returned $EXIT. Usually means the project '$MKT_PROJECT' doesn't exist or the deploy SA isn't a member. The pro-project deploys already completed — this step only affects a separate marketing site Firestore."
+          fi
+          exit 0
 
       - name: Wipe service-account JSON from runner
         if: always()
