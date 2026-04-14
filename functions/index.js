@@ -3336,6 +3336,74 @@ exports.listTeamMembers = onCall(
 );
 
 // ═════════════════════════════════════════════════════════════
+// registerDeviceFingerprint — records browser device fingerprints
+// per user. Sends a Slack alert when a new device is seen for the
+// first time, helping detect account-takeover attempts. Called on
+// every dashboard load; fire-and-forget from the client.
+// ═════════════════════════════════════════════════════════════
+exports.registerDeviceFingerprint = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: false,
+    timeoutSeconds: 10,
+    memory: '128MiB'
+  },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    const uid = request.auth.uid;
+    const fingerprint = String(request.data.fingerprint || '').slice(0, 500);
+    const userAgent   = String(request.data.userAgent   || '').slice(0, 400);
+    if (!fingerprint) return { ok: true };
+
+    try {
+      const col = admin.firestore().collection('device_fingerprints');
+      const snap = await col
+        .where('userId', '==', uid)
+        .where('fingerprint', '==', fingerprint)
+        .limit(1)
+        .get();
+
+      if (snap.empty) {
+        // New device — persist it and fire a Slack alert.
+        await col.add({
+          userId:     uid,
+          fingerprint,
+          userAgent,
+          firstSeen:  admin.firestore.FieldValue.serverTimestamp(),
+          lastSeen:   admin.firestore.FieldValue.serverTimestamp()
+        });
+        try {
+          const slack = require('./integrations/slack');
+          if (typeof slack.postSlack === 'function') {
+            await slack.postSlack({
+              text: `\u{1F510} New device sign-in detected`,
+              blocks: [{
+                type: 'section',
+                text: {
+                  type: 'mrkdwn',
+                  text: `*\u{1F510} New device sign-in*\nUser: \`${uid}\`\nAgent: ${userAgent.slice(0, 120)}`
+                }
+              }]
+            });
+          }
+        } catch (_) { /* Slack not configured — silent */ }
+      } else {
+        // Known device — refresh lastSeen only.
+        await snap.docs[0].ref.update({
+          lastSeen: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    } catch (e) {
+      logger.warn('registerDeviceFingerprint error', { uid, err: e.message });
+    }
+    return { ok: true };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
 // F-09: CSP violation report receiver.
 //
 // The Report-Only CSP in firebase.json is currently a no-op because

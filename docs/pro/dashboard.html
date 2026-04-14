@@ -94,7 +94,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=12" as="script">
+<link rel="preload" href="js/crm.js?v=13" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1243,26 +1243,33 @@
     const originalWarn = console.warn;
     const originalError = console.error;
     
+    // Safe stringify — Firebase internals can have circular references that
+    // crash JSON.stringify. Fall back to String() when that happens.
+    function _safeStr(a) {
+      if (typeof a !== 'object' || a === null) return String(a);
+      try { return JSON.stringify(a); } catch (_) { return String(a); }
+    }
+
     console.log = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = args.map(_safeStr).join(' ');
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('🔍') || msg.includes('✅') || msg.includes('❌')) {
         window._debugLogs.push(`[LOG] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift(); // Keep last 50
       }
       originalLog.apply(console, args);
     };
-    
+
     console.warn = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = args.map(_safeStr).join(' ');
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('⚠️')) {
         window._debugLogs.push(`[WARN] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift();
       }
       originalWarn.apply(console, args);
     };
-    
+
     console.error = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = args.map(_safeStr).join(' ');
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('❌')) {
         window._debugLogs.push(`[ERROR] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift();
@@ -14094,10 +14101,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       <div class="npm-panel" id="npm-panel-custom">
         <div class="npm-custom">
           <div class="npm-custom-row">
-            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="var(--bg)" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="var(--orange)" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="var(--t)" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#E8EAF0" oninput="nbdLiveCustom()"></div>
             <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
           </div>
           <div class="npm-custom-btns">
