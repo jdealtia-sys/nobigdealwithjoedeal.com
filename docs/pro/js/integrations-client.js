@@ -57,7 +57,7 @@
   }
 
   function requireConfigured(key, humanName) {
-    if (!state.status) return true; // fail open if status not yet loaded
+    if (!state.status) return false; // fail closed if status not yet loaded
     if (!state.status.configured || !state.status.configured[key]) {
       toast(humanName + ' integration not set up. Contact support.', 'error');
       return false;

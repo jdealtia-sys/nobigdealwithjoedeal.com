@@ -1339,7 +1339,7 @@
       const now = Date.now();
       if (now - _lastDraftRemotePush > 10_000) {
         _lastDraftRemotePush = now;
-        pushDraftToFirestore().catch(() => {});
+        pushDraftToFirestore().catch(err => { console.error('[estimate-v2] autosave failed', err); });
       }
     }, 400);
   }

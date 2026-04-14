@@ -2659,6 +2659,7 @@ exports.activateInvitedRep = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+    await callableRateLimit(request, 'activateInvitedRep', 10, 60_000);
 
     const companyId = request.auth.token.companyId;
     const role = request.auth.token.role;
@@ -2864,6 +2865,7 @@ exports.rotateAccessCodes = onCall(
     if (request.auth.token.role !== 'admin') {
       throw new HttpsError('permission-denied', 'Platform admin required');
     }
+    await callableRateLimit(request, 'rotateAccessCodes', 5, 60_000);
 
     const db = admin.firestore();
     const deactivated = [];
@@ -3234,6 +3236,7 @@ exports.listTeamMembers = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    await callableRateLimit(request, 'listTeamMembers', 30, 60_000);
 
     const claims = request.auth.token || {};
     const isGlobalAdmin = claims.role === 'admin';

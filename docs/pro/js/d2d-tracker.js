@@ -257,7 +257,7 @@
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     navigator.serviceWorker.ready.then(reg => {
       window.addEventListener('online', () => {
-        reg.sync.register('nbd-d2d-sync').catch(() => {});
+        reg.sync.register('nbd-d2d-sync').catch(err => { console.warn('[d2d] background sync registration failed', err); });
       });
     });
   }

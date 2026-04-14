@@ -240,7 +240,7 @@ service cloud.firestore {
     match /leaderboard/{uid} {
       allow read: if isAdmin()
         || isOwner(uid)
-        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
+        || (isAuth() && myCompanyId() != null && resource.data.companyId != null && resource.data.companyId == myCompanyId());
       allow write: if isOwner(uid);
     }
 
@@ -292,7 +292,7 @@ service cloud.firestore {
     match /reps/{repId} {
       allow read: if isAdmin()
         || isOwner(repId)
-        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
+        || (isAuth() && myCompanyId() != null && resource.data.companyId != null && resource.data.companyId == myCompanyId());
       allow create: if isOwner(repId)
         && !request.resource.data.keys().hasAny(['role','isAdmin']);
       allow update: if (isOwner(repId) && didNotChange(['role','isAdmin','companyId']))
@@ -304,7 +304,7 @@ service cloud.firestore {
     match /territories/{territoryId} {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
-        || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
+        || (isAuth() && myCompanyId() != null && resource.data.companyId != null && resource.data.companyId == myCompanyId());
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }

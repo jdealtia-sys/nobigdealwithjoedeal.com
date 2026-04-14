@@ -189,7 +189,7 @@ const WIDGETS = [
                 <div style="color:var(--m);margin-top:2px;">${(f.properties.headline||'').substring(0,80)}</div>
               </div>`).join('');
           }
-        }).catch(() => {});
+        }).catch(err => { console.warn('[widgets] storm-alerts fetch failed', err); });
     }},
 
   {id:'today-schedule', name:"Today's Schedule", icon:'📅', cat:'Operations', size:'md',

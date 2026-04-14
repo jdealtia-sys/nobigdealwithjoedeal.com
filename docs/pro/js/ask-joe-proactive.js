@@ -279,9 +279,7 @@
         name: zone.name || 'Unknown zone',
         severity: zone.severity || 'Unknown',
         alertType: zone.alertType || zone.type,
-        affectedLeadCount: window.StormIntegration
-          ? window.StormIntegration.findLeadsInZone(zone).length
-          : 0
+        affectedLeadCount: window.StormIntegration?.findLeadsInZone?.(zone)?.length ?? 0
       }));
 
       // High-severity storms become action items
