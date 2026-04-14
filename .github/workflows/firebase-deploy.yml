@@ -43,6 +43,7 @@ on:
       - 'docs/**'
       - 'functions/**'
       - 'firestore.rules'
+      - 'firestore.indexes.json'
       - 'storage.rules'
       - 'marketing-site-firestore.rules'
       - 'firebase.json'
