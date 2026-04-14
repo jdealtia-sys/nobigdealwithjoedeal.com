@@ -1251,6 +1251,60 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C3a: Voice Intel client module — data layer');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/voice-intelligence.js'));
+  // ES module — imports Firebase v10.12.2 modular SDK
+  assert('C3a: module imports modular Firestore SDK (not compat)',
+    /from 'https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/firebase-firestore\.js'/.test(src));
+  assert('C3a: module imports modular Storage SDK',
+    /from 'https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/firebase-storage\.js'/.test(src));
+
+  // Consent mode constants match the server-side rule + pipeline
+  assert('C3a: CONSENT_MODES exports all three modes',
+    /ONE_PARTY:\s*'one_party'/.test(src) &&
+    /TWO_PARTY_ATTESTED:\s*'two_party_attested'/.test(src) &&
+    /TWO_PARTY_VERBAL:\s*'two_party_verbal'/.test(src));
+  assert('C3a: default consent mode is the SAFE two_party_attested',
+    /CONSENT_MODES\.TWO_PARTY_ATTESTED;\s*\/\/\s*safest default/.test(src));
+  assert('C3a: unknown consentMode values fall back (no blind trust)',
+    /Accept only known values; unknown string \u2192 fall back/.test(src));
+
+  // Path shape matches storage.rules
+  assert('C3a: uploader builds audio/{uid}/{leadId}/{recordingId}.{ext} path',
+    /'audio\/' \+ uid \+ '\/' \+ leadId \+ '\/' \+ recordingId \+ '\.' \+ ext/.test(src));
+  assert('C3a: uploader uses uploadBytesResumable (mobile-flake tolerant)',
+    /uploadBytesResumable\(/.test(src));
+
+  // Client-side caps mirror server + rule caps
+  assert('C3a: MAX_AUDIO_BYTES = 200MB matches server cap',
+    /MAX_AUDIO_BYTES = 200 \* 1024 \* 1024/.test(src));
+  assert('C3a: MIME allowlist matches isAudioType() in storage.rules',
+    /ALLOWED_AUDIO_MIME[\s\S]{0,400}'audio\/webm'[\s\S]{0,400}'audio\/mp4'[\s\S]{0,200}'audio\/m4a'/.test(src));
+  assert('C3a: client rejects oversize blob BEFORE upload (fail fast)',
+    /blob\.size > MAX_AUDIO_BYTES/.test(src));
+  assert('C3a: client rejects non-audio MIME BEFORE upload',
+    /ALLOWED_AUDIO_MIME\.some\(/.test(src));
+
+  // Live subscription — order by recordedAt DESC + onSnapshot.
+  assert('C3a: recordings query ordered by recordedAt desc',
+    /orderBy\('recordedAt', 'desc'\)/.test(src));
+  assert('C3a: subscribeToRecordings uses onSnapshot',
+    /export function subscribeToRecordings[\s\S]{0,600}onSnapshot\(/.test(src));
+
+  // Server-authoritative note documented
+  assert('C3a: code documents that server is still authoritative on consent',
+    /SERVER is still authoritative/.test(src));
+
+  // Typed error class
+  assert('C3a: VoiceClientError class exported with code field',
+    /class VoiceClientError extends Error[\s\S]{0,200}this\.code = code/.test(src));
+
+  // Random ID generator uses crypto
+  assert('C3a: newRecordingId uses crypto.getRandomValues',
+    /newRecordingId[\s\S]{0,400}crypto\.getRandomValues/.test(src));
+}
+
 section('C2: Recording rules + Storage audio path + composite index');
 {
   const rules = read(path.join(ROOT, 'firestore.rules'));
