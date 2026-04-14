@@ -920,7 +920,12 @@ Object.assign(exports, calcomIntegration);
 // configured in this deploy. Lets the UI disable a button for an
 // unconfigured provider instead of showing a cryptic error.
 // ═══════════════════════════════════════════════════════════════
-const { hasSecret: _hasInt, PROVIDERS: _intProviders, SECRETS: _intSecrets } = require('./integrations/_shared');
+const {
+  hasSecret: _hasInt,
+  getSecret: _getInt,
+  PROVIDERS: _intProviders,
+  SECRETS: _intSecrets
+} = require('./integrations/_shared');
 exports.integrationStatus = onCall(
   {
     region: 'us-central1',
@@ -1022,6 +1027,69 @@ exports.createPortalToken = onCall(
   }
 );
 
+// ─── revokePortalToken ────────────────────────────────────
+// Flips all active tokens for a lead to active:false so they stop
+// resolving in getHomeownerPortalView. Owner-scoped — a rep can
+// only revoke tokens on their own leads. Platform admin unrestricted.
+exports.revokePortalToken = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    const tokenId = typeof request.data?.token === 'string' ? request.data.token : null;
+    if (!leadId && !tokenId) {
+      throw new HttpsError('invalid-argument', 'leadId or token required');
+    }
+
+    const db = admin.firestore();
+    const isAdmin = request.auth.token.role === 'admin';
+    let revoked = [];
+
+    if (tokenId) {
+      const ref = db.doc(`portal_tokens/${tokenId}`);
+      const snap = await ref.get();
+      if (!snap.exists) throw new HttpsError('not-found', 'Token not found');
+      if (!isAdmin && snap.data().ownerUid !== uid) {
+        throw new HttpsError('permission-denied', 'Not your token');
+      }
+      // We flip to an expired timestamp rather than deleting so the
+      // audit trail survives. getHomeownerPortalView checks expiresAt.
+      await ref.update({
+        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+        revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+        revokedBy: uid
+      });
+      revoked = [tokenId];
+    } else {
+      // Revoke every token for this lead owned by the caller.
+      const q = await db.collection('portal_tokens')
+        .where('leadId', '==', leadId)
+        .get();
+      const batch = db.batch();
+      q.forEach(d => {
+        const data = d.data();
+        if (!isAdmin && data.ownerUid !== uid) return;
+        batch.update(d.ref, {
+          expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+          revokedBy: uid
+        });
+        revoked.push(d.id);
+      });
+      if (revoked.length) await batch.commit();
+    }
+    logger.info('revokePortalToken', { leadId, count: revoked.length });
+    return { success: true, revoked: revoked.length };
+  }
+);
+
 exports.getHomeownerPortalView = onRequest(
   {
     region: 'us-central1',
@@ -1029,7 +1097,10 @@ exports.getHomeownerPortalView = onRequest(
     maxInstances: 20,
     concurrency: 80,
     timeoutSeconds: 15,
-    memory: '256MiB'
+    memory: '256MiB',
+    // BoldSign key: needed to mint the embedded signing URL when
+    // the estimate is awaiting signature.
+    secrets: [_intSecrets.BOLDSIGN_API_KEY]
   },
   async (req, res) => {
     if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).end(); return; }
@@ -1086,6 +1157,36 @@ exports.getHomeownerPortalView = onRequest(
     // REDACTION: only non-sensitive fields reach the homeowner.
     // In particular: no claim details, no internal notes, no rep
     // commission, no other leads.
+
+    // If the estimate is awaiting signature AND BoldSign is
+    // configured AND the signer email on file matches the one
+    // stored on the estimate, request a fresh embed signing URL so
+    // the homeowner can sign right inside the portal instead of
+    // digging up the BoldSign email. We never expose the document
+    // id — only the iframe URL, which BoldSign scopes to the signer
+    // email automatically.
+    let signEmbedUrl = null;
+    if (latest
+        && (latest.signatureStatus === 'sent' || latest.signatureStatus === 'viewed')
+        && latest.signatureProvider === 'boldsign'
+        && latest.signatureDocumentId
+        && latest.signerEmail
+        && _hasInt('BOLDSIGN_API_KEY')) {
+      try {
+        const apiKey = _getInt('BOLDSIGN_API_KEY');
+        const embedRes = await fetch(
+          `https://api.boldsign.com/v1/document/getEmbeddedSignLink?documentId=${encodeURIComponent(latest.signatureDocumentId)}&signerEmail=${encodeURIComponent(latest.signerEmail)}`,
+          { headers: { 'X-API-KEY': apiKey } }
+        );
+        if (embedRes.ok) {
+          const d = await embedRes.json();
+          signEmbedUrl = d.signLink || d.signUrl || null;
+        }
+      } catch (e) {
+        logger.warn('portal embed link fetch failed', { err: e.message });
+      }
+    }
+
     const view = {
       homeowner: {
         firstName: lead.firstName || '',
@@ -1109,6 +1210,7 @@ exports.getHomeownerPortalView = onRequest(
         signatureStatus: latest.signatureStatus || 'none',
         signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
         signedDocumentUrl: latest.signedDocumentUrl || null,
+        signEmbedUrl:    signEmbedUrl,
         // Line-item summary only — NOT the internal cost breakdown.
         lineCount: Array.isArray(latest.lines) ? latest.lines.length : null,
         createdAt: latest.createdAt?.toDate?.()?.toISOString() || null

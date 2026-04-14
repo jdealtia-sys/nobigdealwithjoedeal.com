@@ -174,7 +174,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -595,6 +595,11 @@
       }
     });
     loadEstimates(); loadPins();
+    // B3: wire the live estimates listener so signature webhook
+    // updates + V2 saves land in the UI without a reload.
+    if (typeof window._subscribeEstimates === 'function') {
+      try { window._subscribeEstimates(); } catch (e) { /* degrade to one-shot */ }
+    }
     
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
     const urlParams = new URLSearchParams(window.location.search);
@@ -1473,6 +1478,33 @@
     renderEstimatesList(window._estimates);
   }
   window._loadEstimates = loadEstimates;
+
+  // B3: Live Firestore listener for estimates. Wire-once on auth.
+  // BoldSign webhooks land on the server, flip
+  // estimates/{id}.signatureStatus → the snapshot fires → UI rerenders.
+  // Handles create + update + delete. Idempotent re-subscribe safe.
+  let _estimatesUnsub = null;
+  window._subscribeEstimates = function () {
+    if (_estimatesUnsub) { try { _estimatesUnsub(); } catch(e) {} _estimatesUnsub = null; }
+    const uid = window._user?.uid;
+    if (!uid) return;
+    const q = query(collection(db, 'estimates'), where('userId', '==', uid));
+    _estimatesUnsub = onSnapshot(q, (snap) => {
+      const next = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+          return tb - ta;
+        });
+      window._estimates = next;
+      renderEstimatesList(next);
+    }, (err) => {
+      console.warn('estimates snapshot error:', err && err.message);
+      // Fall back to one-shot fetch so the UI isn't stuck empty.
+      loadEstimates();
+    });
+  };
 
   window._saveEstimate = async (data) => {
     try {
@@ -13597,6 +13629,28 @@ function openCardDetailModal(leadId) {
 }
 window.openCardDetailModal = openCardDetailModal;
 
+// ── Revoke &amp; Regenerate Portal Link ─────────────────
+// B4 + B5: first call revokePortalToken to invalidate every live
+// token for this lead, then mint a fresh one and open the SMS
+// prefilled exactly like _sharePortalLink. Use when a rep suspects
+// a link was leaked or forwarded.
+window._revokePortalLink = async function (leadId) {
+  if (!leadId) return;
+  if (!window.confirm('Revoke all active portal links for this lead and mint a new one?\n\nThe old URL stops working immediately.')) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fns = mod.getFunctions();
+    const revoke = mod.httpsCallable(fns, 'revokePortalToken');
+    const r = await revoke({ leadId });
+    const n = (r && r.data && r.data.revoked) || 0;
+    if (typeof showToast === 'function') showToast('Revoked ' + n + ' link(s). Minting a fresh one...', 'info');
+    await window._sharePortalLink(leadId); // immediately issue a new one
+  } catch (e) {
+    console.error('revoke portal failed', e);
+    if (typeof showToast === 'function') showToast('Revoke failed: ' + (e.message || 'unknown'), 'error');
+  }
+};
+
 // ── Share Homeowner Portal Link ─────────────────────
 // Mints a portal token via createPortalToken and produces the
 // public URL. Copies to clipboard + opens SMS prefilled with the
@@ -13956,10 +14010,15 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
         ✓ Tasks
       </button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px;">
       <button class="btn btn-orange" style="justify-content:center;font-size:12px;padding:10px 12px;"
               onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
         🔗 Share Homeowner Portal Link
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:11px;padding:10px 8px;border-color:#ff6b6b;color:#ff6b6b;"
+              title="Revoke all active portal links for this lead and mint a new one"
+              onclick="window._revokePortalLink && window._revokePortalLink(window._cardDetailLeadId)">
+        🚫 Revoke &amp; Regenerate
       </button>
     </div>
     <!-- New Module Actions -->

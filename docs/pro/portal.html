@@ -284,6 +284,13 @@
 
     const parts = [];
 
+    // B6 — Reorder: when the estimate is SIGNED, booking becomes the
+    // primary CTA. When it's AWAITING signature, the embedded signer
+    // goes first. When neither, only the booking card shows.
+    const estStatus = (view.estimate && view.estimate.signatureStatus) || 'none';
+    const awaitingSign = estStatus === 'sent' || estStatus === 'viewed';
+    const signedNow = estStatus === 'signed';
+
     // ── Estimate summary ──
     if (view.estimate) {
       const e = view.estimate;
@@ -311,16 +318,46 @@
       );
     }
 
-    // ── Booking embed or CTA ──
+    // ── B1: BoldSign signing embed ──
+    // When the estimate is awaiting signature AND the server was
+    // able to mint a signEmbedUrl, render the iframe so the
+    // homeowner can sign without leaving the page.
+    const signEmbedUrl = view.estimate && view.estimate.signEmbedUrl;
+    if (awaitingSign && signEmbedUrl) {
+      parts.push(
+        '<div class="card" style="border-color:var(--orange);">' +
+          '<div class="card-label">Sign Your Contract</div>' +
+          '<div class="card-title">Review &amp; sign below</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">Once signed, your rep gets a confirmation and we\'ll coordinate next steps.</p>' +
+          '<iframe class="cal-embed" src="' + esc(signEmbedUrl) + '" title="Sign Contract" referrerpolicy="no-referrer" allow="clipboard-write *"></iframe>' +
+        '</div>'
+      );
+    } else if (awaitingSign && !signEmbedUrl) {
+      // Awaiting but no embed — fall back to the emailed link.
+      parts.push(
+        '<div class="card" style="border-color:var(--orange);">' +
+          '<div class="card-label">Sign Your Contract</div>' +
+          '<div class="card-title">Check your email</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">We\'ve sent the signing link. If you can\'t find it, reply to any message from your rep and we\'ll re-send.</p>' +
+        '</div>'
+      );
+    }
+
+    // ── Booking embed ──
     if (view.bookingUrl) {
       const cuser = view.rep && view.rep.calcomUsername;
       const cslug = (view.rep && view.rep.calcomEventSlug) || 'roof-inspection';
       const embedSrc = 'https://cal.com/' + encodeURIComponent(cuser) + '/' + encodeURIComponent(cslug) + '?embed=true&theme=dark';
+      const title = signedNow ? 'Book your inspection' : 'Book a Time';
+      const subtitle = signedNow
+        ? 'Pick a time for our crew to inspect your roof and confirm next steps.'
+        : 'Your rep will confirm within the hour. Reschedule anytime from the confirmation email.';
+      const borderCss = signedNow ? 'border-color:var(--green);' : '';
       parts.push(
-        '<div class="card">' +
-          '<div class="card-label">Book a Time</div>' +
-          '<div class="card-title">Pick a slot that works for you</div>' +
-          '<p style="color:var(--muted);margin:0 0 14px;">Your rep will confirm within the hour. Reschedule anytime from the confirmation email.</p>' +
+        '<div class="card" style="' + borderCss + '">' +
+          '<div class="card-label">' + (signedNow ? 'Next Step' : 'Book a Time') + '</div>' +
+          '<div class="card-title">' + esc(title) + '</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
           '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
           '<div style="margin-top:10px;"><a class="btn" href="' + esc(view.bookingUrl) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
         '</div>'

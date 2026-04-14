@@ -1558,11 +1558,16 @@
       return;
     }
 
+    // B2: if name/email missing and we have a linked lead, try to
+    // auto-fill before complaining.
+    if ((!state.customer.name || !state.customer.email) && state.customer.leadId) {
+      prefillFromLead(state.customer.leadId);
+    }
     const customer = state.customer || {};
     const signerName  = (customer.name || '').trim();
     const signerEmail = (customer.email || '').trim().toLowerCase();
     if (!signerName || !signerEmail || !signerEmail.includes('@')) {
-      setStatus('Customer name + email required before signature.', '#ff6b6b');
+      setStatus('Customer name + email required — link this estimate to a lead with an email on file, or type them into the Customer panel.', '#ff6b6b');
       return;
     }
 
@@ -1650,9 +1655,55 @@
   // Public API
   // ═════════════════════════════════════════════════════════
 
-  function open() {
+  // B2: auto-populate the Customer panel from a linked lead. Called
+  // by open() if the caller passes { leadId }. Also called internally
+  // when sendForSignature discovers a lead link but blank customer
+  // data, so the "Send for Signature" flow doesn't fail for an
+  // estimate that was started from a lead detail page.
+  function prefillFromLead(leadId) {
+    if (!leadId) return false;
+    const lead = (window._leads || []).find(l => l.id === leadId);
+    if (!lead) return false;
+    const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
+    // Only overwrite empty fields so we don't clobber a rep who
+    // already started typing.
+    if (!state.customer.name    && name)          state.customer.name    = name;
+    if (!state.customer.email   && lead.email)    state.customer.email   = lead.email;
+    if (!state.customer.phone   && lead.phone)    state.customer.phone   = lead.phone;
+    if (!state.customer.address && lead.address)  state.customer.address = lead.address;
+    state.customer.leadId = leadId;
+    // Claim fields too — insurance mode gets filled in if the lead
+    // has any carrier/number on file.
+    if (lead.insCarrier && !state.claim.carrier)      state.claim.carrier = lead.insCarrier;
+    if (lead.claimNumber && !state.claim.number)      state.claim.number  = lead.claimNumber;
+    // Sync inputs if the modal is open. If not, the next render does it.
+    syncCustomerInputs();
+    return true;
+  }
+  function syncCustomerInputs() {
+    const fields = {
+      v2custName:    state.customer.name,
+      v2custEmail:   state.customer.email,
+      v2custPhone:   state.customer.phone,
+      v2custAddress: state.customer.address
+    };
+    for (const id of Object.keys(fields)) {
+      const el = document.getElementById(id);
+      if (el && fields[id] != null) el.value = fields[id];
+    }
+    const addrEl = document.getElementById('v2measureAddr');
+    if (addrEl && !addrEl.value && state.customer.address) addrEl.value = state.customer.address;
+  }
+
+  function open(opts) {
+    opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
+    // Prefill from a lead id — caller passes it, OR we fall back to
+    // window._cardDetailLeadId (the lead whose detail modal we likely
+    // just came from).
+    const leadId = opts.leadId || window._cardDetailLeadId || null;
+    if (leadId) prefillFromLead(leadId);
     render();
   }
 
