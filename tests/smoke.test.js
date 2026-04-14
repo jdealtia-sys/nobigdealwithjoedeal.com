@@ -796,8 +796,15 @@ section('D3: leads/*/activity subcollection rules');
   const src = read(path.join(ROOT, 'firestore.rules'));
   assert('flat-path activity subcollection rule present',
     /match \/activity\/\{activityId\}[\s\S]{0,400}allow create: if isAuth\(\)/.test(src));
+  // F-05: rule body grew to include type allowlist + financial-field
+  // reject list, so the window widened. `allow update, delete: if false`
+  // is still the terminal statement of the match block.
   assert('activity writes restrict update/delete',
-    /activity[\s\S]{0,600}allow update, delete: if false/.test(src));
+    /match \/activity\/\{activityId\}[\s\S]{0,2000}allow update, delete: if false/.test(src));
+  assert('activity type allowlist enforced (F-05)',
+    /request\.resource\.data\.type in \[[\s\S]*?'note'[\s\S]*?\]/.test(src));
+  assert('activity rejects financial webhook fields (F-05)',
+    /hasAny\(\[[\s\S]*?'stripeInvoiceId'[\s\S]*?'amountCents'[\s\S]*?\]\)/.test(src));
 }
 
 section('D4: audit_log retention cron');
@@ -838,6 +845,124 @@ section('D7: GDPR two-step erasure');
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('account_erasures collection locked to admin SDK',
     /match \/account_erasures\/\{uid\}[\s\S]{0,120}allow read, write: if false/.test(rules));
+  // F-01: confirmAccountErasure GET must be a static page (no state
+  // change), POST must be gated behind a per-uid rate limit. Regression
+  // would let enterprise mail scanners trigger irreversible deletion.
+  assert('F-01: confirmAccountErasure GET does not trigger deletion',
+    /if \(req\.method === 'GET'\)[\s\S]{0,2000}res\.status\(200\)\.send/.test(src));
+  assert('F-01: confirmAccountErasure rejects non-POST/GET',
+    /if \(req\.method !== 'POST'\)[\s\S]{0,100}res\.status\(405\)/.test(src));
+  assert('F-01: confirmAccountErasure per-uid rate limit',
+    /enforceRateLimit\('confirmErasure:uid'/.test(src));
+  assert('F-01: confirmAccountErasure per-ip rate limit',
+    /httpRateLimit\([^)]*'confirmErasure:ip'/.test(src));
+  assert('F-01: confirmAccountErasure CORS restricted to allowlist',
+    /cors: CORS_ORIGINS[\s\S]{0,400}confirmAccountErasure/.test(src) ||
+    /confirmAccountErasure[\s\S]{0,400}cors: CORS_ORIGINS/.test(src));
+}
+
+section('F-02: measurementWebhook signature verification');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('verifyWebhookHmac helper present',
+    /function verifyWebhookHmac/.test(src));
+  assert('timingSafeEqual compare of hmacs',
+    /crypto\.timingSafeEqual/.test(src));
+  assert('fails closed on unconfigured secret',
+    /reason: 'secret-not-configured'/.test(src) &&
+    /secret-not-configured' \? 503/.test(src));
+  assert('rejects missing X-Hover-Signature',
+    /x-hover-signature/.test(src));
+  assert('rejects missing X-EV-Signature',
+    /x-ev-signature/.test(src));
+  const shared = read(path.join(FUNCTIONS, 'integrations/_shared.js'));
+  assert('HOVER_WEBHOOK_SECRET registered',
+    /HOVER_WEBHOOK_SECRET:\s*defineSecret\('HOVER_WEBHOOK_SECRET'\)/.test(shared));
+  assert('EAGLEVIEW_WEBHOOK_SECRET registered',
+    /EAGLEVIEW_WEBHOOK_SECRET:\s*defineSecret\('EAGLEVIEW_WEBHOOK_SECRET'\)/.test(shared));
+}
+
+section('F-03/F-04: admin analytics uses custom-claim gate');
+{
+  const src = read(path.join(ROOT, 'docs/admin/js/pages/analytics.js'));
+  assert('F-03: analytics gate uses claims.role === admin',
+    /claims\.role !== 'admin'/.test(src));
+  assert('F-03: no email equality check survived',
+    !/user\.email !==\s*'/.test(src));
+  // F-04: the hardcoded admin emails must not appear in executable
+  // code. Strip comments first so we don't flag the historical note
+  // that explains the old bad pattern.
+  const codeOnly = src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert('F-04: hardcoded admin emails removed from code',
+    !/jdeal@nobigdealsolutions\.com/.test(codeOnly) &&
+    !/demo@nbdpro\.com/.test(codeOnly));
+}
+
+section('F-06: getHomeownerPortalView is POST-only');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // Grab the function block and assert GET is not accepted.
+  const block = src.match(/exports\.getHomeownerPortalView[\s\S]{0,1200}/);
+  assert('F-06: function block found', !!block);
+  if (block) {
+    assert('F-06: rejects non-POST',
+      /if \(req\.method !== 'POST'\)[\s\S]{0,80}res\.status\(405\)/.test(block[0]));
+    assert('F-06: token sourced from body, not query',
+      /const token = \(req\.body && req\.body\.token\)/.test(block[0]));
+  }
+  const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('F-06: portal.html uses POST + JSON body',
+    /method:\s*'POST'[\s\S]{0,400}body:\s*JSON\.stringify\(\{\s*token\s*\}\)/.test(portal));
+}
+
+section('F-07: Stripe webhook idempotency is atomic');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('F-07: eventRef.create used for idempotency',
+    /eventRef\.create\(\{[\s\S]{0,200}processedAt:/.test(src));
+  assert('F-07: ALREADY_EXISTS code handled',
+    /e\.code === 6[\s\S]{0,200}duplicate_event/.test(src));
+}
+
+section('F-08: Stripe plan derived from price id, not metadata');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('F-08: in-code PRICE_TO_PLAN map exists',
+    /PRICE_TO_PLAN\s*=\s*\{[\s\S]{0,400}STRIPE_PRICE_FOUNDATION[\s\S]{0,200}STRIPE_PRICE_PROFESSIONAL/.test(src));
+  assert('F-08: price.metadata.plan no longer trusted for tier',
+    !/plan = subscription\.items\.data\[0\]\.price\.metadata\.plan/.test(src));
+  assert('F-08: stripeWebhook declares price secrets',
+    /stripeWebhook[\s\S]{0,400}secrets:[\s\S]{0,200}STRIPE_PRICE_FOUNDATION[\s\S]{0,100}STRIPE_PRICE_PROFESSIONAL/.test(src));
+}
+
+section('F-09: CSP report-uri + cspReport function');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('F-09: cspReport function exported',
+    /exports\.cspReport\s*=\s*onRequest/.test(src));
+  const fb = read(path.join(ROOT, 'firebase.json'));
+  assert('F-09: report-uri directive wired',
+    /report-uri \/cspReport/.test(fb));
+  assert('F-09: /cspReport rewrite routes to function',
+    /"source":\s*"\/cspReport"[\s\S]{0,200}"functionId":\s*"cspReport"/.test(fb));
+}
+
+section('F-10: deploy workflow fails loudly on rules/functions errors');
+{
+  const wf = read(path.join(ROOT, '.github/workflows/firebase-deploy.yml'));
+  // Functions deploy must no longer wrap in set +e + exit 0.
+  const funcBlock = wf.match(/Deploy Cloud Functions[\s\S]{0,2000}/);
+  assert('F-10: functions block found', !!funcBlock);
+  if (funcBlock) {
+    assert('F-10: functions deploy is NOT wrapped in set +e',
+      !/set \+e[\s\S]{0,200}deploy --only functions[\s\S]{0,300}exit 0/.test(funcBlock[0]));
+  }
+  const storageBlock = wf.match(/Deploy Storage rules[\s\S]{0,1500}/);
+  assert('F-10: storage-rules block found', !!storageBlock);
+  if (storageBlock) {
+    assert('F-10: storage-rules deploy fails loudly',
+      !/set \+e[\s\S]{0,200}deploy --only storage[\s\S]{0,300}exit 0/.test(storageBlock[0]));
+  }
 }
 
 section('D8: imageProxy deprecation signals');
