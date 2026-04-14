@@ -173,6 +173,81 @@ async function run() {
   await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
 
+  // 20. F-05: leads/{leadId}/activity rep-write shape guards.
+  //
+  // Rep owns leadA (seeded with userId: 'alice' at line 47). A rep
+  // must be able to log ordinary activity but NOT forge webhook-
+  // shaped entries that downstream automation (audit log, dunning,
+  // commission) keys on.
+  const nowTs = new Date().toISOString();
+
+  // ✅ ordinary human-action activity with source:'rep' + whitelisted type
+  await assertSucceeds(setDoc(
+    doc(alice, 'leads/leadA/activity/ok-note'),
+    { userId: 'alice', source: 'rep', type: 'note',
+      note: 'spoke with homeowner', createdAt: nowTs }));
+
+  // ❌ missing source field → blocked
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/no-source'),
+    { userId: 'alice', type: 'note', note: 'x', createdAt: nowTs }));
+
+  // ❌ source:'webhook' claim by a rep → blocked (webhooks use admin SDK)
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/claim-webhook'),
+    { userId: 'alice', source: 'webhook', type: 'note',
+      note: 'x', createdAt: nowTs }));
+
+  // ❌ type not in allowlist → blocked (payment_received)
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/fake-type'),
+    { userId: 'alice', source: 'rep', type: 'payment_received',
+      createdAt: nowTs }));
+
+  // ❌ type not in allowlist → blocked (stripe_payment_failed)
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/forge-stripe-type'),
+    { userId: 'alice', source: 'rep', type: 'stripe_payment_failed',
+      createdAt: nowTs }));
+
+  // ❌ stripe/financial fields on a client write → blocked even with
+  //    a whitelisted type
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/stripe-fields'),
+    { userId: 'alice', source: 'rep', type: 'note',
+      stripeInvoiceId: 'in_X', amountCents: 50000, createdAt: nowTs }));
+
+  // ❌ measurement-webhook fields on a client write → blocked
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/forge-measurement'),
+    { userId: 'alice', source: 'rep', type: 'note',
+      externalJobId: 'hv-1', measurements: { rawSqft: 4200 },
+      createdAt: nowTs }));
+
+  // ❌ signature-webhook fields on a client write → blocked
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/forge-signature'),
+    { userId: 'alice', source: 'rep', type: 'note',
+      signatureDocumentId: 'doc-1', signatureProvider: 'boldsign',
+      createdAt: nowTs }));
+
+  // ❌ activity against a lead the rep does NOT own → blocked
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadB/activity/cross-tenant'),
+    { userId: 'alice', source: 'rep', type: 'note',
+      note: 'x', createdAt: nowTs }));
+
+  // ❌ update + delete still locked to admin SDK
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'leads/leadA/activity/preexisting'),
+      { userId: 'alice', source: 'webhook', type: 'stripe_payment_failed',
+        createdAt: nowTs });
+  });
+  await assertFails(setDoc(
+    doc(alice, 'leads/leadA/activity/preexisting'),
+    { userId: 'alice', source: 'rep', type: 'note', createdAt: nowTs }));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
