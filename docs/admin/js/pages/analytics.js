@@ -2,17 +2,33 @@ const WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
 
 let autoRefreshTimer = null;
 
-window.addEventListener('auth-ready', () => {
+// F-03: custom-claim gate, no email comparison. The previous check
+// used string match on two hardcoded admin emails (`demo@nbdpro.com`
+// and Joe's real address). That's a client-side gate trivially bypassed
+// in DevTools AND it leaked Joe's admin email to anyone who fetched
+// the script. Matches the pattern used by login.js / vault.html /
+// project-codex.html.
+window.addEventListener('auth-ready', async () => {
   const user = window._currentUser;
-  
-  // Admin-only check (demo account bypass)
-  if (user.email !== 'demo@nbdpro.com' && user.email !== 'jdeal@nobigdealsolutions.com') {
+  if (!user) {
+    document.body.innerHTML = '<div style="text-align:center; padding:100px; color:var(--red);">🚫 Sign in required</div>';
+    return;
+  }
+  try {
+    // `true` forces a refresh so a just-granted claim is picked up
+    // immediately instead of waiting for the ID token's natural rollover.
+    const result = await user.getIdTokenResult(true);
+    if (result.claims.role !== 'admin') {
+      document.body.innerHTML = '<div style="text-align:center; padding:100px; color:var(--red);">🚫 Admin access required</div>';
+      return;
+    }
+  } catch (_e) {
     document.body.innerHTML = '<div style="text-align:center; padding:100px; color:var(--red);">🚫 Admin access required</div>';
     return;
   }
-  
+
   loadAnalytics();
-  
+
   // Auto-refresh every 30 seconds
   autoRefreshTimer = setInterval(loadAnalytics, 30000);
 });
@@ -34,9 +50,11 @@ async function loadAnalytics() {
       },
       hourly: generateMockHourlyData(),
       topUsers: [
-        { email: 'demo@nbdpro.com', requests: 142, tokens: 31200, cost: 0.0094 },
-        { email: 'jdeal@nobigdealsolutions.com', requests: 89, tokens: 18400, cost: 0.0055 },
-        { email: 'contractor1@example.com', requests: 16, tokens: 3240, cost: 0.0009 }
+        // Placeholder examples only — do NOT reintroduce real admin
+        // emails here. This page is publicly fetchable JS. (F-04)
+        { email: 'user-a@example.com', requests: 142, tokens: 31200, cost: 0.0094 },
+        { email: 'user-b@example.com', requests: 89, tokens: 18400, cost: 0.0055 },
+        { email: 'user-c@example.com', requests: 16, tokens: 3240, cost: 0.0009 }
       ],
       features: {
         'ask-joe': { requests: 198, tokens: 44200, cost: 0.0133 },
