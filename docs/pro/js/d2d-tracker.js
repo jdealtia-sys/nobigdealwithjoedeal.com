@@ -2661,7 +2661,12 @@
     loadTerritories,
     saveTerritory,
     toggleTeamMode: () => { teamMode = !teamMode; loadKnocks().then(() => renderD2D()); },
-    refreshMap: () => { if (d2dMap) { d2dMap.invalidateSize(); } },
+    refreshMap: () => {
+      if (!d2dMap) return;
+      d2dMap.invalidateSize();
+      setTimeout(() => { if (d2dMap) d2dMap.invalidateSize(); }, 250);
+      setTimeout(() => { if (d2dMap) d2dMap.invalidateSize(); }, 800);
+    },
     // Hail overlay — pulls recent hail reports for the visible map
     // center and draws circle markers sized by hail stone diameter.
     // Re-run any time to refresh for the current view.

@@ -364,8 +364,8 @@ window.toggleShortcutsPanel = toggleShortcutsPanel;
 
 // Show skeleton loading state in kanban
 function showKanbanSkeleton() {
-  const stages = ['New', 'Inspected', 'Estimate Sent', 'Approved', 'In Progress', 'Complete', 'Lost'];
-  
+  const stages = window._stageKeys || ['new', 'contacted', 'estimate_sent', 'negotiating', 'closed', 'lost'];
+
   stages.forEach(stage => {
     const body = document.getElementById('kbody-' + stage);
     if (!body) return;
