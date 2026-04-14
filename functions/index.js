@@ -1278,13 +1278,18 @@ exports.getAdminAnalytics = onCall(
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
     const isPlatformAdmin = request.auth.token.role === 'admin';
     const isCompanyAdmin  = request.auth.token.role === 'company_admin';
-    if (!isPlatformAdmin && !isCompanyAdmin) {
+    // Solo-operator fallback: a caller with no companyId claim owns
+    // their own workspace. Their "company" is themselves — scope
+    // the query to uid so they see their own 30-day rollup instead
+    // of getting permission-denied when they click the Analytics tab.
+    const isSoloOwner = !request.auth.token.companyId;
+    if (!isPlatformAdmin && !isCompanyAdmin && !isSoloOwner) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
 
     const companyId = isPlatformAdmin
       ? (request.data?.companyId || request.auth.token.companyId || null)
-      : request.auth.token.companyId;
+      : (request.auth.token.companyId || (isSoloOwner ? uid : null));
 
     const db = admin.firestore();
     const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
@@ -1299,6 +1304,11 @@ exports.getAdminAnalytics = onCall(
       // Always include the owner.
       const coSnap = await db.doc('companies/' + companyId).get();
       if (coSnap.exists && coSnap.data().ownerId) uids.push(coSnap.data().ownerId);
+      // Solo-operator fallback: no company doc yet but companyId
+      // matches the caller's uid — they ARE the owner. Include the
+      // caller so their own rollup shows their own numbers instead
+      // of zeroed-out filters.
+      if (isSoloOwner && companyId === uid) uids.push(uid);
       return [...new Set(uids)];
     }
 
