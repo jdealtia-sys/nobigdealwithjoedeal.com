@@ -1307,6 +1307,46 @@ section('Q4: Turnstile fetch is aborted before handler budget expires');
     /Fail CLOSED on verifier error/i.test(src));
 }
 
+section('Q3: admin MFA enforcement (feature-flag gated)');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('Q3: beforeUserSignedIn imported',
+    /beforeUserSignedIn\s*[,}]/.test(src));
+  assert('Q3: beforeAdminSignIn blocking trigger exported',
+    /exports\.beforeAdminSignIn\s*=\s*beforeUserSignedIn/.test(src));
+  assert('Q3: early-returns for non-admin sessions',
+    /beforeAdminSignIn[\s\S]{0,1500}claims\.role !== 'admin'[\s\S]{0,60}return/.test(src));
+  assert('Q3: feature-flag gate via feature_flags/_default doc',
+    /feature_flags\/_default[\s\S]{0,200}admin_mfa_required/.test(src));
+  assert('Q3: fails SAFE (allow) on feature-flag read error',
+    /feature-flag read failed[\s\S]{0,60}return/.test(src));
+  assert('Q3: rejects admin with no enrolled MFA factor',
+    /factors\.length\s*>\s*0[\s\S]{0,800}throw new HttpsError\(\s*\n?\s*'permission-denied'/.test(src));
+
+  const login = read(path.join(ROOT, 'docs/admin/js/pages/login.js'));
+  assert('Q3: login page surfaces MFA-enrolment prompt on block',
+    /Admin access requires a second factor/.test(login) &&
+    /\/admin\/mfa-enroll\.html/.test(login));
+  assert('Q3: login page handles auth/multi-factor-auth-required',
+    /auth\/multi-factor-auth-required/.test(login));
+
+  // mfa-enroll surface present + uses TOTP (not SMS — SIM-swap resistant).
+  const mfa = read(path.join(ROOT, 'docs/admin/js/pages/mfa-enroll.js'));
+  assert('Q3: mfa-enroll uses TotpMultiFactorGenerator',
+    /TotpMultiFactorGenerator\.generateSecret/.test(mfa) &&
+    /TotpMultiFactorGenerator\.assertionForEnrollment/.test(mfa));
+  assert('Q3: mfa-enroll only admits callers with role: admin',
+    /claims\.role !== 'admin'/.test(mfa));
+  assert('Q3: mfa-enroll generates recovery codes + stores hashes only',
+    /crypto\.subtle\.digest\('SHA-256'/.test(mfa) &&
+    /mfaRecoveryHashes/.test(mfa));
+
+  const html = read(path.join(ROOT, 'docs/admin/mfa-enroll.html'));
+  assert('Q3: mfa-enroll.html noindex + loads the enroll module',
+    /noindex, nofollow/.test(html) &&
+    /\/admin\/js\/pages\/mfa-enroll\.js/.test(html));
+}
+
 section('Q6: deploy bundle excludes seed / find-secrets helpers');
 {
   const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));

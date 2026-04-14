@@ -19,7 +19,7 @@
  */
 
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
-const { beforeUserCreated } = require('firebase-functions/v2/identity');
+const { beforeUserCreated, beforeUserSignedIn } = require('firebase-functions/v2/identity');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
@@ -2548,6 +2548,81 @@ exports.onRepSignup = beforeUserCreated(
         plan: 'growth' // invited reps inherit the company's plan
       }
     };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// Q3: beforeAdminSignIn — require multi-factor enrolment for any
+// account with the platform-admin custom claim.
+//
+// Threat model (from the security audit kill chain): admin email
+// is findable via social engineering + OSINT; password is guessable
+// via credential stuffing if the admin reuses passwords; SMS MFA
+// is bypassable via SIM-swap. A hardware-key or TOTP second factor
+// breaks the whole chain.
+//
+// Rollout is gated on the `admin_mfa_required` field of the
+// `feature_flags/_default` doc (F9 feature flag system). Default
+// is false so shipping this commit alone does NOT lock anyone out.
+// Enrollment path:
+//   1. Deploy this commit with the flag off.
+//   2. Each platform admin signs in to /admin/login.html once; the
+//      client-side MFA enrollment CTA (docs/admin/js/pages/login.js,
+//      also added in this sprint) walks them through TOTP setup.
+//   3. Verify every admin has at least one enrolled factor by
+//      listing users with `admin` claim via the admin SDK.
+//   4. Flip admin_mfa_required → true in Firestore. Enforcement
+//      is live on the next sign-in.
+//
+// The trigger is a no-op for non-admin sessions — only the ~1-5
+// platform admins pay any cost for this check.
+// ═════════════════════════════════════════════════════════════
+exports.beforeAdminSignIn = beforeUserSignedIn(
+  { region: 'us-central1' },
+  async (event) => {
+    const user = event.data;
+    if (!user || !user.uid) return;
+
+    // Fast-path: only enforce on accounts with the platform-admin
+    // claim. Custom claims ride on the ID token the trigger receives.
+    // Firebase Auth sets `user.customClaims` OR `user.tokenClaims`
+    // depending on blocking-trigger flavor — probe both.
+    const claims = (user.customClaims || user.tokenClaims || {});
+    if (claims.role !== 'admin') return;
+
+    // Check the runtime flag. If Firestore is unreachable or the
+    // flag doc is missing, fail SAFE (allow) — we don't want a
+    // Firestore outage to lock Joe out of his own admin panel.
+    let mfaRequired = false;
+    try {
+      const flagSnap = await admin.firestore().doc('feature_flags/_default').get();
+      mfaRequired = !!(flagSnap.exists && flagSnap.data()?.admin_mfa_required === true);
+    } catch (e) {
+      logger.warn('beforeAdminSignIn: feature-flag read failed — allowing', { err: e.message });
+      return;
+    }
+    if (!mfaRequired) return;
+
+    // `multiFactor.enrolledFactors` is an array of MFA info objects.
+    // Empty array or missing field = no enrolled factor.
+    const factors = (user.multiFactor && user.multiFactor.enrolledFactors) || [];
+    if (factors.length > 0) {
+      logger.info('beforeAdminSignIn: admin signed in with MFA', {
+        uid: user.uid,
+        factorCount: factors.length,
+        factorTypes: factors.map(f => f && f.factorId).filter(Boolean)
+      });
+      return;
+    }
+
+    // Hard block. The error code + message surface to the client
+    // via Firebase Auth's signIn error; the admin-login UI reads
+    // this and routes the user to the enrolment flow.
+    logger.warn('beforeAdminSignIn: admin blocked — no MFA factor enrolled', { uid: user.uid });
+    throw new HttpsError(
+      'permission-denied',
+      'Admin access requires a second factor. Enroll a TOTP authenticator (e.g., 1Password, Authy) or a hardware key before signing in again.'
+    );
   }
 );
 

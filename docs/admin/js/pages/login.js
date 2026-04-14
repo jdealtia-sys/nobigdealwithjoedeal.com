@@ -56,7 +56,33 @@ window.handleLogin = async function(event) {
       btn.textContent = 'Unlock Admin Access';
     }
   } catch (e) {
-    errorDiv.textContent = 'Invalid credentials. Please try again.';
+    // Q3: the beforeAdminSignIn blocking trigger throws
+    // permission-denied with an MFA-enrolment message when an admin
+    // account lacks a second factor. Surface that message as
+    // guidance rather than a generic "invalid credentials" — the
+    // user DID authenticate; they just need to enroll MFA.
+    const msg = (e && e.message) || '';
+    const code = (e && e.code) || '';
+    const looksLikeMfaBlock =
+      code === 'auth/internal-error' &&
+      /Admin access requires a second factor/.test(msg);
+    const looksLikeMfaRequired =
+      code === 'auth/multi-factor-auth-required';
+
+    if (looksLikeMfaBlock) {
+      errorDiv.innerHTML =
+        'Admin access requires a second factor. ' +
+        '<a href="/admin/mfa-enroll.html" style="color:var(--blue);text-decoration:underline">' +
+        'Enroll a TOTP authenticator</a> (1Password, Authy, Google Authenticator) ' +
+        'before signing in again.';
+    } else if (looksLikeMfaRequired) {
+      // Firebase returns a resolver on this path; the MFA
+      // verification page handles it. Until we build that UI,
+      // point the admin at the enrolment runbook.
+      errorDiv.textContent = 'Second factor required. Complete MFA on your authenticator app.';
+    } else {
+      errorDiv.textContent = 'Invalid credentials. Please try again.';
+    }
     btn.disabled = false;
     btn.textContent = 'Unlock Admin Access';
     passEl && (passEl.value = '');
