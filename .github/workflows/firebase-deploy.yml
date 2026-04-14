@@ -261,70 +261,65 @@ jobs:
       # blocks every subsequent run. We tolerate non-zero here so
       # rules / functions / hosting still roll out; the raw CLI
       # output in the log tells us exactly which index conflicted.
+      # F-10: index deploy now distinguishes 409 "already exists" (a
+      # benign no-op) from every other failure. Previously `set +e`
+      # swallowed ALL errors, which would mask a real problem like a
+      # malformed composite index spec or a permissions regression.
       - name: Deploy Firestore indexes (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
           set +e
-          npx firebase-tools deploy --only firestore:indexes --project "$PRO_PROJECT" --non-interactive
-          EXIT=$?
+          LOG="$RUNNER_TEMP/firestore-indexes.log"
+          npx firebase-tools deploy --only firestore:indexes --project "$PRO_PROJECT" --non-interactive 2>&1 | tee "$LOG"
+          EXIT=${PIPESTATUS[0]}
           if [ $EXIT -eq 0 ]; then
             echo "✓ Firestore indexes deployed cleanly."
-          else
-            echo "::warning::Index deploy returned exit code $EXIT (usually an 'index already exists' 409). Rest of deploy continues. Inspect the log above if queries are slow."
+            exit 0
           fi
+          # Positive 409 filter — accept ONLY if every non-OK line was
+          # an "already exists" conflict. Anything else is a real error.
+          if grep -qiE 'error|failed|denied|permission' "$LOG" \
+             && ! grep -qiE 'already exists|409' "$LOG"; then
+            echo "::error::Firestore index deploy failed with a non-409 error (exit $EXIT). Fix it before merging."
+            exit $EXIT
+          fi
+          # Mixed 409 + other lines: if any non-409 error is present,
+          # fail. If only 409s, tolerate.
+          if grep -qiE 'error|failed|denied|permission' "$LOG" \
+             && grep -vE 'already exists|409' "$LOG" | grep -qiE 'error|failed|denied|permission'; then
+            echo "::error::Firestore index deploy had a non-409 error mixed with 409s. Fix and re-run."
+            exit $EXIT
+          fi
+          echo "::warning::Index deploy hit 'already exists' (409) only. Treating as no-op."
           exit 0
 
-      # Storage rules deploy. Tolerant of failure here — a missing
-      # Firebase Storage Admin IAM role or an uninitialized default
-      # bucket leaves the EXISTING storage rules in place (which are
-      # strict; we're only hardening them further). Functions +
-      # Hosting can still ship. Fix IAM (add roles/firebasestorage.admin
-      # to the deploy service account) then re-run via workflow_dispatch
-      # with scope=rules to pick up the new storage.rules.
+      # F-10: Storage rules deploy MUST fail the workflow if it fails.
+      # Previously we swallowed the exit code and shipped functions +
+      # hosting against a stale rules set — which is exactly the kind
+      # of silent regression a security audit flags. If IAM is missing
+      # for the deploy SA, fix IAM once, not every push.
       - name: Deploy Storage rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: |
-          set +e
-          npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
-          EXIT=$?
-          if [ $EXIT -eq 0 ]; then
-            echo "✓ Storage rules deployed."
-          else
-            echo "::warning::Storage rules deploy returned $EXIT. Usually means the service account is missing roles/firebasestorage.admin or Firebase Storage isn't initialized for the project. Existing rules remain in effect. Fix IAM and re-run with scope=rules."
-          fi
-          exit 0
+        run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
 
-      # --force: auto-confirm deletion of functions that are in the
-      # live project but no longer exist in source. Git is the source
-      # of truth; if a function was removed in code it should be
-      # removed in the project too. Without this flag the CLI prompts
-      # interactively and dies in CI.
+      # F-10: functions deploy MUST fail the workflow if any function
+      # fails to deploy. The previous tolerance hid genuine breakage
+      # (e.g., rules referencing a function that silently never
+      # deployed, so the rule fails open in production). If a schedule
+      # function keeps failing, provision the IAM once instead of
+      # gaslighting CI into pretending it's fine.
       #
-      # Tolerant of partial failures. 2nd-gen functions deploy
-      # independently — one schedule function that can't register
-      # (missing Scheduler IAM, auth blocking trigger quirks, etc.)
-      # shouldn't gate the ~25 HTTP functions that deployed fine.
-      # Also critical: Hosting is the next step and MUST run so the
-      # new client code ships. We surface any partial failure as a
-      # ::warning:: and let the rest of the deploy complete.
+      # --force still auto-confirms deletion of orphaned functions —
+      # that's intentional and Git-driven.
       - name: Deploy Cloud Functions
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: |
-          set +e
-          npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
-          EXIT=$?
-          if [ $EXIT -eq 0 ]; then
-            echo "✓ All Cloud Functions deployed cleanly."
-          else
-            echo "::warning::Functions deploy returned exit $EXIT — some individual functions failed. The ones that succeeded ARE live (see 'Function URL' lines above). Common culprits: schedule functions needing Cloud Scheduler Admin on the deploy SA, or the runtime SA lacking roles/run.invoker. Hosting will continue to deploy so the client code ships."
-          fi
-          exit 0
+        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
 
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
