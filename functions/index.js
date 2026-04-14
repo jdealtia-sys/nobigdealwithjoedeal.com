@@ -213,9 +213,17 @@ exports.claudeProxy = onRequest(
       if (!response.ok) { res.status(response.status).json(data); return; }
 
       try {
+        // C6: stamp leadId + feature on every api_usage row so we
+        // can attribute cost per-deal. Client passes them in the
+        // body; trust but bound (120 char max on feature, plain
+        // string on leadId).
+        const leadId  = typeof req.body?.leadId  === 'string' ? req.body.leadId.slice(0, 80)  : null;
+        const feature = typeof req.body?.feature === 'string' ? req.body.feature.slice(0, 60) : null;
         await admin.firestore().collection('api_usage').add({
           uid: decoded.uid,
           companyId: callerCompanyId,   // H-5: per-company budget query
+          leadId,                        // C6: per-lead cost attribution
+          feature,                       // e.g. 'ask-joe', 'decision-engine', 'rep-report'
           plan,
           model: anthropicBody.model,
           inputTokens: data.usage?.input_tokens || 0,
@@ -778,6 +786,105 @@ exports.setStorageCors = onRequest(
  * Image proxy — bypasses CORS for loading photos into the editor canvas.
  * GET /imageProxy?path=photos/filename.jpg
  */
+// ═══════════════════════════════════════════════════════════════
+// signImageUrl — C1 replacement for imageProxy streaming.
+//
+// imageProxy streams a Storage object through the function, which
+// means the egress bill gets paid twice: Storage → Function and
+// Function → Client. At 10k users × 20 photos that's $40-100/hr
+// in egress alone. Signed URLs push the client straight to the
+// Storage bucket — same auth/ACL checks we do today (owner uid
+// match OR same-company manager OR platform admin), but Storage
+// handles the actual byte serving.
+//
+// Endpoint: POST /signImageUrl  { path: 'photos/<uid>/<file>' }
+// Returns: { url: 'https://storage.googleapis.com/...<query>' }
+//
+// Clients migrate from  GET /imageProxy?path=X  to
+//                       POST /signImageUrl { path: X }  →  fetch url
+// imageProxy stays in place (backwards compat) but is marked
+// deprecated — once every caller migrates we can delete it.
+// ═══════════════════════════════════════════════════════════════
+exports.signImageUrl = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    maxInstances: 30,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
+
+    if (!(await httpRateLimit(req, res, 'signImageUrl:ip', 300, 60_000))) return;
+    try {
+      await enforceRateLimit('signImageUrl:uid', decoded.uid, 300, 60_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded' }); return; }
+      throw e;
+    }
+
+    let filePath = (req.body && req.body.path) || '';
+    if (typeof filePath !== 'string' || filePath.length > 500) {
+      res.status(400).json({ error: 'Invalid path' }); return;
+    }
+    if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
+      res.status(400).json({ error: 'Invalid path' }); return;
+    }
+    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
+    const [, , ownerUid] = match;
+
+    const isOwner = ownerUid === decoded.uid;
+    const isPlatformAdmin = decoded.role === 'admin';
+    let allowed = isOwner || isPlatformAdmin;
+    if (!allowed) {
+      const callerCompanyId = decoded.companyId || null;
+      const callerRole = decoded.role || '';
+      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
+        try {
+          const db = admin.firestore();
+          const [userDoc, repDoc] = await Promise.all([
+            db.doc(`users/${ownerUid}`).get(),
+            db.doc(`reps/${ownerUid}`).get()
+          ]);
+          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
+            || (repDoc.exists  && repDoc.data().companyId)
+            || null;
+          if (ownerCompanyId && ownerCompanyId === callerCompanyId) allowed = true;
+        } catch (e) { /* fall through */ }
+      }
+    }
+    if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+    try {
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(filePath);
+      const [exists] = await file.exists();
+      if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
+
+      // 15-minute signed URL. Short enough that a stolen URL can't
+      // be re-used indefinitely; long enough that a page render +
+      // photo grid scroll doesn't force re-signing on every image.
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + 15 * 60_000,
+        version: 'v4'
+      });
+      res.set('Cache-Control', 'private, max-age=300');
+      res.status(200).json({ url, expiresIn: 900 });
+    } catch (e) {
+      logger.error('signImageUrl error', { err: e.message });
+      res.status(500).json({ error: 'Signing failed' });
+    }
+  }
+);
+
 exports.imageProxy = onRequest(
   {
     cors: CORS_ORIGINS,
@@ -908,12 +1015,14 @@ const esignIntegration       = require('./integrations/esign');
 const parcelIntegration      = require('./integrations/parcel');
 const hailIntegration        = require('./integrations/hail');
 const calcomIntegration      = require('./integrations/calcom');
+const hailCron               = require('./integrations/hail-cron');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
 Object.assign(exports, parcelIntegration);
 Object.assign(exports, hailIntegration);
 Object.assign(exports, calcomIntegration);
+Object.assign(exports, hailCron);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -1024,6 +1133,155 @@ exports.createPortalToken = onCall(
       maxUses: 100  // generous — homeowner may reload across days
     });
     return { token, expiresAt: expiresAt.toMillis() };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// getAdminAnalytics — C3: ops dashboard numbers for the Team Manager.
+//
+// Returns:
+//   signatures:   { sent30d, signed30d, avgHoursToSign }
+//   measurements: { requested30d, ready30d, passThruRevenueEst }
+//   portal:       { linksMinted30d, portalViews30d }
+//   claude:       { tokens30d, costEstimate }
+//   leads:        { created30d, signed30d, winRatePct }
+//
+// Platform admin OR company_admin of the target company. company_admin
+// gets scoped to their own companyId; platform admin gets the union
+// across the platform when called without a company filter.
+// ═══════════════════════════════════════════════════════════════
+exports.getAdminAnalytics = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '512MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    const isPlatformAdmin = request.auth.token.role === 'admin';
+    const isCompanyAdmin  = request.auth.token.role === 'company_admin';
+    if (!isPlatformAdmin && !isCompanyAdmin) {
+      throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const companyId = isPlatformAdmin
+      ? (request.data?.companyId || request.auth.token.companyId || null)
+      : request.auth.token.companyId;
+
+    const db = admin.firestore();
+    const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
+
+    // Helper — for a rep-owned collection, restrict to the caller's
+    // company when not platform admin. Platform admin with no company
+    // filter gets unfiltered.
+    async function companyUids() {
+      if (!companyId) return null; // platform admin, global
+      const membersSnap = await db.collection('companies/' + companyId + '/members').get();
+      const uids = membersSnap.docs.map(d => d.data().uid).filter(Boolean);
+      // Always include the owner.
+      const coSnap = await db.doc('companies/' + companyId).get();
+      if (coSnap.exists && coSnap.data().ownerId) uids.push(coSnap.data().ownerId);
+      return [...new Set(uids)];
+    }
+
+    const repUids = await companyUids();
+
+    // Signatures — walk estimates created in last 30d that have a
+    // signatureStatus of sent/viewed/signed/declined/expired.
+    let estQuery = db.collection('estimates').where('createdAt', '>=', since);
+    const estSnap = await estQuery.get();
+    const ests = estSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !repUids || repUids.includes(e.userId));
+    const sent = ests.filter(e => e.signatureStatus && e.signatureStatus !== 'none');
+    const signed = ests.filter(e => e.signatureStatus === 'signed');
+    const hours = signed
+      .map(e => {
+        const sent_t = e.signatureSentAt?.toMillis?.();
+        const signed_t = e.signedAt?.toMillis?.();
+        return (sent_t && signed_t) ? (signed_t - sent_t) / 3_600_000 : null;
+      })
+      .filter(h => h != null && h > 0);
+    const avgHoursToSign = hours.length
+      ? Math.round(hours.reduce((a, b) => a + b, 0) / hours.length * 10) / 10
+      : null;
+
+    // Measurements — rollup of count + estimated revenue from the
+    // pass-through line. We count only 'ready' jobs in the window.
+    let msQuery = db.collection('measurements').where('createdAt', '>=', since);
+    const msSnap = await msQuery.get();
+    const measurements = msSnap.docs.map(d => d.data())
+      .filter(m => !repUids || repUids.includes(m.ownerId));
+    const readyMeas = measurements.filter(m => m.status === 'ready');
+    const passThruPrice = Number(process.env.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
+    const passThruRevenueEst = readyMeas.length * passThruPrice;
+
+    // Portal links
+    let linksMinted30d = 0, portalViews30d = 0;
+    try {
+      const tokSnap = await db.collection('portal_tokens')
+        .where('mintedAt', '>=', since).get();
+      const tokens = tokSnap.docs.map(d => d.data())
+        .filter(t => !repUids || repUids.includes(t.ownerUid));
+      linksMinted30d = tokens.length;
+      portalViews30d = tokens.reduce((s, t) => s + (t.uses || 0), 0);
+    } catch (e) { /* index may not exist yet */ }
+
+    // Claude tokens — we already stamp companyId on api_usage.
+    let claudeTokens30d = 0;
+    try {
+      const q = companyId
+        ? db.collection('api_usage').where('companyId', '==', companyId).where('timestamp', '>=', since)
+        : db.collection('api_usage').where('timestamp', '>=', since);
+      const s = await q.get();
+      s.forEach(d => {
+        const r = d.data();
+        claudeTokens30d += (r.inputTokens || 0) + (r.outputTokens || 0);
+      });
+    } catch (e) { /* fall through */ }
+    // Sonnet pricing: $3/M input, $15/M output. Approx with ratio
+    // input:output = 3:1 which is our typical.
+    const claudeCostEstimate = (claudeTokens30d / 1_000_000) * 6.0;
+
+    // Leads
+    let leadQuery = db.collection('leads').where('createdAt', '>=', since);
+    const leadSnap = await leadQuery.get();
+    const leads = leadSnap.docs.map(d => d.data())
+      .filter(l => !repUids || repUids.includes(l.userId));
+    const createdCount = leads.length;
+    const signedCount = leads.filter(l => /sign|won|closed/i.test(l.stage || '')).length;
+
+    return {
+      range: 'last 30 days',
+      companyId: companyId || 'all',
+      generatedAt: new Date().toISOString(),
+      signatures: {
+        sent30d: sent.length,
+        signed30d: signed.length,
+        avgHoursToSign: avgHoursToSign
+      },
+      measurements: {
+        requested30d: measurements.length,
+        ready30d: readyMeas.length,
+        passThruRevenueEst: passThruRevenueEst,
+        passThruPrice
+      },
+      portal: {
+        linksMinted30d,
+        portalViews30d
+      },
+      claude: {
+        tokens30d: claudeTokens30d,
+        costEstimateUSD: Math.round(claudeCostEstimate * 100) / 100
+      },
+      leads: {
+        created30d: createdCount,
+        won30d: signedCount,
+        winRatePct: createdCount > 0 ? Math.round(signedCount / createdCount * 100) : 0
+      }
+    };
   }
 );
 

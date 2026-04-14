@@ -419,6 +419,8 @@
   function refresh() {
     state.loaded = false;
     loadMembers();
+    // C3: keep analytics fresh on every refresh tap.
+    loadAnalytics();
   }
 
   function init() {
@@ -448,10 +450,52 @@
           origGoTo('dash');
           return result;
         }
-        if (!state.loaded) loadMembers();
+        if (!state.loaded) { loadMembers(); loadAnalytics(); }
       }
       return result;
     };
+  }
+
+  // ── Analytics loader (C3) ──────────────────────────────
+  // Pulls the 30-day rollup from getAdminAnalytics and renders
+  // a grid of KPI tiles. Refresh button re-fetches; load is
+  // triggered automatically when refresh() runs.
+  async function loadAnalytics() {
+    const grid = document.getElementById('adminAnalyticsGrid');
+    if (!grid) return;
+    grid.innerHTML = '<div style="color:var(--m);">Loading analytics…</div>';
+    try {
+      const fn = await callable('getAdminAnalytics');
+      const res = await fn({});
+      const d = res && res.data;
+      if (!d) { grid.innerHTML = '<div style="color:var(--m);">No data yet.</div>'; return; }
+
+      const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString());
+      const fmtMoney = (n) => (n == null ? '—' : '$' + Math.round(Number(n)).toLocaleString());
+      const tile = (label, value, sub) =>
+        '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">' +
+          '<div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">' + label + '</div>' +
+          '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:800;color:var(--t);">' + value + '</div>' +
+          (sub ? '<div style="font-size:10px;color:var(--m);margin-top:3px;">' + sub + '</div>' : '') +
+        '</div>';
+
+      grid.innerHTML = [
+        tile('Estimates signed', fmtNum(d.signatures.signed30d),
+          fmtNum(d.signatures.sent30d) + ' sent · ' +
+          (d.signatures.avgHoursToSign != null ? '~' + d.signatures.avgHoursToSign + 'h avg' : 'no avg yet')),
+        tile('Measurements ready', fmtNum(d.measurements.ready30d),
+          '+' + fmtMoney(d.measurements.passThruRevenueEst) + ' pass-through est'),
+        tile('Portal links', fmtNum(d.portal.linksMinted30d),
+          fmtNum(d.portal.portalViews30d) + ' homeowner opens'),
+        tile('Leads created', fmtNum(d.leads.created30d),
+          fmtNum(d.leads.won30d) + ' won · ' + d.leads.winRatePct + '% win rate'),
+        tile('AI spend', fmtMoney(d.claude.costEstimateUSD),
+          fmtNum(d.claude.tokens30d) + ' tokens')
+      ].join('');
+    } catch (e) {
+      grid.innerHTML = '<div style="color:var(--m);">Analytics unavailable: ' +
+        (e.message || 'error') + '</div>';
+    }
   }
 
   // ── Rotate access codes ────────────────────────────────
@@ -487,7 +531,8 @@
     submitEdit,
     toggleDeactivate,
     applyGate,
-    rotateAccessCodes
+    rotateAccessCodes,
+    loadAnalytics
   };
 
   if (document.readyState === 'loading') {

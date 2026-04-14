@@ -16,7 +16,10 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const twilio = require('twilio');
-const { enforceRateLimit, httpRateLimit, clientIp } = require('./rate-limit');
+// C4: use the Upstash-first rate-limit adapter so busy SMS windows
+// don't hammer the shared Firestore rate_limits doc. Falls back to
+// the Firestore limiter when Upstash isn't configured.
+const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 
 // Minimal HTML escaper for values we store from untrusted SMS webhooks.
 function escForStore(s) {
@@ -178,6 +181,22 @@ exports.sendSMS = onRequest(
       return;
     }
 
+    // C4: per-recipient cap — even if a rep has budget remaining,
+    // no single phone number should receive >5 SMS/day from this
+    // app across ALL reps. Anti-harassment + TCPA defense.
+    const toDigits = String(to).replace(/\D/g, '');
+    try {
+      await enforceRateLimit('sendSMS:to', toDigits, 5, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        res.status(429).json({
+          error: 'This recipient has received the maximum SMS for today. Try tomorrow or contact them directly.'
+        });
+        return;
+      }
+      throw e;
+    }
+
     if (!body || body.trim().length === 0) {
       res.status(400).json({ error: 'Body cannot be empty' });
       return;
@@ -300,6 +319,20 @@ exports.sendD2DSMS = onRequest(
       if (!phoneNumber || !isValidPhoneNumber(phoneNumber)) {
         res.status(400).json({ error: 'Knock has invalid phone number' });
         return;
+      }
+
+      // C4: per-recipient cap — 5/day across all reps.
+      const toDigits = String(phoneNumber).replace(/\D/g, '');
+      try {
+        await enforceRateLimit('sendSMS:to', toDigits, 5, 86_400_000);
+      } catch (e) {
+        if (e.rateLimited) {
+          res.status(429).json({
+            error: 'This recipient has received the max SMS for today.'
+          });
+          return;
+        }
+        throw e;
       }
 
       // Get template

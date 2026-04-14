@@ -28,6 +28,23 @@ const PROXY_CHECK_INTERVAL = 300000; // Re-check every 5 minutes
  * @returns {Promise<object>} — Anthropic API response
  */
 async function callClaude(params) {
+  // C6: auto-attach leadId + feature from the current UI context
+  // when the caller didn't supply them. Heuristics:
+  //   - If a lead detail modal is open → window._cardDetailLeadId
+  //   - If the V2 Builder's customer has a leadId → that
+  //   - feature defaults to the active view id from goTo()
+  params = Object.assign({}, params);
+  if (!params.leadId) {
+    params.leadId = window._cardDetailLeadId
+      || (window.EstimateV2UI
+        && window.EstimateV2UI.getState && window.EstimateV2UI.getState().customer
+        && window.EstimateV2UI.getState().customer.leadId)
+      || null;
+  }
+  if (!params.feature) {
+    const active = document.querySelector && document.querySelector('.view.active');
+    params.feature = active ? (active.id || '').replace(/^view-/, '') : null;
+  }
   let result;
   // Try Cloud Function first (if available or unknown)
   if (_proxyAvailable !== false || Date.now() - _proxyLastCheck > PROXY_CHECK_INTERVAL) {

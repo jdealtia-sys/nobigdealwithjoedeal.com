@@ -173,7 +173,14 @@ exports.esignWebhook = onRequest(
     maxInstances: 10,
     timeoutSeconds: 15,
     memory: '256MiB',
-    secrets: [SECRETS.BOLDSIGN_API_KEY, SECRETS.BOLDSIGN_WEBHOOK_SECRET]
+    // STRIPE_SECRET_KEY pulled in so C5 auto-invoice can create the
+    // draft without re-deploying. If not configured, the helper
+    // no-ops.
+    secrets: [
+      SECRETS.BOLDSIGN_API_KEY,
+      SECRETS.BOLDSIGN_WEBHOOK_SECRET,
+      require('firebase-functions/params').defineSecret('STRIPE_SECRET_KEY')
+    ]
   },
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).end(); return; }
@@ -219,9 +226,11 @@ exports.esignWebhook = onRequest(
       const update = { signatureUpdatedAt: admin.firestore.FieldValue.serverTimestamp() };
 
       const normalized = String(eventType || '').toLowerCase();
+      let justSigned = false;
       if (normalized.includes('complet')) {
         update.signatureStatus = 'signed';
         update.signedAt = admin.firestore.FieldValue.serverTimestamp();
+        justSigned = true;
         // Pull the signed PDF URL if available.
         if (body.documentUrl || (body.data && body.data.documentUrl)) {
           update.signedDocumentUrl = body.documentUrl || body.data.documentUrl;
@@ -234,6 +243,19 @@ exports.esignWebhook = onRequest(
         update.signatureStatus = 'viewed';
       }
       await ref.update(update);
+
+      // C5: on signed transitions, auto-create a Stripe invoice.
+      // Swallow any error — failing to create the invoice must NOT
+      // block the signature webhook (BoldSign retries on 5xx). The
+      // function logs + continues; ops can reconcile in Stripe.
+      if (justSigned) {
+        try {
+          await createStripeInvoiceForEstimate(ref);
+        } catch (e) {
+          logger.warn('esignWebhook: auto-invoice failed', { err: e.message });
+        }
+      }
+
       res.status(200).json({ ok: true, matched: true });
     } catch (e) {
       logger.error('esignWebhook error:', e.message);
@@ -246,6 +268,135 @@ function safeEqual(a, b) {
   const ab = Buffer.from(a); const bb = Buffer.from(b);
   if (ab.length !== bb.length) return false;
   return crypto.timingSafeEqual(ab, bb);
+}
+
+// ═════════════════════════════════════════════════════════════
+// createStripeInvoiceForEstimate — C5 auto-invoice on sign.
+//
+// Lifts the signed estimate's customer info, line items, and total
+// into a Stripe Invoice. We intentionally do NOT finalize the
+// invoice here; we leave it in draft so the rep can review and
+// send from Stripe (or we can add a "finalize + email" flow later).
+//
+// No Stripe key? Skip silently. Same estimate re-signed? Skip if
+// estimate.stripeInvoiceId is already set.
+// ═════════════════════════════════════════════════════════════
+async function createStripeInvoiceForEstimate(estRef) {
+  const stripeKey = process.env.STRIPE_SECRET_KEY
+    || (require('firebase-functions/params').defineSecret('STRIPE_SECRET_KEY').value
+        ? require('firebase-functions/params').defineSecret('STRIPE_SECRET_KEY').value()
+        : null);
+  if (!stripeKey) {
+    logger.info('auto-invoice: STRIPE_SECRET_KEY not available in this function context');
+    return;
+  }
+  const Stripe = require('stripe');
+  const stripe = new Stripe(stripeKey);
+
+  const db = admin.firestore();
+  const estSnap = await estRef.get();
+  const est = estSnap.data();
+  if (!est) return;
+  if (est.stripeInvoiceId) {
+    logger.info('auto-invoice: already created', { id: est.stripeInvoiceId });
+    return;
+  }
+
+  const signerEmail = est.signerEmail || (est.customer && est.customer.email);
+  const signerName  = est.signerName  || (est.customer && est.customer.name);
+  if (!signerEmail) {
+    logger.warn('auto-invoice: no signer email on estimate');
+    return;
+  }
+
+  // Find or create customer.
+  let customerId = null;
+  try {
+    const found = await stripe.customers.search({
+      query: `email:'${signerEmail.replace(/'/g, "\\'")}'`,
+      limit: 1
+    });
+    if (found.data.length) customerId = found.data[0].id;
+  } catch (e) { /* search may not be available on older keys */ }
+  if (!customerId) {
+    const c = await stripe.customers.create({
+      email: signerEmail,
+      name:  signerName || undefined,
+      metadata: {
+        leadId: est.leadId || '',
+        estimateId: estRef.id
+      }
+    });
+    customerId = c.id;
+  }
+
+  // Create a draft invoice + line items. Prefer est.lines; fall back
+  // to a single grand-total line if line data is missing.
+  const inv = await stripe.invoices.create({
+    customer: customerId,
+    collection_method: 'send_invoice',
+    days_until_due: 14,
+    auto_advance: false,        // leave in draft for rep review
+    metadata: {
+      estimateId: estRef.id,
+      leadId: est.leadId || '',
+      signatureDocumentId: est.signatureDocumentId || ''
+    },
+    description: 'Roofing project — ' + ((est.customer && est.customer.address) || est.addr || 'see project details')
+  });
+
+  const lines = Array.isArray(est.lines) && est.lines.length ? est.lines : null;
+  if (lines) {
+    for (const line of lines) {
+      const amountCents = Math.round((Number(line.lineTotal) || Number(line.extended) || 0) * 100);
+      if (amountCents <= 0) continue;
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: inv.id,
+        amount: amountCents,
+        currency: 'usd',
+        description: (line.name || line.description || line.code || 'Line item').toString().slice(0, 120)
+      });
+    }
+  } else {
+    const amountCents = Math.round((Number(est.grandTotal) || Number(est.total) || 0) * 100);
+    if (amountCents > 0) {
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        invoice: inv.id,
+        amount: amountCents,
+        currency: 'usd',
+        description: 'Roofing project'
+      });
+    }
+  }
+
+  await estRef.update({
+    stripeInvoiceId:   inv.id,
+    stripeCustomerId:  customerId,
+    stripeInvoiceUrl:  inv.hosted_invoice_url || null,
+    stripeInvoiceStatus: inv.status,
+    stripeInvoiceCreatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // Activity log entry on the lead, if linked.
+  if (est.leadId && est.userId) {
+    try {
+      await db.collection(`leads/${est.leadId}/activity`).add({
+        userId: est.userId,
+        type: 'stripe_invoice_created',
+        label: 'Stripe invoice drafted',
+        stripeInvoiceId: inv.id,
+        stripeCustomerId: customerId,
+        amountCents: lines
+          ? lines.reduce((s, l) => s + Math.round((Number(l.lineTotal) || 0) * 100), 0)
+          : Math.round((Number(est.grandTotal) || 0) * 100),
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {}
+  }
+
+  logger.info('auto-invoice: created', { estId: estRef.id, invoiceId: inv.id, customerId });
 }
 
 module.exports = exports;

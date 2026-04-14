@@ -9902,9 +9902,26 @@ function switchScTab(tab, btn) {
           <span id="adminRoleBadge" style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(232,114,12,.15);border:1px solid var(--orange);color:var(--orange);border-radius:3px;letter-spacing:.08em;text-transform:uppercase;">Admin</span>
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" onclick="window.AdminManager && window.AdminManager.refresh()">↻ Refresh</button>
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
-                  title="Disable legacy access codes (NBD-2026 and siblings) in one click"
+                  title="Disable legacy hardcoded access codes in one click"
                   onclick="window.AdminManager && window.AdminManager.rotateAccessCodes && window.AdminManager.rotateAccessCodes()">🔐 Rotate Access Codes</button>
           <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.openCreate()">+ New User</button>
+        </div>
+      </div>
+
+      <!-- Analytics rollup (C3) — last 30 days -->
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Last 30 Days</div>
+            <div class="panel-title" id="adminAnalyticsTitle">Analytics</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;"
+                  onclick="window.AdminManager && window.AdminManager.loadAnalytics && window.AdminManager.loadAnalytics()">↻ Reload</button>
+        </div>
+        <div class="panel-body">
+          <div id="adminAnalyticsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12px;color:var(--m);">
+            Loading…
+          </div>
         </div>
       </div>
 
@@ -14198,3 +14215,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      BoldSign, Regrid, HailTrace, Cal.com. No-op when providers are
      not configured server-side. -->
 <script defer src="js/integrations-client.js?v=1"></script>
+<!-- Signed Storage URL helper — lets photo grids fetch images
+     directly from Storage (C1) instead of streaming through
+     the deprecated imageProxy. -->
+<script defer src="js/signed-image-url.js?v=1"></script>

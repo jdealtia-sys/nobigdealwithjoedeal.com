@@ -561,6 +561,202 @@ section('Push-5: measurement webhook auto-attaches to lead');
     /l\.measurementReady \?/.test(crm));
 }
 
+// ────────────────────────────────────────────────────────────
+//  WAVE A
+// ────────────────────────────────────────────────────────────
+
+section('Wave A1: deploy runbook');
+{
+  assert('scripts/deploy-runbook.sh exists',
+    fs.existsSync(path.join(ROOT, 'scripts/deploy-runbook.sh')));
+  const src = read(path.join(ROOT, 'scripts/deploy-runbook.sh'));
+  assert('runbook preflights firebase login',
+    /firebase projects:list/.test(src));
+  assert('runbook deploys rules + indexes before functions',
+    /firestore:rules,firestore:indexes[\s\S]{0,400}firebase deploy --only functions/.test(src));
+  assert('runbook runs smoke tests before deploy',
+    /Running smoke tests/i.test(src));
+  assert('runbook lists required + optional secrets',
+    /SECRETS_REQUIRED_FOR_CORE/.test(src) && /SECRETS_RECOMMENDED/.test(src));
+}
+
+section('Wave A2: Turnstile widgets');
+{
+  const helper = read(path.join(ROOT, 'docs/assets/js/public-lead-submit.js'));
+  assert('helper loads Turnstile API on demand',
+    /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/.test(helper));
+  assert('helper attaches turnstileToken to payload',
+    /turnstileToken/.test(helper));
+  assert('nbdTurnstileExecute exposed on window', /window\.nbdTurnstileExecute/.test(helper));
+  const pages = ['docs/index.html','docs/estimate.html','docs/storm-alerts.html','docs/free-guide/index.html'];
+  for (const p of pages) {
+    assert(p + ' exposes __NBD_TURNSTILE_SITEKEY slot',
+      /window\.__NBD_TURNSTILE_SITEKEY/.test(read(path.join(ROOT, p))));
+  }
+}
+
+section('Wave A3: privacy sub-processor disclosure');
+{
+  const pv = read(path.join(ROOT, 'docs/privacy.html'));
+  for (const vendor of ['Resend','Twilio','Anthropic','BoldSign','HOVER','EagleView','Nearmap','Regrid','HailTrace','Cal.com','Sentry','Cloudflare Turnstile']) {
+    assert('privacy lists ' + vendor, new RegExp(vendor.replace('.','\\.'), 'i').test(pv));
+  }
+}
+
+section('Wave A4: rotateAccessCodes button');
+{
+  const adm = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('AdminManager.rotateAccessCodes defined',
+    /async function rotateAccessCodes/.test(adm));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('Team Manager header renders rotate button',
+    /AdminManager\.rotateAccessCodes\(\)/.test(dash));
+}
+
+section('Wave A5: firestore rules tests cover new collections');
+{
+  const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));
+  for (const coll of ['portal_tokens','parcel_cache','measurements','appointments','audit_log']) {
+    assert('rules test covers ' + coll, new RegExp(coll).test(t));
+  }
+  assert('negative test on public lead direct writes',
+    /assertFails\(setDoc\(doc\(anon, 'contact_leads/.test(t));
+  assert('company_admin alone cannot write members without ownerId match',
+    /Carol has role: company_admin[\s\S]{0,300}assertFails/.test(t));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE B
+// ────────────────────────────────────────────────────────────
+
+section('Wave B1: portal BoldSign signing embed');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('portal view requests fresh embed URL when awaiting signature',
+    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(idx));
+  assert('portal view returns signEmbedUrl field',
+    /signEmbedUrl:\s*signEmbedUrl/.test(idx));
+  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal.html renders signing iframe when signEmbedUrl present',
+    /awaitingSign && signEmbedUrl/.test(p));
+}
+
+section('Wave B2: V2 prefill from lead');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('prefillFromLead helper defined', /function prefillFromLead\(leadId\)/.test(src));
+  assert('syncCustomerInputs helper defined', /function syncCustomerInputs\(\)/.test(src));
+  assert('open() accepts leadId', /function open\(opts\)/.test(src));
+  assert('sendForSignature retries prefill before erroring',
+    /prefillFromLead\(state\.customer\.leadId\)/.test(src));
+}
+
+section('Wave B3: live estimates snapshot');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('onSnapshot imported',    /onSnapshot/.test(dash));
+  assert('_subscribeEstimates wired', /window\._subscribeEstimates/.test(dash));
+  assert('subscribe called on auth ready',
+    /window\._subscribeEstimates\(\)/.test(dash));
+}
+
+section('Wave B4+B5: revoke / regenerate portal link');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('revokePortalToken callable exported',
+    /exports\.revokePortalToken\s*=/.test(idx));
+  assert('revoke flips expiresAt to past',
+    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(idx));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('lead detail has Revoke & Regenerate button',
+    /Revoke &amp; Regenerate/.test(dash));
+  assert('_revokePortalLink helper defined',
+    /window\._revokePortalLink\s*=/.test(dash));
+}
+
+section('Wave B6: post-sign booking promotion');
+{
+  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal promotes booking when signedNow',
+    /signedNow[\s\S]{0,200}border-color:var\(--green/.test(p));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE C
+// ────────────────────────────────────────────────────────────
+
+section('Wave C1: signImageUrl replaces imageProxy streaming');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('signImageUrl onRequest exported', /exports\.signImageUrl\s*=/.test(idx));
+  assert('signImageUrl issues 15-min signed URL',
+    /getSignedUrl[\s\S]{0,200}Date\.now\(\) \+ 15 \* 60_000/.test(idx));
+  assert('signImageUrl reuses tenant scoping logic',
+    /exports\.signImageUrl[\s\S]*?\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(idx));
+  const client = read(path.join(PRO_JS, 'signed-image-url.js'));
+  assert('client helper exposes window.NBDSignedUrl', /window\.NBDSignedUrl/.test(client));
+  assert('client helper caches signed URLs', /CACHE_TTL_MS/.test(client));
+}
+
+section('Wave C2: hail cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/hail-cron.js'));
+  assert('onSchedule declared', /onSchedule\(/.test(src));
+  assert('daily schedule', /schedule:\s*'every day/.test(src));
+  assert('slack summary posted when newHits > 0',
+    /newHits\.length > 0[\s\S]{0,400}postSlackSummary/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js registers hail-cron', /require\(['"]\.\/integrations\/hail-cron['"]\)/.test(idx));
+}
+
+section('Wave C3: admin analytics');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('getAdminAnalytics exported', /exports\.getAdminAnalytics\s*=/.test(idx));
+  assert('returns signatures + measurements + portal + claude + leads',
+    /signatures:[\s\S]{0,500}measurements:[\s\S]{0,500}portal:[\s\S]{0,500}claude:[\s\S]{0,500}leads:/.test(idx));
+  const adm = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('loadAnalytics renders KPI tiles', /function loadAnalytics/.test(adm));
+}
+
+section('Wave C4: SMS rate limits');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('sms-functions.js uses Upstash-first adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(src));
+  assert('sendSMS enforces per-recipient cap',
+    /sendSMS:to[\s\S]{0,200}toDigits/.test(src));
+  assert('sendD2DSMS enforces per-recipient cap',
+    /sendD2DSMS[\s\S]{0,2500}sendSMS:to/.test(src));
+}
+
+section('Wave C5: Stripe invoice auto-generation');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('createStripeInvoiceForEstimate defined',
+    /async function createStripeInvoiceForEstimate/.test(src));
+  assert('webhook calls invoice helper on signed transition',
+    /justSigned[\s\S]{0,200}createStripeInvoiceForEstimate/.test(src));
+  assert('invoice created as draft (no auto_advance)',
+    /auto_advance: false/.test(src));
+  assert('idempotent: skips when stripeInvoiceId already set',
+    /est\.stripeInvoiceId/.test(src));
+}
+
+section('Wave C6: per-lead Claude cost attribution');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('api_usage writes now include leadId', /leadId,\s*\/\/ C6/.test(idx));
+  assert('api_usage writes now include feature',
+    /feature,\s*\/\/ e\.g\. 'ask-joe'/.test(idx));
+  const cp = read(path.join(PRO_JS, 'claude-proxy.js'));
+  assert('client auto-attaches leadId from card detail / V2',
+    /window\._cardDetailLeadId/.test(cp));
+  const ix = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('index for (leadId, timestamp) on api_usage',
+    /"collectionGroup":\s*"api_usage"[\s\S]{0,400}"fieldPath":\s*"leadId"[\s\S]{0,200}"fieldPath":\s*"timestamp"[\s\S]{0,100}"order":\s*"DESCENDING"/.test(ix));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

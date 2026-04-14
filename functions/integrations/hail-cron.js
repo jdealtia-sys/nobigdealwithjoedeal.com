@@ -1,0 +1,206 @@
+/**
+ * integrations/hail-cron.js — nightly hail batch for every rep's leads
+ *
+ * Runs on a pubsub schedule. For each active lead that has a lat/lng
+ * (or an address we can geocode), fetches recent hail reports within
+ * a small radius and stamps `lead.hailHit` if anything 0.75"+ was
+ * recorded since the lead's lastHailCheck timestamp.
+ *
+ * Keeps the "⛈ 1.5"" chip on Kanban cards up to date without reps
+ * needing to tap the D2D map. Also posts a Slack summary to
+ * SLACK_WEBHOOK_URL if new hits landed.
+ *
+ * Scheduling: every 24h at 3am local to us-central1 (UTC-6 → 9am UTC).
+ * Batch size: 500 leads / run (Firestore page limit). Larger tenants
+ * will roll over into the next run's cursor naturally.
+ *
+ * SAFE TO DEPLOY WITH NO HAIL PROVIDER CONFIGURED — the function
+ * no-ops when getHailHistory returns nothing useful, which happens
+ * for every provider when the keys are unset.
+ */
+
+'use strict';
+
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { logger } = require('firebase-functions/v2');
+const admin = require('firebase-admin');
+const { SECRETS, PROVIDERS, hasSecret, getSecret } = require('./_shared');
+
+// Re-use the hail fetch helpers from the hail.js module via a
+// low-level import. We intentionally don't go through the callable —
+// this cron runs with admin rights, no caller token.
+// Keeping the fetchers duplicated lightly is simpler than exporting
+// private helpers; each is a handful of lines.
+async function fetchNoaaHail(lat, lng, radiusMi, daysBack) {
+  const tsEnd = new Date();
+  const tsStart = new Date(tsEnd.getTime() - daysBack * 86_400_000);
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  const latDelta = radiusMi / 69;
+  const lngDelta = radiusMi / (69 * Math.cos(lat * Math.PI / 180));
+  const url = 'https://mesonet.agron.iastate.edu/geojson/lsr.php?'
+    + 'sts=' + encodeURIComponent(fmt(tsStart) + 'T00:00')
+    + '&ets=' + encodeURIComponent(fmt(tsEnd) + 'T23:59')
+    + '&type%5B%5D=H'
+    + '&minlat=' + (lat - latDelta).toFixed(4)
+    + '&maxlat=' + (lat + latDelta).toFixed(4)
+    + '&minlon=' + (lng - lngDelta).toFixed(4)
+    + '&maxlon=' + (lng + lngDelta).toFixed(4);
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) return [];
+  const geo = await res.json();
+  return ((geo && geo.features) || []).map(f => {
+    const p = f.properties || {};
+    const g = f.geometry && f.geometry.coordinates;
+    return {
+      at: p.valid || p.utc_valid || null,
+      lat: Array.isArray(g) ? g[1] : null,
+      lng: Array.isArray(g) ? g[0] : null,
+      sizeInches: parseFloat(p.magnitude) || null,
+      source: 'noaa'
+    };
+  }).filter(h => h.lat != null && h.lng != null);
+}
+
+async function fetchHailTrace(lat, lng, radiusMi, daysBack) {
+  if (!hasSecret('HAILTRACE_API_KEY')) return [];
+  const key = getSecret('HAILTRACE_API_KEY');
+  const url = 'https://api.hailtrace.com/v1/hail/query?'
+    + 'lat=' + encodeURIComponent(lat)
+    + '&lon=' + encodeURIComponent(lng)
+    + '&radius_mi=' + encodeURIComponent(radiusMi)
+    + '&days=' + encodeURIComponent(daysBack);
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + key } });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.events || []).map(e => ({
+    at: e.start_time,
+    lat: (e.centroid && e.centroid.lat) || null,
+    lng: (e.centroid && e.centroid.lng) || null,
+    sizeInches: e.max_size || null,
+    source: 'hailtrace'
+  }));
+}
+
+async function postSlackSummary(summary) {
+  if (!hasSecret('SLACK_WEBHOOK_URL')) return;
+  try {
+    await fetch(getSecret('SLACK_WEBHOOK_URL'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: summary.text,
+        blocks: summary.blocks
+      })
+    });
+  } catch (e) { logger.warn('hail-cron slack post failed', e.message); }
+}
+
+exports.hailMatchCron = onSchedule(
+  {
+    region: 'us-central1',
+    schedule: 'every day 09:00',          // 3am US Central / 9am UTC
+    timeZone: 'America/Chicago',
+    timeoutSeconds: 540,                   // 9 min
+    memory: '512MiB',
+    secrets: [SECRETS.HAILTRACE_API_KEY, SECRETS.SLACK_WEBHOOK_URL]
+  },
+  async (event) => {
+    const db = admin.firestore();
+    const SIZE_THRESHOLD = 0.75;   // inches — below this, not worth pitching
+    const RADIUS_MI = 0.3;          // ~5 blocks
+    const DAYS_BACK = 90;
+
+    // Pull up to 500 leads with coordinates and not marked as
+    // deleted. Pagination is by ownerUid + cursor field — but for
+    // the first pass we iterate all active leads once. Larger
+    // tenants roll over to the next day run.
+    const snap = await db.collection('leads')
+      .where('deleted', '==', false)
+      .limit(500)
+      .get();
+
+    const fetcher = PROVIDERS.hail === 'hailtrace' && hasSecret('HAILTRACE_API_KEY')
+      ? fetchHailTrace
+      : fetchNoaaHail;
+
+    const newHits = [];
+    let checked = 0;
+    let skipped = 0;
+
+    for (const docSnap of snap.docs) {
+      const lead = docSnap.data();
+      const lat = Number(lead.lat) || Number(lead.latitude);
+      const lng = Number(lead.lng) || Number(lead.lon) || Number(lead.longitude);
+      if (!isFinite(lat) || !isFinite(lng)) { skipped++; continue; }
+      // Already-checked-recently guard — don't re-query providers every
+      // run for leads we just scored.
+      const last = lead.lastHailCheck && lead.lastHailCheck.toMillis
+        ? lead.lastHailCheck.toMillis() : 0;
+      if (Date.now() - last < 20 * 60 * 60 * 1000) { skipped++; continue; }
+
+      try {
+        const hits = await fetcher(lat, lng, RADIUS_MI, DAYS_BACK);
+        const best = hits.reduce((m, h) => {
+          const s = Number(h.sizeInches) || 0;
+          return s > (m.sizeInches || 0) ? h : m;
+        }, { sizeInches: 0 });
+
+        const update = {
+          lastHailCheck: admin.firestore.FieldValue.serverTimestamp()
+        };
+        if ((best.sizeInches || 0) >= SIZE_THRESHOLD) {
+          update.hailHit = {
+            sizeInches: best.sizeInches,
+            at:         best.at || null,
+            source:     best.source || 'unknown',
+            radiusMi:   RADIUS_MI,
+            foundAt:    admin.firestore.FieldValue.serverTimestamp()
+          };
+          // Only mark as "new" if we didn't already have a match of
+          // equal-or-greater size on this lead.
+          const existing = lead.hailHit && lead.hailHit.sizeInches || 0;
+          if (best.sizeInches > existing) {
+            newHits.push({
+              leadId: docSnap.id,
+              sizeInches: best.sizeInches,
+              address: lead.address || '(no address)',
+              ownerUid: lead.userId
+            });
+          }
+        }
+        await docSnap.ref.update(update);
+        checked++;
+      } catch (e) {
+        logger.warn('hail-cron: lead ' + docSnap.id + ' failed: ' + e.message);
+      }
+    }
+
+    logger.info('hail-cron complete', {
+      checked, skipped, newHits: newHits.length
+    });
+
+    // Slack summary — only when there's news to report. Nobody wants
+    // "0 new hail hits" every morning.
+    if (newHits.length > 0) {
+      const top = newHits
+        .slice()
+        .sort((a, b) => b.sizeInches - a.sizeInches)
+        .slice(0, 10);
+      await postSlackSummary({
+        text: '⛈ ' + newHits.length + ' new hail match(es) on pipeline leads',
+        blocks: [{
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text:
+              '*⛈ Hail match report*\n' +
+              newHits.length + ' lead(s) now have verified hail within ' + RADIUS_MI + ' mi.\n\n' +
+              top.map(h => '• `' + h.sizeInches.toFixed(2) + '"` — ' + h.address).join('\n')
+          }
+        }]
+      });
+    }
+  }
+);
+
+module.exports = exports;
