@@ -2552,32 +2552,45 @@ exports.onRepSignup = beforeUserCreated(
 );
 
 // ═════════════════════════════════════════════════════════════
-// Q3: beforeAdminSignIn — require multi-factor enrolment for any
-// account with the platform-admin custom claim.
+// Q3: beforeAdminSignIn — TEMPORARILY DISABLED.
 //
-// Threat model (from the security audit kill chain): admin email
-// is findable via social engineering + OSINT; password is guessable
-// via credential stuffing if the admin reuses passwords; SMS MFA
-// is bypassable via SIM-swap. A hardware-key or TOTP second factor
-// breaks the whole chain.
+// The trigger code below is functionally correct; the problem is
+// deploy-time registration. This project has only ever used
+// beforeUserCreated as a blocking trigger. Adding a brand-new
+// trigger TYPE (beforeUserSignedIn) requires a one-time Identity
+// Platform config update, which the GitHub Actions deploy SA
+// lacks the role for. Result: batch function-update rolls back
+// and 32 unrelated functions can't redeploy.
 //
-// Rollout is gated on the `admin_mfa_required` field of the
-// `feature_flags/_default` doc (F9 feature flag system). Default
-// is false so shipping this commit alone does NOT lock anyone out.
-// Enrollment path:
-//   1. Deploy this commit with the flag off.
-//   2. Each platform admin signs in to /admin/login.html once; the
-//      client-side MFA enrollment CTA (docs/admin/js/pages/login.js,
-//      also added in this sprint) walks them through TOTP setup.
-//   3. Verify every admin has at least one enrolled factor by
-//      listing users with `admin` claim via the admin SDK.
-//   4. Flip admin_mfa_required → true in Firestore. Enforcement
-//      is live on the next sign-in.
+// Re-enablement runbook (must land before uncommenting `exports.`
+// below):
+//   1. Firebase Console → Authentication → Settings → Blocking
+//      functions → confirm "Enabled" for the `beforeUserSignedIn`
+//      event. If disabled, enable it (sends you to Identity
+//      Platform upgrade if the project hasn't been upgraded yet).
+//   2. Grant the GitHub Actions deploy SA
+//      `roles/identityplatform.admin` on the project (or the
+//      narrower blocking-function-config role once GCP ships it).
+//   3. Uncomment the `exports.beforeAdminSignIn = ...` line below.
+//   4. Deploy. On first deploy the CLI may still emit a one-time
+//      "blocking function configured" notice — expected.
 //
-// The trigger is a no-op for non-admin sessions — only the ~1-5
-// platform admins pay any cost for this check.
+// Until then: the feature-flag + mfa-enroll.html + login.js
+// guidance still ship. Admins can self-enroll, and the runtime
+// enforcement at the blocking-trigger layer is the only piece
+// that's deferred.
+//
+// Threat model context (same as the active version would apply):
+// admin email is findable via OSINT; password is guessable via
+// credential stuffing; SMS MFA is bypassable via SIM-swap. TOTP
+// (enrolment UI already shipped at /admin/mfa-enroll.html) closes
+// all three.
+//
+// Trigger body preserved below as a plain function so the
+// re-enablement step is a one-line change. NOT exported.
 // ═════════════════════════════════════════════════════════════
-exports.beforeAdminSignIn = beforeUserSignedIn(
+// eslint-disable-next-line no-unused-vars
+const _beforeAdminSignInHandler = beforeUserSignedIn(
   { region: 'us-central1' },
   async (event) => {
     const user = event.data;

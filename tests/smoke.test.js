@@ -1312,10 +1312,23 @@ section('Q3: admin MFA enforcement (feature-flag gated)');
   const src = read(path.join(FUNCTIONS, 'index.js'));
   assert('Q3: beforeUserSignedIn imported',
     /beforeUserSignedIn\s*[,}]/.test(src));
-  assert('Q3: beforeAdminSignIn blocking trigger exported',
-    /exports\.beforeAdminSignIn\s*=\s*beforeUserSignedIn/.test(src));
-  assert('Q3: early-returns for non-admin sessions',
-    /beforeAdminSignIn[\s\S]{0,1500}claims\.role !== 'admin'[\s\S]{0,60}return/.test(src));
+  // Q3 trigger body is present but NOT exported — Identity Platform
+  // blocking-function registration for beforeUserSignedIn needs a
+  // one-time console/IAM action (see SECURITY_SWEEP + in-file
+  // runbook). The body is preserved as a private const so
+  // re-enablement is a one-line diff.
+  assert('Q3: trigger body preserved as private const (not exported)',
+    /_beforeAdminSignInHandler\s*=\s*beforeUserSignedIn/.test(src));
+  // Strip comments before checking — the runbook text mentions
+  // "Uncomment the `exports.beforeAdminSignIn = ...` line below"
+  // and we don't want that comment reference to match.
+  const codeOnly = src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert('Q3: trigger NOT on exports (deploy-unblocking)',
+    !/exports\.beforeAdminSignIn\s*=/.test(codeOnly));
+  assert('Q3: re-enablement runbook documented in-file',
+    /TEMPORARILY DISABLED[\s\S]{0,1500}Re-enablement runbook/.test(src));
+  assert('Q3: trigger body early-returns for non-admin sessions',
+    /_beforeAdminSignInHandler[\s\S]{0,1500}claims\.role !== 'admin'[\s\S]{0,60}return/.test(src));
   assert('Q3: feature-flag gate via feature_flags/_default doc',
     /feature_flags\/_default[\s\S]{0,200}admin_mfa_required/.test(src));
   assert('Q3: fails SAFE (allow) on feature-flag read error',
