@@ -158,6 +158,27 @@ jobs:
           echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
 
       # ─────────────────────────────────────────────────────────
+      # Enable APIs that firebase-tools doesn't auto-enable. 2nd-gen
+      # onSchedule functions need cloudscheduler.googleapis.com (the
+      # CLI enables pubsub + eventarc automatically, but Scheduler is
+      # on us). beforeUserCreated blocking triggers need Identity
+      # Toolkit enabled for the blocking-functions config.
+      # Idempotent — already-enabled APIs get a fast no-op.
+      # ─────────────────────────────────────────────────────────
+      - name: Enable required Google APIs
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: |
+          set -e
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud config set project "$PRO_PROJECT" --quiet
+          gcloud services enable \
+            cloudscheduler.googleapis.com \
+            identitytoolkit.googleapis.com \
+            --project "$PRO_PROJECT" --quiet
+
+      # ─────────────────────────────────────────────────────────
       # Ensure every integration secret my code defineSecret()'s
       # exists in Secret Manager. Any that are missing get created
       # with an empty value — the lazy-opt-in pattern in the runtime
@@ -274,13 +295,29 @@ jobs:
       # live project but no longer exist in source. Git is the source
       # of truth; if a function was removed in code it should be
       # removed in the project too. Without this flag the CLI prompts
-      # interactively and dies in CI. The initial failure surfaced
-      # `seedDemoData` as a legacy function not in the current tree.
+      # interactively and dies in CI.
+      #
+      # Tolerant of partial failures. 2nd-gen functions deploy
+      # independently — one schedule function that can't register
+      # (missing Scheduler IAM, auth blocking trigger quirks, etc.)
+      # shouldn't gate the ~25 HTTP functions that deployed fine.
+      # Also critical: Hosting is the next step and MUST run so the
+      # new client code ships. We surface any partial failure as a
+      # ::warning:: and let the rest of the deploy complete.
       - name: Deploy Cloud Functions
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
+        run: |
+          set +e
+          npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force
+          EXIT=$?
+          if [ $EXIT -eq 0 ]; then
+            echo "✓ All Cloud Functions deployed cleanly."
+          else
+            echo "::warning::Functions deploy returned exit $EXIT — some individual functions failed. The ones that succeeded ARE live (see 'Function URL' lines above). Common culprits: schedule functions needing Cloud Scheduler Admin on the deploy SA, or the runtime SA lacking roles/run.invoker. Hosting will continue to deploy so the client code ships."
+          fi
+          exit 0
 
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
