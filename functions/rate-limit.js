@@ -10,7 +10,17 @@
  */
 
 const crypto = require('crypto');
-const admin = require('firebase-admin');
+
+// Q1: firebase-admin is loaded lazily. clientIp + hashKey are pure
+// helpers that must be importable from test harnesses that don't
+// install the functions/ node_modules tree. enforceRateLimit +
+// httpRateLimit call getAdmin() at request time.
+let _admin;
+function getAdmin() {
+  if (_admin) return _admin;
+  _admin = require('firebase-admin');
+  return _admin;
+}
 
 // Lazy-load the v2 logger — this module is also require()'d by unit tests
 // that run outside the Firebase Functions runtime, where `firebase-functions`
@@ -34,11 +44,59 @@ function hashKey(raw) {
   return crypto.createHash('sha256').update(String(raw || 'unknown')).digest('hex').substring(0, 32);
 }
 
+// Q1 / F-13: correct X-Forwarded-For parsing on Google LB + Cloud Run.
+//
+// Google's External HTTP(S) Load Balancer (which fronts Firebase
+// Functions Gen 2) appends TWO entries to any inbound XFF:
+//   <existing values>,<real-client-ip>,<global-forwarding-rule-ip>
+// (See cloud.google.com/load-balancing/docs/https#target-proxies.)
+//
+// The previous implementation took .split(',')[0] — the LEFT-most
+// entry — which is exactly the value an attacker can supply upstream.
+// Every per-IP rate-limit bucket in this codebase was spoofable: an
+// attacker sending `X-Forwarded-For: 1.2.3.4` would land the LB
+// result `1.2.3.4,<real-ip>,<gfr>`, and the buggy parser would then
+// bucket the legitimate value `1.2.3.4` rather than their real IP.
+//
+// Correct algorithm: the real client is at index `length - 2`
+// (i.e. one entry to the left of the GFR hop). Expressed more
+// generally, `length - 1 - NBD_TRUSTED_PROXY_HOPS`. Default hop
+// count is 1 = the Google LB. Put a CDN (Cloudflare, Fastly) in
+// front and every additional layer that also appends bumps the
+// hop count — set NBD_TRUSTED_PROXY_HOPS=2 in that case.
+//
+// Chains shorter than expected (1-entry XFF, or missing entirely)
+// fall back to the socket IP — we never take the only entry as
+// truth, because a single entry means the LB didn't execute its
+// normal append path (test harness, direct invocation, or an
+// unusual proxy configuration).
+const TRUSTED_PROXY_HOPS = (() => {
+  const v = Number(process.env.NBD_TRUSTED_PROXY_HOPS);
+  // Clamp to [0, 10] so a malformed env can't underflow or absurdly
+  // overflow the chain.
+  return Number.isFinite(v) && v >= 0 && v <= 10 ? v : 1;
+})();
+
+function parseXff(header) {
+  if (typeof header !== 'string' || !header.length) return [];
+  return header.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function clientIp(req) {
-  // Firebase Functions v2 uses Google LB — x-forwarded-for first entry is the real client.
   const xff = req?.headers?.['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.length > 0) return xff.split(',')[0].trim();
-  return req?.ip || req?.rawRequest?.ip || 'unknown';
+  const chain = parseXff(xff);
+  if (chain.length > 0) {
+    // Real client sits to the left of our trusted proxy hops.
+    //   chain.length - TRUSTED_PROXY_HOPS - 1
+    // is the index. If the caller spoofed N fake IPs, the index
+    // still lands on the LB-stamped hop (their real IP) rather than
+    // the spoofed prefix.
+    const idx = chain.length - TRUSTED_PROXY_HOPS - 1;
+    if (idx >= 0) return chain[idx];
+    // Chain shorter than trusted hop count → fall through to socket IP.
+  }
+  // Fallbacks — socket IP on direct invocation / tests.
+  return req?.ip || req?.socket?.remoteAddress || req?.rawRequest?.ip || 'unknown';
 }
 
 /**
@@ -50,7 +108,7 @@ function clientIp(req) {
  * @param {number} windowMs window duration in ms
  */
 async function enforceRateLimit(namespace, key, limit, windowMs) {
-  const db = admin.firestore();
+  const db = getAdmin().firestore();
   const docId = `${namespace}__${hashKey(key)}`;
   const ref = db.collection('_rate_limits_ip').doc(docId);
   const now = Date.now();
