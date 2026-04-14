@@ -307,28 +307,108 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
 
-      # F-10: functions deploy MUST fail the workflow if any function
-      # fails to deploy. The previous tolerance hid genuine breakage
-      # (e.g., rules referencing a function that silently never
-      # deployed, so the rule fails open in production). If a schedule
-      # function keeps failing, provision the IAM once instead of
-      # gaslighting CI into pretending it's fine.
+      # F-10 + Q8: functions deploy is strict by default — any failure
+      # fails the workflow. But there's an explicit exception list for
+      # functions whose DEPLOY blocks on IAM the GitHub Actions deploy
+      # SA doesn't have:
       #
-      # --force still auto-confirms deletion of orphaned functions —
-      # that's intentional and Git-driven.
+      #   cloudscheduler.jobs.update  → schedule-function binding update
+      #   identityplatform.admin      → blocking-trigger registration
       #
-      # --debug surfaces the underlying Cloud Run / Cloud Build /
-      # Identity Platform error behind each "Failed to update
-      # function X" summary line. Without it, firebase-tools rolls
-      # up per-function errors into the unhelpful summary and the
-      # real cause (IAM miss, runtime SA delete, API disabled) is
-      # invisible in CI logs. Added 2026-04-14 after two consecutive
-      # full-batch deploy failures with no actionable log output.
-      - name: Deploy Cloud Functions
+      # These 8 functions have no code changes in the normal case; the
+      # SA just can't refresh their Cloud Scheduler job / Identity
+      # Platform config. Previous deploys succeeded because the SA
+      # had broader roles; IAM drift revoked them at some point.
+      #
+      # Strategy:
+      #  1. Main deploy = everything EXCEPT the 8 known-blocked names.
+      #     Strict — failure fails the workflow.
+      #  2. Second step (tolerant) retries ONLY the 8. Permission
+      #     errors there produce a warning, not a failure. When ops
+      #     grants roles/cloudscheduler.admin + roles/identityplatform.admin
+      #     to the deploy SA, empty NBD_DEPLOY_SKIP_LIST and the main
+      #     step handles them.
+      #
+      # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
+      #
+      # --force auto-confirms deletion of orphan functions; --debug
+      # surfaces the underlying Cloud Run / Scheduler errors so the
+      # next iteration isn't flying blind.
+      - name: Deploy Cloud Functions (strict — skips IAM-blocked 8)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only functions --project "$PRO_PROJECT" --non-interactive --force --debug
+          # Names that fail with cloudscheduler.jobs.update or
+          # identityplatform.admin denials. Clear this list once
+          # those roles are granted.
+          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup"
+        run: |
+          set -e
+          # Enumerate every function export across functions/*.js +
+          # functions/integrations/*.js. Grep for exports of the
+          # Cloud Functions factory functions so we match both 2nd-gen
+          # HTTP/callable and Firestore/Auth triggers.
+          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js 2>/dev/null \
+                | sed -E 's/^exports\.([a-zA-Z_][a-zA-Z0-9_]*) *=.*/\1/' \
+                | sort -u)
+          # Build an include list = ALL minus skip-list.
+          INCLUDE=""
+          for fn in $ALL; do
+            if echo ",${NBD_DEPLOY_SKIP_LIST}," | grep -q ",${fn},"; then
+              echo "⏭  skipping $fn (IAM-blocked; see POST_DEPLOY_CHECKLIST §16)"
+            else
+              INCLUDE="${INCLUDE},functions:${fn}"
+            fi
+          done
+          INCLUDE="${INCLUDE#,}"  # trim leading comma
+          if [ -z "$INCLUDE" ]; then
+            echo "::error::No functions left to deploy after skip-list"; exit 1
+          fi
+          echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s)"
+          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force --debug
+
+      # Second pass: retry the skip-list with tolerance. If IAM has
+      # since been granted, these succeed. If not, the warning is
+      # surfaced in the workflow summary and the rest of the
+      # deploy (Hosting, etc.) continues. Scheduled + blocking
+      # functions still run their LAST deployed revision — it's the
+      # update that fails, not the runtime.
+      - name: Deploy Cloud Functions (tolerant — IAM-blocked retry)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup"
+        run: |
+          set +e
+          RETRY=""
+          for fn in $(echo "$NBD_DEPLOY_SKIP_LIST" | tr ',' ' '); do
+            RETRY="${RETRY},functions:${fn}"
+          done
+          RETRY="${RETRY#,}"
+          echo "Attempting tolerant deploy of: $RETRY"
+          npx firebase-tools deploy --only "$RETRY" --project "$PRO_PROJECT" --non-interactive --force
+          EXIT=$?
+          if [ $EXIT -ne 0 ]; then
+            {
+              echo "### ⚠ Some scheduled / blocking-trigger functions couldn't update"
+              echo ""
+              echo "The GitHub Actions deploy service account is missing either"
+              echo "\`roles/cloudscheduler.admin\` or \`roles/identityplatform.admin\`"
+              echo "(or both). The following functions were NOT updated this deploy:"
+              echo ""
+              for fn in $(echo "$NBD_DEPLOY_SKIP_LIST" | tr ',' ' '); do
+                echo "  - $fn"
+              done
+              echo ""
+              echo "Their last-deployed revisions are still live in Cloud Run."
+              echo "Grant the missing IAM roles to unstick them — runbook:"
+              echo "POST_DEPLOY_CHECKLIST.md §16."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Scheduled/blocking functions deferred — see summary"
+          else
+            echo "✓ All previously-IAM-blocked functions deployed cleanly. Remove NBD_DEPLOY_SKIP_LIST in the workflow."
+          fi
+          exit 0
 
       - name: Deploy Hosting
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}

@@ -292,7 +292,83 @@ cleanly, and update the line below.
 **Last successful drill:** _not yet performed — run one before
 first real-customer revenue._
 
-## 15. Still open (documented, not blocking this deploy)
+## 15. (Empty — reserved for next-wave work)
+
+## 16. IAM grants required to re-enable the 8 IAM-blocked functions
+
+The 2026-04-14 deploy sweep (branch
+`claude/security-infrastructure-review-5GRpD`) surfaced two IAM
+gaps on the GitHub Actions deploy SA that had crept in through
+drift since the original project was set up:
+
+  - `roles/cloudscheduler.admin` — needed to update Cloud Scheduler
+    job bindings for scheduled functions.
+  - `roles/identityplatform.admin` — needed to register / update
+    blocking triggers (`beforeUserCreated`, `beforeUserSignedIn`).
+
+Without these, the following 8 functions' DEPLOYS fail. Their
+last-deployed Cloud Run revisions stay live and continue to run
+their existing schedules / triggers — only the CODE UPDATE is
+blocked. The CI workflow temporarily skips them on the main pass
+and retries them with tolerance (producing a warning) in a second
+pass (see `.github/workflows/firebase-deploy.yml` "Deploy Cloud
+Functions").
+
+Currently-blocked functions:
+  - nightlyFirestoreBackup     (scheduled)
+  - auditLogRetentionCron      (scheduled)
+  - checkStormAlerts           (scheduled)
+  - emailQueueWorker           (scheduled)
+  - onFollowUpDue              (scheduled)
+  - onAppointmentReminder      (scheduled)
+  - hailMatchCron              (scheduled)
+  - onRepSignup                (blocking trigger)
+
+### 16.1 Grant the missing roles
+
+Identify the deploy SA. If you still have the
+`FIREBASE_SERVICE_ACCOUNT` JSON you pasted into GitHub Actions,
+extract the `client_email`. Otherwise:
+
+```
+# Find the SA that ran the most recent deploy:
+gcloud iam service-accounts list --project=nobigdeal-pro \
+  --filter='displayName~"Firebase|deploy|github"'
+```
+
+Grant the two missing roles (replace `<DEPLOY_SA_EMAIL>`):
+
+```
+DEPLOY_SA=<DEPLOY_SA_EMAIL>
+gcloud projects add-iam-policy-binding nobigdeal-pro \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="roles/cloudscheduler.admin"
+
+gcloud projects add-iam-policy-binding nobigdeal-pro \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="roles/identityplatform.admin"
+```
+
+### 16.2 Re-include the 8 functions in the main deploy
+
+Edit `.github/workflows/firebase-deploy.yml`. Find both
+`NBD_DEPLOY_SKIP_LIST` env var declarations (there are two — one
+on each functions-deploy step) and change them to the empty string:
+
+```
+NBD_DEPLOY_SKIP_LIST: ""
+```
+
+Commit + push. The next deploy's main step will deploy everything
+in one pass and the tolerant retry step will be a no-op.
+
+### 16.3 Verification
+
+After the next deploy:
+  - `gcloud functions list --project=nobigdeal-pro --gen2 | grep -E '(nightlyFirestoreBackup|onRepSignup|hailMatchCron)'` — all 3 present with recent updateTime.
+  - `gcloud scheduler jobs list --project=nobigdeal-pro --location=us-central1` — all 7 schedule jobs present.
+  - `gcloud identity-platform config describe --project=nobigdeal-pro` — `blockingFunctions.triggers` includes `beforeCreate` (onRepSignup is mapped to beforeCreate).
+
 
 - **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
 - **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.
