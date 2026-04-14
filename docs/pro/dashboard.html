@@ -2067,6 +2067,96 @@
     }
   };
 
+  // ── Data Retention exports ─────────────────────────
+  // Three buttons in Settings → Access → Data Retention pointed at
+  // these functions but nothing defined them — the short-circuit
+  // `window._exportAllData && ...` just silently no-oped. Real
+  // implementations below. For a full GDPR-compliant JSON dump use
+  // window._gdprExport (Settings → Your Rights panel); these are
+  // convenience CSVs for the common ops workflows.
+  function _csvEscape(v) {
+    if (v == null) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function _downloadCsv(rows, filename) {
+    if (!rows || !rows.length) {
+      if (typeof showToast === 'function') showToast('Nothing to export — the list is empty.', 'info');
+      return;
+    }
+    const keys = Object.keys(rows[0]);
+    const lines = [keys.join(',')].concat(
+      rows.map(r => keys.map(k => _csvEscape(r[k])).join(','))
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 250);
+    if (typeof showToast === 'function') showToast('✓ ' + filename + ' downloaded.', 'success');
+  }
+
+  window._exportAllData = function () {
+    const leads = (window._leads || []).map(l => ({
+      id:        l.id,
+      firstName: l.firstName || l.fname || '',
+      lastName:  l.lastName  || l.lname || '',
+      email:     l.email     || '',
+      phone:     l.phone     || '',
+      address:   l.address   || '',
+      stage:     l.stage     || '',
+      source:    l.source    || '',
+      jobValue:  l.jobValue  || '',
+      insCarrier:   l.insCarrier   || '',
+      claimNumber:  l.claimNumber  || '',
+      createdAt:    l.createdAt?.toDate?.()?.toISOString() || '',
+      updatedAt:    l.updatedAt?.toDate?.()?.toISOString() || ''
+    }));
+    _downloadCsv(leads, 'nbd-leads-' + new Date().toISOString().slice(0, 10) + '.csv');
+  };
+
+  window._exportEstimates = function () {
+    const rows = (window._estimates || []).map(e => ({
+      id:          e.id,
+      address:     e.addr || e.address || '',
+      tierName:    e.tierName || '',
+      grandTotal:  e.grandTotal || e.total || '',
+      builder:     e.builder || 'classic',
+      signatureStatus: e.signatureStatus || 'none',
+      signedAt:    e.signedAt?.toDate?.()?.toISOString() || '',
+      leadId:      e.leadId || '',
+      createdAt:   e.createdAt?.toDate?.()?.toISOString() || ''
+    }));
+    _downloadCsv(rows, 'nbd-estimates-' + new Date().toISOString().slice(0, 10) + '.csv');
+  };
+
+  // Photos ZIP — we don't bundle every photo blob client-side (too
+  // much memory for a big account). Instead export a CSV manifest
+  // with direct download links; reps can wget / curl the list.
+  window._exportPhotos = async function () {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) { if (typeof showToast === 'function') showToast('Sign in first', 'error'); return; }
+      const snap = await getDocs(query(collection(db, 'photos'), where('userId', '==', uid)));
+      const rows = snap.docs.map(d => {
+        const p = d.data();
+        return {
+          id:        d.id,
+          leadId:    p.leadId || '',
+          storagePath: p.path || p.storagePath || '',
+          url:       p.url || '',
+          caption:   p.caption || '',
+          createdAt: p.createdAt?.toDate?.()?.toISOString() || ''
+        };
+      });
+      _downloadCsv(rows, 'nbd-photos-manifest-' + new Date().toISOString().slice(0, 10) + '.csv');
+    } catch (e) {
+      console.error('export photos failed:', e);
+      if (typeof showToast === 'function') showToast('Export failed: ' + e.message, 'error');
+    }
+  };
+
   // ═════════════════════════════════════════════════════════
   // ACCESS TAB — populate current session info
   // ═════════════════════════════════════════════════════════
