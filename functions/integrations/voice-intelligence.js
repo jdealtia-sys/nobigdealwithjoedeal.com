@@ -144,6 +144,110 @@ async function incrementVoiceUsage(db, {
   ]);
 }
 
+// ─── Transcription (C1b) ─────────────────────────────────────────
+//
+// Single public entry point: transcribeAudio({ bucket, path, mimeType,
+// provider }) → { text, segments, durationSec, providerJobId }.
+//
+// Dispatches to the provider-specific implementation based on
+// PROVIDERS.voiceTranscription. Each adapter is responsible for
+// its own auth + request shape. Unified return contract so the
+// state machine never has to know which provider ran.
+async function transcribeAudio({ bucket, path, mimeType, provider }) {
+  const p = (provider || PROVIDERS.voiceTranscription || 'groq').toLowerCase();
+  switch (p) {
+    case 'groq':     return transcribeGroq({ bucket, path, mimeType });
+    case 'deepgram': return transcribeDeepgram({ bucket, path, mimeType });
+    default:
+      throw new VoiceError('transcription-provider-unknown',
+        'PROVIDERS.voiceTranscription="' + p + '" not implemented');
+  }
+}
+
+// Provider-specific adapters throw VoiceError with a stable `code`
+// the state machine maps to Firestore statusError, so the UI can
+// show actionable messages without peeking at stack traces.
+class VoiceError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.isVoiceError = true;
+  }
+}
+
+// Groq Whisper-large-v3-turbo. Expects multipart/form-data with the
+// audio file. Returns verbose_json including segments + duration.
+// Docs: https://console.groq.com/docs/speech-text
+async function transcribeGroq({ bucket, path, mimeType }) {
+  if (!hasSecret('GROQ_API_KEY')) {
+    throw new VoiceError('groq-not-configured',
+      'GROQ_API_KEY secret is unset. Set via firebase functions:secrets:set GROQ_API_KEY.');
+  }
+  const file = bucket.file(path);
+  const [exists] = await file.exists();
+  if (!exists) throw new VoiceError('audio-missing', 'Storage object ' + path + ' not found');
+  const [meta] = await file.getMetadata();
+  const size = Number(meta.size) || 0;
+  if (size === 0) throw new VoiceError('audio-empty', 'Storage object is 0 bytes');
+  if (size > MAX_AUDIO_BYTES) {
+    throw new VoiceError('audio-too-large',
+      'Audio is ' + Math.round(size / 1024 / 1024) + 'MB; cap is ' +
+      Math.round(MAX_AUDIO_BYTES / 1024 / 1024) + 'MB');
+  }
+
+  // Stream the audio bytes into memory. 200MB cap fits a 256MiB
+  // function instance; for larger files we'd stream directly to
+  // Groq via signed URL, but Groq requires multipart so buffering
+  // is the simpler path at current budget.
+  const [buffer] = await file.download();
+  const blob = new Blob([buffer], { type: mimeType || 'audio/webm' });
+  const form = new FormData();
+  form.append('file', blob, 'audio.' + (path.split('.').pop() || 'webm'));
+  form.append('model', 'whisper-large-v3-turbo');
+  form.append('response_format', 'verbose_json');
+  form.append('timestamp_granularities[]', 'segment');
+  form.append('language', 'en');
+
+  let res;
+  try {
+    res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + getSecret('GROQ_API_KEY') },
+      body: form,
+      signal: AbortSignal.timeout(480_000)
+    });
+  } catch (e) {
+    throw new VoiceError('groq-network',
+      'Groq request failed: ' + (e && e.message ? e.message : String(e)));
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && data.error && data.error.message) || ('HTTP ' + res.status);
+    throw new VoiceError('groq-api-error', 'Groq rejected: ' + String(msg).slice(0, 300));
+  }
+  if (!data || typeof data.text !== 'string') {
+    throw new VoiceError('groq-empty-response', 'Groq returned no transcript text');
+  }
+  return {
+    text: data.text,
+    segments: Array.isArray(data.segments) ? data.segments.map(s => ({
+      start: Number(s.start) || 0,
+      end: Number(s.end) || 0,
+      text: String(s.text || '')
+    })) : [],
+    durationSec: Number(data.duration) || 0,
+    providerJobId: null   // Groq is synchronous; no job id to track
+  };
+}
+
+// Deepgram Nova-2 stub for Phase 2. Kept as a not-implemented
+// throw so the provider dispatch table above reads cleanly today.
+// Full adapter lands with the Pro-tier launch.
+async function transcribeDeepgram(/* { bucket, path, mimeType } */) {
+  throw new VoiceError('deepgram-not-implemented',
+    'Deepgram adapter ships with Phase 2. Set NBD_VOICE_TRANSCRIPTION_PROVIDER=groq in the meantime.');
+}
+
 module.exports = {
   // Handlers wired in C1d:
   //   onAudioUploaded, triggerProcessRecording, reprocessRecording
@@ -154,10 +258,13 @@ module.exports = {
   _getCompanyContext: getCompanyContext,
   _checkBudget: checkBudget,
   _incrementVoiceUsage: incrementVoiceUsage,
+  _transcribeAudio: transcribeAudio,
+  _VoiceError: VoiceError,
   _constants: {
     VOICE_COMPANY_BUDGET_SEC,
     VOICE_COMPANY_BUDGET_DEFAULT,
     MAX_AUDIO_BYTES,
-    PIPELINE_TIMEOUT_MS
+    PIPELINE_TIMEOUT_MS,
+    ANTHROPIC_API_KEY_FOR_VOICE
   }
 };
