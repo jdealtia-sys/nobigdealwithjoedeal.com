@@ -1251,6 +1251,50 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C2: Recording rules + Storage audio path + composite index');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  const storage = read(path.join(ROOT, 'storage.rules'));
+  const indexes = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+
+  // Firestore: flat-path recordings subcollection, admin-SDK-only writes.
+  assert('C2: /leads/{leadId}/recordings/{recordingId} rule present',
+    /match \/recordings\/\{recordingId\}/.test(rules));
+  assert('C2: recordings allow read scoped to owner + admin + same-company manager',
+    /match \/recordings\/\{recordingId\}[\s\S]{0,500}resource\.data\.userId[\s\S]{0,300}isManager\(\)[\s\S]{0,300}resource\.data\.companyId == myCompanyId\(\)/.test(rules));
+  assert('C2: recordings writes blocked at the rule layer (admin SDK only)',
+    /match \/recordings\/\{recordingId\}[\s\S]{0,800}allow write: if false/.test(rules));
+
+  // Storage: audio/{uid}/** with mime + size caps.
+  assert('C2: audio Storage path owner-keyed',
+    /match \/audio\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,400}allow read: if isOwner\(uid\)/.test(storage));
+  assert('C2: audio upload size capped at 200MB',
+    /audio\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,500}request\.resource\.size\s*<\s*200\s*\*\s*1024\s*\*\s*1024/.test(storage));
+  assert('C2: audio content-type allowlist rejects non-audio uploads',
+    /function isAudioType\(\)[\s\S]{0,400}audio\/\(webm\|mpeg\|mp3\|mp4\|m4a\|ogg\|wav\|x-m4a\|aac\)/.test(storage));
+
+  // Composite index: collectionGroup on recordings.
+  const recIdx = indexes.indexes.find(i =>
+    i.collectionGroup === 'recordings' && i.queryScope === 'COLLECTION_GROUP');
+  assert('C2: recordings collectionGroup composite index present',
+    !!recIdx);
+  if (recIdx) {
+    const fieldPaths = recIdx.fields.map(f => f.fieldPath).join(',');
+    assert('C2: collectionGroup index is (userId ASC, recordedAt DESC)',
+      fieldPaths === 'userId,recordedAt' &&
+      recIdx.fields[0].order === 'ASCENDING' &&
+      recIdx.fields[1].order === 'DESCENDING');
+  }
+  // Make sure we didn't re-introduce the single-field COLLECTION index
+  // that failed portal_tokens deploy in commit 0c589e5.
+  const singleFieldRecIdx = indexes.indexes.find(i =>
+    i.collectionGroup === 'recordings' &&
+    i.queryScope === 'COLLECTION' &&
+    i.fields.length === 1);
+  assert('C2: no single-field COLLECTION index on recordings (auto-indexed)',
+    !singleFieldRecIdx);
+}
+
 section('C1: Voice Intelligence backend pipeline');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/voice-intelligence.js'));

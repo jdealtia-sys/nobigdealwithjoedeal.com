@@ -110,6 +110,31 @@ service cloud.firestore {
         allow write:  if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
+
+      // ── RECORDINGS (Voice Intelligence) ───────────────
+      // C2 — written by the Storage-triggered pipeline
+      // (functions/integrations/voice-intelligence.js) via admin
+      // SDK; clients never write directly so shape forgery is
+      // impossible (same pattern as F-05 activity rule).
+      //
+      // Reads: lead owner, platform admin, or a company manager
+      // whose companyId matches the recording's stamped companyId.
+      // The company-scope check lets team managers review their
+      // reps' calls without cross-tenant leakage.
+      //
+      // Audio files live at audio/{uid}/{leadId}/{recordingId}.ext
+      // in Storage (see storage.rules); the doc here is the
+      // transcript + structured summary + metadata.
+      match /recordings/{recordingId} {
+        allow read: if isAuth() && (
+          isAdmin()
+          || isOwner(resource.data.userId)
+          || (isManager()
+              && resource.data.companyId != null
+              && resource.data.companyId == myCompanyId())
+        );
+        allow write: if false;  // admin SDK only
+      }
     }
 
     match /leads/{uid}/leads/{leadId} {

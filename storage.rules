@@ -120,6 +120,37 @@ service firebase.storage {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    // ── VOICE INTELLIGENCE AUDIO (C2) ──────────────────
+    // Path: audio/{uid}/{leadId}/{recordingId}.{ext}
+    //
+    // Owner-keyed (matches photos/, docs/, etc.). The finalize
+    // event at this path triggers functions/integrations/
+    // voice-intelligence.js::onAudioUploaded. The rep's client
+    // uploads here via uploadBytesResumable; the processing
+    // function reads via admin SDK (bypasses these rules).
+    //
+    // 200MB cap = ~2.5 hours at 160kbps opus/webm. A longer
+    // recording is almost always user error (forgot to stop);
+    // the client splits before upload.
+    //
+    // Content-type allowlist covers MediaRecorder outputs from
+    // Chrome/Firefox (audio/webm) and Safari/iOS (audio/mp4,
+    // audio/m4a) plus common upload formats (mp3, ogg, wav, aac).
+    function isAudioType() {
+      return request.resource != null
+        && request.resource.contentType != null
+        && request.resource.contentType.matches(
+             'audio/(webm|mpeg|mp3|mp4|m4a|ogg|wav|x-m4a|aac)(;.*)?'
+           );
+    }
+    match /audio/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 200 * 1024 * 1024
+        && isAudioType();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
     // ── DEFAULT DENY ──────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
