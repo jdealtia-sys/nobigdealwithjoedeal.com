@@ -1364,10 +1364,51 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
 {
   const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));
   const ignore = (fb.functions && fb.functions[0] && fb.functions[0].ignore) || [];
+  // These files are standalone dev helpers — never require()'d by
+  // index.js — so excluding them from the deploy bundle is pure
+  // hygiene. (verify-functions.js was mistakenly included in this
+  // list in commit 0ed6274, which broke the whole deploy batch;
+  // it IS require()'d by index.js:1901 and must remain in source.)
   for (const name of ['seed-companies.js', 'seed-demo.js', 'find-secrets.js',
-                      'verify-functions.js']) {
+                      'verify-functions-company-enhancement.js']) {
     assert('Q6: functions.ignore contains ' + name, ignore.includes(name));
   }
+  // Guard against the original bug: verify-functions.js must NOT
+  // be in the ignore list.
+  assert('Q6: verify-functions.js NOT in ignore (required by index.js)',
+    !ignore.includes('verify-functions.js'));
+
+  // Broader invariant: NOTHING in the ignore list can be require()'d
+  // by functions/index.js or the files it loads. Firebase Hosting
+  // packages the source with these patterns excluded; a missing
+  // file at container startup causes every function in the
+  // container to fail with "Failed to update function". Hard to
+  // diagnose without the per-function Cloud Build log.
+  const fs = require('fs');
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const requires = Array.from(idx.matchAll(/require\(\s*['"]\.\/([^'"]+)['"]\s*\)/g))
+    .map(m => m[1])
+    .map(r => r.endsWith('.js') ? r : r + '.js');
+  for (const rel of requires) {
+    // Match against the ignore glob: simple equality is enough for
+    // our single-file ignore patterns. If ignore grows to globs
+    // like "scripts/**/*.js" this needs upgrading.
+    if (ignore.includes(rel)) {
+      assert('Q6: required module ' + rel + ' must not be in deploy-ignore', false);
+    }
+    // Also sanity: every require()'d module must actually exist
+    // relative to functions/.
+    if (!fs.existsSync(path.join(FUNCTIONS, rel))) {
+      // Sub-path requires like './integrations/foo' are handled
+      // by the require walker in index.js; we only scan top-level
+      // flat-file requires here. Ignore missing-file results that
+      // start with 'integrations/' — those are directories.
+      if (!/^integrations\//.test(rel)) {
+        assert('Q6: ./' + rel + ' exists in functions/', false);
+      }
+    }
+  }
+  assert('Q6: all flat-file requires from index.js resolve + are not ignored', true);
 }
 
 // ── Summary ─────────────────────────────────────────────────
