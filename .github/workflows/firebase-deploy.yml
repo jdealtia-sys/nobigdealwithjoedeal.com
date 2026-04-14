@@ -199,12 +199,27 @@ jobs:
             CALCOM_WEBHOOK_SECRET
             DEEPGRAM_API_KEY
           "
+          # Firebase CLI needs each secret to have an initial *non-empty*
+          # version, otherwise it errors with "has no latest version".
+          # Stub with the sentinel value __unset__ which the runtime
+          # hasSecret() check in integrations/_shared.js treats as
+          # "not configured" and falls through to the lazy-opt-in path.
+          STUB='__unset__'
           for SECRET in $ALL_SECRETS; do
             if gcloud secrets describe "$SECRET" --project "$PRO_PROJECT" >/dev/null 2>&1; then
-              echo "✓ $SECRET already exists (leaving real value intact)"
+              # Make sure there's at least one version. If the secret
+              # exists but was previously created empty (bad stub from
+              # an earlier deploy attempt), add the sentinel version
+              # now so Firebase CLI is satisfied.
+              if ! gcloud secrets versions list "$SECRET" --project "$PRO_PROJECT" --limit=1 --format='value(name)' 2>/dev/null | grep -q .; then
+                echo "+ $SECRET exists but has zero versions — adding sentinel"
+                printf '%s' "$STUB" | gcloud secrets versions add "$SECRET" --data-file=- --project "$PRO_PROJECT" --quiet
+              else
+                echo "✓ $SECRET already exists with a version (leaving real value intact)"
+              fi
             else
-              echo "+ creating stub (empty) $SECRET — integration will no-op at runtime until you set a real value"
-              printf '' | gcloud secrets create "$SECRET" --data-file=- --project "$PRO_PROJECT" --quiet
+              echo "+ creating stub $SECRET with sentinel value — integration will no-op at runtime until you set a real value"
+              printf '%s' "$STUB" | gcloud secrets create "$SECRET" --data-file=- --project "$PRO_PROJECT" --quiet
             fi
           done
 

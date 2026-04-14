@@ -58,10 +58,20 @@ const PROVIDERS = {
   rateLimit:   (process.env.NBD_RATE_LIMIT_PROVIDER  || 'firestore').toLowerCase()
 };
 
+// A secret is considered "configured" only if it has a non-empty
+// value AFTER trimming whitespace AND isn't the placeholder we use
+// to stub-create missing secrets during deploy (see the
+// "Ensure integration secrets exist" step in firebase-deploy.yml).
+// Firebase CLI requires each secret to have a "latest version" with
+// at least 1 byte, so the stub value can't be empty — but it still
+// needs to be recognizable as "not configured" at runtime.
+const SECRET_STUB_VALUE = '__unset__';
 function hasSecret(name) {
   try {
     const v = SECRETS[name] && SECRETS[name].value();
-    return typeof v === 'string' && v.length > 0;
+    if (typeof v !== 'string') return false;
+    const trimmed = v.trim();
+    return trimmed.length > 0 && trimmed !== SECRET_STUB_VALUE;
   } catch (e) { return false; }
 }
 
