@@ -9,7 +9,8 @@
     "rewrites": [
       { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
       { "source": "/tools", "destination": "/tools/index.html" },
-      { "source": "/privacy", "destination": "/privacy.html" }
+      { "source": "/privacy", "destination": "/privacy.html" },
+      { "source": "/pro/account-erasure", "function": { "functionId": "confirmAccountErasure", "region": "us-central1" } }
     ],
     "headers": [
       {
