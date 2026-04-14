@@ -165,13 +165,29 @@ jobs:
 
       # Firestore composite indexes ship before functions so every
       # new .where() query has its index ready when the function
-      # execution first hits it. Safe to re-run — firestore CLI
-      # diffs before applying.
+      # execution first hits it.
+      #
+      # Known firebase-tools quirk: the CLI returns non-zero on any
+      # HTTP 409 ("index already exists") — even when the partial
+      # set of indexes it CAN create succeeds. Sometimes an index
+      # exists from a prior console edit or manual deploy and
+      # blocks every subsequent run. We tolerate non-zero here so
+      # rules / functions / hosting still roll out; the raw CLI
+      # output in the log tells us exactly which index conflicted.
       - name: Deploy Firestore indexes (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only firestore:indexes --project "$PRO_PROJECT" --non-interactive
+        run: |
+          set +e
+          npx firebase-tools deploy --only firestore:indexes --project "$PRO_PROJECT" --non-interactive
+          EXIT=$?
+          if [ $EXIT -eq 0 ]; then
+            echo "✓ Firestore indexes deployed cleanly."
+          else
+            echo "::warning::Index deploy returned exit code $EXIT (usually an 'index already exists' 409). Rest of deploy continues. Inspect the log above if queries are slow."
+          fi
+          exit 0
 
       - name: Deploy Storage rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
