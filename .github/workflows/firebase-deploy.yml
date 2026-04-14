@@ -157,6 +157,57 @@ jobs:
           fi
           echo "sa_path=$SA_FILE" >> "$GITHUB_OUTPUT"
 
+      # ─────────────────────────────────────────────────────────
+      # Ensure every integration secret my code defineSecret()'s
+      # exists in Secret Manager. Any that are missing get created
+      # with an empty value — the lazy-opt-in pattern in the runtime
+      # code treats an empty string as "this integration isn't
+      # configured, skip it" (see integrations/_shared.js hasSecret).
+      #
+      # Existing secrets (Stripe / Twilio / Resend / etc.) are LEFT
+      # ALONE — we only create what's missing, never overwrite.
+      #
+      # Without this step the deploy fails the first time any new
+      # `defineSecret('FOO')` is introduced, because firebase-tools
+      # in non-interactive mode requires the secret resource to
+      # already exist.
+      # ─────────────────────────────────────────────────────────
+      - name: Ensure integration secrets exist (stub if missing)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: |
+          set -e
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud config set project "$PRO_PROJECT" --quiet
+          # Every name that appears in a defineSecret(...) call anywhere
+          # in functions/. Keep this in sync with grep -r defineSecret
+          # when adding new integrations.
+          ALL_SECRETS="
+            SENTRY_DSN_FUNCTIONS
+            SLACK_WEBHOOK_URL
+            TURNSTILE_SECRET
+            UPSTASH_REDIS_REST_URL
+            UPSTASH_REDIS_REST_TOKEN
+            HOVER_API_KEY
+            EAGLEVIEW_API_KEY
+            NEARMAP_API_KEY
+            BOLDSIGN_API_KEY
+            BOLDSIGN_WEBHOOK_SECRET
+            REGRID_API_TOKEN
+            HAILTRACE_API_KEY
+            CALCOM_WEBHOOK_SECRET
+            DEEPGRAM_API_KEY
+          "
+          for SECRET in $ALL_SECRETS; do
+            if gcloud secrets describe "$SECRET" --project "$PRO_PROJECT" >/dev/null 2>&1; then
+              echo "✓ $SECRET already exists (leaving real value intact)"
+            else
+              echo "+ creating stub (empty) $SECRET — integration will no-op at runtime until you set a real value"
+              printf '' | gcloud secrets create "$SECRET" --data-file=- --project "$PRO_PROJECT" --quiet
+            fi
+          done
+
       - name: Deploy Firestore rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
