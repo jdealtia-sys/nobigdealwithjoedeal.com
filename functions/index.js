@@ -1120,6 +1120,8 @@ const calcomIntegration      = require('./integrations/calcom');
 const hailCron               = require('./integrations/hail-cron');
 const complianceIntegration  = require('./integrations/compliance');
 const deviceAlertIntegration = require('./integrations/device-alert');
+const emailQueueWorker       = require('./integrations/email-queue-worker');
+const voiceMemoIntegration   = require('./integrations/voice-memo');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -1129,6 +1131,8 @@ Object.assign(exports, calcomIntegration);
 Object.assign(exports, hailCron);
 Object.assign(exports, complianceIntegration);
 Object.assign(exports, deviceAlertIntegration);
+Object.assign(exports, emailQueueWorker);
+Object.assign(exports, voiceMemoIntegration);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
@@ -1167,7 +1171,8 @@ exports.integrationStatus = onCall(
         boldsign:    _hasInt('BOLDSIGN_API_KEY'),
         regrid:      _hasInt('REGRID_API_TOKEN'),
         hailtrace:   _hasInt('HAILTRACE_API_KEY'),
-        calcom:      _hasInt('CALCOM_WEBHOOK_SECRET')
+        calcom:      _hasInt('CALCOM_WEBHOOK_SECRET'),
+        deepgram:    _hasInt('DEEPGRAM_API_KEY')
       }
     };
   }

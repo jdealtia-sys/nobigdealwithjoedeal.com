@@ -39,24 +39,26 @@ exports.calcomWebhook = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).end(); return; }
 
-    // Verify signature. Cal.com signs as SHA256 HMAC of raw body with
-    // the secret you set in their UI. Header: X-Cal-Signature-256.
-    if (hasSecret('CALCOM_WEBHOOK_SECRET')) {
-      const sig = req.headers['x-cal-signature-256'];
-      if (!sig || !req.rawBody || !Buffer.isBuffer(req.rawBody)) {
-        res.status(400).json({ error: 'Missing signature' });
-        return;
-      }
-      const computed = crypto
-        .createHmac('sha256', getSecret('CALCOM_WEBHOOK_SECRET'))
-        .update(req.rawBody)
-        .digest('hex');
-      if (!safeEqual(computed, String(sig))) {
-        res.status(403).json({ error: 'Bad signature' });
-        return;
-      }
-    } else {
-      logger.warn('calcomWebhook missing secret — accepting unverified in dev only');
+    // F2: fail closed when the secret isn't configured. Accepting
+    // unsigned Cal.com calls means an attacker who knows the URL
+    // can create appointment rows + tasks in any rep's calendar.
+    if (!hasSecret('CALCOM_WEBHOOK_SECRET')) {
+      logger.error('calcomWebhook: CALCOM_WEBHOOK_SECRET not set — rejecting unsigned request');
+      res.status(503).json({ error: 'Webhook not configured' });
+      return;
+    }
+    const sig = req.headers['x-cal-signature-256'];
+    if (!sig || !req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+      res.status(400).json({ error: 'Missing signature' });
+      return;
+    }
+    const computed = crypto
+      .createHmac('sha256', getSecret('CALCOM_WEBHOOK_SECRET'))
+      .update(req.rawBody)
+      .digest('hex');
+    if (!safeEqual(computed, String(sig))) {
+      res.status(403).json({ error: 'Bad signature' });
+      return;
     }
 
     const body = req.body || {};

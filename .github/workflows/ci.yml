@@ -50,10 +50,14 @@ jobs:
           npm install --silent
       - name: Install firebase-tools globally
         run: npm install -g firebase-tools@13
-      - name: Run rules tests under emulator
+      - name: Run Firestore rules tests under emulator
         run: |
           cd tests
           firebase emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
+      - name: Run Storage rules tests under emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only storage --project nbd-storage-test 'node storage-rules.test.js'
 
   functions-parse:
     name: Functions parse + dep install

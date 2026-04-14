@@ -14055,6 +14055,13 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
         🚫 Revoke &amp; Regenerate
       </button>
     </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;"
+              title="Record a voice memo — Deepgram transcribes + attaches to lead activity"
+              onclick="window.NBDVoiceMemo && window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId)">
+        🎙 Record Voice Memo
+      </button>
+    </div>
     <!-- New Module Actions -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading...','error')}">
@@ -14262,3 +14269,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      directly from Storage (C1) instead of streaming through
      the deprecated imageProxy. -->
 <script defer src="js/signed-image-url.js?v=1"></script>
+<!-- Voice memo recorder + Deepgram client (F8) -->
+<script defer src="js/voice-memo.js?v=1"></script>
+<!-- Feature flags (F9) — window.NBDFlags for kill switches + gradual rollout -->
+<script defer src="js/feature-flags.js?v=1"></script>

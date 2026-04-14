@@ -915,6 +915,146 @@ section('E4: service-worker kill switch');
     fs.existsSync(path.join(ROOT, 'docs/pro/README-killswitch.md')));
 }
 
+// ────────────────────────────────────────────────────────────
+//  WAVE F — FOLLOW-UP POLISH
+// ────────────────────────────────────────────────────────────
+
+section('F1: email queue worker');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/email-queue-worker.js'));
+  assert('emailQueueWorker on a schedule',
+    /exports\.emailQueueWorker[\s\S]{0,200}schedule:\s*'every 1 minutes'/.test(src));
+  assert('claims rows transactionally',
+    /runTransaction[\s\S]{0,400}status:\s*'sending'/.test(src));
+  assert('retries up to MAX_ATTEMPTS then marks failed',
+    /MAX_ATTEMPTS\s*=\s*5/.test(src) && /'failed'/.test(src));
+  const ix = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('index covers email_queue (status, createdAt)',
+    /"collectionGroup":\s*"email_queue"[\s\S]{0,300}"fieldPath":\s*"status"[\s\S]{0,200}"fieldPath":\s*"createdAt"/.test(ix));
+}
+
+section('F2: webhooks fail closed');
+{
+  const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('esignWebhook rejects unsigned requests when secret unset',
+    /BOLDSIGN_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(es));
+  const cal = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
+  assert('calcomWebhook rejects unsigned requests when secret unset',
+    /CALCOM_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(cal));
+}
+
+section('F3: TCPA STOP/HELP + opt-out list');
+{
+  const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('STOP keyword adds to sms_opt_outs',
+    /STOP_WORDS[\s\S]{0,300}sms_opt_outs\//.test(sms));
+  assert('HELP keyword replies with compliance message',
+    /HELP_WORDS[\s\S]{0,500}Msg & data rates may apply/.test(sms));
+  assert('START keyword resumes (deletes opt-out doc)',
+    /START_WORDS[\s\S]{0,300}\.delete\(\)/.test(sms));
+  assert('sendSMS checks opt-out list before sending',
+    /sms_opt_outs\/'\s*\+ toDigits[\s\S]{0,400}replied STOP/.test(sms));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('sms_opt_outs rules deny client access',
+    /match \/sms_opt_outs\/\{phone\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+}
+
+section('F4: deploy runbook checks browser keys');
+{
+  const src = read(path.join(ROOT, 'scripts/deploy-runbook.sh'));
+  assert('runbook inspects __NBD_APP_CHECK_KEY',
+    /check_browser_key "__NBD_APP_CHECK_KEY"/.test(src));
+  assert('runbook inspects __NBD_SENTRY_DSN',
+    /check_browser_key "__NBD_SENTRY_DSN"/.test(src));
+  assert('runbook inspects __NBD_TURNSTILE_SITEKEY on all public pages',
+    /check_browser_key "__NBD_TURNSTILE_SITEKEY"/.test(src));
+}
+
+section('F5: Storage rules tests');
+{
+  assert('storage-rules.test.js exists',
+    fs.existsSync(path.join(ROOT, 'tests/storage-rules.test.js')));
+  const src = read(path.join(ROOT, 'tests/storage-rules.test.js'));
+  assert('tests reject non-image uploads to photos/',
+    /assertFails\(uploadBytes[\s\S]{0,200}application\/octet-stream/.test(src));
+  assert('tests cross-owner photo reads fail',
+    /bob.*photos\/alice|assertFails.*getBytes.*photos\/alice/.test(src));
+  const pkg = read(path.join(ROOT, 'tests/package.json'));
+  assert('npm run test:storage wired', /test:storage/.test(pkg));
+  const ci = read(path.join(ROOT, '.github/workflows/ci.yml'));
+  assert('CI runs storage rules tests',
+    /storage-rules\.test\.js/.test(ci));
+}
+
+section('F6: SECURITY.md');
+{
+  assert('SECURITY.md exists',
+    fs.existsSync(path.join(ROOT, 'SECURITY.md')));
+  const src = read(path.join(ROOT, 'SECURITY.md'));
+  assert('SECURITY.md has reporting SLA', /First response/i.test(src));
+  assert('SECURITY.md documents in-scope surfaces',
+    /In scope/i.test(src) && /nobigdeal-pro/.test(src));
+  assert('SECURITY.md has key-rotation procedure',
+    /Key rotation/i.test(src) && /functions:secrets:set/.test(src));
+}
+
+section('F7: V2 Builder autosave');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('saveDraftDebounced called from render',
+    /function render\(\)[\s\S]{0,400}saveDraftDebounced\(\)/.test(src));
+  assert('collectDraft bundles state',
+    /function collectDraft\(\)[\s\S]{0,400}scope:\s*state\.scope/.test(src));
+  assert('restoreDraft merges local + remote',
+    /function restoreDraft[\s\S]{0,600}estimate_drafts/.test(src));
+  assert('clearDraft on successful save',
+    /window\._v2SavedEstimateId = savedId[\s\S]{0,200}clearDraft\(\)/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('estimate_drafts rules: owner only',
+    /match \/estimate_drafts\/\{uid\}[\s\S]{0,200}isOwner\(uid\)/.test(rules));
+}
+
+section('F8: Voice memo transcription');
+{
+  const srv = read(path.join(FUNCTIONS, 'integrations/voice-memo.js'));
+  assert('transcribeVoiceMemo callable exported',
+    /exports\.transcribeVoiceMemo\s*=/.test(srv));
+  assert('rate-limited 20/hour/uid',
+    /callable:transcribeVoiceMemo:uid[\s\S]{0,80}20,\s*60 \* 60_000/.test(srv));
+  assert('audio size capped',
+    /MAX_AUDIO_BYTES\s*=\s*1_500_000/.test(srv));
+  assert('writes activity on the lead',
+    /type: 'voice_memo'/.test(srv));
+  const cli = read(path.join(PRO_JS, 'voice-memo.js'));
+  assert('client exposes window.NBDVoiceMemo',
+    /window\.NBDVoiceMemo\s*=/.test(cli));
+  assert('client uses MediaRecorder',
+    /new MediaRecorder/.test(cli));
+  const shared = read(path.join(FUNCTIONS, 'integrations/_shared.js'));
+  assert('DEEPGRAM_API_KEY in secrets registry',
+    /DEEPGRAM_API_KEY:\s*defineSecret\('DEEPGRAM_API_KEY'\)/.test(shared));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('Record Voice Memo button on lead detail',
+    /Record Voice Memo/.test(dash));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('integrationStatus reports deepgram',
+    /deepgram:\s*_hasInt\('DEEPGRAM_API_KEY'\)/.test(idx));
+}
+
+section('F9: Feature flags');
+{
+  const cli = read(path.join(PRO_JS, 'feature-flags.js'));
+  assert('client exposes window.NBDFlags',
+    /window\.NBDFlags\s*=/.test(cli));
+  assert('reads _default + per-uid override',
+    /feature_flags.*_default[\s\S]{0,400}window\._user\.uid/.test(cli));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('_default readable by authed users',
+    /match \/feature_flags\/_default[\s\S]{0,200}allow read: if isAuth\(\)/.test(rules));
+  assert('platform admin is the only writer',
+    /match \/feature_flags\/_default[\s\S]{0,300}allow write: if isAdmin\(\)/.test(rules));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

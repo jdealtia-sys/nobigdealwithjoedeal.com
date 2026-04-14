@@ -1292,6 +1292,111 @@
   function render() {
     renderCatalog();
     renderScope();
+    // F7: debounced autosave on every render. Cheap — just a JSON
+    // write to localStorage. Firestore backup fires on a slower
+    // cadence so network blips don't cost the rep their work.
+    saveDraftDebounced();
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // AUTOSAVE DRAFTS (F7)
+  //
+  // Writes state to localStorage on every render, and syncs to
+  // Firestore estimate_drafts/{uid} at most once every 10s so
+  // reloads + device switches pick up where the rep left off.
+  // Draft is cleared on a successful save() or when a new builder
+  // session is opened with a different linked leadId.
+  // ═════════════════════════════════════════════════════════
+  const DRAFT_KEY_LOCAL = 'nbd_v2_draft_v1';
+  let _draftLocalTimer = null;
+  let _draftRemoteTimer = null;
+  let _lastDraftRemotePush = 0;
+
+  function collectDraft() {
+    return {
+      mode: state.mode,
+      tier: state.tier,
+      jobMode: state.jobMode,
+      county: state.county,
+      measurements: state.measurements,
+      scope: state.scope,
+      customer: state.customer,
+      claim: state.claim,
+      passThru: state.passThru,
+      minJobCharge: state.minJobCharge,
+      savedAt: Date.now()
+    };
+  }
+
+  function saveDraftDebounced() {
+    clearTimeout(_draftLocalTimer);
+    _draftLocalTimer = setTimeout(() => {
+      try {
+        const payload = collectDraft();
+        localStorage.setItem(DRAFT_KEY_LOCAL, JSON.stringify(payload));
+      } catch (e) { /* quota exhausted — not fatal */ }
+      // Firestore push at most every 10s.
+      const now = Date.now();
+      if (now - _lastDraftRemotePush > 10_000) {
+        _lastDraftRemotePush = now;
+        pushDraftToFirestore().catch(() => {});
+      }
+    }, 400);
+  }
+
+  async function pushDraftToFirestore() {
+    if (!window.db || !window.doc || !window.setDoc || !window._user) return;
+    try {
+      await window.setDoc(
+        window.doc(window.db, 'estimate_drafts', window._user.uid),
+        {
+          userId: window._user.uid,
+          updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+          draft: collectDraft()
+        },
+        { merge: true }
+      );
+    } catch (e) { /* silent */ }
+  }
+
+  async function restoreDraft() {
+    // Local first (instant), then Firestore if newer.
+    let local = null;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY_LOCAL);
+      if (raw) local = JSON.parse(raw);
+    } catch (e) {}
+    let remote = null;
+    try {
+      if (window.db && window.doc && window.getDoc && window._user) {
+        const snap = await window.getDoc(window.doc(window.db, 'estimate_drafts', window._user.uid));
+        if (snap.exists()) remote = snap.data().draft || null;
+      }
+    } catch (e) {}
+    const pick =
+      !local && !remote ? null
+      : !local          ? remote
+      : !remote         ? local
+      : (remote.savedAt || 0) > (local.savedAt || 0) ? remote : local;
+    if (!pick) return false;
+    // Apply without clobbering fields that aren't in the draft.
+    Object.keys(pick).forEach(k => {
+      if (k === 'savedAt') return;
+      if (pick[k] == null) return;
+      state[k] = pick[k];
+    });
+    syncMeasurementInputs();
+    if (typeof syncCustomerInputs === 'function') syncCustomerInputs();
+    return true;
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY_LOCAL); } catch (e) {}
+    if (window.db && window.doc && window.deleteDoc && window._user) {
+      try {
+        window.deleteDoc(window.doc(window.db, 'estimate_drafts', window._user.uid));
+      } catch (e) {}
+    }
   }
 
   // ═════════════════════════════════════════════════════════
@@ -1508,6 +1613,8 @@
         // Expose the id so sendForSignature() can scope the BoldSign
         // envelope metadata back to this estimate.
         window._v2SavedEstimateId = savedId;
+        // F7: saved estimate → draft is obsolete.
+        clearDraft();
         setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', '#2ECC8A');
         if (typeof window.showToast === 'function') {
           window.showToast('✓ Estimate saved to Firestore', 'success');
@@ -1699,12 +1806,24 @@
     opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
-    // Prefill from a lead id — caller passes it, OR we fall back to
-    // window._cardDetailLeadId (the lead whose detail modal we likely
-    // just came from).
+    // F7: if there's a draft AND the caller didn't pass a leadId
+    // (i.e. fresh "start new estimate" click), offer to restore it.
+    // Prefilling from a lead overrides any stale draft since the
+    // lead data is authoritative.
     const leadId = opts.leadId || window._cardDetailLeadId || null;
-    if (leadId) prefillFromLead(leadId);
-    render();
+    if (leadId) {
+      prefillFromLead(leadId);
+      render();
+      return;
+    }
+    restoreDraft().then((restored) => {
+      if (restored) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Restored unsaved draft', 'info');
+        }
+      }
+      render();
+    });
   }
 
   function close() {

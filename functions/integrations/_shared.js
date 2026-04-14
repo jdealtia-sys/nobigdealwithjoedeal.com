@@ -41,7 +41,10 @@ const SECRETS = {
   BOLDSIGN_WEBHOOK_SECRET: defineSecret('BOLDSIGN_WEBHOOK_SECRET'),
   REGRID_API_TOKEN:      defineSecret('REGRID_API_TOKEN'),
   HAILTRACE_API_KEY:     defineSecret('HAILTRACE_API_KEY'),
-  CALCOM_WEBHOOK_SECRET: defineSecret('CALCOM_WEBHOOK_SECRET')
+  CALCOM_WEBHOOK_SECRET: defineSecret('CALCOM_WEBHOOK_SECRET'),
+
+  // Voice transcription (F8)
+  DEEPGRAM_API_KEY:      defineSecret('DEEPGRAM_API_KEY')
 };
 
 // Provider preference for swappable categories. Set via env (not

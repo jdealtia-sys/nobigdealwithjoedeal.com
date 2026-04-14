@@ -197,6 +197,19 @@ exports.sendSMS = onRequest(
       throw e;
     }
 
+    // F3: TCPA. If the recipient replied STOP, we must not message
+    // them again — civil penalties per message are steep. Store
+    // lookup is fast (single doc get).
+    if (toDigits) {
+      const optOut = await admin.firestore().doc('sms_opt_outs/' + toDigits).get();
+      if (optOut.exists) {
+        res.status(403).json({
+          error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.'
+        });
+        return;
+      }
+    }
+
     if (!body || body.trim().length === 0) {
       res.status(400).json({ error: 'Body cannot be empty' });
       return;
@@ -334,6 +347,16 @@ exports.sendD2DSMS = onRequest(
         }
         throw e;
       }
+      // F3: TCPA — check opt-out list before sending.
+      if (toDigits) {
+        const optOut = await admin.firestore().doc('sms_opt_outs/' + toDigits).get();
+        if (optOut.exists) {
+          res.status(403).json({
+            error: 'This number has opted out of SMS (replied STOP).'
+          });
+          return;
+        }
+      }
 
       // Get template
       const template = D2D_SMS_TEMPLATES[templateKey];
@@ -452,6 +475,54 @@ exports.incomingSMS = onRequest(
       }
 
       const db = admin.firestore();
+
+      // F3: TCPA compliance. Any of the opt-out keywords
+      // (per CTIA Short Code Monitoring Handbook § 5.2) must be
+      // honored on the same day. We add the phone to
+      // sms_opt_outs/{digits} and respond with TwiML confirming
+      // the opt-out. The sendSMS + sendD2DSMS functions check
+      // this collection before sending.
+      const opt = String(messageBody || '').trim().toUpperCase();
+      const STOP_WORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
+      const HELP_WORDS = new Set(['HELP', 'INFO']);
+      const START_WORDS = new Set(['START', 'YES', 'UNSTOP']);
+      const phoneDigits = String(fromPhone).replace(/\D/g, '');
+      if (phoneDigits && STOP_WORDS.has(opt)) {
+        await db.doc('sms_opt_outs/' + phoneDigits).set({
+          phone: fromPhone,
+          optedOutAt: admin.firestore.FieldValue.serverTimestamp(),
+          keyword: opt,
+          twilioSid: messageSid
+        });
+        // TwiML reply confirming opt-out. Twilio sends this back.
+        res.set('Content-Type', 'text/xml');
+        res.status(200).send(
+          '<?xml version="1.0" encoding="UTF-8"?><Response>' +
+          '<Message>You\'ve been unsubscribed from NBD Pro SMS. ' +
+          'Reply START to resume, HELP for help.</Message></Response>'
+        );
+        return;
+      }
+      if (phoneDigits && HELP_WORDS.has(opt)) {
+        res.set('Content-Type', 'text/xml');
+        res.status(200).send(
+          '<?xml version="1.0" encoding="UTF-8"?><Response>' +
+          '<Message>NBD Pro: Msg & data rates may apply. Reply STOP to ' +
+          'unsubscribe. Support: (859) 420-7382.</Message></Response>'
+        );
+        return;
+      }
+      if (phoneDigits && START_WORDS.has(opt)) {
+        // Resume — delete the opt-out record so the phone is live again.
+        await db.doc('sms_opt_outs/' + phoneDigits).delete().catch(() => {});
+        res.set('Content-Type', 'text/xml');
+        res.status(200).send(
+          '<?xml version="1.0" encoding="UTF-8"?><Response>' +
+          '<Message>Welcome back to NBD Pro SMS. Reply STOP anytime to ' +
+          'unsubscribe.</Message></Response>'
+        );
+        return;
+      }
 
       // Match phone number to a lead in Firestore
       const leadsSnap = await db

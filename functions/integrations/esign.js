@@ -196,22 +196,29 @@ exports.esignWebhook = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).end(); return; }
 
-    // Verify HMAC if secret configured. BoldSign sends
-    // X-BoldSign-Signature: HMAC-SHA256(rawBody, BOLDSIGN_WEBHOOK_SECRET).
-    if (hasSecret('BOLDSIGN_WEBHOOK_SECRET')) {
-      const sig = req.headers['x-boldsign-signature'];
-      if (!sig || !req.rawBody || !Buffer.isBuffer(req.rawBody)) {
-        res.status(400).json({ error: 'Missing signature' });
-        return;
-      }
-      const computed = crypto
-        .createHmac('sha256', getSecret('BOLDSIGN_WEBHOOK_SECRET'))
-        .update(req.rawBody)
-        .digest('hex');
-      if (!safeEqual(computed, String(sig))) {
-        res.status(403).json({ error: 'Bad signature' });
-        return;
-      }
+    // F2: HMAC verification is now REQUIRED. Previously we treated
+    // a missing BOLDSIGN_WEBHOOK_SECRET as "ok, skip verification" —
+    // that's a fail-open. An attacker who knew the endpoint shape
+    // could forge 'completed' events to flip estimates to signed.
+    // Now we reject unsigned requests even if the secret is unset,
+    // so ops sees the 5xx spike and configures the secret.
+    if (!hasSecret('BOLDSIGN_WEBHOOK_SECRET')) {
+      logger.error('esignWebhook: BOLDSIGN_WEBHOOK_SECRET not set — rejecting unsigned request');
+      res.status(503).json({ error: 'Webhook not configured' });
+      return;
+    }
+    const sig = req.headers['x-boldsign-signature'];
+    if (!sig || !req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+      res.status(400).json({ error: 'Missing signature' });
+      return;
+    }
+    const computed = crypto
+      .createHmac('sha256', getSecret('BOLDSIGN_WEBHOOK_SECRET'))
+      .update(req.rawBody)
+      .digest('hex');
+    if (!safeEqual(computed, String(sig))) {
+      res.status(403).json({ error: 'Bad signature' });
+      return;
     }
 
     const body = req.body || {};

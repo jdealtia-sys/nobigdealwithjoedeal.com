@@ -171,6 +171,33 @@ if [ "${#missing_core[@]}" -gt 0 ]; then
   exit 1
 fi
 
+# ─── Browser-side key inventory ────────────────────────────
+# F4: the three window.__NBD_* slots in docs/pro/dashboard.html
+# should be non-empty before we ship to prod. Warn but don't block —
+# some deploys are intentionally un-keyed (staging, sandbox).
+step "Browser-side key inventory"
+
+check_browser_key() {
+  local slot="$1"; local file="$2"
+  local val
+  val=$(grep -oE "${slot}\s*=\s*\"[^\"]*\"" "$file" 2>/dev/null | head -1 | sed -E 's/.*"([^"]*)"/\1/')
+  if [ -n "$val" ]; then
+    ok "${slot} set in ${file}"
+  else
+    warn "${slot} NOT set in ${file} — feature will no-op in prod"
+  fi
+}
+
+if [ -f docs/pro/dashboard.html ]; then
+  check_browser_key "__NBD_APP_CHECK_KEY"     docs/pro/dashboard.html
+  check_browser_key "__NBD_SENTRY_DSN"        docs/pro/dashboard.html
+fi
+for page in docs/index.html docs/estimate.html docs/storm-alerts.html docs/free-guide/index.html; do
+  if [ -f "$page" ]; then
+    check_browser_key "__NBD_TURNSTILE_SITEKEY" "$page"
+  fi
+done
+
 # ─── Sanity: smoke tests ───────────────────────────────────
 step "Running smoke tests"
 if [ -f tests/smoke.test.js ]; then

@@ -447,6 +447,37 @@ service cloud.firestore {
       }
     }
 
+    // ── FEATURE FLAGS (read by any authed user) ────────
+    // F9: _default holds the platform defaults. {uid} is an
+    // optional per-user override. Platform admin only writes.
+    match /feature_flags/_default {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+    match /feature_flags/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── V2 ESTIMATE DRAFTS (owner only) ────────────────
+    // F7: one draft doc per user keyed by uid. Owner reads/writes
+    // their own; everyone else (including platform admin) is blocked
+    // because drafts are ephemeral + the finalized estimate survives
+    // in `estimates/`.
+    match /estimate_drafts/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── SMS OPT-OUT LIST (admin-SDK only) ──────────────
+    // F3: TCPA compliance. incomingSMS (Twilio webhook) writes here
+    // when a recipient replies STOP. sendSMS + sendD2DSMS read it
+    // before sending. Both paths go through the admin SDK; clients
+    // never need direct access, and leaking the list would identify
+    // every number that opted out.
+    match /sms_opt_outs/{phone} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
