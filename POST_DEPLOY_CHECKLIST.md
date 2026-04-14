@@ -369,6 +369,79 @@ After the next deploy:
   - `gcloud scheduler jobs list --project=nobigdeal-pro --location=us-central1` — all 7 schedule jobs present.
   - `gcloud identity-platform config describe --project=nobigdeal-pro` — `blockingFunctions.triggers` includes `beforeCreate` (onRepSignup is mapped to beforeCreate).
 
+## 17. Voice Intelligence — Pub/Sub + Eventarc bootstrap
+
+The C1 Voice Intelligence pipeline uses a Gen-2 Storage trigger
+(`onAudioUploaded` → `onObjectFinalized`). Gen-2 Storage triggers
+fire through Eventarc, which in turn uses Pub/Sub. First-time
+deploys on a project that never used a Gen-2 Storage trigger fail
+with:
+
+```
+Error: Error generating the service identity for pubsub.googleapis.com.
+```
+
+The deploy workflow now auto-enables the APIs + generates the
+service identities. If it can't (SA lacks `serviceusage.services.enable`),
+run these once from a privileged identity (e.g., Joe's gcloud):
+
+```
+gcloud services enable \
+  pubsub.googleapis.com eventarc.googleapis.com \
+  run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  --project=nobigdeal-pro
+
+gcloud beta services identity create \
+  --service=pubsub.googleapis.com --project=nobigdeal-pro
+gcloud beta services identity create \
+  --service=eventarc.googleapis.com --project=nobigdeal-pro
+```
+
+After those succeed once, every subsequent deploy reuses the
+existing service identities — this is a one-time bootstrap.
+
+### 17.1 Runtime SA + Eventarc trigger role
+
+The Eventarc trigger for `onAudioUploaded` needs the runtime SA
+(default: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`)
+to have `roles/eventarc.eventReceiver`. Firebase CLI grants this
+on first successful deploy; if the SA was rotated, re-grant:
+
+```
+PROJECT_NUMBER=$(gcloud projects describe nobigdeal-pro --format='value(projectNumber)')
+gcloud projects add-iam-policy-binding nobigdeal-pro \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/eventarc.eventReceiver"
+```
+
+### 17.2 Pub/Sub signing SA for Cloud Storage events
+
+Cloud Storage notifications are published to a Pub/Sub topic owned
+by Firebase. The Cloud Storage service agent needs
+`roles/pubsub.publisher`:
+
+```
+STORAGE_SA=$(gcloud storage service-agent --project=nobigdeal-pro)
+gcloud projects add-iam-policy-binding nobigdeal-pro \
+  --member="serviceAccount:${STORAGE_SA}" \
+  --role="roles/pubsub.publisher"
+```
+
+Firebase CLI tries to do this automatically but the deploy SA may
+lack the IAM admin role. Run once from Joe's identity.
+
+### 17.3 Voice Intelligence secrets
+
+- `GROQ_API_KEY` — required for Phase 1 transcription. Without it,
+  every upload lands with `status: 'failed'` and
+  `statusError: '[groq-not-configured] ...'`. Provision:
+  ```
+  firebase functions:secrets:set GROQ_API_KEY --project=nobigdeal-pro
+  ```
+- `ANTHROPIC_API_KEY` — already set for claudeProxy; the voice
+  pipeline reuses it for analysis + consent checks.
+
 
 - **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
 - **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.

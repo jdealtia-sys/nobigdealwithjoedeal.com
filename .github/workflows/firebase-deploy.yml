@@ -174,16 +174,37 @@ jobs:
           set +e
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud config set project "$PRO_PROJECT" --quiet
+          # APIs firebase-tools doesn't auto-enable:
+          #   cloudscheduler        — 2nd-gen onSchedule functions
+          #   identitytoolkit       — beforeUserCreated/SignedIn blockers
+          #   pubsub + eventarc     — 2nd-gen Storage / Firestore triggers
+          #                           (onObjectFinalized, onDocumentWritten,
+          #                           etc. fire through Eventarc → Pub/Sub)
+          #   run, cloudbuild, artifactregistry — Gen 2 runtime substrate
           gcloud services enable \
             cloudscheduler.googleapis.com \
             identitytoolkit.googleapis.com \
+            pubsub.googleapis.com \
+            eventarc.googleapis.com \
+            run.googleapis.com \
+            cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com \
             --project "$PRO_PROJECT" --quiet
           EXIT=$?
-          if [ $EXIT -eq 0 ]; then
-            echo "✓ Required APIs enabled (or already on)."
-          else
-            echo "::warning::Could not auto-enable APIs (SA lacks roles/serviceusage.serviceUsageAdmin). If schedule functions or blocking triggers fail later, manually enable: cloudscheduler.googleapis.com + identitytoolkit.googleapis.com in Cloud Console."
+          if [ $EXIT -ne 0 ]; then
+            echo "::warning::gcloud services enable returned $EXIT (SA likely lacks roles/serviceusage.serviceUsageAdmin). Manually enable in Cloud Console: cloudscheduler, identitytoolkit, pubsub, eventarc, run, cloudbuild, artifactregistry."
           fi
+          # Generate the service identity for Pub/Sub. Gen-2 Storage
+          # triggers (onAudioUploaded in voice-intelligence.js) fail
+          # with "Error generating the service identity for
+          # pubsub.googleapis.com" the first time after enabling the
+          # API until this identity is explicitly provisioned.
+          # Idempotent: succeeds quickly if already exists.
+          for api in pubsub eventarc; do
+            gcloud beta services identity create --service=${api}.googleapis.com \
+              --project "$PRO_PROJECT" --quiet 2>/dev/null
+          done
+          echo "✓ Required APIs + service identities provisioned (or already on)."
           exit 0
 
       # ─────────────────────────────────────────────────────────
