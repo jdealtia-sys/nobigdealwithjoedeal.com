@@ -9866,9 +9866,12 @@ function switchScTab(tab, btn) {
           <div class="page-title">Team Manager</div>
           <div class="page-sub">Admin-only · create reps, assign roles, deactivate accounts</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span id="adminRoleBadge" style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(232,114,12,.15);border:1px solid var(--orange);color:var(--orange);border-radius:3px;letter-spacing:.08em;text-transform:uppercase;">Admin</span>
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" onclick="window.AdminManager && window.AdminManager.refresh()">↻ Refresh</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
+                  title="Disable legacy access codes (NBD-2026 and siblings) in one click"
+                  onclick="window.AdminManager && window.AdminManager.rotateAccessCodes && window.AdminManager.rotateAccessCodes()">🔐 Rotate Access Codes</button>
           <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.openCreate()">+ New User</button>
         </div>
       </div>

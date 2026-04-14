@@ -971,7 +971,10 @@
     <!-- Public lead gateway — post-C-3 direct Firestore writes to
          guide_leads are denied at the rules layer. Submissions now
          go through the rate-limited, App-Checked, Turnstile-verified
-         submitPublicLead Cloud Function. -->
+         submitPublicLead Cloud Function.
+         Turnstile site key goes in the slot below; widget is invisible
+         so there's no checkbox UX for the homeowner. -->
+    <script>window.__NBD_TURNSTILE_SITEKEY = "";</script>
     <script src="/assets/js/public-lead-submit.js"></script>
     <script>
       window._captureGuideLeads = async (name, email) => {

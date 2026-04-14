@@ -454,6 +454,28 @@
     };
   }
 
+  // ── Rotate access codes ────────────────────────────────
+  // One-click invocation of the rotateAccessCodes callable. This is
+  // the platform-admin kill switch for legacy hardcoded codes
+  // (NBD-2026 and siblings from C-2). Only a platform-admin caller
+  // sees the button land — the server returns 403 otherwise.
+  async function rotateAccessCodes() {
+    if (!window.confirm('Rotate access codes?\n\nThis deactivates NBD-2026, NBD-DEMO, TRYIT, DEAL-2026, ROOFCON26, NBD-STORM in Firestore. You\'ll need to run the seed script (BETA_COUNT=... scripts/seed-access-codes.js) to mint replacements.')) return;
+    try {
+      const fn = await callable('rotateAccessCodes');
+      const res = await fn({});
+      const deactivated = (res && res.data && res.data.deactivated) || [];
+      if (deactivated.length === 0) {
+        toast('No legacy codes to rotate — already clean.', 'success');
+      } else {
+        toast('Rotated ' + deactivated.length + ' legacy code(s): ' + deactivated.join(', '), 'success');
+      }
+    } catch (e) {
+      console.error('rotateAccessCodes failed:', e);
+      toast(e.message || 'Rotate failed — check platform-admin claim.', 'error');
+    }
+  }
+
   // Public API
   window.AdminManager = {
     init,
@@ -464,7 +486,8 @@
     closeEdit,
     submitEdit,
     toggleDeactivate,
-    applyGate
+    applyGate,
+    rotateAccessCodes
   };
 
   if (document.readyState === 'loading') {
