@@ -214,7 +214,85 @@ and `db.collection('leads').add(...)` inline. Every page has been migrated to:
 - [ ] `firebase deploy --only hosting` to push the updated marketing site.
 - [ ] Turn on App Check enforcement on the marketing project in the console.
 
-## 14. Still open (documented, not blocking this deploy)
+## 14. Firestore backup + restore runbook (Q2)
+
+`functions/integrations/compliance.js::nightlyFirestoreBackup` runs
+daily at 04:00 America/Chicago via Cloud Scheduler and exports the
+entire Firestore database to `gs://nobigdeal-pro-backups/YYYY-MM-DD/`.
+A missing day means restore capability is compromised until the next
+successful run.
+
+### 14.1 Verify backups are actually landing (weekly)
+
+```
+./scripts/verify-backup.sh
+```
+
+The script lists the last 7 calendar days of export folders in the
+bucket, confirms each contains an `overall_export_metadata` file
+(failed exports leave empty folders), and exits non-zero if fewer
+than 2 days are present. Run from any machine with the `gcloud` CLI
+authenticated to the `nobigdeal-pro` project.
+
+Override the bucket via env: `BACKUP_BUCKET=... ./scripts/verify-backup.sh`.
+
+### 14.2 Alerting
+
+`monitoring/alert-backup-cron-stale.json` defines a Cloud Monitoring
+alert that fires if the `nightlyFirestoreBackup` function has not
+emitted its success log line in 26 hours. Wire it to your ops
+notification channel:
+
+```
+gcloud alpha monitoring policies create \
+  --policy-from-file=monitoring/alert-backup-cron-stale.json \
+  --project=nobigdeal-pro
+# then edit the policy in the console to attach the real
+# notificationChannels id.
+```
+
+### 14.3 Restore procedure (practice this BEFORE you need it)
+
+**Never restore straight into production.** Always stage into a
+scratch project, diff the data, and then decide the scope.
+
+1. Create (or reuse) a scratch Firebase project, e.g. `nbd-restore-drill`.
+2. Grant the service account `roles/datastore.importExportAdmin` on
+   both the source bucket and the destination project.
+3. List available exports:
+   ```
+   gcloud storage ls gs://nobigdeal-pro-backups/
+   ```
+4. Import a specific day's export into the scratch project:
+   ```
+   gcloud firestore import gs://nobigdeal-pro-backups/2026-04-14/<export-name> \
+     --project=nbd-restore-drill
+   ```
+   The import overwrites same-IDs; it does not delete docs that
+   exist in the destination but not in the backup.
+5. Verify the scratch data against the production delta. If you
+   need to cherry-pick specific collections into prod:
+   ```
+   gcloud firestore import gs://nobigdeal-pro-backups/2026-04-14/<export-name> \
+     --collection-ids='leads,estimates' \
+     --project=nobigdeal-pro
+   ```
+6. Audit-log the operation manually:
+   ```
+   # from an admin context, write an audit_log entry describing
+   # the scope of the restore, the operator, and the ticket ID.
+   ```
+
+### 14.4 Quarterly restore drill
+
+Schedule a 1-hour quarterly calendar event. Follow 14.3 end-to-end
+against the scratch project, confirm the most recent day restores
+cleanly, and update the line below.
+
+**Last successful drill:** _not yet performed — run one before
+first real-customer revenue._
+
+## 15. Still open (documented, not blocking this deploy)
 
 - **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
 - **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.

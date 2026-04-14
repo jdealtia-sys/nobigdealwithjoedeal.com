@@ -1,0 +1,30 @@
+{
+  "displayName": "NBD Pro — nightly Firestore backup stale > 26h",
+  "documentation": {
+    "content": "The nightlyFirestoreBackup scheduled function hasn't emitted a success log line in more than 26 hours. The cron runs at 04:00 America/Chicago daily; missing two consecutive runs means restore capability may be compromised.\n\nInvestigation:\n  1. `gcloud functions logs read nightlyFirestoreBackup --project nobigdeal-pro --limit 50`\n  2. `gcloud scheduler jobs list --project nobigdeal-pro | grep nightlyFirestoreBackup`\n  3. `./scripts/verify-backup.sh` to enumerate recent backup folders\n  4. Confirm the function SA still has roles/datastore.importExportAdmin + roles/storage.objectAdmin on the backup bucket.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "No backup success log in 26h",
+      "conditionAbsent": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"nightlyFirestoreBackup\" AND jsonPayload.message=\"nightlyFirestoreBackup\" AND severity=\"INFO\"",
+        "duration": "93600s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "3600s",
+            "perSeriesAligner": "ALIGN_COUNT"
+          }
+        ]
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "86400s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}
