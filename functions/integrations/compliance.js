@@ -164,6 +164,19 @@ exports.exportMyData = onCall(
         out.collections[coll] = { error: e.message };
       }
     }
+    // collectionGroup exports — subcollection rows that key on
+    // userId (e.g. recordings under leads/{leadId}/recordings/).
+    const OWNED_GROUPS = ['recordings'];
+    for (const group of OWNED_GROUPS) {
+      try {
+        const snap = await db.collectionGroup(group).where('userId', '==', uid).get();
+        out.collections[group] = snap.docs.map(d => ({
+          path: d.ref.path, ...d.data()
+        }));
+      } catch (e) {
+        out.collections[group] = { error: e.message };
+      }
+    }
 
     // Profile doc + subscription.
     try {
@@ -423,10 +436,38 @@ exports.confirmAccountErasure = onRequest(
       confirmedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Cascade: delete all docs owned by this uid in the same
-    // collections exportMyData covers. Batched 500 at a time.
-    const OWNED = ['leads', 'estimates', 'photos', 'pins', 'tasks', 'documents', 'training_sessions'];
-    for (const coll of OWNED) {
+    // Cascade: delete all docs owned by this uid. Covers three
+    // classes of data the pre-2026-04 implementation missed:
+    //
+    //   1. Flat-path userId-keyed collections (the original scope).
+    //   2. collectionGroup for subcollection rows that carry a
+    //      userId field — e.g. recordings live at
+    //      leads/{leadId}/recordings/{id} with userId stamped on
+    //      each. A flat collection() query against the parent path
+    //      never reaches them.
+    //   3. Owner-keyed Storage prefixes — audio, photos, docs,
+    //      portals, galleries, reports, shared_docs, deal_rooms.
+    //      Right-to-be-forgotten is not satisfied by deleting the
+    //      Firestore doc while the binary payload stays in the
+    //      bucket.
+    const OWNED_COLLECTIONS = [
+      'leads', 'estimates', 'photos', 'pins', 'tasks',
+      'documents', 'training_sessions'
+    ];
+    // collectionGroup names we sweep for userId == uid. These are
+    // subcollections that don't surface on flat-path queries.
+    const OWNED_COLLECTION_GROUPS = [
+      'recordings'   // leads/{leadId}/recordings/{id} — Voice Intelligence
+    ];
+    // Owner-keyed Storage prefixes. Every path here matches a rule
+    // in storage.rules that keys on /{uid}/ in the second segment.
+    const OWNED_STORAGE_PREFIXES = [
+      'audio', 'photos', 'docs', 'portals', 'galleries',
+      'reports', 'shared_docs', 'deal_rooms'
+    ];
+
+    // ── (1) flat-path collections ──
+    for (const coll of OWNED_COLLECTIONS) {
       try {
         while (true) {
           const snap = await db.collection(coll).where('userId', '==', uid).limit(500).get();
@@ -439,6 +480,40 @@ exports.confirmAccountErasure = onRequest(
       } catch (e) {
         logger.warn('erasure: cascade failed for ' + coll, { err: e.message });
       }
+    }
+
+    // ── (2) collectionGroup sweeps (subcollections with userId) ──
+    for (const groupName of OWNED_COLLECTION_GROUPS) {
+      try {
+        while (true) {
+          const snap = await db.collectionGroup(groupName)
+            .where('userId', '==', uid)
+            .limit(500)
+            .get();
+          if (snap.empty) break;
+          const batch = db.batch();
+          snap.docs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+          if (snap.size < 500) break;
+        }
+      } catch (e) {
+        logger.warn('erasure: collectionGroup cascade failed for ' + groupName,
+          { err: e.message });
+      }
+    }
+
+    // ── (3) Storage prefix sweeps ──
+    try {
+      const bucket = admin.storage().bucket();
+      for (const prefix of OWNED_STORAGE_PREFIXES) {
+        try {
+          await bucket.deleteFiles({ prefix: prefix + '/' + uid + '/', force: true });
+        } catch (e) {
+          logger.warn('erasure: storage sweep failed for ' + prefix, { err: e.message });
+        }
+      }
+    } catch (e) {
+      logger.warn('erasure: storage bucket unavailable', { err: e.message });
     }
     // Profile doc + subscription (owner-scoped).
     try { await db.doc('users/' + uid).delete(); } catch (e) {}

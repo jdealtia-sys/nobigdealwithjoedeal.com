@@ -1251,6 +1251,27 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C0: GDPR erasure cascade covers Storage + collectionGroups');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  // (1) flat-path cascade still intact
+  assert('C0: flat-path OWNED_COLLECTIONS still present',
+    /OWNED_COLLECTIONS\s*=\s*\[[\s\S]{0,200}'leads'[\s\S]{0,200}'training_sessions'/.test(src));
+  // (2) collectionGroup sweep added (recordings)
+  assert('C0: OWNED_COLLECTION_GROUPS includes recordings',
+    /OWNED_COLLECTION_GROUPS\s*=\s*\[[\s\S]{0,200}'recordings'/.test(src));
+  assert('C0: erasure runs collectionGroup query for userId==uid',
+    /collectionGroup\(groupName\)[\s\S]{0,200}where\('userId', '==', uid\)/.test(src));
+  // (3) Storage sweep added for owner-keyed prefixes
+  assert('C0: OWNED_STORAGE_PREFIXES includes audio + photos + docs',
+    /OWNED_STORAGE_PREFIXES\s*=\s*\[[\s\S]{0,200}'audio'[\s\S]{0,200}'photos'[\s\S]{0,200}'docs'/.test(src));
+  assert('C0: erasure calls bucket.deleteFiles with uid-keyed prefix',
+    /bucket\.deleteFiles\(\s*\{[\s\S]{0,200}prefix:[\s\S]{0,80}uid[\s\S]{0,80}force: true/.test(src));
+  // exportMyData picks up collectionGroup rows too
+  assert('C0: exportMyData also covers collectionGroup OWNED_GROUPS',
+    /OWNED_GROUPS\s*=\s*\['recordings'\][\s\S]{0,400}collectionGroup\(group\)\.where\('userId', '==', uid\)/.test(src));
+}
+
 section('Q1: clientIp XFF parsing (F-13 follow-up)');
 {
   // Live-load the function and actually exercise it. This is the one
