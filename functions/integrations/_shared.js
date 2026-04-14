@@ -46,18 +46,28 @@ const SECRETS = {
   CALCOM_WEBHOOK_SECRET: defineSecret('CALCOM_WEBHOOK_SECRET'),
 
   // Voice transcription (F8)
-  DEEPGRAM_API_KEY:      defineSecret('DEEPGRAM_API_KEY')
+  DEEPGRAM_API_KEY:      defineSecret('DEEPGRAM_API_KEY'),
+
+  // Voice Intelligence (Voice Intel — C1)
+  // Phase 1 transcription = Groq Whisper-large-v3-turbo ($0.04/hr).
+  // Phase 2 may add Deepgram for native diarization on Pro+ tiers.
+  GROQ_API_KEY:          defineSecret('GROQ_API_KEY')
 };
 
 // Provider preference for swappable categories. Set via env (not
 // secret) so it's visible in logs and easy to rotate mid-flight.
 // Defaults chosen for biggest-bang-for-buck in roofing CRM context.
 const PROVIDERS = {
-  measurement: (process.env.NBD_MEASUREMENT_PROVIDER || 'hover').toLowerCase(),
-  esign:       (process.env.NBD_ESIGN_PROVIDER       || 'boldsign').toLowerCase(),
-  parcel:      (process.env.NBD_PARCEL_PROVIDER      || 'regrid').toLowerCase(),
-  hail:        (process.env.NBD_HAIL_PROVIDER        || 'noaa').toLowerCase(),
-  rateLimit:   (process.env.NBD_RATE_LIMIT_PROVIDER  || 'firestore').toLowerCase()
+  measurement:       (process.env.NBD_MEASUREMENT_PROVIDER  || 'hover').toLowerCase(),
+  esign:             (process.env.NBD_ESIGN_PROVIDER        || 'boldsign').toLowerCase(),
+  parcel:            (process.env.NBD_PARCEL_PROVIDER       || 'regrid').toLowerCase(),
+  hail:              (process.env.NBD_HAIL_PROVIDER         || 'noaa').toLowerCase(),
+  rateLimit:         (process.env.NBD_RATE_LIMIT_PROVIDER   || 'firestore').toLowerCase(),
+  // Voice transcription for the Voice Intelligence pipeline.
+  //   'groq'     → Groq Whisper-large-v3-turbo ($0.04/hr, no speakers)
+  //   'deepgram' → Deepgram Nova-2 ($0.26/hr, native diarization)
+  // Flip via env var — no code deploy needed when switching tiers.
+  voiceTranscription:(process.env.NBD_VOICE_TRANSCRIPTION_PROVIDER || 'groq').toLowerCase()
 };
 
 // A secret is considered "configured" only if it has a non-empty
