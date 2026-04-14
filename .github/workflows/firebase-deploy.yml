@@ -331,9 +331,11 @@ jobs:
       #
       # Full remediation runbook: see POST_DEPLOY_CHECKLIST §16.
       #
-      # --force auto-confirms deletion of orphan functions; --debug
-      # surfaces the underlying Cloud Run / Scheduler errors so the
-      # next iteration isn't flying blind.
+      # --force auto-confirms deletion of orphan functions. --debug
+      # was retained on 2026-04-14 to diagnose the IAM-denial cascade;
+      # removed now that the split-deploy strategy works cleanly. If
+      # a future deploy goes opaque again, add --debug back as the
+      # first investigation step.
       - name: Deploy Cloud Functions (strict — skips IAM-blocked 8)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
@@ -365,7 +367,7 @@ jobs:
             echo "::error::No functions left to deploy after skip-list"; exit 1
           fi
           echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s)"
-          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force --debug
+          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force
 
       # Second pass: retry the skip-list with tolerance. If IAM has
       # since been granted, these succeed. If not, the warning is
