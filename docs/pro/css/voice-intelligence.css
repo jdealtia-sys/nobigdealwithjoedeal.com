@@ -1,0 +1,273 @@
+/* Voice Intelligence (C4) — per-tab styles.
+   Loaded from customer.html. Uses the same --orange/--m/--s2 CSS
+   variables as the rest of the app so theming stays consistent. */
+
+.nbd-voice-root { font-size: 13px; }
+
+.nbd-voice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--s2, #1a1d29);
+  border: 1px solid var(--border, #2a2f3c);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.nbd-voice-record {
+  background: var(--orange, #e8720c);
+  color: #fff;
+  border: 0;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform .08s ease;
+}
+.nbd-voice-record:hover { transform: translateY(-1px); }
+.nbd-voice-record.is-recording {
+  background: #c63030;
+  animation: nbd-voice-pulse 1.6s ease-in-out infinite;
+}
+.nbd-voice-dot {
+  width: 10px; height: 10px;
+  background: #fff;
+  border-radius: 50%;
+  display: inline-block;
+}
+.nbd-voice-record.is-recording .nbd-voice-dot {
+  background: #fff;
+  box-shadow: 0 0 0 0 rgba(255,255,255,.6);
+  animation: nbd-voice-dot-pulse 1.2s ease-in-out infinite;
+}
+@keyframes nbd-voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(198,48,48,.35); }
+  50%      { box-shadow: 0 0 0 8px rgba(198,48,48,0); }
+}
+@keyframes nbd-voice-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.3); opacity: .6; }
+}
+
+.nbd-voice-upload {
+  background: transparent;
+  color: var(--text, #e8eaf0);
+  border: 1px dashed var(--border2, #3a4155);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.nbd-voice-upload:hover { border-color: var(--orange, #e8720c); }
+
+.nbd-voice-calltype-sel {
+  background: var(--s2, #1a1d29);
+  color: var(--text, #e8eaf0);
+  border: 1px solid var(--border, #2a2f3c);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.nbd-voice-timer {
+  margin-left: auto;
+  font-family: 'Syne Mono', ui-monospace, monospace;
+  font-size: 16px;
+  color: #c63030;
+  min-width: 60px;
+  text-align: right;
+}
+
+.nbd-voice-progress:not(:empty) {
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--s2, #1a1d29);
+  border-left: 3px solid var(--orange, #e8720c);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Recording list items */
+.nbd-voice-list > .nbd-voice-item:not(:last-child) { margin-bottom: 12px; }
+.nbd-voice-item {
+  background: var(--s2, #1a1d29);
+  border: 1px solid var(--border, #2a2f3c);
+  border-radius: 8px;
+  padding: 14px;
+}
+.nbd-voice-item-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text2, #8892a4);
+}
+.nbd-voice-status {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--border, #2a2f3c);
+  color: var(--text, #e8eaf0);
+}
+.nbd-voice-status-transcribing,
+.nbd-voice-status-analyzing {
+  background: rgba(232, 114, 12, .18);
+  color: var(--orange, #e8720c);
+}
+.nbd-voice-status-complete {
+  background: rgba(46, 204, 138, .18);
+  color: var(--green, #2ecc8a);
+}
+.nbd-voice-status-failed,
+.nbd-voice-status-quarantined_consent {
+  background: rgba(224, 82, 82, .18);
+  color: var(--red, #e05252);
+}
+.nbd-voice-when,
+.nbd-voice-duration,
+.nbd-voice-cost,
+.nbd-voice-calltype { font-family: 'Syne Mono', ui-monospace, monospace; }
+.nbd-voice-calltype {
+  padding: 2px 8px;
+  border: 1px solid var(--border, #2a2f3c);
+  border-radius: 3px;
+}
+
+.nbd-voice-err {
+  background: rgba(224, 82, 82, .10);
+  border-left: 3px solid var(--red, #e05252);
+  color: var(--red, #e05252);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 12px;
+  border-radius: 3px;
+}
+.nbd-voice-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text2, #8892a4);
+  font-size: 13px;
+}
+
+/* Structured summary */
+.nbd-voice-summary { margin-top: 10px; }
+.nbd-voice-summary p { line-height: 1.5; margin: 8px 0; }
+.nbd-voice-list ul { margin: 4px 0 8px 20px; line-height: 1.5; }
+.nbd-voice-list strong { color: var(--text, #e8eaf0); }
+.nbd-voice-red strong { color: var(--red, #e05252); }
+.nbd-voice-red li { color: var(--red, #e05252); }
+.nbd-voice-when-inline { color: var(--text3, #4a5568); font-size: 11px; }
+.nbd-voice-conf { color: var(--text3, #4a5568); font-size: 10px; }
+
+.nbd-voice-transcript { margin-top: 12px; }
+.nbd-voice-transcript summary {
+  cursor: pointer;
+  color: var(--orange, #e8720c);
+  font-size: 12px;
+  padding: 6px 0;
+}
+.nbd-voice-segments {
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Syne Mono', ui-monospace, monospace;
+  font-size: 11px;
+  padding: 10px;
+  background: var(--surface, #0d1117);
+  border-radius: 4px;
+  border: 1px solid var(--border, #2a2f3c);
+}
+.nbd-voice-seg { padding: 3px 0; line-height: 1.45; }
+.nbd-voice-seg-t { color: var(--text3, #4a5568); }
+.nbd-voice-seg-s { color: var(--orange, #e8720c); margin-right: 4px; }
+
+/* Consent modal */
+.nbd-voice-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+.nbd-voice-modal {
+  background: var(--card, #111722);
+  border: 1px solid var(--border, #2a2f3c);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 520px;
+  width: 100%;
+}
+.nbd-voice-modal h2 {
+  color: var(--orange, #e8720c);
+  font-size: 18px;
+  margin: 0 0 10px 0;
+}
+.nbd-voice-modal p { color: var(--text2, #8892a4); line-height: 1.55; margin: 0 0 14px 0; }
+.nbd-voice-consent-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text, #e8eaf0);
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+.nbd-voice-consent-check input { width: 18px; height: 18px; cursor: pointer; }
+.nbd-voice-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.nbd-voice-modal-actions button {
+  padding: 9px 16px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border2, #3a4155);
+  background: transparent;
+  color: var(--text, #e8eaf0);
+}
+.nbd-voice-modal-actions button[data-act="ok"] {
+  background: var(--orange, #e8720c);
+  border-color: var(--orange, #e8720c);
+  color: #fff;
+  font-weight: 600;
+}
+.nbd-voice-modal-actions button[data-act="ok"]:disabled {
+  background: var(--border, #2a2f3c);
+  border-color: var(--border, #2a2f3c);
+  color: var(--text3, #4a5568);
+  cursor: not-allowed;
+}
+
+/* Toast */
+.nbd-voice-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--card, #111722);
+  border-left: 3px solid var(--orange, #e8720c);
+  color: var(--text, #e8eaf0);
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  z-index: 10001;
+  font-size: 13px;
+  max-width: 360px;
+}
+.nbd-voice-toast-err { border-left-color: var(--red, #e05252); }

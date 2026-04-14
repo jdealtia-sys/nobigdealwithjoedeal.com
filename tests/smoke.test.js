@@ -1251,6 +1251,43 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C4: Voice Intel tab mounted in customer.html');
+{
+  const html = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const css  = read(path.join(ROOT, 'docs/pro/css/voice-intelligence.css'));
+
+  // Jump nav includes the tab
+  assert('C4: Voice Intel link in jump-nav',
+    /href="#voiceTab"[\s\S]{0,40}Voice Intel/.test(html));
+  // Tab content block exists
+  assert('C4: voiceTab content div present',
+    /id="voiceTab"[\s\S]{0,200}data-label="Voice Intel"/.test(html));
+  assert('C4: mount point voiceIntelRoot present',
+    /id="voiceIntelRoot"/.test(html));
+
+  // Module script block (ES module import)
+  assert('C4: ES module imports initVoiceIntel',
+    /import\s*\{\s*initVoiceIntel\s*\}\s*from\s*'\/pro\/js\/voice-intelligence\.js'/.test(html));
+  assert('C4: whenReady polls for auth + db + storage + _customerId',
+    /window\._customerId[\s\S]{0,200}window\.auth[\s\S]{0,200}window\.db[\s\S]{0,200}window\.storage[\s\S]{0,200}auth\.currentUser/.test(html));
+  assert('C4: cleanup wired to beforeunload',
+    /beforeunload[\s\S]{0,80}cleanup && cleanup\(\)/.test(html));
+
+  // Stylesheet linked
+  assert('C4: voice-intelligence.css linked',
+    /css\/voice-intelligence\.css/.test(html));
+
+  // CSS contains the per-status class hooks the module emits
+  assert('C4: CSS defines nbd-voice-status-complete',
+    /\.nbd-voice-status-complete\s*\{/.test(css));
+  assert('C4: CSS defines quarantined_consent status class',
+    /\.nbd-voice-status-quarantined_consent\s*\{/.test(css));
+  assert('C4: CSS defines consent modal overlay',
+    /\.nbd-voice-modal-overlay\s*\{[\s\S]{0,600}position:\s*fixed/.test(css));
+  assert('C4: CSS consent modal uses role=dialog compatible z-index',
+    /\.nbd-voice-modal-overlay[\s\S]{0,400}z-index:\s*10000/.test(css));
+}
+
 section('C3b: Voice Intel client module — UI layer');
 {
   const src = read(path.join(ROOT, 'docs/pro/js/voice-intelligence.js'));

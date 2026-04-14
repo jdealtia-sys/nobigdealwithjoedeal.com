@@ -677,6 +677,7 @@ header {
 </style>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/pro/customer">
 <link rel="stylesheet" href="css/photo-editor.css?v=3">
+<link rel="stylesheet" href="css/voice-intelligence.css?v=1">
 </head>
 <body>
 
@@ -776,6 +777,7 @@ header {
     <a href="#overviewTab">Overview</a>
     <a href="#photosTab">Photos</a>
     <a href="#documentsTab">Documents</a>
+    <a href="#voiceTab">Voice Intel</a>
     <a href="#timelineTab">Timeline</a>
     <a href="#contactTab">Contact</a>
   </div>
@@ -1194,6 +1196,21 @@ header {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOICE INTEL TAB (C4) -->
+  <div class="tab-content" id="voiceTab" data-label="Voice Intel">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+          <div class="panel-title" style="margin:0;">Voice Intelligence</div>
+          <div style="font-size:11px;color:var(--m);">
+            Record or upload call audio → AI extracts damage notes, objections, commitments, insurance details, red flags.
+          </div>
+        </div>
+        <div id="voiceIntelRoot" data-lead-id=""></div>
       </div>
     </div>
   </div>
@@ -5366,5 +5383,63 @@ document.getElementById('editCustomerModal').addEventListener('click', function(
   if (e.target === this) closeEditCustomerModal();
 });
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Voice Intelligence mount (C4)
+     Module imports are ES-module only; the rest of customer.html is
+     classic script. We keep the two concerned scripts separate so
+     the classic scripts' globals (window._customerId, window.auth,
+     window.db, window.storage) are already populated when the
+     module runs.
+     ═══════════════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initVoiceIntel } from '/pro/js/voice-intelligence.js';
+
+  // Wait until the classic customer.html bootstrap has resolved
+  // window._customerId + Firebase globals. Poll briefly — 100ms
+  // intervals for up to 10s is plenty; if it never lands, we bail
+  // silently and the tab just shows the empty shell.
+  function whenReady(maxWaitMs) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const probe = () => {
+        if (window._customerId && window.auth && window.db && window.storage
+            && window.auth.currentUser) {
+          return resolve({
+            leadId:    window._customerId,
+            auth:      window.auth,
+            db:        window.db,
+            storage:   window.storage
+          });
+        }
+        if (Date.now() - start > maxWaitMs) return reject(new Error('voice-intel: bootstrap timeout'));
+        setTimeout(probe, 100);
+      };
+      probe();
+    });
+  }
+
+  let cleanup = null;
+  whenReady(10000).then(({ leadId, auth, db, storage }) => {
+    const host = document.getElementById('voiceIntelRoot');
+    if (!host) return;
+    host.setAttribute('data-lead-id', leadId);
+    const instance = initVoiceIntel({ leadId, containerEl: host, auth, db, storage });
+    cleanup = instance && instance.cleanup ? instance.cleanup : null;
+  }).catch(() => {
+    const host = document.getElementById('voiceIntelRoot');
+    if (host) host.innerHTML =
+      '<div style="color:var(--m);font-size:12px;">' +
+      'Voice Intel did not initialize — reload the page or make sure you\'re signed in.' +
+      '</div>';
+  });
+
+  // Best-effort teardown on page navigation so the Firestore
+  // listener unsubscribes cleanly.
+  window.addEventListener('beforeunload', () => {
+    try { cleanup && cleanup(); } catch (_) {}
+  });
+</script>
+
 </body>
 </html>
