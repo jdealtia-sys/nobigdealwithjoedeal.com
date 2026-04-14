@@ -1251,6 +1251,51 @@ section('Null guards on hot paths');
     /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
 }
 
+section('C1: Voice Intelligence backend pipeline');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/voice-intelligence.js'));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const shared = read(path.join(FUNCTIONS, 'integrations/_shared.js'));
+
+  // Secrets + provider registry
+  assert('C1: GROQ_API_KEY registered in _shared SECRETS',
+    /GROQ_API_KEY:\s*defineSecret\('GROQ_API_KEY'\)/.test(shared));
+  assert('C1: PROVIDERS.voiceTranscription defaults to groq',
+    /voiceTranscription[\s\S]{0,200}NBD_VOICE_TRANSCRIPTION_PROVIDER[\s\S]{0,40}'groq'/.test(shared));
+
+  // State-machine + handlers
+  assert('C1: processRecording state machine present',
+    /async function processRecording\(/.test(src));
+  assert('C1: onAudioUploaded Storage trigger exported',
+    /exports\.onAudioUploaded\s*=\s*onObjectFinalized/.test(src));
+  assert('C1: triggerProcessRecording admin-only callable',
+    /exports\.triggerProcessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
+  assert('C1: reprocessRecording admin-only callable',
+    /exports\.reprocessRecording\s*=\s*onCall[\s\S]{0,500}role !== 'admin'/.test(src));
+
+  // Critical idempotency + fail-closed behaviour
+  assert('C1: idempotent on already-complete recording',
+    /status === 'complete' && !forceReanalyze[\s\S]{0,120}skipped: 'already_complete'/.test(src));
+  assert('C1: consent-check failure quarantines the recording',
+    /catch \(e\)[\s\S]{0,600}status: 'quarantined_consent'[\s\S]{0,400}quarantined: true/.test(src));
+  assert('C1: Storage trigger swallows uncaught errors (no retry storm)',
+    /swallowing to prevent retry storm/.test(src));
+
+  // Cost + budget plumbing
+  assert('C1: budget gate writes status:failed with actionable message',
+    /overBudget[\s\S]{0,400}status: 'failed'[\s\S]{0,200}voice budget exhausted/.test(src));
+  assert('C1: usage counters bumped on complete (M2 pattern)',
+    /incrementVoiceUsage\(db,\s*\{[\s\S]{0,200}audioSec[\s\S]{0,200}analysisTokens[\s\S]{0,200}costCents/.test(src));
+  assert('C1: Claude model pinned to haiku (no Opus drift)',
+    /VOICE_ANALYSIS_MODEL\s*=\s*'claude-haiku-4-5-20251001'/.test(src));
+
+  // Wire-up
+  assert('C1: voice-intelligence required in index.js',
+    /require\('\.\/integrations\/voice-intelligence'\)/.test(idx));
+  assert('C1: voice-intelligence exports Object.assign\'d into exports',
+    /Object\.assign\(exports,\s*voiceIntelligenceIntegration\)/.test(idx));
+}
+
 section('C0: GDPR erasure cascade covers Storage + collectionGroups');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));

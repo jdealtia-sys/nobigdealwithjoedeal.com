@@ -1174,6 +1174,7 @@ const complianceIntegration  = require('./integrations/compliance');
 const deviceAlertIntegration = require('./integrations/device-alert');
 const emailQueueWorker       = require('./integrations/email-queue-worker');
 const voiceMemoIntegration   = require('./integrations/voice-memo');
+const voiceIntelligenceIntegration = require('./integrations/voice-intelligence');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -1185,6 +1186,7 @@ Object.assign(exports, complianceIntegration);
 Object.assign(exports, deviceAlertIntegration);
 Object.assign(exports, emailQueueWorker);
 Object.assign(exports, voiceMemoIntegration);
+Object.assign(exports, voiceIntelligenceIntegration);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are

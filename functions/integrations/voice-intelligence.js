@@ -419,11 +419,381 @@ async function checkVerbalConsent({ transcript, segments }) {
   };
 }
 
-module.exports = {
-  // Handlers wired in C1d:
-  //   onAudioUploaded, triggerProcessRecording, reprocessRecording
-  // are attached to this exports object by subsequent commits.
-  //
+// ─── State machine (C1d) ─────────────────────────────────────────
+//
+// One entry point: processRecording({ uid, leadId, recordingId, path,
+// contentType, size, forceReanalyze }). Idempotent — a retry on the
+// same recordingId detects the existing Firestore doc and either:
+//   - resumes from the last status short of 'complete' (crash recovery)
+//   - no-ops if status is 'complete' (safe to call again)
+//   - runs analysis-only when forceReanalyze=true (prompt iteration)
+//
+// Wired to three Firebase hooks:
+//   1. exports.onAudioUploaded  → Storage onObjectFinalized trigger
+//   2. exports.triggerProcessRecording → admin-only callable (curl test)
+//   3. exports.reprocessRecording      → admin-only callable (reanalyze)
+//
+// Never throws out of the Storage trigger — Firebase retries 7 times
+// on uncaught errors and indefinitely at provider-API rate-limit
+// boundaries. We write status:'failed' + statusError and return OK.
+async function processRecording({
+  uid, leadId, recordingId, path, contentType, size, forceReanalyze
+}) {
+  const db = admin.firestore();
+  const bucket = admin.storage().bucket();
+  const recordingRef = db.doc('leads/' + leadId + '/recordings/' + recordingId);
+
+  // ── Idempotency ──
+  // If the doc exists and is 'complete', no-op unless the caller
+  // explicitly asked to reanalyze (admin reprocess flow).
+  const existingSnap = await recordingRef.get();
+  const existing = existingSnap.exists ? existingSnap.data() : null;
+  if (existing && existing.status === 'complete' && !forceReanalyze) {
+    logger.info('voice: recording already complete', { leadId, recordingId });
+    return { ok: true, skipped: 'already_complete' };
+  }
+  if (existing && existing.status === 'quarantined_consent' && !forceReanalyze) {
+    logger.info('voice: recording quarantined on consent', { leadId, recordingId });
+    return { ok: true, skipped: 'quarantined_consent' };
+  }
+
+  // ── Resolve caller context ──
+  const ctx = await getCompanyContext(db, uid);
+
+  // ── Budget gate ──
+  // Over-budget recordings get flagged but NOT dropped — retention
+  // of the raw audio + ability to reprocess next cycle is the
+  // expected behaviour. Admin can manually reprocess after cycle reset.
+  const budget = await checkBudget(db, ctx.companyId, ctx.plan);
+  if (budget.overBudget) {
+    await recordingRef.set({
+      userId: uid, companyId: ctx.companyId, leadId, recordingId,
+      audioPath: path, contentType: contentType || null,
+      audioBytes: Number(size) || 0,
+      status: 'failed',
+      statusError: 'voice budget exhausted for company this cycle (' +
+        budget.consumed + 's / ' + budget.cap + 's cap on plan=' + ctx.plan + ')',
+      recordedAt: existing?.recordedAt || admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return { ok: true, skipped: 'over_budget' };
+  }
+
+  // ── Doc init (or reuse existing row for reprocess) ──
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const baseDoc = {
+    userId: uid,
+    companyId: ctx.companyId,
+    leadId,
+    recordingId,
+    audioPath: path,
+    audioBytes: Number(size) || 0,
+    contentType: contentType || null,
+    recordedAt: existing?.recordedAt || now,
+    callType: existing?.callType || 'other',
+    consent: existing?.consent || { mode: ctx.consentMode, attestedAt: now, verbalPhrase: null },
+    provider: PROVIDERS.voiceTranscription || 'groq',
+    promptVersion: prompts.CURRENT_VERSION,
+    status: 'transcribing',
+    statusError: null,
+    updatedAt: now
+  };
+  await recordingRef.set(baseDoc, { merge: true });
+
+  // Everything from here runs inside a try so any failure writes
+  // status:'failed' to Firestore instead of bubbling out of the
+  // Storage trigger (which would trigger infinite retries).
+  let transcriptResult = null;
+  let analysis = null;
+  let tokensUsed = 0;
+
+  try {
+    // ── (1) Transcription ── skip when reprocessing a doc that
+    // already has transcript text. Saves Groq cost on every prompt
+    // iteration.
+    if (forceReanalyze && existing && existing.transcript) {
+      transcriptResult = {
+        text: existing.transcript,
+        segments: existing.segments || [],
+        durationSec: existing.audioDurationSec || 0,
+        providerJobId: null
+      };
+    } else {
+      transcriptResult = await transcribeAudio({
+        bucket, path, mimeType: contentType,
+        provider: PROVIDERS.voiceTranscription
+      });
+      await recordingRef.set({
+        transcript: transcriptResult.text,
+        segments: transcriptResult.segments,
+        audioDurationSec: Math.round(transcriptResult.durationSec),
+        status: 'analyzing',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // ── (2) Verbal-consent check ── only for two_party_verbal mode
+    // and only on fresh recordings. Reprocessing skips this so
+    // iteration doesn't re-quarantine established records.
+    if (ctx.consentMode === 'two_party_verbal' && !forceReanalyze) {
+      let consentResult;
+      try {
+        consentResult = await checkVerbalConsent({
+          transcript: transcriptResult.text,
+          segments: transcriptResult.segments
+        });
+        tokensUsed += consentResult.inputTokens + consentResult.outputTokens;
+      } catch (e) {
+        // Fail CLOSED on consent check. The audio + transcript
+        // stay in the doc; status moves to quarantined_consent
+        // and analysis is NOT run. Admin can manually review +
+        // reprocess.
+        logger.warn('voice: consent check errored — quarantining', {
+          leadId, recordingId, err: e.message
+        });
+        await recordingRef.set({
+          status: 'quarantined_consent',
+          statusError: 'consent check failed: ' + e.message,
+          consent: { ...baseDoc.consent, verbalPhrase: null, checkFailed: true },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { ok: true, quarantined: true };
+      }
+      if (!consentResult.consented) {
+        await recordingRef.set({
+          status: 'quarantined_consent',
+          statusError: 'no verbal consent detected in opening 25 seconds',
+          consent: {
+            ...baseDoc.consent,
+            verbalPhrase: consentResult.evidence || null,
+            consented: false
+          },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { ok: true, quarantined: true };
+      }
+      // Stamp the evidence for audit.
+      await recordingRef.set({
+        consent: {
+          ...baseDoc.consent,
+          verbalPhrase: consentResult.evidence,
+          consented: true
+        }
+      }, { merge: true });
+    }
+
+    // ── (3) Analysis ──
+    // Load the lead doc so the prompt can reference the homeowner
+    // by name. If the lead is gone (deleted mid-process), fall back
+    // to an empty name — the prompt handles that case.
+    let leadName = '';
+    try {
+      const leadSnap = await db.doc('leads/' + leadId).get();
+      if (leadSnap.exists) {
+        const l = leadSnap.data();
+        leadName = [l.firstName, l.lastName].filter(Boolean).join(' ').trim()
+                 || l.name || '';
+      }
+    } catch (_) {}
+
+    analysis = await analyzeTranscript({
+      transcript: transcriptResult.text,
+      segments:   transcriptResult.segments,
+      leadName,
+      callType:   baseDoc.callType
+    });
+    tokensUsed += analysis.inputTokens + analysis.outputTokens;
+
+    // ── (4) Complete ──
+    // Cost model: Groq Whisper ≈ $0.04/hr → $0.000011/sec.
+    // Claude haiku input ≈ $1/1M, output ≈ $5/1M → ~$0.00001/token blend.
+    const audioSec = Math.round(transcriptResult.durationSec);
+    const costCents = Math.ceil(
+      (audioSec * 0.000011 + tokensUsed * 0.00001) * 100
+    );
+
+    await recordingRef.set({
+      speakers:  analysis.speakers,
+      summary:   analysis.summary,
+      tokensUsed,
+      costCents,
+      status: 'complete',
+      statusError: null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // Stamp usage counters AFTER the doc lands — better to have
+    // a recording without a counter increment than a counter
+    // increment without a recording if the write race goes sideways.
+    try {
+      await incrementVoiceUsage(db, {
+        uid, companyId: ctx.companyId,
+        audioSec,
+        analysisTokens: tokensUsed,
+        costCents
+      });
+    } catch (e) {
+      logger.warn('voice: usage-counter update failed', { err: e.message });
+    }
+
+    logger.info('voice: recording complete', {
+      leadId, recordingId, audioSec, tokensUsed, costCents
+    });
+    return { ok: true, recordingId, audioSec, costCents };
+
+  } catch (e) {
+    const code = (e && e.isVoiceError) ? e.code : 'pipeline-error';
+    const msg  = (e && e.message) || String(e);
+    logger.error('voice: pipeline failed', { leadId, recordingId, code, msg });
+    try {
+      await recordingRef.set({
+        status: 'failed',
+        statusError: '[' + code + '] ' + msg.slice(0, 400),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (_) {}
+    return { ok: false, code, error: msg };
+  }
+}
+
+// ─── Handlers ────────────────────────────────────────────────────
+
+// Storage trigger — fires on every finalization in the default
+// bucket. We ignore non-audio paths silently. Firebase retries the
+// trigger automatically on uncaught errors, so every failure path
+// must be caught here or inside processRecording().
+// Bucket is explicit so module-load succeeds outside the Firebase
+// runtime (smoke tests, local require()). Default Firebase Storage
+// bucket for the nobigdeal-pro project.
+const VOICE_STORAGE_BUCKET = process.env.VOICE_STORAGE_BUCKET
+  || 'nobigdeal-pro.firebasestorage.app';
+
+exports.onAudioUploaded = onObjectFinalized(
+  {
+    region: 'us-central1',
+    bucket: VOICE_STORAGE_BUCKET,
+    secrets: [SECRETS.GROQ_API_KEY, ANTHROPIC_API_KEY_FOR_VOICE],
+    memory: '512MiB',
+    timeoutSeconds: 540,
+    concurrency: 1,
+    cpu: 1
+  },
+  async (event) => {
+    const obj = event.data;
+    if (!obj || !obj.name) return;
+    const parsed = parseAudioPath(obj.name);
+    if (!parsed) return; // not our audio prefix — silent ignore
+
+    try {
+      await processRecording({
+        uid:          parsed.uid,
+        leadId:       parsed.leadId,
+        recordingId:  parsed.recordingId,
+        path:         obj.name,
+        contentType:  obj.contentType || null,
+        size:         obj.size || 0,
+        forceReanalyze: false
+      });
+    } catch (e) {
+      // Belt + suspenders: processRecording already handles its own
+      // failures, but an uncaught error here would cause Firebase to
+      // retry the trigger, which re-charges Groq. Never let that
+      // happen.
+      logger.error('onAudioUploaded: unhandled error — swallowing to prevent retry storm', {
+        path: obj.name,
+        err: (e && e.message) || String(e)
+      });
+    }
+  }
+);
+
+// Admin-only callable. Takes an existing Storage audio path + the
+// lead/recording IDs and runs the pipeline. Used for curl-testing
+// C1 end-to-end before the UI lands. Rejects non-admin callers and
+// refuses paths outside the audio/ prefix.
+exports.triggerProcessRecording = onCall(
+  {
+    region: 'us-central1',
+    secrets: [SECRETS.GROQ_API_KEY, ANTHROPIC_API_KEY_FOR_VOICE],
+    enforceAppCheck: true,
+    memory: '512MiB',
+    timeoutSeconds: 540
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    if (request.auth.token.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Platform admin required');
+    }
+
+    const path = String((request.data && request.data.path) || '');
+    const parsed = parseAudioPath(path);
+    if (!parsed) {
+      throw new HttpsError('invalid-argument',
+        'path must match audio/{uid}/{leadId}/{recordingId}.{ext}');
+    }
+
+    const result = await processRecording({
+      uid:           parsed.uid,
+      leadId:        parsed.leadId,
+      recordingId:   parsed.recordingId,
+      path,
+      contentType:   String((request.data && request.data.contentType) || 'audio/webm'),
+      size:          Number((request.data && request.data.size) || 0),
+      forceReanalyze: Boolean(request.data && request.data.forceReanalyze)
+    });
+    return result;
+  }
+);
+
+// Admin-only reanalyze: re-runs the Claude analysis against the
+// existing transcript without re-downloading or re-transcribing the
+// audio. Cheap. Used when iterating on the prompt in
+// functions/voice-prompts.js — bump CURRENT_VERSION, deploy, then
+// batch-call this to rewrite summaries.
+exports.reprocessRecording = onCall(
+  {
+    region: 'us-central1',
+    secrets: [ANTHROPIC_API_KEY_FOR_VOICE],
+    enforceAppCheck: true,
+    memory: '512MiB',
+    timeoutSeconds: 120
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    if (request.auth.token.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Platform admin required');
+    }
+
+    const leadId      = String((request.data && request.data.leadId) || '');
+    const recordingId = String((request.data && request.data.recordingId) || '');
+    if (!leadId || !recordingId) {
+      throw new HttpsError('invalid-argument', 'leadId + recordingId required');
+    }
+
+    const db = admin.firestore();
+    const snap = await db.doc('leads/' + leadId + '/recordings/' + recordingId).get();
+    if (!snap.exists) throw new HttpsError('not-found', 'recording not found');
+    const rec = snap.data();
+    if (!rec.transcript) {
+      throw new HttpsError('failed-precondition',
+        'recording has no transcript to reanalyze');
+    }
+
+    return processRecording({
+      uid:           rec.userId || uid,
+      leadId,
+      recordingId,
+      path:          rec.audioPath,
+      contentType:   rec.contentType,
+      size:          rec.audioBytes || 0,
+      forceReanalyze: true
+    });
+  }
+);
+
+module.exports = Object.assign(module.exports, {
   // Helpers exported for unit testing:
   _parseAudioPath: parseAudioPath,
   _getCompanyContext: getCompanyContext,
@@ -432,6 +802,7 @@ module.exports = {
   _transcribeAudio: transcribeAudio,
   _analyzeTranscript: analyzeTranscript,
   _checkVerbalConsent: checkVerbalConsent,
+  _processRecording: processRecording,
   _VoiceError: VoiceError,
   _constants: {
     VOICE_COMPANY_BUDGET_SEC,
@@ -443,4 +814,4 @@ module.exports = {
     VOICE_ANALYSIS_MAX_TOKENS,
     VOICE_CONSENT_MAX_TOKENS
   }
-};
+});
