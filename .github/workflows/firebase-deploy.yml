@@ -170,13 +170,20 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
-          set -e
+          set +e
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud config set project "$PRO_PROJECT" --quiet
           gcloud services enable \
             cloudscheduler.googleapis.com \
             identitytoolkit.googleapis.com \
             --project "$PRO_PROJECT" --quiet
+          EXIT=$?
+          if [ $EXIT -eq 0 ]; then
+            echo "✓ Required APIs enabled (or already on)."
+          else
+            echo "::warning::Could not auto-enable APIs (SA lacks roles/serviceusage.serviceUsageAdmin). If schedule functions or blocking triggers fail later, manually enable: cloudscheduler.googleapis.com + identitytoolkit.googleapis.com in Cloud Console."
+          fi
+          exit 0
 
       # ─────────────────────────────────────────────────────────
       # Ensure every integration secret my code defineSecret()'s
