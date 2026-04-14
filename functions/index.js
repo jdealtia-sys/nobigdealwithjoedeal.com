@@ -954,6 +954,188 @@ exports.integrationStatus = onCall(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// HOMEOWNER PORTAL — public-by-token access to a redacted lead view
+//
+// Flow:
+//   1. Rep clicks "Share portal link" on a lead → createPortalToken
+//      mints a 24-char opaque token, stores it in portal_tokens/{tok}
+//      with { leadId, ownerUid, expiresAt, uses }.
+//   2. Rep SMSes/emails the URL `https://nobigdealwithjoedeal.com/
+//      pro/portal.html?token=<tok>` to the homeowner.
+//   3. Homeowner opens the page → getHomeownerPortalView({token})
+//      verifies the token and returns a REDACTED projection of the
+//      lead, rep, estimate, and booking URL. No auth required on
+//      the client side.
+//
+// portal_tokens is admin-SDK only (firestore.rules deny read/write
+// to clients) — the tokens are cryptographically random so guessing
+// is infeasible, and expiry + max-uses keep the blast radius small.
+// ═══════════════════════════════════════════════════════════════
+const PORTAL_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function mintPortalToken() {
+  const bytes = require('crypto').randomBytes(24);
+  let s = '';
+  for (const b of bytes) s += PORTAL_TOKEN_ALPHABET[b % PORTAL_TOKEN_ALPHABET.length];
+  return s;
+}
+
+exports.createPortalToken = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
+
+    const db = admin.firestore();
+    const leadSnap = await db.doc(`leads/${leadId}`).get();
+    if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
+    const lead = leadSnap.data();
+    // Owner-scope: rep who owns the lead OR platform admin.
+    const isAdmin = request.auth.token.role === 'admin';
+    if (lead.userId !== uid && !isAdmin) {
+      throw new HttpsError('permission-denied', 'Not your lead');
+    }
+
+    // 30-day default TTL — rep can force re-mint anytime.
+    const ttlDays = Math.min(90, Math.max(1, Number(request.data?.ttlDays) || 30));
+    const now = Date.now();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
+
+    const token = mintPortalToken();
+    await db.doc(`portal_tokens/${token}`).set({
+      leadId,
+      ownerUid: lead.userId,
+      mintedBy: uid,
+      mintedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
+      uses: 0,
+      maxUses: 100  // generous — homeowner may reload across days
+    });
+    return { token, expiresAt: expiresAt.toMillis() };
+  }
+);
+
+exports.getHomeownerPortalView = onRequest(
+  {
+    region: 'us-central1',
+    cors: true, // intentionally open — this is the homeowner-facing endpoint
+    maxInstances: 20,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (req, res) => {
+    if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).end(); return; }
+
+    // Rate-limit per IP — 30/min is plenty for a homeowner on the
+    // page and stops an attacker from brute-forcing tokens.
+    if (!(await httpRateLimit(req, res, 'portal:ip', 30, 60_000))) return;
+
+    const token = (req.method === 'GET' ? req.query.token : (req.body && req.body.token)) || '';
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.' });
+      return;
+    }
+    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+      res.status(429).json({ error: 'This link has been opened too many times.' });
+      return;
+    }
+
+    // Load the lead, rep, and latest estimate in parallel.
+    const [leadSnap, repSnap, estSnap] = await Promise.all([
+      db.doc(`leads/${tok.leadId}`).get(),
+      db.doc(`users/${tok.ownerUid}`).get(),
+      db.collection('estimates')
+        .where('leadId', '==', tok.leadId)
+        .limit(10)
+        .get()
+    ]);
+
+    if (!leadSnap.exists) { res.status(404).json({ error: 'Project not found' }); return; }
+    const lead = leadSnap.data();
+    const rep = repSnap.exists ? repSnap.data() : {};
+
+    // Pick the latest estimate (createdAt desc). In-memory sort to
+    // avoid a composite-index requirement for this rarely-hit path.
+    const estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    estimates.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() || 0;
+      const tb = b.createdAt?.toMillis?.() || 0;
+      return tb - ta;
+    });
+    const latest = estimates[0] || null;
+
+    // REDACTION: only non-sensitive fields reach the homeowner.
+    // In particular: no claim details, no internal notes, no rep
+    // commission, no other leads.
+    const view = {
+      homeowner: {
+        firstName: lead.firstName || '',
+        lastName:  lead.lastName || '',
+        address:   lead.address || ''
+      },
+      rep: {
+        displayName:    rep.displayName || lead.repName || 'Your Rep',
+        calcomUsername: rep.calcomUsername || null,
+        calcomEventSlug: rep.calcomEventSlug || 'roof-inspection',
+        phone: rep.phone || null
+      },
+      company: {
+        name: rep.companyName || 'No Big Deal Home Solutions'
+      },
+      estimate: latest ? {
+        id:              latest.id,
+        builder:         latest.builder || 'classic',
+        grandTotal:      latest.grandTotal || latest.total || null,
+        tierName:        latest.tierName || null,
+        signatureStatus: latest.signatureStatus || 'none',
+        signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
+        signedDocumentUrl: latest.signedDocumentUrl || null,
+        // Line-item summary only — NOT the internal cost breakdown.
+        lineCount: Array.isArray(latest.lines) ? latest.lines.length : null,
+        createdAt: latest.createdAt?.toDate?.()?.toISOString() || null
+      } : null,
+      bookingUrl: rep.calcomUsername
+        ? ('https://cal.com/' + rep.calcomUsername + '/' + (rep.calcomEventSlug || 'roof-inspection'))
+        : null,
+      tokenInfo: {
+        // Let the UI show "expires in N days" without exposing the
+        // exact timestamp shape.
+        daysRemaining: tok.expiresAt
+          ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))
+          : null
+      }
+    };
+
+    // Bump use counter (fire-and-forget; don't fail the response).
+    tokRef.update({
+      uses: admin.firestore.FieldValue.increment(1),
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+
+    res.status(200).json(view);
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // INVOICE FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
 

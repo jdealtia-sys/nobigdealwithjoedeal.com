@@ -515,9 +515,11 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 </footer>
 
 <!-- ═══════════════════════ FIREBASE ═══════════════════════ -->
+<!-- Public lead gateway — estimate_leads is locked at the rules
+     layer (C-3); submissions go through submitPublicLead. -->
+<script src="/assets/js/public-lead-submit.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const app = initializeApp({
@@ -528,22 +530,19 @@ const app = initializeApp({
   messagingSenderId:"717435841570",
   appId:"1:717435841570:web:c2338e11052c96fde02e7b"
 });
-const db = getFirestore(app);
 const functions = getFunctions(app);
 
 // Expose to global scope for inline handlers
 window._saveLead = async (data) => {
-  try {
-    const ref = await addDoc(collection(db, 'estimate_leads'), {
-      ...data,
-      source: 'estimate-funnel-v2',
-      createdAt: serverTimestamp()
-    });
-    return ref.id;
-  } catch(e) {
-    console.warn('Lead save failed:', e);
+  const res = await window.submitPublicLead('estimate', {
+    ...data,
+    source: 'estimate-funnel-v2'
+  });
+  if (!res.ok) {
+    console.warn('Lead save failed:', res.reason);
     return null;
   }
+  return res.id;
 };
 
 // Twilio Verify via Cloud Functions

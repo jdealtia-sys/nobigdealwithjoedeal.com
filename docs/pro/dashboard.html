@@ -529,11 +529,21 @@
     document.getElementById('settingsEmail').value    = user.email || '';
     // Cal.com username — pull from the user profile if set and prime
     // the shareable link preview so reps can copy the URL straight
-    // into an SMS / email.
+    // into an SMS / email. Also stash on window._currentRep so
+    // sendBookingSMS / sendFollowUpSMS (crm.js) + homeowner portal
+    // resolve the right URL without a second Firestore read.
     try {
       const usrSnap = await getDoc(doc(db, 'users', user.uid));
       if (usrSnap.exists()) {
-        const calVal = usrSnap.data().calcomUsername || '';
+        const d = usrSnap.data();
+        const calVal = d.calcomUsername || '';
+        window._currentRep = Object.assign({}, window._currentRep || {}, {
+          uid: user.uid,
+          displayName: d.displayName || user.displayName || '',
+          email: d.email || user.email || '',
+          calcomUsername: calVal,
+          calcomEventSlug: d.calcomEventSlug || 'roof-inspection'
+        });
         const calEl = document.getElementById('settingsCalcom');
         const calPrev = document.getElementById('settingsCalcomPreview');
         if (calEl) calEl.value = calVal;
@@ -1698,6 +1708,12 @@
           calcomUsername
         }, { merge: true });
       }
+      // Refresh the in-memory rep shadow so the next booking SMS
+      // uses the new URL immediately (no page reload needed).
+      window._currentRep = Object.assign({}, window._currentRep || {}, {
+        calcomUsername: calcomUsername || '',
+        displayName: name
+      });
       showToast('Settings saved!');
     } catch(e) { showToast('Save failed','error'); }
   };
@@ -13578,6 +13594,44 @@ function openCardDetailModal(leadId) {
 }
 window.openCardDetailModal = openCardDetailModal;
 
+// ── Share Homeowner Portal Link ─────────────────────
+// Mints a portal token via createPortalToken and produces the
+// public URL. Copies to clipboard + opens SMS prefilled with the
+// link + the homeowner's first name. Expires in 30 days.
+window._sharePortalLink = async function (leadId) {
+  if (!leadId) { if (typeof showToast==='function') showToast('No lead selected','error'); return; }
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) { if (typeof showToast==='function') showToast('Lead not found','error'); return; }
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fns = mod.getFunctions();
+    const call = mod.httpsCallable(fns, 'createPortalToken');
+    const res = await call({ leadId, ttlDays: 30 });
+    const token = res && res.data && res.data.token;
+    if (!token) throw new Error('No token returned');
+    const url = location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+    // Try clipboard first — falls back to prompt() if denied.
+    try { await navigator.clipboard.writeText(url); } catch(e) {}
+    if (typeof showToast==='function') showToast('Portal link copied to clipboard', 'success');
+    // Offer SMS shortcut if phone on file.
+    if (lead.phone) {
+      const cleanPhone = String(lead.phone).replace(/\D/g, '');
+      const first = lead.firstName || lead.fname || '';
+      const body = encodeURIComponent(
+        `Hi${first ? ' ' + first : ''}, here\'s your project page: ` + url +
+        ` — you can see your estimate, sign the contract, or book an inspection time.`
+      );
+      window.open('sms:' + cleanPhone + '?body=' + body, '_self');
+    } else {
+      // No phone — surface the URL so the rep can paste manually.
+      window.prompt('Share this link with the homeowner:', url);
+    }
+  } catch (e) {
+    console.error('share portal failed', e);
+    if (typeof showToast==='function') showToast('Could not create portal link: ' + (e.message || 'error'), 'error');
+  }
+};
+
 function closeCardDetailModal() {
   document.getElementById('cardDetailModal').classList.remove('open');
   window._cardDetailLeadId = null;
@@ -13897,6 +13951,12 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       </button>
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openTaskModal(window._cardDetailLeadId,null)">
         ✓ Tasks
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-orange" style="justify-content:center;font-size:12px;padding:10px 12px;"
+              onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
+        🔗 Share Homeowner Portal Link
       </button>
     </div>
     <!-- New Module Actions -->

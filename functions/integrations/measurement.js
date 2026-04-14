@@ -279,12 +279,75 @@ exports.measurementWebhook = onRequest(
         res.status(200).json({ ok: true, matched: false }); // ack to stop retries
         return;
       }
-      const doc = snap.docs[0];
-      await doc.ref.update({
+      const measurementDoc = snap.docs[0];
+      const measurementData = measurementDoc.data() || {};
+      await measurementDoc.ref.update({
         status,
         ...(measurements ? { measurements } : {}),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      // ─── Auto-attach to lead on ready ────────────────────
+      // If the measurement was requested from a specific lead and
+      // the vendor just flipped it to 'ready', drop a task on the
+      // rep's list + write an activity entry so the rep sees the
+      // alert inside the CRM without polling the V2 Builder.
+      //
+      // Idempotent: the update above fires only once per job, and
+      // we guard on a previousStatus snapshot so retried webhooks
+      // don't duplicate the task.
+      const wasReadyAlready = measurementData.status === 'ready';
+      if (status === 'ready' && !wasReadyAlready && measurementData.leadId && measurementData.ownerId) {
+        const repUid = measurementData.ownerId;
+        const leadId = measurementData.leadId;
+        const addr = measurementData.address || '(address unknown)';
+        const providerLabel = provider.toUpperCase();
+
+        // Task: one-liner the rep sees in their inbox. Due now.
+        await db.collection('tasks').add({
+          userId: repUid,
+          leadId,
+          title: 'Aerial measurement ready — ' + addr,
+          description: providerLabel + ' returned measurements for this property. Open the V2 Builder to load into an estimate.',
+          source: 'measurement',
+          provider,
+          measurementJobId: measurementDoc.id,
+          dueAt: admin.firestore.Timestamp.now(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          done: false
+        });
+
+        // Activity: structured timeline entry on the lead. Rules
+        // already allow the rep to read this subcollection.
+        await db.collection(`leads/${leadId}/activity`).add({
+          userId: repUid,
+          type: 'measurement_ready',
+          label: providerLabel + ' measurement ready',
+          provider,
+          measurementJobId: measurementDoc.id,
+          reportUrl: (measurements && measurements.reportUrl) || null,
+          summary: measurements
+            ? (measurements.rawSqft ? Math.round(measurements.rawSqft) + ' SF roof, ' : '')
+              + (measurements.pitch ? 'pitch ' + measurements.pitch + ', ' : '')
+              + (measurements.ridge ? measurements.ridge + ' LF ridge' : '')
+            : null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Also bump a lead field so the kanban card can show
+        // "📐 Measurement ready" without a join query.
+        await db.doc(`leads/${leadId}`).set({
+          measurementReady: true,
+          measurementJobId: measurementDoc.id,
+          measurementProvider: provider,
+          measurementReadyAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        logger.info('measurementWebhook: attached to lead', {
+          leadId, measurementJobId: measurementDoc.id, provider
+        });
+      }
+
       res.status(200).json({ ok: true, matched: true });
     } catch (e) {
       logger.error('measurementWebhook error:', e.message);

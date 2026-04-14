@@ -460,6 +460,107 @@ section('UI-E: Cal.com in Settings');
     /calcomUsername/.test(dash) && /setDoc[\s\S]{0,200}users[\s\S]{0,200}calcomUsername/.test(dash));
 }
 
+// ────────────────────────────────────────────────────────────
+//  FIVE-ITEM PUSH
+// ────────────────────────────────────────────────────────────
+
+section('Push-1: public lead forms use submitPublicLead');
+{
+  const helper = read(path.join(ROOT, 'docs/assets/js/public-lead-submit.js'));
+  assert('public-lead-submit helper exposes window.submitPublicLead',
+    /window\.submitPublicLead\s*=\s*submitPublicLead/.test(helper));
+  // Verify no page still calls addDoc on the four public collections.
+  const pages = [
+    'docs/index.html',
+    'docs/estimate.html',
+    'docs/storm-alerts.html',
+    'docs/free-guide/index.html'
+  ];
+  for (const p of pages) {
+    const src = read(path.join(ROOT, p));
+    assert(p + ' loads public-lead-submit.js',
+      /public-lead-submit\.js/.test(src));
+    assert(p + ' no longer calls addDoc on public collections',
+      !/addDoc\s*\(\s*collection\s*\([^)]*(guide_leads|contact_leads|estimate_leads|storm_alert_subscribers)/.test(src));
+  }
+}
+
+section('Push-2: measurement pass-through line item');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('state.passThru seeded', /passThru: \[\]/.test(src));
+  assert('applyMeasurementResult adds SVC MEASURE-RPT',
+    /source: 'measurement'/.test(src) && /Aerial measurement report/.test(src));
+  assert('getCurrentEstimate appends passThru to estimate.lines',
+    /for \(const p of \(state\.passThru \|\| \[\]\)\)/.test(src));
+  assert('removeFromScope clears from passThru first',
+    /state\.passThru\s*=\s*\(state\.passThru \|\| \[\]\)\.filter/.test(src));
+  assert('scope empty guard allows passThru-only quotes',
+    /!state\.scope\.length && !\(state\.passThru && state\.passThru\.length\)/.test(src));
+}
+
+section('Push-3: booking-link SMS uses calcomUsername');
+{
+  const src = read(path.join(PRO_JS, 'crm.js'));
+  assert('_repBookingUrl helper defined',
+    /window\._repBookingUrl\s*=\s*function/.test(src));
+  assert('sendBookingSMS uses _repBookingUrl',
+    /sendBookingSMS[\s\S]{0,300}window\._repBookingUrl\(\)/.test(src));
+  assert('sendFollowUpSMS uses _repBookingUrl',
+    /sendFollowUpSMS[\s\S]{0,500}window\._repBookingUrl\(\)/.test(src));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard hydrates _currentRep.calcomUsername on auth',
+    /window\._currentRep[\s\S]{0,500}calcomUsername: calVal/.test(dash));
+}
+
+section('Push-4: homeowner portal page + token callables');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  for (const fn of ['createPortalToken', 'getHomeownerPortalView']) {
+    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(idx));
+  }
+  assert('createPortalToken owner-scopes by lead.userId',
+    /lead\.userId !== uid && !isAdmin/.test(idx));
+  assert('getHomeownerPortalView rate-limits by IP',
+    /httpRateLimit\(req, res, 'portal:ip'/.test(idx));
+  assert('view response redacts sensitive fields (no claim / notes)',
+    /REDACTION:/.test(idx));
+  assert('portal.html exists + reads token from query string',
+    fs.existsSync(path.join(ROOT, 'docs/pro/portal.html')));
+  const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal.html fetches getHomeownerPortalView',
+    /getHomeownerPortalView/.test(portal));
+  assert('portal.html embeds Cal.com iframe',
+    /cal\.com.*embed=true/.test(portal));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('portal_tokens rule denies all client IO',
+    /match \/portal_tokens\/\{token\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+  assert('measurements rule allows owner reads only',
+    /match \/measurements\/\{jobId\}[\s\S]{0,200}isOwner\(resource\.data\.ownerId\)/.test(rules));
+  assert('appointments rule allows owner reads only',
+    /match \/appointments\/\{bookingId\}[\s\S]{0,200}isOwner\(resource\.data\.userId\)/.test(rules));
+  assert('dashboard Share Portal Link button wired',
+    /_sharePortalLink\s*=\s*async function/.test(dash()));
+}
+
+function dash() { return read(path.join(ROOT, 'docs/pro/dashboard.html')); }
+
+section('Push-5: measurement webhook auto-attaches to lead');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('webhook writes task on ready transition',
+    /measurement_ready[\s\S]{0,5}|collection\('tasks'\)\.add/.test(src));
+  assert('webhook writes activity entry',
+    /collection\(`leads\/\$\{leadId\}\/activity`\)\.add/.test(src));
+  assert('webhook sets lead.measurementReady flag',
+    /measurementReady: true/.test(src));
+  assert('idempotency guard: checks previous status before writing',
+    /wasReadyAlready = measurementData\.status === 'ready'/.test(src));
+  const crm = read(path.join(PRO_JS, 'crm.js'));
+  assert('kanban card renders measurement chip when l.measurementReady',
+    /l\.measurementReady \?/.test(crm));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

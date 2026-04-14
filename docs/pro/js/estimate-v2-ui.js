@@ -39,7 +39,13 @@
     // Per-job minimum-charge floor. null means "use engine default"
     // ($2500). Presets can override this — e.g. Shingle Patch sets
     // it to $500 so tiny jobs don't get bumped to the full-job floor.
-    minJobCharge: null
+    minJobCharge: null,
+    // Pass-through line items appended to the final estimate after
+    // the engine runs. Used for things the catalog can't express:
+    // aerial measurement reports, e-sign fees, etc. Each entry is
+    // { code, desc, amount, source }. Rendered as a removable chip
+    // in the scope pane and included verbatim in the retail quote.
+    passThru: []
   };
 
   // ═════════════════════════════════════════════════════════
@@ -697,7 +703,13 @@
   }
 
   function removeFromScope(code) {
-    state.scope = state.scope.filter(s => s.code !== code);
+    // Pass-through lines live in a separate array — check there
+    // first so a removal on the "measurement report" chip works.
+    const beforePT = (state.passThru || []).length;
+    state.passThru = (state.passThru || []).filter(p => p.code !== code);
+    if (state.passThru.length === beforePT) {
+      state.scope = state.scope.filter(s => s.code !== code);
+    }
     render();
   }
 
@@ -847,6 +859,26 @@
       next.pitch = asStr.includes('/') ? parseInt(asStr, 10) : Number(asStr);
     }
     state.measurements = Object.assign({}, state.measurements, next);
+
+    // Margin opportunity: auto-add a pass-through line for the
+    // aerial measurement report. Roofer pays HOVER ~$40, bills the
+    // homeowner $75 on the retail quote. Price configurable via
+    // window.NBD_MEASUREMENT_PASSTHRU_PRICE; default $75. Skip if a
+    // pass-through for this job already exists (idempotent on retry).
+    const passThruPrice = Number(window.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
+    if (passThruPrice > 0) {
+      const alreadyAdded = (state.passThru || []).some(p => p.source === 'measurement');
+      if (!alreadyAdded) {
+        state.passThru = state.passThru || [];
+        state.passThru.push({
+          code:   'SVC MEASURE-RPT',
+          desc:   'Aerial measurement report',
+          amount: passThruPrice,
+          source: 'measurement'
+        });
+      }
+    }
+
     syncMeasurementInputs();
     render();
   }
@@ -1039,19 +1071,51 @@
       }
       return base;
     }).filter(Boolean);
-    if (!items.length) return null;
+    // Even if the catalog scope is empty, a pass-through line alone
+    // can constitute a mini-estimate (e.g. a standalone measurement-
+    // report invoice). When both are empty there's nothing to show.
+    const hasPassThru = (state.passThru || []).length > 0;
+    if (!items.length && !hasPassThru) return null;
     if (!window.EstimateLogic) return null;
     const settings = {
       tier: state.tier,
       mode: state.jobMode,
       county: state.county
     };
-    // Only pass minJobCharge if the preset/user set one — otherwise
-    // the engine uses its own $2500 default. null means "use default".
     if (state.minJobCharge != null) {
       settings.minJobCharge = state.minJobCharge;
     }
-    return window.EstimateLogic.resolveEstimate(items, state.measurements, settings);
+    // Resolve catalog scope first. If there are no catalog items,
+    // start with an empty shell so the pass-through lines can
+    // produce a valid { lines, subtotal, total } structure.
+    const estimate = items.length
+      ? window.EstimateLogic.resolveEstimate(items, state.measurements, settings)
+      : { lines: [], subtotal: 0, tax: 0, total: 0 };
+
+    // Append every pass-through line. These are flat-fee charges
+    // (measurement report, e-sign fee, permit upcharge) that don't
+    // scale with roof size — the engine formulas don't apply. Field
+    // shape matches what resolveEstimate produces so renderScope /
+    // finalizers read them uniformly.
+    for (const p of (state.passThru || [])) {
+      const amt = Number(p.amount) || 0;
+      estimate.lines = estimate.lines || [];
+      estimate.lines.push({
+        code:      p.code || 'SVC CUSTOM',
+        name:      p.desc || 'Service',
+        quantity:  1,
+        unit:      'ea',
+        unitPrice: amt,
+        lineTotal: amt,
+        category:  'Services',
+        source:    p.source || 'passthru',
+        qtyOverridden: false
+      });
+      estimate.subtotal = (estimate.subtotal || 0) + amt;
+      estimate.total    = (estimate.total    || 0) + amt;
+      estimate.materialRetail = estimate.materialRetail || 0;
+    }
+    return estimate;
   }
 
   function renderCatalog() {
@@ -1146,7 +1210,10 @@
     const rollupEl = document.getElementById('v2rollup');
     if (!listDiv) return;
 
-    if (!state.scope.length) {
+    // Only show the empty state when BOTH the catalog scope and
+    // the pass-through list are empty. A standalone "$75 measurement
+    // report" quote is valid.
+    if (!state.scope.length && !(state.passThru && state.passThru.length)) {
       listDiv.innerHTML = '<div class="v2-empty">No items selected yet.<br>Pick from catalog or use a preset.</div>';
       totalEl.textContent = '$0';
       rollupEl.innerHTML = '';

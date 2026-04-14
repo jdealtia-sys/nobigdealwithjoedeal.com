@@ -968,25 +968,18 @@
         </div>
     </footer>
 
-    <!-- Firebase for lead capture -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-      import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-      const app = initializeApp({
-        apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-        authDomain: "nobigdeal-pro.firebaseapp.com",
-        projectId: "nobigdeal-pro",
-        storageBucket: "nobigdeal-pro.firebasestorage.app",
-        messagingSenderId: "717435841570",
-        appId: "1:717435841570:web:c2338e11052c96fde02e7b"
-      });
-      const db = getFirestore(app);
+    <!-- Public lead gateway — post-C-3 direct Firestore writes to
+         guide_leads are denied at the rules layer. Submissions now
+         go through the rate-limited, App-Checked, Turnstile-verified
+         submitPublicLead Cloud Function. -->
+    <script src="/assets/js/public-lead-submit.js"></script>
+    <script>
       window._captureGuideLeads = async (name, email) => {
-        try {
-          await addDoc(collection(db, 'guide_leads'), {
-            name, email, source: 'free-guide', createdAt: serverTimestamp()
-          });
-        } catch(e) { console.warn('Lead capture failed:', e); }
+        const res = await window.submitPublicLead('guide', {
+          name, email, source: 'free-guide'
+        });
+        if (!res.ok) console.warn('Lead capture failed:', res.reason);
+        return res;
       };
     </script>
 

@@ -1160,18 +1160,16 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 <!-- BACK TO TOP -->
 <button class="back-to-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-const app = initializeApp({
-  apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",authDomain:"nobigdeal-pro.firebaseapp.com",
-  projectId:"nobigdeal-pro",storageBucket:"nobigdeal-pro.firebasestorage.app",
-  messagingSenderId:"717435841570",appId:"1:717435841570:web:c2338e11052c96fde02e7b"
-});
-const db = getFirestore(app);
+<!-- Public lead gateway — contact_leads is locked at the rules layer
+     (C-3); submissions route through submitPublicLead. -->
+<script src="/assets/js/public-lead-submit.js"></script>
+<script>
 window._captureContactLead = async (data) => {
-  try { await addDoc(collection(db,'contact_leads'), {...data, source:'homepage', createdAt:serverTimestamp()}); }
-  catch(e) { console.warn('Lead capture failed:', e); }
+  const res = await window.submitPublicLead('contact', Object.assign({
+    source: 'homepage'
+  }, data || {}));
+  if (!res.ok) console.warn('Lead capture failed:', res.reason);
+  return !!res.ok;
 };
 </script>
 <script>// ── ANNOUNCEMENT BAR ROTATION ──
