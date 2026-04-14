@@ -27,7 +27,11 @@ const Stripe = require('stripe');
 
 admin.initializeApp();
 
-const { enforceRateLimit, httpRateLimit, clientIp } = require('./rate-limit');
+// Rate limiter: adapter module picks Upstash vs Firestore at call time
+// based on NBD_RATE_LIMIT_PROVIDER + whether Upstash secrets are set.
+// Falls back to the Firestore limiter automatically.
+const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
+const { withSentry } = require('./integrations/sentry');
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
@@ -893,6 +897,61 @@ Object.assign(exports, smsFunctions);
 // ═══════════════════════════════════════════════════════════════
 const auditTriggers = require('./audit-triggers');
 Object.assign(exports, auditTriggers);
+
+// ═══════════════════════════════════════════════════════════════
+// INTEGRATIONS — every adapter is a no-op when its secret is unset.
+// Add more to functions/integrations/ and register them here.
+// ═══════════════════════════════════════════════════════════════
+const slackIntegration       = require('./integrations/slack');
+const measurementIntegration = require('./integrations/measurement');
+const esignIntegration       = require('./integrations/esign');
+const parcelIntegration      = require('./integrations/parcel');
+const hailIntegration        = require('./integrations/hail');
+const calcomIntegration      = require('./integrations/calcom');
+Object.assign(exports, slackIntegration);
+Object.assign(exports, measurementIntegration);
+Object.assign(exports, esignIntegration);
+Object.assign(exports, parcelIntegration);
+Object.assign(exports, hailIntegration);
+Object.assign(exports, calcomIntegration);
+
+// ═══════════════════════════════════════════════════════════════
+// integrationStatus — client-facing readout of which adapters are
+// configured in this deploy. Lets the UI disable a button for an
+// unconfigured provider instead of showing a cryptic error.
+// ═══════════════════════════════════════════════════════════════
+const { hasSecret: _hasInt, PROVIDERS: _intProviders, SECRETS: _intSecrets } = require('./integrations/_shared');
+exports.integrationStatus = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 10,
+    memory: '128MiB',
+    secrets: Object.values(_intSecrets)
+  },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    return {
+      providers: _intProviders,
+      configured: {
+        sentry:      _hasInt('SENTRY_DSN_FUNCTIONS'),
+        slack:       _hasInt('SLACK_WEBHOOK_URL'),
+        turnstile:   _hasInt('TURNSTILE_SECRET'),
+        upstash:     _hasInt('UPSTASH_REDIS_REST_URL') && _hasInt('UPSTASH_REDIS_REST_TOKEN'),
+        hover:       _hasInt('HOVER_API_KEY'),
+        eagleview:   _hasInt('EAGLEVIEW_API_KEY'),
+        nearmap:     _hasInt('NEARMAP_API_KEY'),
+        boldsign:    _hasInt('BOLDSIGN_API_KEY'),
+        regrid:      _hasInt('REGRID_API_TOKEN'),
+        hailtrace:   _hasInt('HAILTRACE_API_KEY'),
+        calcom:      _hasInt('CALCOM_WEBHOOK_SECRET')
+      }
+    };
+  }
+);
 
 // ═══════════════════════════════════════════════════════════════
 // INVOICE FUNCTIONS
@@ -1874,10 +1933,14 @@ const PUBLIC_LEAD_KINDS = {
   }
 };
 
+const { verifyTurnstile } = require('./integrations/turnstile');
+const { SECRETS: INT_SECRETS } = require('./integrations/_shared');
+
 exports.submitPublicLead = onRequest(
   {
     cors: CORS_ORIGINS,        // same origin allowlist used by claudeProxy
     enforceAppCheck: true,     // required; App Check sits in front
+    secrets: [INT_SECRETS.TURNSTILE_SECRET],
     maxInstances: 20,
     concurrency: 80,
     timeoutSeconds: 15,
@@ -1889,6 +1952,18 @@ exports.submitPublicLead = onRequest(
     // Per-IP rate limit — the single most important gate. 20/min/IP.
     // A human filling a form takes >10s; a spam script fires faster.
     if (!(await httpRateLimit(req, res, 'publicLead:ip', 20, 60_000))) return;
+
+    // Turnstile verification (if configured). Fail closed on verifier
+    // error. No-op passthrough when TURNSTILE_SECRET is unset so dev
+    // environments still work.
+    const turnstile = await verifyTurnstile(
+      (req.body && req.body.turnstileToken) || '',
+      clientIp(req)
+    );
+    if (!turnstile.ok) {
+      res.status(403).json({ error: 'Verification failed', reason: turnstile.reason });
+      return;
+    }
 
     const body = req.body || {};
     const kind = typeof body.kind === 'string' ? body.kind : '';

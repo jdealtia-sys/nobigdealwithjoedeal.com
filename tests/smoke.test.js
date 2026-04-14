@@ -263,6 +263,141 @@ section('M-1: email verification');
     /email_verified !== true[\s\S]{0,200}Verify your email/.test(src));
 }
 
+// ────────────────────────────────────────────────────────────
+//  INTEGRATIONS
+// ────────────────────────────────────────────────────────────
+
+section('Integration module skeleton');
+{
+  const dir = path.join(FUNCTIONS, 'integrations');
+  for (const f of ['_shared.js','sentry.js','slack.js','turnstile.js',
+                    'upstash-ratelimit.js','measurement.js','esign.js',
+                    'parcel.js','hail.js','calcom.js']) {
+    assert('integrations/' + f + ' present', fs.existsSync(path.join(dir, f)));
+  }
+  const shared = read(path.join(dir, '_shared.js'));
+  assert('_shared exposes SECRETS registry', /const SECRETS\s*=\s*\{/.test(shared));
+  assert('_shared exposes PROVIDERS map', /const PROVIDERS\s*=\s*\{/.test(shared));
+  assert('_shared has hasSecret + notConfigured helpers',
+    /function hasSecret\(/.test(shared) && /function notConfigured\(/.test(shared));
+}
+
+section('Sentry');
+{
+  const srv = read(path.join(FUNCTIONS, 'integrations/sentry.js'));
+  assert('withSentry helper exported', /module\.exports\s*=\s*\{[\s\S]*withSentry/.test(srv));
+  assert('PII redaction in beforeSend',
+    /beforeSend[\s\S]{0,500}email\|phone\|address/.test(srv));
+  const cli = read(path.join(PRO_JS, 'sentry-init.js'));
+  assert('client registers window.NBDSentry', /window\.NBDSentry\s*=/.test(cli));
+  assert('client redacts email + phone + Bearer tokens',
+    /\[email\]/.test(cli) && /\[phone\]/.test(cli) && /\[token\]/.test(cli));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js imports withSentry', /require\(['"]\.\/integrations\/sentry['"]\)/.test(idx));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard loads sentry-init.js', /sentry-init\.js/.test(dash));
+  assert('dashboard exposes __NBD_SENTRY_DSN slot', /window\.__NBD_SENTRY_DSN/.test(dash));
+}
+
+section('Slack alerts');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/slack.js'));
+  for (const name of ['slack_onLeadWon','slack_onAdminGrantAttempt','slack_onStormAlert']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('Slack helper fails silent on missing webhook',
+    /hasSecret\('SLACK_WEBHOOK_URL'\)[\s\S]{0,120}return \{ posted: false/.test(src));
+}
+
+section('Turnstile');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/turnstile.js'));
+  assert('verifyTurnstile exported', /module\.exports\s*=\s*\{\s*verifyTurnstile\s*\}/.test(src));
+  assert('fails closed on verifier error',
+    /Fail CLOSED/i.test(src) && /'verify-error'/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('submitPublicLead invokes verifyTurnstile',
+    /verifyTurnstile\(\s*\(req\.body && req\.body\.turnstileToken\)/.test(idx));
+}
+
+section('Upstash rate limiter adapter');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/upstash-ratelimit.js'));
+  assert('exports enforceRateLimit + httpRateLimit',
+    /module\.exports\s*=\s*\{[\s\S]*enforceRateLimit[\s\S]*httpRateLimit/.test(src));
+  assert('falls back to Firestore limiter when not configured',
+    /firestoreLimiter\.enforceRateLimit/.test(src));
+  assert('uses pipeline INCR + EXPIRE NX',
+    /\['INCR', key\][\s\S]{0,100}\['EXPIRE', key/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js now requires the adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
+}
+
+section('Measurement adapter');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  for (const name of ['requestMeasurement','measurementWebhook']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('supports hover + eagleview + nearmap',
+    /requestHOVER/.test(src) && /requestEagleView/.test(src) && /requestNearmap/.test(src));
+  assert('provider selection driven by PROVIDERS.measurement',
+    /PROVIDERS\.measurement/.test(src));
+}
+
+section('E-sign (BoldSign)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  for (const name of ['sendEstimateForSignature','esignWebhook']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('HMAC-verifies BoldSign webhook signature',
+    /createHmac\('sha256', getSecret\('BOLDSIGN_WEBHOOK_SECRET'\)\)/.test(src));
+  assert('verifies caller owns the estimate before sending',
+    /est\.userId !== uid[\s\S]{0,100}'admin'/.test(src));
+}
+
+section('Parcel (Regrid)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/parcel.js'));
+  assert('exports lookupParcel', /exports\.lookupParcel\s*=/.test(src));
+  assert('caches lookups in parcel_cache',
+    /parcel_cache\/\$\{key\}/.test(src));
+  assert('90-day TTL constant', /CACHE_TTL_MS\s*=\s*90/.test(src));
+}
+
+section('Hail (HailTrace + NOAA SPC)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/hail.js'));
+  assert('exports getHailHistory', /exports\.getHailHistory\s*=/.test(src));
+  assert('uses NOAA/IEM JSON endpoint',
+    /mesonet\.agron\.iastate\.edu/.test(src));
+  assert('falls back to NOAA if HailTrace fails',
+    /noaa-fallback/.test(src));
+}
+
+section('Cal.com webhook');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
+  assert('exports calcomWebhook', /exports\.calcomWebhook\s*=/.test(src));
+  assert('HMAC-verifies X-Cal-Signature-256',
+    /x-cal-signature-256[\s\S]{0,300}createHmac\('sha256'/.test(src));
+  assert('creates appointments + tasks docs',
+    /appointments\/\$\{bookingId\}/.test(src) && /collection\('tasks'\)\.add/.test(src));
+}
+
+section('Unified client + status endpoint');
+{
+  const src = read(path.join(PRO_JS, 'integrations-client.js'));
+  assert('exposes window.NBDIntegrations', /window\.NBDIntegrations\s*=/.test(src));
+  for (const fn of ['requestMeasurement','sendForSignature','lookupParcel','getHailHistory']) {
+    assert('NBDIntegrations.' + fn, new RegExp('async function ' + fn + '\\(').test(src));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('integrationStatus callable exported', /exports\.integrationStatus\s*=/.test(idx));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

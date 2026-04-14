@@ -115,10 +115,17 @@
   talks to the Firebase SDK.
 -->
 <script>window.__NBD_APP_CHECK_KEY = "";</script>
+<!--
+  Sentry (client-side): set the DSN below and sentry-init.js loads
+  the browser SDK over CDN. DSN is origin-bound and safe to embed.
+-->
+<script>window.__NBD_SENTRY_DSN = "";</script>
 <!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
 <script src="js/standalone-compat.js"></script>
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
+<!-- Client error reporter — no-op when __NBD_SENTRY_DSN is empty. -->
+<script src="js/sentry-init.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
 <script src="js/script-loader.js?v=1"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -14009,3 +14016,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      based on the user's claims. Lazy-loading would hide the nav entry
      until the admin explicitly typed #/admin, defeating the gate UX. -->
 <script defer src="js/admin-manager.js?v=1"></script>
+<!-- Integrations client — exposes window.NBDIntegrations for HOVER,
+     BoldSign, Regrid, HailTrace, Cal.com. No-op when providers are
+     not configured server-side. -->
+<script defer src="js/integrations-client.js?v=1"></script>
