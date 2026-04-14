@@ -3094,7 +3094,15 @@ exports.listTeamMembers = onCall(
 
     const db = admin.firestore();
     const companySnap = await db.doc(`companies/${companyId}`).get();
-    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    // Solo-operator fallback: if the company doc hasn't been created
+    // yet AND the caller is acting on their own workspace
+    // (companyId === uid), treat them as the owner. Otherwise a solo
+    // operator who clicks "Team" before ever creating a company doc
+    // gets permission-denied and an empty roster they can't escape.
+    const isSelfWorkspace = companyId === uid;
+    const ownerId = companySnap.exists
+      ? companySnap.data().ownerId
+      : (isSelfWorkspace ? uid : null);
     if (!isGlobalAdmin && !isManager && ownerId !== uid) {
       throw new HttpsError('permission-denied', 'Owner, manager, or admin required');
     }
