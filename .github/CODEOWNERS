@@ -1,0 +1,28 @@
+# CODEOWNERS — require review from the security owner on changes to
+# files that directly affect the security posture. GitHub enforces
+# this via Branch Protection; this file is the source of truth.
+#
+# Syntax: <pattern> <owner1> <owner2>
+# Owners are GitHub handles (or @team mentions).
+
+# ─── Security-sensitive surfaces ─────────────────────────────
+/firestore.rules                @jdealtia-sys
+/firestore.indexes.json         @jdealtia-sys
+/storage.rules                  @jdealtia-sys
+/firebase.json                  @jdealtia-sys
+/functions/index.js             @jdealtia-sys
+/functions/integrations/        @jdealtia-sys
+/functions/audit-triggers.js    @jdealtia-sys
+/functions/rate-limit.js        @jdealtia-sys
+/scripts/deploy-runbook.sh      @jdealtia-sys
+/scripts/seed-access-codes.js   @jdealtia-sys
+/scripts/grant-admin-claim.js   @jdealtia-sys
+/.github/workflows/             @jdealtia-sys
+/.github/CODEOWNERS             @jdealtia-sys
+
+# ─── Auth gating + claims ────────────────────────────────────
+/docs/pro/js/nbd-auth.js        @jdealtia-sys
+/docs/pro/js/admin-manager.js   @jdealtia-sys
+
+# ─── Compliance / privacy ────────────────────────────────────
+/docs/privacy.html              @jdealtia-sys

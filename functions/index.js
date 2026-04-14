@@ -27,7 +27,34 @@ const Stripe = require('stripe');
 
 admin.initializeApp();
 
-const { enforceRateLimit, httpRateLimit, clientIp } = require('./rate-limit');
+// Rate limiter: adapter module picks Upstash vs Firestore at call time
+// based on NBD_RATE_LIMIT_PROVIDER + whether Upstash secrets are set.
+// Falls back to the Firestore limiter automatically.
+const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
+const { withSentry } = require('./integrations/sentry');
+
+// ═════════════════════════════════════════════════════════════
+// D1: per-uid rate-limit guard for every mutation callable.
+// Use inside onCall handlers to throw a resource-exhausted error
+// when a single user is spamming. The Upstash-first adapter
+// transparently falls back to Firestore when unconfigured.
+//
+// Usage:
+//   await callableRateLimit(request, 'createPortalToken', 30, 60_000);
+// ═════════════════════════════════════════════════════════════
+async function callableRateLimit(request, name, limit, windowMs) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) return;  // unauth callers can't hit a callable anyway
+  try {
+    await enforceRateLimit('callable:' + name + ':uid', uid, limit, windowMs);
+  } catch (e) {
+    if (e.rateLimited) {
+      throw new HttpsError('resource-exhausted',
+        `Rate limit exceeded — try again in ${Math.ceil(windowMs / 1000)}s`);
+    }
+    throw e;
+  }
+}
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
@@ -74,8 +101,24 @@ const ALLOWED_CLAUDE_MODELS = new Set([
   'claude-sonnet-4-20250514',
 ]);
 const CLAUDE_MAX_TOKENS_CAP = 1024;
+// H-5: per-uid budget stays as a per-seat fairness floor, but we now
+// also enforce a per-COMPANY budget. Previously, with free signups
+// (pre-C-2) and no company cap, an attacker could spray 10 burner
+// accounts on NBD-2026 and multiply the per-uid limit by 10x.
+// Per-plan caps:
+//   lite        →  10k tokens/day/company
+//   foundation  →  50k tokens/day/company
+//   growth      → 250k tokens/day/company
+//   professional→ 1M  tokens/day/company
 const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
 const CLAUDE_PER_MIN_LIMIT = 20;
+const CLAUDE_COMPANY_BUDGET = {
+  lite:          10_000,
+  foundation:    50_000,
+  growth:       250_000,
+  professional: 1_000_000
+};
+const CLAUDE_COMPANY_BUDGET_DEFAULT = 10_000;
 
 exports.claudeProxy = onRequest(
   {
@@ -96,10 +139,19 @@ exports.claudeProxy = onRequest(
     const { decoded } = authResult;
 
     try {
+      // M-1: email-verification gate. An unverified email can be
+      // anything — squatters can burn legitimate emails by signing
+      // up first. Block unverified accounts from touching billable
+      // surfaces (AI proxy). Platform admin exempt for support.
+      const isAdmin = decoded.role === 'admin';
+      if (!isAdmin && decoded.email_verified !== true) {
+        res.status(403).json({ error: 'Verify your email before using AI features.' });
+        return;
+      }
+
       // Subscription gate — server-trusted Firestore doc written only by Stripe webhook.
       const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
       const sub = subSnap.exists ? subSnap.data() : null;
-      const isAdmin = decoded.role === 'admin';
       const hasPaidPlan = sub && sub.plan && sub.plan !== 'free' && sub.status === 'active';
       if (!isAdmin && !hasPaidPlan) {
         res.status(403).json({ error: 'AI features require an active paid subscription.' });
@@ -116,17 +168,44 @@ exports.claudeProxy = onRequest(
 
       // Per-day token budget (rolling 24h, tracked via api_usage sum).
       const dayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 86_400_000);
-      const usageSnap = await admin.firestore().collection('api_usage')
-        .where('uid', '==', decoded.uid)
-        .where('timestamp', '>', dayAgo)
-        .get();
-      let consumed = 0;
-      usageSnap.forEach(d => {
-        const r = d.data();
-        consumed += (r.inputTokens || 0) + (r.outputTokens || 0);
-      });
-      if (!isAdmin && consumed >= CLAUDE_DAILY_TOKEN_BUDGET) {
-        res.status(429).json({ error: 'Daily AI budget exceeded. Resets in 24 hours.' });
+      const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
+      // Fetch both per-uid AND per-company usage in parallel. The
+      // per-company query uses `companyId`, which we now stamp on
+      // every api_usage doc below.
+      const [perUidSnap, perCompanySnap] = await Promise.all([
+        admin.firestore().collection('api_usage')
+          .where('uid', '==', decoded.uid)
+          .where('timestamp', '>', dayAgo)
+          .get(),
+        admin.firestore().collection('api_usage')
+          .where('companyId', '==', callerCompanyId)
+          .where('timestamp', '>', dayAgo)
+          .get()
+      ]);
+      const sumTokens = (snap) => {
+        let s = 0;
+        snap.forEach(d => {
+          const r = d.data();
+          s += (r.inputTokens || 0) + (r.outputTokens || 0);
+        });
+        return s;
+      };
+      const consumedUid     = sumTokens(perUidSnap);
+      const consumedCompany = sumTokens(perCompanySnap);
+
+      // Resolve per-company cap from the plan on the subscription doc.
+      const plan = (sub && sub.plan) || 'lite';
+      const companyCap = CLAUDE_COMPANY_BUDGET[plan] ?? CLAUDE_COMPANY_BUDGET_DEFAULT;
+
+      if (!isAdmin && consumedUid >= CLAUDE_DAILY_TOKEN_BUDGET) {
+        res.status(429).json({ error: 'Daily AI budget exceeded for your account. Resets in 24 hours.' });
+        return;
+      }
+      if (!isAdmin && consumedCompany >= companyCap) {
+        res.status(429).json({
+          error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
+          plan, capacity: companyCap
+        });
         return;
       }
 
@@ -157,15 +236,25 @@ exports.claudeProxy = onRequest(
       if (!response.ok) { res.status(response.status).json(data); return; }
 
       try {
+        // C6: stamp leadId + feature on every api_usage row so we
+        // can attribute cost per-deal. Client passes them in the
+        // body; trust but bound (120 char max on feature, plain
+        // string on leadId).
+        const leadId  = typeof req.body?.leadId  === 'string' ? req.body.leadId.slice(0, 80)  : null;
+        const feature = typeof req.body?.feature === 'string' ? req.body.feature.slice(0, 60) : null;
         await admin.firestore().collection('api_usage').add({
           uid: decoded.uid,
+          companyId: callerCompanyId,   // H-5: per-company budget query
+          leadId,                        // C6: per-lead cost attribution
+          feature,                       // e.g. 'ask-joe', 'decision-engine', 'rep-report'
+          plan,
           model: anthropicBody.model,
           inputTokens: data.usage?.input_tokens || 0,
           outputTokens: data.usage?.output_tokens || 0,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (e) {
-        logger.warn('api_usage logging failed', { uid: decoded.uid, err: e.message });
+        logger.warn('api_usage logging failed', { err: e.message });
       }
 
       res.json(data);
@@ -298,10 +387,27 @@ exports.stripeWebhook = onRequest(
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
-    let event;
+    // H-6: Stripe requires the RAW request body for signature
+    // verification. If rawBody is missing (middleware re-parsed as
+    // JSON, body-parser mounted before onRequest, etc.) we MUST
+    // reject rather than fall back to req.body — the fallback would
+    // either never verify OR accept a forged event if the signature
+    // library is lenient. Explicit check + explicit tolerance.
+    if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+      logger.error('stripeWebhook missing rawBody — misconfigured middleware');
+      res.status(400).json({ error: 'Invalid request body' });
+      return;
+    }
+    if (typeof sig !== 'string' || !sig.length) {
+      res.status(400).json({ error: 'Missing Stripe signature' });
+      return;
+    }
 
+    let event;
     try {
-      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+      // 300s tolerance is Stripe's default; setting it explicitly so
+      // it's not silently widened by a future SDK upgrade.
+      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret, 300);
     } catch (e) {
       logger.error('stripeWebhook signature verification failed', { err: e.message });
       res.status(400).json({ error: 'Webhook signature verification failed' });
@@ -497,6 +603,71 @@ exports.stripeWebhook = onRequest(
               stripeCustomerId: customerId
             });
           } catch (e) { logger.warn('claims_pastdue_failed', { uid, err: e.message }); }
+
+          // E1: dunning. Enqueue an email to the rep, Slack the ops
+          // channel, and stamp a lead activity row if the invoice
+          // has a leadId on its metadata (auto-invoice C5 sets it).
+          try {
+            const userRecord = await admin.auth().getUser(uid);
+            const email = userRecord.email;
+            const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
+            const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
+            const amount = ((invoice.amount_due || 0) / 100).toFixed(2);
+
+            if (email) {
+              await db.collection('email_queue').add({
+                to: email,
+                subject: 'Payment failed — $' + amount + ' — NBD Pro',
+                bodyPlain:
+                  'A customer payment attempt just failed.\n\n' +
+                  'Invoice: ' + invoice.id + '\n' +
+                  'Amount:  $' + amount + '\n' +
+                  (invoice.hosted_invoice_url
+                    ? 'Link:    ' + invoice.hosted_invoice_url + '\n'
+                    : '') +
+                  '\nReach out to the customer to update their card. Stripe will auto-retry 3 more times.',
+                status: 'pending',   // F-wave fix: worker filters on this field
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                source: 'stripe_dunning'
+              });
+            }
+
+            if (leadId) {
+              await db.collection('leads/' + leadId + '/activity').add({
+                userId: uid,
+                type: 'stripe_payment_failed',
+                label: 'Payment failed ($' + amount + ')',
+                stripeInvoiceId: invoice.id,
+                stripeCustomerId: customerId,
+                amountCents: invoice.amount_due || 0,
+                hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+            }
+
+            // Slack — only posts when SLACK_WEBHOOK_URL secret is set.
+            const slack = require('./integrations/slack');
+            if (typeof slack.postSlack === 'function') {
+              await slack.postSlack({
+                text: '💳 Payment failed ($' + amount + ')',
+                blocks: [{
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text:
+                      '*💳 Stripe payment failed*\n' +
+                      'Amount: *$' + amount + '*\n' +
+                      'Invoice: `' + invoice.id + '`\n' +
+                      (estimateId ? 'Estimate: `' + estimateId + '`\n' : '') +
+                      (leadId ? 'Lead: `' + leadId + '`\n' : '') +
+                      (invoice.hosted_invoice_url ? 'Hosted: ' + invoice.hosted_invoice_url : '')
+                  }
+                }]
+              });
+            }
+          } catch (e) {
+            logger.warn('dunning: enqueue failed', { err: e.message });
+          }
 
           logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
           break;
@@ -703,6 +874,105 @@ exports.setStorageCors = onRequest(
  * Image proxy — bypasses CORS for loading photos into the editor canvas.
  * GET /imageProxy?path=photos/filename.jpg
  */
+// ═══════════════════════════════════════════════════════════════
+// signImageUrl — C1 replacement for imageProxy streaming.
+//
+// imageProxy streams a Storage object through the function, which
+// means the egress bill gets paid twice: Storage → Function and
+// Function → Client. At 10k users × 20 photos that's $40-100/hr
+// in egress alone. Signed URLs push the client straight to the
+// Storage bucket — same auth/ACL checks we do today (owner uid
+// match OR same-company manager OR platform admin), but Storage
+// handles the actual byte serving.
+//
+// Endpoint: POST /signImageUrl  { path: 'photos/<uid>/<file>' }
+// Returns: { url: 'https://storage.googleapis.com/...<query>' }
+//
+// Clients migrate from  GET /imageProxy?path=X  to
+//                       POST /signImageUrl { path: X }  →  fetch url
+// imageProxy stays in place (backwards compat) but is marked
+// deprecated — once every caller migrates we can delete it.
+// ═══════════════════════════════════════════════════════════════
+exports.signImageUrl = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    maxInstances: 30,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+    const authResult = await requireAuth(req);
+    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
+    const { decoded } = authResult;
+
+    if (!(await httpRateLimit(req, res, 'signImageUrl:ip', 300, 60_000))) return;
+    try {
+      await enforceRateLimit('signImageUrl:uid', decoded.uid, 300, 60_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded' }); return; }
+      throw e;
+    }
+
+    let filePath = (req.body && req.body.path) || '';
+    if (typeof filePath !== 'string' || filePath.length > 500) {
+      res.status(400).json({ error: 'Invalid path' }); return;
+    }
+    if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
+      res.status(400).json({ error: 'Invalid path' }); return;
+    }
+    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
+    const [, , ownerUid] = match;
+
+    const isOwner = ownerUid === decoded.uid;
+    const isPlatformAdmin = decoded.role === 'admin';
+    let allowed = isOwner || isPlatformAdmin;
+    if (!allowed) {
+      const callerCompanyId = decoded.companyId || null;
+      const callerRole = decoded.role || '';
+      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
+        try {
+          const db = admin.firestore();
+          const [userDoc, repDoc] = await Promise.all([
+            db.doc(`users/${ownerUid}`).get(),
+            db.doc(`reps/${ownerUid}`).get()
+          ]);
+          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
+            || (repDoc.exists  && repDoc.data().companyId)
+            || null;
+          if (ownerCompanyId && ownerCompanyId === callerCompanyId) allowed = true;
+        } catch (e) { /* fall through */ }
+      }
+    }
+    if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+    try {
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(filePath);
+      const [exists] = await file.exists();
+      if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
+
+      // 15-minute signed URL. Short enough that a stolen URL can't
+      // be re-used indefinitely; long enough that a page render +
+      // photo grid scroll doesn't force re-signing on every image.
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + 15 * 60_000,
+        version: 'v4'
+      });
+      res.set('Cache-Control', 'private, max-age=300');
+      res.status(200).json({ url, expiresIn: 900 });
+    } catch (e) {
+      logger.error('signImageUrl error', { err: e.message });
+      res.status(500).json({ error: 'Signing failed' });
+    }
+  }
+);
+
 exports.imageProxy = onRequest(
   {
     cors: CORS_ORIGINS,
@@ -715,9 +985,24 @@ exports.imageProxy = onRequest(
   async (req, res) => {
     if (req.method !== 'GET') { res.status(405).end(); return; }
 
+    // D8: deprecation signals per RFC 8594 + RFC 9745. Clients that
+    // still use imageProxy should migrate to /signImageUrl. We keep
+    // serving bytes (don't break prod) but every hit logs + headers
+    // telegraph the sunset date, so ops can diff call sites that
+    // haven't migrated.
+    res.set('Deprecation', 'true');
+    res.set('Sunset', 'Wed, 01 Oct 2026 00:00:00 GMT');
+    res.set('Link', '</signImageUrl>; rel="successor-version"');
+
     const authResult = await requireAuth(req);
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
+
+    logger.warn('imageProxy DEPRECATED call', {
+      uidHash: require('crypto').createHash('sha256').update(decoded.uid).digest('hex').slice(0, 16),
+      referer: (req.headers.referer || '').slice(0, 200),
+      path: String(req.query.path || '').slice(0, 200)
+    });
 
     // Per-IP and per-uid rate limit — imageProxy is a bandwidth amplifier.
     if (!(await httpRateLimit(req, res, 'imageProxy:ip', 120, 60_000))) return;
@@ -743,21 +1028,39 @@ exports.imageProxy = onRequest(
     const [, bucketKey, ownerUid] = match;
 
     const isOwner = ownerUid === decoded.uid;
-    const isAdmin = decoded.role === 'admin';
+    // Platform admin can cross-tenant for support; everything else
+    // must share a company. H-3: previously platform admin was the
+    // only cross-tenant escape, but pre-C-1 that claim was grantable
+    // through the invite flow. With invite-role allowlisting landed,
+    // a legitimate platform admin is the only caller that hits this
+    // branch, and it's now narrow (support workflow only).
+    const isPlatformAdmin = decoded.role === 'admin';
 
-    // If not owner or admin, allow only if caller is a manager in the same company.
-    let allowed = isOwner || isAdmin;
+    // Tenant-scoped manager / company_admin: must share companyId
+    // with the file's owner. Claims are the cheap path; fall back
+    // to a Firestore lookup only if the claim is missing.
+    let allowed = isOwner || isPlatformAdmin;
     if (!allowed) {
-      try {
-        const repSnap = await admin.firestore().doc(`reps/${decoded.uid}`).get();
-        const ownerRepSnap = await admin.firestore().doc(`reps/${ownerUid}`).get();
-        if (repSnap.exists && ownerRepSnap.exists
-            && repSnap.data().role === 'manager'
-            && repSnap.data().companyId
-            && repSnap.data().companyId === ownerRepSnap.data().companyId) {
-          allowed = true;
-        }
-      } catch (e) { /* fall through */ }
+      const callerCompanyId = decoded.companyId || null;
+      const callerRole = decoded.role || '';
+      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
+        try {
+          // Look up the file-owner's company. Prefer the users/{uid}
+          // doc (authoritative), falling back to reps/{uid} for older
+          // seeded data.
+          const db = admin.firestore();
+          const [userDoc, repDoc] = await Promise.all([
+            db.doc(`users/${ownerUid}`).get(),
+            db.doc(`reps/${ownerUid}`).get()
+          ]);
+          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
+            || (repDoc.exists  && repDoc.data().companyId)
+            || null;
+          if (ownerCompanyId && ownerCompanyId === callerCompanyId) {
+            allowed = true;
+          }
+        } catch (e) { /* fall through → 403 */ }
+      }
     }
     if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
 
@@ -797,6 +1100,526 @@ Object.assign(exports, emailFunctions);
 // ═══════════════════════════════════════════════════════════════
 const smsFunctions = require('./sms-functions');
 Object.assign(exports, smsFunctions);
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIT LOG TRIGGERS (H-4)
+// Loaded from a sibling module to keep index.js tractable.
+// ═══════════════════════════════════════════════════════════════
+const auditTriggers = require('./audit-triggers');
+Object.assign(exports, auditTriggers);
+
+// ═══════════════════════════════════════════════════════════════
+// INTEGRATIONS — every adapter is a no-op when its secret is unset.
+// Add more to functions/integrations/ and register them here.
+// ═══════════════════════════════════════════════════════════════
+const slackIntegration       = require('./integrations/slack');
+const measurementIntegration = require('./integrations/measurement');
+const esignIntegration       = require('./integrations/esign');
+const parcelIntegration      = require('./integrations/parcel');
+const hailIntegration        = require('./integrations/hail');
+const calcomIntegration      = require('./integrations/calcom');
+const hailCron               = require('./integrations/hail-cron');
+const complianceIntegration  = require('./integrations/compliance');
+const deviceAlertIntegration = require('./integrations/device-alert');
+const emailQueueWorker       = require('./integrations/email-queue-worker');
+const voiceMemoIntegration   = require('./integrations/voice-memo');
+Object.assign(exports, slackIntegration);
+Object.assign(exports, measurementIntegration);
+Object.assign(exports, esignIntegration);
+Object.assign(exports, parcelIntegration);
+Object.assign(exports, hailIntegration);
+Object.assign(exports, calcomIntegration);
+Object.assign(exports, hailCron);
+Object.assign(exports, complianceIntegration);
+Object.assign(exports, deviceAlertIntegration);
+Object.assign(exports, emailQueueWorker);
+Object.assign(exports, voiceMemoIntegration);
+
+// ═══════════════════════════════════════════════════════════════
+// integrationStatus — client-facing readout of which adapters are
+// configured in this deploy. Lets the UI disable a button for an
+// unconfigured provider instead of showing a cryptic error.
+// ═══════════════════════════════════════════════════════════════
+const {
+  hasSecret: _hasInt,
+  getSecret: _getInt,
+  PROVIDERS: _intProviders,
+  SECRETS: _intSecrets
+} = require('./integrations/_shared');
+exports.integrationStatus = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 10,
+    memory: '128MiB',
+    secrets: Object.values(_intSecrets)
+  },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    return {
+      providers: _intProviders,
+      configured: {
+        sentry:      _hasInt('SENTRY_DSN_FUNCTIONS'),
+        slack:       _hasInt('SLACK_WEBHOOK_URL'),
+        turnstile:   _hasInt('TURNSTILE_SECRET'),
+        upstash:     _hasInt('UPSTASH_REDIS_REST_URL') && _hasInt('UPSTASH_REDIS_REST_TOKEN'),
+        hover:       _hasInt('HOVER_API_KEY'),
+        eagleview:   _hasInt('EAGLEVIEW_API_KEY'),
+        nearmap:     _hasInt('NEARMAP_API_KEY'),
+        boldsign:    _hasInt('BOLDSIGN_API_KEY'),
+        regrid:      _hasInt('REGRID_API_TOKEN'),
+        hailtrace:   _hasInt('HAILTRACE_API_KEY'),
+        calcom:      _hasInt('CALCOM_WEBHOOK_SECRET'),
+        deepgram:    _hasInt('DEEPGRAM_API_KEY')
+      }
+    };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// HOMEOWNER PORTAL — public-by-token access to a redacted lead view
+//
+// Flow:
+//   1. Rep clicks "Share portal link" on a lead → createPortalToken
+//      mints a 24-char opaque token, stores it in portal_tokens/{tok}
+//      with { leadId, ownerUid, expiresAt, uses }.
+//   2. Rep SMSes/emails the URL `https://nobigdealwithjoedeal.com/
+//      pro/portal.html?token=<tok>` to the homeowner.
+//   3. Homeowner opens the page → getHomeownerPortalView({token})
+//      verifies the token and returns a REDACTED projection of the
+//      lead, rep, estimate, and booking URL. No auth required on
+//      the client side.
+//
+// portal_tokens is admin-SDK only (firestore.rules deny read/write
+// to clients) — the tokens are cryptographically random so guessing
+// is infeasible, and expiry + max-uses keep the blast radius small.
+// ═══════════════════════════════════════════════════════════════
+const PORTAL_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function mintPortalToken() {
+  const bytes = require('crypto').randomBytes(24);
+  let s = '';
+  for (const b of bytes) s += PORTAL_TOKEN_ALPHABET[b % PORTAL_TOKEN_ALPHABET.length];
+  return s;
+}
+
+exports.createPortalToken = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    // D1: a compromised rep session could otherwise mint millions of
+    // tokens. 30/min/uid is way more than a human ever needs.
+    await callableRateLimit(request, 'createPortalToken', 30, 60_000);
+    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
+
+    const db = admin.firestore();
+    const leadSnap = await db.doc(`leads/${leadId}`).get();
+    if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
+    const lead = leadSnap.data();
+    // Owner-scope: rep who owns the lead OR platform admin.
+    const isAdmin = request.auth.token.role === 'admin';
+    if (lead.userId !== uid && !isAdmin) {
+      throw new HttpsError('permission-denied', 'Not your lead');
+    }
+
+    // 30-day default TTL — rep can force re-mint anytime.
+    const ttlDays = Math.min(90, Math.max(1, Number(request.data?.ttlDays) || 30));
+    const now = Date.now();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
+
+    const token = mintPortalToken();
+    await db.doc(`portal_tokens/${token}`).set({
+      leadId,
+      ownerUid: lead.userId,
+      mintedBy: uid,
+      mintedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
+      uses: 0,
+      maxUses: 100  // generous — homeowner may reload across days
+    });
+    return { token, expiresAt: expiresAt.toMillis() };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// getAdminAnalytics — C3: ops dashboard numbers for the Team Manager.
+//
+// Returns:
+//   signatures:   { sent30d, signed30d, avgHoursToSign }
+//   measurements: { requested30d, ready30d, passThruRevenueEst }
+//   portal:       { linksMinted30d, portalViews30d }
+//   claude:       { tokens30d, costEstimate }
+//   leads:        { created30d, signed30d, winRatePct }
+//
+// Platform admin OR company_admin of the target company. company_admin
+// gets scoped to their own companyId; platform admin gets the union
+// across the platform when called without a company filter.
+// ═══════════════════════════════════════════════════════════════
+exports.getAdminAnalytics = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '512MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    const isPlatformAdmin = request.auth.token.role === 'admin';
+    const isCompanyAdmin  = request.auth.token.role === 'company_admin';
+    // Solo-operator fallback: a caller with no companyId claim owns
+    // their own workspace. Their "company" is themselves — scope
+    // the query to uid so they see their own 30-day rollup instead
+    // of getting permission-denied when they click the Analytics tab.
+    const isSoloOwner = !request.auth.token.companyId;
+    if (!isPlatformAdmin && !isCompanyAdmin && !isSoloOwner) {
+      throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const companyId = isPlatformAdmin
+      ? (request.data?.companyId || request.auth.token.companyId || null)
+      : (request.auth.token.companyId || (isSoloOwner ? uid : null));
+
+    const db = admin.firestore();
+    const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
+
+    // Helper — for a rep-owned collection, restrict to the caller's
+    // company when not platform admin. Platform admin with no company
+    // filter gets unfiltered.
+    async function companyUids() {
+      if (!companyId) return null; // platform admin, global
+      const membersSnap = await db.collection('companies/' + companyId + '/members').get();
+      const uids = membersSnap.docs.map(d => d.data().uid).filter(Boolean);
+      // Always include the owner.
+      const coSnap = await db.doc('companies/' + companyId).get();
+      if (coSnap.exists && coSnap.data().ownerId) uids.push(coSnap.data().ownerId);
+      // Solo-operator fallback: no company doc yet but companyId
+      // matches the caller's uid — they ARE the owner. Include the
+      // caller so their own rollup shows their own numbers instead
+      // of zeroed-out filters.
+      if (isSoloOwner && companyId === uid) uids.push(uid);
+      return [...new Set(uids)];
+    }
+
+    const repUids = await companyUids();
+
+    // Signatures — walk estimates created in last 30d that have a
+    // signatureStatus of sent/viewed/signed/declined/expired.
+    let estQuery = db.collection('estimates').where('createdAt', '>=', since);
+    const estSnap = await estQuery.get();
+    const ests = estSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => !repUids || repUids.includes(e.userId));
+    const sent = ests.filter(e => e.signatureStatus && e.signatureStatus !== 'none');
+    const signed = ests.filter(e => e.signatureStatus === 'signed');
+    const hours = signed
+      .map(e => {
+        const sent_t = e.signatureSentAt?.toMillis?.();
+        const signed_t = e.signedAt?.toMillis?.();
+        return (sent_t && signed_t) ? (signed_t - sent_t) / 3_600_000 : null;
+      })
+      .filter(h => h != null && h > 0);
+    const avgHoursToSign = hours.length
+      ? Math.round(hours.reduce((a, b) => a + b, 0) / hours.length * 10) / 10
+      : null;
+
+    // Measurements — rollup of count + estimated revenue from the
+    // pass-through line. We count only 'ready' jobs in the window.
+    let msQuery = db.collection('measurements').where('createdAt', '>=', since);
+    const msSnap = await msQuery.get();
+    const measurements = msSnap.docs.map(d => d.data())
+      .filter(m => !repUids || repUids.includes(m.ownerId));
+    const readyMeas = measurements.filter(m => m.status === 'ready');
+    const passThruPrice = Number(process.env.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
+    const passThruRevenueEst = readyMeas.length * passThruPrice;
+
+    // Portal links
+    let linksMinted30d = 0, portalViews30d = 0;
+    try {
+      const tokSnap = await db.collection('portal_tokens')
+        .where('mintedAt', '>=', since).get();
+      const tokens = tokSnap.docs.map(d => d.data())
+        .filter(t => !repUids || repUids.includes(t.ownerUid));
+      linksMinted30d = tokens.length;
+      portalViews30d = tokens.reduce((s, t) => s + (t.uses || 0), 0);
+    } catch (e) { /* index may not exist yet */ }
+
+    // Claude tokens — we already stamp companyId on api_usage.
+    let claudeTokens30d = 0;
+    try {
+      const q = companyId
+        ? db.collection('api_usage').where('companyId', '==', companyId).where('timestamp', '>=', since)
+        : db.collection('api_usage').where('timestamp', '>=', since);
+      const s = await q.get();
+      s.forEach(d => {
+        const r = d.data();
+        claudeTokens30d += (r.inputTokens || 0) + (r.outputTokens || 0);
+      });
+    } catch (e) { /* fall through */ }
+    // Sonnet pricing: $3/M input, $15/M output. Approx with ratio
+    // input:output = 3:1 which is our typical.
+    const claudeCostEstimate = (claudeTokens30d / 1_000_000) * 6.0;
+
+    // Leads
+    let leadQuery = db.collection('leads').where('createdAt', '>=', since);
+    const leadSnap = await leadQuery.get();
+    const leads = leadSnap.docs.map(d => d.data())
+      .filter(l => !repUids || repUids.includes(l.userId));
+    const createdCount = leads.length;
+    const signedCount = leads.filter(l => /sign|won|closed/i.test(l.stage || '')).length;
+
+    return {
+      range: 'last 30 days',
+      companyId: companyId || 'all',
+      generatedAt: new Date().toISOString(),
+      signatures: {
+        sent30d: sent.length,
+        signed30d: signed.length,
+        avgHoursToSign: avgHoursToSign
+      },
+      measurements: {
+        requested30d: measurements.length,
+        ready30d: readyMeas.length,
+        passThruRevenueEst: passThruRevenueEst,
+        passThruPrice
+      },
+      portal: {
+        linksMinted30d,
+        portalViews30d
+      },
+      claude: {
+        tokens30d: claudeTokens30d,
+        costEstimateUSD: Math.round(claudeCostEstimate * 100) / 100
+      },
+      leads: {
+        created30d: createdCount,
+        won30d: signedCount,
+        winRatePct: createdCount > 0 ? Math.round(signedCount / createdCount * 100) : 0
+      }
+    };
+  }
+);
+
+// ─── revokePortalToken ────────────────────────────────────
+// Flips all active tokens for a lead to active:false so they stop
+// resolving in getHomeownerPortalView. Owner-scoped — a rep can
+// only revoke tokens on their own leads. Platform admin unrestricted.
+exports.revokePortalToken = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    await callableRateLimit(request, 'revokePortalToken', 30, 60_000);
+    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    const tokenId = typeof request.data?.token === 'string' ? request.data.token : null;
+    if (!leadId && !tokenId) {
+      throw new HttpsError('invalid-argument', 'leadId or token required');
+    }
+
+    const db = admin.firestore();
+    const isAdmin = request.auth.token.role === 'admin';
+    let revoked = [];
+
+    if (tokenId) {
+      const ref = db.doc(`portal_tokens/${tokenId}`);
+      const snap = await ref.get();
+      if (!snap.exists) throw new HttpsError('not-found', 'Token not found');
+      if (!isAdmin && snap.data().ownerUid !== uid) {
+        throw new HttpsError('permission-denied', 'Not your token');
+      }
+      // We flip to an expired timestamp rather than deleting so the
+      // audit trail survives. getHomeownerPortalView checks expiresAt.
+      await ref.update({
+        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+        revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+        revokedBy: uid
+      });
+      revoked = [tokenId];
+    } else {
+      // Revoke every token for this lead owned by the caller.
+      const q = await db.collection('portal_tokens')
+        .where('leadId', '==', leadId)
+        .get();
+      const batch = db.batch();
+      q.forEach(d => {
+        const data = d.data();
+        if (!isAdmin && data.ownerUid !== uid) return;
+        batch.update(d.ref, {
+          expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+          revokedBy: uid
+        });
+        revoked.push(d.id);
+      });
+      if (revoked.length) await batch.commit();
+    }
+    logger.info('revokePortalToken', { leadId, count: revoked.length });
+    return { success: true, revoked: revoked.length };
+  }
+);
+
+exports.getHomeownerPortalView = onRequest(
+  {
+    region: 'us-central1',
+    cors: true, // intentionally open — this is the homeowner-facing endpoint
+    maxInstances: 20,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+    // BoldSign key: needed to mint the embedded signing URL when
+    // the estimate is awaiting signature.
+    secrets: [_intSecrets.BOLDSIGN_API_KEY]
+  },
+  async (req, res) => {
+    if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).end(); return; }
+
+    // Rate-limit per IP — 30/min is plenty for a homeowner on the
+    // page and stops an attacker from brute-forcing tokens.
+    if (!(await httpRateLimit(req, res, 'portal:ip', 30, 60_000))) return;
+
+    const token = (req.method === 'GET' ? req.query.token : (req.body && req.body.token)) || '';
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.' });
+      return;
+    }
+    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+      res.status(429).json({ error: 'This link has been opened too many times.' });
+      return;
+    }
+
+    // Load the lead, rep, and latest estimate in parallel.
+    const [leadSnap, repSnap, estSnap] = await Promise.all([
+      db.doc(`leads/${tok.leadId}`).get(),
+      db.doc(`users/${tok.ownerUid}`).get(),
+      db.collection('estimates')
+        .where('leadId', '==', tok.leadId)
+        .limit(10)
+        .get()
+    ]);
+
+    if (!leadSnap.exists) { res.status(404).json({ error: 'Project not found' }); return; }
+    const lead = leadSnap.data();
+    const rep = repSnap.exists ? repSnap.data() : {};
+
+    // Pick the latest estimate (createdAt desc). In-memory sort to
+    // avoid a composite-index requirement for this rarely-hit path.
+    const estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    estimates.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() || 0;
+      const tb = b.createdAt?.toMillis?.() || 0;
+      return tb - ta;
+    });
+    const latest = estimates[0] || null;
+
+    // REDACTION: only non-sensitive fields reach the homeowner.
+    // In particular: no claim details, no internal notes, no rep
+    // commission, no other leads.
+
+    // If the estimate is awaiting signature AND BoldSign is
+    // configured AND the signer email on file matches the one
+    // stored on the estimate, request a fresh embed signing URL so
+    // the homeowner can sign right inside the portal instead of
+    // digging up the BoldSign email. We never expose the document
+    // id — only the iframe URL, which BoldSign scopes to the signer
+    // email automatically.
+    let signEmbedUrl = null;
+    if (latest
+        && (latest.signatureStatus === 'sent' || latest.signatureStatus === 'viewed')
+        && latest.signatureProvider === 'boldsign'
+        && latest.signatureDocumentId
+        && latest.signerEmail
+        && _hasInt('BOLDSIGN_API_KEY')) {
+      try {
+        const apiKey = _getInt('BOLDSIGN_API_KEY');
+        const embedRes = await fetch(
+          `https://api.boldsign.com/v1/document/getEmbeddedSignLink?documentId=${encodeURIComponent(latest.signatureDocumentId)}&signerEmail=${encodeURIComponent(latest.signerEmail)}`,
+          { headers: { 'X-API-KEY': apiKey } }
+        );
+        if (embedRes.ok) {
+          const d = await embedRes.json();
+          signEmbedUrl = d.signLink || d.signUrl || null;
+        }
+      } catch (e) {
+        logger.warn('portal embed link fetch failed', { err: e.message });
+      }
+    }
+
+    const view = {
+      homeowner: {
+        firstName: lead.firstName || '',
+        lastName:  lead.lastName || '',
+        address:   lead.address || ''
+      },
+      rep: {
+        displayName:    rep.displayName || lead.repName || 'Your Rep',
+        calcomUsername: rep.calcomUsername || null,
+        calcomEventSlug: rep.calcomEventSlug || 'roof-inspection',
+        phone: rep.phone || null
+      },
+      company: {
+        name: rep.companyName || 'No Big Deal Home Solutions'
+      },
+      estimate: latest ? {
+        id:              latest.id,
+        builder:         latest.builder || 'classic',
+        grandTotal:      latest.grandTotal || latest.total || null,
+        tierName:        latest.tierName || null,
+        signatureStatus: latest.signatureStatus || 'none',
+        signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
+        signedDocumentUrl: latest.signedDocumentUrl || null,
+        signEmbedUrl:    signEmbedUrl,
+        // Line-item summary only — NOT the internal cost breakdown.
+        lineCount: Array.isArray(latest.lines) ? latest.lines.length : null,
+        createdAt: latest.createdAt?.toDate?.()?.toISOString() || null
+      } : null,
+      bookingUrl: rep.calcomUsername
+        ? ('https://cal.com/' + rep.calcomUsername + '/' + (rep.calcomEventSlug || 'roof-inspection'))
+        : null,
+      tokenInfo: {
+        // Let the UI show "expires in N days" without exposing the
+        // exact timestamp shape.
+        daysRemaining: tok.expiresAt
+          ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))
+          : null
+      }
+    };
+
+    // Bump use counter (fire-and-forget; don't fail the response).
+    tokRef.update({
+      uses: admin.firestore.FieldValue.increment(1),
+      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+
+    res.status(200).json(view);
+  }
+);
 
 // ═══════════════════════════════════════════════════════════════
 // INVOICE FUNCTIONS
@@ -947,13 +1770,30 @@ exports.invoiceWebhook = onRequest(
       const signature = req.headers['stripe-signature'] || '';
       const stripe = new Stripe(STRIPE_SECRET_KEY.value());
 
-      // Verify Stripe signature
+      // H-6: same rawBody requirement as stripeWebhook. The previous
+      // `req.rawBody || req.body` fallback is a footgun — it gives
+      // stripe.constructEvent a parsed object that never yields a
+      // valid signature match, silently 400ing legit events, or (on
+      // older SDKs) re-serialising into a different byte sequence
+      // and accepting forgeries.
+      if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
+        logger.error('invoiceWebhook missing rawBody');
+        res.status(400).json({ error: 'Invalid request body' });
+        return;
+      }
+      if (!signature) {
+        res.status(400).json({ error: 'Missing signature' });
+        return;
+      }
+
+      // Verify Stripe signature with explicit replay tolerance.
       let event;
       try {
         event = stripe.webhooks.constructEvent(
-          req.rawBody || req.body,
+          req.rawBody,
           signature,
-          STRIPE_WEBHOOK_SECRET.value()
+          STRIPE_WEBHOOK_SECRET.value(),
+          300
         );
       } catch (err) {
         logger.error('invoiceWebhook signature verification failed', { err: err.message });
@@ -1588,6 +2428,13 @@ exports.migratePinsToKnocks = onCall(
 // account is finalized, so the claims are available immediately
 // on their first login (no token refresh delay).
 // ═════════════════════════════════════════════════════════════
+// Role taxonomy — platform-wide allowlist. The `admin` role is PLATFORM
+// admin and is reserved for support/ops — it grants cross-tenant reads via
+// Firestore rules. Tenant-scoped admins use `company_admin`, which is
+// bounded to their own `companyId` claim. Nothing below platform admin
+// should ever be settable through the invite flow.
+const INVITE_ALLOWED_ROLES = new Set(['company_admin', 'manager', 'sales_rep', 'viewer']);
+
 exports.onRepSignup = beforeUserCreated(
   { region: 'us-central1' },
   async (event) => {
@@ -1597,6 +2444,7 @@ exports.onRepSignup = beforeUserCreated(
 
     const db = admin.firestore();
 
+    let companyId, role;
     try {
       // Search all companies' member lists for this email
       // This is a collectionGroup query on 'members' subcollections.
@@ -1608,36 +2456,44 @@ exports.onRepSignup = beforeUserCreated(
 
       if (memberSnap.empty) {
         // Not an invited rep — solo operator signup. No claims to set.
-        logger.info('onRepSignup: no matching invite for ' + email);
+        logger.info('onRepSignup: no matching invite');
         return;
       }
 
       const memberDoc = memberSnap.docs[0];
       const memberData = memberDoc.data();
       // The parent path is companies/{companyId}/members/{email}
-      // Extract companyId from the path.
-      const companyId = memberDoc.ref.parent.parent.id;
-      const role = memberData.role || 'sales_rep';
+      companyId = memberDoc.ref.parent.parent.id;
 
-      logger.info('onRepSignup: matched invite', { email, companyId, role });
+      // CRITICAL: hard allowlist. A malicious/compromised company owner
+      // could have written `role: 'admin'` into the invite doc in an
+      // attempt to mint platform-admin claims. Reject anything outside
+      // the invite allowlist and fall back to the lowest-privilege role.
+      const requested = typeof memberData.role === 'string' ? memberData.role : '';
+      if (!INVITE_ALLOWED_ROLES.has(requested)) {
+        logger.warn('onRepSignup: invite role outside allowlist', { companyId, requested });
+        role = 'sales_rep';
+      } else {
+        role = requested;
+      }
 
-      // Set custom claims so the user is scoped to their company
-      // immediately on first login. These claims are used by:
-      //   - Firestore security rules (myCompanyId(), sameCompanyAsResource())
-      //   - Client-side pipeline filtering (only show own leads)
-      //   - Role-based UI gating (manager sees all reps, rep sees only own)
-      return {
-        customClaims: {
-          companyId: companyId,
-          role: role,
-          plan: 'growth' // invited reps inherit the company's plan
-        }
-      };
+      logger.info('onRepSignup: matched invite', { companyId, role });
     } catch (e) {
-      logger.error('onRepSignup error', { email, err: e.message });
-      // Don't block signup on error — let them in, claims can be set later
-      return;
+      // Fail CLOSED. Previously we returned no claims and let signup
+      // succeed "so claims can be set later" — but that created a
+      // window where the user could read any doc missing a companyId
+      // field, since myCompanyId() was null. Block signup on error.
+      logger.error('onRepSignup error — blocking signup', { err: e.message });
+      throw new HttpsError('internal', 'Signup temporarily unavailable. Try again shortly.');
     }
+
+    return {
+      customClaims: {
+        companyId: companyId,
+        role: role,
+        plan: 'growth' // invited reps inherit the company's plan
+      }
+    };
   }
 );
 
@@ -1692,12 +2548,645 @@ exports.activateInvitedRep = onCall(
         displayName: request.auth.token.name || email.split('@')[0]
       }, { merge: true });
 
-      logger.info('activateInvitedRep: success', { uid, companyId, role });
+      logger.info('activateInvitedRep: success');
       return { activated: true, companyId, role };
 
     } catch (e) {
       logger.error('activateInvitedRep error', { uid, err: e.message });
       throw new HttpsError('internal', 'Activation failed');
     }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// submitPublicLead — C-3 gated write path for the four public forms
+// (guide, contact, estimate, storm_alert). Replaces the previous
+// unauthenticated direct-Firestore-create, which had no rate limit
+// and could be mass-fired at Firestore's list price for ~$2/M writes.
+//
+// Defenses:
+//   - enforceAppCheck: rejects calls without a valid App Check token
+//     (curl/bot without the attestation token fails immediately).
+//   - httpRateLimit: per-IP 20/min — plenty for a human on a form,
+//     enough to stop a single-box 1000 rps attack cold.
+//   - Origin allowlist via CORS_ORIGINS matches only the two public
+//     domains. Browsers refuse to send the request otherwise.
+//   - Honeypot field 'website': bots fill every field; real forms
+//     leave it empty. Non-empty → silent 200 with no Firestore write.
+//   - Per-shape validation + hard size caps.
+//   - Generic 200 response with opaque id so enumerating invalid
+//     payloads gives no side-channel.
+// ═════════════════════════════════════════════════════════════
+const PUBLIC_LEAD_KINDS = {
+  guide: {
+    collection: 'guide_leads',
+    required: ['name', 'email', 'source'],
+    maxLen:   { name: 200, email: 200, source: 200 }
+  },
+  contact: {
+    collection: 'contact_leads',
+    required: ['firstName', 'phone', 'source'],
+    maxLen:   { firstName: 200, phone: 30, source: 200 }
+  },
+  estimate: {
+    collection: 'estimate_leads',
+    required: ['address', 'source'],
+    maxLen:   { address: 500, source: 200 }
+  },
+  storm: {
+    collection: 'storm_alert_subscribers',
+    required: ['name', 'phone', 'zip', 'source'],
+    maxLen:   { name: 200, phone: 30, zip: 10, source: 200 },
+    exact:    { zip: 5 }
+  }
+};
+
+const { verifyTurnstile } = require('./integrations/turnstile');
+const { SECRETS: INT_SECRETS } = require('./integrations/_shared');
+
+exports.submitPublicLead = onRequest(
+  {
+    cors: CORS_ORIGINS,        // same origin allowlist used by claudeProxy
+    enforceAppCheck: true,     // required; App Check sits in front
+    secrets: [INT_SECRETS.TURNSTILE_SECRET],
+    maxInstances: 20,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB'
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+    // Per-IP rate limit — the single most important gate. 20/min/IP.
+    // A human filling a form takes >10s; a spam script fires faster.
+    if (!(await httpRateLimit(req, res, 'publicLead:ip', 20, 60_000))) return;
+
+    // Turnstile verification (if configured). Fail closed on verifier
+    // error. No-op passthrough when TURNSTILE_SECRET is unset so dev
+    // environments still work.
+    const turnstile = await verifyTurnstile(
+      (req.body && req.body.turnstileToken) || '',
+      clientIp(req)
+    );
+    if (!turnstile.ok) {
+      res.status(403).json({ error: 'Verification failed', reason: turnstile.reason });
+      return;
+    }
+
+    const body = req.body || {};
+    const kind = typeof body.kind === 'string' ? body.kind : '';
+    const spec = PUBLIC_LEAD_KINDS[kind];
+    if (!spec) {
+      // Opaque error: same shape as success so an attacker can't
+      // enumerate valid kinds without also fetching a real response.
+      res.status(400).json({ error: 'Invalid submission' });
+      return;
+    }
+
+    // Honeypot — real humans never fill this. Pretend success.
+    if (typeof body.website === 'string' && body.website.length > 0) {
+      logger.info('submitPublicLead: honeypot tripped', { kind, ip: clientIp(req) });
+      res.status(200).json({ success: true });
+      return;
+    }
+
+    // Per-shape validation.
+    const data = {};
+    for (const key of spec.required) {
+      const val = body[key];
+      if (typeof val !== 'string') { res.status(400).json({ error: 'Invalid submission' }); return; }
+      const max = spec.maxLen[key] || 200;
+      if (val.length === 0 || val.length > max) { res.status(400).json({ error: 'Invalid submission' }); return; }
+      if (spec.exact && spec.exact[key] != null && val.length !== spec.exact[key]) {
+        res.status(400).json({ error: 'Invalid submission' }); return;
+      }
+      data[key] = val;
+    }
+
+    // Optional fields — passed through but bounded.
+    for (const key of Object.keys(body)) {
+      if (spec.required.includes(key)) continue;
+      if (['kind', 'website'].includes(key)) continue;
+      const v = body[key];
+      if (typeof v !== 'string' || v.length > 500) continue;
+      data[key] = v;
+    }
+
+    // Trust-but-tag: server-only fields the client can't spoof.
+    data.ip = clientIp(req);
+    data.userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+    data.createdAt = admin.firestore.FieldValue.serverTimestamp();
+
+    try {
+      const ref = await admin.firestore().collection(spec.collection).add(data);
+      logger.info('submitPublicLead', { kind, id: ref.id });
+      res.status(200).json({ success: true, id: ref.id });
+    } catch (e) {
+      logger.error('submitPublicLead error', { kind, err: e.message });
+      res.status(500).json({ error: 'Submission failed' });
+    }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// rotateAccessCodes — platform-admin-only kill switch for legacy
+// hardcoded access codes (C-2).
+//
+// Until this runs, NBD-2026 and the other pre-rotation codes are
+// still live in Firestore because the old seed script wrote them.
+// Calling this deactivates them server-side. After this, the seed
+// script is the only way to mint new codes — and it prints them
+// to stdout only.
+//
+// Platform admin only. Intentionally very loud in logs — every
+// call creates an audit_log entry.
+// ═════════════════════════════════════════════════════════════
+const LEGACY_ACCESS_CODES = [
+  'NBD-2026', 'NBD-DEMO', 'DEMO', 'TRYIT',
+  'DEAL-2026', 'ROOFCON26', 'NBD-STORM'
+];
+
+exports.rotateAccessCodes = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    if (request.auth.token.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Platform admin required');
+    }
+
+    const db = admin.firestore();
+    const deactivated = [];
+    for (const codeId of LEGACY_ACCESS_CODES) {
+      const ref = db.doc(`access_codes/${codeId}`);
+      const snap = await ref.get();
+      if (!snap.exists) continue;
+      const cur = snap.data();
+      if (cur.active === false) continue;
+      await ref.update({
+        active: false,
+        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rotatedBy: uid,
+        rotatedReason: 'legacy hardcoded code auto-disabled'
+      });
+      deactivated.push(codeId);
+    }
+    logger.warn('rotateAccessCodes: legacy codes disabled', { by: uid, deactivated });
+    // Write an audit_log entry explicitly — this predates the audit
+    // triggers, so we record it here too.
+    await db.collection('audit_log').add({
+      type: 'rotate_access_codes',
+      actorUid: uid,
+      deactivated,
+      ts: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { success: true, deactivated };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// ADMIN ACCOUNT MANAGER — Team lifecycle Cloud Functions
+//
+// These callables back the "Team" admin view. Only a global admin
+// OR the company owner can invoke them. All writes go through the
+// Admin SDK so they bypass Firestore rules — meaning the auth check
+// below is the ONLY thing standing between the caller and the data.
+// Treat every guard as load-bearing.
+//
+// Roles: admin | manager | sales_rep | viewer
+// ═════════════════════════════════════════════════════════════
+
+// Tenant-scoped roles. `admin` (platform-global) is deliberately NOT in
+// this list — granting it requires manual admin SDK script, never a UI
+// path. Tenant admins use `company_admin`, which owns the company but
+// cannot read other tenants' data.
+const TEAM_ROLES = ['company_admin', 'manager', 'sales_rep', 'viewer'];
+
+// Resolve the caller's company and confirm they can manage it.
+// Returns { uid, companyId, isOwner, isGlobalAdmin } or throws HttpsError.
+async function requireTeamAdmin(request, targetCompanyId = null) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+  const claims = request.auth.token || {};
+  const isGlobalAdmin = claims.role === 'admin';
+  // Solo operators own a company keyed by their uid. Team members carry a
+  // companyId claim set by onRepSignup. Fall back to uid for solo owners.
+  const callerCompanyId = claims.companyId || uid;
+  const companyId = targetCompanyId || callerCompanyId;
+
+  // Cross-company ops are admin-only.
+  if (!isGlobalAdmin && companyId !== callerCompanyId) {
+    throw new HttpsError('permission-denied', 'Cannot manage another company');
+  }
+
+  // Verify ownership against the company doc if one exists.
+  const db = admin.firestore();
+  const companyRef = db.doc(`companies/${companyId}`);
+  const companySnap = await companyRef.get();
+  const ownerId = companySnap.exists ? (companySnap.data().ownerId || null) : null;
+  const isOwner = ownerId === uid || (!companySnap.exists && companyId === uid);
+
+  if (!isGlobalAdmin && !isOwner) {
+    // Managers can list their team but not mutate — the caller gates mutations.
+    throw new HttpsError('permission-denied', 'Owner or admin access required');
+  }
+
+  return { uid, companyId, isOwner, isGlobalAdmin, companyRef };
+}
+
+// Platform admin role is NEVER grantable through this function — not
+// even by another platform admin. It is a manual admin-SDK script
+// operation so it leaves a clear paper trail and cannot be triggered
+// through a compromised browser session. The UI picker only offers
+// the four tenant-scoped roles.
+function normalizeRole(role) {
+  if (typeof role !== 'string') return null;
+  const r = role.trim().toLowerCase();
+  if (r === 'admin') return null;  // platform admin — blocked here
+  if (!TEAM_ROLES.includes(r)) return null;
+  return r;
+}
+
+function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const e = email.trim().toLowerCase();
+  if (!e.includes('@') || e.length < 5 || e.length > 200) return null;
+  return e;
+}
+
+// ── createTeamMember ─────────────────────────────────────────
+// Creates (or adopts) a Firebase Auth user, stamps role + companyId
+// claims, and records the member in companies/{companyId}/members.
+// The target's default status is 'active' if we created them fresh,
+// 'invited' if they don't have a password set yet.
+exports.createTeamMember = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'createTeamMember', 20, 60_000);
+
+    const email = normalizeEmail(request.data && request.data.email);
+    if (!email) throw new HttpsError('invalid-argument', 'Valid email required');
+
+    // Global admin can grant admin; company owners cannot.
+    const role = normalizeRole(request.data && request.data.role);
+    if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
+
+    const displayName = typeof request.data?.displayName === 'string'
+      ? request.data.displayName.trim().slice(0, 120)
+      : '';
+
+    const db = admin.firestore();
+
+    // Make sure the company doc exists so security rules for members work.
+    const companySnap = await companyRef.get();
+    if (!companySnap.exists) {
+      await companyRef.set({
+        ownerId: callerUid,
+        name: (request.auth.token.name || 'My Company'),
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    let userRecord;
+    let created = false;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (e) {
+      if (e.code === 'auth/user-not-found') {
+        userRecord = await admin.auth().createUser({
+          email,
+          emailVerified: false,
+          displayName: displayName || email.split('@')[0],
+          disabled: false
+        });
+        created = true;
+      } else {
+        throw e;
+      }
+    }
+
+    // Block cross-company poaching: if the target already has a different
+    // companyId claim, require global admin to reassign.
+    const existingClaims = userRecord.customClaims || {};
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && request.auth.token.role !== 'admin') {
+      throw new HttpsError('already-exists', 'User is already a member of another company');
+    }
+
+    // Merge claims — preserve plan/subscriptionStatus if present.
+    const newClaims = {
+      ...existingClaims,
+      companyId,
+      role
+    };
+    await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
+
+    const memberRef = db.doc(`companies/${companyId}/members/${email}`);
+    await memberRef.set({
+      email,
+      role,
+      displayName: displayName || userRecord.displayName || email.split('@')[0],
+      uid: userRecord.uid,
+      status: created ? 'invited' : 'active',
+      invitedAt: admin.firestore.FieldValue.serverTimestamp(),
+      invitedBy: callerUid,
+      active: true
+    }, { merge: true });
+
+    // Seed user profile doc so the user list query has a name to show.
+    await db.doc(`users/${userRecord.uid}`).set({
+      email,
+      displayName: displayName || userRecord.displayName || email.split('@')[0],
+      companyId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // M-5: hash email before logging so Cloud Logging retention can't
+    // leak PII. Log the first 16 hex chars — enough for correlation
+    // between admins and audit_log entries, not enough for reversal.
+    const emailHash = require('crypto').createHash('sha256').update(email).digest('hex').slice(0, 16);
+    logger.info('createTeamMember', { companyId, emailHash, role, created });
+    return {
+      success: true,
+      uid: userRecord.uid,
+      email,
+      role,
+      status: created ? 'invited' : 'active',
+      created
+    };
+  }
+);
+
+// ── updateUserRole ───────────────────────────────────────────
+// Change an existing team member's role. Rewrites custom claims
+// and the member doc. Won't let a non-admin promote to admin or
+// demote the company owner.
+exports.updateUserRole = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'updateUserRole', 30, 60_000);
+
+    const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
+    const targetEmail = normalizeEmail(request.data && request.data.email);
+    if (!targetUid && !targetEmail) {
+      throw new HttpsError('invalid-argument', 'Target uid or email required');
+    }
+
+    const role = normalizeRole(request.data && request.data.role);
+    if (!role) throw new HttpsError('invalid-argument', 'Invalid role');
+
+    const isGlobalAdmin = request.auth.token.role === 'admin';
+
+    // Resolve the target user.
+    let userRecord;
+    try {
+      userRecord = targetUid
+        ? await admin.auth().getUser(targetUid)
+        : await admin.auth().getUserByEmail(targetEmail);
+    } catch (e) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+
+    const existingClaims = userRecord.customClaims || {};
+    // Block changing a user from a different company unless platform admin.
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
+      throw new HttpsError('permission-denied', 'User belongs to another company');
+    }
+
+    // Prevent demoting the company owner through this path. The owner
+    // must keep at least company_admin privileges; downgrade requires
+    // transferring ownership first.
+    const companySnap = await companyRef.get();
+    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    if (ownerId && userRecord.uid === ownerId && role !== 'company_admin' && !isGlobalAdmin) {
+      throw new HttpsError('failed-precondition', 'Cannot demote the company owner');
+    }
+
+    await admin.auth().setCustomUserClaims(userRecord.uid, {
+      ...existingClaims,
+      companyId,
+      role
+    });
+
+    const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
+    if (emailKey) {
+      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+        role,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: callerUid
+      }, { merge: true });
+    }
+
+    logger.info('updateUserRole', { companyId, targetUid: userRecord.uid, role });
+    return { success: true, uid: userRecord.uid, role };
+  }
+);
+
+// ── deactivateUser ───────────────────────────────────────────
+// Disable the Firebase Auth account and mark the member doc
+// deactivated. Data is preserved; toggle `reactivate: true` to
+// re-enable. Won't let anyone deactivate the company owner.
+exports.deactivateUser = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'deactivateUser', 20, 60_000);
+
+    const targetUid = typeof request.data?.uid === 'string' ? request.data.uid : null;
+    const targetEmail = normalizeEmail(request.data && request.data.email);
+    if (!targetUid && !targetEmail) {
+      throw new HttpsError('invalid-argument', 'Target uid or email required');
+    }
+    const reactivate = request.data?.reactivate === true;
+
+    let userRecord;
+    try {
+      userRecord = targetUid
+        ? await admin.auth().getUser(targetUid)
+        : await admin.auth().getUserByEmail(targetEmail);
+    } catch (e) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+
+    const existingClaims = userRecord.customClaims || {};
+    const isGlobalAdmin = request.auth.token.role === 'admin';
+    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
+      throw new HttpsError('permission-denied', 'User belongs to another company');
+    }
+
+    // Safety: never kill the owner's login from this path.
+    const companySnap = await companyRef.get();
+    const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+    if (ownerId && userRecord.uid === ownerId) {
+      throw new HttpsError('failed-precondition', 'Cannot deactivate the company owner');
+    }
+    // Don't let the caller lock themselves out.
+    if (userRecord.uid === callerUid) {
+      throw new HttpsError('failed-precondition', 'Cannot deactivate your own account');
+    }
+
+    await admin.auth().updateUser(userRecord.uid, { disabled: !reactivate });
+    // Revoke tokens when deactivating so existing sessions die.
+    if (!reactivate) {
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
+    }
+
+    const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
+    if (emailKey) {
+      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+        status: reactivate ? 'active' : 'deactivated',
+        active: !!reactivate,
+        deactivatedAt: reactivate ? null : admin.firestore.FieldValue.serverTimestamp(),
+        deactivatedBy: reactivate ? null : callerUid
+      }, { merge: true });
+    }
+
+    logger.info(reactivate ? 'reactivateUser' : 'deactivateUser', {
+      companyId, targetUid: userRecord.uid
+    });
+    return { success: true, uid: userRecord.uid, disabled: !reactivate };
+  }
+);
+
+// ── listTeamMembers ──────────────────────────────────────────
+// Returns the team roster enriched with Auth data (lastSignInTime,
+// disabled) and a lead count per member. The member doc by itself
+// has email/role/status; the extras come from Auth + a cheap
+// collectionGroup count on leads.
+exports.listTeamMembers = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+    const claims = request.auth.token || {};
+    const isGlobalAdmin = claims.role === 'admin';
+    const isManager = claims.role === 'manager';
+    const callerCompanyId = claims.companyId || uid;
+    const companyId = (request.data && request.data.companyId) || callerCompanyId;
+
+    // Managers and owners can list their own team. Admins can list any.
+    if (!isGlobalAdmin && companyId !== callerCompanyId) {
+      throw new HttpsError('permission-denied', 'Cannot view another company');
+    }
+
+    const db = admin.firestore();
+    const companySnap = await db.doc(`companies/${companyId}`).get();
+    // Solo-operator fallback: if the company doc hasn't been created
+    // yet AND the caller is acting on their own workspace
+    // (companyId === uid), treat them as the owner. Otherwise a solo
+    // operator who clicks "Team" before ever creating a company doc
+    // gets permission-denied and an empty roster they can't escape.
+    const isSelfWorkspace = companyId === uid;
+    const ownerId = companySnap.exists
+      ? companySnap.data().ownerId
+      : (isSelfWorkspace ? uid : null);
+    if (!isGlobalAdmin && !isManager && ownerId !== uid) {
+      throw new HttpsError('permission-denied', 'Owner, manager, or admin required');
+    }
+
+    const membersSnap = await db.collection(`companies/${companyId}/members`).get();
+    const members = [];
+
+    // Always include the owner card first.
+    if (ownerId) {
+      try {
+        const ownerRecord = await admin.auth().getUser(ownerId);
+        members.push({
+          uid: ownerId,
+          email: (ownerRecord.email || '').toLowerCase(),
+          displayName: ownerRecord.displayName || 'Owner',
+          role: 'company_admin',
+          status: ownerRecord.disabled ? 'deactivated' : 'active',
+          isOwner: true,
+          disabled: !!ownerRecord.disabled,
+          lastSignInTime: ownerRecord.metadata?.lastSignInTime || null,
+          creationTime: ownerRecord.metadata?.creationTime || null,
+          leadCount: 0
+        });
+      } catch (e) {
+        logger.warn('listTeamMembers: owner lookup failed', { ownerId, err: e.message });
+      }
+    }
+
+    for (const doc of membersSnap.docs) {
+      const m = doc.data() || {};
+      if (!m.email) continue;
+      if (m.uid && m.uid === ownerId) continue; // owner already listed
+
+      let authMeta = null;
+      try {
+        const u = m.uid
+          ? await admin.auth().getUser(m.uid)
+          : await admin.auth().getUserByEmail(m.email);
+        authMeta = {
+          uid: u.uid,
+          disabled: !!u.disabled,
+          lastSignInTime: u.metadata?.lastSignInTime || null,
+          creationTime: u.metadata?.creationTime || null
+        };
+      } catch (e) { /* invited but not signed up yet */ }
+
+      // Lead count — skip if member never activated (no uid to match).
+      let leadCount = 0;
+      if (authMeta?.uid) {
+        try {
+          const leadsSnap = await db.collection('leads')
+            .where('userId', '==', authMeta.uid)
+            .count()
+            .get();
+          leadCount = leadsSnap.data().count || 0;
+        } catch (e) { /* counts may fail on missing index; leave 0 */ }
+      }
+
+      members.push({
+        uid: authMeta?.uid || m.uid || null,
+        email: m.email,
+        displayName: m.displayName || m.email.split('@')[0],
+        role: m.role || 'sales_rep',
+        status: authMeta?.disabled
+          ? 'deactivated'
+          : (m.status || (authMeta ? 'active' : 'invited')),
+        isOwner: false,
+        disabled: !!authMeta?.disabled,
+        lastSignInTime: authMeta?.lastSignInTime || null,
+        creationTime: authMeta?.creationTime || m.invitedAt?.toDate?.()?.toISOString() || null,
+        leadCount
+      });
+    }
+
+    return { success: true, companyId, members, count: members.length };
   }
 );

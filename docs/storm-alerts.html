@@ -190,21 +190,18 @@ nav { background:var(--navy-dark); border-bottom:3px solid var(--orange); paddin
   © 2026 No Big Deal Home Solutions · <a href="tel:8594207382">(859) 420-7382</a> · <a href="/">nobigdealwithjoedeal.com</a> · <a href="/estimate">Instant Estimate</a>
 </footer>
 
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-const app = initializeApp({
-  apiKey:"AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",authDomain:"nobigdeal-pro.firebaseapp.com",
-  projectId:"nobigdeal-pro",storageBucket:"nobigdeal-pro.firebasestorage.app",
-  messagingSenderId:"717435841570",appId:"1:717435841570:web:c2338e11052c96fde02e7b"
-});
-const db = getFirestore(app);
+<!-- Public lead gateway — storm_alert_subscribers is locked at the
+     rules layer (C-3). Submissions go through submitPublicLead. -->
+<script>window.__NBD_TURNSTILE_SITEKEY = "";</script>
+<script src="/assets/js/public-lead-submit.js"></script>
+<script>
 window._saveStormAlert = async (data) => {
-  try {
-    await addDoc(collection(db,'storm_alert_subscribers'), {...data, active:true, source:'storm-alerts-page', createdAt:serverTimestamp()});
-    return true;
-  } catch(e) { console.warn('Storm alert signup failed:', e); return false; }
+  const res = await window.submitPublicLead('storm', Object.assign({
+    source: 'storm-alerts-page',
+    active: 'true'
+  }, data || {}));
+  if (!res.ok) console.warn('Storm alert signup failed:', res.reason);
+  return !!res.ok;
 };
 </script>
 

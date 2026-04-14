@@ -1,11 +1,16 @@
 rules_version = '2';
 
-// NBD Pro Firebase Storage Security Rules — HARDENED (2026-04-11)
+// NBD Pro Firebase Storage Security Rules — HARDENED
 // Deploy: firebase deploy --only storage
 //
-// Every path is owner-scoped by uid. "Public" customer-facing links now
-// require a short-lived download token generated server-side — no more
-// allow read; on user content.
+// Every path is owner-scoped by uid. "Public" customer-facing links
+// require a short-lived signed URL (signImageUrl Cloud Function) —
+// no direct `allow read` on user content.
+//
+// D2 rev: explicit content-type allowlists per path. Prevents
+// photos/... from accepting application/octet-stream uploads that
+// bypass the `image/*` intent. Size caps tightened where the
+// previous limits were larger than the real use case.
 
 service firebase.storage {
   match /b/{bucket}/o {
@@ -14,27 +19,53 @@ service firebase.storage {
     function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
     function isAdmin() { return isAuth() && request.auth.token.role == 'admin'; }
 
+    // Safe content-type helpers — handle the case where a malicious
+    // upload omits the Content-Type header entirely (Firebase sets
+    // request.resource.contentType to null in that case and
+    // `null.matches(...)` blows the whole rule).
+    function isImage() {
+      return request.resource != null
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif|avif|gif)');
+    }
+    function isDocType() {
+      return request.resource != null
+        && request.resource.contentType != null
+        && request.resource.contentType.matches(
+             'application/pdf|application/msword|application/vnd\\.openxmlformats-officedocument\\..+|text/plain|text/csv|image/.+'
+           );
+    }
+    function isHtmlOnly() {
+      return request.resource != null
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('text/html; ?charset=.+|text/html');
+    }
+
     // ── PHOTOS ─────────────────────────────────────────
     // Path: photos/{uid}/{file}
-    // Owner (and admin) can read/write. No one else.
     match /photos/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 15 * 1024 * 1024   // 15 MB cap
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.size < 15 * 1024 * 1024
+        && isImage();
+      allow delete: if isOwner(uid) || isAdmin();
     }
-
-    // Legacy path: photos/<file> (no uid). Block new writes; read only via imageProxy.
+    // Legacy un-scoped path: blocked.
     match /photos/{file} {
       allow read, write: if false;
     }
 
     // ── DOCUMENTS ──────────────────────────────────────
     // Path: docs/{uid}/{file}
+    // Contract PDFs, signed docs, insurance scopes live here. Accepts
+    // PDFs, Office docs, plaintext/CSV, and images (for inlined
+    // attachments). Rejects executable / archive types by default.
     match /docs/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 25 * 1024 * 1024;   // 25 MB cap
+        && request.resource.size < 25 * 1024 * 1024
+        && isDocType();
+      allow delete: if isOwner(uid) || isAdmin();
     }
     match /docs/{file} {
       allow read, write: if false;
@@ -42,40 +73,51 @@ service firebase.storage {
 
     // ── CUSTOMER PORTALS ──────────────────────────────
     // Path: portals/{uid}/{leadId}.html
-    // Not publicly readable. Customers get a signed URL from the imageProxy
-    // or a portal-signing Cloud Function (to be added), not a direct CDN path.
+    // The only place HTML uploads are allowed — and only for the
+    // owning rep. Customer-facing pages bypass Storage entirely
+    // now (portal.html is served by Hosting).
     match /portals/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 5 * 1024 * 1024;
+        && request.resource.size < 5 * 1024 * 1024
+        && isHtmlOnly();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── DEAL ROOMS ─────────────────────────────────────
     match /deal_rooms/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 5 * 1024 * 1024;
+        && request.resource.size < 5 * 1024 * 1024
+        && isDocType();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── SHARED GALLERIES ──────────────────────────────
     match /galleries/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 10 * 1024 * 1024;
+        && request.resource.size < 10 * 1024 * 1024
+        && isImage();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── SHARED REPORTS ────────────────────────────────
     match /reports/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 10 * 1024 * 1024;
+        && request.resource.size < 10 * 1024 * 1024
+        && isDocType();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── SHARED DOCUMENTS ──────────────────────────────
     match /shared_docs/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
-        && request.resource.size < 25 * 1024 * 1024;
+        && request.resource.size < 25 * 1024 * 1024
+        && isDocType();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── DEFAULT DENY ──────────────────────────────────

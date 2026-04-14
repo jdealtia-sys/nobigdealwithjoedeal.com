@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Your Project · No Big Deal Home Solutions</title>
+<link rel="icon" href="/pro/favicon.svg">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c222b;
+    --border: #2a2f35;
+    --text: #e8eaf0;
+    --muted: #8b8e96;
+    --orange: #e8720c;
+    --green: #2ecc8a;
+    --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-size: 15px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .hero {
+    background: linear-gradient(135deg, rgba(232,114,12,.18), rgba(232,114,12,.02));
+    border-bottom: 1px solid var(--border);
+    padding: 32px 20px 28px;
+  }
+  .hero-inner {
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  .hero-brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .hero-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.12;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .hero-sub {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  main {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .card-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+  .kv-key {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+  }
+  .kv-val {
+    font-size: 15px;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .big-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--orange);
+    line-height: 1;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .pill-green { color: var(--green); border-color: var(--green); background: rgba(46,204,138,.08); }
+  .pill-orange { color: var(--orange); border-color: var(--orange); background: rgba(232,114,12,.08); }
+  .pill-red { color: var(--red); border-color: var(--red); background: rgba(255,107,107,.08); }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    background: var(--orange);
+    color: #fff;
+    border: none;
+    padding: 13px 22px;
+    border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    min-height: 46px;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover { background: #ff8420; }
+  .btn:active { transform: scale(.98); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+  }
+  .btn-ghost:hover { background: rgba(232,114,12,.08); }
+  .cal-embed {
+    width: 100%;
+    height: 680px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+  }
+  @media (max-width: 600px) { .cal-embed { height: 820px; } }
+  .error-state, .loading-state {
+    text-align: center;
+    padding: 56px 20px;
+    color: var(--muted);
+  }
+  .error-state h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    color: var(--red);
+    margin: 8px 0 12px;
+  }
+  footer {
+    max-width: 820px;
+    margin: 24px auto 40px;
+    padding: 0 20px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+  footer a { color: var(--orange); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div id="heroWrap" class="hero" style="display:none;">
+  <div class="hero-inner">
+    <div class="hero-brand" id="heroCompany">No Big Deal Home Solutions</div>
+    <div class="hero-title" id="heroTitle">—</div>
+    <div class="hero-sub" id="heroSub">—</div>
+  </div>
+</div>
+
+<main id="mainWrap">
+  <div class="loading-state" id="loadingState">
+    Loading your project...
+  </div>
+</main>
+
+<footer>
+  © 2026 No Big Deal Home Solutions ·
+  <a href="https://nobigdealwithjoedeal.com">nobigdealwithjoedeal.com</a>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // Endpoint base — same host that serves the other functions.
+  const FUNCTIONS_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+
+  // Escape helper — every interpolated homeowner/rep field goes
+  // through this. The function payload is trusted (redacted by
+  // getHomeownerPortalView) but defense-in-depth is free.
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  function fmtMoney(n) {
+    if (n == null || isNaN(Number(n))) return '—';
+    return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function signaturePill(status) {
+    if (status === 'signed') return '<span class="pill pill-green">✓ Signed</span>';
+    if (status === 'sent' || status === 'viewed') return '<span class="pill pill-orange">✍ Awaiting signature</span>';
+    if (status === 'declined') return '<span class="pill pill-red">Declined</span>';
+    if (status === 'expired') return '<span class="pill">Expired</span>';
+    return '';
+  }
+
+  function getToken() {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.get('token') || '';
+    } catch (e) { return ''; }
+  }
+
+  async function loadView() {
+    const token = getToken().trim();
+    const main = document.getElementById('mainWrap');
+    if (!token) {
+      main.innerHTML = '<div class="error-state"><h2>No link found</h2><div>This page needs a valid token. Please open the link your rep sent you.</div></div>';
+      return;
+    }
+    try {
+      const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView?token=' + encodeURIComponent(token), {
+        method: 'GET',
+        credentials: 'omit'
+      });
+      if (res.status === 410) {
+        main.innerHTML = '<div class="error-state"><h2>This link has expired</h2><div>Contact your rep for a new one.</div></div>';
+        return;
+      }
+      if (res.status === 404) {
+        main.innerHTML = '<div class="error-state"><h2>We can\'t find this project</h2><div>Check the link with your rep — it may have been mistyped.</div></div>';
+        return;
+      }
+      if (!res.ok) throw new Error('Status ' + res.status);
+      const view = await res.json();
+      renderView(view);
+    } catch (e) {
+      main.innerHTML = '<div class="error-state"><h2>Couldn\'t load your project</h2><div>Please try again in a moment.</div></div>';
+    }
+  }
+
+  function renderView(view) {
+    const firstName = (view.homeowner && view.homeowner.firstName) || '';
+    const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
+    const fullName = (firstName + ' ' + lastName).trim();
+    const address = (view.homeowner && view.homeowner.address) || '';
+    const repName = (view.rep && view.rep.displayName) || 'Your Rep';
+    const companyName = (view.company && view.company.name) || 'No Big Deal Home Solutions';
+
+    // Hero
+    document.getElementById('heroWrap').style.display = '';
+    document.getElementById('heroCompany').textContent = companyName;
+    document.getElementById('heroTitle').textContent = fullName
+      ? 'Hey ' + firstName + ', here\'s your project'
+      : 'Your project';
+    document.getElementById('heroSub').textContent = address
+      ? address + ' · managed by ' + repName
+      : 'Managed by ' + repName;
+
+    const parts = [];
+
+    // B6 — Reorder: when the estimate is SIGNED, booking becomes the
+    // primary CTA. When it's AWAITING signature, the embedded signer
+    // goes first. When neither, only the booking card shows.
+    const estStatus = (view.estimate && view.estimate.signatureStatus) || 'none';
+    const awaitingSign = estStatus === 'sent' || estStatus === 'viewed';
+    const signedNow = estStatus === 'signed';
+
+    // ── Estimate summary ──
+    if (view.estimate) {
+      const e = view.estimate;
+      const sig = signaturePill(e.signatureStatus || 'none');
+      const signedPdf = e.signedDocumentUrl
+        ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(e.signedDocumentUrl) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
+        : '';
+      parts.push(
+        '<div class="card">' +
+          '<div class="card-label">Your Estimate</div>' +
+          '<div class="row">' +
+            '<div>' +
+              '<div class="kv-key">Total</div>' +
+              '<div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>' +
+              (e.tierName ? '<div class="kv-val" style="margin-top:6px;color:var(--muted);">' + esc(e.tierName) + '</div>' : '') +
+            '</div>' +
+            '<div>' +
+              '<div class="kv-key">Status</div>' +
+              '<div class="kv-val">' + (sig || '<span class="pill">Draft</span>') + '</div>' +
+              (e.signedAt ? '<div class="kv-val" style="color:var(--muted);font-size:13px;margin-top:6px;">Signed ' + esc(new Date(e.signedAt).toLocaleDateString()) + '</div>' : '') +
+              signedPdf +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    // ── B1: BoldSign signing embed ──
+    // When the estimate is awaiting signature AND the server was
+    // able to mint a signEmbedUrl, render the iframe so the
+    // homeowner can sign without leaving the page.
+    const signEmbedUrl = view.estimate && view.estimate.signEmbedUrl;
+    if (awaitingSign && signEmbedUrl) {
+      parts.push(
+        '<div class="card" style="border-color:var(--orange);">' +
+          '<div class="card-label">Sign Your Contract</div>' +
+          '<div class="card-title">Review &amp; sign below</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">Once signed, your rep gets a confirmation and we\'ll coordinate next steps.</p>' +
+          '<iframe class="cal-embed" src="' + esc(signEmbedUrl) + '" title="Sign Contract" referrerpolicy="no-referrer" allow="clipboard-write *"></iframe>' +
+        '</div>'
+      );
+    } else if (awaitingSign && !signEmbedUrl) {
+      // Awaiting but no embed — fall back to the emailed link.
+      parts.push(
+        '<div class="card" style="border-color:var(--orange);">' +
+          '<div class="card-label">Sign Your Contract</div>' +
+          '<div class="card-title">Check your email</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">We\'ve sent the signing link. If you can\'t find it, reply to any message from your rep and we\'ll re-send.</p>' +
+        '</div>'
+      );
+    }
+
+    // ── Booking embed ──
+    if (view.bookingUrl) {
+      const cuser = view.rep && view.rep.calcomUsername;
+      const cslug = (view.rep && view.rep.calcomEventSlug) || 'roof-inspection';
+      const embedSrc = 'https://cal.com/' + encodeURIComponent(cuser) + '/' + encodeURIComponent(cslug) + '?embed=true&theme=dark';
+      const title = signedNow ? 'Book your inspection' : 'Book a Time';
+      const subtitle = signedNow
+        ? 'Pick a time for our crew to inspect your roof and confirm next steps.'
+        : 'Your rep will confirm within the hour. Reschedule anytime from the confirmation email.';
+      const borderCss = signedNow ? 'border-color:var(--green);' : '';
+      parts.push(
+        '<div class="card" style="' + borderCss + '">' +
+          '<div class="card-label">' + (signedNow ? 'Next Step' : 'Book a Time') + '</div>' +
+          '<div class="card-title">' + esc(title) + '</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
+          '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
+          '<div style="margin-top:10px;"><a class="btn" href="' + esc(view.bookingUrl) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
+        '</div>'
+      );
+    }
+
+    // ── Rep contact card ──
+    const phoneHref = view.rep && view.rep.phone ? 'tel:' + view.rep.phone.replace(/\D/g, '') : null;
+    parts.push(
+      '<div class="card">' +
+        '<div class="card-label">Your Rep</div>' +
+        '<div class="card-title">' + esc(repName) + '</div>' +
+        '<div style="color:var(--muted);font-size:13px;margin-bottom:10px;">' + esc(companyName) + '</div>' +
+        (phoneHref
+          ? '<a class="btn btn-ghost" href="' + esc(phoneHref) + '">📞 ' + esc(view.rep.phone) + '</a>'
+          : '') +
+      '</div>'
+    );
+
+    // ── Expiry note ──
+    if (view.tokenInfo && view.tokenInfo.daysRemaining != null) {
+      const d = view.tokenInfo.daysRemaining;
+      parts.push(
+        '<div style="font-size:11px;color:var(--muted);text-align:center;padding:10px;">' +
+        'This link is active for ' + d + ' more day' + (d === 1 ? '' : 's') + '.' +
+        '</div>'
+      );
+    }
+
+    document.getElementById('mainWrap').innerHTML = parts.join('');
+  }
+
+  loadView();
+})();
+</script>
+</body>
+</html>

@@ -107,10 +107,27 @@
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<!--
+  App Check (C-4): the reCAPTCHA v3 site key is origin-bound and
+  safe to embed. Set it by editing the content attribute below OR
+  by injecting window.__NBD_APP_CHECK_KEY earlier. Keep it in sync
+  across dashboard.html, customer.html, and any other page that
+  talks to the Firebase SDK.
+-->
+<script>window.__NBD_APP_CHECK_KEY = "";</script>
+<!--
+  Sentry (client-side): set the DSN below and sentry-init.js loads
+  the browser SDK over CDN. DSN is origin-bound and safe to embed.
+-->
+<script>window.__NBD_SENTRY_DSN = "";</script>
 <!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
 <script src="js/standalone-compat.js"></script>
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
+<!-- Client error reporter — no-op when __NBD_SENTRY_DSN is empty. -->
+<script src="js/sentry-init.js?v=1"></script>
+<!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
+<script src="js/script-loader.js?v=1"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Leaflet.Draw — polygon drawing for territory boundaries -->
@@ -155,8 +172,9 @@
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+  import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -329,6 +347,35 @@
 
   document.documentElement.style.visibility="hidden";
   const app     = initializeApp(firebaseConfig);
+
+  // ─── App Check (C-4) ──────────────────────────────────────
+  // Functions declare `enforceAppCheck: true` but previously nothing
+  // on this page was minting attestation tokens. That meant either:
+  //  (a) enforcement was silently off in the project (curl could
+  //      hit claudeProxy / imageProxy with just an ID token), or
+  //  (b) enforcement was on and half the app was failing silently.
+  // Either way the guarantee was broken. We now initialize App Check
+  // with ReCaptchaV3 so every Firebase SDK request (auth callables,
+  // Firestore, Functions) carries a real token.
+  //
+  // The site key lives in window.__NBD_APP_CHECK_KEY, set via a
+  // <meta> tag below. Keys are per-origin and safe to include in
+  // HTML (they're validated by reCAPTCHA, not secret). An unset key
+  // falls back to an init-skipped warning so dev/local still works.
+  const APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
+  if (APP_CHECK_KEY) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(APP_CHECK_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+    } catch (e) {
+      console.error('App Check init failed:', e);
+    }
+  } else {
+    console.warn('App Check not configured. Set window.__NBD_APP_CHECK_KEY via the meta tag in dashboard.html <head>. Callable functions with enforceAppCheck: true WILL reject these requests in production.');
+  }
+
   const auth    = getAuth(app);
   const db      = getFirestore(app);
   const storage = getStorage(app);
@@ -358,6 +405,7 @@
   window._onAuthStateChanged = onAuthStateChanged;
   window.setDoc = setDoc;
   window.writeBatch = writeBatch;
+  window.sendPasswordResetEmail = sendPasswordResetEmail;
 
   // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
   // Log errors to console only. NEVER show toasts from global
@@ -444,7 +492,9 @@
       }
     } catch (e) { window._userClaims = {}; }
     requestNotifPermission();
-    // Pick up pending warranty cert from customer page
+    // Pick up pending warranty cert from customer page.
+    // warranty-cert.js is lazy-loaded via ScriptLoader when the Docs
+    // view activates, so wait for that before invoking the wizard.
     try {
       const pending = sessionStorage.getItem('_pendingCert');
       if (pending) {
@@ -452,7 +502,12 @@
         const data = JSON.parse(pending);
         setTimeout(() => {
           goTo('docs');
-          openWarrantyCertWizard(data);
+          const preload = (window.ScriptLoader && window.ScriptLoader.preloadForView)
+            ? window.ScriptLoader.preloadForView('docs')
+            : Promise.resolve();
+          preload.then(() => {
+            if (typeof openWarrantyCertWizard === 'function') openWarrantyCertWizard(data);
+          });
         }, 800);
       }
     } catch(e) {}
@@ -472,6 +527,38 @@
     if(homeGreet) homeGreet.textContent = 'Welcome Back, ' + name.split(' ')[0];
     document.getElementById('settingsName').value     = user.displayName || '';
     document.getElementById('settingsEmail').value    = user.email || '';
+    // Cal.com username — pull from the user profile if set and prime
+    // the shareable link preview so reps can copy the URL straight
+    // into an SMS / email. Also stash on window._currentRep so
+    // sendBookingSMS / sendFollowUpSMS (crm.js) + homeowner portal
+    // resolve the right URL without a second Firestore read.
+    try {
+      const usrSnap = await getDoc(doc(db, 'users', user.uid));
+      if (usrSnap.exists()) {
+        const d = usrSnap.data();
+        const calVal = d.calcomUsername || '';
+        window._currentRep = Object.assign({}, window._currentRep || {}, {
+          uid: user.uid,
+          displayName: d.displayName || user.displayName || '',
+          email: d.email || user.email || '',
+          calcomUsername: calVal,
+          calcomEventSlug: d.calcomEventSlug || 'roof-inspection'
+        });
+        const calEl = document.getElementById('settingsCalcom');
+        const calPrev = document.getElementById('settingsCalcomPreview');
+        if (calEl) calEl.value = calVal;
+        if (calPrev) {
+          if (calVal) {
+            const url = 'https://cal.com/' + calVal;
+            calPrev.textContent = url;
+            calPrev.href = url;
+            calPrev.style.display = '';
+          } else {
+            calPrev.style.display = 'none';
+          }
+        }
+      }
+    } catch (e) { /* silent — rules may deny during bootstrap */ }
     // Seed demo data first if this is the demo account, then load normally
     if(typeof maybeSeedDemoData==='function') await maybeSeedDemoData(user).catch(()=>{});
     // Build dynamic kanban columns before loading leads
@@ -508,6 +595,28 @@
       }
     });
     loadEstimates(); loadPins();
+    // B3: wire the live estimates listener so signature webhook
+    // updates + V2 saves land in the UI without a reload.
+    if (typeof window._subscribeEstimates === 'function') {
+      try { window._subscribeEstimates(); } catch (e) { /* degrade to one-shot */ }
+    }
+    // D9: register device fingerprint so new-device sign-ins fire
+    // a Slack alert. Fire-and-forget — failure is non-fatal.
+    (async () => {
+      try {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        const fns = mod.getFunctions();
+        const fn = mod.httpsCallable(fns, 'registerDeviceFingerprint');
+        const fp = [
+          screen.width + 'x' + screen.height,
+          navigator.language,
+          new Date().getTimezoneOffset(),
+          (navigator.hardwareConcurrency || ''),
+          (navigator.deviceMemory || '')
+        ].join('|');
+        await fn({ fingerprint: fp, userAgent: (navigator.userAgent || '').slice(0, 400) });
+      } catch (e) { /* silent */ }
+    })();
     
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
     const urlParams = new URLSearchParams(window.location.search);
@@ -1387,6 +1496,33 @@
   }
   window._loadEstimates = loadEstimates;
 
+  // B3: Live Firestore listener for estimates. Wire-once on auth.
+  // BoldSign webhooks land on the server, flip
+  // estimates/{id}.signatureStatus → the snapshot fires → UI rerenders.
+  // Handles create + update + delete. Idempotent re-subscribe safe.
+  let _estimatesUnsub = null;
+  window._subscribeEstimates = function () {
+    if (_estimatesUnsub) { try { _estimatesUnsub(); } catch(e) {} _estimatesUnsub = null; }
+    const uid = window._user?.uid;
+    if (!uid) return;
+    const q = query(collection(db, 'estimates'), where('userId', '==', uid));
+    _estimatesUnsub = onSnapshot(q, (snap) => {
+      const next = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+          return tb - ta;
+        });
+      window._estimates = next;
+      renderEstimatesList(next);
+    }, (err) => {
+      console.warn('estimates snapshot error:', err && err.message);
+      // Fall back to one-shot fetch so the UI isn't stuck empty.
+      loadEstimates();
+    });
+  };
+
   window._saveEstimate = async (data) => {
     try {
       const editId = window._editingEstimateId;
@@ -1605,9 +1741,28 @@
   // ── SETTINGS ───────────────────────────────────
   window._saveSettings = async () => {
     const name = document.getElementById('settingsName').value.trim();
+    // Cal.com username — stored on users/{uid}.calcomUsername so the
+    // calcomWebhook can resolve incoming bookings back to this rep.
+    // Normalize: lowercase, strip trailing slashes / leading @.
+    const rawCal = (document.getElementById('settingsCalcom')?.value || '').trim();
+    const calcomUsername = rawCal.replace(/^@+/, '').replace(/\/+$/,'')
+                                 .toLowerCase().slice(0, 60) || null;
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
+      // Persist Cal.com username on the user profile.
+      if (window.db && window.doc && window.setDoc) {
+        await window.setDoc(window.doc(window.db, 'users', window._user.uid), {
+          displayName: name,
+          calcomUsername
+        }, { merge: true });
+      }
+      // Refresh the in-memory rep shadow so the next booking SMS
+      // uses the new URL immediately (no page reload needed).
+      window._currentRep = Object.assign({}, window._currentRep || {}, {
+        calcomUsername: calcomUsername || '',
+        displayName: name
+      });
       showToast('Settings saved!');
     } catch(e) { showToast('Save failed','error'); }
   };
@@ -1909,6 +2064,101 @@
       showToast('🔔 Test notification — your alerts work!', 'success');
     } else {
       alert('🔔 Test notification — your alerts work!');
+    }
+  };
+
+  // ── Data Retention exports ─────────────────────────
+  // Three buttons in Settings → Access → Data Retention pointed at
+  // these functions but nothing defined them — the short-circuit
+  // `window._exportAllData && ...` just silently no-oped. Real
+  // implementations below. For a full GDPR-compliant JSON dump use
+  // window._gdprExport (Settings → Your Rights panel); these are
+  // convenience CSVs for the common ops workflows.
+  function _csvEscape(v) {
+    if (v == null) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function _downloadCsv(rows, filename) {
+    if (!rows || !rows.length) {
+      if (typeof showToast === 'function') showToast('Nothing to export — the list is empty.', 'info');
+      return;
+    }
+    const keys = Object.keys(rows[0]);
+    const lines = [keys.join(',')].concat(
+      rows.map(r => keys.map(k => _csvEscape(r[k])).join(','))
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 250);
+    if (typeof showToast === 'function') showToast('✓ ' + filename + ' downloaded.', 'success');
+  }
+
+  window._exportAllData = function () {
+    const leads = (window._leads || []).map(l => ({
+      id:         l.id,
+      firstName:  l.firstName || l.fname || '',
+      lastName:   l.lastName  || l.lname || '',
+      email:      l.email     || '',
+      phone:      l.phone     || '',
+      address:    l.address   || '',
+      stage:      l.stage     || '',
+      source:     l.source    || '',
+      damageType: l.damageType || '',
+      jobValue:   l.jobValue  || '',
+      carrier:    l.carrier   || '',
+      claimNumber: l.claimNumber || '',
+      notes:      l.notes || '',
+      createdAt:  l.createdAt?.toDate?.()?.toISOString() || '',
+      updatedAt:  l.updatedAt?.toDate?.()?.toISOString() || ''
+    }));
+    _downloadCsv(leads, 'nbd-leads-' + new Date().toISOString().slice(0, 10) + '.csv');
+  };
+
+  window._exportEstimates = function () {
+    const rows = (window._estimates || []).map(e => ({
+      id:          e.id,
+      address:     e.addr || e.address || '',
+      tierName:    e.tierName || '',
+      grandTotal:  e.grandTotal || e.total || '',
+      builder:     e.builder || 'classic',
+      signatureStatus: e.signatureStatus || 'none',
+      signedAt:    e.signedAt?.toDate?.()?.toISOString() || '',
+      leadId:      e.leadId || '',
+      createdAt:   e.createdAt?.toDate?.()?.toISOString() || ''
+    }));
+    _downloadCsv(rows, 'nbd-estimates-' + new Date().toISOString().slice(0, 10) + '.csv');
+  };
+
+  // Photos ZIP — we don't bundle every photo blob client-side (too
+  // much memory for a big account). Instead export a CSV manifest
+  // with direct download links; reps can wget / curl the list.
+  window._exportPhotos = async function () {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) { if (typeof showToast === 'function') showToast('Sign in first', 'error'); return; }
+      const snap = await getDocs(query(collection(db, 'photos'), where('userId', '==', uid)));
+      const rows = snap.docs.map(d => {
+        const p = d.data();
+        return {
+          id:         d.id,
+          leadId:     p.leadId || '',
+          url:        p.url || '',
+          thumbUrl:   p.thumbUrl || '',
+          description: p.description || '',
+          tags:       Array.isArray(p.tags) ? p.tags.join('|') : '',
+          quality:    p.quality || '',
+          fileSize:   p.fileSize || '',
+          uploadedAt: p.uploadedAt?.toDate?.()?.toISOString() || (p.capturedAt ? new Date(p.capturedAt).toISOString() : '')
+        };
+      });
+      _downloadCsv(rows, 'nbd-photos-manifest-' + new Date().toISOString().slice(0, 10) + '.csv');
+    } catch (e) {
+      console.error('export photos failed:', e);
+      if (typeof showToast === 'function') showToast('Export failed: ' + e.message, 'error');
     }
   };
 
@@ -6983,7 +7233,8 @@ function switchScTab(tab, btn) {
   </div>
 
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
-  
+  <div class="ni" onclick="goTo('admin')" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
+
 </nav>
 
 <!-- CONTENT AREA -->
@@ -8487,6 +8738,15 @@ function switchScTab(tab, btn) {
               </div>
               <div class="sf"><label>License #</label><input type="text" id="settingsLicense" placeholder="OH-12345"></div>
             </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:1;">
+                <label>Cal.com username <span style="font-size:10px;color:var(--m);font-weight:400;">· optional · homeowners book inspections at cal.com/&lt;username&gt;</span></label>
+                <input type="text" id="settingsCalcom" placeholder="joedeal" autocomplete="off" spellcheck="false"
+                  oninput="(function(el){var v=(el.value||'').trim().replace(/^@+/,'').replace(/\/+$/,'').toLowerCase();var p=document.getElementById('settingsCalcomPreview');if(p){p.textContent=v?('https://cal.com/'+v):'';p.style.display=v?'':'none';}})(this)">
+                <a id="settingsCalcomPreview" target="_blank" rel="noopener"
+                   style="display:none;font-size:11px;color:var(--orange);margin-top:4px;word-break:break-all;text-decoration:none;"></a>
+              </div>
+            </div>
             <button class="btn btn-orange" onclick="window._saveSettings()" style="margin-top:4px;">💾 Save Profile</button>
           </div>
         </div>
@@ -9337,9 +9597,9 @@ function switchScTab(tab, btn) {
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--t);">Access Code</div>
-                <div style="font-size:11px;color:var(--m);">Shared team code · current: <code>NBD-2026</code></div>
+                <div style="font-size:11px;color:var(--m);">Hidden. Admins can reveal the active code from the Team Manager.</div>
               </div>
-              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
+              <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;" id="accessCodeStatus">✓ ENABLED</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
@@ -9377,6 +9637,26 @@ function switchScTab(tab, btn) {
               <button class="btn btn-ghost" onclick="window._exportEstimates && window._exportEstimates()" style="font-size:11px;">📥 Export Estimates (CSV)</button>
               <button class="btn btn-ghost" onclick="window._exportPhotos && window._exportPhotos()" style="font-size:11px;">📥 Export Photos (ZIP)</button>
             </div>
+          </div>
+        </div>
+
+        <!-- GDPR controls (D6 + D7). Every row here calls a Cloud
+             Function; no direct Firestore reads/writes. -->
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Your Rights (GDPR)</div><div class="panel-title">Download or Delete Your Account</div></div></div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Under GDPR Articles 17 and 20 you can download a complete copy of your data or permanently delete your account. Both actions are logged in our audit trail.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-ghost" style="font-size:11px;"
+                      onclick="window._gdprExport && window._gdprExport()">
+                📦 Export All My Data (JSON)
+              </button>
+              <button class="btn btn-red" style="font-size:11px;"
+                      onclick="window._gdprRequestErasure && window._gdprRequestErasure()">
+                🗑 Permanently Delete My Account
+              </button>
+            </div>
+            <p style="font-size:10px;color:var(--m);margin-top:10px;">Export is rate-limited to 2 times per 24 hours. Deletion requires email confirmation.</p>
           </div>
         </div>
       </div><!-- /stab-panel-access -->
@@ -9737,6 +10017,174 @@ function switchScTab(tab, btn) {
 
     </div><!-- /view-scroll -->
   </div><!-- /view-settings -->
+
+  <!-- ══ ADMIN — TEAM ACCOUNT MANAGER ══ -->
+  <div class="view" id="view-admin">
+    <div class="view-scroll" style="max-width:1100px;padding-bottom:40px;">
+
+      <div class="page-hdr">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+          </div>
+          <div class="page-title">Team Manager</div>
+          <div class="page-sub">Admin-only · create reps, assign roles, deactivate accounts</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span id="adminRoleBadge" style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(232,114,12,.15);border:1px solid var(--orange);color:var(--orange);border-radius:3px;letter-spacing:.08em;text-transform:uppercase;">Admin</span>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" onclick="window.AdminManager && window.AdminManager.refresh()">↻ Refresh</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
+                  title="Disable legacy hardcoded access codes in one click"
+                  onclick="window.AdminManager && window.AdminManager.rotateAccessCodes && window.AdminManager.rotateAccessCodes()">🔐 Rotate Access Codes</button>
+          <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.openCreate()">+ New User</button>
+        </div>
+      </div>
+
+      <!-- Analytics rollup (C3) — last 30 days -->
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Last 30 Days</div>
+            <div class="panel-title" id="adminAnalyticsTitle">Analytics</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;"
+                  onclick="window.AdminManager && window.AdminManager.loadAnalytics && window.AdminManager.loadAnalytics()">↻ Reload</button>
+        </div>
+        <div class="panel-body">
+          <div id="adminAnalyticsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12px;color:var(--m);">
+            Loading…
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px;" id="adminSummaryCards">
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Total Members</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);" id="adminStatTotal">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Active</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--green);" id="adminStatActive">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Pending Invite</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--orange);" id="adminStatInvited">—</div>
+        </div>
+        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+          <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Deactivated</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--m);" id="adminStatDeactivated">—</div>
+        </div>
+      </div>
+
+      <!-- Roster table -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Roster</div>
+            <div class="panel-title">Team Members</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input id="adminRosterFilter" placeholder="Filter by name, email, role..." style="font-size:11px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:4px;color:var(--t);width:220px;"/>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div id="adminRosterContainer">
+            <div class="empty" style="padding:30px;"><div class="empty-icon">👥</div>Loading team roster…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Selected User</div>
+            <div class="panel-title" id="adminActivityTitle">Activity Feed</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="adminActivityFeed" style="font-size:12px;color:var(--m);">Select a team member to view recent activity (leads, knocks, logins).</div>
+        </div>
+      </div>
+
+    </div><!-- /view-scroll -->
+  </div><!-- /view-admin -->
+
+  <!-- ══ ADMIN — Create User Modal ══ -->
+  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(480px,92vw);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
+          <div style="font-size:20px;font-weight:800;color:var(--t);">Create Team Member</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">×</button>
+      </div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Email</label>
+          <input id="adminNewEmail" type="email" placeholder="rep@company.com" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
+        </div>
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Display Name</label>
+          <input id="adminNewName" type="text" placeholder="Jane Doe" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
+        </div>
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <select id="adminNewRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
+            <option value="sales_rep">Sales Rep — create leads, log knocks</option>
+            <option value="manager">Manager — see all team leads + reports</option>
+            <option value="viewer">Viewer — read-only</option>
+            <option value="company_admin">Company Admin — full control of your company</option>
+          </select>
+          <div style="font-size:10px;color:var(--m);margin-top:4px;">Platform Admin (cross-tenant) cannot be granted here — contact support.</div>
+        </div>
+        <div style="font-size:11px;color:var(--m);padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
+          We'll create the Firebase account and send an invite via the password reset flow. The rep sets their own password on first login.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">Cancel</button>
+          <button id="adminNewSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitCreate()">Create User</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ADMIN — Edit User Modal ══ -->
+  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(520px,92vw);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
+          <div style="font-size:20px;font-weight:800;color:var(--t);" id="adminEditTitle">Edit Member</div>
+          <div style="font-size:11px;color:var(--m);" id="adminEditSub">—</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">×</button>
+      </div>
+      <div style="display:grid;gap:14px;">
+        <div>
+          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <select id="adminEditRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
+            <option value="sales_rep">Sales Rep</option>
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+            <option value="company_admin">Company Admin</option>
+          </select>
+        </div>
+        <div id="adminEditStatusBlock" style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
+          <div style="font-size:11px;color:var(--m);margin-bottom:8px;">Account status: <strong id="adminEditStatusText" style="color:var(--t);">—</strong></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="adminEditDeactivateBtn" class="btn btn-red" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.toggleDeactivate()">Deactivate Account</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">Cancel</button>
+          <button id="adminEditSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitEdit()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══ PRODUCTS ══ -->
   <div class="view" id="view-products">
@@ -10445,7 +10893,15 @@ function goTo(name, params = {}) {
   
   // Update breadcrumb
   updateBreadcrumb(name, params);
-  
+
+  // Lazy-load the view's script bundle. ScriptLoader resolves an
+  // already-eager-loaded bundle immediately, so this is a no-op for
+  // views not in the bundle map. Returning a promise lets specific
+  // views below chain init onto it when their module ships lazy.
+  const _lazyPreload = (window.ScriptLoader && typeof window.ScriptLoader.preloadForView === 'function')
+    ? window.ScriptLoader.preloadForView(name)
+    : Promise.resolve();
+
   // View-specific initialization
   // Maps require both Leaflet (sync) AND maps.js (deferred) to be loaded.
   // waitForLeaflet handles the first; we also need to wait for initDrawMap/initMainMap.
@@ -10504,9 +10960,12 @@ function goTo(name, params = {}) {
       renderLeads(window._leads, window._filteredLeads);
     }
   }
-  if(name==='storm') { if(window.StormCenter) window.StormCenter.init(); }
-  if(name==='closeboard') { if(window.CloseBoard) window.CloseBoard.init(); }
-  if(name==='repos') { if(window.RepOS) window.RepOS.init(); }
+  // These views' modules are lazy-loaded — chain init onto the preload
+  // promise so the init call runs AFTER the module has defined the
+  // window global it needs.
+  if(name==='storm')      { _lazyPreload.then(() => { if (window.StormCenter) window.StormCenter.init(); }); }
+  if(name==='closeboard') { _lazyPreload.then(() => { if (window.CloseBoard)  window.CloseBoard.init();  }); }
+  if(name==='repos')      { _lazyPreload.then(() => { if (window.RepOS)       window.RepOS.init();       }); }
   if(name==='board') { if(window.AnalyticsKPI) window.AnalyticsKPI.render('analyticsContainer'); renderLeaderboard(); }
   if(name==='photos') {
     renderPhotoLeads();
@@ -10544,8 +11003,15 @@ function goTo(name, params = {}) {
       });
     });
   }
-  if(name==='training') { if(window.SalesTraining) window.SalesTraining.init(); }
-  if(name==='academy') { if(window.RealDealAcademy) { window.RealDealAcademy.init(); window.RealDealAcademy.renderAcademy('academyContainer'); } }
+  if(name==='training') { _lazyPreload.then(() => { if (window.SalesTraining) window.SalesTraining.init(); }); }
+  if(name==='academy') {
+    _lazyPreload.then(() => {
+      if (window.RealDealAcademy) {
+        window.RealDealAcademy.init();
+        window.RealDealAcademy.renderAcademy('academyContainer');
+      }
+    });
+  }
   if(name==='products') {
     const pc = document.getElementById('productLibraryContainer');
     if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
@@ -10562,12 +11028,13 @@ function goTo(name, params = {}) {
     }
   }
   if(name==='reports') {
-    // Lazy-init the Rep Report Generator on first open. The module
-    // renders the generator UI (template picker + date range) and
-    // loads the My Reports history from Firestore.
-    if (window.NBDReports && typeof window.NBDReports.init === 'function') {
-      window.NBDReports.init();
-    }
+    // rep-report-generator is lazy-loaded via ScriptLoader.preloadForView.
+    // Chain init so it runs once the module has registered NBDReports.
+    _lazyPreload.then(() => {
+      if (window.NBDReports && typeof window.NBDReports.init === 'function') {
+        window.NBDReports.init();
+      }
+    });
   }
   // ── AI tool iframes — lazy-load on first open ──
   // Each AI tool page is embedded as an iframe inside its view.
@@ -10821,6 +11288,18 @@ function renderEstimatesList(ests) {
     const builderTag = e.builder === 'v2'
       ? '<span class="est-src-chip v2">V2</span>'
       : '<span class="est-src-chip classic">CLASSIC</span>';
+    // Signature status — emitted by BoldSign webhook. Distinct colors
+    // so reps can eyeball the pipeline without clicking into each.
+    let sigTag = '';
+    if (e.signatureStatus === 'signed') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(46,204,138,.15);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);">✓ SIGNED</span>';
+    } else if (e.signatureStatus === 'sent' || e.signatureStatus === 'viewed') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(232,114,12,.12);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
+    } else if (e.signatureStatus === 'declined') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(197,48,48,.15);color:#ff6b6b;border-color:#ff6b6b;">✗ DECLINED</span>';
+    } else if (e.signatureStatus === 'expired') {
+      sigTag = '<span class="est-src-chip" style="opacity:.6;">⧗ EXPIRED</span>';
+    }
     return ''
       + '<div class="est-card nbd-est-card" data-id="' + esc(e.id) + '">'
         + '<div class="est-card-main" data-act="open">'
@@ -10834,7 +11313,7 @@ function renderEstimatesList(ests) {
               + esc(e.tierName || '—')
             + '</div>'
             + '<div class="est-card-chips">'
-              + leadTag + builderTag
+              + leadTag + builderTag + sigTag
               + '<span class="est-date">' + esc(formatDate(e.createdAt || e.updatedAt)) + '</span>'
             + '</div>'
           + '</div>'
@@ -13299,6 +13778,108 @@ function openCardDetailModal(leadId) {
 }
 window.openCardDetailModal = openCardDetailModal;
 
+// ── GDPR Export (Article 20) + Erasure (Article 17) ─
+// D6/D7 from the enterprise-hardening sprint landed the server
+// callables but no UI called them. These two helpers fix that.
+window._gdprExport = async function () {
+  if (!window._user) { if (typeof showToast==='function') showToast('Sign in first','error'); return; }
+  if (!window.confirm('Download a JSON file containing every record tied to your account (profile, leads, estimates, photos, pins, tasks, documents, api_usage). The download link expires in 24 hours.\n\nProceed?')) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fn = mod.httpsCallable(mod.getFunctions(), 'exportMyData');
+    if (typeof showToast==='function') showToast('Building export… this can take up to a minute.', 'info');
+    const res = await fn({});
+    const url = res && res.data && res.data.url;
+    if (!url) throw new Error('No URL returned');
+    // Open in a new tab so the user can save the JSON themselves.
+    window.open(url, '_blank', 'noopener');
+    if (typeof showToast==='function') showToast('✓ Export ready — opening download.', 'success');
+  } catch (e) {
+    console.error('gdpr export failed', e);
+    if (typeof showToast==='function') showToast(e.message || 'Export failed', 'error');
+  }
+};
+
+window._gdprRequestErasure = async function () {
+  if (!window._user) { if (typeof showToast==='function') showToast('Sign in first','error'); return; }
+  const warning =
+    'PERMANENTLY DELETE YOUR ACCOUNT?\n\n' +
+    'This will delete every lead, estimate, photo, pin, task, note, and profile record you own. ' +
+    'Your account will be disabled. This CANNOT be undone.\n\n' +
+    'We will email you a confirmation link. The deletion only completes when you click it ' +
+    'within 24 hours. If the email doesn\'t arrive, check spam.';
+  if (!window.confirm(warning)) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fn = mod.httpsCallable(mod.getFunctions(), 'requestAccountErasure');
+    await fn({});
+    if (typeof showToast==='function') showToast('Confirmation email sent. Click the link within 24h to complete deletion.', 'success');
+  } catch (e) {
+    console.error('gdpr erasure request failed', e);
+    if (typeof showToast==='function') showToast(e.message || 'Request failed', 'error');
+  }
+};
+
+// ── Revoke &amp; Regenerate Portal Link ─────────────────
+// B4 + B5: first call revokePortalToken to invalidate every live
+// token for this lead, then mint a fresh one and open the SMS
+// prefilled exactly like _sharePortalLink. Use when a rep suspects
+// a link was leaked or forwarded.
+window._revokePortalLink = async function (leadId) {
+  if (!leadId) return;
+  if (!window.confirm('Revoke all active portal links for this lead and mint a new one?\n\nThe old URL stops working immediately.')) return;
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fns = mod.getFunctions();
+    const revoke = mod.httpsCallable(fns, 'revokePortalToken');
+    const r = await revoke({ leadId });
+    const n = (r && r.data && r.data.revoked) || 0;
+    if (typeof showToast === 'function') showToast('Revoked ' + n + ' link(s). Minting a fresh one...', 'info');
+    await window._sharePortalLink(leadId); // immediately issue a new one
+  } catch (e) {
+    console.error('revoke portal failed', e);
+    if (typeof showToast === 'function') showToast('Revoke failed: ' + (e.message || 'unknown'), 'error');
+  }
+};
+
+// ── Share Homeowner Portal Link ─────────────────────
+// Mints a portal token via createPortalToken and produces the
+// public URL. Copies to clipboard + opens SMS prefilled with the
+// link + the homeowner's first name. Expires in 30 days.
+window._sharePortalLink = async function (leadId) {
+  if (!leadId) { if (typeof showToast==='function') showToast('No lead selected','error'); return; }
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) { if (typeof showToast==='function') showToast('Lead not found','error'); return; }
+  try {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fns = mod.getFunctions();
+    const call = mod.httpsCallable(fns, 'createPortalToken');
+    const res = await call({ leadId, ttlDays: 30 });
+    const token = res && res.data && res.data.token;
+    if (!token) throw new Error('No token returned');
+    const url = location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+    // Try clipboard first — falls back to prompt() if denied.
+    try { await navigator.clipboard.writeText(url); } catch(e) {}
+    if (typeof showToast==='function') showToast('Portal link copied to clipboard', 'success');
+    // Offer SMS shortcut if phone on file.
+    if (lead.phone) {
+      const cleanPhone = String(lead.phone).replace(/\D/g, '');
+      const first = lead.firstName || lead.fname || '';
+      const body = encodeURIComponent(
+        `Hi${first ? ' ' + first : ''}, here\'s your project page: ` + url +
+        ` — you can see your estimate, sign the contract, or book an inspection time.`
+      );
+      window.open('sms:' + cleanPhone + '?body=' + body, '_self');
+    } else {
+      // No phone — surface the URL so the rep can paste manually.
+      window.prompt('Share this link with the homeowner:', url);
+    }
+  } catch (e) {
+    console.error('share portal failed', e);
+    if (typeof showToast==='function') showToast('Could not create portal link: ' + (e.message || 'error'), 'error');
+  }
+};
+
 function closeCardDetailModal() {
   document.getElementById('cardDetailModal').classList.remove('open');
   window._cardDetailLeadId = null;
@@ -13620,6 +14201,24 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
         ✓ Tasks
       </button>
     </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-orange" style="justify-content:center;font-size:12px;padding:10px 12px;"
+              onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
+        🔗 Share Homeowner Portal Link
+      </button>
+      <button class="btn btn-ghost" style="justify-content:center;font-size:11px;padding:10px 8px;border-color:#ff6b6b;color:#ff6b6b;"
+              title="Revoke all active portal links for this lead and mint a new one"
+              onclick="window._revokePortalLink && window._revokePortalLink(window._cardDetailLeadId)">
+        🚫 Revoke &amp; Regenerate
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;"
+              title="Record a voice memo — Deepgram transcribes + attaches to lead activity"
+              onclick="window.NBDVoiceMemo && window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId)">
+        🎙 Record Voice Memo
+      </button>
+    </div>
     <!-- New Module Actions -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
       <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading...','error')}">
@@ -13662,10 +14261,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
 <script defer src="js/billing-gate.js?v=1"></script>
-<script defer src="js/rep-report-generator.js?v=4"></script>
+<!-- LAZY: rep-report-generator (reports view) loaded via ScriptLoader -->
 
 <script defer src="js/property-intel.js?v=3"></script>
-<script defer src="js/warranty-cert.js?v=4"></script>
+<!-- LAZY: warranty-cert (docs view wizard) loaded via ScriptLoader -->
 <script defer src="js/tools.js?v=6"></script>
 <!-- ALL scripts use defer for consistent load ordering.
      Defer scripts execute in document order after DOM ready.
@@ -13691,20 +14290,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
-<script defer src="js/sales-training.js?v=1"></script>
-<script defer src="js/academy-insurance-tree.js?v=1"></script>
-<script defer src="js/academy-retail-tree.js?v=1"></script>
-<script defer src="js/academy-courses.js?v=1"></script>
-<script defer src="js/academy-admin.js?v=2"></script>
-<script defer src="js/real-deal-academy-lab.js?v=1"></script>
-<script defer src="js/real-deal-academy.js?v=2"></script>
+<!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
+     close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
 <script defer src="js/d2d-tracker.js?v=8"></script>
-<script defer src="js/storm-center.js?v=1"></script>
-<script defer src="js/storm-integration.js?v=1"></script>
-<script defer src="js/decision-engine.js?v=1"></script>
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
-<script defer src="js/close-board.js?v=1"></script>
-<script defer src="js/rep-os.js?v=1"></script>
 <script defer src="js/product-data.js?v=1"></script>
 <script defer src="js/roofivent-catalog.js?v=1"></script>
 <script defer src="js/estimate-builder-v2.js?v=1"></script>
@@ -13723,25 +14312,51 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/template-suite.js?v=1"></script>
 <script>
 // ── Service Worker registration (offline + PWA) ──
-if ('serviceWorker' in navigator) {
+// E4: two kill-switches in case a bad SW ships:
+//   1. ?nosw=1 on the URL → skips registration + unregisters existing.
+//      Drop this in a user's URL bar to unstick them in < 10s.
+//   2. Remote kill — if any GET to /pro/nosw.txt returns non-404, we
+//      unregister and refuse to register. Deploy that file to kill
+//      SW for every user in the next reload.
+(async function swBootstrap() {
+  if (!('serviceWorker' in navigator)) return;
+  const params = new URLSearchParams(location.search);
+  const urlKill = params.has('nosw');
+
+  // Remote kill — cheap HEAD request; 404 (normal) = SW allowed.
+  let remoteKill = false;
+  try {
+    const r = await fetch('/pro/nosw.txt', { method: 'HEAD', cache: 'no-store' });
+    remoteKill = r.ok;
+  } catch (e) { /* network flake — fail safe (SW allowed) */ }
+
+  if (urlKill || remoteKill) {
+    console.warn('SW kill-switch active (' + (urlKill ? 'url' : 'remote') + ') — unregistering');
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) { try { await r.unregister(); } catch (e) {} }
+    // Also nuke caches so stale assets don't hang around.
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch (e) {}
+    return;
+  }
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/pro/sw.js', { scope: '/pro/' })
       .then(reg => {
         console.log('✓ SW registered:', reg.scope);
-        // Check for updates every 60s
         setInterval(() => reg.update(), 60000);
       })
       .catch(err => console.warn('SW registration failed:', err));
   });
-  // Auto-reload when SW pushes new code
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data?.type === 'SW_UPDATE_AVAILABLE') {
       console.log('🔄 New version available:', e.data.version);
-      // Reload after a short delay to let SW activate
       setTimeout(() => window.location.reload(), 500);
     }
   });
-}
+})();
 // ── Runtime Diagnostic — call window.nbdDiag() from console ──
 window.nbdDiag = function() {
   const r = {};
@@ -13799,3 +14414,19 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=1"></script>
+<!-- admin-manager must load eagerly — it gates the #nav-admin visibility
+     based on the user's claims. Lazy-loading would hide the nav entry
+     until the admin explicitly typed #/admin, defeating the gate UX. -->
+<script defer src="js/admin-manager.js?v=1"></script>
+<!-- Integrations client — exposes window.NBDIntegrations for HOVER,
+     BoldSign, Regrid, HailTrace, Cal.com. No-op when providers are
+     not configured server-side. -->
+<script defer src="js/integrations-client.js?v=1"></script>
+<!-- Signed Storage URL helper — lets photo grids fetch images
+     directly from Storage (C1) instead of streaming through
+     the deprecated imageProxy. -->
+<script defer src="js/signed-image-url.js?v=1"></script>
+<!-- Voice memo recorder + Deepgram client (F8) -->
+<script defer src="js/voice-memo.js?v=1"></script>
+<!-- Feature flags (F9) — window.NBDFlags for kill switches + gradual rollout -->
+<script defer src="js/feature-flags.js?v=1"></script>

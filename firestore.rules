@@ -15,9 +15,22 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helper functions ──────────────────────────────
+    //
+    // Role taxonomy (custom claims):
+    //   'admin'          → PLATFORM admin (support/ops). Cross-tenant.
+    //                      Set only by a manual admin SDK script.
+    //   'company_admin'  → tenant owner. Full access within own company.
+    //   'manager'        → tenant manager. Read all team leads + reports.
+    //   'sales_rep'      → individual rep. Owns their own docs only.
+    //   'viewer'         → read-only inside their company.
+    //
+    // `isAdmin()` is now PLATFORM admin only — never use it on its own
+    // for multi-tenant resources. Always pair it with
+    // `sameCompanyAsResource()` or a company-scoped helper.
     function isAuth()    { return request.auth != null; }
     function isOwner(userId) { return isAuth() && request.auth.uid == userId; }
     function isAdmin()   { return isAuth() && request.auth.token.role == 'admin'; }
+    function isCompanyAdmin() { return isAuth() && request.auth.token.role == 'company_admin'; }
     function isManager() { return isAuth() && request.auth.token.role == 'manager'; }
 
     function myCompanyId() {
@@ -25,9 +38,19 @@ service cloud.firestore {
     }
 
     function sameCompanyAsResource() {
+      // CRITICAL: require BOTH sides to be non-null. A token without a
+      // companyId claim would otherwise pass this check against any
+      // legacy doc whose companyId field was never set.
       return isAuth()
         && request.auth.token.companyId != null
+        && resource.data.companyId != null
         && resource.data.companyId == request.auth.token.companyId;
+    }
+
+    // Company admin / manager acting inside their own tenant. Use this
+    // for "see any lead in my team" style rules — NOT isAdmin() alone.
+    function isCompanyStaff() {
+      return isCompanyAdmin() || isManager();
     }
 
     // Field-diff helper used by users/<uid> to block privilege escalation.
@@ -39,6 +62,35 @@ service cloud.firestore {
     match /leads/{leadId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+
+      // D3: flat-path subcollections — the measurementWebhook +
+      // esignWebhook auto-append activity here via admin SDK. Rules
+      // only expose READ to the lead's owner + platform admin;
+      // writes are admin-SDK only so webhook-stamped events can't
+      // be forged by a rep.
+      match /activity/{activityId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        // Reps can append their own notes/activity via callable; direct
+        // writes stay locked to admin SDK so webhook integrity is
+        // preserved.
+        allow create: if isAuth()
+          && request.resource.data.userId == request.auth.uid
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+        allow update, delete: if false;
+      }
+      match /tasks/{taskId} {
+        allow read:   if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write:  if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
+      match /notes/{noteId} {
+        allow read:   if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write:  if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
     }
 
     match /leads/{uid}/leads/{leadId} {
@@ -68,6 +120,14 @@ service cloud.firestore {
 
     // ── TASKS ─────────────────────────────────────────
     match /tasks/{taskId} {
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── COMMUNICATIONS (call / email / SMS log) ───────
+    // Written from customer.html when a rep taps call / email / SMS
+    // shortcut buttons. Owner scope by userId.
+    match /communications/{commId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
@@ -234,52 +294,29 @@ service cloud.firestore {
     }
 
     // ── PUBLIC LEAD FORMS ────────────────────────────
-    // Create-only by unauthenticated homeowners. Strict shape. Reads restricted to admin.
+    // Direct client creates are DISABLED (C-3). Public forms must now
+    // post through the `submitPublicLead` Cloud Function, which enforces
+    // App Check + per-IP rate limit + honeypot + origin allowlist before
+    // writing here via the admin SDK. Rules can't rate-limit, so direct
+    // creates are an unbounded spam/billing DoS vector.
     match /guide_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['name','email','source'])
-        && request.resource.data.name is string
-        && request.resource.data.email is string
-        && request.resource.data.source is string
-        && request.resource.data.name.size() > 0  && request.resource.data.name.size() < 200
-        && request.resource.data.email.size() > 3 && request.resource.data.email.size() < 200
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /contact_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['firstName','phone','source'])
-        && request.resource.data.firstName is string
-        && request.resource.data.phone is string
-        && request.resource.data.source is string
-        && request.resource.data.firstName.size() > 0 && request.resource.data.firstName.size() < 200
-        && request.resource.data.phone.size() > 6    && request.resource.data.phone.size() < 30
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /estimate_leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['address','source'])
-        && request.resource.data.address is string
-        && request.resource.data.source is string
-        && request.resource.data.address.size() > 3 && request.resource.data.address.size() < 500
-        && request.resource.data.source.size() < 200;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     match /storm_alert_subscribers/{subId} {
-      allow create: if request.resource.data.keys().hasAll(['name','phone','zip','source'])
-        && request.resource.data.name is string
-        && request.resource.data.phone is string
-        && request.resource.data.zip is string
-        && request.resource.data.source is string
-        && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 200
-        && request.resource.data.phone.size() > 6 && request.resource.data.phone.size() < 30
-        && request.resource.data.zip.size() == 5;
+      allow create, update, delete: if false;
       allow read: if isAdmin();
-      allow update, delete: if false;
     }
 
     // ── STORM ALERTS SENT LOG (Cloud Function only) ──
@@ -356,6 +393,97 @@ service cloud.firestore {
     match /audit_log/{docId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // ── PORTAL TOKENS (admin-SDK only) ─────────────────
+    // Minted by createPortalToken, consumed by getHomeownerPortalView.
+    // Tokens are sensitive — a leaked token grants read of a
+    // homeowner's redacted project view, so clients get no direct
+    // access. The homeowner-facing page talks to the HTTP endpoint.
+    match /portal_tokens/{token} {
+      allow read, write: if false;
+    }
+
+    // ── PARCEL CACHE (admin-SDK only) ──────────────────
+    // Regrid lookup cache — reads are a privacy issue (address →
+    // owner name). Only the Cloud Function accesses via admin SDK.
+    match /parcel_cache/{key} {
+      allow read, write: if false;
+    }
+
+    // ── MEASUREMENTS (rep owner-scoped) ────────────────
+    // Created by requestMeasurement, filled by measurementWebhook.
+    // Owner can read to pre-fill the V2 Builder; writes are admin-
+    // SDK only (webhook).
+    match /measurements/{jobId} {
+      allow read: if isOwner(resource.data.ownerId) || isAdmin();
+      allow write: if false;
+    }
+
+    // ── APPOINTMENTS (Cal.com webhook output) ──────────
+    // Written by calcomWebhook, read by the owning rep.
+    match /appointments/{bookingId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow write: if false;
+    }
+
+    // ── ACCOUNT ERASURE REQUESTS (admin-SDK only) ──────
+    // D7: two-step GDPR erasure. The token hash never leaves the
+    // server, so the only way to confirm a deletion is through
+    // the confirmAccountErasure HTTP endpoint (which validates the
+    // emailed token against the hash).
+    match /account_erasures/{uid} {
+      allow read, write: if false;
+    }
+
+    // ── EMAIL QUEUE (admin-SDK only) ───────────────────
+    // Enqueued by server-side flows (GDPR confirmations, dunning,
+    // portal invites). A worker processes + clears entries. Clients
+    // should never touch this — they'd be able to spoof senders or
+    // mine the queue for email addresses.
+    match /email_queue/{id} {
+      allow read, write: if false;
+    }
+
+    // ── DEVICE FINGERPRINTS (admin-SDK only) ───────────
+    // D9: per-uid list of seen device fingerprints, used by the
+    // new-device Slack alert. Writes only via server triggers.
+    match /user_devices/{uid} {
+      allow read, write: if false;
+      match /seen/{fingerprint} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── FEATURE FLAGS (read by any authed user) ────────
+    // F9: _default holds the platform defaults. {uid} is an
+    // optional per-user override. Platform admin only writes.
+    match /feature_flags/_default {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+    match /feature_flags/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── V2 ESTIMATE DRAFTS (owner only) ────────────────
+    // F7: one draft doc per user keyed by uid. Owner reads/writes
+    // their own; everyone else (including platform admin) is blocked
+    // because drafts are ephemeral + the finalized estimate survives
+    // in `estimates/`.
+    match /estimate_drafts/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── SMS OPT-OUT LIST (admin-SDK only) ──────────────
+    // F3: TCPA compliance. incomingSMS (Twilio webhook) writes here
+    // when a recipient replies STOP. sendSMS + sendD2DSMS read it
+    // before sending. Both paths go through the admin SDK; clients
+    // never need direct access, and leaking the list would identify
+    // every number that opted out.
+    match /sms_opt_outs/{phone} {
+      allow read, write: if false;
     }
 
     // ── DEFAULT DENY ─────────────────────────────────

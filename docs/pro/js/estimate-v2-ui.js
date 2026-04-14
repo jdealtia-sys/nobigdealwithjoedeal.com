@@ -39,7 +39,13 @@
     // Per-job minimum-charge floor. null means "use engine default"
     // ($2500). Presets can override this — e.g. Shingle Patch sets
     // it to $500 so tiny jobs don't get bumped to the full-job floor.
-    minJobCharge: null
+    minJobCharge: null,
+    // Pass-through line items appended to the final estimate after
+    // the engine runs. Used for things the catalog can't express:
+    // aerial measurement reports, e-sign fees, etc. Each entry is
+    // { code, desc, amount, source }. Rendered as a removable chip
+    // in the scope pane and included verbatim in the retail quote.
+    passThru: []
   };
 
   // ═════════════════════════════════════════════════════════
@@ -376,6 +382,20 @@
           </div>
 
           <div class="v2-section">Measurements</div>
+
+          <!-- Auto-measure: hits HOVER/EagleView/Nearmap via the
+               NBDIntegrations client. Button is greyed-out if the
+               provider isn't configured server-side. -->
+          <div class="v2-field" style="display:flex;gap:6px;align-items:stretch;">
+            <input type="text" id="v2measureAddr" placeholder="Property address for auto-measure"
+                   style="flex:1;background:#181c22;color:#e8eaf0;border:1px solid #2a2f35;padding:10px 12px;border-radius:4px;font-size:13px;font-family:inherit;"/>
+            <button type="button" id="v2measureBtn" data-action="auto-measure"
+                    style="background:#e8720c;border:none;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;min-height:44px;white-space:nowrap;">
+              📐 Auto-measure
+            </button>
+          </div>
+          <div id="v2measureStatus" style="font-size:11px;color:#8b8e96;min-height:14px;margin-top:-6px;"></div>
+
           <div class="v2-field">
             <label>Raw Roof Area (SF)</label>
             <input type="number" id="v2rawSqft" placeholder="3900" data-field="rawSqft">
@@ -489,6 +509,13 @@
             💾 Save Estimate to Customer
           </button>
           <div id="v2saveStatus" style="font-size:10px;color:#888;margin-top:6px;text-align:center;"></div>
+
+          <div class="v2-section">E-Signature</div>
+          <button id="v2signBtn" type="button" data-action="send-for-signature"
+            style="width:100%;background:#181c22;border:1px solid #e8720c;color:#e8720c;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            ✍️ Send for Signature
+          </button>
+          <div id="v2signStatus" style="font-size:10px;color:#888;text-align:center;"></div>
         </div>
       </div>
     `;
@@ -574,6 +601,12 @@
           break;
         case 'save':
           save();
+          break;
+        case 'auto-measure':
+          autoMeasure();
+          break;
+        case 'send-for-signature':
+          sendForSignature();
           break;
         case 'set-category':
           setCategory(arg || 'all');
@@ -670,7 +703,13 @@
   }
 
   function removeFromScope(code) {
-    state.scope = state.scope.filter(s => s.code !== code);
+    // Pass-through lines live in a separate array — check there
+    // first so a removal on the "measurement report" chip works.
+    const beforePT = (state.passThru || []).length;
+    state.passThru = (state.passThru || []).filter(p => p.code !== code);
+    if (state.passThru.length === beforePT) {
+      state.scope = state.scope.filter(s => s.code !== code);
+    }
     render();
   }
 
@@ -722,6 +761,132 @@
   // preset carries its own measurement defaults so the user actually
   // sees the new rawSqft / eaveLf / etc. numbers reflected in the
   // left pane, not just in the total.
+  // ═════════════════════════════════════════════════════════
+  // AUTO-MEASURE — HOVER / EagleView / Nearmap via NBDIntegrations
+  //
+  // 1. POST the address to the measurement adapter → returns a jobId.
+  // 2. Poll Firestore measurements/{jobId} every 4s for up to 10 min.
+  // 3. When status flips to 'ready', spread the returned fields into
+  //    state.measurements and re-render.
+  //
+  // If the provider isn't configured (no secret), NBDIntegrations
+  // surfaces a toast — we still update the status line for clarity.
+  // ═════════════════════════════════════════════════════════
+  let _measurePollTimer = null;
+  async function autoMeasure() {
+    const addrEl = document.getElementById('v2measureAddr');
+    const btn    = document.getElementById('v2measureBtn');
+    const statusEl = document.getElementById('v2measureStatus');
+    const setStatus = (msg, color) => {
+      if (statusEl) {
+        statusEl.textContent = msg || '';
+        statusEl.style.color = color || '#8b8e96';
+      }
+    };
+
+    if (!window.NBDIntegrations || typeof window.NBDIntegrations.requestMeasurement !== 'function') {
+      setStatus('Integrations client not loaded yet — try again.', '#ff6b6b');
+      return;
+    }
+    const address = (addrEl && addrEl.value || state.customer.address || '').trim();
+    if (!address || address.length < 5) {
+      setStatus('Enter a property address first.', '#ff6b6b');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '📐 Requesting...'; }
+    setStatus('Requesting roof measurement...');
+
+    const result = await window.NBDIntegrations.requestMeasurement({
+      address,
+      leadId: state.customer && state.customer.leadId || null
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = '📐 Auto-measure'; }
+
+    if (!result || !result.ok) {
+      setStatus(result && result.error ? result.error : 'Auto-measure failed.', '#ff6b6b');
+      return;
+    }
+
+    // Synchronous providers (e.g. Nearmap) return the measurements
+    // immediately via the jobId's Firestore doc. Poll once, then
+    // roll into the polling loop for async providers.
+    const jobId = result.jobId;
+    setStatus('Job ' + jobId.slice(0, 8) + '... (~' + (result.estimatedMinutes || 30) + ' min to ready)', '#e8720c');
+
+    clearInterval(_measurePollTimer);
+    let tries = 0;
+    const POLL_MS = 4000;
+    const MAX_TRIES = Math.ceil((10 * 60 * 1000) / POLL_MS); // 10 min cap
+    _measurePollTimer = setInterval(async () => {
+      tries++;
+      if (tries > MAX_TRIES) {
+        clearInterval(_measurePollTimer);
+        setStatus('Still processing — refresh later to pick up the result.', '#8b8e96');
+        return;
+      }
+      if (!window.db || !window.doc || !window.getDoc) return; // SDK not ready
+      try {
+        const snap = await window.getDoc(window.doc(window.db, 'measurements', jobId));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (d.status === 'ready' && d.measurements) {
+          clearInterval(_measurePollTimer);
+          applyMeasurementResult(d.measurements);
+          setStatus('✓ Measurements loaded (' + (d.provider || 'provider') + ')', 'var(--green, #2ecc8a)');
+        } else if (d.status === 'failed') {
+          clearInterval(_measurePollTimer);
+          setStatus('Provider reported failure. Measure manually.', '#ff6b6b');
+        }
+      } catch (e) { /* transient — keep polling */ }
+    }, POLL_MS);
+  }
+
+  function applyMeasurementResult(m) {
+    // Each vendor uses slightly different field names — normalize.
+    const next = {
+      rawSqft:  numOr(m.rawSqft, state.measurements.rawSqft),
+      ridgeLf:  numOr(m.ridge  || m.ridgeLf,  state.measurements.ridgeLf),
+      eaveLf:   numOr(m.eave   || m.eaveLf,   state.measurements.eaveLf),
+      hipLf:    numOr(m.hip    || m.hipLf,    state.measurements.hipLf),
+      valleyLf: numOr(m.valley || m.valleyLf, state.measurements.valleyLf),
+      rakeLf:   numOr(m.rake   || m.rakeLf,   state.measurements.rakeLf)
+    };
+    if (m.pitch) {
+      // Pitch may come in as '8/12' or a decimal. Both OK for <select>.
+      const asStr = String(m.pitch);
+      next.pitch = asStr.includes('/') ? parseInt(asStr, 10) : Number(asStr);
+    }
+    state.measurements = Object.assign({}, state.measurements, next);
+
+    // Margin opportunity: auto-add a pass-through line for the
+    // aerial measurement report. Roofer pays HOVER ~$40, bills the
+    // homeowner $75 on the retail quote. Price configurable via
+    // window.NBD_MEASUREMENT_PASSTHRU_PRICE; default $75. Skip if a
+    // pass-through for this job already exists (idempotent on retry).
+    const passThruPrice = Number(window.NBD_MEASUREMENT_PASSTHRU_PRICE) || 75;
+    if (passThruPrice > 0) {
+      const alreadyAdded = (state.passThru || []).some(p => p.source === 'measurement');
+      if (!alreadyAdded) {
+        state.passThru = state.passThru || [];
+        state.passThru.push({
+          code:   'SVC MEASURE-RPT',
+          desc:   'Aerial measurement report',
+          amount: passThruPrice,
+          source: 'measurement'
+        });
+      }
+    }
+
+    syncMeasurementInputs();
+    render();
+  }
+  function numOr(v, fallback) {
+    const n = Number(v);
+    return isFinite(n) && n > 0 ? n : fallback;
+  }
+
   function syncMeasurementInputs() {
     const map = {
       rawSqft: 'v2rawSqft', pitch: 'v2pitch', eaveLf: 'v2eaveLf',
@@ -906,19 +1071,51 @@
       }
       return base;
     }).filter(Boolean);
-    if (!items.length) return null;
+    // Even if the catalog scope is empty, a pass-through line alone
+    // can constitute a mini-estimate (e.g. a standalone measurement-
+    // report invoice). When both are empty there's nothing to show.
+    const hasPassThru = (state.passThru || []).length > 0;
+    if (!items.length && !hasPassThru) return null;
     if (!window.EstimateLogic) return null;
     const settings = {
       tier: state.tier,
       mode: state.jobMode,
       county: state.county
     };
-    // Only pass minJobCharge if the preset/user set one — otherwise
-    // the engine uses its own $2500 default. null means "use default".
     if (state.minJobCharge != null) {
       settings.minJobCharge = state.minJobCharge;
     }
-    return window.EstimateLogic.resolveEstimate(items, state.measurements, settings);
+    // Resolve catalog scope first. If there are no catalog items,
+    // start with an empty shell so the pass-through lines can
+    // produce a valid { lines, subtotal, total } structure.
+    const estimate = items.length
+      ? window.EstimateLogic.resolveEstimate(items, state.measurements, settings)
+      : { lines: [], subtotal: 0, tax: 0, total: 0 };
+
+    // Append every pass-through line. These are flat-fee charges
+    // (measurement report, e-sign fee, permit upcharge) that don't
+    // scale with roof size — the engine formulas don't apply. Field
+    // shape matches what resolveEstimate produces so renderScope /
+    // finalizers read them uniformly.
+    for (const p of (state.passThru || [])) {
+      const amt = Number(p.amount) || 0;
+      estimate.lines = estimate.lines || [];
+      estimate.lines.push({
+        code:      p.code || 'SVC CUSTOM',
+        name:      p.desc || 'Service',
+        quantity:  1,
+        unit:      'ea',
+        unitPrice: amt,
+        lineTotal: amt,
+        category:  'Services',
+        source:    p.source || 'passthru',
+        qtyOverridden: false
+      });
+      estimate.subtotal = (estimate.subtotal || 0) + amt;
+      estimate.total    = (estimate.total    || 0) + amt;
+      estimate.materialRetail = estimate.materialRetail || 0;
+    }
+    return estimate;
   }
 
   function renderCatalog() {
@@ -1013,7 +1210,10 @@
     const rollupEl = document.getElementById('v2rollup');
     if (!listDiv) return;
 
-    if (!state.scope.length) {
+    // Only show the empty state when BOTH the catalog scope and
+    // the pass-through list are empty. A standalone "$75 measurement
+    // report" quote is valid.
+    if (!state.scope.length && !(state.passThru && state.passThru.length)) {
       listDiv.innerHTML = '<div class="v2-empty">No items selected yet.<br>Pick from catalog or use a preset.</div>';
       totalEl.textContent = '$0';
       rollupEl.innerHTML = '';
@@ -1092,6 +1292,111 @@
   function render() {
     renderCatalog();
     renderScope();
+    // F7: debounced autosave on every render. Cheap — just a JSON
+    // write to localStorage. Firestore backup fires on a slower
+    // cadence so network blips don't cost the rep their work.
+    saveDraftDebounced();
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // AUTOSAVE DRAFTS (F7)
+  //
+  // Writes state to localStorage on every render, and syncs to
+  // Firestore estimate_drafts/{uid} at most once every 10s so
+  // reloads + device switches pick up where the rep left off.
+  // Draft is cleared on a successful save() or when a new builder
+  // session is opened with a different linked leadId.
+  // ═════════════════════════════════════════════════════════
+  const DRAFT_KEY_LOCAL = 'nbd_v2_draft_v1';
+  let _draftLocalTimer = null;
+  let _draftRemoteTimer = null;
+  let _lastDraftRemotePush = 0;
+
+  function collectDraft() {
+    return {
+      mode: state.mode,
+      tier: state.tier,
+      jobMode: state.jobMode,
+      county: state.county,
+      measurements: state.measurements,
+      scope: state.scope,
+      customer: state.customer,
+      claim: state.claim,
+      passThru: state.passThru,
+      minJobCharge: state.minJobCharge,
+      savedAt: Date.now()
+    };
+  }
+
+  function saveDraftDebounced() {
+    clearTimeout(_draftLocalTimer);
+    _draftLocalTimer = setTimeout(() => {
+      try {
+        const payload = collectDraft();
+        localStorage.setItem(DRAFT_KEY_LOCAL, JSON.stringify(payload));
+      } catch (e) { /* quota exhausted — not fatal */ }
+      // Firestore push at most every 10s.
+      const now = Date.now();
+      if (now - _lastDraftRemotePush > 10_000) {
+        _lastDraftRemotePush = now;
+        pushDraftToFirestore().catch(() => {});
+      }
+    }, 400);
+  }
+
+  async function pushDraftToFirestore() {
+    if (!window.db || !window.doc || !window.setDoc || !window._user) return;
+    try {
+      await window.setDoc(
+        window.doc(window.db, 'estimate_drafts', window._user.uid),
+        {
+          userId: window._user.uid,
+          updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+          draft: collectDraft()
+        },
+        { merge: true }
+      );
+    } catch (e) { /* silent */ }
+  }
+
+  async function restoreDraft() {
+    // Local first (instant), then Firestore if newer.
+    let local = null;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY_LOCAL);
+      if (raw) local = JSON.parse(raw);
+    } catch (e) {}
+    let remote = null;
+    try {
+      if (window.db && window.doc && window.getDoc && window._user) {
+        const snap = await window.getDoc(window.doc(window.db, 'estimate_drafts', window._user.uid));
+        if (snap.exists()) remote = snap.data().draft || null;
+      }
+    } catch (e) {}
+    const pick =
+      !local && !remote ? null
+      : !local          ? remote
+      : !remote         ? local
+      : (remote.savedAt || 0) > (local.savedAt || 0) ? remote : local;
+    if (!pick) return false;
+    // Apply without clobbering fields that aren't in the draft.
+    Object.keys(pick).forEach(k => {
+      if (k === 'savedAt') return;
+      if (pick[k] == null) return;
+      state[k] = pick[k];
+    });
+    syncMeasurementInputs();
+    if (typeof syncCustomerInputs === 'function') syncCustomerInputs();
+    return true;
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY_LOCAL); } catch (e) {}
+    if (window.db && window.doc && window.deleteDoc && window._user) {
+      try {
+        window.deleteDoc(window.doc(window.db, 'estimate_drafts', window._user.uid));
+      } catch (e) {}
+    }
   }
 
   // ═════════════════════════════════════════════════════════
@@ -1099,13 +1404,24 @@
   // ═════════════════════════════════════════════════════════
 
   function finalize(format) {
+    // Normalize format defensively — buttons pass 'insurance-scope' |
+    // 'retail-quote' | 'internal-view', but older call sites also use
+    // 'internal'. Map legacy aliases so the formatter + titleMap both
+    // resolve correctly.
+    const FORMAT_ALIASES = { internal: 'internal-view', retail: 'retail-quote', insurance: 'insurance-scope' };
+    format = FORMAT_ALIASES[format] || format;
+
+    const toast = (msg, kind) => (typeof window.showToast === 'function')
+      ? window.showToast(msg, kind || 'error')
+      : console.warn('[V2 preview]', kind || 'info', msg);
+
     const estimate = getCurrentEstimate();
     if (!estimate) {
-      alert('Add line items to the scope first.');
+      toast('Add line items to the scope before generating a preview.', 'error');
       return;
     }
     if (!window.EstimateFinalization) {
-      alert('Finalization module not loaded.');
+      toast('Preview engine still loading — try again in a moment.', 'error');
       return;
     }
     const meta = {
@@ -1151,7 +1467,23 @@
         };
       }
     }
-    const result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
+    // formatEstimate can throw if a required field in the catalog item
+    // is malformed. Wrap so the user gets a real error instead of a
+    // silent nothing — the single biggest reason "previews not showing"
+    // is the call threw and the exception bubbled unnoticed.
+    let result;
+    try {
+      result = window.EstimateFinalization.formatEstimate(estimate, format, meta);
+    } catch (e) {
+      console.error('[V2 finalize] formatEstimate threw:', e);
+      toast('Preview failed to render: ' + (e.message || 'unknown error'), 'error');
+      return;
+    }
+    if (!result || typeof result.html !== 'string' || !result.html.length) {
+      console.error('[V2 finalize] formatter returned no html', { format, result });
+      toast('Preview formatter returned no document. Check console for details.', 'error');
+      return;
+    }
     // Route through the Universal Document Viewer so the user
     // can Save, Email, Print, or Download PDF without being
     // dumped into a blank popup with no way back.
@@ -1159,9 +1491,9 @@
       const titleMap = {
         'insurance-scope': 'Insurance Scope',
         'retail-quote': 'Retail Quote',
-        'internal': 'Internal Estimate View'
+        'internal-view': 'Internal Estimate View'
       };
-      const titleSuffix = state.customer.address
+      const titleSuffix = state.customer && state.customer.address
         ? ' — ' + state.customer.address
         : '';
       window.NBDDocViewer.open({
@@ -1177,8 +1509,13 @@
         }
       });
     } else {
-      // Fallback: original popup behavior if the viewer isn't loaded
-      window.EstimateFinalization.openInNewWindow(result);
+      // Fallback: original popup behavior if the viewer isn't loaded.
+      // window.open returns null when blocked by a popup blocker —
+      // tell the user explicitly instead of letting the click vanish.
+      const w = window.EstimateFinalization.openInNewWindow(result);
+      if (!w) {
+        toast('Popup blocked by browser. Allow popups for this site to view previews.', 'error');
+      }
     }
   }
 
@@ -1273,6 +1610,11 @@
       const savedId = await window._saveEstimate(payload);
 
       if (savedId) {
+        // Expose the id so sendForSignature() can scope the BoldSign
+        // envelope metadata back to this estimate.
+        window._v2SavedEstimateId = savedId;
+        // F7: saved estimate → draft is obsolete.
+        clearDraft();
         setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', '#2ECC8A');
         if (typeof window.showToast === 'function') {
           window.showToast('✓ Estimate saved to Firestore', 'success');
@@ -1294,13 +1636,194 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // SEND FOR SIGNATURE — BoldSign via NBDIntegrations.
+  //
+  // Flow:
+  //   1. Require an estimate with saved id (we need it to scope the
+  //      webhook callback). If the user hasn't saved yet, trigger
+  //      save() first to mint an estimateId.
+  //   2. Render a retail-quote format as the PDF body (that's what
+  //      homeowners sign — insurance scope is internal).
+  //   3. Call NBDIntegrations.sendForSignature with the HTML +
+  //      signer name/email from state.customer.
+  //   4. If the server returns an embedUrl, open it in the
+  //      NBDDocViewer iframe so the homeowner can sign inside the
+  //      app (no popup, no email bounce).
+  // ═════════════════════════════════════════════════════════
+  async function sendForSignature() {
+    const statusEl = document.getElementById('v2signStatus');
+    const btn = document.getElementById('v2signBtn');
+    const setStatus = (msg, color) => {
+      if (statusEl) {
+        statusEl.textContent = msg || '';
+        statusEl.style.color = color || '#8b8e96';
+      }
+    };
+
+    if (!window.NBDIntegrations || typeof window.NBDIntegrations.sendForSignature !== 'function') {
+      setStatus('Integrations client not ready. Refresh and retry.', '#ff6b6b');
+      return;
+    }
+
+    // B2: if name/email missing and we have a linked lead, try to
+    // auto-fill before complaining.
+    if ((!state.customer.name || !state.customer.email) && state.customer.leadId) {
+      prefillFromLead(state.customer.leadId);
+    }
+    const customer = state.customer || {};
+    const signerName  = (customer.name || '').trim();
+    const signerEmail = (customer.email || '').trim().toLowerCase();
+    if (!signerName || !signerEmail || !signerEmail.includes('@')) {
+      setStatus('Customer name + email required — link this estimate to a lead with an email on file, or type them into the Customer panel.', '#ff6b6b');
+      return;
+    }
+
+    // Make sure there's an estimate scope.
+    const estimate = getCurrentEstimate();
+    if (!estimate) {
+      setStatus('Add line items to the scope first.', '#ff6b6b');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '✍️ Preparing...'; }
+    setStatus('Saving estimate before signature...');
+
+    // Ensure the estimate is persisted — webhook needs a stable id.
+    let estimateId = window._v2SavedEstimateId || null;
+    if (!estimateId) {
+      try {
+        await save();
+        estimateId = window._v2SavedEstimateId || null;
+      } catch (e) { /* save() surfaces its own error */ }
+    }
+    if (!estimateId) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Could not save estimate — resolve errors above.', '#ff6b6b');
+      return;
+    }
+
+    // Render a retail-quote PDF body. This is what the homeowner sees.
+    if (!window.EstimateFinalization) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Preview engine still loading — try again.', '#ff6b6b');
+      return;
+    }
+    let result;
+    try {
+      result = window.EstimateFinalization.formatEstimate(estimate, 'retail-quote', {
+        customer,
+        claim: state.claim,
+        estimate: { number: 'NBD-V2-' + estimateId, date: new Date().toISOString().split('T')[0], preparedBy: 'Joe Deal' }
+      });
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Preview render failed: ' + e.message, '#ff6b6b');
+      return;
+    }
+    if (!result || typeof result.html !== 'string' || !result.html.length) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Empty estimate body — nothing to sign.', '#ff6b6b');
+      return;
+    }
+
+    setStatus('Sending to BoldSign...');
+    const send = await window.NBDIntegrations.sendForSignature({
+      estimateId,
+      html: result.html,
+      signerName,
+      signerEmail,
+      title: 'Roofing Contract — ' + (customer.address || 'NBD Estimate')
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+
+    if (!send || !send.ok) {
+      setStatus(send && send.error ? send.error : 'Send failed.', '#ff6b6b');
+      return;
+    }
+
+    setStatus('✓ Sent to ' + signerEmail, 'var(--green, #2ecc8a)');
+
+    // If the server returned an embed URL, open it so the rep can
+    // hand the iPad over right now.
+    if (send.embedUrl && window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      const iframeHtml = '<!doctype html><html><body style="margin:0;">'
+        + '<iframe src="' + send.embedUrl + '" style="width:100vw;height:100vh;border:0;"></iframe>'
+        + '</body></html>';
+      window.NBDDocViewer.open({
+        html: iframeHtml,
+        title: 'Sign Contract — ' + (customer.address || ''),
+        filename: 'NBD-Signature-' + estimateId + '.pdf'
+      });
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Public API
   // ═════════════════════════════════════════════════════════
 
-  function open() {
+  // B2: auto-populate the Customer panel from a linked lead. Called
+  // by open() if the caller passes { leadId }. Also called internally
+  // when sendForSignature discovers a lead link but blank customer
+  // data, so the "Send for Signature" flow doesn't fail for an
+  // estimate that was started from a lead detail page.
+  function prefillFromLead(leadId) {
+    if (!leadId) return false;
+    const lead = (window._leads || []).find(l => l.id === leadId);
+    if (!lead) return false;
+    const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
+    // Only overwrite empty fields so we don't clobber a rep who
+    // already started typing.
+    if (!state.customer.name    && name)          state.customer.name    = name;
+    if (!state.customer.email   && lead.email)    state.customer.email   = lead.email;
+    if (!state.customer.phone   && lead.phone)    state.customer.phone   = lead.phone;
+    if (!state.customer.address && lead.address)  state.customer.address = lead.address;
+    state.customer.leadId = leadId;
+    // Claim fields too — insurance mode gets filled in if the lead
+    // has any carrier/number on file.
+    if (lead.insCarrier && !state.claim.carrier)      state.claim.carrier = lead.insCarrier;
+    if (lead.claimNumber && !state.claim.number)      state.claim.number  = lead.claimNumber;
+    // Sync inputs if the modal is open. If not, the next render does it.
+    syncCustomerInputs();
+    return true;
+  }
+  function syncCustomerInputs() {
+    const fields = {
+      v2custName:    state.customer.name,
+      v2custEmail:   state.customer.email,
+      v2custPhone:   state.customer.phone,
+      v2custAddress: state.customer.address
+    };
+    for (const id of Object.keys(fields)) {
+      const el = document.getElementById(id);
+      if (el && fields[id] != null) el.value = fields[id];
+    }
+    const addrEl = document.getElementById('v2measureAddr');
+    if (addrEl && !addrEl.value && state.customer.address) addrEl.value = state.customer.address;
+  }
+
+  function open(opts) {
+    opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
-    render();
+    // F7: if there's a draft AND the caller didn't pass a leadId
+    // (i.e. fresh "start new estimate" click), offer to restore it.
+    // Prefilling from a lead overrides any stale draft since the
+    // lead data is authoritative.
+    const leadId = opts.leadId || window._cardDetailLeadId || null;
+    if (leadId) {
+      prefillFromLead(leadId);
+      render();
+      return;
+    }
+    restoreDraft().then((restored) => {
+      if (restored) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Restored unsaved draft', 'info');
+        }
+      }
+      render();
+    });
   }
 
   function close() {

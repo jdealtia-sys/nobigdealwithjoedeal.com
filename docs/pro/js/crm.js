@@ -40,7 +40,9 @@ const _arrayUnion = window.arrayUnion;
 
 
 function openLeadModal(){
-  document.getElementById('leadModal').classList.add('open');
+  const modal = document.getElementById('leadModal');
+  if (!modal) return; // standalone compat — modal not in DOM
+  modal.classList.add('open');
   // Auto-infer jobType from current view: when user is on Cash view and clicks Add Lead,
   // default the new lead to jobType=cash (same for Insurance/Finance).
   const jtEl = document.getElementById('lJobType');
@@ -57,18 +59,20 @@ function openLeadModal(){
   }
 }
 function closeLeadModal(){
-  document.getElementById('leadModal').classList.remove('open');
-  document.getElementById('mErr').style.display='none';
-  document.getElementById('mOk').style.display='none';
-  ['lFname','lLname','lAddr','lPhone','lEmail','lNotes'].forEach(id=>document.getElementById(id).value='');
+  // Null-safe one-liner helpers — DOM elements may be absent in
+  // standalone/compat mode or if the modal was removed from the view.
+  const setVal = (id) => { const el = document.getElementById(id); if (el) el.value = ''; };
+  const hide   = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+
+  const modal = document.getElementById('leadModal');
+  if (modal) modal.classList.remove('open');
+  hide('mErr'); hide('mOk');
+
+  ['lFname','lLname','lAddr','lPhone','lEmail','lNotes',
+   'lJobValue','lFollowUp','lInsCarrier'].forEach(setVal);
 
   const editId = document.getElementById('lEditId'); if(editId) editId.value='';
   const title = document.getElementById('leadModalTitle'); if(title) title.textContent='Add Lead';
-  document.getElementById('lFname').value=''; document.getElementById('lLname').value='';
-  document.getElementById('lAddr').value=''; document.getElementById('lPhone').value='';
-  document.getElementById('lEmail').value=''; document.getElementById('lNotes').value='';
-  document.getElementById('lJobValue').value=''; document.getElementById('lFollowUp').value='';
-  document.getElementById('lInsCarrier').value='';
   const jt=document.getElementById('lJobType'); if(jt) jt.value='';
   // Clear insurance/finance/job fields
   ['lClaimNumber','lEstimateAmount','lDeductible','lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
@@ -91,9 +95,14 @@ document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementBy
 async function saveLead(){
   const mErr=document.getElementById('mErr'),mOk=document.getElementById('mOk');
   const saveBtn=document.querySelector('#leadModal .msave');
+  // Lead modal may be absent in standalone/compat mode — bail cleanly.
+  if(!mErr||!mOk||!saveBtn){console.warn('saveLead: lead modal not in DOM');return;}
   mErr.style.display='none';mOk.style.display='none';
-  const fname=document.getElementById('lFname').value.trim();
-  const addr=document.getElementById('lAddr').value.trim();
+  const fnameEl=document.getElementById('lFname');
+  const addrEl =document.getElementById('lAddr');
+  if(!fnameEl||!addrEl){mErr.textContent='Lead form missing — reload the page.';mErr.style.display='block';return;}
+  const fname=fnameEl.value.trim();
+  const addr=addrEl.value.trim();
   if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
   // Prevent double-submit
   if(saveBtn.disabled) return;
@@ -596,6 +605,8 @@ function buildCard(l){
       ${l.damageType ? `<span class="kc-tag kct-dmg">${escHtml(l.damageType)}</span>` : ''}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${roofBadge}
+      ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
+      ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
     </div>
     <div class="kc-footer">
       <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>
@@ -1774,19 +1785,23 @@ function deleteLead(id) {
 
 function showDeleteConfirm(id, name) {
   _pendingDeleteId = id;
-  document.getElementById('delConfirmName').textContent = name;
-  document.getElementById('delConfirmOverlay').classList.add('open');
+  const nameEl = document.getElementById('delConfirmName');
+  const overlay = document.getElementById('delConfirmOverlay');
+  if (nameEl) nameEl.textContent = name;
+  if (overlay) overlay.classList.add('open');
 }
 
 function cancelDeleteConfirm() {
   _pendingDeleteId = null;
-  document.getElementById('delConfirmOverlay').classList.remove('open');
+  const overlay = document.getElementById('delConfirmOverlay');
+  if (overlay) overlay.classList.remove('open');
 }
 
 async function confirmDeleteLead() {
   if(!_pendingDeleteId) return;
   const id = _pendingDeleteId;
-  document.getElementById('delConfirmOverlay').classList.remove('open');
+  const overlay = document.getElementById('delConfirmOverlay');
+  if (overlay) overlay.classList.remove('open');
   _pendingDeleteId = null;
   try {
     await window._deleteLead(id);
@@ -1797,15 +1812,19 @@ async function confirmDeleteLead() {
 
 // ── DELETED LEADS DRAWER ─────────────────────
 async function openDeletedDrawer() {
-  document.getElementById('deletedDrawer').classList.add('open');
+  const drawer = document.getElementById('deletedDrawer');
+  if (!drawer) return;
+  drawer.classList.add('open');
   await renderDeletedDrawer();
 }
 function closeDeletedDrawer() {
-  document.getElementById('deletedDrawer').classList.remove('open');
+  const drawer = document.getElementById('deletedDrawer');
+  if (drawer) drawer.classList.remove('open');
 }
 
 async function renderDeletedDrawer() {
   const body = document.getElementById('deletedDrawerBody');
+  if (!body) return; // drawer not in DOM
   body.innerHTML = '<div class="deleted-empty">Loading...</div>';
   const deleted = await window._loadDeletedLeads();
   if(!deleted.length) {
@@ -1966,12 +1985,41 @@ window.restoreDeletedLead = (id) => window._restoreLead(id);
 window.permanentDeleteLead = (id) => window._permanentDeleteLead(id);
 
 // ── Booking SMS from Kanban Card ─────────────────────
+// ── Rep booking URL helper ─────────────────────
+// Returns the Cal.com URL for the signed-in rep. Priority:
+//   1. window._currentRep.calcomUsername (hydrated from users/{uid}
+//      on auth state change — authoritative).
+//   2. localStorage 'nbd_cal_settings' (legacy cache from older
+//      versions of the app; kept so reps who haven't re-saved
+//      still get a link).
+//   3. Default nobigdeal/roof-inspection (Joe's pooled link).
+// Usage:
+//   const url = window._repBookingUrl();
+// Exposed so any other surface (customer portal, email templates,
+// notifications) can reuse the same resolution logic instead of
+// re-implementing it.
+window._repBookingUrl = function () {
+  const rep = window._currentRep || {};
+  const username = (rep.calcomUsername || '').trim();
+  if (username) {
+    const slug = (rep.calcomEventSlug || 'roof-inspection').trim();
+    return 'https://cal.com/' + encodeURIComponent(username) + '/' + encodeURIComponent(slug);
+  }
+  // Legacy fallback
+  try {
+    const legacy = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
+    if (legacy.username) {
+      const slug = legacy.eventSlug || 'roof-inspection';
+      return 'https://cal.com/' + encodeURIComponent(legacy.username) + '/' + encodeURIComponent(slug);
+    }
+  } catch (e) {}
+  // House account
+  return 'https://cal.com/nobigdeal/roof-inspection';
+};
+
 window.sendBookingSMS = function(leadId, phone, firstName) {
-  const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
-  const calUser = calSettings.username || 'nobigdeal';
-  const calSlug = calSettings.eventSlug || 'roof-inspection';
-  const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
-  const cleanPhone = phone.replace(/\D/g, '');
+  const bookingUrl = window._repBookingUrl();
+  const cleanPhone = (phone || '').replace(/\D/g, '');
   const body = encodeURIComponent(`Hey${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };
@@ -1986,10 +2034,7 @@ window.sendFollowUpSMS = function(leadId) {
   }
   const firstName = lead.firstName || lead.fname || '';
   const cleanPhone = lead.phone.replace(/\D/g, '');
-  const calSettings = JSON.parse(localStorage.getItem('nbd_cal_settings') || '{}');
-  const calUser = calSettings.username || 'nobigdeal';
-  const calSlug = calSettings.eventSlug || 'roof-inspection';
-  const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
+  const bookingUrl = window._repBookingUrl();
   const body = encodeURIComponent(
     `Hi${firstName ? ' ' + firstName : ''}, this is Joe from No Big Deal Home Solutions. Just following up on your project — wanted to check in and see if you have any questions. If you'd like to schedule a time to chat: ${bookingUrl}`
   );

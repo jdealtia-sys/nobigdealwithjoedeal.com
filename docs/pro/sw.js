@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v10', // v10 — CRITICAL: fix NBD_FONTS collision killing maps.js
-  cdn: 'nbd-cdn-v10',     // v10 — forces re-fetch of all JS + CSS
+  shell: 'nbd-shell-v11', // v11 — expand NO_CACHE_HTML (account-erasure + portal)
+  cdn: 'nbd-cdn-v11',     // v11 — forces re-fetch of all JS + CSS
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -38,6 +38,14 @@ const NO_CACHE_HTML = new Set([
   '/pro/understand.html',
   '/pro/stripe-success.html',
   '/pro/landing.html',
+  // GDPR erasure confirmation: hosting rewrite → cloud function. Its
+  // response is token-specific and destructive; a cached "already
+  // processed" response could leak across users or get replayed.
+  '/pro/account-erasure',
+  // Homeowner portal: public-by-token HTML shell. The HTML itself
+  // isn't sensitive, but we don't want a cached shell outliving a
+  // security patch, so treat it the same as other pro pages.
+  '/pro/portal.html',
 ]);
 
 function isAuthGatedHTML(url) {

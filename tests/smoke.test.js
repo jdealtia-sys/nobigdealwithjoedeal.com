@@ -1,0 +1,1102 @@
+/**
+ * smoke.test.js — dependency-free static smoke tests
+ *
+ * Exercises the critical dashboard JS files without a browser:
+ *   - parses cleanly (Node.js syntax check)
+ *   - exposes the expected window globals (regex scan)
+ *   - bundle maps are internally consistent
+ *
+ * Intentionally zero deps. Run:
+ *   node tests/smoke.test.js
+ *
+ * Exit code 0 = pass, non-zero = fail. No framework needed.
+ */
+
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const PRO_JS = path.join(ROOT, 'docs/pro/js');
+const FUNCTIONS = path.join(ROOT, 'functions');
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+
+function assert(label, cond, detail) {
+  if (cond) {
+    passed++;
+    console.log('  ✓ ' + label);
+  } else {
+    failed++;
+    failures.push(label + (detail ? ' — ' + detail : ''));
+    console.log('  ✗ ' + label + (detail ? ' — ' + detail : ''));
+  }
+}
+
+function section(name) { console.log('\n' + name); }
+
+function read(file) { return fs.readFileSync(file, 'utf8'); }
+
+function syntaxCheck(file) {
+  try {
+    execSync(`node --check "${file}"`, { stdio: 'pipe' });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: e.stderr ? e.stderr.toString() : e.message };
+  }
+}
+
+// ── Syntax sanity on the files we care about ────────────────
+section('Syntax checks');
+const syntaxFiles = [
+  path.join(PRO_JS, 'script-loader.js'),
+  path.join(PRO_JS, 'admin-manager.js'),
+  path.join(PRO_JS, 'crm.js'),
+  path.join(PRO_JS, 'maps.js'),
+  path.join(PRO_JS, 'estimates.js'),
+  path.join(PRO_JS, 'estimate-v2-ui.js'),
+  path.join(PRO_JS, 'estimate-finalization.js'),
+  path.join(PRO_JS, 'nbd-doc-viewer.js'),
+  path.join(FUNCTIONS, 'index.js')
+];
+for (const f of syntaxFiles) {
+  const result = syntaxCheck(f);
+  assert('parses ' + path.relative(ROOT, f), result.ok, result.err && result.err.split('\n')[0]);
+}
+
+// ── ScriptLoader public API ──────────────────────────────────
+section('ScriptLoader contract');
+{
+  const src = read(path.join(PRO_JS, 'script-loader.js'));
+  assert('registers window.ScriptLoader', /window\.ScriptLoader\s*=/.test(src));
+  assert('exposes load()',            /\bload\s*[,:]/.test(src));
+  assert('exposes loadBundle()',      /\bloadBundle\s*[,:]/.test(src));
+  assert('exposes preloadForView()',  /\bpreloadForView\s*[,:]/.test(src));
+  assert('exposes markLoaded()',      /\bmarkLoaded\s*[,:]/.test(src));
+  assert('defines BUNDLES table',     /const\s+BUNDLES\s*=/.test(src));
+  assert('defines VIEW_BUNDLES map',  /const\s+VIEW_BUNDLES\s*=/.test(src));
+
+  // Every view in VIEW_BUNDLES must reference a bundle that exists
+  const bundleMatch  = src.match(/const BUNDLES\s*=\s*\{([\s\S]*?)\};/);
+  const viewsMatch   = src.match(/const VIEW_BUNDLES\s*=\s*\{([\s\S]*?)\};/);
+  const bundleNames  = bundleMatch ? [...bundleMatch[1].matchAll(/^\s*(\w+):\s*\[/gm)].map(m => m[1]) : [];
+  const viewRefs     = viewsMatch  ? [...viewsMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1]).filter(n => !/^[a-z]+_bundles$/.test(n)) : [];
+  // Crude but effective: every bareword quoted string in VIEW_BUNDLES that
+  // appears AFTER `[` should be a bundle name. Walk each line and compare.
+  const orphans = [];
+  for (const line of viewsMatch ? viewsMatch[1].split('\n') : []) {
+    const inBrackets = line.match(/\[([^\]]*)\]/);
+    if (!inBrackets) continue;
+    const refs = [...inBrackets[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+    for (const r of refs) if (!bundleNames.includes(r)) orphans.push(r);
+  }
+  assert('all view bundles reference real bundles', orphans.length === 0, orphans.join(', '));
+}
+
+// ── AdminManager public API ──────────────────────────────────
+section('AdminManager contract');
+{
+  const src = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('registers window.AdminManager', /window\.AdminManager\s*=/.test(src));
+  for (const fn of ['init', 'refresh', 'openCreate', 'closeCreate', 'submitCreate',
+                    'closeEdit', 'submitEdit', 'toggleDeactivate', 'applyGate']) {
+    // Match shorthand property (`fn,` or `fn\n  }`) or longhand (`fn: ...`).
+    assert('exposes ' + fn + '()', new RegExp('\\b' + fn + '\\s*[,:\\s]*\\}?').test(src));
+  }
+  assert('invokes listTeamMembers callable', /callable\(['"]listTeamMembers['"]\)/.test(src));
+  assert('invokes createTeamMember callable', /callable\(['"]createTeamMember['"]\)/.test(src));
+  assert('invokes updateUserRole callable',   /callable\(['"]updateUserRole['"]\)/.test(src));
+  assert('invokes deactivateUser callable',   /callable\(['"]deactivateUser['"]\)/.test(src));
+}
+
+// ── Cloud Functions contract ─────────────────────────────────
+section('Cloud Functions exports');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  for (const fn of ['createTeamMember', 'updateUserRole', 'deactivateUser',
+                    'listTeamMembers', 'rotateAccessCodes', 'submitPublicLead']) {
+    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(src));
+  }
+  assert('requireTeamAdmin helper defined', /function requireTeamAdmin\s*\(/.test(src));
+  assert('normalizeRole rejects platform admin unconditionally',
+    /if \(r === 'admin'\) return null/.test(src));
+  assert('TEAM_ROLES excludes platform admin',
+    /TEAM_ROLES = \['company_admin'[^\]]*\]/.test(src));
+}
+
+// ── C-1: invite role allowlist ──────────────────────────────
+section('C-1: onRepSignup allowlist');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('INVITE_ALLOWED_ROLES set defined',
+    /INVITE_ALLOWED_ROLES = new Set\(\[/.test(src));
+  assert("INVITE_ALLOWED_ROLES excludes 'admin'",
+    /INVITE_ALLOWED_ROLES = new Set\(\['company_admin', 'manager', 'sales_rep', 'viewer'\]\)/.test(src));
+  assert('onRepSignup clamps unknown role to sales_rep',
+    /INVITE_ALLOWED_ROLES\.has\(requested\)[\s\S]{0,200}role = 'sales_rep'/.test(src));
+  assert('onRepSignup fails closed on error (C-5)',
+    /onRepSignup error — blocking signup[\s\S]{0,200}throw new HttpsError/.test(src));
+}
+
+// ── C-2: NBD-2026 and siblings stripped from shipped HTML ───
+section('C-2: access-code hardcodes removed');
+{
+  const dashboard = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const login     = read(path.join(ROOT, 'docs/pro/login.html'));
+  assert('dashboard.html contains no NBD-2026', !dashboard.includes('NBD-2026'));
+  assert('login.html contains no NBD-2026',      !login.includes('NBD-2026'));
+  const seed = read(path.join(ROOT, 'scripts/seed-access-codes.js'));
+  assert('seed script no longer hardcodes NBD-2026 entry',
+    !/['"]NBD-2026['"]\s*:\s*\{/.test(seed));
+  assert('seed script auto-deactivates legacy codes',
+    /LEGACY_IDS\s*=\s*\[[^\]]*'NBD-2026'/.test(seed));
+}
+
+// ── C-3: public lead collections locked + gateway present ───
+section('C-3: public form gate');
+{
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  for (const col of ['guide_leads', 'contact_leads', 'estimate_leads', 'storm_alert_subscribers']) {
+    assert('rules deny client writes to ' + col,
+      new RegExp('match /' + col + '/\\{[^}]+\\}\\s*\\{[\\s\\S]{0,200}allow create, update, delete: if false').test(rules));
+  }
+  const fn = read(path.join(FUNCTIONS, 'index.js'));
+  assert('submitPublicLead uses httpRateLimit',
+    /submitPublicLead[\s\S]{0,2000}httpRateLimit\(req, res, 'publicLead:ip'/.test(fn));
+  assert('submitPublicLead has honeypot field',
+    /honeypot tripped/.test(fn));
+}
+
+// ── C-4: App Check init in dashboard ────────────────────────
+section('C-4: App Check initialization');
+{
+  const src = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('imports initializeAppCheck + ReCaptchaV3Provider',
+    /initializeAppCheck[\s\S]{0,80}ReCaptchaV3Provider/.test(src));
+  assert('App Check init runs before getAuth',
+    /initializeAppCheck[\s\S]{0,2000}getAuth\(app\)/.test(src));
+  assert('Configurable via window.__NBD_APP_CHECK_KEY',
+    /window\.__NBD_APP_CHECK_KEY/.test(src));
+}
+
+// ── H-2: iframe sandbox drops allow-same-origin ─────────────
+section('H-2: iframe sandbox');
+{
+  const src = read(path.join(PRO_JS, 'nbd-doc-viewer.js'));
+  assert("sandbox does not contain 'allow-same-origin'",
+    !/allow-same-origin/.test(src.match(/sandbox[^'"]*['"][^'"]*['"]/)?.[0] || ''));
+  assert('print listener injected via wrapWithPrintListener',
+    /function wrapWithPrintListener/.test(src));
+  assert('PDF path uses DOMParser (no contentDocument access)',
+    /new DOMParser\(\)\.parseFromString/.test(src));
+  assert('PDF path scrubs <script> and on* attrs',
+    /querySelectorAll\('script, iframe, object, embed'\)[\s\S]{0,200}removeAttribute/.test(src));
+}
+
+// ── H-3: imageProxy tenant-scoped ───────────────────────────
+section('H-3: imageProxy tenant scoping');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('imageProxy checks caller role is company_admin or manager',
+    /\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(src));
+  assert('imageProxy falls back to lookup if claim missing',
+    /imageProxy[\s\S]{0,3000}users\/\$\{ownerUid\}/.test(src));
+}
+
+// ── H-4: audit triggers wired ───────────────────────────────
+section('H-4: audit_log triggers');
+{
+  assert('audit-triggers.js exists',
+    fs.existsSync(path.join(FUNCTIONS, 'audit-triggers.js')));
+  const src = read(path.join(FUNCTIONS, 'audit-triggers.js'));
+  for (const name of ['audit_users','audit_leads','audit_companies',
+                       'audit_company_members','audit_access_codes','audit_subscriptions']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('redacts PII fields before logging',
+    /PII_KEYS\s*=\s*\/[^/]*email[^/]*\//.test(src));
+  assert('dedicated alert on invite doc setting role=admin',
+    /security_admin_grant_attempt/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js loads audit-triggers module',
+    /require\(['"]\.\/audit-triggers['"]\)/.test(idx));
+}
+
+// ── H-5: per-company Claude budget ──────────────────────────
+section('H-5: per-company Claude budget');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('CLAUDE_COMPANY_BUDGET table exists',
+    /CLAUDE_COMPANY_BUDGET\s*=\s*\{/.test(src));
+  assert('claudeProxy queries api_usage by companyId',
+    /where\('companyId', '==', callerCompanyId\)/.test(src));
+  assert('claudeProxy stamps companyId on api_usage writes',
+    /api_usage[\s\S]{0,400}companyId: callerCompanyId/.test(src));
+  const idx = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('firestore index for (companyId, timestamp DESC) on api_usage',
+    /"collectionGroup":\s*"api_usage"[\s\S]{0,200}"fieldPath":\s*"companyId"[\s\S]{0,200}"fieldPath":\s*"timestamp"[\s\S]{0,100}"order":\s*"DESCENDING"/.test(idx));
+}
+
+// ── H-6: Stripe webhook hardening ───────────────────────────
+section('H-6: Stripe webhook raw body + replay');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('stripeWebhook rejects when rawBody is not a Buffer',
+    /stripeWebhook missing rawBody[\s\S]{0,200}Buffer\.isBuffer/.test(src) ||
+    /!Buffer\.isBuffer\(req\.rawBody\)[\s\S]{0,100}stripeWebhook/.test(src) ||
+    // robust form: look for both the guard and the explicit tolerance
+    (/!Buffer\.isBuffer\(req\.rawBody\)/.test(src) &&
+     /constructEvent\(req\.rawBody,\s*sig,\s*webhookSecret,\s*300\)/.test(src)));
+  assert('invoiceWebhook passes explicit 300s tolerance',
+    /constructEvent\(\s*req\.rawBody,\s*signature,\s*STRIPE_WEBHOOK_SECRET\.value\(\),\s*300\s*\)/.test(src));
+}
+
+// ── M-1: email verification gate ────────────────────────────
+section('M-1: email verification');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('claudeProxy requires email_verified before AI',
+    /email_verified !== true[\s\S]{0,200}Verify your email/.test(src));
+}
+
+// ────────────────────────────────────────────────────────────
+//  INTEGRATIONS
+// ────────────────────────────────────────────────────────────
+
+section('Integration module skeleton');
+{
+  const dir = path.join(FUNCTIONS, 'integrations');
+  for (const f of ['_shared.js','sentry.js','slack.js','turnstile.js',
+                    'upstash-ratelimit.js','measurement.js','esign.js',
+                    'parcel.js','hail.js','calcom.js']) {
+    assert('integrations/' + f + ' present', fs.existsSync(path.join(dir, f)));
+  }
+  const shared = read(path.join(dir, '_shared.js'));
+  assert('_shared exposes SECRETS registry', /const SECRETS\s*=\s*\{/.test(shared));
+  assert('_shared exposes PROVIDERS map', /const PROVIDERS\s*=\s*\{/.test(shared));
+  assert('_shared has hasSecret + notConfigured helpers',
+    /function hasSecret\(/.test(shared) && /function notConfigured\(/.test(shared));
+}
+
+section('Sentry');
+{
+  const srv = read(path.join(FUNCTIONS, 'integrations/sentry.js'));
+  assert('withSentry helper exported', /module\.exports\s*=\s*\{[\s\S]*withSentry/.test(srv));
+  assert('PII redaction in beforeSend',
+    /beforeSend[\s\S]{0,500}email\|phone\|address/.test(srv));
+  const cli = read(path.join(PRO_JS, 'sentry-init.js'));
+  assert('client registers window.NBDSentry', /window\.NBDSentry\s*=/.test(cli));
+  assert('client redacts email + phone + Bearer tokens',
+    /\[email\]/.test(cli) && /\[phone\]/.test(cli) && /\[token\]/.test(cli));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js imports withSentry', /require\(['"]\.\/integrations\/sentry['"]\)/.test(idx));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard loads sentry-init.js', /sentry-init\.js/.test(dash));
+  assert('dashboard exposes __NBD_SENTRY_DSN slot', /window\.__NBD_SENTRY_DSN/.test(dash));
+}
+
+section('Slack alerts');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/slack.js'));
+  for (const name of ['slack_onLeadWon','slack_onAdminGrantAttempt','slack_onStormAlert']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('Slack helper fails silent on missing webhook',
+    /hasSecret\('SLACK_WEBHOOK_URL'\)[\s\S]{0,120}return \{ posted: false/.test(src));
+}
+
+section('Turnstile');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/turnstile.js'));
+  assert('verifyTurnstile exported', /module\.exports\s*=\s*\{\s*verifyTurnstile\s*\}/.test(src));
+  assert('fails closed on verifier error',
+    /Fail CLOSED/i.test(src) && /'verify-error'/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('submitPublicLead invokes verifyTurnstile',
+    /verifyTurnstile\(\s*\(req\.body && req\.body\.turnstileToken\)/.test(idx));
+}
+
+section('Upstash rate limiter adapter');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/upstash-ratelimit.js'));
+  assert('exports enforceRateLimit + httpRateLimit',
+    /module\.exports\s*=\s*\{[\s\S]*enforceRateLimit[\s\S]*httpRateLimit/.test(src));
+  assert('falls back to Firestore limiter when not configured',
+    /firestoreLimiter\.enforceRateLimit/.test(src));
+  assert('uses pipeline INCR + EXPIRE NX',
+    /\['INCR', key\][\s\S]{0,100}\['EXPIRE', key/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js now requires the adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
+}
+
+section('Measurement adapter');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  for (const name of ['requestMeasurement','measurementWebhook']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('supports hover + eagleview + nearmap',
+    /requestHOVER/.test(src) && /requestEagleView/.test(src) && /requestNearmap/.test(src));
+  assert('provider selection driven by PROVIDERS.measurement',
+    /PROVIDERS\.measurement/.test(src));
+}
+
+section('E-sign (BoldSign)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  for (const name of ['sendEstimateForSignature','esignWebhook']) {
+    assert('exports ' + name, new RegExp('exports\\.' + name + '\\s*=').test(src));
+  }
+  assert('HMAC-verifies BoldSign webhook signature',
+    /createHmac\('sha256', getSecret\('BOLDSIGN_WEBHOOK_SECRET'\)\)/.test(src));
+  assert('verifies caller owns the estimate before sending',
+    /est\.userId !== uid[\s\S]{0,100}'admin'/.test(src));
+}
+
+section('Parcel (Regrid)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/parcel.js'));
+  assert('exports lookupParcel', /exports\.lookupParcel\s*=/.test(src));
+  assert('caches lookups in parcel_cache',
+    /parcel_cache\/\$\{key\}/.test(src));
+  assert('90-day TTL constant', /CACHE_TTL_MS\s*=\s*90/.test(src));
+}
+
+section('Hail (HailTrace + NOAA SPC)');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/hail.js'));
+  assert('exports getHailHistory', /exports\.getHailHistory\s*=/.test(src));
+  assert('uses NOAA/IEM JSON endpoint',
+    /mesonet\.agron\.iastate\.edu/.test(src));
+  assert('falls back to NOAA if HailTrace fails',
+    /noaa-fallback/.test(src));
+}
+
+section('Cal.com webhook');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
+  assert('exports calcomWebhook', /exports\.calcomWebhook\s*=/.test(src));
+  assert('HMAC-verifies X-Cal-Signature-256',
+    /x-cal-signature-256[\s\S]{0,300}createHmac\('sha256'/.test(src));
+  assert('creates appointments + tasks docs',
+    /appointments\/\$\{bookingId\}/.test(src) && /collection\('tasks'\)\.add/.test(src));
+}
+
+section('Unified client + status endpoint');
+{
+  const src = read(path.join(PRO_JS, 'integrations-client.js'));
+  assert('exposes window.NBDIntegrations', /window\.NBDIntegrations\s*=/.test(src));
+  for (const fn of ['requestMeasurement','sendForSignature','lookupParcel','getHailHistory']) {
+    assert('NBDIntegrations.' + fn, new RegExp('async function ' + fn + '\\(').test(src));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('integrationStatus callable exported', /exports\.integrationStatus\s*=/.test(idx));
+}
+
+// ────────────────────────────────────────────────────────────
+//  UI wire-ins
+// ────────────────────────────────────────────────────────────
+
+section('UI-A: HOVER Auto-measure in V2 Builder');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Auto-measure button present', /data-action="auto-measure"/.test(src));
+  assert('auto-measure case dispatches autoMeasure()',
+    /case 'auto-measure':[\s\S]{0,80}autoMeasure\(\)/.test(src));
+  assert('autoMeasure polls measurements/{jobId}',
+    /measurements',\s*jobId/.test(src) && /status === 'ready'/.test(src));
+  assert('applyMeasurementResult normalizes provider fields',
+    /function applyMeasurementResult/.test(src));
+}
+
+section('UI-B: BoldSign send-for-signature + badges');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Send-for-signature button present', /data-action="send-for-signature"/.test(src));
+  assert('sendForSignature() wired', /async function sendForSignature\(/.test(src));
+  assert('stores saved estimate id on window for signature flow',
+    /window\._v2SavedEstimateId\s*=\s*savedId/.test(src));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('signature badge rendered on estimate cards',
+    /signatureStatus === 'signed'/.test(dash) && /SIGNED/.test(dash));
+  assert('sigTag injected into est-card-chips',
+    /leadTag \+ builderTag \+ sigTag/.test(dash));
+}
+
+section('UI-C: Regrid wire-in to property-intel');
+{
+  const src = read(path.join(PRO_JS, 'property-intel.js'));
+  assert('_regridToIntel mapper defined', /function _regridToIntel/.test(src));
+  assert('fetchPropertyIntel tries NBDIntegrations.lookupParcel',
+    /NBDIntegrations\.lookupParcel/.test(src));
+  assert('Regrid path short-circuits on hit',
+    /renderIntelCard\(targetElId, intel, countyClean, fullAddr\);\s*return;/.test(src));
+}
+
+section('UI-D: Hail overlay on D2D + Pipeline badge');
+{
+  const src = read(path.join(PRO_JS, 'd2d-tracker.js'));
+  assert('D2D exposes showHail', /showHail:\s*async/.test(src));
+  assert('D2D exposes hideHail', /hideHail:\s*\(\)\s*=>/.test(src));
+  assert('Hail button rendered in map controls',
+    /onclick="window\._d2dHailLayer/.test(src));
+  const crm = read(path.join(PRO_JS, 'crm.js'));
+  assert('Kanban card renders hail badge when hailHit.sizeInches present',
+    /l\.hailHit && l\.hailHit\.sizeInches/.test(crm));
+}
+
+section('UI-E: Cal.com in Settings');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('settingsCalcom input present', /id="settingsCalcom"/.test(dash));
+  assert('settingsCalcomPreview anchor present',
+    /id="settingsCalcomPreview"/.test(dash));
+  assert('_saveSettings persists calcomUsername',
+    /calcomUsername/.test(dash) && /setDoc[\s\S]{0,200}users[\s\S]{0,200}calcomUsername/.test(dash));
+}
+
+// ────────────────────────────────────────────────────────────
+//  FIVE-ITEM PUSH
+// ────────────────────────────────────────────────────────────
+
+section('Push-1: public lead forms use submitPublicLead');
+{
+  const helper = read(path.join(ROOT, 'docs/assets/js/public-lead-submit.js'));
+  assert('public-lead-submit helper exposes window.submitPublicLead',
+    /window\.submitPublicLead\s*=\s*submitPublicLead/.test(helper));
+  // Verify no page still calls addDoc on the four public collections.
+  const pages = [
+    'docs/index.html',
+    'docs/estimate.html',
+    'docs/storm-alerts.html',
+    'docs/free-guide/index.html'
+  ];
+  for (const p of pages) {
+    const src = read(path.join(ROOT, p));
+    assert(p + ' loads public-lead-submit.js',
+      /public-lead-submit\.js/.test(src));
+    assert(p + ' no longer calls addDoc on public collections',
+      !/addDoc\s*\(\s*collection\s*\([^)]*(guide_leads|contact_leads|estimate_leads|storm_alert_subscribers)/.test(src));
+  }
+}
+
+section('Push-2: measurement pass-through line item');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('state.passThru seeded', /passThru: \[\]/.test(src));
+  assert('applyMeasurementResult adds SVC MEASURE-RPT',
+    /source: 'measurement'/.test(src) && /Aerial measurement report/.test(src));
+  assert('getCurrentEstimate appends passThru to estimate.lines',
+    /for \(const p of \(state\.passThru \|\| \[\]\)\)/.test(src));
+  assert('removeFromScope clears from passThru first',
+    /state\.passThru\s*=\s*\(state\.passThru \|\| \[\]\)\.filter/.test(src));
+  assert('scope empty guard allows passThru-only quotes',
+    /!state\.scope\.length && !\(state\.passThru && state\.passThru\.length\)/.test(src));
+}
+
+section('Push-3: booking-link SMS uses calcomUsername');
+{
+  const src = read(path.join(PRO_JS, 'crm.js'));
+  assert('_repBookingUrl helper defined',
+    /window\._repBookingUrl\s*=\s*function/.test(src));
+  assert('sendBookingSMS uses _repBookingUrl',
+    /sendBookingSMS[\s\S]{0,300}window\._repBookingUrl\(\)/.test(src));
+  assert('sendFollowUpSMS uses _repBookingUrl',
+    /sendFollowUpSMS[\s\S]{0,500}window\._repBookingUrl\(\)/.test(src));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard hydrates _currentRep.calcomUsername on auth',
+    /window\._currentRep[\s\S]{0,500}calcomUsername: calVal/.test(dash));
+}
+
+section('Push-4: homeowner portal page + token callables');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  for (const fn of ['createPortalToken', 'getHomeownerPortalView']) {
+    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(idx));
+  }
+  assert('createPortalToken owner-scopes by lead.userId',
+    /lead\.userId !== uid && !isAdmin/.test(idx));
+  assert('getHomeownerPortalView rate-limits by IP',
+    /httpRateLimit\(req, res, 'portal:ip'/.test(idx));
+  assert('view response redacts sensitive fields (no claim / notes)',
+    /REDACTION:/.test(idx));
+  assert('portal.html exists + reads token from query string',
+    fs.existsSync(path.join(ROOT, 'docs/pro/portal.html')));
+  const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal.html fetches getHomeownerPortalView',
+    /getHomeownerPortalView/.test(portal));
+  assert('portal.html embeds Cal.com iframe',
+    /cal\.com.*embed=true/.test(portal));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('portal_tokens rule denies all client IO',
+    /match \/portal_tokens\/\{token\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+  assert('measurements rule allows owner reads only',
+    /match \/measurements\/\{jobId\}[\s\S]{0,200}isOwner\(resource\.data\.ownerId\)/.test(rules));
+  assert('appointments rule allows owner reads only',
+    /match \/appointments\/\{bookingId\}[\s\S]{0,200}isOwner\(resource\.data\.userId\)/.test(rules));
+  assert('dashboard Share Portal Link button wired',
+    /_sharePortalLink\s*=\s*async function/.test(dash()));
+}
+
+function dash() { return read(path.join(ROOT, 'docs/pro/dashboard.html')); }
+
+section('Push-5: measurement webhook auto-attaches to lead');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('webhook writes task on ready transition',
+    /measurement_ready[\s\S]{0,5}|collection\('tasks'\)\.add/.test(src));
+  assert('webhook writes activity entry',
+    /collection\(`leads\/\$\{leadId\}\/activity`\)\.add/.test(src));
+  assert('webhook sets lead.measurementReady flag',
+    /measurementReady: true/.test(src));
+  assert('idempotency guard: checks previous status before writing',
+    /wasReadyAlready = measurementData\.status === 'ready'/.test(src));
+  const crm = read(path.join(PRO_JS, 'crm.js'));
+  assert('kanban card renders measurement chip when l.measurementReady',
+    /l\.measurementReady \?/.test(crm));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE A
+// ────────────────────────────────────────────────────────────
+
+section('Wave A1: deploy runbook');
+{
+  assert('scripts/deploy-runbook.sh exists',
+    fs.existsSync(path.join(ROOT, 'scripts/deploy-runbook.sh')));
+  const src = read(path.join(ROOT, 'scripts/deploy-runbook.sh'));
+  assert('runbook preflights firebase login',
+    /firebase projects:list/.test(src));
+  assert('runbook deploys rules + indexes before functions',
+    /firestore:rules,firestore:indexes[\s\S]{0,400}firebase deploy --only functions/.test(src));
+  assert('runbook runs smoke tests before deploy',
+    /Running smoke tests/i.test(src));
+  assert('runbook lists required + optional secrets',
+    /SECRETS_REQUIRED_FOR_CORE/.test(src) && /SECRETS_RECOMMENDED/.test(src));
+}
+
+section('Wave A2: Turnstile widgets');
+{
+  const helper = read(path.join(ROOT, 'docs/assets/js/public-lead-submit.js'));
+  assert('helper loads Turnstile API on demand',
+    /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/.test(helper));
+  assert('helper attaches turnstileToken to payload',
+    /turnstileToken/.test(helper));
+  assert('nbdTurnstileExecute exposed on window', /window\.nbdTurnstileExecute/.test(helper));
+  const pages = ['docs/index.html','docs/estimate.html','docs/storm-alerts.html','docs/free-guide/index.html'];
+  for (const p of pages) {
+    assert(p + ' exposes __NBD_TURNSTILE_SITEKEY slot',
+      /window\.__NBD_TURNSTILE_SITEKEY/.test(read(path.join(ROOT, p))));
+  }
+}
+
+section('Wave A3: privacy sub-processor disclosure');
+{
+  const pv = read(path.join(ROOT, 'docs/privacy.html'));
+  for (const vendor of ['Resend','Twilio','Anthropic','BoldSign','HOVER','EagleView','Nearmap','Regrid','HailTrace','Cal.com','Sentry','Cloudflare Turnstile']) {
+    assert('privacy lists ' + vendor, new RegExp(vendor.replace('.','\\.'), 'i').test(pv));
+  }
+}
+
+section('Wave A4: rotateAccessCodes button');
+{
+  const adm = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('AdminManager.rotateAccessCodes defined',
+    /async function rotateAccessCodes/.test(adm));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('Team Manager header renders rotate button',
+    /AdminManager\.rotateAccessCodes\(\)/.test(dash));
+}
+
+section('Wave A5: firestore rules tests cover new collections');
+{
+  const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));
+  for (const coll of ['portal_tokens','parcel_cache','measurements','appointments','audit_log']) {
+    assert('rules test covers ' + coll, new RegExp(coll).test(t));
+  }
+  assert('negative test on public lead direct writes',
+    /assertFails\(setDoc\(doc\(anon, 'contact_leads/.test(t));
+  assert('company_admin alone cannot write members without ownerId match',
+    /Carol has role: company_admin[\s\S]{0,300}assertFails/.test(t));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE B
+// ────────────────────────────────────────────────────────────
+
+section('Wave B1: portal BoldSign signing embed');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('portal view requests fresh embed URL when awaiting signature',
+    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(idx));
+  assert('portal view returns signEmbedUrl field',
+    /signEmbedUrl:\s*signEmbedUrl/.test(idx));
+  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal.html renders signing iframe when signEmbedUrl present',
+    /awaitingSign && signEmbedUrl/.test(p));
+}
+
+section('Wave B2: V2 prefill from lead');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('prefillFromLead helper defined', /function prefillFromLead\(leadId\)/.test(src));
+  assert('syncCustomerInputs helper defined', /function syncCustomerInputs\(\)/.test(src));
+  assert('open() accepts leadId', /function open\(opts\)/.test(src));
+  assert('sendForSignature retries prefill before erroring',
+    /prefillFromLead\(state\.customer\.leadId\)/.test(src));
+}
+
+section('Wave B3: live estimates snapshot');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('onSnapshot imported',    /onSnapshot/.test(dash));
+  assert('_subscribeEstimates wired', /window\._subscribeEstimates/.test(dash));
+  assert('subscribe called on auth ready',
+    /window\._subscribeEstimates\(\)/.test(dash));
+}
+
+section('Wave B4+B5: revoke / regenerate portal link');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('revokePortalToken callable exported',
+    /exports\.revokePortalToken\s*=/.test(idx));
+  assert('revoke flips expiresAt to past',
+    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(idx));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('lead detail has Revoke & Regenerate button',
+    /Revoke &amp; Regenerate/.test(dash));
+  assert('_revokePortalLink helper defined',
+    /window\._revokePortalLink\s*=/.test(dash));
+}
+
+section('Wave B6: post-sign booking promotion');
+{
+  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  assert('portal promotes booking when signedNow',
+    /signedNow[\s\S]{0,200}border-color:var\(--green/.test(p));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE C
+// ────────────────────────────────────────────────────────────
+
+section('Wave C1: signImageUrl replaces imageProxy streaming');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('signImageUrl onRequest exported', /exports\.signImageUrl\s*=/.test(idx));
+  assert('signImageUrl issues 15-min signed URL',
+    /getSignedUrl[\s\S]{0,200}Date\.now\(\) \+ 15 \* 60_000/.test(idx));
+  assert('signImageUrl reuses tenant scoping logic',
+    /exports\.signImageUrl[\s\S]*?\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(idx));
+  const client = read(path.join(PRO_JS, 'signed-image-url.js'));
+  assert('client helper exposes window.NBDSignedUrl', /window\.NBDSignedUrl/.test(client));
+  assert('client helper caches signed URLs', /CACHE_TTL_MS/.test(client));
+}
+
+section('Wave C2: hail cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/hail-cron.js'));
+  assert('onSchedule declared', /onSchedule\(/.test(src));
+  assert('daily schedule', /schedule:\s*'every day/.test(src));
+  assert('slack summary posted when newHits > 0',
+    /newHits\.length > 0[\s\S]{0,400}postSlackSummary/.test(src));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js registers hail-cron', /require\(['"]\.\/integrations\/hail-cron['"]\)/.test(idx));
+}
+
+section('Wave C3: admin analytics');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('getAdminAnalytics exported', /exports\.getAdminAnalytics\s*=/.test(idx));
+  assert('returns signatures + measurements + portal + claude + leads',
+    /signatures:[\s\S]{0,500}measurements:[\s\S]{0,500}portal:[\s\S]{0,500}claude:[\s\S]{0,500}leads:/.test(idx));
+  const adm = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('loadAnalytics renders KPI tiles', /function loadAnalytics/.test(adm));
+}
+
+section('Wave C4: SMS rate limits');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('sms-functions.js uses Upstash-first adapter',
+    /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(src));
+  assert('sendSMS enforces per-recipient cap',
+    /sendSMS:to[\s\S]{0,200}toDigits/.test(src));
+  assert('sendD2DSMS enforces per-recipient cap',
+    /sendD2DSMS[\s\S]{0,2500}sendSMS:to/.test(src));
+}
+
+section('Wave C5: Stripe invoice auto-generation');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('createStripeInvoiceForEstimate defined',
+    /async function createStripeInvoiceForEstimate/.test(src));
+  assert('webhook calls invoice helper on signed transition',
+    /justSigned[\s\S]{0,200}createStripeInvoiceForEstimate/.test(src));
+  assert('invoice created as draft (no auto_advance)',
+    /auto_advance: false/.test(src));
+  assert('idempotent: skips when stripeInvoiceId already set',
+    /est\.stripeInvoiceId/.test(src));
+}
+
+section('Wave C6: per-lead Claude cost attribution');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('api_usage writes now include leadId', /leadId,\s*\/\/ C6/.test(idx));
+  assert('api_usage writes now include feature',
+    /feature,\s*\/\/ e\.g\. 'ask-joe'/.test(idx));
+  const cp = read(path.join(PRO_JS, 'claude-proxy.js'));
+  assert('client auto-attaches leadId from card detail / V2',
+    /window\._cardDetailLeadId/.test(cp));
+  const ix = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('index for (leadId, timestamp) on api_usage',
+    /"collectionGroup":\s*"api_usage"[\s\S]{0,400}"fieldPath":\s*"leadId"[\s\S]{0,200}"fieldPath":\s*"timestamp"[\s\S]{0,100}"order":\s*"DESCENDING"/.test(ix));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE D — ENTERPRISE-READY HARDENING
+// ────────────────────────────────────────────────────────────
+
+section('D1: mutation callables rate-limited');
+{
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('callableRateLimit helper defined',
+    /async function callableRateLimit/.test(idx));
+  for (const name of ['createPortalToken','revokePortalToken','createTeamMember','updateUserRole','deactivateUser']) {
+    assert(name + ' rate-limited',
+      new RegExp("callableRateLimit\\(request, '" + name + "'").test(idx));
+  }
+  const meas = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('requestMeasurement rate-limited',
+    /callable:requestMeasurement:uid/.test(meas));
+  const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('sendEstimateForSignature rate-limited',
+    /callable:sendEstimateForSignature:uid/.test(es));
+}
+
+section('D2: Storage rules — content-type + size guards');
+{
+  const src = read(path.join(ROOT, 'storage.rules'));
+  assert('isImage helper rejects null content-type',
+    /contentType != null[\s\S]{0,200}image\/\(jpeg\|png/.test(src));
+  assert('isDocType allowlist covers PDF + Office + text',
+    /application\/pdf/.test(src) && /openxmlformats-officedocument/.test(src));
+  assert('isHtmlOnly applied to portals path',
+    /match \/portals\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,300}isHtmlOnly\(\)/.test(src));
+  assert('delete rule requires owner or admin on photos',
+    /match \/photos\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,400}allow delete: if isOwner\(uid\) \|\| isAdmin\(\)/.test(src));
+}
+
+section('D3: leads/*/activity subcollection rules');
+{
+  const src = read(path.join(ROOT, 'firestore.rules'));
+  assert('flat-path activity subcollection rule present',
+    /match \/activity\/\{activityId\}[\s\S]{0,400}allow create: if isAuth\(\)/.test(src));
+  assert('activity writes restrict update/delete',
+    /activity[\s\S]{0,600}allow update, delete: if false/.test(src));
+}
+
+section('D4: audit_log retention cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('auditLogRetentionCron on a schedule', /exports\.auditLogRetentionCron/.test(src) && /onSchedule/.test(src));
+  assert('retention default is 7 years', /7 \* 365/.test(src));
+  assert('pages in 500-doc batches', /limit\(500\)/.test(src));
+}
+
+section('D5: nightly Firestore backup cron');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('nightlyFirestoreBackup on a schedule',
+    /exports\.nightlyFirestoreBackup/.test(src) && /every day 04:00/.test(src));
+  assert('exports to GCS bucket', /BACKUP_BUCKET/.test(src) && /:exportDocuments/.test(src));
+}
+
+section('D6: GDPR export-my-data');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('exportMyData callable defined', /exports\.exportMyData\s*=/.test(src));
+  assert('limited to 2 exports per 24h', /exportMyData:uid[\s\S]{0,100}2,\s*24 \* 3_600_000/.test(src));
+  assert('writes signed URL to docs/{uid}/', /docs\/\$\{uid\}\/gdpr-export/.test(src));
+}
+
+section('D7: GDPR two-step erasure');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('requestAccountErasure + confirmAccountErasure exported',
+    /exports\.requestAccountErasure\s*=/.test(src) && /exports\.confirmAccountErasure\s*=/.test(src));
+  assert('confirmation token hashed before storage',
+    /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/.test(src));
+  assert('cascade deletes user-owned docs',
+    /where\('userId', '==', uid\)\.limit\(500\)/.test(src));
+  assert('disables Auth account + revokes refresh tokens',
+    /updateUser\(uid, \{ disabled: true \}\)[\s\S]{0,60}revokeRefreshTokens/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('account_erasures collection locked to admin SDK',
+    /match \/account_erasures\/\{uid\}[\s\S]{0,120}allow read, write: if false/.test(rules));
+}
+
+section('D8: imageProxy deprecation signals');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('imageProxy sets Deprecation header',
+    /imageProxy[\s\S]*?res\.set\('Deprecation', 'true'\)/.test(src));
+  assert('imageProxy sets Sunset header',
+    /imageProxy[\s\S]*?res\.set\('Sunset',/.test(src));
+  assert('imageProxy logs every call',
+    /imageProxy DEPRECATED call/.test(src));
+}
+
+section('D9: new-device sign-in alert');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/device-alert.js'));
+  assert('registerDeviceFingerprint callable defined',
+    /exports\.registerDeviceFingerprint\s*=/.test(src));
+  assert('fingerprint is salted hash (uid included)',
+    /uid \+ '::' \+ String/.test(src));
+  assert('writes audit_log on new device',
+    /type: 'new_device_sign_in'/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('user_devices locked to admin SDK',
+    /match \/user_devices\/\{uid\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard invokes registerDeviceFingerprint on auth',
+    /registerDeviceFingerprint/.test(dash));
+}
+
+section('E1: Stripe dunning on payment failed');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('dunning enqueues email on payment_failed',
+    /invoice\.payment_failed[\s\S]{0,3000}email_queue/.test(src));
+  assert('dunning writes activity entry when leadId present',
+    /invoice\.payment_failed[\s\S]{0,3500}stripe_payment_failed/.test(src));
+  assert('dunning posts to Slack',
+    /invoice\.payment_failed[\s\S]{0,4000}postSlack/.test(src));
+}
+
+section('E2: CI workflow present');
+{
+  const ci = read(path.join(ROOT, '.github/workflows/ci.yml'));
+  assert('CI runs smoke tests',           /node tests\/smoke\.test\.js/.test(ci));
+  assert('CI runs firestore rules tests', /firestore-rules\.test\.js/.test(ci));
+  assert('CI does a syntax pass',         /node --check/.test(ci));
+  assert('CI secret-scans for private keys',
+    /PRIVATE KEY/.test(ci) && /sk-ant-/.test(ci) && /sk_live_/.test(ci));
+}
+
+section('E3: CODEOWNERS + PR template + Dependabot');
+{
+  assert('CODEOWNERS exists',      fs.existsSync(path.join(ROOT, '.github/CODEOWNERS')));
+  assert('PR template exists',     fs.existsSync(path.join(ROOT, '.github/pull_request_template.md')));
+  assert('Dependabot config exists', fs.existsSync(path.join(ROOT, '.github/dependabot.yml')));
+  const co = read(path.join(ROOT, '.github/CODEOWNERS'));
+  assert('CODEOWNERS covers firestore.rules + storage.rules',
+    /firestore\.rules/.test(co) && /storage\.rules/.test(co));
+  assert('CODEOWNERS covers functions/integrations/',
+    /functions\/integrations\//.test(co));
+  const pr = read(path.join(ROOT, '.github/pull_request_template.md'));
+  assert('PR template has security self-check',
+    /Security self-check/i.test(pr) && /enforceAppCheck/.test(pr));
+}
+
+section('E4: service-worker kill switch');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('SW bootstrap honors ?nosw=1',  /urlKill = params\.has\('nosw'\)/.test(dash));
+  assert('SW bootstrap checks /pro/nosw.txt', /fetch\('\/pro\/nosw\.txt'/.test(dash));
+  assert('SW kill unregisters + flushes caches',
+    /unregister\(\)[\s\S]{0,200}caches\.delete/.test(dash));
+  assert('README-killswitch.md documents the feature',
+    fs.existsSync(path.join(ROOT, 'docs/pro/README-killswitch.md')));
+}
+
+// ────────────────────────────────────────────────────────────
+//  WAVE F — FOLLOW-UP POLISH
+// ────────────────────────────────────────────────────────────
+
+section('F1: email queue worker');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/email-queue-worker.js'));
+  assert('emailQueueWorker on a schedule',
+    /exports\.emailQueueWorker[\s\S]{0,200}schedule:\s*'every 1 minutes'/.test(src));
+  assert('claims rows transactionally',
+    /runTransaction[\s\S]{0,400}status:\s*'sending'/.test(src));
+  assert('retries up to MAX_ATTEMPTS then marks failed',
+    /MAX_ATTEMPTS\s*=\s*5/.test(src) && /'failed'/.test(src));
+  const ix = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('index covers email_queue (status, createdAt)',
+    /"collectionGroup":\s*"email_queue"[\s\S]{0,300}"fieldPath":\s*"status"[\s\S]{0,200}"fieldPath":\s*"createdAt"/.test(ix));
+}
+
+section('F2: webhooks fail closed');
+{
+  const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
+  assert('esignWebhook rejects unsigned requests when secret unset',
+    /BOLDSIGN_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(es));
+  const cal = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
+  assert('calcomWebhook rejects unsigned requests when secret unset',
+    /CALCOM_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(cal));
+}
+
+section('F3: TCPA STOP/HELP + opt-out list');
+{
+  const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('STOP keyword adds to sms_opt_outs',
+    /STOP_WORDS[\s\S]{0,300}sms_opt_outs\//.test(sms));
+  assert('HELP keyword replies with compliance message',
+    /HELP_WORDS[\s\S]{0,500}Msg & data rates may apply/.test(sms));
+  assert('START keyword resumes (deletes opt-out doc)',
+    /START_WORDS[\s\S]{0,300}\.delete\(\)/.test(sms));
+  assert('sendSMS checks opt-out list before sending',
+    /sms_opt_outs\/'\s*\+ toDigits[\s\S]{0,400}replied STOP/.test(sms));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('sms_opt_outs rules deny client access',
+    /match \/sms_opt_outs\/\{phone\}[\s\S]{0,200}allow read, write: if false/.test(rules));
+}
+
+section('F4: deploy runbook checks browser keys');
+{
+  const src = read(path.join(ROOT, 'scripts/deploy-runbook.sh'));
+  assert('runbook inspects __NBD_APP_CHECK_KEY',
+    /check_browser_key "__NBD_APP_CHECK_KEY"/.test(src));
+  assert('runbook inspects __NBD_SENTRY_DSN',
+    /check_browser_key "__NBD_SENTRY_DSN"/.test(src));
+  assert('runbook inspects __NBD_TURNSTILE_SITEKEY on all public pages',
+    /check_browser_key "__NBD_TURNSTILE_SITEKEY"/.test(src));
+}
+
+section('F5: Storage rules tests');
+{
+  assert('storage-rules.test.js exists',
+    fs.existsSync(path.join(ROOT, 'tests/storage-rules.test.js')));
+  const src = read(path.join(ROOT, 'tests/storage-rules.test.js'));
+  assert('tests reject non-image uploads to photos/',
+    /assertFails\(uploadBytes[\s\S]{0,200}application\/octet-stream/.test(src));
+  assert('tests cross-owner photo reads fail',
+    /bob.*photos\/alice|assertFails.*getBytes.*photos\/alice/.test(src));
+  const pkg = read(path.join(ROOT, 'tests/package.json'));
+  assert('npm run test:storage wired', /test:storage/.test(pkg));
+  const ci = read(path.join(ROOT, '.github/workflows/ci.yml'));
+  assert('CI runs storage rules tests',
+    /storage-rules\.test\.js/.test(ci));
+}
+
+section('F6: SECURITY.md');
+{
+  assert('SECURITY.md exists',
+    fs.existsSync(path.join(ROOT, 'SECURITY.md')));
+  const src = read(path.join(ROOT, 'SECURITY.md'));
+  assert('SECURITY.md has reporting SLA', /First response/i.test(src));
+  assert('SECURITY.md documents in-scope surfaces',
+    /In scope/i.test(src) && /nobigdeal-pro/.test(src));
+  assert('SECURITY.md has key-rotation procedure',
+    /Key rotation/i.test(src) && /functions:secrets:set/.test(src));
+}
+
+section('F7: V2 Builder autosave');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('saveDraftDebounced called from render',
+    /function render\(\)[\s\S]{0,400}saveDraftDebounced\(\)/.test(src));
+  assert('collectDraft bundles state',
+    /function collectDraft\(\)[\s\S]{0,400}scope:\s*state\.scope/.test(src));
+  assert('restoreDraft merges local + remote',
+    /function restoreDraft[\s\S]{0,600}estimate_drafts/.test(src));
+  assert('clearDraft on successful save',
+    /window\._v2SavedEstimateId = savedId[\s\S]{0,200}clearDraft\(\)/.test(src));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('estimate_drafts rules: owner only',
+    /match \/estimate_drafts\/\{uid\}[\s\S]{0,200}isOwner\(uid\)/.test(rules));
+}
+
+section('F8: Voice memo transcription');
+{
+  const srv = read(path.join(FUNCTIONS, 'integrations/voice-memo.js'));
+  assert('transcribeVoiceMemo callable exported',
+    /exports\.transcribeVoiceMemo\s*=/.test(srv));
+  assert('rate-limited 20/hour/uid',
+    /callable:transcribeVoiceMemo:uid[\s\S]{0,80}20,\s*60 \* 60_000/.test(srv));
+  assert('audio size capped',
+    /MAX_AUDIO_BYTES\s*=\s*1_500_000/.test(srv));
+  assert('writes activity on the lead',
+    /type: 'voice_memo'/.test(srv));
+  const cli = read(path.join(PRO_JS, 'voice-memo.js'));
+  assert('client exposes window.NBDVoiceMemo',
+    /window\.NBDVoiceMemo\s*=/.test(cli));
+  assert('client uses MediaRecorder',
+    /new MediaRecorder/.test(cli));
+  const shared = read(path.join(FUNCTIONS, 'integrations/_shared.js'));
+  assert('DEEPGRAM_API_KEY in secrets registry',
+    /DEEPGRAM_API_KEY:\s*defineSecret\('DEEPGRAM_API_KEY'\)/.test(shared));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('Record Voice Memo button on lead detail',
+    /Record Voice Memo/.test(dash));
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('integrationStatus reports deepgram',
+    /deepgram:\s*_hasInt\('DEEPGRAM_API_KEY'\)/.test(idx));
+}
+
+section('F9: Feature flags');
+{
+  const cli = read(path.join(PRO_JS, 'feature-flags.js'));
+  assert('client exposes window.NBDFlags',
+    /window\.NBDFlags\s*=/.test(cli));
+  assert('reads _default + per-uid override',
+    /feature_flags.*_default[\s\S]{0,400}window\._user\.uid/.test(cli));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('_default readable by authed users',
+    /match \/feature_flags\/_default[\s\S]{0,200}allow read: if isAuth\(\)/.test(rules));
+  assert('platform admin is the only writer',
+    /match \/feature_flags\/_default[\s\S]{0,300}allow write: if isAdmin\(\)/.test(rules));
+}
+
+// ── V2 preview: titleMap key matches button data-arg ─────────
+section('V2 preview titleMap alignment');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('finalize button data-arg uses internal-view',
+    /data-arg="internal-view"/.test(src));
+  assert("titleMap has 'internal-view' key (not legacy 'internal')",
+    /'internal-view'\s*:/.test(src) && !/'internal'\s*:/.test(src));
+  assert('FORMAT_ALIASES maps legacy names',
+    /FORMAT_ALIASES\s*=\s*\{[^}]*internal:/.test(src));
+  assert('guards formatter exception with try/catch',
+    /formatEstimate\s*\(estimate,\s*format,\s*meta\);[\s\S]{0,200}catch/.test(src));
+}
+
+// ── Null-guard smoke: hot-spot functions use guards ──────────
+section('Null guards on hot paths');
+{
+  const crm = read(path.join(PRO_JS, 'crm.js'));
+  assert('openLeadModal checks modal existence',
+    /function openLeadModal[\s\S]{0,200}if \(!modal\) return/.test(crm));
+  assert('saveLead guards modal elements',
+    /saveLead[\s\S]{0,400}if\s*\(\s*!mErr\s*\|\|\s*!mOk/.test(crm));
+
+  const maps = read(path.join(PRO_JS, 'maps.js'));
+  assert('openPinConfirm guards dot/lbl/coord/notes',
+    /function openPinConfirm[\s\S]{0,400}if\s*\(\s*dot\s*\)/.test(maps));
+  assert('recalcGutters guards total+ds',
+    /function recalcGutters[\s\S]{0,300}if\s*\(\s*totalEl\s*\)/.test(maps));
+
+  const est = read(path.join(PRO_JS, 'estimates.js'));
+  assert('startNewEstimateOriginal bails on missing builder',
+    /startNewEstimateOriginal[\s\S]{0,400}if\s*\(!builder\)/.test(est));
+  assert('buildReview guards reviewEl',
+    /function buildReview[\s\S]{0,2000}if\s*\(\s*!reviewEl\s*\)/.test(est));
+}
+
+// ── Summary ─────────────────────────────────────────────────
+console.log('\n' + '─'.repeat(50));
+console.log(`${passed} passed, ${failed} failed`);
+if (failed > 0) {
+  console.log('\nFailures:');
+  for (const f of failures) console.log('  - ' + f);
+  process.exit(1);
+}
+process.exit(0);

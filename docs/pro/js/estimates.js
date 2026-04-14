@@ -94,45 +94,54 @@ function startNewEstimate() {
 }
 
 function startNewEstimateOriginal() {
-  document.getElementById('est-list').style.display='none';
-  document.getElementById('est-builder').style.display='flex';
-  document.getElementById('est-builder').style.flexDirection='column';
+  const list    = document.getElementById('est-list');
+  const builder = document.getElementById('est-builder');
+  if (!builder) { console.warn('Estimate builder not in DOM'); return; }
+  if (list)    list.style.display='none';
+  builder.style.display='flex';
+  builder.style.flexDirection='column';
   estCurrentStep=0; selectedTier=null; estData={};
   window._estLinkedLeadId = null;
   window._editingEstimateId = null;
   const titleEl = document.getElementById('estBuilderTitle');
   if (titleEl) titleEl.textContent = 'New Estimate';
   showEstStep(1);
-  document.getElementById('drawImportNote').style.display='none';
+  const note = document.getElementById('drawImportNote');
+  if (note) note.style.display='none';
   ['estAddr','estOwner','estParcel','estYear','estRawSqft','estRidge','estEave','estHip'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('estPipes').value='4';
+  const pipes = document.getElementById('estPipes');
+  if (pipes) pipes.value='4';
   updateEstCalc();
 }
 
 function cancelEstimate() {
-  document.getElementById('est-list').style.display='block';
-  document.getElementById('est-builder').style.display='none';
+  const list    = document.getElementById('est-list');
+  const builder = document.getElementById('est-builder');
+  if (list)    list.style.display='block';
+  if (builder) builder.style.display='none';
   window._editingEstimateId = null;
 }
 
 function showEstStep(n) {
   [1,2,3,4].forEach(i=>{
-    document.getElementById('estStep'+i).style.display=i===n?'block':'none';
+    const step = document.getElementById('estStep'+i);
+    if (step) step.style.display=i===n?'block':'none';
     const sEl=document.getElementById('estS'+i);
-    sEl.className='est-step'+(i<n?' done':i===n?' active':'');
+    if (sEl) sEl.className='est-step'+(i<n?' done':i===n?' active':'');
   });
   estCurrentStep=n;
 }
 
 function estNext(from) {
   if(from===1){
-    const rawVal = parseFloat(document.getElementById('estRawSqft').value);
+    const rawEl = document.getElementById('estRawSqft');
+    const rawVal = rawEl ? parseFloat(rawEl.value) : NaN;
     if(!rawVal || rawVal <= 0 || isNaN(rawVal)){showToast('Enter a valid square footage (greater than 0)','error');return;}
     if(rawVal > 100000){showToast('Square footage seems too high — please double-check','error');return;}
     updateEstCalc(); showEstStep(2);
   } else if(from===2){
-    const ridge=parseFloat(document.getElementById('estRidge').value)||0;
-    const eave=parseFloat(document.getElementById('estEave').value)||0;
+    const ridge=parseFloat(document.getElementById('estRidge')?.value)||0;
+    const eave=parseFloat(document.getElementById('estEave')?.value)||0;
     if(ridge < 0 || eave < 0){showToast('Measurements cannot be negative','error');return;}
     updateEstCalc(); calcTierPrices(); showEstStep(3);
   } else if(from===3){
@@ -161,10 +170,10 @@ function calcTierPrices() {
   syncRatesFromProductLibrary(selectedTier || 'better');
   updateEstCalc();
   const sq=estData.sq||0;
-  const ridge=Math.max(0, parseFloat(document.getElementById('estRidge').value)||0);
-  const eave=Math.max(0, parseFloat(document.getElementById('estEave').value)||0);
-  const hip=Math.max(0, parseFloat(document.getElementById('estHip').value)||0);
-  const pipes=Math.max(0, parseInt(document.getElementById('estPipes').value)||0);
+  const ridge=Math.max(0, parseFloat(document.getElementById('estRidge')?.value)||0);
+  const eave=Math.max(0, parseFloat(document.getElementById('estEave')?.value)||0);
+  const hip=Math.max(0, parseFloat(document.getElementById('estHip')?.value)||0);
+  const pipes=Math.max(0, parseInt(document.getElementById('estPipes')?.value)||0);
   const deckSq=sq*R.deckPct;
 
   const good = sq*R.shingle + sq*R.felt + sq*R.tear + eave*R.starter + eave*R.drip + ridge*R.ridge;
@@ -175,17 +184,21 @@ function calcTierPrices() {
   estData.deckSq=deckSq;
   estData.prices={good,better,best};
 
-  document.getElementById('price-good').textContent='$'+good.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById('price-better').textContent='$'+better.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById('price-best').textContent='$'+best.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const setPrice = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '$'+val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  };
+  setPrice('price-good', good);
+  setPrice('price-better', better);
+  setPrice('price-best', best);
 }
 
 function selectTier(tier,el) {
   document.querySelectorAll('.tier-card').forEach(c=>c.classList.remove('selected'));
-  el.classList.add('selected');
+  if (el && el.classList) el.classList.add('selected');
   selectedTier=tier;
   const btn=document.getElementById('estStep3Next');
-  btn.disabled=false; btn.style.opacity='1';
+  if (btn) { btn.disabled=false; btn.style.opacity='1'; }
 }
 
 function getProductName(mapKey, fallback) {
@@ -223,11 +236,12 @@ function getLineItems() {
 function buildReview() {
   updateEstCalc();
   const d=estData;
-  const addr=document.getElementById('estAddr').value||'—';
-  const owner=document.getElementById('estOwner').value||'—';
-  const parcel=document.getElementById('estParcel').value||'—';
-  const yr=document.getElementById('estYear').value||'—';
-  const roofType=document.getElementById('estRoofType').value||'—';
+  const val = (id) => document.getElementById(id)?.value || '—';
+  const addr=val('estAddr');
+  const owner=val('estOwner');
+  const parcel=val('estParcel');
+  const yr=val('estYear');
+  const roofType=val('estRoofType');
   const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
   const rows=getLineItems();
   const grandTotal=rows.reduce((s,r)=>s+r.total,0);
@@ -247,7 +261,9 @@ function buildReview() {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-  document.getElementById('estReviewBody').innerHTML=`
+  const reviewEl = document.getElementById('estReviewBody');
+  if (!reviewEl) return;
+  reviewEl.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
       <div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Property</div>
