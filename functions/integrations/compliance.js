@@ -283,19 +283,125 @@ exports.requestAccountErasure = onCall(
   }
 );
 
+// F-01: GET no longer triggers deletion.
+//
+// The previous implementation accepted GET with (uid, token) in the query
+// string and ran the full cascade-delete. Enterprise mail scanners
+// (Microsoft Defender SafeLinks, Gmail image proxy, Slack unfurler,
+// Mimecast / Proofpoint URL Defense, corporate AV gateways) pre-fetch
+// every link in inbound email to check for phishing — which silently
+// fired erasure against legit users the moment the confirmation email
+// arrived. No recovery path.
+//
+// New flow:
+//   GET  → renders a static HTML confirmation page. Zero state change.
+//          Scanners can pre-fetch all they want.
+//   POST → verifies token, runs cascade delete. Per-IP + per-uid rate
+//          limited; token lives only in request body, not URL.
+//
+// The email link still contains (uid, token) in the URL because the
+// landing page needs them to render the confirm button. The token
+// being in logs is accepted — exploitation still requires the human
+// POST that only a real click can produce.
 exports.confirmAccountErasure = onRequest(
   {
     region: 'us-central1',
-    cors: true,
+    cors: CORS_ORIGINS,
     timeoutSeconds: 540,
     memory: '512MiB'
   },
   async (req, res) => {
-    if (req.method !== 'POST' && req.method !== 'GET') { res.status(405).end(); return; }
-    const uid = (req.method === 'GET' ? req.query.uid : (req.body && req.body.uid)) || '';
-    const token = (req.method === 'GET' ? req.query.token : (req.body && req.body.token)) || '';
+    // Block indexing of the landing page in all paths.
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+
+    if (req.method === 'GET') {
+      // Show confirmation page. NO state change — safe for scanner pre-fetch.
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      // CSP hardens the inline script we ship below.
+      res.setHeader('Content-Security-Policy',
+        "default-src 'self'; base-uri 'none'; object-src 'none'; " +
+        "frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; connect-src 'self';");
+      // Light sanity check — we do NOT validate the token itself on GET.
+      const uidQ   = String(req.query.uid   || '');
+      const tokenQ = String(req.query.token || '');
+      const safeUid   = uidQ.slice(0, 128).replace(/[^A-Za-z0-9:_-]/g, '');
+      const safeToken = tokenQ.slice(0, 256).replace(/[^A-Za-z0-9_-]/g, '');
+      res.status(200).send(
+        '<!doctype html><html lang="en"><head>' +
+        '<meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<meta name="robots" content="noindex,nofollow">' +
+        '<title>Confirm account deletion — NBD Pro</title>' +
+        '<style>' +
+        'body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 20px;color:#e8eaf0;background:#0d1117;}' +
+        'h1{color:#ff4e4e;margin-bottom:8px}' +
+        'p{line-height:1.5;color:#cfd3dc}' +
+        'button{background:#ff4e4e;color:#fff;border:0;padding:14px 22px;font-size:16px;border-radius:6px;cursor:pointer;font-weight:600}' +
+        'button:disabled{background:#555;cursor:wait}' +
+        '.cancel{display:inline-block;margin-left:12px;color:#9aa3b2;text-decoration:none}' +
+        '#status{margin-top:20px;padding:12px;border-radius:6px;display:none}' +
+        '.ok{background:rgba(46,204,138,.15);color:#2ecc8a;display:block!important}' +
+        '.err{background:rgba(255,78,78,.15);color:#ff6b6b;display:block!important}' +
+        '</style></head><body>' +
+        '<h1>Permanently delete your NBD Pro account?</h1>' +
+        '<p>This removes all your leads, estimates, photos, pins, tasks, documents, training sessions, profile, and subscription record. ' +
+        'Your Auth account is disabled. This cannot be undone.</p>' +
+        '<p>If you did not request this, simply close this tab — nothing will happen.</p>' +
+        '<form id="f"><button id="b" type="submit">Yes, delete my account</button>' +
+        '<a class="cancel" href="/pro/dashboard.html">Cancel</a></form>' +
+        '<div id="status"></div>' +
+        '<script>(function(){' +
+        'var uid=' + JSON.stringify(safeUid) + ';' +
+        'var token=' + JSON.stringify(safeToken) + ';' +
+        'var f=document.getElementById("f");var b=document.getElementById("b");var s=document.getElementById("status");' +
+        'f.addEventListener("submit",function(ev){ev.preventDefault();b.disabled=true;b.textContent="Deleting...";' +
+        'fetch(window.location.pathname,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,token:token})})' +
+        '.then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d}});})' +
+        '.then(function(x){if(x.ok){s.className="ok";s.textContent="Account deleted. You can close this tab.";f.style.display="none";}' +
+        'else{s.className="err";s.textContent=(x.d&&x.d.error)||"Deletion failed.";b.disabled=false;b.textContent="Yes, delete my account";}})' +
+        '.catch(function(){s.className="err";s.textContent="Network error.";b.disabled=false;b.textContent="Yes, delete my account";});' +
+        '});' +
+        '})();</script></body></html>'
+      );
+      return;
+    }
+
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+
+    // Per-IP rate limit — soft (XFF is spoofable in Cloud Run, see
+    // rate-limit.js:37). Defence in depth. Per-uid check below is the
+    // real gate.
+    const rl = require('./upstash-ratelimit');
+    try {
+      if (!(await rl.httpRateLimit(req, res, 'confirmErasure:ip', 10, 3_600_000))) return;
+    } catch (e) {
+      logger.error('confirmAccountErasure rate-limit error', { err: e.message });
+      res.status(500).json({ error: 'Rate limiter error' });
+      return;
+    }
+
+    const uid   = (req.body && req.body.uid)   || '';
+    const token = (req.body && req.body.token) || '';
     if (typeof uid !== 'string' || typeof token !== 'string' || !uid || token.length < 32) {
       res.status(400).json({ error: 'Invalid request' }); return;
+    }
+
+    // Per-uid rate limit — a single target can't be pounded even if the
+    // attacker rotates IPs. 5 attempts / hour / uid is well above human
+    // need (normally a single click) and below any reasonable brute.
+    try {
+      await rl.enforceRateLimit('confirmErasure:uid', uid, 5, 3_600_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        res.status(429).json({ error: 'Too many attempts for this account.' });
+        return;
+      }
+      logger.error('confirmAccountErasure per-uid rl error', { err: e.message });
+      res.status(500).json({ error: 'Rate limiter error' });
+      return;
     }
 
     const db = admin.firestore();
@@ -354,12 +460,10 @@ exports.confirmAccountErasure = onRequest(
       ts: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    res.status(200).send(
-      '<!doctype html><html><body style="font-family:system-ui;max-width:640px;margin:40px auto;padding:0 20px;color:#e8eaf0;background:#0d1117;">' +
-      '<h1 style="color:#2ecc8a;">Account deletion complete</h1>' +
-      '<p>Your NBD Pro account and all associated data has been removed. You can close this window.</p>' +
-      '</body></html>'
-    );
+    // POST response: JSON. The GET landing page's inline JS uses this
+    // to flip the UI into the success state. A direct POST from curl
+    // gets a machine-readable acknowledgement.
+    res.status(200).json({ success: true });
   }
 );
 
