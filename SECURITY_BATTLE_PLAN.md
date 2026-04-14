@@ -1,6 +1,12 @@
 # NBD Pro — Security Battle Plan
 
-**Status:** execution in progress on branch `claude/security-audit-stress-test-EuTga`
+**Status:** Waves 0–7 shipped. Second audit sweep (2026-04-14)
+landed F-01..F-10 + Q1/Q4/Q5/Q6 + M2/M3/M4 + Q2/Q3 on branch
+`claude/security-infrastructure-review-5GRpD` — see
+[SECURITY_SWEEP_2026-04-14.md](SECURITY_SWEEP_2026-04-14.md) for
+the delta summary. This file is retained as the original Wave
+0–7 plan; new findings are tracked in the sweep doc.
+
 **Scope:** P0 + P1 + P2 from the 2026-04-10 audit, across three projects
  - `nobigdeal-pro` (the `/pro` SaaS app + Cloud Functions)
  - `nobigdealwithjoedeal` (the marketing site in `docs/sites/`, `docs/index.html`)

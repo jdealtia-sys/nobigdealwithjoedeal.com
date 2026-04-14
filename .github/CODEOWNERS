@@ -6,23 +6,56 @@
 # Owners are GitHub handles (or @team mentions).
 
 # ─── Security-sensitive surfaces ─────────────────────────────
-/firestore.rules                @jdealtia-sys
-/firestore.indexes.json         @jdealtia-sys
-/storage.rules                  @jdealtia-sys
-/firebase.json                  @jdealtia-sys
-/functions/index.js             @jdealtia-sys
-/functions/integrations/        @jdealtia-sys
-/functions/audit-triggers.js    @jdealtia-sys
-/functions/rate-limit.js        @jdealtia-sys
-/scripts/deploy-runbook.sh      @jdealtia-sys
-/scripts/seed-access-codes.js   @jdealtia-sys
-/scripts/grant-admin-claim.js   @jdealtia-sys
-/.github/workflows/             @jdealtia-sys
-/.github/CODEOWNERS             @jdealtia-sys
+/firestore.rules                        @jdealtia-sys
+/firestore.indexes.json                 @jdealtia-sys
+/storage.rules                          @jdealtia-sys
+/firebase.json                          @jdealtia-sys
+/marketing-site-firestore.rules         @jdealtia-sys
+/functions/index.js                     @jdealtia-sys
+/functions/integrations/                @jdealtia-sys
+/functions/audit-triggers.js            @jdealtia-sys
+/functions/audit-log.js                 @jdealtia-sys
+/functions/rate-limit.js                @jdealtia-sys
+/functions/sms-functions.js             @jdealtia-sys
+/functions/email-functions.js           @jdealtia-sys
+/functions/push-functions.js            @jdealtia-sys
+/functions/package.json                 @jdealtia-sys
+/functions/package-lock.json            @jdealtia-sys
+/functions/NPM_AUDIT_ACCEPTED.md        @jdealtia-sys
 
-# ─── Auth gating + claims ────────────────────────────────────
-/docs/pro/js/nbd-auth.js        @jdealtia-sys
-/docs/pro/js/admin-manager.js   @jdealtia-sys
+# ─── Deploy / CI / secret-scan config ────────────────────────
+/.github/workflows/                     @jdealtia-sys
+/.github/CODEOWNERS                     @jdealtia-sys
+/.gitleaks.toml                         @jdealtia-sys
+/scripts/deploy-runbook.sh              @jdealtia-sys
+/scripts/seed-access-codes.js           @jdealtia-sys
+/scripts/grant-admin-claim.js           @jdealtia-sys
+/scripts/delete-compromised-users.js    @jdealtia-sys
+/scripts/rotate-secrets.sh              @jdealtia-sys
+/scripts/verify-deploy.sh               @jdealtia-sys
+/scripts/verify-backup.sh               @jdealtia-sys
+/scripts/bootstrap.sh                   @jdealtia-sys
+
+# ─── Monitoring / alerts ─────────────────────────────────────
+/monitoring/                            @jdealtia-sys
+
+# ─── Auth gating + claims (client side) ──────────────────────
+/docs/pro/js/nbd-auth.js                @jdealtia-sys
+/docs/pro/js/admin-manager.js           @jdealtia-sys
+/docs/admin/                            @jdealtia-sys
+/docs/admin/js/                         @jdealtia-sys
+/docs/admin/js/pages/login.js           @jdealtia-sys
+/docs/admin/js/pages/mfa-enroll.js      @jdealtia-sys
+/docs/pro/login.html                    @jdealtia-sys
+/docs/pro/register.html                 @jdealtia-sys
 
 # ─── Compliance / privacy ────────────────────────────────────
-/docs/privacy.html              @jdealtia-sys
+/docs/privacy.html                      @jdealtia-sys
+/SECURITY.md                            @jdealtia-sys
+/SECRET_ROTATION.md                     @jdealtia-sys
+/SECURITY_BATTLE_PLAN.md                @jdealtia-sys
+
+# ─── Tests covering security-critical paths ──────────────────
+/tests/firestore-rules.test.js          @jdealtia-sys
+/tests/storage-rules.test.js            @jdealtia-sys
+/tests/rate-limit.test.js               @jdealtia-sys
