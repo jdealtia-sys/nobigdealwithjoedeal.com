@@ -2183,11 +2183,8 @@ exports.backfillAnalytics = onCall(
     // expensive (hits Google Geocoding + writes to Firestore), so
     // we don't want someone spamming the button.
     try {
-      await enforceRateLimit({
-        key: 'backfill:' + uid,
-        windowSec: 600,
-        maxCalls: 1
-      });
+      // enforceRateLimit(namespace, keyRaw, limit, windowMs)
+      await enforceRateLimit('backfill:uid', uid, 1, 600_000);
     } catch (e) {
       throw new HttpsError('resource-exhausted', 'Please wait 10 minutes between backfill runs.');
     }
@@ -3356,6 +3353,7 @@ exports.registerDeviceFingerprint = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Sign in required');
     }
+    await callableRateLimit(request, 'registerDeviceFingerprint', 20, 60_000);
     const uid = request.auth.uid;
     const fingerprint = String(request.data.fingerprint || '').slice(0, 500);
     const userAgent   = String(request.data.userAgent   || '').slice(0, 400);
@@ -3440,7 +3438,7 @@ exports.cspReport = onRequest(
       // Per-IP rate limit — 60/min/IP. Normal reporting is well below
       // this; a page stuck in a CSP loop could exceed. Soft fail OK.
       try {
-        await httpRateLimit(req, res, 'cspReport:ip', 60, 60_000);
+        await httpRateLimit(req, res, 'cspReport:ip', 20, 60_000);
       } catch (_) { /* ignore rate-limit errors; log pipeline */ }
 
       const body = req.body || {};

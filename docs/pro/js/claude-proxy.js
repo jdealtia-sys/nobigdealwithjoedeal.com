@@ -13,7 +13,9 @@
  *   // result = { content: [...], usage: {...} }
  */
 
-const CLOUD_FUNCTION_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy';
+// Use the Firebase Hosting rewrite (/api/ai → claudeProxy Cloud Function)
+// so the URL is project-agnostic and immune to region/project ID changes.
+const CLOUD_FUNCTION_URL = '/api/ai';
 const LOCAL_KEY_STORE = 'nbd_joe_key';
 
 // Track whether Cloud Function is available (avoids repeated timeout on every call)

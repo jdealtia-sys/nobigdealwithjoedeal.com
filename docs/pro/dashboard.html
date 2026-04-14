@@ -7525,6 +7525,96 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
+  <!-- ══ ONBOARDING MODAL ══ -->
+  <!-- Shown on first login when userData.onboarded is falsy.
+       3-step wizard: (1) profile  (2) first lead  (3) done.
+       JS logic lives in dashboard.html ~line 13365. -->
+  <div id="onboardingModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:9500;background:rgba(0,0,0,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--s);border:1px solid var(--br);border-radius:16px;width:100%;max-width:420px;padding:32px 28px;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+      <!-- Logo / header -->
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--orange);">NO BIG DEAL</div>
+        <div style="font-size:12px;color:var(--m);margin-top:2px;">Let's get your account set up</div>
+      </div>
+      <!-- Step dots -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;">
+        <div id="onbDot1" style="width:10px;height:10px;border-radius:50%;background:var(--orange);transition:background .2s;"></div>
+        <div style="width:32px;height:2px;background:var(--br);border-radius:1px;"></div>
+        <div id="onbDot2" style="width:10px;height:10px;border-radius:50%;background:var(--br);transition:background .2s;"></div>
+        <div style="width:32px;height:2px;background:var(--br);border-radius:1px;"></div>
+        <div id="onbDot3" style="width:10px;height:10px;border-radius:50%;background:var(--br);transition:background .2s;"></div>
+      </div>
+
+      <!-- ── Step 1: Profile ── -->
+      <div id="onbStep1">
+        <div id="onbGreeting" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);margin-bottom:18px;text-align:center;">Hey, let's get you set up.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Your Name</div>
+            <input id="onbName" type="text" placeholder="First Last" autocomplete="name" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Company Name</div>
+            <input id="onbCompany" type="text" placeholder="Your Roofing Co." autocomplete="organization" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Phone</div>
+              <input id="onbPhone" type="tel" placeholder="(555) 555-5555" autocomplete="tel" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Your Role</div>
+              <select id="onbRole" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;cursor:pointer;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+                <option value="owner">Owner</option>
+                <option value="manager">Manager</option>
+                <option value="rep">Sales Rep</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button onclick="onbNext(1)" style="width:100%;margin-top:20px;background:var(--orange);border:none;border-radius:8px;padding:13px 20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='var(--ob)'" onmouseout="this.style.background='var(--orange)'">Next →</button>
+      </div>
+
+      <!-- ── Step 2: First Lead ── -->
+      <div id="onbStep2" style="display:none;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);margin-bottom:6px;text-align:center;">Add Your First Lead</div>
+        <div style="font-size:12px;color:var(--m);text-align:center;margin-bottom:18px;">Optional — you can skip and add leads later</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Property Address</div>
+            <div class="ac-wrap">
+              <input id="onbAddr" type="text" placeholder="123 Main St, City, OH" autocomplete="off" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+              <div class="ac-drop" id="ac-onbAddr" style="display:none;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Damage Type</div>
+            <select id="onbDamage" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:14px;box-sizing:border-box;outline:none;cursor:pointer;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--br)'">
+              <option value="Hail">Hail</option>
+              <option value="Wind">Wind</option>
+              <option value="Storm">Storm</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:20px;">
+          <button onclick="onbSkipLead()" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)'">Skip</button>
+          <button onclick="onbSaveLead()" style="flex:2;background:var(--orange);border:none;border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='var(--ob)'" onmouseout="this.style.background='var(--orange)'">Add Lead →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Done ── -->
+      <div id="onbStep3" style="display:none;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🎉</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--t);margin-bottom:6px;">You're all set!</div>
+        <div style="font-size:13px;color:var(--m);margin-bottom:24px;line-height:1.5;">Your account is ready. Head to your dashboard to start closing deals.</div>
+        <button onclick="onbFinish()" style="width:100%;background:var(--orange);border:none;border-radius:8px;padding:13px 20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='var(--ob)'" onmouseout="this.style.background='var(--orange)'">Go to Dashboard →</button>
+      </div>
+    </div>
+  </div>
+  <!-- ══ END ONBOARDING MODAL ══ -->
+
   <!-- DELETE CONFIRM DIALOG -->
   <div class="del-confirm-overlay" id="delConfirmOverlay">
     <div class="del-confirm-box">
@@ -14430,11 +14520,9 @@ window.nbdDiag = function() {
   return r;
 };
 
-// ── Onboarding flow: dead (DOM does not exist). See audit C2. ──
-// checkAndShowOnboarding() references #onboardingModal and ~10 other IDs
-// that are not defined in dashboard.html. The function is stubbed to
-// no-op until the onboarding modal is built.
-window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
+// checkAndShowOnboarding() is defined at ~line 13365 and exported to
+// window.checkAndShowOnboarding at ~line 13481. The onboarding modal HTML
+// lives at the top of the modal stack (~line 7528). No stub needed.
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=1"></script>

@@ -305,7 +305,7 @@ Return best estimates with "dataSource": "estimated" if some fields are unavaila
       throw new Error('Not authenticated. Log in to use Property Intel.');
     }
 
-    const proxyResp = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/claudeProxy', {
+    const proxyResp = await fetch('/api/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
