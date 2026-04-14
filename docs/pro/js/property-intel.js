@@ -135,6 +135,55 @@ function estimateProjectValue(sqft, tier = 'better') {
 // MAIN INTEL FETCH — uses Cloud Function proxy
 // ──────────────────────────────────────────────────────────────
 
+// Map a Regrid parcel record into the shape renderIntelCard expects.
+// Regrid's fields are authoritative for owner/APN/acreage/sale data;
+// roofAge + roofMaterial aren't in Regrid, so we derive what we can.
+function _regridToIntel(p, auditorUrl, countyClean) {
+  const yearBuilt = Number(p.yearBuilt) || null;
+  const currentYear = new Date().getFullYear();
+  // Best-effort roof age. Lacking maintenance records, assume roof
+  // was last replaced 25 years after build, capped at "build year"
+  // for homes newer than that. UI badges flag this as estimated.
+  const roofAge = yearBuilt
+    ? (currentYear - yearBuilt) > 25
+      ? Math.min(currentYear - yearBuilt - 25, 30) // est since last replace
+      : (currentYear - yearBuilt)                   // original roof
+    : null;
+
+  // Parse sale price/value strings — Regrid returns them as strings.
+  const numOrNull = (v) => {
+    if (v == null) return null;
+    const n = Number(String(v).replace(/[,$\s]/g, ''));
+    return isFinite(n) ? n : null;
+  };
+
+  return {
+    ownerName:      p.owner || 'Unknown',
+    isLLC:          /LLC|INC|TRUST|CORP|LP\b/i.test(p.owner || ''),
+    yearBuilt:      yearBuilt,
+    roofAge:        roofAge,
+    roofMaterial:   'asphalt shingles', // default — Regrid doesn't know
+    lastSaleDate:   p.lastSaleDate || null,
+    lastSaleAmount: numOrNull(p.lastSalePrice),
+    marketValue:    null,
+    assessedValue:  numOrNull(p.assessedValue),
+    propertyType:   null,
+    bedrooms:       null,
+    sqft:           numOrNull(p.sqft),
+    acreage:        numOrNull(p.acres),
+    homestead:      null,
+    ownerOccupied:  null,
+    taxDistrict:    p.schoolDist || null,
+    parcelId:       p.parcelNumber || null,
+    auditorUrl:     auditorUrl,
+    county:         p.county || countyClean,
+    city:           p.city || null,
+    zip:            p.zip || null,
+    stateAbbr:      p.stateAbbr || null,
+    zoning:         p.zoning || null
+  };
+}
+
 async function fetchPropertyIntel(nominatimData, targetElId) {
   const targetEl = document.getElementById(targetElId);
 
@@ -160,7 +209,9 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
     return;
   }
 
-  // Build the auditor URL based on county
+  // Build the auditor URL based on county (moved above the Regrid
+  // fast-path so _regridToIntel() can carry it through for the
+  // "View on auditor site" link in the card).
   let auditorUrl = '';
   let searchUrl  = '';
 
@@ -178,6 +229,30 @@ async function fetchPropertyIntel(nominatimData, targetElId) {
     auditorUrl = `https://propertysearch.bcohio.gov/search/commonsearch.aspx?mode=address`;
   } else {
     auditorUrl = `https://www.hamiltoncountyauditor.org/`;
+  }
+
+  // Fast path: Regrid via NBDIntegrations.lookupParcel.
+  // Structured, cheap, no LLM hallucinations. Fall through to the
+  // Claude scrape path only when Regrid isn't configured or returns
+  // a miss. Result shape is mapped to our standard `intel` object so
+  // renderIntelCard doesn't know the difference.
+  if (window.NBDIntegrations && typeof window.NBDIntegrations.lookupParcel === 'function') {
+    try {
+      const status = window._integrationStatus
+        || (window.NBDIntegrations.status && await window.NBDIntegrations.status());
+      if (status && status.configured && status.configured.regrid) {
+        const res = await window.NBDIntegrations.lookupParcel(fullAddr);
+        if (res && res.ok && res.parcel) {
+          const intel = _regridToIntel(res.parcel, auditorUrl, countyClean);
+          intel.dataSource = res.cached ? 'Regrid (cached)' : 'Regrid';
+          _piCache[cacheKey] = intel;
+          renderIntelCard(targetElId, intel, countyClean, fullAddr);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[property-intel] Regrid path failed, falling through:', e && e.message);
+    }
   }
 
   try {

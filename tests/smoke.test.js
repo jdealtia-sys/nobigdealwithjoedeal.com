@@ -398,6 +398,68 @@ section('Unified client + status endpoint');
   assert('integrationStatus callable exported', /exports\.integrationStatus\s*=/.test(idx));
 }
 
+// ────────────────────────────────────────────────────────────
+//  UI wire-ins
+// ────────────────────────────────────────────────────────────
+
+section('UI-A: HOVER Auto-measure in V2 Builder');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Auto-measure button present', /data-action="auto-measure"/.test(src));
+  assert('auto-measure case dispatches autoMeasure()',
+    /case 'auto-measure':[\s\S]{0,80}autoMeasure\(\)/.test(src));
+  assert('autoMeasure polls measurements/{jobId}',
+    /measurements',\s*jobId/.test(src) && /status === 'ready'/.test(src));
+  assert('applyMeasurementResult normalizes provider fields',
+    /function applyMeasurementResult/.test(src));
+}
+
+section('UI-B: BoldSign send-for-signature + badges');
+{
+  const src = read(path.join(PRO_JS, 'estimate-v2-ui.js'));
+  assert('Send-for-signature button present', /data-action="send-for-signature"/.test(src));
+  assert('sendForSignature() wired', /async function sendForSignature\(/.test(src));
+  assert('stores saved estimate id on window for signature flow',
+    /window\._v2SavedEstimateId\s*=\s*savedId/.test(src));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('signature badge rendered on estimate cards',
+    /signatureStatus === 'signed'/.test(dash) && /SIGNED/.test(dash));
+  assert('sigTag injected into est-card-chips',
+    /leadTag \+ builderTag \+ sigTag/.test(dash));
+}
+
+section('UI-C: Regrid wire-in to property-intel');
+{
+  const src = read(path.join(PRO_JS, 'property-intel.js'));
+  assert('_regridToIntel mapper defined', /function _regridToIntel/.test(src));
+  assert('fetchPropertyIntel tries NBDIntegrations.lookupParcel',
+    /NBDIntegrations\.lookupParcel/.test(src));
+  assert('Regrid path short-circuits on hit',
+    /renderIntelCard\(targetElId, intel, countyClean, fullAddr\);\s*return;/.test(src));
+}
+
+section('UI-D: Hail overlay on D2D + Pipeline badge');
+{
+  const src = read(path.join(PRO_JS, 'd2d-tracker.js'));
+  assert('D2D exposes showHail', /showHail:\s*async/.test(src));
+  assert('D2D exposes hideHail', /hideHail:\s*\(\)\s*=>/.test(src));
+  assert('Hail button rendered in map controls',
+    /onclick="window\._d2dHailLayer/.test(src));
+  const crm = read(path.join(PRO_JS, 'crm.js'));
+  assert('Kanban card renders hail badge when hailHit.sizeInches present',
+    /l\.hailHit && l\.hailHit\.sizeInches/.test(crm));
+}
+
+section('UI-E: Cal.com in Settings');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('settingsCalcom input present', /id="settingsCalcom"/.test(dash));
+  assert('settingsCalcomPreview anchor present',
+    /id="settingsCalcomPreview"/.test(dash));
+  assert('_saveSettings persists calcomUsername',
+    /calcomUsername/.test(dash) && /setDoc[\s\S]{0,200}users[\s\S]{0,200}calcomUsername/.test(dash));
+}
+
 // ── V2 preview: titleMap key matches button data-arg ─────────
 section('V2 preview titleMap alignment');
 {

@@ -376,6 +376,20 @@
           </div>
 
           <div class="v2-section">Measurements</div>
+
+          <!-- Auto-measure: hits HOVER/EagleView/Nearmap via the
+               NBDIntegrations client. Button is greyed-out if the
+               provider isn't configured server-side. -->
+          <div class="v2-field" style="display:flex;gap:6px;align-items:stretch;">
+            <input type="text" id="v2measureAddr" placeholder="Property address for auto-measure"
+                   style="flex:1;background:#181c22;color:#e8eaf0;border:1px solid #2a2f35;padding:10px 12px;border-radius:4px;font-size:13px;font-family:inherit;"/>
+            <button type="button" id="v2measureBtn" data-action="auto-measure"
+                    style="background:#e8720c;border:none;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;min-height:44px;white-space:nowrap;">
+              📐 Auto-measure
+            </button>
+          </div>
+          <div id="v2measureStatus" style="font-size:11px;color:#8b8e96;min-height:14px;margin-top:-6px;"></div>
+
           <div class="v2-field">
             <label>Raw Roof Area (SF)</label>
             <input type="number" id="v2rawSqft" placeholder="3900" data-field="rawSqft">
@@ -489,6 +503,13 @@
             💾 Save Estimate to Customer
           </button>
           <div id="v2saveStatus" style="font-size:10px;color:#888;margin-top:6px;text-align:center;"></div>
+
+          <div class="v2-section">E-Signature</div>
+          <button id="v2signBtn" type="button" data-action="send-for-signature"
+            style="width:100%;background:#181c22;border:1px solid #e8720c;color:#e8720c;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            ✍️ Send for Signature
+          </button>
+          <div id="v2signStatus" style="font-size:10px;color:#888;text-align:center;"></div>
         </div>
       </div>
     `;
@@ -574,6 +595,12 @@
           break;
         case 'save':
           save();
+          break;
+        case 'auto-measure':
+          autoMeasure();
+          break;
+        case 'send-for-signature':
+          sendForSignature();
           break;
         case 'set-category':
           setCategory(arg || 'all');
@@ -722,6 +749,112 @@
   // preset carries its own measurement defaults so the user actually
   // sees the new rawSqft / eaveLf / etc. numbers reflected in the
   // left pane, not just in the total.
+  // ═════════════════════════════════════════════════════════
+  // AUTO-MEASURE — HOVER / EagleView / Nearmap via NBDIntegrations
+  //
+  // 1. POST the address to the measurement adapter → returns a jobId.
+  // 2. Poll Firestore measurements/{jobId} every 4s for up to 10 min.
+  // 3. When status flips to 'ready', spread the returned fields into
+  //    state.measurements and re-render.
+  //
+  // If the provider isn't configured (no secret), NBDIntegrations
+  // surfaces a toast — we still update the status line for clarity.
+  // ═════════════════════════════════════════════════════════
+  let _measurePollTimer = null;
+  async function autoMeasure() {
+    const addrEl = document.getElementById('v2measureAddr');
+    const btn    = document.getElementById('v2measureBtn');
+    const statusEl = document.getElementById('v2measureStatus');
+    const setStatus = (msg, color) => {
+      if (statusEl) {
+        statusEl.textContent = msg || '';
+        statusEl.style.color = color || '#8b8e96';
+      }
+    };
+
+    if (!window.NBDIntegrations || typeof window.NBDIntegrations.requestMeasurement !== 'function') {
+      setStatus('Integrations client not loaded yet — try again.', '#ff6b6b');
+      return;
+    }
+    const address = (addrEl && addrEl.value || state.customer.address || '').trim();
+    if (!address || address.length < 5) {
+      setStatus('Enter a property address first.', '#ff6b6b');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '📐 Requesting...'; }
+    setStatus('Requesting roof measurement...');
+
+    const result = await window.NBDIntegrations.requestMeasurement({
+      address,
+      leadId: state.customer && state.customer.leadId || null
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = '📐 Auto-measure'; }
+
+    if (!result || !result.ok) {
+      setStatus(result && result.error ? result.error : 'Auto-measure failed.', '#ff6b6b');
+      return;
+    }
+
+    // Synchronous providers (e.g. Nearmap) return the measurements
+    // immediately via the jobId's Firestore doc. Poll once, then
+    // roll into the polling loop for async providers.
+    const jobId = result.jobId;
+    setStatus('Job ' + jobId.slice(0, 8) + '... (~' + (result.estimatedMinutes || 30) + ' min to ready)', '#e8720c');
+
+    clearInterval(_measurePollTimer);
+    let tries = 0;
+    const POLL_MS = 4000;
+    const MAX_TRIES = Math.ceil((10 * 60 * 1000) / POLL_MS); // 10 min cap
+    _measurePollTimer = setInterval(async () => {
+      tries++;
+      if (tries > MAX_TRIES) {
+        clearInterval(_measurePollTimer);
+        setStatus('Still processing — refresh later to pick up the result.', '#8b8e96');
+        return;
+      }
+      if (!window.db || !window.doc || !window.getDoc) return; // SDK not ready
+      try {
+        const snap = await window.getDoc(window.doc(window.db, 'measurements', jobId));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (d.status === 'ready' && d.measurements) {
+          clearInterval(_measurePollTimer);
+          applyMeasurementResult(d.measurements);
+          setStatus('✓ Measurements loaded (' + (d.provider || 'provider') + ')', 'var(--green, #2ecc8a)');
+        } else if (d.status === 'failed') {
+          clearInterval(_measurePollTimer);
+          setStatus('Provider reported failure. Measure manually.', '#ff6b6b');
+        }
+      } catch (e) { /* transient — keep polling */ }
+    }, POLL_MS);
+  }
+
+  function applyMeasurementResult(m) {
+    // Each vendor uses slightly different field names — normalize.
+    const next = {
+      rawSqft:  numOr(m.rawSqft, state.measurements.rawSqft),
+      ridgeLf:  numOr(m.ridge  || m.ridgeLf,  state.measurements.ridgeLf),
+      eaveLf:   numOr(m.eave   || m.eaveLf,   state.measurements.eaveLf),
+      hipLf:    numOr(m.hip    || m.hipLf,    state.measurements.hipLf),
+      valleyLf: numOr(m.valley || m.valleyLf, state.measurements.valleyLf),
+      rakeLf:   numOr(m.rake   || m.rakeLf,   state.measurements.rakeLf)
+    };
+    if (m.pitch) {
+      // Pitch may come in as '8/12' or a decimal. Both OK for <select>.
+      const asStr = String(m.pitch);
+      next.pitch = asStr.includes('/') ? parseInt(asStr, 10) : Number(asStr);
+    }
+    state.measurements = Object.assign({}, state.measurements, next);
+    syncMeasurementInputs();
+    render();
+  }
+  function numOr(v, fallback) {
+    const n = Number(v);
+    return isFinite(n) && n > 0 ? n : fallback;
+  }
+
   function syncMeasurementInputs() {
     const map = {
       rawSqft: 'v2rawSqft', pitch: 'v2pitch', eaveLf: 'v2eaveLf',
@@ -1305,6 +1438,9 @@
       const savedId = await window._saveEstimate(payload);
 
       if (savedId) {
+        // Expose the id so sendForSignature() can scope the BoldSign
+        // envelope metadata back to this estimate.
+        window._v2SavedEstimateId = savedId;
         setStatus('✓ Saved — estimate #' + savedId.substring(0, 8) + '…', '#2ECC8A');
         if (typeof window.showToast === 'function') {
           window.showToast('✓ Estimate saved to Firestore', 'success');
@@ -1322,6 +1458,124 @@
       console.error('[EstimateV2UI] Save failed:', e);
       setStatus('Save error: ' + e.message, '#c53030');
       if (btn) { btn.disabled = false; btn.textContent = '💾 Save Estimate to Customer'; }
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // SEND FOR SIGNATURE — BoldSign via NBDIntegrations.
+  //
+  // Flow:
+  //   1. Require an estimate with saved id (we need it to scope the
+  //      webhook callback). If the user hasn't saved yet, trigger
+  //      save() first to mint an estimateId.
+  //   2. Render a retail-quote format as the PDF body (that's what
+  //      homeowners sign — insurance scope is internal).
+  //   3. Call NBDIntegrations.sendForSignature with the HTML +
+  //      signer name/email from state.customer.
+  //   4. If the server returns an embedUrl, open it in the
+  //      NBDDocViewer iframe so the homeowner can sign inside the
+  //      app (no popup, no email bounce).
+  // ═════════════════════════════════════════════════════════
+  async function sendForSignature() {
+    const statusEl = document.getElementById('v2signStatus');
+    const btn = document.getElementById('v2signBtn');
+    const setStatus = (msg, color) => {
+      if (statusEl) {
+        statusEl.textContent = msg || '';
+        statusEl.style.color = color || '#8b8e96';
+      }
+    };
+
+    if (!window.NBDIntegrations || typeof window.NBDIntegrations.sendForSignature !== 'function') {
+      setStatus('Integrations client not ready. Refresh and retry.', '#ff6b6b');
+      return;
+    }
+
+    const customer = state.customer || {};
+    const signerName  = (customer.name || '').trim();
+    const signerEmail = (customer.email || '').trim().toLowerCase();
+    if (!signerName || !signerEmail || !signerEmail.includes('@')) {
+      setStatus('Customer name + email required before signature.', '#ff6b6b');
+      return;
+    }
+
+    // Make sure there's an estimate scope.
+    const estimate = getCurrentEstimate();
+    if (!estimate) {
+      setStatus('Add line items to the scope first.', '#ff6b6b');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '✍️ Preparing...'; }
+    setStatus('Saving estimate before signature...');
+
+    // Ensure the estimate is persisted — webhook needs a stable id.
+    let estimateId = window._v2SavedEstimateId || null;
+    if (!estimateId) {
+      try {
+        await save();
+        estimateId = window._v2SavedEstimateId || null;
+      } catch (e) { /* save() surfaces its own error */ }
+    }
+    if (!estimateId) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Could not save estimate — resolve errors above.', '#ff6b6b');
+      return;
+    }
+
+    // Render a retail-quote PDF body. This is what the homeowner sees.
+    if (!window.EstimateFinalization) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Preview engine still loading — try again.', '#ff6b6b');
+      return;
+    }
+    let result;
+    try {
+      result = window.EstimateFinalization.formatEstimate(estimate, 'retail-quote', {
+        customer,
+        claim: state.claim,
+        estimate: { number: 'NBD-V2-' + estimateId, date: new Date().toISOString().split('T')[0], preparedBy: 'Joe Deal' }
+      });
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Preview render failed: ' + e.message, '#ff6b6b');
+      return;
+    }
+    if (!result || typeof result.html !== 'string' || !result.html.length) {
+      if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+      setStatus('Empty estimate body — nothing to sign.', '#ff6b6b');
+      return;
+    }
+
+    setStatus('Sending to BoldSign...');
+    const send = await window.NBDIntegrations.sendForSignature({
+      estimateId,
+      html: result.html,
+      signerName,
+      signerEmail,
+      title: 'Roofing Contract — ' + (customer.address || 'NBD Estimate')
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = '✍️ Send for Signature'; }
+
+    if (!send || !send.ok) {
+      setStatus(send && send.error ? send.error : 'Send failed.', '#ff6b6b');
+      return;
+    }
+
+    setStatus('✓ Sent to ' + signerEmail, 'var(--green, #2ecc8a)');
+
+    // If the server returned an embed URL, open it so the rep can
+    // hand the iPad over right now.
+    if (send.embedUrl && window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      const iframeHtml = '<!doctype html><html><body style="margin:0;">'
+        + '<iframe src="' + send.embedUrl + '" style="width:100vw;height:100vh;border:0;"></iframe>'
+        + '</body></html>';
+      window.NBDDocViewer.open({
+        html: iframeHtml,
+        title: 'Sign Contract — ' + (customer.address || ''),
+        filename: 'NBD-Signature-' + estimateId + '.pdf'
+      });
     }
   }
 

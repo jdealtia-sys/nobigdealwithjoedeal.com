@@ -527,6 +527,28 @@
     if(homeGreet) homeGreet.textContent = 'Welcome Back, ' + name.split(' ')[0];
     document.getElementById('settingsName').value     = user.displayName || '';
     document.getElementById('settingsEmail').value    = user.email || '';
+    // Cal.com username — pull from the user profile if set and prime
+    // the shareable link preview so reps can copy the URL straight
+    // into an SMS / email.
+    try {
+      const usrSnap = await getDoc(doc(db, 'users', user.uid));
+      if (usrSnap.exists()) {
+        const calVal = usrSnap.data().calcomUsername || '';
+        const calEl = document.getElementById('settingsCalcom');
+        const calPrev = document.getElementById('settingsCalcomPreview');
+        if (calEl) calEl.value = calVal;
+        if (calPrev) {
+          if (calVal) {
+            const url = 'https://cal.com/' + calVal;
+            calPrev.textContent = url;
+            calPrev.href = url;
+            calPrev.style.display = '';
+          } else {
+            calPrev.style.display = 'none';
+          }
+        }
+      }
+    } catch (e) { /* silent — rules may deny during bootstrap */ }
     // Seed demo data first if this is the demo account, then load normally
     if(typeof maybeSeedDemoData==='function') await maybeSeedDemoData(user).catch(()=>{});
     // Build dynamic kanban columns before loading leads
@@ -1660,9 +1682,22 @@
   // ── SETTINGS ───────────────────────────────────
   window._saveSettings = async () => {
     const name = document.getElementById('settingsName').value.trim();
+    // Cal.com username — stored on users/{uid}.calcomUsername so the
+    // calcomWebhook can resolve incoming bookings back to this rep.
+    // Normalize: lowercase, strip trailing slashes / leading @.
+    const rawCal = (document.getElementById('settingsCalcom')?.value || '').trim();
+    const calcomUsername = rawCal.replace(/^@+/, '').replace(/\/+$/,'')
+                                 .toLowerCase().slice(0, 60) || null;
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
+      // Persist Cal.com username on the user profile.
+      if (window.db && window.doc && window.setDoc) {
+        await window.setDoc(window.doc(window.db, 'users', window._user.uid), {
+          displayName: name,
+          calcomUsername
+        }, { merge: true });
+      }
       showToast('Settings saved!');
     } catch(e) { showToast('Save failed','error'); }
   };
@@ -8543,6 +8578,15 @@ function switchScTab(tab, btn) {
               </div>
               <div class="sf"><label>License #</label><input type="text" id="settingsLicense" placeholder="OH-12345"></div>
             </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:1;">
+                <label>Cal.com username <span style="font-size:10px;color:var(--m);font-weight:400;">· optional · homeowners book inspections at cal.com/&lt;username&gt;</span></label>
+                <input type="text" id="settingsCalcom" placeholder="joedeal" autocomplete="off" spellcheck="false"
+                  oninput="(function(el){var v=(el.value||'').trim().replace(/^@+/,'').replace(/\/+$/,'').toLowerCase();var p=document.getElementById('settingsCalcomPreview');if(p){p.textContent=v?('https://cal.com/'+v):'';p.style.display=v?'':'none';}})(this)">
+                <a id="settingsCalcomPreview" target="_blank" rel="noopener"
+                   style="display:none;font-size:11px;color:var(--orange);margin-top:4px;word-break:break-all;text-decoration:none;"></a>
+              </div>
+            </div>
             <button class="btn btn-orange" onclick="window._saveSettings()" style="margin-top:4px;">💾 Save Profile</button>
           </div>
         </div>
@@ -11044,6 +11088,18 @@ function renderEstimatesList(ests) {
     const builderTag = e.builder === 'v2'
       ? '<span class="est-src-chip v2">V2</span>'
       : '<span class="est-src-chip classic">CLASSIC</span>';
+    // Signature status — emitted by BoldSign webhook. Distinct colors
+    // so reps can eyeball the pipeline without clicking into each.
+    let sigTag = '';
+    if (e.signatureStatus === 'signed') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(46,204,138,.15);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);">✓ SIGNED</span>';
+    } else if (e.signatureStatus === 'sent' || e.signatureStatus === 'viewed') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(232,114,12,.12);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
+    } else if (e.signatureStatus === 'declined') {
+      sigTag = '<span class="est-src-chip" style="background:rgba(197,48,48,.15);color:#ff6b6b;border-color:#ff6b6b;">✗ DECLINED</span>';
+    } else if (e.signatureStatus === 'expired') {
+      sigTag = '<span class="est-src-chip" style="opacity:.6;">⧗ EXPIRED</span>';
+    }
     return ''
       + '<div class="est-card nbd-est-card" data-id="' + esc(e.id) + '">'
         + '<div class="est-card-main" data-act="open">'
@@ -11057,7 +11113,7 @@ function renderEstimatesList(ests) {
               + esc(e.tierName || '—')
             + '</div>'
             + '<div class="est-card-chips">'
-              + leadTag + builderTag
+              + leadTag + builderTag + sigTag
               + '<span class="est-date">' + esc(formatDate(e.createdAt || e.updatedAt)) + '</span>'
             + '</div>'
           + '</div>'

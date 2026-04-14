@@ -2251,6 +2251,7 @@
         <div class="d2d-action-bar">
           <button onclick="window.D2D.openQuickKnock()" class="d2d-big-btn">🚪 Knock</button>
           <button onclick="window.D2D.toggleHeatMap()" class="d2d-big-btn d2d-big-btn-sec">${showHeat ? '🔥' : '❄️'} Heat</button>
+          <button onclick="window._d2dHailLayer ? window.D2D.hideHail() : window.D2D.showHail({ radiusMi: 5, daysBack: 365 })" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
           <button onclick="window.D2D.centerOnMe()" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
           <button onclick="window.D2D.exportCSV()" class="d2d-big-btn d2d-big-btn-sec">📥 CSV</button>
         </div>
@@ -2661,6 +2662,64 @@
     saveTerritory,
     toggleTeamMode: () => { teamMode = !teamMode; loadKnocks().then(() => renderD2D()); },
     refreshMap: () => { if (d2dMap) { d2dMap.invalidateSize(); } },
+    // Hail overlay — pulls recent hail reports for the visible map
+    // center and draws circle markers sized by hail stone diameter.
+    // Re-run any time to refresh for the current view.
+    showHail: async (opts) => {
+      opts = opts || {};
+      if (!d2dMap || !window.L || !window.NBDIntegrations) return { ok: false, reason: 'map-not-ready' };
+      const center = d2dMap.getCenter();
+      const radiusMi = Number(opts.radiusMi) || 5;
+      const daysBack = Number(opts.daysBack) || 365;
+      const toastFn = window.showToast || (() => {});
+      toastFn('Loading hail history...', 'info');
+      const res = await window.NBDIntegrations.getHailHistory(center.lat, center.lng, { radiusMi, daysBack });
+      if (!res || !res.ok) {
+        toastFn('Hail lookup failed', 'error');
+        return res;
+      }
+      // Clear any prior hail layer, rebuild fresh.
+      if (window._d2dHailLayer) {
+        try { d2dMap.removeLayer(window._d2dHailLayer); } catch (e) {}
+      }
+      const layer = L.layerGroup();
+      (res.hits || []).forEach(h => {
+        if (h.lat == null || h.lng == null) return;
+        const size = Number(h.sizeInches) || 0.5;
+        const color = size >= 1.5 ? '#ff3b3b' : size >= 1.0 ? '#ff8c00' : '#ffd54a';
+        const m = L.circleMarker([h.lat, h.lng], {
+          radius: Math.max(4, Math.min(18, size * 6)),
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.45,
+          weight: 2
+        });
+        const when = h.at ? new Date(h.at).toLocaleDateString() : 'unknown date';
+        m.bindPopup('<strong>' + size.toFixed(2) + '&quot; hail</strong><br>'
+          + when + '<br><small>source: ' + (h.source || 'unknown') + '</small>');
+        layer.addLayer(m);
+        // If the provider returned a swath polygon (HailTrace does),
+        // draw it under the marker.
+        if (h.polygon && Array.isArray(h.polygon.coordinates)) {
+          try {
+            const poly = L.geoJSON({ type: 'Polygon', coordinates: h.polygon.coordinates }, {
+              style: { color, weight: 1, fillColor: color, fillOpacity: 0.12 }
+            });
+            layer.addLayer(poly);
+          } catch (e) {}
+        }
+      });
+      layer.addTo(d2dMap);
+      window._d2dHailLayer = layer;
+      toastFn((res.hits || []).length + ' hail reports in last ' + daysBack + ' days', 'success');
+      return res;
+    },
+    hideHail: () => {
+      if (window._d2dHailLayer && d2dMap) {
+        try { d2dMap.removeLayer(window._d2dHailLayer); } catch (e) {}
+        window._d2dHailLayer = null;
+      }
+    },
     DISPOSITIONS,
     DISPO_ORDER,
     CARRIERS
