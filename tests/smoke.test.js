@@ -1066,14 +1066,41 @@ section('F1: email queue worker');
     /"collectionGroup":\s*"email_queue"[\s\S]{0,300}"fieldPath":\s*"status"[\s\S]{0,200}"fieldPath":\s*"createdAt"/.test(ix));
 }
 
-section('F2: webhooks fail closed');
+section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 {
   const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
   assert('esignWebhook rejects unsigned requests when secret unset',
     /BOLDSIGN_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(es));
+  assert('esignWebhook uses timingSafeEqual',
+    /crypto\.timingSafeEqual/.test(es));
+
   const cal = read(path.join(FUNCTIONS, 'integrations/calcom.js'));
   assert('calcomWebhook rejects unsigned requests when secret unset',
     /CALCOM_WEBHOOK_SECRET not set[\s\S]{0,200}res\.status\(503\)/.test(cal));
+  assert('calcomWebhook uses timingSafeEqual',
+    /crypto\.timingSafeEqual/.test(cal));
+
+  const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('incomingSMS verifies Twilio signature via validateRequest',
+    /twilio\.validateRequest\(authToken,\s*twilioSignature/.test(sms));
+  assert('incomingSMS 403s on signature failure',
+    /signature verification failed[\s\S]{0,200}res\.status\(403\)/.test(sms));
+
+  // M3: measurementWebhook completed the sweep — ensure the fix sticks.
+  const m = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
+  assert('measurementWebhook verifies HMAC (F-02 + M3 regression guard)',
+    /verifyWebhookHmac\(provider,\s*req\.rawBody/.test(m));
+
+  // Stripe webhooks: both stripeWebhook and invoiceWebhook must verify.
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('stripeWebhook calls stripe.webhooks.constructEvent',
+    /exports\.stripeWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+  assert('invoiceWebhook calls stripe.webhooks.constructEvent',
+    /exports\.invoiceWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+  assert('stripeWebhook requires rawBody Buffer',
+    /stripeWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
+  assert('invoiceWebhook requires rawBody Buffer',
+    /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
 }
 
 section('F3: TCPA STOP/HELP + opt-out list');
