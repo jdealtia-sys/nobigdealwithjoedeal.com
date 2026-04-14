@@ -163,6 +163,16 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: npx firebase-tools deploy --only firestore:rules --project "$PRO_PROJECT" --non-interactive
 
+      # Firestore composite indexes ship before functions so every
+      # new .where() query has its index ready when the function
+      # execution first hits it. Safe to re-run — firestore CLI
+      # diffs before applying.
+      - name: Deploy Firestore indexes (pro)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only firestore:indexes --project "$PRO_PROJECT" --non-interactive
+
       - name: Deploy Storage rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
