@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v12', // v12 — decouple D2D content load from Leaflet CDN
-  cdn: 'nbd-cdn-v12',     // v12 — forces re-fetch of all JS + CSS (including d2d-tracker.js?v=16)
+  shell: 'nbd-shell-v13', // v13 — Firestore data-read timeout in initD2D
+  cdn: 'nbd-cdn-v13',     // v13 — forces re-fetch of all JS + CSS (including d2d-tracker.js?v=18)
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

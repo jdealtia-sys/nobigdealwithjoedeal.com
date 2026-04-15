@@ -2905,8 +2905,16 @@
 
     try {
       loadOfflineQueue();
-      await loadRepProfile();
-      await loadKnocks();
+      // Wrap Firestore reads in a combined 6-second timeout so that
+      // renderD2D() is always reached — even on iOS Safari with poor
+      // or no connectivity where getDoc/getDocs can hang indefinitely.
+      // On timeout we proceed with whatever partial data loaded (empty
+      // knocks array is fine; the UI shell renders and the user can
+      // refresh manually).
+      await Promise.race([
+        (async () => { await loadRepProfile(); await loadKnocks(); })(),
+        new Promise(resolve => setTimeout(resolve, 6000))
+      ]);
       renderD2D();
       setTimeout(() => initD2DMap(), 200);
       d2dInited = true;
