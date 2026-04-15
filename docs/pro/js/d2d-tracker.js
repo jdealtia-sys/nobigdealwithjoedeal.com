@@ -2602,6 +2602,25 @@
       return;
     }
 
+    // Fail-fast auth guard. Safari standalone PWAs (home-screen icon)
+    // keep a SEPARATE cookie/storage jar from the parent Safari
+    // browser session — a user who's signed in via Safari can launch
+    // the installed PWA and find `window._user === null`. Every
+    // downstream call below dereferences `_user.uid` (loadRepProfile,
+    // loadKnocks, knock create, voice upload, etc.). Without this
+    // guard the first throw lands in the catch below, the loading
+    // spinner never resolves, and the page hangs at "Loading door-
+    // to-door tracker…" with a black map. Surfacing a clear toast
+    // + return turns a silent hang into an actionable signal.
+    if (!window._user || !window._user.uid) {
+      console.warn('initD2D: not signed in (window._user is null) — likely standalone-PWA cookie-jar split');
+      window.showToast?.('Please sign in to use the door-to-door tracker', 'error');
+      // Render an empty shell so the spinner clears even though
+      // we're not loading data.
+      try { renderD2D(); } catch (_) {}
+      return;
+    }
+
     try {
       loadOfflineQueue();
       await loadRepProfile();
@@ -2618,6 +2637,9 @@
     } catch (e) {
       console.error('initD2D failed:', e);
       window.showToast?.('Failed to initialize D2D', 'error');
+      // Always render the shell so the spinner clears — a hung
+      // spinner on a thrown init is the worst UX failure mode.
+      try { renderD2D(); } catch (_) {}
     }
   }
 
