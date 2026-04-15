@@ -15,7 +15,14 @@
 
 'use strict';
 
-const { defineSecret } = require('firebase-functions/params');
+let defineSecret;
+try {
+  ({ defineSecret } = require('firebase-functions/params'));
+} catch (_) {
+  // Not in Firebase Functions runtime (e.g., test / node --check environment).
+  // Provide a stub whose .value() reads from process.env so hasSecret() works.
+  defineSecret = (name) => ({ value: () => (process.env[name] || null) });
+}
 
 // ── Secret registry ─────────────────────────────────────────
 // Every integration secret lives here so we can iterate them for
