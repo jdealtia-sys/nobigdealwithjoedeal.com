@@ -390,7 +390,14 @@ jobs:
             echo "::error::No functions left to deploy after skip-list"; exit 1
           fi
           echo "Deploying $(echo "$INCLUDE" | awk -F',' '{print NF}') function(s)"
-          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force
+          # --debug re-enabled 2026-04-15 to diagnose recurring exit-code-2 failure.
+          # Remove once the root cause is identified and fixed.
+          npx firebase-tools deploy --only "$INCLUDE" --project "$PRO_PROJECT" --non-interactive --force --debug 2>&1 | tee /tmp/firebase-deploy-debug.log; EXIT=${PIPESTATUS[0]}
+          if [ $EXIT -ne 0 ]; then
+            echo "::error::firebase deploy exited $EXIT — scanning debug log for error..."
+            grep -i "error\|failed\|exception" /tmp/firebase-deploy-debug.log | tail -40 || true
+            exit $EXIT
+          fi
 
       # Second pass: retry the skip-list with tolerance. If IAM has
       # since been granted, these succeed. If not, the warning is
