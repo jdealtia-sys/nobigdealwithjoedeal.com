@@ -116,9 +116,48 @@
     return div.innerHTML;
   }
 
+  // Audit finding #10: Safari's date-string parser is much stricter
+  // than Chrome/Firefox. `new Date('2026-04-15 14:30')` (no T
+  // separator) returns Invalid Date in Safari but a valid Date in
+  // Chrome. Code downstream then does `.toDateString()` which
+  // returns the literal string "Invalid Date" — the isToday
+  // comparison silently never matches, follow-up reminders never
+  // fire, and the user has no idea their pipeline is broken.
+  //
+  // Hardened toDate(): try toDate() (Firestore Timestamp), then
+  // direct Date construction, then a normalized retry with the
+  // common Safari-incompatible patterns fixed (space → T,
+  // /-separated → -separated). Returns null on any unparseable
+  // input so callers can guard with a nullcheck instead of
+  // silently working with NaN-valued Dates.
+  function toDate(d) {
+    if (!d) return null;
+    if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+    if (typeof d.toDate === 'function') {
+      try { const t = d.toDate(); return (t && !isNaN(t.getTime())) ? t : null; }
+      catch (_) { return null; }
+    }
+    if (typeof d === 'number') {
+      const t = new Date(d);
+      return isNaN(t.getTime()) ? null : t;
+    }
+    if (typeof d === 'string') {
+      let t = new Date(d);
+      if (!isNaN(t.getTime())) return t;
+      // Safari rescue: replace space-separator with T.
+      t = new Date(d.replace(' ', 'T'));
+      if (!isNaN(t.getTime())) return t;
+      // Safari rescue: yyyy/mm/dd → yyyy-mm-dd
+      t = new Date(d.replace(/\//g, '-'));
+      if (!isNaN(t.getTime())) return t;
+      return null;
+    }
+    return null;
+  }
+
   function timeAgo(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     const now = new Date();
     const sec = Math.floor((now - date) / 1000);
     if (sec < 60) return 'just now';
@@ -132,22 +171,15 @@
   }
 
   function formatTime(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
   function formatDate(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  function toDate(d) {
-    if (!d) return null;
-    if (d instanceof Date) return d;
-    if (d.toDate) return d.toDate();
-    return new Date(d);
   }
 
   function isToday(d) {
