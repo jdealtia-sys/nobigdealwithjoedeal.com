@@ -443,6 +443,33 @@ lack the IAM admin role. Run once from Joe's identity.
 - `ANTHROPIC_API_KEY` — already set for claudeProxy; the voice
   pipeline reuses it for analysis + consent checks.
 
+## 18a. Cloud Function sizing (R-05) — hot-path ceilings + minInstances cost
+
+The audit's R-05 finding was that every user-facing endpoint was
+sized for single-digit-QPS dev traffic. Hot paths are now sized for
+a 10k-concurrent spike:
+
+| Function | max × concurrency = pool | minInstances | Why |
+|---|---|---|---|
+| `claudeProxy` | 300 × 80 = **24,000** | 3 | audit R-02: AI tail latency burns instances |
+| `signImageUrl` | 200 × 80 = **16,000** | 2 | every photo render calls this |
+| `getSubscriptionStatus` | 200 × 80 = **16,000** | 2 | every pro-surface page-load |
+| `getHomeownerPortalView` | 80 × 80 = 6,400 | — | homeowner email-blast burst |
+| `createCheckoutSession` | 50 × 40 = 2,000 | — | end-of-trial conversion funnel |
+| `stripeWebhook` | 20 × (default) | — | billing-day retry storm |
+| `invoiceWebhook` | 10 × (default) | — | payment_intent fanout |
+
+**`minInstances` is the only meaningful cost delta** — Cloud Run
+charges for idle CPU/memory on these instances. On 256Mi × 7 total
+idle instances that's ≈ **$25/month** ($0.0000025/instance-sec ×
+256Mi × 730h). If spend is a concern pre-launch, drop `minInstances`
+to 1 on each; the per-cold-start UX cost is ~1s on the first request
+after a quiet window, which is acceptable for Starter-tier users.
+
+The regression smoke test `R-05` pins these ceilings — an accidental
+revert (e.g. a merge that drops `maxInstances` on `claudeProxy` back
+to 100) now fails CI.
+
 ## 18. Rate-limit provider (R-01) — flip to Upstash before launch
 
 **Who:** ops (Joe). **When:** before 10k-user launch. **Why:**

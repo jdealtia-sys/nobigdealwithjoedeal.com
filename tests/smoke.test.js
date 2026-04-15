@@ -917,8 +917,10 @@ section('F-03/F-04: admin analytics uses custom-claim gate');
 section('F-06: getHomeownerPortalView is POST-only');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  // Grab the function block and assert GET is not accepted.
-  const block = src.match(/exports\.getHomeownerPortalView[\s\S]{0,1200}/);
+  // Grab the function block and assert GET is not accepted. Window
+  // sized to tolerate the R-05 sizing-rationale comment that was
+  // added inside the config object.
+  const block = src.match(/exports\.getHomeownerPortalView[\s\S]{0,2000}/);
   assert('F-06: function block found', !!block);
   if (block) {
     assert('F-06: rejects non-POST',
@@ -2095,6 +2097,80 @@ section('R-01: rate-limit provider visibility + cold-start misconfig warning');
     || /nbd\.rate_limit_provider.{0,10}upstash/.test(runbook));
   assert('R-01: runbook tells ops how to verify the flip post-deploy',
     /integrationStatus[\s\S]{0,400}rateLimitProvider/.test(runbook));
+}
+
+section('R-05: hot-path Cloud Function sizing for 10k-user spike');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+
+  // Helper: extract the {…} config-object immediately following
+  // `exports.FNAME = onRequest(` in source order. We match the
+  // literal lines rather than invoking the function so this stays
+  // dependency-free.
+  function configOf(fnName) {
+    const re = new RegExp(
+      'exports\\.' + fnName
+      + '\\s*=\\s*onRequest\\(\\s*\\{([\\s\\S]*?)\\}\\s*,',
+      'm'
+    );
+    const m = src.match(re);
+    return m ? m[1] : null;
+  }
+  function intField(block, field) {
+    if (!block) return null;
+    // Strip line comments so we don't match commentary numbers
+    // like "Old 100×80 = 8k".
+    const clean = block.replace(/\/\/[^\n]*/g, '');
+    const m = clean.match(new RegExp('\\b' + field + ':\\s*(\\d+)'));
+    return m ? Number(m[1]) : null;
+  }
+
+  const claude = configOf('claudeProxy');
+  assert('R-05: claudeProxy maxInstances >= 300 (audit R-02 recommendation)',
+    intField(claude, 'maxInstances') >= 300,
+    'got ' + intField(claude, 'maxInstances'));
+  assert('R-05: claudeProxy minInstances >= 3 (cold-start absorption)',
+    intField(claude, 'minInstances') >= 3,
+    'got ' + intField(claude, 'minInstances'));
+  assert('R-05: claudeProxy concurrency still 80',
+    intField(claude, 'concurrency') === 80);
+
+  const sign = configOf('signImageUrl');
+  assert('R-05: signImageUrl maxInstances >= 200 (photo-render spike)',
+    intField(sign, 'maxInstances') >= 200,
+    'got ' + intField(sign, 'maxInstances'));
+  assert('R-05: signImageUrl minInstances >= 2',
+    intField(sign, 'minInstances') >= 2);
+  assert('R-05: signImageUrl concurrency >= 80',
+    intField(sign, 'concurrency') >= 80);
+
+  const subStatus = configOf('getSubscriptionStatus');
+  assert('R-05: getSubscriptionStatus maxInstances >= 200 (page-load spike)',
+    intField(subStatus, 'maxInstances') >= 200,
+    'got ' + intField(subStatus, 'maxInstances'));
+  assert('R-05: getSubscriptionStatus minInstances >= 2',
+    intField(subStatus, 'minInstances') >= 2);
+
+  const portal = configOf('getHomeownerPortalView');
+  assert('R-05: getHomeownerPortalView maxInstances >= 80 (email-blast burst)',
+    intField(portal, 'maxInstances') >= 80);
+
+  const checkout = configOf('createCheckoutSession');
+  assert('R-05: createCheckoutSession maxInstances >= 50 (conversion funnel)',
+    intField(checkout, 'maxInstances') >= 50);
+
+  const stripe = configOf('stripeWebhook');
+  assert('R-05: stripeWebhook maxInstances >= 20 (bulk billing / retries)',
+    intField(stripe, 'maxInstances') >= 20);
+
+  // Anti-brute endpoints must STAY tight — bumping these defeats
+  // the rate-limit floor they enforce.
+  const vcode = configOf('validateAccessCode');
+  if (vcode) {
+    assert('R-05: validateAccessCode stays tight (maxInstances <= 10)',
+      intField(vcode, 'maxInstances') <= 10,
+      'got ' + intField(vcode, 'maxInstances') + ' — loosening defeats anti-brute');
+  }
 }
 
 // ── Summary ─────────────────────────────────────────────────

@@ -204,9 +204,16 @@ exports.claudeProxy = onRequest(
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
     enforceAppCheck: true,
-    maxInstances: 100,
+    // R-05 sizing: 10k-concurrent-user spike × each user firing
+    // ≤1 AI call/min + 30-60s tail latency → ~10k concurrent
+    // in-flight. Old 100×80 = 8k ceiling triggered Cloud Run 429s
+    // on the tail. 300×80 = 24k gives headroom for burst + tail
+    // latency during Anthropic 5xx retries. minInstances:3 absorbs
+    // cold-start on the hot path (~$10/mo on 256Mi). Pair with
+    // M-03: per-tier company budgets + C-03 transactional counter.
+    maxInstances: 300,
     concurrency: 80,
-    minInstances: 0,
+    minInstances: 3,
     timeoutSeconds: 60,
     memory: '256MiB',
   },
@@ -427,7 +434,13 @@ exports.createCheckoutSession = onRequest(
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
     enforceAppCheck: true,
-    maxInstances: 20,
+    // R-05 sizing: conversion funnel spike — if 10k trial users are
+    // prompted to subscribe at once (email campaign, end-of-trial
+    // cron), the checkout click-through rate of 5-10% still maps to
+    // 500-1000 concurrent checkout creates. Old 20×40 = 800 was
+    // right at the edge; 50×40 = 2000 gives 2× headroom. Stripe
+    // API latency (~400ms) keeps instances busy briefly per call.
+    maxInstances: 50,
     concurrency: 40,
     timeoutSeconds: 30,
     memory: '256MiB',
@@ -528,7 +541,13 @@ exports.stripeWebhook = onRequest(
     // so .value() resolves at runtime.
     secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
               STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
-    maxInstances: 10,
+    // R-05 sizing: Stripe's retry fanout (up to 15 retries over 3
+    // days on failure) + bulk billing cycle events (invoice.paid
+    // fires for every active sub on billing day) can burst. Old
+    // maxInstances:10 was enough for steady state but tight for
+    // month-start. 20 with Cloud Run's default concurrency (80)
+    // gives headroom for a few hundred concurrent webhook deliveries.
+    maxInstances: 20,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
@@ -956,8 +975,18 @@ exports.getSubscriptionStatus = onRequest(
   {
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
-    maxInstances: 50,
+    // R-05 sizing: called on every pro-surface page load (the NBDAuth
+    // init path at docs/pro/js/nbd-auth.js fetches the subscription
+    // doc directly via Firestore, but this function is the server-
+    // authoritative fallback and is called by billing-status panels
+    // on dashboard/settings/stripe-success). A 10k concurrent page-
+    // load spike maps directly onto this endpoint. Old 50×80 = 4k
+    // ceiling 429'd legitimate users. 200×80 = 16k headroom.
+    // minInstances:2 prevents the "1s loading spinner on every
+    // dashboard open" UX cost.
+    maxInstances: 200,
     concurrency: 80,
+    minInstances: 2,
     timeoutSeconds: 10,
     memory: '256MiB',
   },
@@ -1060,8 +1089,17 @@ exports.signImageUrl = onRequest(
   {
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
-    maxInstances: 30,
+    // R-05 sizing: every photo render on every page fires one sign
+    // call (the 14-minute client cache at signed-image-url.js:23
+    // prevents re-signs within a session, but fresh loads all hit).
+    // At 10k users × ~10 photos visible on first render =
+    // ~100k signs/min peak. Per-instance: 80 concurrent × (signing
+    // latency ~150ms) = ~500/sec. 200 instances × 500 = 100k/sec
+    // headroom. minInstances:2 absorbs cold-start when a dashboard
+    // load spikes right after a quiet window.
+    maxInstances: 200,
     concurrency: 80,
+    minInstances: 2,
     timeoutSeconds: 15,
     memory: '256MiB'
   },
@@ -1601,7 +1639,14 @@ exports.getHomeownerPortalView = onRequest(
   {
     region: 'us-central1',
     cors: true, // intentionally open — this is the homeowner-facing endpoint
-    maxInstances: 20,
+    // R-05 sizing: homeowner-facing (not a rep path), so volume is
+    // bounded by "number of active portal links × opens". At 10k
+    // signed homeowners with an avg 3 opens/week during a storm
+    // spike that's ~500/hour sustained, burst to maybe 2000 concurrent
+    // during an email blast. 80×80 = 6.4k ceiling gives 3× headroom
+    // on the worst bursty case. timeoutSeconds stays tight — the
+    // handler is a single Firestore read + optional BoldSign fetch.
+    maxInstances: 80,
     concurrency: 80,
     timeoutSeconds: 15,
     memory: '256MiB',
@@ -1882,7 +1927,10 @@ exports.invoiceWebhook = onRequest(
   {
     cors: false, // Webhook should not use CORS
     secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
-    maxInstances: 5,
+    // R-05 sizing: payment_intent.succeeded fanout on bulk billing
+    // days. 10 is a reasonable ceiling now that we've grown;
+    // mirrors stripeWebhook's headroom without over-provisioning.
+    maxInstances: 10,
     timeoutSeconds: 30,
     memory: '256MiB',
   },
