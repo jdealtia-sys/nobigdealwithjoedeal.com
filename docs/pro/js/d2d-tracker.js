@@ -1231,6 +1231,17 @@
 
     if (d2dMap) { d2dMap.invalidateSize(); return; }
 
+    // Leaflet loads asynchronously from CDN. If it hasn't arrived yet,
+    // show a soft placeholder and retry once — covers the case where the
+    // CDN is slow but not down. If L is genuinely unavailable (blocked,
+    // offline, etc.) the D2D feed/stats still work; only the map is
+    // affected.
+    if (typeof L === 'undefined') {
+      mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--m,#9ca3af);font-size:13px;gap:8px;">⏳ Loading map…</div>';
+      setTimeout(() => { if (typeof L !== 'undefined') { mapEl.innerHTML = ''; initD2DMap(); } else { mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--m,#9ca3af);font-size:13px;">🗺️ Map unavailable — check connection</div>'; } }, 3000);
+      return;
+    }
+
     // Leaflet 1.9+ fixed the iOS standalone ghost-click bug, so we
     // no longer need to disable the tap handler. Re-enabled for full
     // touch interactivity in both browser and PWA modes.

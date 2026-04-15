@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v11', // v11 — expand NO_CACHE_HTML (account-erasure + portal)
-  cdn: 'nbd-cdn-v11',     // v11 — forces re-fetch of all JS + CSS
+  shell: 'nbd-shell-v12', // v12 — decouple D2D content load from Leaflet CDN
+  cdn: 'nbd-cdn-v12',     // v12 — forces re-fetch of all JS + CSS (including d2d-tracker.js?v=16)
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

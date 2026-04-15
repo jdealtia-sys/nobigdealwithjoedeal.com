@@ -10986,21 +10986,23 @@ function goTo(name, params = {}) {
   if(name==='settings') { setTimeout(() => switchSettingsTab('profile'), 50); }
   if(name==='home') { if(window.NBDWidgets) window.NBDWidgets.render(); }
   if(name==='d2d') {
-    waitForLeaflet(()=>{
-      // Wait for d2d-tracker.js to define window.D2D (object, not function)
-      function waitForD2D(cb) {
-        if (window.D2D) { cb(); return; }
-        let t2 = 0;
-        const iv = setInterval(()=> { t2++; if(window.D2D){clearInterval(iv);cb();}else if(t2>80){clearInterval(iv);console.error('D2D never loaded');} }, 50);
+    // D2D content (feed, stats, knocks) loads independently of Leaflet.
+    // Previously everything was gated on waitForLeaflet, so a CDN hiccup
+    // left the spinner up forever. Now: content loads immediately via
+    // waitForD2D; the map initialises inside initD2D's own setTimeout
+    // (which guards `typeof L !== "undefined"` before touching Leaflet).
+    function waitForD2D(cb) {
+      if (window.D2D) { cb(); return; }
+      let t2 = 0;
+      const iv = setInterval(()=> { t2++; if(window.D2D){clearInterval(iv);cb();}else if(t2>80){clearInterval(iv);console.error('D2D never loaded');} }, 50);
+    }
+    waitForD2D(()=>{
+      if (!window._d2dInited) {
+        requestAnimationFrame(()=>{ window.D2D.init(); window._d2dInited = true; });
+      } else if (window.D2D.refreshMap) {
+        // Re-entry: refresh D2D map size when view becomes visible again
+        requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ window.D2D.refreshMap(); }); });
       }
-      waitForD2D(()=>{
-        if (!window._d2dInited) {
-          requestAnimationFrame(()=>{ window.D2D.init(); window._d2dInited = true; });
-        } else if (window.D2D.refreshMap) {
-          // Re-entry: refresh D2D map size when view becomes visible again
-          requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ window.D2D.refreshMap(); }); });
-        }
-      });
     });
   }
   if(name==='training') { _lazyPreload.then(() => { if (window.SalesTraining) window.SalesTraining.init(); }); }
@@ -14292,7 +14294,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/lead-scoring.js?v=2"></script>
 <!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
      close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
-<script defer src="js/d2d-tracker.js?v=15"></script>
+<script defer src="js/d2d-tracker.js?v=16"></script>
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
 <script defer src="js/product-data.js?v=1"></script>
 <script defer src="js/roofivent-catalog.js?v=1"></script>
