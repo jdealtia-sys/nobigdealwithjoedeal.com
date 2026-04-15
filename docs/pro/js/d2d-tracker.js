@@ -1971,30 +1971,74 @@
   }
 
   function openSMSTemplateChooser(knock) {
+    // Audit finding #13: single-overlay guard. Without this, fast
+    // double-taps stacked multiple overlays in the DOM; only the
+    // top one was clickable and the others were leaked.
+    const existing = document.getElementById('d2d-sms-overlay');
+    if (existing) { existing.remove(); }
+
     const overlay = document.createElement('div');
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-sms-overlay';
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
     const modal = document.createElement('div');
     modal.className = 'd2d-modal';
     modal.style.maxWidth = '400px';
-    modal.innerHTML = `
-      <div class="d2d-modal-hdr">
-        <div class="d2d-modal-title">Send Follow-up</div>
-        <button class="d2d-modal-close" onclick="document.getElementById('d2d-sms-overlay')?.remove()">×</button>
-      </div>
-      <div style="padding:var(--s2);">
-        <p style="color:var(--m);font-size:12px;margin-bottom:12px;">Choose a template:</p>
-        ${Object.entries(SMS_TEMPLATES).map(([key, tmpl]) => `
-          <div style="padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'" onclick="window.D2D.sendFollowUpSMS(${JSON.stringify({phone:knock.phone,homeowner:knock.homeowner,address:knock.address,disposition:knock.disposition,followUpDate:knock.followUpDate}).replace(/"/g,'&quot;')},'${key}');document.getElementById('d2d-sms-overlay')?.remove()">
-            <div style="font-weight:600;font-size:13px;color:var(--t);">${tmpl.label}</div>
-            <div style="font-size:11px;color:var(--m);margin-top:4px;">${tmpl.body.substring(0, 80)}...</div>
-          </div>
-        `).join('')}
-        ${knock.email ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--br);"><button onclick="window.D2D.sendFollowUpEmail(${JSON.stringify({email:knock.email,homeowner:knock.homeowner,address:knock.address,disposition:knock.disposition}).replace(/"/g,'&quot;')});document.getElementById('d2d-sms-overlay')?.remove()" style="width:100%;padding:10px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">📧 Send Email Instead</button></div>` : ''}
-      </div>
-    `;
+
+    // Header (no inline onclick — CSP-safe + future inline-script removal).
+    const hdr = document.createElement('div');
+    hdr.className = 'd2d-modal-hdr';
+    hdr.innerHTML = '<div class="d2d-modal-title">Send Follow-up</div>'
+      + '<button class="d2d-modal-close" type="button" aria-label="Close">×</button>';
+    hdr.querySelector('.d2d-modal-close').addEventListener('click', () => overlay.remove());
+    modal.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.style.padding = 'var(--s2)';
+    body.innerHTML = '<p style="color:var(--m);font-size:12px;margin-bottom:12px;">Choose a template:</p>';
+
+    // Per-template option button. Click handler is attached
+    // programmatically so closure captures `knock` + `key` directly
+    // — no JSON-stringify dance, no inline onclick attribute.
+    const smsArgs = {
+      phone: knock.phone, homeowner: knock.homeowner, address: knock.address,
+      disposition: knock.disposition, followUpDate: knock.followUpDate
+    };
+    Object.entries(SMS_TEMPLATES).forEach(([key, tmpl]) => {
+      const opt = document.createElement('div');
+      opt.style.cssText = 'padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;';
+      opt.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--t);">' + tmpl.label + '</div>'
+        + '<div style="font-size:11px;color:var(--m);margin-top:4px;">' + tmpl.body.substring(0, 80) + '...</div>';
+      opt.addEventListener('mouseenter', () => { opt.style.borderColor = 'var(--blue)'; });
+      opt.addEventListener('mouseleave', () => { opt.style.borderColor = 'var(--br)'; });
+      opt.addEventListener('click', () => {
+        window.D2D.sendFollowUpSMS(smsArgs, key);
+        overlay.remove();
+      });
+      body.appendChild(opt);
+    });
+
+    if (knock.email) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid var(--br);';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.style.cssText = 'width:100%;padding:10px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+      btn.textContent = '📧 Send Email Instead';
+      const emailArgs = {
+        email: knock.email, homeowner: knock.homeowner,
+        address: knock.address, disposition: knock.disposition
+      };
+      btn.addEventListener('click', () => {
+        window.D2D.sendFollowUpEmail(emailArgs);
+        overlay.remove();
+      });
+      sep.appendChild(btn);
+      body.appendChild(sep);
+    }
+
+    modal.appendChild(body);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
   }
