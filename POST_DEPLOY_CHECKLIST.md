@@ -443,6 +443,40 @@ lack the IAM admin role. Run once from Joe's identity.
 - `ANTHROPIC_API_KEY` — already set for claudeProxy; the voice
   pipeline reuses it for analysis + consent checks.
 
+## 18b. CSP `'unsafe-inline'` rollout (M1) — incremental hardening
+
+The audit's M1 item: drop `'unsafe-inline'` from the enforced CSP
+on every page that doesn't actually need it. Status (2026-04-15):
+
+| Page | script-src | style-src | Status |
+|---|---|---|---|
+| `/admin/index.html` | clean | **clean** | ✅ Pilot landed — both directives strict |
+| `/admin/login.html` | clean | needs `<style>` block hashed/extracted | ⏳ next |
+| `/admin/analytics.html` | clean | needs `<style>` block hashed/extracted | ⏳ next |
+| `/admin/mfa-enroll.html` | (no per-page CSP yet) | 8 inline attrs + 1 `<style>` block | ⏳ adds per-page CSP after extraction |
+| `/admin/vault.html` | needs 30+ `on*=` handlers extracted | many inline attrs | ⏳ content rewrite required |
+| `/admin/project-codex.html` | needs 2 inline `<script>` + 57 handlers extracted | many inline attrs | ⏳ content rewrite required |
+| `/pro/dashboard.html` | ~435 inline handlers | many | ⏳ biggest sprint — defer |
+| `/pro/customer.html` | ~114 inline handlers | many | ⏳ |
+| `/pro/ai-tool-finder.html` | ~61 inline handlers | many | ⏳ |
+| Global `**/*.html` fallback | still allows `'unsafe-inline'` | still allows `'unsafe-inline'` | ⏳ tightens last, after all pages migrate |
+
+**Pattern for each next page** (login + analytics are easiest — single
+`<style>` block, zero inline event handlers):
+1. Extract the inline `<style>` block to an external `.css` file under
+   `docs/admin/css/` (or per-page co-located).
+2. Reference it via `<link rel="stylesheet" href="...">` and ensure
+   `style-src 'self'` covers it (it does).
+3. Remove the `'style-src 'unsafe-inline''` portion from the per-page
+   CSP entry in `firebase.json`.
+4. Add the page's strict CSP shape to `tests/smoke.test.js` (pattern at
+   the M1 pilot section — parses the directive, asserts no `'unsafe-inline'`).
+
+Don't touch the global `**/*.html` CSP until every page covered by it
+is on a strict per-page override or is itself inline-free. Premature
+global tightening would break `dashboard.html` + every other inline-heavy
+page in production.
+
 ## 18a. Cloud Function sizing (R-05) — hot-path ceilings + minInstances cost
 
 The audit's R-05 finding was that every user-facing endpoint was

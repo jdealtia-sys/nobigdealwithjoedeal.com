@@ -2375,6 +2375,57 @@ section('L-03 cont.: Stripe handlers extracted to functions/stripe.js');
   }
 }
 
+section('M1 pilot: /admin/index.html drops unsafe-inline (script-src + style-src)');
+{
+  const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));
+  // Find the per-page CSP header for /admin/index.html. Hosting
+  // applies the most-specific source's header value; this entry
+  // overrides the global **/*.html CSP for this exact path.
+  const entry = (fb.hosting.headers || [])
+    .find(h => h.source === '/admin/index.html');
+  assert('M1: per-page CSP entry exists for /admin/index.html', !!entry);
+  if (entry) {
+    const csp = (entry.headers || [])
+      .find(h => h.key === 'Content-Security-Policy');
+    assert('M1: /admin/index.html has a Content-Security-Policy header', !!csp);
+    if (csp) {
+      // Parse out the directives so a future header reorder doesn't
+      // false-pass the assertions.
+      const directives = Object.fromEntries(csp.value
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(d => {
+          const [name, ...vals] = d.split(/\s+/);
+          return [name, vals];
+        }));
+      assert('M1: script-src has no \'unsafe-inline\'',
+        Array.isArray(directives['script-src'])
+        && !directives['script-src'].includes("'unsafe-inline'"));
+      assert('M1: style-src has no \'unsafe-inline\'',
+        Array.isArray(directives['style-src'])
+        && !directives['style-src'].includes("'unsafe-inline'"));
+      assert('M1: object-src is locked to none',
+        Array.isArray(directives['object-src'])
+        && directives['object-src'].includes("'none'"));
+      assert('M1: base-uri is locked to none',
+        Array.isArray(directives['base-uri'])
+        && directives['base-uri'].includes("'none'"));
+    }
+  }
+  // The page itself must not regress to inline-script / inline-style
+  // usage — those would silently break under the strict CSP.
+  const page = read(path.join(ROOT, 'docs/admin/index.html'));
+  assert('M1: /admin/index.html still has zero inline <script> bodies',
+    !/<script[^>]*>[^\s<]/.test(page));
+  assert('M1: /admin/index.html still has zero on*= event handlers',
+    !/\bon[a-z]+=/.test(page));
+  assert('M1: /admin/index.html still has zero style="..." attrs',
+    !/style="/.test(page));
+  assert('M1: /admin/index.html still has zero <style> blocks',
+    !/<style[ >]/.test(page));
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
