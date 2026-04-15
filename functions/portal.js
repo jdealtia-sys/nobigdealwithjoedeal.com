@@ -40,38 +40,24 @@ const {
   getSecret: getInt,
 } = require('./integrations/_shared');
 
-// Rate-limit adapter (same used platform-wide; falls back to Firestore
-// when Upstash secrets aren't set — see integrations/upstash-ratelimit.js).
-const { enforceRateLimit, httpRateLimit } = require('./integrations/upstash-ratelimit');
+// R-01 rate-limit adapter (Upstash → Firestore fallback) for the
+// per-IP gate on getHomeownerPortalView.
+const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
-// CORS origins — identical to the list in functions/index.js. This
+// B2: shared authz helper — callableRateLimit lives in shared.js
+// alongside other cross-module primitives. portal.js was where the
+// duplicated copy was first flagged.
+const { callableRateLimit } = require('./shared');
+
+// CORS origins — identical to the list in functions/index.js. The
 // duplication is deliberate: portal.js is meant to be importable on
 // its own, and the origin allowlist is short and rarely changes.
-// If/when more modules peel off, this goes into a shared constants.js.
+// If/when more modules peel off, this goes into shared.js.
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
   'https://nobigdeal-pro.web.app',
 ];
-
-// ─── Per-uid rate-limit wrapper for callables ────────────────
-// Mirrors `callableRateLimit` in index.js. Inlined here rather than
-// imported so portal.js stays standalone; the two copies are tiny
-// and identical. A future commit can extract this into functions/
-// shared-helpers.js once a second module needs it.
-async function callableRateLimit(request, name, limit, windowMs) {
-  const uid = request.auth && request.auth.uid;
-  if (!uid) return;
-  try {
-    await enforceRateLimit('callable:' + name + ':uid', uid, limit, windowMs);
-  } catch (e) {
-    if (e.rateLimited) {
-      throw new HttpsError('resource-exhausted',
-        'Rate limit exceeded — try again in ' + Math.ceil(windowMs / 1000) + 's');
-    }
-    throw e;
-  }
-}
 
 // ─── Token minting ──────────────────────────────────────────
 // 32-char no-confusable alphabet (no 0/O, 1/I/L). 24 bytes of

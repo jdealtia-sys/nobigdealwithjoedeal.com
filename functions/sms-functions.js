@@ -131,45 +131,11 @@ async function verifyAuth(req) {
   }
 }
 
-/**
- * C-02: require the caller to hold an active paid subscription AND
- * a verified email before they can send SMS. Without this gate,
- * any free-tier or trial-expired account that passes App Check
- * can burn the platform Twilio budget — per-uid cap 100/day ×
- * ~$0.008/SMS × 1000 burner accounts ≈ $800/day toll fraud, plus
- * TCPA exposure on unsolicited marketing messages.
- *
- * Admin is exempt (for support flows). Mirrors the `claudeProxy`
- * sub-gate at functions/index.js:152-159.
- *
- * Returns { ok: true, plan } on success, or
- * { ok: false, status, error } with the HTTP status the handler
- * should respond with on failure.
- */
-async function requirePaidSubscription(db, decoded) {
-  if (decoded.role === 'admin') return { ok: true, plan: 'admin' };
-  if (decoded.email_verified !== true) {
-    return {
-      ok: false,
-      status: 403,
-      error: 'Verify your email before sending SMS.',
-    };
-  }
-  const snap = await db.doc('subscriptions/' + decoded.uid).get();
-  const sub = snap.exists ? snap.data() : null;
-  const active = sub
-    && sub.status === 'active'
-    && sub.plan
-    && sub.plan !== 'free';
-  if (!active) {
-    return {
-      ok: false,
-      status: 402,
-      error: 'SMS requires an active paid subscription.',
-    };
-  }
-  return { ok: true, plan: sub.plan };
-}
+// C-02: require the caller to hold an active paid subscription AND
+// a verified email before they can send SMS. The helper lives in
+// functions/shared.js (B2) so claudeProxy + future billable endpoints
+// can adopt the same gate without inlining another copy.
+const { requirePaidSubscription } = require('./shared');
 
 // ═══════════════════════════════════════════════════════════════
 // CLOUD FUNCTIONS

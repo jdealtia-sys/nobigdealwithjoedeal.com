@@ -783,8 +783,14 @@ section('Wave C6: per-lead Claude cost attribution');
 section('D1: mutation callables rate-limited');
 {
   const idx = read(path.join(FUNCTIONS, 'index.js'));
-  assert('callableRateLimit helper defined',
-    /async function callableRateLimit/.test(idx));
+  // B2: callableRateLimit is defined in functions/shared.js and
+  // imported by index.js + portal.js. Check both: the helper lives
+  // in shared.js, and index.js imports it.
+  const shared = read(path.join(FUNCTIONS, 'shared.js'));
+  assert('callableRateLimit helper defined (in shared.js)',
+    /async function callableRateLimit/.test(shared));
+  assert('callableRateLimit imported by index.js',
+    /require\(['"]\.\/shared['"]\)/.test(idx) && /callableRateLimit/.test(idx));
   // L-03: portal handlers moved to portal.js (which has its own
   // inlined callableRateLimit). Resolve each function's rate-limit
   // site by searching BOTH files.
@@ -1788,14 +1794,20 @@ section('C-01: sendD2DSMS IDOR + collection rename + .exists property fix');
 section('C-02: SMS subscription + email-verify gate');
 {
   const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
-  assert('C-02: requirePaidSubscription helper is defined',
-    /async function requirePaidSubscription\s*\(/.test(src));
+  // B2: requirePaidSubscription lives in functions/shared.js now,
+  // imported by sms-functions.js. Scan shared.js for the helper
+  // shape; scan sms-functions.js for the call sites.
+  const shared = read(path.join(FUNCTIONS, 'shared.js'));
+  assert('C-02: requirePaidSubscription helper is defined (in shared.js)',
+    /async function requirePaidSubscription\s*\(/.test(shared));
   assert('C-02: helper allows admin bypass',
-    /decoded\.role\s*===\s*'admin'[\s\S]{0,80}ok:\s*true/.test(src));
+    /decoded\.role\s*===\s*'admin'[\s\S]{0,80}ok:\s*true/.test(shared));
   assert('C-02: helper gates on email_verified',
-    /decoded\.email_verified\s*!==\s*true/.test(src));
+    /decoded\.email_verified\s*!==\s*true/.test(shared));
   assert('C-02: helper rejects free / missing subscriptions',
-    /sub\.plan\s*!==\s*'free'/.test(src));
+    /sub\.plan\s*!==\s*'free'/.test(shared));
+  assert('C-02: sms-functions.js imports the helper from shared',
+    /require\(['"]\.\/shared['"]\)/.test(src) && /requirePaidSubscription/.test(src));
   // Both handlers must call the gate before the per-uid rate-limit burn.
   // Heuristic: each handler block contains the call at least once.
   const sendSmsCallCount   = (src.match(/exports\.sendSMS\s*=\s*onRequest/g) || []).length;
@@ -2258,6 +2270,64 @@ section('L-04: confirmAccountErasure GET is rate-limited');
     /if\s*\(req\.method\s*===\s*'GET'\)[\s\S]{0,1200}httpRateLimit\([^)]*confirmErasureGet:ip/.test(src));
   assert('L-04: rate-limit uses per-IP key (60/min)',
     /confirmErasureGet:ip[^)]*,\s*60,\s*60_000/.test(src));
+}
+
+section('B2: shared authz + rate-limit helpers');
+{
+  const sharedPath = path.join(FUNCTIONS, 'shared.js');
+  assert('B2: functions/shared.js exists', fs.existsSync(sharedPath));
+  if (fs.existsSync(sharedPath)) {
+    const ssrc = read(sharedPath);
+    assert('B2: shared.js parses cleanly', syntaxCheck(sharedPath).ok);
+    assert('B2: shared.js exports callableRateLimit',
+      /exports\.callableRateLimit\s*=|module\.exports\s*=\s*\{[\s\S]*?callableRateLimit/.test(ssrc));
+    assert('B2: shared.js exports requirePaidSubscription',
+      /exports\.requirePaidSubscription\s*=|module\.exports\s*=\s*\{[\s\S]*?requirePaidSubscription/.test(ssrc));
+    // Live-load the module and verify the functions are callable.
+    const s = require(sharedPath);
+    assert('B2: callableRateLimit is a function', typeof s.callableRateLimit === 'function');
+    assert('B2: requirePaidSubscription is a function', typeof s.requirePaidSubscription === 'function');
+    // callableRateLimit on an unauthenticated request should no-op
+    // (uid is missing → early return, no throw). Exercises the guard.
+    (async () => {
+      try {
+        await s.callableRateLimit({ auth: null }, 'test', 1, 1000);
+      } catch (e) {
+        assert('B2: callableRateLimit is a no-op on unauth', false, 'threw ' + e.message);
+      }
+    })();
+    // requirePaidSubscription on an unauthenticated caller returns
+    // {ok:false, 401} without touching Firestore.
+    (async () => {
+      const stubDb = { doc: () => { throw new Error('Firestore should not be touched for unauth'); } };
+      const res = await s.requirePaidSubscription(stubDb, null);
+      assert('B2: requirePaidSubscription rejects unauth before Firestore',
+        res && res.ok === false && res.status === 401);
+    })();
+  }
+
+  // Migration: the three callers (index.js, portal.js, sms-functions.js)
+  // must now import from shared, NOT define their own inline copies.
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('B2: index.js imports callableRateLimit from ./shared',
+    /require\(['"]\.\/shared['"]\)[\s\S]{0,200}callableRateLimit/.test(idx)
+    || /\{[^}]*callableRateLimit[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(idx));
+  assert('B2: index.js no longer defines callableRateLimit inline',
+    !/async function callableRateLimit\s*\(/.test(idx));
+
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('B2: portal.js imports callableRateLimit from ./shared',
+    /require\(['"]\.\/shared['"]\)/.test(psrc)
+    && /callableRateLimit/.test(psrc));
+  assert('B2: portal.js no longer defines callableRateLimit inline',
+    !/async function callableRateLimit\s*\(/.test(psrc));
+
+  const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('B2: sms-functions.js imports requirePaidSubscription from ./shared',
+    /require\(['"]\.\/shared['"]\)[\s\S]{0,200}requirePaidSubscription/.test(sms)
+    || /\{[^}]*requirePaidSubscription[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(sms));
+  assert('B2: sms-functions.js no longer defines requirePaidSubscription inline',
+    !/async function requirePaidSubscription\s*\(/.test(sms));
 }
 
 // ── Summary ─────────────────────────────────────────────────

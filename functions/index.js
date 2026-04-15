@@ -33,28 +33,11 @@ admin.initializeApp();
 const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 const { withSentry } = require('./integrations/sentry');
 
-// ═════════════════════════════════════════════════════════════
-// D1: per-uid rate-limit guard for every mutation callable.
-// Use inside onCall handlers to throw a resource-exhausted error
-// when a single user is spamming. The Upstash-first adapter
-// transparently falls back to Firestore when unconfigured.
-//
-// Usage:
-//   await callableRateLimit(request, 'createPortalToken', 30, 60_000);
-// ═════════════════════════════════════════════════════════════
-async function callableRateLimit(request, name, limit, windowMs) {
-  const uid = request.auth && request.auth.uid;
-  if (!uid) return;  // unauth callers can't hit a callable anyway
-  try {
-    await enforceRateLimit('callable:' + name + ':uid', uid, limit, windowMs);
-  } catch (e) {
-    if (e.rateLimited) {
-      throw new HttpsError('resource-exhausted',
-        `Rate limit exceeded — try again in ${Math.ceil(windowMs / 1000)}s`);
-    }
-    throw e;
-  }
-}
+// B2: callableRateLimit + requirePaidSubscription live in
+// functions/shared.js so every module gets the same implementation.
+// The two previously-inlined copies (here and in portal.js) have
+// been removed.
+const { callableRateLimit, requirePaidSubscription } = require('./shared');
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
