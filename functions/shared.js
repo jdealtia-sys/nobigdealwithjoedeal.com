@@ -38,6 +38,16 @@
 // R-01 adapter; no-op when Upstash isn't configured.
 const { enforceRateLimit } = require('./integrations/upstash-ratelimit');
 
+// firebase-admin is lazy-loaded for the same reason HttpsError is:
+// the smoke-test harness doesn't have firebase-admin on its require
+// path for shared.js's sibling modules.
+let _admin;
+function getAdmin() {
+  if (_admin) return _admin;
+  _admin = require('firebase-admin');
+  return _admin;
+}
+
 // ─── HttpsError lazy-loaded ─────────────────────────────────
 // Avoid forcing the full firebase-functions runtime on callers that
 // only need requirePaidSubscription (an onRequest helper).
@@ -125,7 +135,46 @@ async function requirePaidSubscription(db, decoded) {
   return { ok: true, plan: sub.plan };
 }
 
+// ═════════════════════════════════════════════════════════════
+// requireAuth — Bearer-token verification for onRequest handlers.
+//
+// The onRequest equivalent of the onCall `request.auth.*` surface.
+// Returns one of:
+//   { decoded }                            — token is valid
+//   { error: { status, body: { error } } } — caller should write
+//     `res.status(error.status).json(error.body)` and return.
+//
+// Options:
+//   adminOnly: true  — additionally requires `decoded.role === 'admin'`
+//                      (returns 403 otherwise). Default false.
+//
+// `checkRevoked: true` is passed to verifyIdToken so a user whose
+// refresh tokens were revoked (H-02 demo flip, GDPR erasure auth
+// disable, admin-MFA lockout) can't replay an old token.
+// ═════════════════════════════════════════════════════════════
+async function requireAuth(req, { adminOnly = false } = {}) {
+  const authHeader = req.headers.authorization || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!idToken) {
+    return { error: { status: 401, body: { error: 'Missing authorization token' } } };
+  }
+  let decoded;
+  try {
+    decoded = await getAdmin().auth().verifyIdToken(idToken, true);
+  } catch (e) {
+    if (e.code === 'auth/id-token-expired') {
+      return { error: { status: 401, body: { error: 'Token expired — please re-authenticate' } } };
+    }
+    return { error: { status: 401, body: { error: 'Invalid token' } } };
+  }
+  if (adminOnly && decoded.role !== 'admin') {
+    return { error: { status: 403, body: { error: 'Admin access required' } } };
+  }
+  return { decoded };
+}
+
 module.exports = {
   callableRateLimit,
   requirePaidSubscription,
+  requireAuth,
 };

@@ -33,11 +33,15 @@ admin.initializeApp();
 const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 const { withSentry } = require('./integrations/sentry');
 
-// B2: callableRateLimit + requirePaidSubscription live in
-// functions/shared.js so every module gets the same implementation.
-// The two previously-inlined copies (here and in portal.js) have
-// been removed.
-const { callableRateLimit, requirePaidSubscription } = require('./shared');
+// B2: callableRateLimit + requirePaidSubscription + requireAuth
+// live in functions/shared.js so every module gets the same
+// implementation. Inlined copies across this file + portal.js +
+// sms-functions.js have been removed.
+const {
+  callableRateLimit,
+  requirePaidSubscription,
+  requireAuth,
+} = require('./shared');
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
@@ -58,25 +62,8 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
-// Shared helper: verify Firebase auth + optional admin role via custom claims.
-async function requireAuth(req, { adminOnly = false } = {}) {
-  const authHeader = req.headers.authorization || '';
-  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!idToken) return { error: { status: 401, body: { error: 'Missing authorization token' } } };
-  let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken, true);
-  } catch (e) {
-    if (e.code === 'auth/id-token-expired') {
-      return { error: { status: 401, body: { error: 'Token expired — please re-authenticate' } } };
-    }
-    return { error: { status: 401, body: { error: 'Invalid token' } } };
-  }
-  if (adminOnly && decoded.role !== 'admin') {
-    return { error: { status: 403, body: { error: 'Admin access required' } } };
-  }
-  return { decoded };
-}
+// requireAuth moved to functions/shared.js (B2). Imported at the
+// top of this file alongside callableRateLimit + requirePaidSubscription.
 
 // Anthropic model allowlist — Opus removed; too expensive to expose to end users.
 const ALLOWED_CLAUDE_MODELS = new Set([
