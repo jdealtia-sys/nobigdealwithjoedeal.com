@@ -175,13 +175,29 @@ export const NBDAuth = {
         _user = user;
         window._user = user;
 
-        // Demo account bypass
-        const isDemoAccount = user.email === 'demo@nobigdeal.pro';
+        // H-02: demo bypass is keyed on a `demo:true` custom claim,
+        // not a hardcoded email literal. The old code let anyone who
+        // compromised the hardcoded demo inbox (or ever gains
+        // control of that address) appear to the client as
+        // `_role === 'admin'`, unlocking admin-only UI. The new
+        // behaviour:
+        //   - demo:true claim holders get professional-tier features
+        //   - _role is fixed at 'demo_viewer' — NEVER 'admin', so no
+        //     admin screens render even if an admin-only page is
+        //     visited directly
+        //   - provisioning is one-off via scripts/grant-demo-claim.js
+        let demoClaim = false;
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          demoClaim = !!(tokenResult.claims && tokenResult.claims.demo === true);
+        } catch (e) {
+          console.warn('Could not read ID token claims:', e.message);
+        }
 
-        if (isDemoAccount) {
+        if (demoClaim) {
           _userPlan = 'professional';
-          _role = 'admin';
-          _subscription = { plan: 'professional', status: 'active' };
+          _role = 'demo_viewer';
+          _subscription = { plan: 'professional', status: 'active', _demo: true };
           _exposeGlobals();
           _showPage();
           if (_options.onReady) _options.onReady(user);
@@ -239,15 +255,23 @@ export const NBDAuth = {
             _subscription = null;
           }
         } catch (e) {
-          // Fail closed on network error — default to free tier for security
-          console.warn('Subscription check failed — defaulting to free:', e.message);
-          const cached = localStorage.getItem('nbd_user_plan');
-          _userPlan = (cached === 'professional' || cached === 'foundation') ? cached : 'free';
-          _subscription = { plan: _userPlan, status: 'network_error', _failOpen: true };
+          // H-03: fail CLOSED on network error. Previously the catch
+          // branch honored a `localStorage.nbd_user_plan` cache and
+          // flipped _failOpen:true — which meant any user who ever
+          // had a paid plan (or who manually set the key) kept
+          // premium-tier UI when the subscription read failed. That's
+          // the definition of fail-open; renaming the flag didn't
+          // change the behaviour. Network errors now hard-drop to
+          // 'free' every time.
+          console.warn('Subscription check failed — failing closed to free:', e.message);
+          _userPlan = 'free';
+          _subscription = { plan: 'free', status: 'network_error', _failOpen: false };
         }
 
-        // Cache plan in localStorage
-        try { localStorage.setItem('nbd_user_plan', _userPlan); } catch(e) {}
+        // H-03: do NOT persist plan in localStorage. The value is
+        // derived on every auth-state change from the server-owned
+        // subscriptions doc; caching it only re-creates the fail-open
+        // attack surface above. logout() clears any stale entry.
 
         // Plan check
         const requiredLevel = PLAN_LEVELS[_options.requiredPlan] || 0;
