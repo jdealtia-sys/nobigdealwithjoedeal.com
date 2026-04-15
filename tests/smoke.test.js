@@ -197,14 +197,19 @@ section('H-2: iframe sandbox');
     /querySelectorAll\('script, iframe, object, embed'\)[\s\S]{0,200}removeAttribute/.test(src));
 }
 
-// ── H-3: imageProxy tenant-scoped ───────────────────────────
-section('H-3: imageProxy tenant scoping');
+// ── H-3: tenant-scoped Storage access (now lives on signImageUrl) ──
+// R-03 retired imageProxy. The same tenant-scoping matrix moved
+// onto signImageUrl — caller must be the path's owner, a platform
+// admin, or a manager/company_admin sharing the file-owner's
+// companyId. The assertions below pin that behaviour on the
+// successor endpoint.
+section('H-3: signImageUrl tenant scoping (successor to imageProxy)');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  assert('imageProxy checks caller role is company_admin or manager',
+  assert('signImageUrl checks caller role is company_admin or manager',
     /\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(src));
-  assert('imageProxy falls back to lookup if claim missing',
-    /imageProxy[\s\S]{0,3000}users\/\$\{ownerUid\}/.test(src));
+  assert('signImageUrl falls back to Firestore lookup if companyId claim missing',
+    /signImageUrl[\s\S]{0,3000}users\/\$\{ownerUid\}/.test(src));
 }
 
 // ── H-4: audit triggers wired ───────────────────────────────
@@ -976,15 +981,20 @@ section('F-10: deploy workflow fails loudly on rules/functions errors');
   }
 }
 
-section('D8: imageProxy deprecation signals');
+section('D8 / R-03: imageProxy stub still emits RFC 8594/9745 deprecation signals');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  assert('imageProxy sets Deprecation header',
+  assert('imageProxy stub sets Deprecation header',
     /imageProxy[\s\S]*?res\.set\('Deprecation', 'true'\)/.test(src));
-  assert('imageProxy sets Sunset header',
+  assert('imageProxy stub sets Sunset header',
     /imageProxy[\s\S]*?res\.set\('Sunset',/.test(src));
-  assert('imageProxy logs every call',
-    /imageProxy DEPRECATED call/.test(src));
+  assert('imageProxy stub sets Link rel=successor-version to /signImageUrl',
+    /imageProxy[\s\S]*?rel="successor-version"/.test(src));
+  // The old "imageProxy DEPRECATED call" WARN log is obsolete — the
+  // stub holds no auth and does no work, so there's no per-call log.
+  // Ops visibility comes from the existing cloud_run_revision error-
+  // rate alert (monitoring/alert-functions-error-rate.json) filtering
+  // on imageProxy.
 }
 
 section('D9: new-device sign-in alert');
@@ -1830,21 +1840,52 @@ section('H-07: claudeProxy message-array + payload-size caps');
     /serializedMessages\.length\s*>\s*CLAUDE_MAX_PAYLOAD_BYTES[\s\S]{0,200}status\(413\)/.test(src));
 }
 
-section('H-01: imageProxy + signImageUrl portals/ strip + MIME allowlist');
+section('H-01 + R-03: signImageUrl portals/ strip (imageProxy retired)');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  // The previous regex was `(photos|portals|galleries|reports|docs)`.
-  // Both active sites now exclude portals.
+  // Only signImageUrl still runs path-allowlist regex now that
+  // imageProxy is a 410 stub. Assertion guards against portal paths
+  // being reintroduced to the signer's alternation.
   const matchRegexes = src.match(/\(photos\|[^)]+\)/g) || [];
-  assert('H-01: neither proxy regex still includes portals',
+  assert('H-01: signImageUrl regex does not include portals',
     matchRegexes.length > 0 && matchRegexes.every(r => !/portals/.test(r)),
     'found ' + matchRegexes.length + ' alternation(s): ' + matchRegexes.join(' | '));
-  assert('H-01: imageProxy enforces image/* content-type allowlist',
-    /!\/\^image\\\//.test(src) || /!\/\^image\\\/\/i\.test\(ct\)/.test(src));
-  assert('H-01: imageProxy sets sandbox CSP on response',
-    /Content-Security-Policy[^\n]*sandbox/.test(src));
-  assert('H-01: non-image content-types return 415',
-    /status\(415\)[^\n]*Unsupported content type/.test(src));
+}
+
+section('R-03: imageProxy retired — 410 Gone stub');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // The old streaming implementation MUST be gone. Its signature
+  // tokens were createReadStream, imageProxy:ip rate limit, and the
+  // DEPRECATED log warning — none should remain.
+  assert('R-03: imageProxy no longer streams via createReadStream',
+    !/imageProxy[\s\S]{0,5000}createReadStream\(\)/.test(src));
+  assert('R-03: imageProxy no longer consumes the imageProxy:ip rate-limit bucket',
+    !/imageProxy:ip/.test(src));
+  assert('R-03: imageProxy stub returns 410 Gone',
+    /exports\.imageProxy[\s\S]{0,2000}status\(410\)/.test(src));
+  assert('R-03: 410 response cites the successor endpoint',
+    /successor:\s*['"]\/signImageUrl['"]/.test(src));
+  // The stub should be cheap — no auth, no Firestore, low concurrency.
+  assert('R-03: stub is cheap (no requireAuth call in the handler body)',
+    !/exports\.imageProxy[\s\S]{0,2000}requireAuth\(/.test(src));
+}
+
+section('R-03: photo-editor migrated off imageProxy');
+{
+  const src = read(path.join(PRO_JS, 'photo-editor.js'));
+  assert('R-03: photo-editor no longer references the imageProxy URL',
+    !/cloudfunctions\.net\/imageProxy/.test(src)
+    && !/const PROXY_URL\s*=\s*['"]https?:\/\/[^'"]*imageProxy/.test(src));
+  assert('R-03: photo-editor uses window.NBDSignedUrl.get for image loads',
+    /window\.NBDSignedUrl\s*\.\s*get\(\s*path\s*\)/.test(src));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('R-03: customer.html loads signed-image-url.js BEFORE photo-editor.js',
+    (() => {
+      const helper = customer.indexOf('signed-image-url.js');
+      const editor = customer.indexOf('photo-editor.js');
+      return helper > 0 && editor > 0 && helper < editor;
+    })());
 }
 
 section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');

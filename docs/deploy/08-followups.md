@@ -42,9 +42,12 @@ Everything in this PR is shippable today. These are the things I **didn't** do, 
 
 ### Photo storage migration to signed URLs
 
-**Status:** C1 shipped `signImageUrl`. `imageProxy` is deprecated but still works.
-**Effort:** grep every call to `imageProxy?path=` and swap to `NBDSignedUrl.mount(img, path)`. Halves egress cost.
-**When to do:** before you get traffic, or before the 2026-10-01 sunset in the Deprecation header.
+**Status:** DONE (R-03, 2026-04-15). `imageProxy` was retired and replaced
+by a 410 Gone stub. Every in-repo caller migrated to `window.NBDSignedUrl`
+(docs/pro/js/signed-image-url.js) which wraps `POST /signImageUrl`.
+Photo-editor is the only known caller and is live on customer.html.
+The stub is safe to delete outright after 7+ days of zero calls in
+Cloud Logging.
 
 ### Call recording / voice memo playback
 

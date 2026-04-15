@@ -5273,7 +5273,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/insurance-claim.js?v=2"></script>
 <script src="js/offline-manager.js?v=3"></script>
 <script src="js/share-gallery.js?v=2"></script>
-<script src="js/photo-editor.js?v=4"></script>
+<!-- R-03: signImageUrl client helper. Must load before the inspection
+     editor below, which calls window.NBDSignedUrl.get() for canvas
+     image loads (un-tainted fetch → blob → object URL). -->
+<script src="js/signed-image-url.js?v=1"></script>
+<script src="js/photo-editor.js?v=5"></script>
 <script src="js/document-generator.js?v=4"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>

@@ -1000,7 +1000,7 @@ exports.getSubscriptionStatus = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// STORAGE CORS + IMAGE PROXY
+// STORAGE CORS + SIGNED IMAGE URLS
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -1042,28 +1042,19 @@ exports.setStorageCors = onRequest(
   }
 );
 
-/**
- * Image proxy — bypasses CORS for loading photos into the editor canvas.
- * GET /imageProxy?path=photos/filename.jpg
- */
 // ═══════════════════════════════════════════════════════════════
-// signImageUrl — C1 replacement for imageProxy streaming.
+// signImageUrl — serves Storage reads to authorized clients.
 //
-// imageProxy streams a Storage object through the function, which
-// means the egress bill gets paid twice: Storage → Function and
-// Function → Client. At 10k users × 20 photos that's $40-100/hr
-// in egress alone. Signed URLs push the client straight to the
-// Storage bucket — same auth/ACL checks we do today (owner uid
-// match OR same-company manager OR platform admin), but Storage
-// handles the actual byte serving.
+// Returns a short-lived (15 min) v4-signed Storage URL after
+// authorizing the caller. Same auth/ACL matrix as the Firestore
+// owner/manager/platform-admin rules: owner uid match OR same-
+// company manager OR platform admin. Clients POST {path} and fetch
+// the returned url directly from storage.googleapis.com — we never
+// proxy bytes through the function (R-03 lesson; imageProxy did,
+// and it double-egressed + starved the instance pool under load).
 //
 // Endpoint: POST /signImageUrl  { path: 'photos/<uid>/<file>' }
-// Returns: { url: 'https://storage.googleapis.com/...<query>' }
-//
-// Clients migrate from  GET /imageProxy?path=X  to
-//                       POST /signImageUrl { path: X }  →  fetch url
-// imageProxy stays in place (backwards compat) but is marked
-// deprecated — once every caller migrates we can delete it.
+// Returns:  { url: 'https://storage.googleapis.com/...<query>' }
 // ═══════════════════════════════════════════════════════════════
 exports.signImageUrl = onRequest(
   {
@@ -1151,135 +1142,47 @@ exports.signImageUrl = onRequest(
   }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// R-03: imageProxy is RETIRED.
+//
+// The old handler streamed Storage bytes through the function, which
+// means every image egressed twice (Storage → Function → Client). At
+// 10k users × 20 photos × 500KB that's ~100GB/hr through 256Mi
+// function instances — the instance bandwidth ceiling (~1 Gbps per)
+// starves the pool before the workload ever reaches maxInstances.
+// It was also a stored-XSS vector (H-01) because it echoed whatever
+// Content-Type the Storage metadata carried.
+//
+// Every caller migrated to signImageUrl + the NBDSignedUrl helper
+// (docs/pro/js/signed-image-url.js). The stub below exists only to
+// fail loudly for any stale client (cached service worker, open tab,
+// third-party integration, uncached CDN edge) that still calls the
+// old URL. It holds NO auth, NO Firestore touches, NO Storage reads
+// — just a cheap 410 response that carries the RFC 8594 Deprecation
+// + Sunset headers pointing to the successor.
+//
+// Safe to delete outright after 7+ days of zero calls in Cloud Logs.
+// Retaining it short-term matches the pattern used for the retired
+// Cloudflare Worker at workers/nbd-ai-proxy.js.
+// ═══════════════════════════════════════════════════════════════
 exports.imageProxy = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    maxInstances: 50,
-    concurrency: 80,
-    timeoutSeconds: 30,
-    memory: '256MiB',
+    maxInstances: 2,
+    concurrency: 20,
+    timeoutSeconds: 5,
+    memory: '128MiB',
   },
-  async (req, res) => {
-    if (req.method !== 'GET') { res.status(405).end(); return; }
-
-    // D8: deprecation signals per RFC 8594 + RFC 9745. Clients that
-    // still use imageProxy should migrate to /signImageUrl. We keep
-    // serving bytes (don't break prod) but every hit logs + headers
-    // telegraph the sunset date, so ops can diff call sites that
-    // haven't migrated.
+  (req, res) => {
     res.set('Deprecation', 'true');
     res.set('Sunset', 'Wed, 01 Oct 2026 00:00:00 GMT');
     res.set('Link', '</signImageUrl>; rel="successor-version"');
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-
-    logger.warn('imageProxy DEPRECATED call', {
-      uidHash: require('crypto').createHash('sha256').update(decoded.uid).digest('hex').slice(0, 16),
-      referer: (req.headers.referer || '').slice(0, 200),
-      path: String(req.query.path || '').slice(0, 200)
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.status(410).json({
+      error: 'gone',
+      message: 'imageProxy has been retired. Use POST /signImageUrl { path } to obtain a 15-minute v4-signed Storage URL, then fetch it directly from storage.googleapis.com.',
+      successor: '/signImageUrl'
     });
-
-    // Per-IP and per-uid rate limit — imageProxy is a bandwidth amplifier.
-    if (!(await httpRateLimit(req, res, 'imageProxy:ip', 120, 60_000))) return;
-    try {
-      await enforceRateLimit('imageProxy:uid', decoded.uid, 120, 60_000);
-    } catch (e) {
-      if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded' }); return; }
-      throw e;
-    }
-
-    // Normalize and validate path.
-    let filePath = req.query.path;
-    if (typeof filePath !== 'string') { res.status(400).json({ error: 'Invalid path' }); return; }
-    // Reject encoded traversal variants + null bytes + backslashes + semicolons.
-    if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
-      res.status(400).json({ error: 'Invalid path' });
-      return;
-    }
-    // Allowed patterns — owner-scoped only. Caller's uid MUST appear as the 2nd path segment.
-    // photos/<uid>/<file>, galleries/<uid>/<file>, reports/<uid>/<file>, docs/<uid>/<file>.
-    // H-01: `portals/` excluded — storage.rules permits text/html there,
-    // but serving attacker-uploaded HTML with its stored Content-Type
-    // via this proxy is stored-XSS (X-Content-Type-Options: nosniff
-    // does NOT override an explicit text/html). Customer-facing portal
-    // HTML is served by Firebase Hosting, not by imageProxy.
-    const match = filePath.match(/^(photos|galleries|reports|docs)\/([^/]+)\/(.+)$/);
-    if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
-    const [, bucketKey, ownerUid] = match;
-
-    const isOwner = ownerUid === decoded.uid;
-    // Platform admin can cross-tenant for support; everything else
-    // must share a company. H-3: previously platform admin was the
-    // only cross-tenant escape, but pre-C-1 that claim was grantable
-    // through the invite flow. With invite-role allowlisting landed,
-    // a legitimate platform admin is the only caller that hits this
-    // branch, and it's now narrow (support workflow only).
-    const isPlatformAdmin = decoded.role === 'admin';
-
-    // Tenant-scoped manager / company_admin: must share companyId
-    // with the file's owner. Claims are the cheap path; fall back
-    // to a Firestore lookup only if the claim is missing.
-    let allowed = isOwner || isPlatformAdmin;
-    if (!allowed) {
-      const callerCompanyId = decoded.companyId || null;
-      const callerRole = decoded.role || '';
-      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
-        try {
-          // Look up the file-owner's company. Prefer the users/{uid}
-          // doc (authoritative), falling back to reps/{uid} for older
-          // seeded data.
-          const db = admin.firestore();
-          const [userDoc, repDoc] = await Promise.all([
-            db.doc(`users/${ownerUid}`).get(),
-            db.doc(`reps/${ownerUid}`).get()
-          ]);
-          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
-            || (repDoc.exists  && repDoc.data().companyId)
-            || null;
-          if (ownerCompanyId && ownerCompanyId === callerCompanyId) {
-            allowed = true;
-          }
-        } catch (e) { /* fall through → 403 */ }
-      }
-    }
-    if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
-
-    try {
-      const bucket = admin.storage().bucket();
-      const file = bucket.file(filePath);
-      const [exists] = await file.exists();
-      if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
-
-      const [metadata] = await file.getMetadata();
-      // H-01: MIME allowlist. Even with the portals/ prefix removed,
-      // a stored object under photos/docs/etc. could have an attacker-
-      // chosen Content-Type in its metadata (e.g., uploaded via the
-      // legacy un-scoped paths, or a MIME shuffle before a rule
-      // tightening). Force image/* for imageProxy, full stop.
-      const ct = metadata.contentType || 'application/octet-stream';
-      if (!/^image\//i.test(ct)) {
-        logger.warn('imageProxy rejected non-image content-type', {
-          uid: decoded.uid, path: filePath, contentType: ct,
-        });
-        res.status(415).json({ error: 'Unsupported content type' });
-        return;
-      }
-      res.set('Content-Type', ct);
-      res.set('Cache-Control', 'private, max-age=300');
-      res.set('X-Content-Type-Options', 'nosniff');
-      // Belt-and-suspenders: sandbox CSP so even if a future bug
-      // smuggles HTML into this response, no script executes and
-      // no origin is inherited.
-      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-
-      file.createReadStream().pipe(res);
-    } catch (e) {
-      logger.error('imageProxy error', { uid: decoded.uid, err: e.message });
-      res.status(500).json({ error: 'Failed to proxy image' });
-    }
   }
 );
 

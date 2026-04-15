@@ -100,7 +100,8 @@ Run these as a freshly-registered free user, a paid user, and an admin:
 - [ ] `curl POST /seedDemoData` → 404.
 - [ ] `curl POST /validateAccessCode '{"data":{"code":"NBD-ADMIN"}}'` → 403 (App Check missing) or `not-found`.
 - [ ] `curl POST /incomingSMS` with an invalid signature → 403.
-- [ ] `curl GET /imageProxy?path=photos/<someone_else>/x.jpg` with your ID token → 403.
+- [ ] `curl GET /imageProxy?path=anything` → 410 Gone (R-03 — function is retired; caller must use `POST /signImageUrl`).
+- [ ] `curl POST /signImageUrl -d '{"path":"photos/<someone_else>/x.jpg"}'` with your ID token → 403.
 - [ ] `curl GET https://nbd-ai-proxy.<acct>.workers.dev` → 410 (or 404 if you deleted the worker).
 - [ ] Ask-Joe AI works for a paid user → `api_usage` doc appears → 30 calls in 1 min → 429.
 - [ ] Stripe checkout works for a paid user → webhook creates `subscriptions/{uid}` → audit_log entry exists.
