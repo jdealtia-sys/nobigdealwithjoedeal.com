@@ -82,6 +82,7 @@
   let d2dCluster = null;
   let d2dHeat = null;
   let d2dInited = false;
+  let d2dInitializing = false; // guard against concurrent initD2D() calls
   let locationMarker = null;
   let accuracyCircle = null;
   let watchId = null;
@@ -2859,6 +2860,9 @@
       if (d2dMap) setTimeout(() => d2dMap.invalidateSize(), 100);
       return;
     }
+    // Prevent concurrent inits (e.g. rapid D2D tab clicks)
+    if (d2dInitializing) return;
+    d2dInitializing = true;
 
     // Auth gate — three failure modes folded into one:
     //   (a) Race: D2D tab tapped before Firebase onAuthStateChanged
@@ -2883,6 +2887,7 @@
           ]);
         }
       } catch (e) {
+        d2dInitializing = false;
         console.warn('initD2D: auth promise did not resolve within 5s — redirecting to login', e.message);
         try { renderD2D(); } catch (_) {}
         window.location.replace('/pro/login.html?from=d2d');
@@ -2890,6 +2895,7 @@
       }
       // After the wait, _user may have been set by NBDAuth.
       if (!window._user || !window._user.uid) {
+        d2dInitializing = false;
         console.warn('initD2D: still no _user after auth resolved — redirecting to login');
         try { renderD2D(); } catch (_) {}
         window.location.replace('/pro/login.html?from=d2d');
@@ -2904,6 +2910,7 @@
       renderD2D();
       setTimeout(() => initD2DMap(), 200);
       d2dInited = true;
+      d2dInitializing = false;
 
       // Async background tasks
       if (isOnline) {
@@ -2911,6 +2918,7 @@
         loadWeather();
       }
     } catch (e) {
+      d2dInitializing = false;
       console.error('initD2D failed:', e);
       window.showToast?.('Failed to initialize D2D', 'error');
       // Always render the shell so the spinner clears — a hung

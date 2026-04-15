@@ -10987,22 +10987,37 @@ function goTo(name, params = {}) {
   if(name==='home') { if(window.NBDWidgets) window.NBDWidgets.render(); }
   if(name==='d2d') {
     // D2D content (feed, stats, knocks) loads independently of Leaflet.
-    // Previously everything was gated on waitForLeaflet, so a CDN hiccup
-    // left the spinner up forever. Now: content loads immediately via
-    // waitForD2D; the map initialises inside initD2D's own setTimeout
-    // (which guards `typeof L !== "undefined"` before touching Leaflet).
+    // waitForD2D polls for window.D2D (set at the end of d2d-tracker.js IIFE).
+    // In practice window.D2D is always set before goTo('d2d') can fire
+    // (defer scripts run before DOMContentLoaded), but we poll defensively
+    // to cover edge cases where d2d-tracker.js is served a 503 by the SW
+    // on first load after a cache-version bump (poor connectivity + empty
+    // nbd-cdn cache). In that case we surface a retry button instead of
+    // leaving the spinner up forever.
     function waitForD2D(cb) {
       if (window.D2D) { cb(); return; }
       let t2 = 0;
-      const iv = setInterval(()=> { t2++; if(window.D2D){clearInterval(iv);cb();}else if(t2>80){clearInterval(iv);console.error('D2D never loaded');} }, 50);
+      const iv = setInterval(()=> {
+        t2++;
+        if (window.D2D) {
+          clearInterval(iv);
+          cb();
+        } else if (t2 > 160) { // 8 seconds
+          clearInterval(iv);
+          console.error('D2D never loaded — d2d-tracker.js may have failed to load');
+          const c = document.getElementById('d2dContent');
+          if (c) c.innerHTML = '<div class="empty"><div class="empty-icon">😕</div><p style="color:var(--m);font-size:14px;margin:8px 0 16px;">D2D Tracker failed to load.<br>Check your connection and try again.</p><button onclick="window.location.reload()" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
+        }
+      }, 50);
     }
     waitForD2D(()=>{
-      if (!window._d2dInited) {
-        requestAnimationFrame(()=>{ window.D2D.init(); window._d2dInited = true; });
-      } else if (window.D2D.refreshMap) {
-        // Re-entry: refresh D2D map size when view becomes visible again
-        requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ window.D2D.refreshMap(); }); });
-      }
+      // Always call init() — initD2D() is idempotent via its internal
+      // d2dInited flag. On first load it runs full init + renderD2D.
+      // On re-entry it re-renders + invalidates the map size. This also
+      // handles the case where a previous init() threw before completing:
+      // window._d2dInited would be stale-true but d2dInited would be
+      // false, so init() correctly re-runs the full sequence.
+      requestAnimationFrame(()=>{ window.D2D.init(); });
     });
   }
   if(name==='training') { _lazyPreload.then(() => { if (window.SalesTraining) window.SalesTraining.init(); }); }
@@ -14294,7 +14309,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/lead-scoring.js?v=2"></script>
 <!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
      close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
-<script defer src="js/d2d-tracker.js?v=16"></script>
+<script defer src="js/d2d-tracker.js?v=17"></script>
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
 <script defer src="js/product-data.js?v=1"></script>
 <script defer src="js/roofivent-catalog.js?v=1"></script>
