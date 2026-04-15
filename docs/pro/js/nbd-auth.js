@@ -188,8 +188,18 @@ export const NBDAuth = {
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
         try {
-          const tokenResult = await user.getIdTokenResult();
-          demoClaim = !!(tokenResult.claims && tokenResult.claims.demo === true);
+          // 4-second timeout: getIdTokenResult() makes a network round-trip
+          // to refresh the ID token. On iOS Safari with poor connectivity
+          // this call can hang indefinitely, keeping the page invisible
+          // (visibility:hidden) until the network stack times out (~60s).
+          // Racing against a 4s resolve (not reject) means we proceed with
+          // demoClaim=false on timeout — the subscription check below still
+          // runs and grants the correct plan from Firestore.
+          const tokenResult = await Promise.race([
+            user.getIdTokenResult(),
+            new Promise(resolve => setTimeout(resolve, 4000))
+          ]);
+          demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -205,9 +215,13 @@ export const NBDAuth = {
           return;
         }
 
-        // Fetch user doc for role
+        // Fetch user doc for role — 5s timeout so a Firestore hang
+        // doesn't keep the page invisible (visibility:hidden) indefinitely.
         try {
-          const userSnap = await getDoc(doc(_db, 'users', user.uid));
+          const userSnap = await Promise.race([
+            getDoc(doc(_db, 'users', user.uid)),
+            new Promise(resolve => setTimeout(resolve, 5000))
+          ]);
           if (userSnap.exists()) {
             const userData = userSnap.data();
             _role = userData.role || 'member';
@@ -222,9 +236,12 @@ export const NBDAuth = {
           return;
         }
 
-        // Fetch subscription
+        // Fetch subscription — 5s timeout (same rationale as user doc above).
         try {
-          const subSnap = await getDoc(doc(_db, 'subscriptions', user.uid));
+          const subSnap = await Promise.race([
+            getDoc(doc(_db, 'subscriptions', user.uid)),
+            new Promise(resolve => setTimeout(resolve, 5000))
+          ]);
           if (subSnap.exists()) {
             _subscription = subSnap.data();
             if (_subscription.status === 'active') {

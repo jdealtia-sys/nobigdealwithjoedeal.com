@@ -11018,6 +11018,19 @@ function goTo(name, params = {}) {
       // window._d2dInited would be stale-true but d2dInited would be
       // false, so init() correctly re-runs the full sequence.
       requestAnimationFrame(()=>{ window.D2D.init(); });
+
+      // Belt-and-suspenders watchdog: independent of d2d-tracker.js. If
+      // #d2dContent still shows the static "Loading…" placeholder after
+      // 14 seconds (8s Firestore timeout + padding), something inside
+      // initD2D() hung silently. Replace with a user-visible retry UI so
+      // the spinner never stays forever regardless of root cause.
+      setTimeout(() => {
+        const c = document.getElementById('d2dContent');
+        if (c && c.textContent.includes('Loading Door-to-Door')) {
+          console.error('[d2d-watchdog] initD2D hung — replacing spinner with retry UI');
+          c.innerHTML = '<div class="empty"><div class="empty-icon">😕</div><p style="color:var(--m);font-size:14px;margin:8px 0 16px;">D2D Tracker took too long to load.<br>Check your connection and try again.</p><button onclick="window.location.reload()" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Reload</button></div>';
+        }
+      }, 14000);
     });
   }
   if(name==='training') { _lazyPreload.then(() => { if (window.SalesTraining) window.SalesTraining.init(); }); }
