@@ -2158,8 +2158,8 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   }
 
   const claude = configOf('claudeProxy');
-  assert('R-05: claudeProxy maxInstances >= 300 (audit R-02 recommendation)',
-    intField(claude, 'maxInstances') >= 300,
+  assert('R-05: claudeProxy maxInstances >= 200 (quota cap: us-central1 200k mCPU; request quota increase to raise)',
+    intField(claude, 'maxInstances') >= 200,
     'got ' + intField(claude, 'maxInstances'));
   assert('R-05: claudeProxy minInstances >= 3 (cold-start absorption)',
     intField(claude, 'minInstances') >= 3,

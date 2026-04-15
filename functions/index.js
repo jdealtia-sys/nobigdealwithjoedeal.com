@@ -176,12 +176,13 @@ exports.claudeProxy = onRequest(
     enforceAppCheck: true,
     // R-05 sizing: 10k-concurrent-user spike × each user firing
     // ≤1 AI call/min + 30-60s tail latency → ~10k concurrent
-    // in-flight. Old 100×80 = 8k ceiling triggered Cloud Run 429s
-    // on the tail. 300×80 = 24k gives headroom for burst + tail
-    // latency during Anthropic 5xx retries. minInstances:3 absorbs
-    // cold-start on the hot path (~$10/mo on 256Mi). Pair with
-    // M-03: per-tier company budgets + C-03 transactional counter.
-    maxInstances: 300,
+    // in-flight. Capped at 200 (not 300) because the us-central1
+    // project quota is 200,000 mCPU and each instance uses 1 vCPU
+    // (1000 mCPU) — 300×1000 = 300k > 200k quota → deploy fails.
+    // 200×80 = 16k ceiling, 2× headroom over the old 100×80 = 8k.
+    // To exceed 200 instances, request a quota increase in Cloud
+    // Console before bumping this number.
+    maxInstances: 200,
     concurrency: 80,
     minInstances: 3,
     timeoutSeconds: 60,
