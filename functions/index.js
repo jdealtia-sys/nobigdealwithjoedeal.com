@@ -112,13 +112,92 @@ const CLAUDE_MAX_TOKENS_CAP = 1024;
 //   professional→ 1M  tokens/day/company
 const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
 const CLAUDE_PER_MIN_LIMIT = 20;
+// M-03: `starter` is the canonical plan name new checkouts normalize
+// to (createCheckoutSession maps legacy `foundation` → `starter` at
+// line ~343). Without an entry here, every new paid signup silently
+// fell through to CLAUDE_COMPANY_BUDGET_DEFAULT (10k/day) instead of
+// the intended 50k/day. `blueprint` is a mid-tier placeholder tracked
+// in docs/pro/js/nbd-auth.js:PLAN_LEVELS — add a conservative entry so
+// future rollouts don't repeat the drift.
 const CLAUDE_COMPANY_BUDGET = {
   lite:          10_000,
   foundation:    50_000,
+  starter:       50_000,
+  blueprint:    120_000,
   growth:       250_000,
   professional: 1_000_000
 };
 const CLAUDE_COMPANY_BUDGET_DEFAULT = 10_000;
+
+// ═════════════════════════════════════════════════════════════
+// C-03: transactional Claude budget reservation.
+//
+// The previous read-then-fire-then-increment flow had a TOCTOU race:
+// N concurrent callers would all see the same pre-call counter, all
+// pass the budget check, all fire to Anthropic, and the counter
+// would only catch up after the fact — effectively N× the daily cap
+// in one burst. With concurrency:80 and a per-min rate limit of 20,
+// a single user could burn 20× their reservation before step ④ ran.
+// Company-level the burst is even worse (multiple users × 20 each).
+//
+// Fix: reserve the anticipated spend inside a Firestore transaction
+// BEFORE calling Anthropic. On success, reconcile actual - reservation
+// (can be negative). On failure, refund the full reservation.
+//
+// Reservation is bounded at 4×CLAUDE_MAX_TOKENS_CAP so a bad estimate
+// (huge input) can't lock out the user's entire day on a single call.
+// The heuristic is 1 token ≈ 4 chars, which is the Anthropic tokenizer
+// rule of thumb — close enough for reservation bounding.
+// ═════════════════════════════════════════════════════════════
+const CLAUDE_RESERVATION_MAX = 4 * CLAUDE_MAX_TOKENS_CAP;
+// H-07: input-size guardrails. A client that smuggles a 200k-message
+// payload (huge base64 image set, runaway prompt) can drive up input-
+// token cost even with max_tokens capped at 1024. Reject payloads
+// that are definitely not a human-scale CRM interaction before they
+// ever touch Anthropic.
+const CLAUDE_MAX_MESSAGES      = 40;
+const CLAUDE_MAX_PAYLOAD_BYTES = 200_000;
+
+function estimateInputTokens(messages, system) {
+  let chars = 0;
+  try { chars += JSON.stringify(messages || []).length; } catch (_) {}
+  if (typeof system === 'string') chars += system.length;
+  return Math.ceil(chars / 4);
+}
+
+async function reserveClaudeBudget(db, uidRef, coRef, reservation, caps) {
+  return db.runTransaction(async (tx) => {
+    const [u, c] = await Promise.all([tx.get(uidRef), tx.get(coRef)]);
+    const uConsumed = (u.exists && u.data().tokens) || 0;
+    const cConsumed = (c.exists && c.data().tokens) || 0;
+    if (!caps.isAdmin && uConsumed + reservation > caps.uidCap) {
+      return { ok: false, scope: 'uid', consumed: uConsumed, cap: caps.uidCap };
+    }
+    if (!caps.isAdmin && cConsumed + reservation > caps.coCap) {
+      return { ok: false, scope: 'company', consumed: cConsumed, cap: caps.coCap };
+    }
+    const srv = admin.firestore.FieldValue.serverTimestamp();
+    const inc = admin.firestore.FieldValue.increment(reservation);
+    tx.set(uidRef, {
+      tokens: inc, updatedAt: srv,
+      uid: caps.uid, dayKey: caps.dayKey, scope: 'uid'
+    }, { merge: true });
+    tx.set(coRef, {
+      tokens: inc, updatedAt: srv,
+      companyId: caps.companyId, dayKey: caps.dayKey, scope: 'company'
+    }, { merge: true });
+    return { ok: true };
+  });
+}
+
+async function adjustClaudeBudget(uidRef, coRef, delta) {
+  if (!delta) return;
+  const inc = admin.firestore.FieldValue.increment(delta);
+  await Promise.all([
+    uidRef.set({ tokens: inc }, { merge: true }),
+    coRef.set({ tokens: inc }, { merge: true })
+  ]);
+}
 
 exports.claudeProxy = onRequest(
   {
@@ -188,60 +267,110 @@ exports.claudeProxy = onRequest(
       // below, preserving per-lead cost attribution (C6) and
       // analytics drill-downs; only the HOT-PATH budget check
       // moved to the counter.
+      // ── Input validation + H-07 size caps ──
+      // Run BEFORE any Firestore write so a 400/413 path is free
+      // of side effects.
+      const { model, max_tokens, messages, system, temperature } = req.body || {};
+      if (!Array.isArray(messages) || messages.length === 0) {
+        res.status(400).json({ error: 'messages array required' });
+        return;
+      }
+      if (messages.length > CLAUDE_MAX_MESSAGES) {
+        res.status(400).json({ error: 'Too many messages (max ' + CLAUDE_MAX_MESSAGES + ')' });
+        return;
+      }
+      let serializedMessages;
+      try { serializedMessages = JSON.stringify(messages); }
+      catch (_) {
+        res.status(400).json({ error: 'Invalid messages structure' });
+        return;
+      }
+      if (serializedMessages.length > CLAUDE_MAX_PAYLOAD_BYTES) {
+        res.status(413).json({ error: 'Messages payload too large (max 200KB)' });
+        return;
+      }
+      const safeModel = ALLOWED_CLAUDE_MODELS.has(model) ? model : 'claude-haiku-4-5-20251001';
+      const safeMaxTokens = Math.min(Number(max_tokens) || 500, CLAUDE_MAX_TOKENS_CAP);
+      const safeSystem = (typeof system === 'string') ? system.slice(0, 4000) : undefined;
+      const safeTemperature = (typeof temperature === 'number')
+        ? Math.max(0, Math.min(1, temperature))
+        : undefined;
+
+      // ── C-03: transactional budget reservation ──
+      // Pre-reserve up to CLAUDE_RESERVATION_MAX tokens inside a
+      // Firestore transaction. Concurrent callers are serialized
+      // through the counter doc, so 20 parallel reqs can no longer
+      // each see the same pre-call value and collectively burst
+      // past the cap.
       const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
       const dayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
       const uidCounterRef = admin.firestore()
         .doc(`api_usage_daily/${dayKey}__uid__${decoded.uid}`);
       const coCounterRef  = admin.firestore()
         .doc(`api_usage_daily/${dayKey}__co__${callerCompanyId}`);
-      const [uidCounterSnap, coCounterSnap] = await Promise.all([
-        uidCounterRef.get(),
-        coCounterRef.get()
-      ]);
-      const consumedUid     = (uidCounterSnap.exists ? uidCounterSnap.data().tokens : 0) || 0;
-      const consumedCompany = (coCounterSnap.exists  ? coCounterSnap.data().tokens  : 0) || 0;
-
-      // Resolve per-company cap from the plan on the subscription doc.
       const plan = (sub && sub.plan) || 'lite';
       const companyCap = CLAUDE_COMPANY_BUDGET[plan] ?? CLAUDE_COMPANY_BUDGET_DEFAULT;
 
-      if (!isAdmin && consumedUid >= CLAUDE_DAILY_TOKEN_BUDGET) {
-        res.status(429).json({ error: 'Daily AI budget exceeded for your account. Resets in 24 hours.' });
-        return;
-      }
-      if (!isAdmin && consumedCompany >= companyCap) {
-        res.status(429).json({
-          error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
-          plan, capacity: companyCap
-        });
+      const reservation = Math.min(
+        safeMaxTokens + estimateInputTokens(messages, safeSystem),
+        CLAUDE_RESERVATION_MAX
+      );
+      const reserveResult = await reserveClaudeBudget(
+        admin.firestore(), uidCounterRef, coCounterRef, reservation,
+        {
+          isAdmin,
+          uidCap: CLAUDE_DAILY_TOKEN_BUDGET,
+          coCap: companyCap,
+          uid: decoded.uid,
+          companyId: callerCompanyId,
+          dayKey,
+        }
+      );
+      if (!reserveResult.ok) {
+        if (reserveResult.scope === 'uid') {
+          res.status(429).json({
+            error: 'Daily AI budget exceeded for your account. Resets in 24 hours.'
+          });
+        } else {
+          res.status(429).json({
+            error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
+            plan, capacity: companyCap
+          });
+        }
         return;
       }
 
-      // Validate inputs.
-      const { model, max_tokens, messages, system, temperature } = req.body || {};
-      if (!Array.isArray(messages) || messages.length === 0) {
-        res.status(400).json({ error: 'messages array required' });
-        return;
-      }
-      const safeModel = ALLOWED_CLAUDE_MODELS.has(model) ? model : 'claude-haiku-4-5-20251001';
-      const safeMaxTokens = Math.min(Number(max_tokens) || 500, CLAUDE_MAX_TOKENS_CAP);
-
+      // Budget reserved. Any error path below MUST refund or the
+      // caller loses tokens to a failed upstream.
       const anthropicBody = { model: safeModel, max_tokens: safeMaxTokens, messages };
-      if (typeof system === 'string') anthropicBody.system = system.slice(0, 4000);
-      if (typeof temperature === 'number') anthropicBody.temperature = Math.max(0, Math.min(1, temperature));
+      if (safeSystem !== undefined) anthropicBody.system = safeSystem;
+      if (safeTemperature !== undefined) anthropicBody.temperature = safeTemperature;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-          'x-api-key': ANTHROPIC_API_KEY.value(),
-        },
-        body: JSON.stringify(anthropicBody),
-      });
-
-      const data = await response.json();
-      if (!response.ok) { res.status(response.status).json(data); return; }
+      let response, data;
+      try {
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            'x-api-key': ANTHROPIC_API_KEY.value(),
+          },
+          body: JSON.stringify(anthropicBody),
+        });
+        data = await response.json();
+      } catch (e) {
+        // Network/parse error reaching Anthropic — refund full reservation.
+        await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
+        logger.error('claudeProxy upstream fetch error', { err: e.message });
+        res.status(502).json({ error: 'Upstream AI error' });
+        return;
+      }
+      if (!response.ok) {
+        // Anthropic returned an error — refund and forward the status.
+        await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
+        res.status(response.status).json(data);
+        return;
+      }
 
       try {
         // C6: stamp leadId + feature on every api_usage row so we
@@ -253,14 +382,12 @@ exports.claudeProxy = onRequest(
         const inTok  = Number(data.usage?.input_tokens)  || 0;
         const outTok = Number(data.usage?.output_tokens) || 0;
         const total  = inTok + outTok;
-
-        // M2: write both the audit row AND the two counter docs in
-        // parallel. Counter writes use set({merge:true}) + increment
-        // so a first-of-day call creates the doc and subsequent
-        // calls accumulate atomically. Set serverTimestamp only on
-        // the counter's updatedAt so we can alert on stale counters
-        // if the cron ever drifts.
-        const inc = admin.firestore.FieldValue.increment(total);
+        // C-03: reconcile actual vs reservation. Positive delta =
+        // we undershot and owe the counter more tokens; negative =
+        // we overshot and refund. Net effect: the counter converges
+        // on true usage while the transactional reservation kept
+        // concurrent callers honest.
+        const delta  = total - reservation;
         const srv = admin.firestore.FieldValue.serverTimestamp();
         await Promise.all([
           admin.firestore().collection('api_usage').add({
@@ -272,16 +399,10 @@ exports.claudeProxy = onRequest(
             model: anthropicBody.model,
             inputTokens: inTok,
             outputTokens: outTok,
+            reservation,                   // C-03: audit for over/undershoot trending
             timestamp: srv,
           }),
-          uidCounterRef.set({
-            tokens: inc, updatedAt: srv,
-            uid: decoded.uid, dayKey, scope: 'uid'
-          }, { merge: true }),
-          coCounterRef.set({
-            tokens: inc, updatedAt: srv,
-            companyId: callerCompanyId, dayKey, scope: 'company'
-          }, { merge: true })
+          adjustClaudeBudget(uidCounterRef, coCounterRef, delta),
         ]);
       } catch (e) {
         logger.warn('api_usage logging failed', { err: e.message });
@@ -975,7 +1096,13 @@ exports.signImageUrl = onRequest(
     if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
       res.status(400).json({ error: 'Invalid path' }); return;
     }
-    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    // H-01: `portals/` intentionally excluded. Storage rules allow
+    // HTML uploads under portals/{uid}/ for the legacy customer-
+    // portal flow, but HTML served through this signed URL would
+    // execute in the storage.googleapis.com origin. Customer-facing
+    // portal HTML is served by Firebase Hosting (see storage.rules:78
+    // comment). Nobody should be signing portal URLs here.
+    const match = filePath.match(/^(photos|galleries|reports|docs)\/([^/]+)\/(.+)$/);
     if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
     const [, , ownerUid] = match;
 
@@ -1073,8 +1200,13 @@ exports.imageProxy = onRequest(
       return;
     }
     // Allowed patterns — owner-scoped only. Caller's uid MUST appear as the 2nd path segment.
-    // photos/<uid>/<file>, portals/<uid>/<file>, galleries/<uid>/<file>, reports/<uid>/<file>.
-    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    // photos/<uid>/<file>, galleries/<uid>/<file>, reports/<uid>/<file>, docs/<uid>/<file>.
+    // H-01: `portals/` excluded — storage.rules permits text/html there,
+    // but serving attacker-uploaded HTML with its stored Content-Type
+    // via this proxy is stored-XSS (X-Content-Type-Options: nosniff
+    // does NOT override an explicit text/html). Customer-facing portal
+    // HTML is served by Firebase Hosting, not by imageProxy.
+    const match = filePath.match(/^(photos|galleries|reports|docs)\/([^/]+)\/(.+)$/);
     if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
     const [, bucketKey, ownerUid] = match;
 
@@ -1122,9 +1254,26 @@ exports.imageProxy = onRequest(
       if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
 
       const [metadata] = await file.getMetadata();
-      res.set('Content-Type', metadata.contentType || 'application/octet-stream');
+      // H-01: MIME allowlist. Even with the portals/ prefix removed,
+      // a stored object under photos/docs/etc. could have an attacker-
+      // chosen Content-Type in its metadata (e.g., uploaded via the
+      // legacy un-scoped paths, or a MIME shuffle before a rule
+      // tightening). Force image/* for imageProxy, full stop.
+      const ct = metadata.contentType || 'application/octet-stream';
+      if (!/^image\//i.test(ct)) {
+        logger.warn('imageProxy rejected non-image content-type', {
+          uid: decoded.uid, path: filePath, contentType: ct,
+        });
+        res.status(415).json({ error: 'Unsupported content type' });
+        return;
+      }
+      res.set('Content-Type', ct);
       res.set('Cache-Control', 'private, max-age=300');
       res.set('X-Content-Type-Options', 'nosniff');
+      // Belt-and-suspenders: sandbox CSP so even if a future bug
+      // smuggles HTML into this response, no script executes and
+      // no origin is inherited.
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
 
       file.createReadStream().pipe(res);
     } catch (e) {
@@ -1211,6 +1360,18 @@ exports.integrationStatus = onCall(
   async (request) => {
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Sign in required');
+    }
+    // H-06: gate to admin / company_admin. The previous "any authed
+    // user" rule let a free-tier caller enumerate the full security
+    // posture — specifically, whether Turnstile, Upstash, Sentry, and
+    // Slack were configured. That's a reconnaissance amplifier: a
+    // `turnstile:false` response turns submitPublicLead into an
+    // IP-rate-limit-only surface. Keep the enumeration restricted
+    // to people who already have a legitimate business-integration
+    // UI to grey-out buttons on.
+    const callerRole = (request.auth.token && request.auth.token.role) || '';
+    if (!['admin', 'company_admin'].includes(callerRole)) {
+      throw new HttpsError('permission-denied', 'Admin access required');
     }
     return {
       providers: _intProviders,
@@ -1331,18 +1492,21 @@ exports.getAdminAnalytics = onCall(
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
     const isPlatformAdmin = request.auth.token.role === 'admin';
     const isCompanyAdmin  = request.auth.token.role === 'company_admin';
-    // Solo-operator fallback: a caller with no companyId claim owns
-    // their own workspace. Their "company" is themselves — scope
-    // the query to uid so they see their own 30-day rollup instead
-    // of getting permission-denied when they click the Analytics tab.
-    const isSoloOwner = !request.auth.token.companyId;
-    if (!isPlatformAdmin && !isCompanyAdmin && !isSoloOwner) {
+    // H-04: a previous "solo-owner fallback" branch let every
+    // authenticated user without a companyId claim (i.e. every
+    // free-tier signup) through this callable. Each call runs three
+    // 30-day collection scans — a cheap DoS vector and a
+    // reconnaissance gift. Require an actual admin claim.
+    if (!isPlatformAdmin && !isCompanyAdmin) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
+    // Per-uid rate limit — admins still shouldn't be calling this in
+    // a loop. 30/hour is generous for a dashboard refresh.
+    await callableRateLimit(request, 'getAdminAnalytics', 30, 3_600_000);
 
     const companyId = isPlatformAdmin
       ? (request.data?.companyId || request.auth.token.companyId || null)
-      : (request.auth.token.companyId || (isSoloOwner ? uid : null));
+      : request.auth.token.companyId;
 
     const db = admin.firestore();
     const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
@@ -1357,11 +1521,6 @@ exports.getAdminAnalytics = onCall(
       // Always include the owner.
       const coSnap = await db.doc('companies/' + companyId).get();
       if (coSnap.exists && coSnap.data().ownerId) uids.push(coSnap.data().ownerId);
-      // Solo-operator fallback: no company doc yet but companyId
-      // matches the caller's uid — they ARE the owner. Include the
-      // caller so their own rollup shows their own numbers instead
-      // of zeroed-out filters.
-      if (isSoloOwner && companyId === uid) uids.push(uid);
       return [...new Set(uids)];
     }
 
@@ -2721,27 +2880,42 @@ exports.activateInvitedRep = onCall(
 //   - Generic 200 response with opaque id so enumerating invalid
 //     payloads gives no side-channel.
 // ═════════════════════════════════════════════════════════════
+// M-04: explicit per-kind allowlist for optional fields. The previous
+// pass-through loop accepted ANY string field ≤500 chars from the
+// request body and wrote it into Firestore under that key, which
+// let an attacker stuff arbitrary keys (e.g. `leadScore`, `qualified`,
+// `assignedTo`) into a guide_leads doc. Default posture is strict —
+// only marketing-attribution UTMs + HTTP referrer pass through; add
+// to the allowlist deliberately when a real need appears.
+const PUBLIC_LEAD_OPTIONAL_DEFAULTS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'referrer'
+];
+
 const PUBLIC_LEAD_KINDS = {
   guide: {
     collection: 'guide_leads',
     required: ['name', 'email', 'source'],
-    maxLen:   { name: 200, email: 200, source: 200 }
+    maxLen:   { name: 200, email: 200, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   contact: {
     collection: 'contact_leads',
     required: ['firstName', 'phone', 'source'],
-    maxLen:   { firstName: 200, phone: 30, source: 200 }
+    maxLen:   { firstName: 200, phone: 30, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   estimate: {
     collection: 'estimate_leads',
     required: ['address', 'source'],
-    maxLen:   { address: 500, source: 200 }
+    maxLen:   { address: 500, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   storm: {
     collection: 'storm_alert_subscribers',
     required: ['name', 'phone', 'zip', 'source'],
     maxLen:   { name: 200, phone: 30, zip: 10, source: 200 },
-    exact:    { zip: 5 }
+    exact:    { zip: 5 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   }
 };
 
@@ -2807,12 +2981,14 @@ exports.submitPublicLead = onRequest(
       data[key] = val;
     }
 
-    // Optional fields — passed through but bounded.
-    for (const key of Object.keys(body)) {
-      if (spec.required.includes(key)) continue;
-      if (['kind', 'website'].includes(key)) continue;
+    // M-04: optional fields are a per-kind allowlist (UTMs + referrer
+    // today). Keys outside the allowlist are silently dropped — we
+    // do NOT 400 on extras because benign callers paste the whole
+    // query string from a landing page.
+    for (const key of (spec.optional || [])) {
       const v = body[key];
-      if (typeof v !== 'string' || v.length > 500) continue;
+      if (typeof v !== 'string') continue;
+      if (v.length === 0 || v.length > 500) continue;
       data[key] = v;
     }
 
