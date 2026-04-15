@@ -442,8 +442,87 @@ lack the IAM admin role. Run once from Joe's identity.
 - `ANTHROPIC_API_KEY` — already set for claudeProxy; the voice
   pipeline reuses it for analysis + consent checks.
 
+## 18. Rate-limit provider (R-01) — flip to Upstash before launch
 
-- **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
+**Who:** ops (Joe). **When:** before 10k-user launch. **Why:**
+Firestore documents have a ~1 write/sec/doc ceiling. `_rate_limits_ip/*`
+is one doc per (namespace, hashed-IP), so when a mobile carrier NATs
+thousands of users onto one egress IP every hit from that carrier
+rewrites the same doc. Under load legitimate users get 429'd. Upstash
+Redis has no such ceiling and adds ~15ms latency from us-central1.
+
+The adapter is already in place (`functions/integrations/
+upstash-ratelimit.js`). It's a drop-in replacement that keeps the
+Firestore limiter wired as a failover path for transient Upstash
+errors. All you need to do is provision + flip.
+
+### 18.1 Create the Redis instance
+
+1. <https://console.upstash.com> → **Create Database**.
+2. **Name**: `nbd-pro-ratelimit`. **Region**: choose the `us-central1`-
+   closest regional (not global — lower latency, lower cost at this
+   scale). **Eviction**: keep the default allkeys-lru.
+3. Copy the **REST URL** and **REST Token** from the dashboard.
+
+### 18.2 Provision the two secrets
+
+```
+firebase functions:secrets:set UPSTASH_REDIS_REST_URL --project=nobigdeal-pro
+firebase functions:secrets:set UPSTASH_REDIS_REST_TOKEN --project=nobigdeal-pro
+```
+
+Paste the matching values when prompted. These are NOT stubbed by
+CI at deploy time — the stub uses the `__unset__` sentinel which
+the adapter treats as "not configured" (see
+`integrations/_shared.js:hasSecret`).
+
+### 18.3 Flip the provider
+
+`NBD_RATE_LIMIT_PROVIDER` is a plain env var (not a secret). Set it
+on every function that reads rate limits. With the current codebase
+that's effectively every HTTP / callable function in
+`functions/index.js` + `sms-functions.js` + `compliance.js`.
+
+The simplest path is the functions runtime env:
+
+```
+firebase functions:config:set nbd.rate_limit_provider=upstash --project=nobigdeal-pro
+```
+
+…or set it directly in `functions/package.json` `functions.env` if
+you prefer an in-repo declaration. Redeploy functions afterwards.
+
+### 18.4 Verify the flip landed
+
+Two signals:
+
+1. **Cold-start log**: search Cloud Logging for
+   `jsonPayload.message="rate_limit_provider_info"`. Each fresh
+   container logs:
+   ```
+   rate_limit_provider_info  envPref=upstash upstashConfigured=true active=upstash
+   ```
+   If any instance logs `rate_limit_provider_drift` instead,
+   provisioning didn't complete — fix 18.2 and redeploy.
+
+2. **integrationStatus callable**: sign in as a platform admin and
+   invoke `integrationStatus`. The response now includes
+   `rateLimitProvider: "upstash"` (was `"firestore"` pre-flip). This
+   is the post-deploy smoke-check Joe / ops can run from devtools
+   in one line:
+   ```js
+   firebase.functions().httpsCallable('integrationStatus')().then(r => console.log(r.data.rateLimitProvider));
+   ```
+   Expected: `"upstash"`. Anything else blocks launch.
+
+### 18.5 Rollback
+
+If Upstash misbehaves post-launch, unset the env var and redeploy —
+the adapter immediately reverts to the Firestore limiter with no
+code change needed. The Firestore limiter is slower under load but
+correct.
+
+
 - **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.
 - **Populate `functions/data/zip-to-county.json`** with the full zip→county map for every service area before re-enabling storm alerts.
 - **`docs/pro/js/_archive/` directory** — 33 legacy JS files, ~1.1 MB, not loaded by any current HTML. Can be deleted once you're confident nothing references them.

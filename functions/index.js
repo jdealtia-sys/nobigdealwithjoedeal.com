@@ -1373,6 +1373,13 @@ exports.integrationStatus = onCall(
     if (!['admin', 'company_admin'].includes(callerRole)) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
+    // R-01: the RUNTIME-active rate-limit provider. Derived from
+    // both NBD_RATE_LIMIT_PROVIDER env AND whether the Upstash secrets
+    // are populated. 'firestore' means the hot-doc path is live —
+    // under 10k-user carrier-NAT load this is the documented R-01
+    // throughput ceiling. Admin-visible so post-deploy verification
+    // doesn't require grepping Cloud Logging.
+    const { provider: rateLimitProvider } = require('./integrations/upstash-ratelimit');
     return {
       providers: _intProviders,
       configured: {
@@ -1388,7 +1395,8 @@ exports.integrationStatus = onCall(
         hailtrace:   _hasInt('HAILTRACE_API_KEY'),
         calcom:      _hasInt('CALCOM_WEBHOOK_SECRET'),
         deepgram:    _hasInt('DEEPGRAM_API_KEY')
-      }
+      },
+      rateLimitProvider: rateLimitProvider()
     };
   }
 );

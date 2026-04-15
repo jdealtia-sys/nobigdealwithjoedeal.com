@@ -2016,6 +2016,46 @@ section('M-02: exportMyData uses the registry + Storage enumeration');
     !/const OWNED\s*=\s*\['leads'/.test(src));
 }
 
+section('R-01: rate-limit provider visibility + cold-start misconfig warning');
+{
+  const adapterPath = path.join(FUNCTIONS, 'integrations/upstash-ratelimit.js');
+  const src = read(adapterPath);
+
+  assert('R-01: adapter exports a `provider()` function',
+    /^\s*(module\.exports\s*=\s*\{[\s\S]*?\bprovider[\s\S]*?\};?|exports\.provider\s*=)/m.test(src));
+  assert('R-01: provider() returns upstash only when env=upstash AND secrets configured',
+    /PROVIDERS\.rateLimit\s*===\s*'upstash'\s*&&\s*upstashConfigured\(\)/.test(src));
+  assert('R-01: cold-start misconfig logs a structured `rate_limit_provider_drift` WARN',
+    /logger\(\)\.warn\(\s*'rate_limit_provider_drift'/.test(src));
+  assert('R-01: cold-start drift message cites envPref + active fields',
+    /rate_limit_provider_drift[\s\S]{0,400}envPref[\s\S]{0,120}active/.test(src));
+  // Live-load the adapter and verify provider() resolves without
+  // secrets available (expected: 'firestore' — the test env is
+  // unconfigured by design).
+  const adapter = require(adapterPath);
+  assert('R-01: provider() is a callable function',
+    typeof adapter.provider === 'function');
+  assert('R-01: provider() returns a string in {upstash, firestore}',
+    ['upstash', 'firestore'].includes(adapter.provider()));
+
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('R-01: integrationStatus surfaces rateLimitProvider to admin callers',
+    /rateLimitProvider:\s*rateLimitProvider\(\)/.test(idx)
+    && /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
+
+  const runbook = read(path.join(ROOT, 'POST_DEPLOY_CHECKLIST.md'));
+  assert('R-01: POST_DEPLOY_CHECKLIST has an Upstash runbook section',
+    /##\s*18\.\s*Rate-limit provider/i.test(runbook));
+  assert('R-01: runbook walks through secret provisioning',
+    /functions:secrets:set UPSTASH_REDIS_REST_URL/.test(runbook)
+    && /functions:secrets:set UPSTASH_REDIS_REST_TOKEN/.test(runbook));
+  assert('R-01: runbook documents the NBD_RATE_LIMIT_PROVIDER=upstash flip',
+    /NBD_RATE_LIMIT_PROVIDER.{0,10}upstash/.test(runbook)
+    || /nbd\.rate_limit_provider.{0,10}upstash/.test(runbook));
+  assert('R-01: runbook tells ops how to verify the flip post-deploy',
+    /integrationStatus[\s\S]{0,400}rateLimitProvider/.test(runbook));
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
