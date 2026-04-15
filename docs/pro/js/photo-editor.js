@@ -12,7 +12,12 @@
   /* ==========================================
      CONSTANTS & CONFIG
      ========================================== */
-  const PROXY_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/imageProxy';
+  // R-03: image loads go through the shared NBDSignedUrl helper
+  // (js/signed-image-url.js), which calls signImageUrl and caches the
+  // short-lived signed URL for 14 minutes. The legacy imageProxy
+  // Cloud Function was removed — it double-egressed every byte
+  // (Storage → Function → Client) and couldn't survive a 10k-user
+  // spike on a 256Mi runtime.
 
   const TOOLS = {
     SELECT: 'select', PEN: 'pen', LINE: 'line', ARROW: 'arrow',
@@ -186,7 +191,12 @@
   }
 
   /* ==========================================
-     IMAGE LOADING (proxy → CORS → tainted)
+     IMAGE LOADING (signed URL → blob → CORS fallback)
+     The editor needs an un-tainted canvas so hand-drawn damage
+     annotations can be exported. We get that by fetching through a
+     signed URL, materializing a blob, and loading the blob URL into
+     a same-origin <img>. Fallback chain if signing or fetch fails:
+     anonymous <img crossOrigin> → bare <img>.
      ========================================== */
   function getStoragePath(url) {
     try { const m = url.match(/\/o\/([^?]+)/); if (m) return decodeURIComponent(m[1]); } catch (e) { }
@@ -195,11 +205,13 @@
 
   function loadImage(url) {
     return new Promise((resolve, reject) => {
-      const tryProxy = async () => {
+      const trySigned = async () => {
         const path = getStoragePath(url);
-        if (!path) { tryDirect(); return; }
+        if (!path || !window.NBDSignedUrl) { tryDirect(); return; }
         try {
-          const resp = await fetch(PROXY_URL + '?path=' + encodeURIComponent(path));
+          const signedUrl = await window.NBDSignedUrl.get(path);
+          if (!signedUrl) { tryDirect(); return; }
+          const resp = await fetch(signedUrl);
           if (!resp.ok) throw new Error(resp.status);
           const blob = await resp.blob();
           const blobUrl = URL.createObjectURL(blob);
@@ -221,7 +233,7 @@
         };
         img.src = url;
       };
-      tryProxy();
+      trySigned();
     });
   }
 

@@ -197,14 +197,19 @@ section('H-2: iframe sandbox');
     /querySelectorAll\('script, iframe, object, embed'\)[\s\S]{0,200}removeAttribute/.test(src));
 }
 
-// ── H-3: imageProxy tenant-scoped ───────────────────────────
-section('H-3: imageProxy tenant scoping');
+// ── H-3: tenant-scoped Storage access (now lives on signImageUrl) ──
+// R-03 retired imageProxy. The same tenant-scoping matrix moved
+// onto signImageUrl — caller must be the path's owner, a platform
+// admin, or a manager/company_admin sharing the file-owner's
+// companyId. The assertions below pin that behaviour on the
+// successor endpoint.
+section('H-3: signImageUrl tenant scoping (successor to imageProxy)');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  assert('imageProxy checks caller role is company_admin or manager',
+  assert('signImageUrl checks caller role is company_admin or manager',
     /\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(src));
-  assert('imageProxy falls back to lookup if claim missing',
-    /imageProxy[\s\S]{0,3000}users\/\$\{ownerUid\}/.test(src));
+  assert('signImageUrl falls back to Firestore lookup if companyId claim missing',
+    /signImageUrl[\s\S]{0,3000}users\/\$\{ownerUid\}/.test(src));
 }
 
 // ── H-4: audit triggers wired ───────────────────────────────
@@ -252,7 +257,8 @@ section('H-5: per-company Claude budget');
 // ── H-6: Stripe webhook hardening ───────────────────────────
 section('H-6: Stripe webhook raw body + replay');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('stripeWebhook rejects when rawBody is not a Buffer',
     /stripeWebhook missing rawBody[\s\S]{0,200}Buffer\.isBuffer/.test(src) ||
     /!Buffer\.isBuffer\(req\.rawBody\)[\s\S]{0,100}stripeWebhook/.test(src) ||
@@ -523,16 +529,20 @@ section('Push-3: booking-link SMS uses calcomUsername');
 
 section('Push-4: homeowner portal page + token callables');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: portal handlers now live in functions/portal.js, mounted
+  // onto index.js exports via Object.assign. Source-scan assertions
+  // read from portal.js; the export-liveness check at the end of
+  // this file verifies index.js still re-exposes them.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   for (const fn of ['createPortalToken', 'getHomeownerPortalView']) {
-    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(idx));
+    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(psrc));
   }
   assert('createPortalToken owner-scopes by lead.userId',
-    /lead\.userId !== uid && !isAdmin/.test(idx));
+    /lead\.userId !== uid && !isAdmin/.test(psrc));
   assert('getHomeownerPortalView rate-limits by IP',
-    /httpRateLimit\(req, res, 'portal:ip'/.test(idx));
+    /httpRateLimit\(req, res, 'portal:ip'/.test(psrc));
   assert('view response redacts sensitive fields (no claim / notes)',
-    /REDACTION:/.test(idx));
+    /REDACTION:/.test(psrc));
   assert('portal.html exists + reads token from query string',
     fs.existsSync(path.join(ROOT, 'docs/pro/portal.html')));
   const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
@@ -639,11 +649,12 @@ section('Wave A5: firestore rules tests cover new collections');
 
 section('Wave B1: portal BoldSign signing embed');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: portal view lives in portal.js, not index.js.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   assert('portal view requests fresh embed URL when awaiting signature',
-    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(idx));
+    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(psrc));
   assert('portal view returns signEmbedUrl field',
-    /signEmbedUrl:\s*signEmbedUrl/.test(idx));
+    /signEmbedUrl:\s*signEmbedUrl/.test(psrc));
   const p = read(path.join(ROOT, 'docs/pro/portal.html'));
   assert('portal.html renders signing iframe when signEmbedUrl present',
     /awaitingSign && signEmbedUrl/.test(p));
@@ -670,11 +681,12 @@ section('Wave B3: live estimates snapshot');
 
 section('Wave B4+B5: revoke / regenerate portal link');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: revokePortalToken moved to portal.js.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   assert('revokePortalToken callable exported',
-    /exports\.revokePortalToken\s*=/.test(idx));
+    /exports\.revokePortalToken\s*=/.test(psrc));
   assert('revoke flips expiresAt to past',
-    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(idx));
+    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(psrc));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('lead detail has Revoke & Regenerate button',
     /Revoke &amp; Regenerate/.test(dash));
@@ -772,11 +784,21 @@ section('Wave C6: per-lead Claude cost attribution');
 section('D1: mutation callables rate-limited');
 {
   const idx = read(path.join(FUNCTIONS, 'index.js'));
-  assert('callableRateLimit helper defined',
-    /async function callableRateLimit/.test(idx));
+  // B2: callableRateLimit is defined in functions/shared.js and
+  // imported by index.js + portal.js. Check both: the helper lives
+  // in shared.js, and index.js imports it.
+  const shared = read(path.join(FUNCTIONS, 'shared.js'));
+  assert('callableRateLimit helper defined (in shared.js)',
+    /async function callableRateLimit/.test(shared));
+  assert('callableRateLimit imported by index.js',
+    /require\(['"]\.\/shared['"]\)/.test(idx) && /callableRateLimit/.test(idx));
+  // L-03: portal handlers moved to portal.js (which has its own
+  // inlined callableRateLimit). Resolve each function's rate-limit
+  // site by searching BOTH files.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   for (const name of ['createPortalToken','revokePortalToken','createTeamMember','updateUserRole','deactivateUser']) {
-    assert(name + ' rate-limited',
-      new RegExp("callableRateLimit\\(request, '" + name + "'").test(idx));
+    const re = new RegExp("callableRateLimit\\(request, '" + name + "'");
+    assert(name + ' rate-limited', re.test(idx) || re.test(psrc));
   }
   const meas = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
   assert('requestMeasurement rate-limited',
@@ -847,7 +869,10 @@ section('D7: GDPR two-step erasure');
   assert('confirmation token hashed before storage',
     /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/.test(src));
   assert('cascade deletes user-owned docs',
-    /where\('userId', '==', uid\)\.limit\(500\)/.test(src));
+    // M-01: query shape is now split across lines in the
+    // registry-driven loop; allow whitespace/newlines between tokens.
+    /where\(\s*ownerField,\s*'==',\s*uid\s*\)[\s\S]{0,40}\.limit\(500\)/.test(src)
+    || /where\('userId',\s*'==',\s*uid\)[\s\S]{0,40}\.limit\(500\)/.test(src));
   assert('disables Auth account + revokes refresh tokens',
     /updateUser\(uid, \{ disabled: true \}\)[\s\S]{0,60}revokeRefreshTokens/.test(src));
   const rules = read(path.join(ROOT, 'firestore.rules'));
@@ -908,9 +933,12 @@ section('F-03/F-04: admin analytics uses custom-claim gate');
 
 section('F-06: getHomeownerPortalView is POST-only');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
-  // Grab the function block and assert GET is not accepted.
-  const block = src.match(/exports\.getHomeownerPortalView[\s\S]{0,1200}/);
+  // L-03: moved to portal.js.
+  const src = read(path.join(FUNCTIONS, 'portal.js'));
+  // Grab the function block and assert GET is not accepted. Window
+  // sized to tolerate the R-05 sizing-rationale comment that was
+  // added inside the config object.
+  const block = src.match(/exports\.getHomeownerPortalView[\s\S]{0,2000}/);
   assert('F-06: function block found', !!block);
   if (block) {
     assert('F-06: rejects non-POST',
@@ -925,7 +953,8 @@ section('F-06: getHomeownerPortalView is POST-only');
 
 section('F-07: Stripe webhook idempotency is atomic');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('F-07: eventRef.create used for idempotency',
     /eventRef\.create\(\{[\s\S]{0,200}processedAt:/.test(src));
   assert('F-07: ALREADY_EXISTS code handled',
@@ -934,7 +963,8 @@ section('F-07: Stripe webhook idempotency is atomic');
 
 section('F-08: Stripe plan derived from price id, not metadata');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('F-08: in-code PRICE_TO_PLAN map exists',
     /PRICE_TO_PLAN\s*=\s*\{[\s\S]{0,400}STRIPE_PRICE_FOUNDATION[\s\S]{0,200}STRIPE_PRICE_PROFESSIONAL/.test(src));
   assert('F-08: price.metadata.plan no longer trusted for tier',
@@ -973,15 +1003,20 @@ section('F-10: deploy workflow fails loudly on rules/functions errors');
   }
 }
 
-section('D8: imageProxy deprecation signals');
+section('D8 / R-03: imageProxy stub still emits RFC 8594/9745 deprecation signals');
 {
   const src = read(path.join(FUNCTIONS, 'index.js'));
-  assert('imageProxy sets Deprecation header',
+  assert('imageProxy stub sets Deprecation header',
     /imageProxy[\s\S]*?res\.set\('Deprecation', 'true'\)/.test(src));
-  assert('imageProxy sets Sunset header',
+  assert('imageProxy stub sets Sunset header',
     /imageProxy[\s\S]*?res\.set\('Sunset',/.test(src));
-  assert('imageProxy logs every call',
-    /imageProxy DEPRECATED call/.test(src));
+  assert('imageProxy stub sets Link rel=successor-version to /signImageUrl',
+    /imageProxy[\s\S]*?rel="successor-version"/.test(src));
+  // The old "imageProxy DEPRECATED call" WARN log is obsolete — the
+  // stub holds no auth and does no work, so there's no per-call log.
+  // Ops visibility comes from the existing cloud_run_revision error-
+  // rate alert (monitoring/alert-functions-error-rate.json) filtering
+  // on imageProxy.
 }
 
 section('D9: new-device sign-in alert');
@@ -1003,7 +1038,8 @@ section('D9: new-device sign-in alert');
 
 section('E1: Stripe dunning on payment failed');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('dunning enqueues email on payment_failed',
     /invoice\.payment_failed[\s\S]{0,3000}email_queue/.test(src));
   assert('dunning writes activity entry when leadId present',
@@ -1092,15 +1128,16 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /verifyWebhookHmac\(provider,\s*req\.rawBody/.test(m));
 
   // Stripe webhooks: both stripeWebhook and invoiceWebhook must verify.
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const stripeSrc = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('stripeWebhook calls stripe.webhooks.constructEvent',
-    /exports\.stripeWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+    /exports\.stripeWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(stripeSrc));
   assert('invoiceWebhook calls stripe.webhooks.constructEvent',
-    /exports\.invoiceWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+    /exports\.invoiceWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(stripeSrc));
   assert('stripeWebhook requires rawBody Buffer',
-    /stripeWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
+    /stripeWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
   assert('invoiceWebhook requires rawBody Buffer',
-    /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
+    /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
 }
 
 section('F3: TCPA STOP/HELP + opt-out list');
@@ -1556,25 +1593,21 @@ section('C1: Voice Intelligence backend pipeline');
     /Object\.assign\(exports,\s*voiceIntelligenceIntegration\)/.test(idx));
 }
 
-section('C0: GDPR erasure cascade covers Storage + collectionGroups');
+section('C0: GDPR erasure cascade covers Storage + collectionGroups (registry-driven)');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
-  // (1) flat-path cascade still intact
-  assert('C0: flat-path OWNED_COLLECTIONS still present',
-    /OWNED_COLLECTIONS\s*=\s*\[[\s\S]{0,200}'leads'[\s\S]{0,200}'training_sessions'/.test(src));
-  // (2) collectionGroup sweep added (recordings)
-  assert('C0: OWNED_COLLECTION_GROUPS includes recordings',
-    /OWNED_COLLECTION_GROUPS\s*=\s*\[[\s\S]{0,200}'recordings'/.test(src));
-  assert('C0: erasure runs collectionGroup query for userId==uid',
+  // The original C0 assertions pinned inline constants
+  // (OWNED_COLLECTIONS / OWNED_COLLECTION_GROUPS / OWNED_STORAGE_PREFIXES).
+  // Those moved to the single-source-of-truth registry in M-01/M-02.
+  // Forward-looking checks that the cascade STILL reaches each class:
+  assert('C0: erasure still runs collectionGroup query for userId==uid',
     /collectionGroup\(groupName\)[\s\S]{0,200}where\('userId', '==', uid\)/.test(src));
-  // (3) Storage sweep added for owner-keyed prefixes
-  assert('C0: OWNED_STORAGE_PREFIXES includes audio + photos + docs',
-    /OWNED_STORAGE_PREFIXES\s*=\s*\[[\s\S]{0,200}'audio'[\s\S]{0,200}'photos'[\s\S]{0,200}'docs'/.test(src));
-  assert('C0: erasure calls bucket.deleteFiles with uid-keyed prefix',
+  assert('C0: erasure still calls bucket.deleteFiles with uid-keyed prefix',
     /bucket\.deleteFiles\(\s*\{[\s\S]{0,200}prefix:[\s\S]{0,80}uid[\s\S]{0,80}force: true/.test(src));
-  // exportMyData picks up collectionGroup rows too
-  assert('C0: exportMyData also covers collectionGroup OWNED_GROUPS',
-    /OWNED_GROUPS\s*=\s*\['recordings'\][\s\S]{0,400}collectionGroup\(group\)\.where\('userId', '==', uid\)/.test(src));
+  // exportMyData now uses the same registry collectionGroup list
+  // (COLLECTION_GROUPS_WITH_USERID), exercised in the M-02 section.
+  assert('C0: exportMyData covers collectionGroup rows via the registry',
+    /for \(const group of COLLECTION_GROUPS_WITH_USERID\)[\s\S]{0,400}collectionGroup\(group\)\.where\('userId', '==', uid\)/.test(src));
 }
 
 section('Q1: clientIp XFF parsing (F-13 follow-up)');
@@ -1735,6 +1768,752 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
     }
   }
   assert('Q6: all flat-file requires from index.js resolve + are not ignored', true);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2026-04-15 invulnerability roadmap — regression locks for the
+// 10-item 72-hour fix plan. Each assertion either pins the fix
+// in place or catches the old vulnerable shape reappearing.
+// ─────────────────────────────────────────────────────────────
+section('C-01: sendD2DSMS IDOR + collection rename + .exists property fix');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('C-01: sms-functions.js no longer references the dead `d2d_knocks` collection',
+    !/d2d_knocks/.test(src));
+  assert('C-01: sendD2DSMS now reads from `knocks/`',
+    /db\.doc\(`knocks\/\$\{knockId\}`\)\.get\(\)/.test(src));
+  assert('C-01: knockSnap.exists is used as a property, not a method',
+    /knockSnap\.exists\b(?!\()/.test(src) && !/knockSnap\.exists\(\)/.test(src));
+  assert('C-01: handler enforces knock.userId ownership check',
+    /knock\.userId\s*===\s*decoded\.uid/.test(src)
+    && /isOwnKnock/.test(src)
+    && /!isPlatformAdmin\s*&&\s*!isOwnKnock/.test(src));
+  assert('C-01: handler returns 403 "Not your knock" on IDOR attempt',
+    /403[^\n]*Not your knock/.test(src));
+  assert('C-01: handler logs the attempt for detection',
+    /sendD2DSMS IDOR attempt/.test(src));
+  assert('C-01: handler allows same-company manager/company_admin cross-rep access',
+    /isManagerInSameCompany/.test(src));
+}
+
+section('C-02: SMS subscription + email-verify gate');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  // B2: requirePaidSubscription lives in functions/shared.js now,
+  // imported by sms-functions.js. Scan shared.js for the helper
+  // shape; scan sms-functions.js for the call sites.
+  const shared = read(path.join(FUNCTIONS, 'shared.js'));
+  assert('C-02: requirePaidSubscription helper is defined (in shared.js)',
+    /async function requirePaidSubscription\s*\(/.test(shared));
+  assert('C-02: helper allows admin bypass',
+    /decoded\.role\s*===\s*'admin'[\s\S]{0,80}ok:\s*true/.test(shared));
+  assert('C-02: helper gates on email_verified',
+    /decoded\.email_verified\s*!==\s*true/.test(shared));
+  assert('C-02: helper rejects free / missing subscriptions',
+    /sub\.plan\s*!==\s*'free'/.test(shared));
+  assert('C-02: sms-functions.js imports the helper from shared',
+    /require\(['"]\.\/shared['"]\)/.test(src) && /requirePaidSubscription/.test(src));
+  // Both handlers must call the gate before the per-uid rate-limit burn.
+  // Heuristic: each handler block contains the call at least once.
+  const sendSmsCallCount   = (src.match(/exports\.sendSMS\s*=\s*onRequest/g) || []).length;
+  const sendD2dCallCount   = (src.match(/exports\.sendD2DSMS\s*=\s*onRequest/g) || []).length;
+  const subGateCallCount   = (src.match(/await requirePaidSubscription\(/g) || []).length;
+  assert('C-02: both SMS handlers invoke the subscription gate',
+    sendSmsCallCount === 1 && sendD2dCallCount === 1 && subGateCallCount >= 2,
+    'sendSMS=' + sendSmsCallCount + ' sendD2DSMS=' + sendD2dCallCount + ' gateCalls=' + subGateCallCount);
+}
+
+section('C-03 + M-03: claudeProxy transactional budget + starter plan entry');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('C-03: reserveClaudeBudget helper defined',
+    /async function reserveClaudeBudget\s*\(/.test(src));
+  assert('C-03: reserveClaudeBudget uses a Firestore transaction',
+    /db\.runTransaction\b/.test(src));
+  assert('C-03: adjustClaudeBudget helper defined',
+    /async function adjustClaudeBudget\s*\(/.test(src));
+  assert('C-03: estimateInputTokens helper defined',
+    /function estimateInputTokens\s*\(/.test(src));
+  assert('C-03: reservation ceiling is bounded (CLAUDE_RESERVATION_MAX)',
+    /const CLAUDE_RESERVATION_MAX\s*=\s*4\s*\*\s*CLAUDE_MAX_TOKENS_CAP/.test(src));
+  assert('C-03: claudeProxy reserves before calling Anthropic',
+    // Order-sensitive: the reserve call must appear BEFORE the
+    // Anthropic fetch in source order. Use index comparison rather
+    // than a greedy regex distance (the span between the two can
+    // include a long comment block).
+    (() => {
+      const r = src.indexOf('await reserveClaudeBudget(');
+      const a = src.indexOf("api.anthropic.com/v1/messages");
+      return r > 0 && a > r;
+    })());
+  assert('C-03: refunds reservation on Anthropic fetch failure',
+    /adjustClaudeBudget\([^)]*-reservation\)/.test(src));
+  assert('C-03: reconciles actual vs reservation after success',
+    /const delta\s*=\s*total\s*-\s*reservation/.test(src));
+  assert('C-03: old read-then-check branch removed',
+    !/consumedUid\s*>=\s*CLAUDE_DAILY_TOKEN_BUDGET/.test(src));
+  // M-03: canonical `starter` plan name has an explicit budget entry.
+  assert('M-03: CLAUDE_COMPANY_BUDGET includes starter plan (normalized from foundation)',
+    /CLAUDE_COMPANY_BUDGET\s*=\s*\{[\s\S]{0,400}starter:\s*50_000/.test(src));
+}
+
+section('H-07: claudeProxy message-array + payload-size caps');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('H-07: CLAUDE_MAX_MESSAGES constant defined',
+    /const CLAUDE_MAX_MESSAGES\s*=\s*40\b/.test(src));
+  assert('H-07: CLAUDE_MAX_PAYLOAD_BYTES constant defined',
+    /const CLAUDE_MAX_PAYLOAD_BYTES\s*=\s*200_000/.test(src));
+  assert('H-07: messages.length > cap returns 400',
+    /messages\.length\s*>\s*CLAUDE_MAX_MESSAGES[\s\S]{0,200}status\(400\)/.test(src));
+  assert('H-07: oversize serialized payload returns 413',
+    /serializedMessages\.length\s*>\s*CLAUDE_MAX_PAYLOAD_BYTES[\s\S]{0,200}status\(413\)/.test(src));
+}
+
+section('H-01 + R-03: signImageUrl portals/ strip (imageProxy retired)');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // Only signImageUrl still runs path-allowlist regex now that
+  // imageProxy is a 410 stub. Assertion guards against portal paths
+  // being reintroduced to the signer's alternation.
+  const matchRegexes = src.match(/\(photos\|[^)]+\)/g) || [];
+  assert('H-01: signImageUrl regex does not include portals',
+    matchRegexes.length > 0 && matchRegexes.every(r => !/portals/.test(r)),
+    'found ' + matchRegexes.length + ' alternation(s): ' + matchRegexes.join(' | '));
+}
+
+section('R-03: imageProxy retired — 410 Gone stub');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // The old streaming implementation MUST be gone. Its signature
+  // tokens were createReadStream, imageProxy:ip rate limit, and the
+  // DEPRECATED log warning — none should remain.
+  assert('R-03: imageProxy no longer streams via createReadStream',
+    !/imageProxy[\s\S]{0,5000}createReadStream\(\)/.test(src));
+  assert('R-03: imageProxy no longer consumes the imageProxy:ip rate-limit bucket',
+    !/imageProxy:ip/.test(src));
+  assert('R-03: imageProxy stub returns 410 Gone',
+    /exports\.imageProxy[\s\S]{0,2000}status\(410\)/.test(src));
+  assert('R-03: 410 response cites the successor endpoint',
+    /successor:\s*['"]\/signImageUrl['"]/.test(src));
+  // The stub should be cheap — no auth, no Firestore, low concurrency.
+  assert('R-03: stub is cheap (no requireAuth call in the handler body)',
+    !/exports\.imageProxy[\s\S]{0,2000}requireAuth\(/.test(src));
+}
+
+section('R-03: photo-editor migrated off imageProxy');
+{
+  const src = read(path.join(PRO_JS, 'photo-editor.js'));
+  assert('R-03: photo-editor no longer references the imageProxy URL',
+    !/cloudfunctions\.net\/imageProxy/.test(src)
+    && !/const PROXY_URL\s*=\s*['"]https?:\/\/[^'"]*imageProxy/.test(src));
+  assert('R-03: photo-editor uses window.NBDSignedUrl.get for image loads',
+    /window\.NBDSignedUrl\s*\.\s*get\(\s*path\s*\)/.test(src));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('R-03: customer.html loads signed-image-url.js BEFORE photo-editor.js',
+    (() => {
+      const helper = customer.indexOf('signed-image-url.js');
+      const editor = customer.indexOf('photo-editor.js');
+      return helper > 0 && editor > 0 && helper < editor;
+    })());
+}
+
+section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('H-04: isSoloOwner reference removed',
+    !/isSoloOwner/.test(src));
+  // The new gate throws permission-denied unless isPlatformAdmin||isCompanyAdmin.
+  assert('H-04: solo-owner escape hatch no longer exists on getAdminAnalytics',
+    /if\s*\(!isPlatformAdmin\s*&&\s*!isCompanyAdmin\)\s*\{\s*throw new HttpsError\('permission-denied'/.test(src));
+  assert('H-04: getAdminAnalytics now rate-limits per-uid',
+    /callableRateLimit\(request,\s*'getAdminAnalytics'/.test(src));
+}
+
+section('H-06: integrationStatus admin-only gate');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // The role check sits inside the integrationStatus handler block.
+  const m = src.match(/exports\.integrationStatus\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
+  assert('H-06: integrationStatus handler block located', !!m);
+  if (m) {
+    assert('H-06: handler rejects non-admin / non-company_admin callers',
+      /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
+      && /permission-denied/.test(m[0]));
+  }
+}
+
+section('M-04: submitPublicLead optional-field allowlist');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('M-04: PUBLIC_LEAD_OPTIONAL_DEFAULTS defined (utm + referrer)',
+    /PUBLIC_LEAD_OPTIONAL_DEFAULTS\s*=\s*\[[^\]]*utm_source[^\]]*utm_medium[^\]]*utm_campaign[^\]]*referrer/.test(src));
+  assert('M-04: guide kind carries an explicit optional list',
+    /guide:\s*\{[\s\S]{0,300}optional:\s*\[/.test(src));
+  assert('M-04: submitPublicLead iterates spec.optional, not Object.keys(body)',
+    /for\s*\(const key of \(spec\.optional \|\| \[\]\)\)/.test(src));
+  assert('M-04: old passthrough loop over Object.keys(body) is gone',
+    !/for\s*\(const key of Object\.keys\(body\)\)\s*\{[\s\S]{0,160}spec\.required\.includes/.test(src));
+}
+
+section('H-02: nbd-auth demo bypass keyed on custom claim, not email');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
+  assert('H-02: demo@nobigdeal.pro literal removed',
+    !/demo@nobigdeal\.pro/.test(src));
+  assert('H-02: demo bypass now reads token.claims.demo',
+    /tokenResult\.claims\.demo\s*===\s*true/.test(src));
+  assert('H-02: demo accounts never receive admin role client-side',
+    /_role\s*=\s*'demo_viewer'/.test(src) && !/_role\s*=\s*'admin';\s*\n\s*_subscription\s*=\s*\{\s*plan:\s*'professional'/.test(src));
+}
+
+section('H-02 ops: scripts/grant-demo-claim.js provisioner');
+{
+  const p = path.join(ROOT, 'scripts/grant-demo-claim.js');
+  assert('H-02: grant-demo-claim.js exists', fs.existsSync(p));
+  if (fs.existsSync(p)) {
+    const src = read(p);
+    assert('H-02: provisioner sets demo:true custom claim',
+      /setCustomUserClaims\([^)]+,\s*next\)/.test(src) && /next\.demo\s*=\s*true/.test(src));
+    assert('H-02: provisioner supports --remove flag for claim revocation',
+      /--remove/.test(src) && /delete next\.demo/.test(src));
+    assert('H-02: provisioner revokes refresh tokens so the claim takes effect',
+      /revokeRefreshTokens\(/.test(src));
+    assert('H-02: provisioner parses cleanly',
+      syntaxCheck(p).ok);
+  }
+}
+
+section('H-03: nbd-auth fails closed to free on network error');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
+  assert('H-03: localStorage plan cache read removed',
+    !/localStorage\.getItem\('nbd_user_plan'\)/.test(src));
+  // The setter call survives only in logout() for cleanup of stale keys.
+  const setterMatches = (src.match(/localStorage\.setItem\('nbd_user_plan'/g) || []).length;
+  assert('H-03: localStorage plan cache write removed (no setItem calls)',
+    setterMatches === 0,
+    'found ' + setterMatches + ' setItem(nbd_user_plan) call(s)');
+  assert('H-03: network-error branch hard-drops to free with _failOpen:false',
+    /_userPlan\s*=\s*'free';[\s\S]{0,160}_failOpen:\s*false/.test(src));
+}
+
+section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
+{
+  const regPath = path.join(FUNCTIONS, 'integrations/user-owned.js');
+  assert('M-01/M-02: registry module exists', fs.existsSync(regPath));
+  if (fs.existsSync(regPath)) {
+    assert('M-01/M-02: registry parses cleanly', syntaxCheck(regPath).ok);
+    // Load the module and assert the shape — smoke test already uses
+    // zero deps other than Node stdlib, and this module is pure
+    // constants + a helper fn, so require() is safe.
+    const reg = require(regPath);
+    assert('M-01/M-02: FLAT_USER_COLLECTIONS has at least 22 entries',
+      Array.isArray(reg.FLAT_USER_COLLECTIONS) && reg.FLAT_USER_COLLECTIONS.length >= 22,
+      'count=' + (reg.FLAT_USER_COLLECTIONS || []).length);
+    assert('M-01/M-02: every flat-collection entry has a name',
+      reg.FLAT_USER_COLLECTIONS.every(s => typeof s.name === 'string' && s.name.length > 0));
+    // Invoices is the only collection with a non-default ownerField.
+    const invoices = reg.FLAT_USER_COLLECTIONS.find(s => s.name === 'invoices');
+    assert('M-01/M-02: invoices is registered with ownerField=createdBy',
+      invoices && invoices.ownerField === 'createdBy');
+    assert('M-01/M-02: COLLECTION_GROUPS_WITH_USERID includes recordings + activity',
+      Array.isArray(reg.COLLECTION_GROUPS_WITH_USERID)
+      && reg.COLLECTION_GROUPS_WITH_USERID.includes('recordings')
+      && reg.COLLECTION_GROUPS_WITH_USERID.includes('activity'));
+    assert('M-01/M-02: STORAGE_PREFIXES covers all 8 storage.rules prefixes',
+      Array.isArray(reg.STORAGE_PREFIXES)
+      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms']
+          .every(p => reg.STORAGE_PREFIXES.includes(p)));
+    assert('M-01/M-02: OWNER_KEYED_DOCS covers the user/sub/settings doc set',
+      Array.isArray(reg.OWNER_KEYED_DOCS)
+      && ['users','subscriptions','userSettings','leaderboard','reps','estimate_drafts','feature_flags']
+          .every(c => reg.OWNER_KEYED_DOCS.includes(c)));
+    assert('M-01/M-02: NESTED_LEADS_PATH(uid) returns leads/{uid}',
+      typeof reg.NESTED_LEADS_PATH === 'function'
+      && reg.NESTED_LEADS_PATH('abc') === 'leads/abc');
+    // Audit trails intentionally excluded — prevents a future
+    // caller from wiring account_erasures into the cascade and
+    // obliterating the very audit record of the operation.
+    assert('M-01/M-02: audit trails NOT in owner-keyed erasure scope',
+      !reg.OWNER_KEYED_DOCS.includes('account_erasures')
+      && !reg.OWNER_KEYED_DOCS.includes('audit_log'));
+  }
+}
+
+section('M-01: confirmAccountErasure uses the registry + recursiveDelete');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('M-01: compliance.js imports the registry module',
+    /require\(['"]\.\/user-owned['"]\)/.test(src));
+  assert('M-01: cascade iterates FLAT_USER_COLLECTIONS (not an inline list)',
+    /for \(const spec of FLAT_USER_COLLECTIONS\)/.test(src));
+  assert('M-01: cascade honors per-collection ownerField',
+    /spec\.ownerField\s*\|\|\s*'userId'/.test(src));
+  assert('M-01: cascade iterates COLLECTION_GROUPS_WITH_USERID',
+    /for \(const groupName of COLLECTION_GROUPS_WITH_USERID\)/.test(src));
+  assert('M-01: cascade sweeps STORAGE_PREFIXES',
+    /for \(const prefix of STORAGE_PREFIXES\)/.test(src));
+  assert('M-01: cascade deletes every OWNER_KEYED_DOCS entry',
+    /for \(const coll of OWNER_KEYED_DOCS\)/.test(src));
+  assert('M-01: nested-leads subtree scrubbed via recursiveDelete',
+    /db\.recursiveDelete\(db\.doc\(NESTED_LEADS_PATH\(uid\)\)\)/.test(src));
+  // The old inline OWNED_COLLECTIONS constant must be gone.
+  assert('M-01: old inline OWNED_COLLECTIONS list removed',
+    !/const OWNED_COLLECTIONS\s*=\s*\[/.test(src));
+}
+
+section('M-02: exportMyData uses the registry + Storage enumeration');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('M-02: export iterates FLAT_USER_COLLECTIONS',
+    /exports\.exportMyData[\s\S]{0,5000}for \(const spec of FLAT_USER_COLLECTIONS\)/.test(src));
+  assert('M-02: export iterates COLLECTION_GROUPS_WITH_USERID',
+    /for \(const group of COLLECTION_GROUPS_WITH_USERID\)/.test(src));
+  assert('M-02: export enumerates Storage prefixes (getFiles)',
+    /bucket\.getFiles\(\s*\{\s*prefix:/.test(src));
+  assert('M-02: export signs 24h download URLs per Storage object',
+    /f\.getSignedUrl\([\s\S]{0,160}24\s*\*\s*3_600_000/.test(src));
+  assert('M-02: export reads every OWNER_KEYED_DOCS entry',
+    /for \(const coll of OWNER_KEYED_DOCS\)/.test(src));
+  assert('M-02: export walks nested-leads subtree via listCollections()',
+    /NESTED_LEADS_PATH\(uid\)[\s\S]{0,300}listCollections\(\)/.test(src));
+  // Backwards compat — clients reading the old shape see the same keys.
+  assert('M-02: legacy `profile` + `subscription` aliases preserved',
+    /out\.profile\s*=\s*out\.ownerDocs\.users/.test(src)
+    && /out\.subscription\s*=\s*out\.ownerDocs\.subscriptions/.test(src));
+  // The old inline OWNED constant must be gone.
+  assert('M-02: old inline OWNED list removed from export path',
+    !/const OWNED\s*=\s*\['leads'/.test(src));
+}
+
+section('R-01: rate-limit provider visibility + cold-start misconfig warning');
+{
+  const adapterPath = path.join(FUNCTIONS, 'integrations/upstash-ratelimit.js');
+  const src = read(adapterPath);
+
+  assert('R-01: adapter exports a `provider()` function',
+    /^\s*(module\.exports\s*=\s*\{[\s\S]*?\bprovider[\s\S]*?\};?|exports\.provider\s*=)/m.test(src));
+  assert('R-01: provider() returns upstash only when env=upstash AND secrets configured',
+    /PROVIDERS\.rateLimit\s*===\s*'upstash'\s*&&\s*upstashConfigured\(\)/.test(src));
+  assert('R-01: cold-start misconfig logs a structured `rate_limit_provider_drift` WARN',
+    /logger\(\)\.warn\(\s*'rate_limit_provider_drift'/.test(src));
+  assert('R-01: cold-start drift message cites envPref + active fields',
+    /rate_limit_provider_drift[\s\S]{0,400}envPref[\s\S]{0,120}active/.test(src));
+  // Live-load the adapter and verify provider() resolves without
+  // secrets available (expected: 'firestore' — the test env is
+  // unconfigured by design).
+  const adapter = require(adapterPath);
+  assert('R-01: provider() is a callable function',
+    typeof adapter.provider === 'function');
+  assert('R-01: provider() returns a string in {upstash, firestore}',
+    ['upstash', 'firestore'].includes(adapter.provider()));
+
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('R-01: integrationStatus surfaces rateLimitProvider to admin callers',
+    /rateLimitProvider:\s*rateLimitProvider\(\)/.test(idx)
+    && /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
+
+  const runbook = read(path.join(ROOT, 'POST_DEPLOY_CHECKLIST.md'));
+  assert('R-01: POST_DEPLOY_CHECKLIST has an Upstash runbook section',
+    /##\s*18\.\s*Rate-limit provider/i.test(runbook));
+  assert('R-01: runbook walks through secret provisioning',
+    /functions:secrets:set UPSTASH_REDIS_REST_URL/.test(runbook)
+    && /functions:secrets:set UPSTASH_REDIS_REST_TOKEN/.test(runbook));
+  assert('R-01: runbook documents the NBD_RATE_LIMIT_PROVIDER=upstash flip',
+    /NBD_RATE_LIMIT_PROVIDER.{0,10}upstash/.test(runbook)
+    || /nbd\.rate_limit_provider.{0,10}upstash/.test(runbook));
+  assert('R-01: runbook tells ops how to verify the flip post-deploy',
+    /integrationStatus[\s\S]{0,400}rateLimitProvider/.test(runbook));
+}
+
+section('R-05: hot-path Cloud Function sizing for 10k-user spike');
+{
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js. Scan
+  // both files so hot-path sizing asserts work no matter which
+  // module owns the handler today.
+  const src = read(path.join(FUNCTIONS, 'index.js'))
+    + '\n' + read(path.join(FUNCTIONS, 'stripe.js'));
+
+  // Helper: extract the {…} config-object immediately following
+  // `exports.FNAME = onRequest(` in source order. We match the
+  // literal lines rather than invoking the function so this stays
+  // dependency-free.
+  function configOf(fnName) {
+    const re = new RegExp(
+      'exports\\.' + fnName
+      + '\\s*=\\s*onRequest\\(\\s*\\{([\\s\\S]*?)\\}\\s*,',
+      'm'
+    );
+    const m = src.match(re);
+    return m ? m[1] : null;
+  }
+  function intField(block, field) {
+    if (!block) return null;
+    // Strip line comments so we don't match commentary numbers
+    // like "Old 100×80 = 8k".
+    const clean = block.replace(/\/\/[^\n]*/g, '');
+    const m = clean.match(new RegExp('\\b' + field + ':\\s*(\\d+)'));
+    return m ? Number(m[1]) : null;
+  }
+
+  const claude = configOf('claudeProxy');
+  assert('R-05: claudeProxy maxInstances >= 300 (audit R-02 recommendation)',
+    intField(claude, 'maxInstances') >= 300,
+    'got ' + intField(claude, 'maxInstances'));
+  assert('R-05: claudeProxy minInstances >= 3 (cold-start absorption)',
+    intField(claude, 'minInstances') >= 3,
+    'got ' + intField(claude, 'minInstances'));
+  assert('R-05: claudeProxy concurrency still 80',
+    intField(claude, 'concurrency') === 80);
+
+  const sign = configOf('signImageUrl');
+  assert('R-05: signImageUrl maxInstances >= 200 (photo-render spike)',
+    intField(sign, 'maxInstances') >= 200,
+    'got ' + intField(sign, 'maxInstances'));
+  assert('R-05: signImageUrl minInstances >= 2',
+    intField(sign, 'minInstances') >= 2);
+  assert('R-05: signImageUrl concurrency >= 80',
+    intField(sign, 'concurrency') >= 80);
+
+  const subStatus = configOf('getSubscriptionStatus');
+  assert('R-05: getSubscriptionStatus maxInstances >= 200 (page-load spike)',
+    intField(subStatus, 'maxInstances') >= 200,
+    'got ' + intField(subStatus, 'maxInstances'));
+  assert('R-05: getSubscriptionStatus minInstances >= 2',
+    intField(subStatus, 'minInstances') >= 2);
+
+  // L-03: getHomeownerPortalView moved to portal.js. Look there
+  // first; fall back to the index.js helper if a future refactor
+  // moves it back.
+  const portalSrc = read(path.join(FUNCTIONS, 'portal.js'));
+  const portalRe = /exports\.getHomeownerPortalView\s*=\s*onRequest\(\s*\{([\s\S]*?)\}\s*,/m;
+  const portalMatch = portalSrc.match(portalRe);
+  const portal = portalMatch ? portalMatch[1] : configOf('getHomeownerPortalView');
+  assert('R-05: getHomeownerPortalView maxInstances >= 80 (email-blast burst)',
+    intField(portal, 'maxInstances') >= 80);
+
+  const checkout = configOf('createCheckoutSession');
+  assert('R-05: createCheckoutSession maxInstances >= 50 (conversion funnel)',
+    intField(checkout, 'maxInstances') >= 50);
+
+  const stripe = configOf('stripeWebhook');
+  assert('R-05: stripeWebhook maxInstances >= 20 (bulk billing / retries)',
+    intField(stripe, 'maxInstances') >= 20);
+
+  // Anti-brute endpoints must STAY tight — bumping these defeats
+  // the rate-limit floor they enforce.
+  const vcode = configOf('validateAccessCode');
+  if (vcode) {
+    assert('R-05: validateAccessCode stays tight (maxInstances <= 10)',
+      intField(vcode, 'maxInstances') <= 10,
+      'got ' + intField(vcode, 'maxInstances') + ' — loosening defeats anti-brute');
+  }
+}
+
+section('L-01: admin/index.html markup no longer advertises an admin surface');
+{
+  const src = read(path.join(ROOT, 'docs/admin/index.html'));
+  assert('L-01: title is generic (not "NBD Admin")',
+    !/<title>\s*NBD Admin\s*<\/title>/i.test(src));
+  assert('L-01: og:url admin path removed',
+    !/<meta property="og:url"[^>]*\/admin/i.test(src));
+  // The noindex signal still has to be present at the markup level
+  // (Firebase Hosting also sets X-Robots-Tag but the meta survives
+  // if someone views-source in devtools).
+  assert('L-01: noindex,nofollow meta preserved',
+    /<meta name="robots" content="noindex,\s*nofollow"/i.test(src));
+}
+
+section('L-02: retired Cloudflare Worker stub removed from repo');
+{
+  assert('L-02: workers/nbd-ai-proxy.js is gone',
+    !fs.existsSync(path.join(ROOT, 'workers/nbd-ai-proxy.js')));
+  assert('L-02: workers/wrangler.toml is gone',
+    !fs.existsSync(path.join(ROOT, 'workers/wrangler.toml')));
+  assert('L-02: workers/ directory is gone (no stray files)',
+    !fs.existsSync(path.join(ROOT, 'workers')));
+  const sec = read(path.join(ROOT, 'SECURITY.md'));
+  assert('L-02: SECURITY.md documents the retirement + CF-dashboard ops step',
+    /Retired surfaces[\s\S]{0,600}nbd-ai-proxy[\s\S]{0,600}Cloudflare dashboard/.test(sec));
+}
+
+section('L-03: portal handlers extracted to functions/portal.js');
+{
+  const portalPath = path.join(FUNCTIONS, 'portal.js');
+  assert('L-03: functions/portal.js exists', fs.existsSync(portalPath));
+  if (fs.existsSync(portalPath)) {
+    assert('L-03: portal.js parses cleanly', syntaxCheck(portalPath).ok);
+    const psrc = read(portalPath);
+    assert('L-03: portal.js exports createPortalToken',
+      /exports\.createPortalToken\s*=\s*onCall/.test(psrc));
+    assert('L-03: portal.js exports revokePortalToken',
+      /exports\.revokePortalToken\s*=\s*onCall/.test(psrc));
+    assert('L-03: portal.js exports getHomeownerPortalView',
+      /exports\.getHomeownerPortalView\s*=\s*onRequest/.test(psrc));
+    assert('L-03: portal.js is self-contained (does not require ../index)',
+      !/require\(['"]\.\.\/index['"]\)/.test(psrc));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('L-03: index.js loads portal.js via require + Object.assign',
+    /require\(['"]\.\/portal['"]\)/.test(idx)
+    && /Object\.assign\(exports,\s*portalFunctions\)/.test(idx));
+  // The portal handlers must NOT be defined inline in index.js any
+  // more — duplicate exports would cause Firebase deploy to collide.
+  assert('L-03: createPortalToken no longer defined inline in index.js',
+    !/exports\.createPortalToken\s*=\s*onCall/.test(idx));
+  assert('L-03: revokePortalToken no longer defined inline in index.js',
+    !/exports\.revokePortalToken\s*=\s*onCall/.test(idx));
+  assert('L-03: getHomeownerPortalView no longer defined inline in index.js',
+    !/exports\.getHomeownerPortalView\s*=\s*onRequest/.test(idx));
+}
+
+section('L-04: confirmAccountErasure GET is rate-limited');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  // The GET branch must call httpRateLimit BEFORE emitting the HTML
+  // so a bandwidth-DoS hits the 429 path, not the 3KB body.
+  assert('L-04: GET branch invokes httpRateLimit on confirmErasureGet:ip',
+    // Window sized to tolerate the explanatory comment block added
+    // with this fix.
+    /if\s*\(req\.method\s*===\s*'GET'\)[\s\S]{0,1200}httpRateLimit\([^)]*confirmErasureGet:ip/.test(src));
+  assert('L-04: rate-limit uses per-IP key (60/min)',
+    /confirmErasureGet:ip[^)]*,\s*60,\s*60_000/.test(src));
+}
+
+section('B2: shared authz + rate-limit helpers');
+{
+  const sharedPath = path.join(FUNCTIONS, 'shared.js');
+  assert('B2: functions/shared.js exists', fs.existsSync(sharedPath));
+  if (fs.existsSync(sharedPath)) {
+    const ssrc = read(sharedPath);
+    assert('B2: shared.js parses cleanly', syntaxCheck(sharedPath).ok);
+    assert('B2: shared.js exports callableRateLimit',
+      /exports\.callableRateLimit\s*=|module\.exports\s*=\s*\{[\s\S]*?callableRateLimit/.test(ssrc));
+    assert('B2: shared.js exports requirePaidSubscription',
+      /exports\.requirePaidSubscription\s*=|module\.exports\s*=\s*\{[\s\S]*?requirePaidSubscription/.test(ssrc));
+    // Live-load the module and verify the functions are callable.
+    const s = require(sharedPath);
+    assert('B2: callableRateLimit is a function', typeof s.callableRateLimit === 'function');
+    assert('B2: requirePaidSubscription is a function', typeof s.requirePaidSubscription === 'function');
+    // callableRateLimit on an unauthenticated request should no-op
+    // (uid is missing → early return, no throw). Exercises the guard.
+    (async () => {
+      try {
+        await s.callableRateLimit({ auth: null }, 'test', 1, 1000);
+      } catch (e) {
+        assert('B2: callableRateLimit is a no-op on unauth', false, 'threw ' + e.message);
+      }
+    })();
+    // requirePaidSubscription on an unauthenticated caller returns
+    // {ok:false, 401} without touching Firestore.
+    (async () => {
+      const stubDb = { doc: () => { throw new Error('Firestore should not be touched for unauth'); } };
+      const res = await s.requirePaidSubscription(stubDb, null);
+      assert('B2: requirePaidSubscription rejects unauth before Firestore',
+        res && res.ok === false && res.status === 401);
+    })();
+  }
+
+  // Migration: the three callers (index.js, portal.js, sms-functions.js)
+  // must now import from shared, NOT define their own inline copies.
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('B2: index.js imports callableRateLimit from ./shared',
+    /require\(['"]\.\/shared['"]\)[\s\S]{0,200}callableRateLimit/.test(idx)
+    || /\{[^}]*callableRateLimit[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(idx));
+  assert('B2: index.js no longer defines callableRateLimit inline',
+    !/async function callableRateLimit\s*\(/.test(idx));
+
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
+  assert('B2: portal.js imports callableRateLimit from ./shared',
+    /require\(['"]\.\/shared['"]\)/.test(psrc)
+    && /callableRateLimit/.test(psrc));
+  assert('B2: portal.js no longer defines callableRateLimit inline',
+    !/async function callableRateLimit\s*\(/.test(psrc));
+
+  const sms = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('B2: sms-functions.js imports requirePaidSubscription from ./shared',
+    /require\(['"]\.\/shared['"]\)[\s\S]{0,200}requirePaidSubscription/.test(sms)
+    || /\{[^}]*requirePaidSubscription[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(sms));
+  assert('B2: sms-functions.js no longer defines requirePaidSubscription inline',
+    !/async function requirePaidSubscription\s*\(/.test(sms));
+}
+
+section('L-03 cont.: Stripe handlers extracted to functions/stripe.js');
+{
+  const stripePath = path.join(FUNCTIONS, 'stripe.js');
+  assert('Stripe: functions/stripe.js exists', fs.existsSync(stripePath));
+  if (fs.existsSync(stripePath)) {
+    assert('Stripe: stripe.js parses cleanly', syntaxCheck(stripePath).ok);
+    const s = read(stripePath);
+    for (const name of [
+      'createCheckoutSession', 'stripeWebhook', 'createCustomerPortalSession',
+      'getSubscriptionStatus', 'createStripePaymentLink', 'invoiceWebhook',
+    ]) {
+      assert('Stripe: stripe.js exports ' + name,
+        new RegExp('exports\\.' + name + '\\s*=\\s*onRequest').test(s));
+    }
+    assert('Stripe: stripe.js is self-contained (no require("../index"))',
+      !/require\(['"]\.\.\/index['"]\)/.test(s));
+    assert('Stripe: stripe.js imports requireAuth from ./shared',
+      /require\(['"]\.\/shared['"]\)/.test(s) && /requireAuth/.test(s));
+    assert('Stripe: stripe.js imports httpRateLimit from the upstash adapter',
+      /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(s));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('Stripe: index.js loads stripe.js via require + Object.assign',
+    /require\(['"]\.\/stripe['"]\)/.test(idx)
+    && /Object\.assign\(exports,\s*stripeFunctions\)/.test(idx));
+  // None of the six handlers may be defined inline in index.js any
+  // more — duplicate exports would make Firebase deploy collide.
+  for (const name of [
+    'createCheckoutSession', 'stripeWebhook', 'createCustomerPortalSession',
+    'getSubscriptionStatus', 'createStripePaymentLink', 'invoiceWebhook',
+  ]) {
+    assert('Stripe: ' + name + ' no longer defined inline in index.js',
+      !new RegExp('exports\\.' + name + '\\s*=\\s*onRequest').test(idx));
+  }
+}
+
+section('M1 pilot: /admin/index.html drops unsafe-inline (script-src + style-src)');
+{
+  const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));
+  // Find the per-page CSP header for /admin/index.html. Hosting
+  // applies the most-specific source's header value; this entry
+  // overrides the global **/*.html CSP for this exact path.
+  const entry = (fb.hosting.headers || [])
+    .find(h => h.source === '/admin/index.html');
+  assert('M1: per-page CSP entry exists for /admin/index.html', !!entry);
+  if (entry) {
+    const csp = (entry.headers || [])
+      .find(h => h.key === 'Content-Security-Policy');
+    assert('M1: /admin/index.html has a Content-Security-Policy header', !!csp);
+    if (csp) {
+      // Parse out the directives so a future header reorder doesn't
+      // false-pass the assertions.
+      const directives = Object.fromEntries(csp.value
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(d => {
+          const [name, ...vals] = d.split(/\s+/);
+          return [name, vals];
+        }));
+      assert('M1: script-src has no \'unsafe-inline\'',
+        Array.isArray(directives['script-src'])
+        && !directives['script-src'].includes("'unsafe-inline'"));
+      assert('M1: style-src has no \'unsafe-inline\'',
+        Array.isArray(directives['style-src'])
+        && !directives['style-src'].includes("'unsafe-inline'"));
+      assert('M1: object-src is locked to none',
+        Array.isArray(directives['object-src'])
+        && directives['object-src'].includes("'none'"));
+      assert('M1: base-uri is locked to none',
+        Array.isArray(directives['base-uri'])
+        && directives['base-uri'].includes("'none'"));
+    }
+  }
+  // The page itself must not regress to inline-script / inline-style
+  // usage — those would silently break under the strict CSP.
+  const page = read(path.join(ROOT, 'docs/admin/index.html'));
+  assert('M1: /admin/index.html still has zero inline <script> bodies',
+    !/<script[^>]*>[^\s<]/.test(page));
+  assert('M1: /admin/index.html still has zero on*= event handlers',
+    !/\bon[a-z]+=/.test(page));
+  assert('M1: /admin/index.html still has zero style="..." attrs',
+    !/style="/.test(page));
+  assert('M1: /admin/index.html still has zero <style> blocks',
+    !/<style[ >]/.test(page));
+}
+
+section('Registry drift: every owner-keyed rule has a FLAT_USER_COLLECTIONS entry');
+{
+  // M-01/M-02 follow-up. The canonical user-owned registry at
+  // functions/integrations/user-owned.js is consumed by both the
+  // erasure cascade and the GDPR export. Any new top-level Firestore
+  // collection added with `isOwner(resource.data.userId)` (or
+  // .createdBy) authorization must also land in the registry — or
+  // erasure leaves the user's data behind, and Article-20 export
+  // misses it entirely.
+  //
+  // This sweep fails CI if any owner-keyed top-level match block in
+  // firestore.rules names a collection that isn't in either the
+  // registry's FLAT_USER_COLLECTIONS or the explicit exclusion list
+  // below. Adding an exclusion is a deliberate design decision —
+  // document the reason inline so a future reader sees the intent.
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  const registry = require(path.join(FUNCTIONS, 'integrations/user-owned.js'));
+  const registered = new Set(registry.FLAT_USER_COLLECTIONS.map(s => s.name));
+
+  // Top-level match blocks live at indent depth 4 (the
+  // `match /databases/.../documents {` block opens at depth 2).
+  // Capture each `    match /COLL/{<id>} {` line and its body, where
+  // the body runs until the matching close-brace at the same indent.
+  const lines = rules.split('\n');
+  const blocks = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^    match \/([a-zA-Z_]+)\/\{[a-zA-Z]+\}\s*\{?\s*$/);
+    if (!m) continue;
+    const coll = m[1];
+    // Walk forward to find the closing brace at the same indent.
+    let depth = 1;
+    let j = i + 1;
+    for (; j < lines.length; j++) {
+      const opens = (lines[j].match(/\{/g) || []).length;
+      const closes = (lines[j].match(/\}/g) || []).length;
+      depth += opens - closes;
+      if (depth <= 0) break;
+    }
+    blocks.push({ coll, body: lines.slice(i, j + 1).join('\n') });
+  }
+
+  // Every top-level rule whose authz consults resource.data.userId
+  // or resource.data.createdBy belongs to a user-owned collection.
+  const ownerKeyedColls = blocks
+    .filter(b => /isOwner\(resource\.data\.(userId|createdBy)\)/.test(b.body))
+    .map(b => b.coll);
+
+  // Intentional exclusions: collections whose authz uses owner-keyed
+  // shape but that we deliberately do NOT include in the GDPR registry.
+  // Audit trails + admin-only writes survive erasure on purpose.
+  // None today; placeholder list documents the exclusion mechanism for
+  // future schema additions.
+  const REGISTRY_EXCLUSIONS = new Set([
+    // Example shape (uncomment and document if a real exclusion appears):
+    // 'audit_log_writes', // append-only audit trail; survives erasure by design
+  ]);
+
+  const missing = ownerKeyedColls.filter(c =>
+    !registered.has(c) && !REGISTRY_EXCLUSIONS.has(c));
+
+  assert('Registry: every owner-keyed top-level rule has a FLAT_USER_COLLECTIONS entry',
+    missing.length === 0,
+    missing.length
+      ? 'missing from registry: ' + missing.join(', ')
+        + '. Add to FLAT_USER_COLLECTIONS in functions/integrations/user-owned.js'
+        + ' OR add to REGISTRY_EXCLUSIONS in this test with a documented reason.'
+      : '');
+
+  // Sanity: our sweep should be finding SOMETHING. If the regex breaks
+  // or rules.txt format changes, this catches a silently-empty result.
+  assert('Registry: sweep observed at least 15 owner-keyed collections',
+    ownerKeyedColls.length >= 15,
+    'observed ' + ownerKeyedColls.length + ' (regex may be broken)');
+
+  // Inverse direction (informational only — does not fail CI):
+  // collections in the registry that no longer have a matching rule.
+  // A registry entry without a rule isn't dangerous (erasure just
+  // queries an empty/non-existent collection), but it's a stale-list
+  // signal worth surfacing for a future cleanup.
+  const stale = registry.FLAT_USER_COLLECTIONS
+    .map(s => s.name)
+    .filter(name => !blocks.some(b => b.coll === name));
+  if (stale.length > 0) {
+    console.log('  ℹ  Registry has ' + stale.length
+      + ' entries with no matching rule (informational): '
+      + stale.join(', '));
+  }
 }
 
 // ── Summary ─────────────────────────────────────────────────

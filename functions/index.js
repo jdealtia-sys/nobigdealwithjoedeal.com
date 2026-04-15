@@ -33,28 +33,15 @@ admin.initializeApp();
 const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
 const { withSentry } = require('./integrations/sentry');
 
-// ═════════════════════════════════════════════════════════════
-// D1: per-uid rate-limit guard for every mutation callable.
-// Use inside onCall handlers to throw a resource-exhausted error
-// when a single user is spamming. The Upstash-first adapter
-// transparently falls back to Firestore when unconfigured.
-//
-// Usage:
-//   await callableRateLimit(request, 'createPortalToken', 30, 60_000);
-// ═════════════════════════════════════════════════════════════
-async function callableRateLimit(request, name, limit, windowMs) {
-  const uid = request.auth && request.auth.uid;
-  if (!uid) return;  // unauth callers can't hit a callable anyway
-  try {
-    await enforceRateLimit('callable:' + name + ':uid', uid, limit, windowMs);
-  } catch (e) {
-    if (e.rateLimited) {
-      throw new HttpsError('resource-exhausted',
-        `Rate limit exceeded — try again in ${Math.ceil(windowMs / 1000)}s`);
-    }
-    throw e;
-  }
-}
+// B2: callableRateLimit + requirePaidSubscription + requireAuth
+// live in functions/shared.js so every module gets the same
+// implementation. Inlined copies across this file + portal.js +
+// sms-functions.js have been removed.
+const {
+  callableRateLimit,
+  requirePaidSubscription,
+  requireAuth,
+} = require('./shared');
 
 // Secrets stored in Firebase Secret Manager
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
@@ -75,25 +62,8 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
-// Shared helper: verify Firebase auth + optional admin role via custom claims.
-async function requireAuth(req, { adminOnly = false } = {}) {
-  const authHeader = req.headers.authorization || '';
-  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!idToken) return { error: { status: 401, body: { error: 'Missing authorization token' } } };
-  let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken, true);
-  } catch (e) {
-    if (e.code === 'auth/id-token-expired') {
-      return { error: { status: 401, body: { error: 'Token expired — please re-authenticate' } } };
-    }
-    return { error: { status: 401, body: { error: 'Invalid token' } } };
-  }
-  if (adminOnly && decoded.role !== 'admin') {
-    return { error: { status: 403, body: { error: 'Admin access required' } } };
-  }
-  return { decoded };
-}
+// requireAuth moved to functions/shared.js (B2). Imported at the
+// top of this file alongside callableRateLimit + requirePaidSubscription.
 
 // Anthropic model allowlist — Opus removed; too expensive to expose to end users.
 const ALLOWED_CLAUDE_MODELS = new Set([
@@ -112,22 +82,108 @@ const CLAUDE_MAX_TOKENS_CAP = 1024;
 //   professional→ 1M  tokens/day/company
 const CLAUDE_DAILY_TOKEN_BUDGET = 200000; // per uid per calendar day
 const CLAUDE_PER_MIN_LIMIT = 20;
+// M-03: `starter` is the canonical plan name new checkouts normalize
+// to (createCheckoutSession maps legacy `foundation` → `starter` at
+// line ~343). Without an entry here, every new paid signup silently
+// fell through to CLAUDE_COMPANY_BUDGET_DEFAULT (10k/day) instead of
+// the intended 50k/day. `blueprint` is a mid-tier placeholder tracked
+// in docs/pro/js/nbd-auth.js:PLAN_LEVELS — add a conservative entry so
+// future rollouts don't repeat the drift.
 const CLAUDE_COMPANY_BUDGET = {
   lite:          10_000,
   foundation:    50_000,
+  starter:       50_000,
+  blueprint:    120_000,
   growth:       250_000,
   professional: 1_000_000
 };
 const CLAUDE_COMPANY_BUDGET_DEFAULT = 10_000;
+
+// ═════════════════════════════════════════════════════════════
+// C-03: transactional Claude budget reservation.
+//
+// The previous read-then-fire-then-increment flow had a TOCTOU race:
+// N concurrent callers would all see the same pre-call counter, all
+// pass the budget check, all fire to Anthropic, and the counter
+// would only catch up after the fact — effectively N× the daily cap
+// in one burst. With concurrency:80 and a per-min rate limit of 20,
+// a single user could burn 20× their reservation before step ④ ran.
+// Company-level the burst is even worse (multiple users × 20 each).
+//
+// Fix: reserve the anticipated spend inside a Firestore transaction
+// BEFORE calling Anthropic. On success, reconcile actual - reservation
+// (can be negative). On failure, refund the full reservation.
+//
+// Reservation is bounded at 4×CLAUDE_MAX_TOKENS_CAP so a bad estimate
+// (huge input) can't lock out the user's entire day on a single call.
+// The heuristic is 1 token ≈ 4 chars, which is the Anthropic tokenizer
+// rule of thumb — close enough for reservation bounding.
+// ═════════════════════════════════════════════════════════════
+const CLAUDE_RESERVATION_MAX = 4 * CLAUDE_MAX_TOKENS_CAP;
+// H-07: input-size guardrails. A client that smuggles a 200k-message
+// payload (huge base64 image set, runaway prompt) can drive up input-
+// token cost even with max_tokens capped at 1024. Reject payloads
+// that are definitely not a human-scale CRM interaction before they
+// ever touch Anthropic.
+const CLAUDE_MAX_MESSAGES      = 40;
+const CLAUDE_MAX_PAYLOAD_BYTES = 200_000;
+
+function estimateInputTokens(messages, system) {
+  let chars = 0;
+  try { chars += JSON.stringify(messages || []).length; } catch (_) {}
+  if (typeof system === 'string') chars += system.length;
+  return Math.ceil(chars / 4);
+}
+
+async function reserveClaudeBudget(db, uidRef, coRef, reservation, caps) {
+  return db.runTransaction(async (tx) => {
+    const [u, c] = await Promise.all([tx.get(uidRef), tx.get(coRef)]);
+    const uConsumed = (u.exists && u.data().tokens) || 0;
+    const cConsumed = (c.exists && c.data().tokens) || 0;
+    if (!caps.isAdmin && uConsumed + reservation > caps.uidCap) {
+      return { ok: false, scope: 'uid', consumed: uConsumed, cap: caps.uidCap };
+    }
+    if (!caps.isAdmin && cConsumed + reservation > caps.coCap) {
+      return { ok: false, scope: 'company', consumed: cConsumed, cap: caps.coCap };
+    }
+    const srv = admin.firestore.FieldValue.serverTimestamp();
+    const inc = admin.firestore.FieldValue.increment(reservation);
+    tx.set(uidRef, {
+      tokens: inc, updatedAt: srv,
+      uid: caps.uid, dayKey: caps.dayKey, scope: 'uid'
+    }, { merge: true });
+    tx.set(coRef, {
+      tokens: inc, updatedAt: srv,
+      companyId: caps.companyId, dayKey: caps.dayKey, scope: 'company'
+    }, { merge: true });
+    return { ok: true };
+  });
+}
+
+async function adjustClaudeBudget(uidRef, coRef, delta) {
+  if (!delta) return;
+  const inc = admin.firestore.FieldValue.increment(delta);
+  await Promise.all([
+    uidRef.set({ tokens: inc }, { merge: true }),
+    coRef.set({ tokens: inc }, { merge: true })
+  ]);
+}
 
 exports.claudeProxy = onRequest(
   {
     cors: CORS_ORIGINS,
     secrets: [ANTHROPIC_API_KEY],
     enforceAppCheck: true,
-    maxInstances: 100,
+    // R-05 sizing: 10k-concurrent-user spike × each user firing
+    // ≤1 AI call/min + 30-60s tail latency → ~10k concurrent
+    // in-flight. Old 100×80 = 8k ceiling triggered Cloud Run 429s
+    // on the tail. 300×80 = 24k gives headroom for burst + tail
+    // latency during Anthropic 5xx retries. minInstances:3 absorbs
+    // cold-start on the hot path (~$10/mo on 256Mi). Pair with
+    // M-03: per-tier company budgets + C-03 transactional counter.
+    maxInstances: 300,
     concurrency: 80,
-    minInstances: 0,
+    minInstances: 3,
     timeoutSeconds: 60,
     memory: '256MiB',
   },
@@ -188,60 +244,110 @@ exports.claudeProxy = onRequest(
       // below, preserving per-lead cost attribution (C6) and
       // analytics drill-downs; only the HOT-PATH budget check
       // moved to the counter.
+      // ── Input validation + H-07 size caps ──
+      // Run BEFORE any Firestore write so a 400/413 path is free
+      // of side effects.
+      const { model, max_tokens, messages, system, temperature } = req.body || {};
+      if (!Array.isArray(messages) || messages.length === 0) {
+        res.status(400).json({ error: 'messages array required' });
+        return;
+      }
+      if (messages.length > CLAUDE_MAX_MESSAGES) {
+        res.status(400).json({ error: 'Too many messages (max ' + CLAUDE_MAX_MESSAGES + ')' });
+        return;
+      }
+      let serializedMessages;
+      try { serializedMessages = JSON.stringify(messages); }
+      catch (_) {
+        res.status(400).json({ error: 'Invalid messages structure' });
+        return;
+      }
+      if (serializedMessages.length > CLAUDE_MAX_PAYLOAD_BYTES) {
+        res.status(413).json({ error: 'Messages payload too large (max 200KB)' });
+        return;
+      }
+      const safeModel = ALLOWED_CLAUDE_MODELS.has(model) ? model : 'claude-haiku-4-5-20251001';
+      const safeMaxTokens = Math.min(Number(max_tokens) || 500, CLAUDE_MAX_TOKENS_CAP);
+      const safeSystem = (typeof system === 'string') ? system.slice(0, 4000) : undefined;
+      const safeTemperature = (typeof temperature === 'number')
+        ? Math.max(0, Math.min(1, temperature))
+        : undefined;
+
+      // ── C-03: transactional budget reservation ──
+      // Pre-reserve up to CLAUDE_RESERVATION_MAX tokens inside a
+      // Firestore transaction. Concurrent callers are serialized
+      // through the counter doc, so 20 parallel reqs can no longer
+      // each see the same pre-call value and collectively burst
+      // past the cap.
       const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
       const dayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
       const uidCounterRef = admin.firestore()
         .doc(`api_usage_daily/${dayKey}__uid__${decoded.uid}`);
       const coCounterRef  = admin.firestore()
         .doc(`api_usage_daily/${dayKey}__co__${callerCompanyId}`);
-      const [uidCounterSnap, coCounterSnap] = await Promise.all([
-        uidCounterRef.get(),
-        coCounterRef.get()
-      ]);
-      const consumedUid     = (uidCounterSnap.exists ? uidCounterSnap.data().tokens : 0) || 0;
-      const consumedCompany = (coCounterSnap.exists  ? coCounterSnap.data().tokens  : 0) || 0;
-
-      // Resolve per-company cap from the plan on the subscription doc.
       const plan = (sub && sub.plan) || 'lite';
       const companyCap = CLAUDE_COMPANY_BUDGET[plan] ?? CLAUDE_COMPANY_BUDGET_DEFAULT;
 
-      if (!isAdmin && consumedUid >= CLAUDE_DAILY_TOKEN_BUDGET) {
-        res.status(429).json({ error: 'Daily AI budget exceeded for your account. Resets in 24 hours.' });
-        return;
-      }
-      if (!isAdmin && consumedCompany >= companyCap) {
-        res.status(429).json({
-          error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
-          plan, capacity: companyCap
-        });
+      const reservation = Math.min(
+        safeMaxTokens + estimateInputTokens(messages, safeSystem),
+        CLAUDE_RESERVATION_MAX
+      );
+      const reserveResult = await reserveClaudeBudget(
+        admin.firestore(), uidCounterRef, coCounterRef, reservation,
+        {
+          isAdmin,
+          uidCap: CLAUDE_DAILY_TOKEN_BUDGET,
+          coCap: companyCap,
+          uid: decoded.uid,
+          companyId: callerCompanyId,
+          dayKey,
+        }
+      );
+      if (!reserveResult.ok) {
+        if (reserveResult.scope === 'uid') {
+          res.status(429).json({
+            error: 'Daily AI budget exceeded for your account. Resets in 24 hours.'
+          });
+        } else {
+          res.status(429).json({
+            error: 'Company AI budget exceeded for today. Upgrade plan or try again in 24 hours.',
+            plan, capacity: companyCap
+          });
+        }
         return;
       }
 
-      // Validate inputs.
-      const { model, max_tokens, messages, system, temperature } = req.body || {};
-      if (!Array.isArray(messages) || messages.length === 0) {
-        res.status(400).json({ error: 'messages array required' });
-        return;
-      }
-      const safeModel = ALLOWED_CLAUDE_MODELS.has(model) ? model : 'claude-haiku-4-5-20251001';
-      const safeMaxTokens = Math.min(Number(max_tokens) || 500, CLAUDE_MAX_TOKENS_CAP);
-
+      // Budget reserved. Any error path below MUST refund or the
+      // caller loses tokens to a failed upstream.
       const anthropicBody = { model: safeModel, max_tokens: safeMaxTokens, messages };
-      if (typeof system === 'string') anthropicBody.system = system.slice(0, 4000);
-      if (typeof temperature === 'number') anthropicBody.temperature = Math.max(0, Math.min(1, temperature));
+      if (safeSystem !== undefined) anthropicBody.system = safeSystem;
+      if (safeTemperature !== undefined) anthropicBody.temperature = safeTemperature;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-          'x-api-key': ANTHROPIC_API_KEY.value(),
-        },
-        body: JSON.stringify(anthropicBody),
-      });
-
-      const data = await response.json();
-      if (!response.ok) { res.status(response.status).json(data); return; }
+      let response, data;
+      try {
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            'x-api-key': ANTHROPIC_API_KEY.value(),
+          },
+          body: JSON.stringify(anthropicBody),
+        });
+        data = await response.json();
+      } catch (e) {
+        // Network/parse error reaching Anthropic — refund full reservation.
+        await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
+        logger.error('claudeProxy upstream fetch error', { err: e.message });
+        res.status(502).json({ error: 'Upstream AI error' });
+        return;
+      }
+      if (!response.ok) {
+        // Anthropic returned an error — refund and forward the status.
+        await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
+        res.status(response.status).json(data);
+        return;
+      }
 
       try {
         // C6: stamp leadId + feature on every api_usage row so we
@@ -253,14 +359,12 @@ exports.claudeProxy = onRequest(
         const inTok  = Number(data.usage?.input_tokens)  || 0;
         const outTok = Number(data.usage?.output_tokens) || 0;
         const total  = inTok + outTok;
-
-        // M2: write both the audit row AND the two counter docs in
-        // parallel. Counter writes use set({merge:true}) + increment
-        // so a first-of-day call creates the doc and subsequent
-        // calls accumulate atomically. Set serverTimestamp only on
-        // the counter's updatedAt so we can alert on stale counters
-        // if the cron ever drifts.
-        const inc = admin.firestore.FieldValue.increment(total);
+        // C-03: reconcile actual vs reservation. Positive delta =
+        // we undershot and owe the counter more tokens; negative =
+        // we overshot and refund. Net effect: the counter converges
+        // on true usage while the transactional reservation kept
+        // concurrent callers honest.
+        const delta  = total - reservation;
         const srv = admin.firestore.FieldValue.serverTimestamp();
         await Promise.all([
           admin.firestore().collection('api_usage').add({
@@ -272,16 +376,10 @@ exports.claudeProxy = onRequest(
             model: anthropicBody.model,
             inputTokens: inTok,
             outputTokens: outTok,
+            reservation,                   // C-03: audit for over/undershoot trending
             timestamp: srv,
           }),
-          uidCounterRef.set({
-            tokens: inc, updatedAt: srv,
-            uid: decoded.uid, dayKey, scope: 'uid'
-          }, { merge: true }),
-          coCounterRef.set({
-            tokens: inc, updatedAt: srv,
-            companyId: callerCompanyId, dayKey, scope: 'company'
-          }, { merge: true })
+          adjustClaudeBudget(uidCounterRef, coCounterRef, delta),
         ]);
       } catch (e) {
         logger.warn('api_usage logging failed', { err: e.message });
@@ -301,585 +399,27 @@ exports.claudeProxy = onRequest(
  * Body: { plan: 'foundation' | 'professional' }
  * Headers: Authorization: Bearer <firebase-id-token>
  */
-exports.createCheckoutSession = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
-    enforceAppCheck: true,
-    maxInstances: 20,
-    concurrency: 40,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    // Per-IP rate limit — 10 checkout sessions / hour from a single IP.
-    if (!(await httpRateLimit(req, res, 'createCheckoutSession:ip', 10, 3_600_000))) return;
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-    if (!decoded.email) { res.status(401).json({ error: 'Account has no email' }); return; }
-    if (!decoded.email_verified) {
-      res.status(403).json({ error: 'Please verify your email before starting a paid subscription.' });
-      return;
-    }
-
-    try {
-      const { plan } = req.body;
-
-      // Validate plan — accept both old names (foundation/professional)
-      // and new names (starter/growth) for backwards compatibility
-      const VALID_PLANS = ['foundation', 'professional', 'starter', 'growth'];
-      if (!VALID_PLANS.includes(plan)) {
-        res.status(400).json({ error: 'Invalid plan. Must be starter, growth, foundation, or professional.' });
-        return;
-      }
-      // Normalize old names → new names for consistent storage
-      const normalizedPlan = plan === 'foundation' ? 'starter' : (plan === 'professional' ? 'growth' : plan);
-      // Remove the "free subscription while checkout is open" loophole — any prior
-      // client-side self-write to subscriptions gets overwritten on webhook return
-      // anyway, but the rules now block client writes entirely.
-
-      // Get price ID based on plan
-      // Maps both old and new plan names to Stripe Price IDs.
-      // STRIPE_PRICE_FOUNDATION = Starter ($99), STRIPE_PRICE_PROFESSIONAL = Growth ($249)
-      const priceId = (normalizedPlan === 'starter')
-        ? STRIPE_PRICE_FOUNDATION.value()
-        : STRIPE_PRICE_PROFESSIONAL.value();
-
-      // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-
-      // Create Checkout Session
-      const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        success_url: `https://nobigdealwithjoedeal.com/pro/stripe-success.html?session_id={CHECKOUT_SESSION_ID}&plan=${normalizedPlan}`,
-        cancel_url: 'https://nobigdealwithjoedeal.com/pro/pricing.html?cancelled=true',
-        client_reference_id: decoded.uid,
-        customer_email: decoded.email,
-        metadata: {
-          firebaseUid: decoded.uid,
-          plan: normalizedPlan,
-        },
-        // 14-day trial on Growth tier — no card required upfront
-        ...(normalizedPlan === 'growth' ? {
-          subscription_data: { trial_period_days: 14 }
-        } : {}),
-      });
-
-      logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, plan });
-
-      res.json({ url: session.url });
-
-    } catch (e) {
-      logger.error('createCheckoutSession error', { err: e.message });
-      if (e.code === 'auth/id-token-expired') {
-        res.status(401).json({ error: 'Token expired — please re-authenticate' });
-      } else {
-        res.status(500).json({ error: 'Failed to create checkout session' });
-      }
-    }
-  }
-);
 
 /**
  * Handles Stripe webhook events
  * POST /stripeWebhook
  * No auth required (verifies Stripe signature instead)
  */
-exports.stripeWebhook = onRequest(
-  {
-    cors: false, // Webhook should not use CORS
-    // F-08: price secrets are read inside the handler to map
-    // Stripe Price IDs to our plan tier. Must be declared here
-    // so .value() resolves at runtime.
-    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-              STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
-    maxInstances: 10,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-    const sig = req.headers['stripe-signature'];
-    const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
-
-    // H-6: Stripe requires the RAW request body for signature
-    // verification. If rawBody is missing (middleware re-parsed as
-    // JSON, body-parser mounted before onRequest, etc.) we MUST
-    // reject rather than fall back to req.body — the fallback would
-    // either never verify OR accept a forged event if the signature
-    // library is lenient. Explicit check + explicit tolerance.
-    if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
-      logger.error('stripeWebhook missing rawBody — misconfigured middleware');
-      res.status(400).json({ error: 'Invalid request body' });
-      return;
-    }
-    if (typeof sig !== 'string' || !sig.length) {
-      res.status(400).json({ error: 'Missing Stripe signature' });
-      return;
-    }
-
-    let event;
-    try {
-      // 300s tolerance is Stripe's default; setting it explicitly so
-      // it's not silently widened by a future SDK upgrade.
-      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret, 300);
-    } catch (e) {
-      logger.error('stripeWebhook signature verification failed', { err: e.message });
-      res.status(400).json({ error: 'Webhook signature verification failed' });
-      return;
-    }
-
-    try {
-      const db = admin.firestore();
-
-      // ── Idempotency guard ──
-      // Stripe retries webhooks up to 15 times. F-07: the previous
-      // check-then-write pattern left a window where two concurrent
-      // deliveries of the same event.id could both pass the exists()
-      // check and both process. Use create() — atomic, fails if the
-      // doc already exists.
-      const eventRef = db.doc(`stripe_events/${event.id}`);
-      try {
-        await eventRef.create({
-          type: event.type,
-          processedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-      } catch (e) {
-        // code 6 = ALREADY_EXISTS. Duplicate delivery — ack Stripe so
-        // it stops retrying, but do nothing else.
-        if (e.code === 6 || /already exists/i.test(String(e.message))) {
-          logger.info('stripeWebhook.duplicate_event', { eventId: event.id });
-          res.json({ received: true, duplicate: true });
-          return;
-        }
-        throw e;
-      }
-
-      switch (event.type) {
-        // ═══════════════════════════════════════════════════
-        // PLAN TIER EXTRACTION HELPER
-        // Maps Stripe Price IDs to NBD plan tiers. The IDs
-        // are set as Firebase secrets. Unknown prices fall
-        // back to 'starter'. Enterprise is handled via
-        // Stripe metadata since it's custom-priced.
-        // ═══════════════════════════════════════════════════
-        // (defined inline in the switch to have access to secrets)
-
-        case 'checkout.session.completed': {
-          const session = event.data.object;
-          const uid = session.client_reference_id;
-          const customerId = session.customer;
-
-          if (!uid) {
-            logger.warn('stripeWebhook.checkout_session_completed missing client_reference_id');
-            break;
-          }
-
-          // Extract plan tier from metadata or price
-          const plan = session.metadata?.plan || 'starter';
-
-          const subData = {
-            plan,
-            status: 'active',
-            stripeSessionId: session.id,
-            stripeCustomerId: customerId,
-            stripeSubscriptionId: session.subscription || null,
-            source: 'checkout',
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            // Usage counters — reset on subscription start
-            usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
-          };
-
-          await db.doc(`subscriptions/${uid}`).set(subData, { merge: true });
-
-          // ── Set Firebase Auth custom claims ──
-          // These claims are available in Firestore security rules
-          // via request.auth.token.plan and in client JS via
-          // user.getIdTokenResult().claims.plan
-          try {
-            await admin.auth().setCustomUserClaims(uid, {
-              plan,
-              subscriptionStatus: 'active',
-              stripeCustomerId: customerId
-            });
-            logger.info('custom_claims_set', { uid, plan });
-          } catch (claimErr) {
-            logger.error('custom_claims_failed', { uid, err: claimErr.message });
-          }
-
-          logger.info('subscription_activated', { uid, plan, sessionId: session.id });
-          break;
-        }
-
-        case 'customer.subscription.updated': {
-          const subscription = event.data.object;
-          const customerId = subscription.customer;
-
-          const snapshot = await db
-            .collection('subscriptions')
-            .where('stripeCustomerId', '==', customerId)
-            .limit(1)
-            .get();
-
-          if (snapshot.empty) {
-            logger.warn('stripeWebhook.subscription_updated no matching user', { customerId });
-            break;
-          }
-
-          const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
-
-          // F-08: derive plan from Stripe Price ID via an in-code
-          // map, not from price.metadata.plan. Stripe metadata is
-          // editable in the dashboard — trusting it for authorization
-          // puts tier grants one click from anyone with Stripe write
-          // access. Price IDs are immutable secrets known only to
-          // deploy.
-          const PRICE_TO_PLAN = {
-            [STRIPE_PRICE_FOUNDATION.value()]:   'starter',
-            [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
-          };
-          const priceId = subscription.items?.data?.[0]?.price?.id || '';
-          let plan = PRICE_TO_PLAN[priceId] || subDoc.data().plan || 'starter';
-
-          await subDoc.ref.update({
-            plan,
-            status: subscription.status,
-            stripeSubscriptionId: subscription.id,
-            currentPeriodEnd: subscription.current_period_end
-              ? new Date(subscription.current_period_end * 1000).toISOString()
-              : null,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-
-          // Sync custom claims
-          try {
-            await admin.auth().setCustomUserClaims(uid, {
-              plan,
-              subscriptionStatus: subscription.status,
-              stripeCustomerId: customerId
-            });
-          } catch (e) { logger.warn('claims_update_failed', { uid, err: e.message }); }
-
-          logger.info('subscription_updated', { uid, plan, status: subscription.status });
-          break;
-        }
-
-        case 'customer.subscription.deleted': {
-          const subscription = event.data.object;
-          const customerId = subscription.customer;
-
-          const snapshot = await db
-            .collection('subscriptions')
-            .where('stripeCustomerId', '==', customerId)
-            .limit(1)
-            .get();
-
-          if (snapshot.empty) {
-            logger.warn('stripeWebhook.subscription_deleted no matching user', { customerId });
-            break;
-          }
-
-          const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
-
-          await subDoc.ref.update({
-            plan: 'free',
-            status: 'cancelled',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-
-          // Downgrade custom claims to free
-          try {
-            await admin.auth().setCustomUserClaims(uid, {
-              plan: 'free',
-              subscriptionStatus: 'cancelled',
-              stripeCustomerId: customerId
-            });
-          } catch (e) { logger.warn('claims_downgrade_failed', { uid, err: e.message }); }
-
-          logger.info('subscription_cancelled', { uid });
-          break;
-        }
-
-        case 'invoice.payment_failed': {
-          const invoice = event.data.object;
-          const customerId = invoice.customer;
-
-          const snapshot = await db
-            .collection('subscriptions')
-            .where('stripeCustomerId', '==', customerId)
-            .limit(1)
-            .get();
-
-          if (snapshot.empty) {
-            logger.warn('stripeWebhook.invoice_payment_failed no matching user', { customerId });
-            break;
-          }
-
-          const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
-
-          await subDoc.ref.update({
-            status: 'past_due',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-
-          // Update claims to past_due so client can show warning
-          try {
-            await admin.auth().setCustomUserClaims(uid, {
-              plan: subDoc.data().plan || 'free',
-              subscriptionStatus: 'past_due',
-              stripeCustomerId: customerId
-            });
-          } catch (e) { logger.warn('claims_pastdue_failed', { uid, err: e.message }); }
-
-          // E1: dunning. Enqueue an email to the rep, Slack the ops
-          // channel, and stamp a lead activity row if the invoice
-          // has a leadId on its metadata (auto-invoice C5 sets it).
-          try {
-            const userRecord = await admin.auth().getUser(uid);
-            const email = userRecord.email;
-            const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
-            const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
-            const amount = ((invoice.amount_due || 0) / 100).toFixed(2);
-
-            if (email) {
-              await db.collection('email_queue').add({
-                to: email,
-                subject: 'Payment failed — $' + amount + ' — NBD Pro',
-                bodyPlain:
-                  'A customer payment attempt just failed.\n\n' +
-                  'Invoice: ' + invoice.id + '\n' +
-                  'Amount:  $' + amount + '\n' +
-                  (invoice.hosted_invoice_url
-                    ? 'Link:    ' + invoice.hosted_invoice_url + '\n'
-                    : '') +
-                  '\nReach out to the customer to update their card. Stripe will auto-retry 3 more times.',
-                status: 'pending',   // F-wave fix: worker filters on this field
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                source: 'stripe_dunning'
-              });
-            }
-
-            if (leadId) {
-              await db.collection('leads/' + leadId + '/activity').add({
-                userId: uid,
-                type: 'stripe_payment_failed',
-                label: 'Payment failed ($' + amount + ')',
-                stripeInvoiceId: invoice.id,
-                stripeCustomerId: customerId,
-                amountCents: invoice.amount_due || 0,
-                hostedInvoiceUrl: invoice.hosted_invoice_url || null,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-              });
-            }
-
-            // Slack — only posts when SLACK_WEBHOOK_URL secret is set.
-            const slack = require('./integrations/slack');
-            if (typeof slack.postSlack === 'function') {
-              await slack.postSlack({
-                text: '💳 Payment failed ($' + amount + ')',
-                blocks: [{
-                  type: 'section',
-                  text: {
-                    type: 'mrkdwn',
-                    text:
-                      '*💳 Stripe payment failed*\n' +
-                      'Amount: *$' + amount + '*\n' +
-                      'Invoice: `' + invoice.id + '`\n' +
-                      (estimateId ? 'Estimate: `' + estimateId + '`\n' : '') +
-                      (leadId ? 'Lead: `' + leadId + '`\n' : '') +
-                      (invoice.hosted_invoice_url ? 'Hosted: ' + invoice.hosted_invoice_url : '')
-                  }
-                }]
-              });
-            }
-          } catch (e) {
-            logger.warn('dunning: enqueue failed', { err: e.message });
-          }
-
-          logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
-          break;
-        }
-
-        // ── Invoice paid — reset monthly usage counters ──
-        case 'invoice.paid': {
-          const invoice = event.data.object;
-          const customerId = invoice.customer;
-          if (invoice.billing_reason !== 'subscription_cycle') break;
-
-          const snapshot = await db
-            .collection('subscriptions')
-            .where('stripeCustomerId', '==', customerId)
-            .limit(1)
-            .get();
-          if (!snapshot.empty) {
-            const subDoc = snapshot.docs[0];
-            await subDoc.ref.update({
-              'usage.leads': 0,
-              'usage.reports': 0,
-              'usage.aiCalls': 0,
-              'usage.cycleStart': new Date().toISOString(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            logger.info('usage_counters_reset', { uid: subDoc.id });
-          }
-          break;
-        }
-
-        default:
-          logger.info('stripeWebhook.unhandled_event_type', { type: event.type });
-      }
-
-      res.json({ received: true });
-
-    } catch (e) {
-      logger.error('stripeWebhook processing error', { err: e.message });
-      res.status(500).json({ error: 'Webhook processing failed' });
-    }
-  }
-);
 
 /**
  * Creates a Stripe billing portal session for customer to manage subscription
  * POST /createCustomerPortalSession
  * Headers: Authorization: Bearer <firebase-id-token>
  */
-exports.createCustomerPortalSession = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
-    maxInstances: 20,
-    concurrency: 40,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-    if (!(await httpRateLimit(req, res, 'createCustomerPortalSession:ip', 20, 3_600_000))) return;
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-
-    try {
-      const db = admin.firestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
-
-      if (!subscriptionSnap.exists) {
-        res.status(404).json({ error: 'No subscription found for this user' });
-        return;
-      }
-
-      const customerId = subscriptionSnap.data().stripeCustomerId;
-
-      if (!customerId) {
-        res.status(400).json({ error: 'No Stripe customer associated with this subscription' });
-        return;
-      }
-
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: 'https://nobigdealwithjoedeal.com/pro/settings',
-      });
-
-      logger.info('billing_portal_session_created', { uid: decoded.uid });
-
-      res.json({ url: portalSession.url });
-
-    } catch (e) {
-      logger.error('createCustomerPortalSession error', { err: e.message });
-      if (e.code === 'auth/id-token-expired') {
-        res.status(401).json({ error: 'Token expired — please re-authenticate' });
-      } else {
-        res.status(500).json({ error: 'Failed to create billing portal session' });
-      }
-    }
-  }
-);
 
 /**
  * Retrieves current subscription status for a user
  * GET /getSubscriptionStatus
  * Headers: Authorization: Bearer <firebase-id-token>
  */
-exports.getSubscriptionStatus = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    maxInstances: 50,
-    concurrency: 80,
-    timeoutSeconds: 10,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'GET') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-
-    try {
-      const db = admin.firestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
-
-      if (!subscriptionSnap.exists) {
-        res.json({ status: 'none', plan: null });
-        return;
-      }
-
-      const data = subscriptionSnap.data();
-      res.json({
-        status: data.status,
-        plan: data.plan,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-      });
-
-    } catch (e) {
-      logger.error('getSubscriptionStatus error', { err: e.message });
-      if (e.code === 'auth/id-token-expired') {
-        res.status(401).json({ error: 'Token expired — please re-authenticate' });
-      } else {
-        res.status(500).json({ error: 'Failed to retrieve subscription status' });
-      }
-    }
-  }
-);
 
 // ═══════════════════════════════════════════════════════════════
-// STORAGE CORS + IMAGE PROXY
+// STORAGE CORS + SIGNED IMAGE URLS
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -921,35 +461,35 @@ exports.setStorageCors = onRequest(
   }
 );
 
-/**
- * Image proxy — bypasses CORS for loading photos into the editor canvas.
- * GET /imageProxy?path=photos/filename.jpg
- */
 // ═══════════════════════════════════════════════════════════════
-// signImageUrl — C1 replacement for imageProxy streaming.
+// signImageUrl — serves Storage reads to authorized clients.
 //
-// imageProxy streams a Storage object through the function, which
-// means the egress bill gets paid twice: Storage → Function and
-// Function → Client. At 10k users × 20 photos that's $40-100/hr
-// in egress alone. Signed URLs push the client straight to the
-// Storage bucket — same auth/ACL checks we do today (owner uid
-// match OR same-company manager OR platform admin), but Storage
-// handles the actual byte serving.
+// Returns a short-lived (15 min) v4-signed Storage URL after
+// authorizing the caller. Same auth/ACL matrix as the Firestore
+// owner/manager/platform-admin rules: owner uid match OR same-
+// company manager OR platform admin. Clients POST {path} and fetch
+// the returned url directly from storage.googleapis.com — we never
+// proxy bytes through the function (R-03 lesson; imageProxy did,
+// and it double-egressed + starved the instance pool under load).
 //
 // Endpoint: POST /signImageUrl  { path: 'photos/<uid>/<file>' }
-// Returns: { url: 'https://storage.googleapis.com/...<query>' }
-//
-// Clients migrate from  GET /imageProxy?path=X  to
-//                       POST /signImageUrl { path: X }  →  fetch url
-// imageProxy stays in place (backwards compat) but is marked
-// deprecated — once every caller migrates we can delete it.
+// Returns:  { url: 'https://storage.googleapis.com/...<query>' }
 // ═══════════════════════════════════════════════════════════════
 exports.signImageUrl = onRequest(
   {
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
-    maxInstances: 30,
+    // R-05 sizing: every photo render on every page fires one sign
+    // call (the 14-minute client cache at signed-image-url.js:23
+    // prevents re-signs within a session, but fresh loads all hit).
+    // At 10k users × ~10 photos visible on first render =
+    // ~100k signs/min peak. Per-instance: 80 concurrent × (signing
+    // latency ~150ms) = ~500/sec. 200 instances × 500 = 100k/sec
+    // headroom. minInstances:2 absorbs cold-start when a dashboard
+    // load spikes right after a quiet window.
+    maxInstances: 200,
     concurrency: 80,
+    minInstances: 2,
     timeoutSeconds: 15,
     memory: '256MiB'
   },
@@ -975,7 +515,13 @@ exports.signImageUrl = onRequest(
     if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
       res.status(400).json({ error: 'Invalid path' }); return;
     }
-    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
+    // H-01: `portals/` intentionally excluded. Storage rules allow
+    // HTML uploads under portals/{uid}/ for the legacy customer-
+    // portal flow, but HTML served through this signed URL would
+    // execute in the storage.googleapis.com origin. Customer-facing
+    // portal HTML is served by Firebase Hosting (see storage.rules:78
+    // comment). Nobody should be signing portal URLs here.
+    const match = filePath.match(/^(photos|galleries|reports|docs)\/([^/]+)\/(.+)$/);
     if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
     const [, , ownerUid] = match;
 
@@ -1024,113 +570,47 @@ exports.signImageUrl = onRequest(
   }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// R-03: imageProxy is RETIRED.
+//
+// The old handler streamed Storage bytes through the function, which
+// means every image egressed twice (Storage → Function → Client). At
+// 10k users × 20 photos × 500KB that's ~100GB/hr through 256Mi
+// function instances — the instance bandwidth ceiling (~1 Gbps per)
+// starves the pool before the workload ever reaches maxInstances.
+// It was also a stored-XSS vector (H-01) because it echoed whatever
+// Content-Type the Storage metadata carried.
+//
+// Every caller migrated to signImageUrl + the NBDSignedUrl helper
+// (docs/pro/js/signed-image-url.js). The stub below exists only to
+// fail loudly for any stale client (cached service worker, open tab,
+// third-party integration, uncached CDN edge) that still calls the
+// old URL. It holds NO auth, NO Firestore touches, NO Storage reads
+// — just a cheap 410 response that carries the RFC 8594 Deprecation
+// + Sunset headers pointing to the successor.
+//
+// Safe to delete outright after 7+ days of zero calls in Cloud Logs.
+// Retaining it short-term matches the pattern used for the retired
+// Cloudflare Worker at workers/nbd-ai-proxy.js.
+// ═══════════════════════════════════════════════════════════════
 exports.imageProxy = onRequest(
   {
     cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    maxInstances: 50,
-    concurrency: 80,
-    timeoutSeconds: 30,
-    memory: '256MiB',
+    maxInstances: 2,
+    concurrency: 20,
+    timeoutSeconds: 5,
+    memory: '128MiB',
   },
-  async (req, res) => {
-    if (req.method !== 'GET') { res.status(405).end(); return; }
-
-    // D8: deprecation signals per RFC 8594 + RFC 9745. Clients that
-    // still use imageProxy should migrate to /signImageUrl. We keep
-    // serving bytes (don't break prod) but every hit logs + headers
-    // telegraph the sunset date, so ops can diff call sites that
-    // haven't migrated.
+  (req, res) => {
     res.set('Deprecation', 'true');
     res.set('Sunset', 'Wed, 01 Oct 2026 00:00:00 GMT');
     res.set('Link', '</signImageUrl>; rel="successor-version"');
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-
-    logger.warn('imageProxy DEPRECATED call', {
-      uidHash: require('crypto').createHash('sha256').update(decoded.uid).digest('hex').slice(0, 16),
-      referer: (req.headers.referer || '').slice(0, 200),
-      path: String(req.query.path || '').slice(0, 200)
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.status(410).json({
+      error: 'gone',
+      message: 'imageProxy has been retired. Use POST /signImageUrl { path } to obtain a 15-minute v4-signed Storage URL, then fetch it directly from storage.googleapis.com.',
+      successor: '/signImageUrl'
     });
-
-    // Per-IP and per-uid rate limit — imageProxy is a bandwidth amplifier.
-    if (!(await httpRateLimit(req, res, 'imageProxy:ip', 120, 60_000))) return;
-    try {
-      await enforceRateLimit('imageProxy:uid', decoded.uid, 120, 60_000);
-    } catch (e) {
-      if (e.rateLimited) { res.status(429).json({ error: 'Rate limit exceeded' }); return; }
-      throw e;
-    }
-
-    // Normalize and validate path.
-    let filePath = req.query.path;
-    if (typeof filePath !== 'string') { res.status(400).json({ error: 'Invalid path' }); return; }
-    // Reject encoded traversal variants + null bytes + backslashes + semicolons.
-    if (/%2e|\0|\\|;|\.\./.test(filePath) || filePath.includes('//')) {
-      res.status(400).json({ error: 'Invalid path' });
-      return;
-    }
-    // Allowed patterns — owner-scoped only. Caller's uid MUST appear as the 2nd path segment.
-    // photos/<uid>/<file>, portals/<uid>/<file>, galleries/<uid>/<file>, reports/<uid>/<file>.
-    const match = filePath.match(/^(photos|portals|galleries|reports|docs)\/([^/]+)\/(.+)$/);
-    if (!match) { res.status(400).json({ error: 'Invalid path shape' }); return; }
-    const [, bucketKey, ownerUid] = match;
-
-    const isOwner = ownerUid === decoded.uid;
-    // Platform admin can cross-tenant for support; everything else
-    // must share a company. H-3: previously platform admin was the
-    // only cross-tenant escape, but pre-C-1 that claim was grantable
-    // through the invite flow. With invite-role allowlisting landed,
-    // a legitimate platform admin is the only caller that hits this
-    // branch, and it's now narrow (support workflow only).
-    const isPlatformAdmin = decoded.role === 'admin';
-
-    // Tenant-scoped manager / company_admin: must share companyId
-    // with the file's owner. Claims are the cheap path; fall back
-    // to a Firestore lookup only if the claim is missing.
-    let allowed = isOwner || isPlatformAdmin;
-    if (!allowed) {
-      const callerCompanyId = decoded.companyId || null;
-      const callerRole = decoded.role || '';
-      if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
-        try {
-          // Look up the file-owner's company. Prefer the users/{uid}
-          // doc (authoritative), falling back to reps/{uid} for older
-          // seeded data.
-          const db = admin.firestore();
-          const [userDoc, repDoc] = await Promise.all([
-            db.doc(`users/${ownerUid}`).get(),
-            db.doc(`reps/${ownerUid}`).get()
-          ]);
-          const ownerCompanyId = (userDoc.exists && userDoc.data().companyId)
-            || (repDoc.exists  && repDoc.data().companyId)
-            || null;
-          if (ownerCompanyId && ownerCompanyId === callerCompanyId) {
-            allowed = true;
-          }
-        } catch (e) { /* fall through → 403 */ }
-      }
-    }
-    if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
-
-    try {
-      const bucket = admin.storage().bucket();
-      const file = bucket.file(filePath);
-      const [exists] = await file.exists();
-      if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
-
-      const [metadata] = await file.getMetadata();
-      res.set('Content-Type', metadata.contentType || 'application/octet-stream');
-      res.set('Cache-Control', 'private, max-age=300');
-      res.set('X-Content-Type-Options', 'nosniff');
-
-      file.createReadStream().pipe(res);
-    } catch (e) {
-      logger.error('imageProxy error', { uid: decoded.uid, err: e.message });
-      res.status(500).json({ error: 'Failed to proxy image' });
-    }
   }
 );
 
@@ -1212,6 +692,25 @@ exports.integrationStatus = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Sign in required');
     }
+    // H-06: gate to admin / company_admin. The previous "any authed
+    // user" rule let a free-tier caller enumerate the full security
+    // posture — specifically, whether Turnstile, Upstash, Sentry, and
+    // Slack were configured. That's a reconnaissance amplifier: a
+    // `turnstile:false` response turns submitPublicLead into an
+    // IP-rate-limit-only surface. Keep the enumeration restricted
+    // to people who already have a legitimate business-integration
+    // UI to grey-out buttons on.
+    const callerRole = (request.auth.token && request.auth.token.role) || '';
+    if (!['admin', 'company_admin'].includes(callerRole)) {
+      throw new HttpsError('permission-denied', 'Admin access required');
+    }
+    // R-01: the RUNTIME-active rate-limit provider. Derived from
+    // both NBD_RATE_LIMIT_PROVIDER env AND whether the Upstash secrets
+    // are populated. 'firestore' means the hot-doc path is live —
+    // under 10k-user carrier-NAT load this is the documented R-01
+    // throughput ceiling. Admin-visible so post-deploy verification
+    // doesn't require grepping Cloud Logging.
+    const { provider: rateLimitProvider } = require('./integrations/upstash-ratelimit');
     return {
       providers: _intProviders,
       configured: {
@@ -1227,82 +726,29 @@ exports.integrationStatus = onCall(
         hailtrace:   _hasInt('HAILTRACE_API_KEY'),
         calcom:      _hasInt('CALCOM_WEBHOOK_SECRET'),
         deepgram:    _hasInt('DEEPGRAM_API_KEY')
-      }
+      },
+      rateLimitProvider: rateLimitProvider()
     };
   }
 );
 
 // ═══════════════════════════════════════════════════════════════
-// HOMEOWNER PORTAL — public-by-token access to a redacted lead view
-//
-// Flow:
-//   1. Rep clicks "Share portal link" on a lead → createPortalToken
-//      mints a 24-char opaque token, stores it in portal_tokens/{tok}
-//      with { leadId, ownerUid, expiresAt, uses }.
-//   2. Rep SMSes/emails the URL `https://nobigdealwithjoedeal.com/
-//      pro/portal.html?token=<tok>` to the homeowner.
-//   3. Homeowner opens the page → getHomeownerPortalView({token})
-//      verifies the token and returns a REDACTED projection of the
-//      lead, rep, estimate, and booking URL. No auth required on
-//      the client side.
-//
-// portal_tokens is admin-SDK only (firestore.rules deny read/write
-// to clients) — the tokens are cryptographically random so guessing
-// is infeasible, and expiry + max-uses keep the blast radius small.
+// HOMEOWNER PORTAL (createPortalToken, revokePortalToken,
+// getHomeownerPortalView) — extracted to functions/portal.js
+// (L-03). portal.js is self-contained: it imports admin, secrets,
+// and the rate-limit adapter directly. Loading + Object.assign here
+// preserves the existing Firebase-deploy export shape, so no CI
+// workflow change is needed.
 // ═══════════════════════════════════════════════════════════════
-const PORTAL_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-function mintPortalToken() {
-  const bytes = require('crypto').randomBytes(24);
-  let s = '';
-  for (const b of bytes) s += PORTAL_TOKEN_ALPHABET[b % PORTAL_TOKEN_ALPHABET.length];
-  return s;
-}
+const portalFunctions = require('./portal');
+Object.assign(exports, portalFunctions);
 
-exports.createPortalToken = onCall(
-  {
-    region: 'us-central1',
-    cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    timeoutSeconds: 15,
-    memory: '256MiB'
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
-    // D1: a compromised rep session could otherwise mint millions of
-    // tokens. 30/min/uid is way more than a human ever needs.
-    await callableRateLimit(request, 'createPortalToken', 30, 60_000);
-    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
-    if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
-
-    const db = admin.firestore();
-    const leadSnap = await db.doc(`leads/${leadId}`).get();
-    if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
-    const lead = leadSnap.data();
-    // Owner-scope: rep who owns the lead OR platform admin.
-    const isAdmin = request.auth.token.role === 'admin';
-    if (lead.userId !== uid && !isAdmin) {
-      throw new HttpsError('permission-denied', 'Not your lead');
-    }
-
-    // 30-day default TTL — rep can force re-mint anytime.
-    const ttlDays = Math.min(90, Math.max(1, Number(request.data?.ttlDays) || 30));
-    const now = Date.now();
-    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
-
-    const token = mintPortalToken();
-    await db.doc(`portal_tokens/${token}`).set({
-      leadId,
-      ownerUid: lead.userId,
-      mintedBy: uid,
-      mintedAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt,
-      uses: 0,
-      maxUses: 100  // generous — homeowner may reload across days
-    });
-    return { token, expiresAt: expiresAt.toMillis() };
-  }
-);
+// L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
+// createCustomerPortalSession, getSubscriptionStatus,
+// createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.
+// Extracted verbatim; see `git log --follow functions/stripe.js`.
+const stripeFunctions = require('./stripe');
+Object.assign(exports, stripeFunctions);
 
 // ═══════════════════════════════════════════════════════════════
 // getAdminAnalytics — C3: ops dashboard numbers for the Team Manager.
@@ -1331,18 +777,21 @@ exports.getAdminAnalytics = onCall(
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
     const isPlatformAdmin = request.auth.token.role === 'admin';
     const isCompanyAdmin  = request.auth.token.role === 'company_admin';
-    // Solo-operator fallback: a caller with no companyId claim owns
-    // their own workspace. Their "company" is themselves — scope
-    // the query to uid so they see their own 30-day rollup instead
-    // of getting permission-denied when they click the Analytics tab.
-    const isSoloOwner = !request.auth.token.companyId;
-    if (!isPlatformAdmin && !isCompanyAdmin && !isSoloOwner) {
+    // H-04: a previous "solo-owner fallback" branch let every
+    // authenticated user without a companyId claim (i.e. every
+    // free-tier signup) through this callable. Each call runs three
+    // 30-day collection scans — a cheap DoS vector and a
+    // reconnaissance gift. Require an actual admin claim.
+    if (!isPlatformAdmin && !isCompanyAdmin) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
+    // Per-uid rate limit — admins still shouldn't be calling this in
+    // a loop. 30/hour is generous for a dashboard refresh.
+    await callableRateLimit(request, 'getAdminAnalytics', 30, 3_600_000);
 
     const companyId = isPlatformAdmin
       ? (request.data?.companyId || request.auth.token.companyId || null)
-      : (request.auth.token.companyId || (isSoloOwner ? uid : null));
+      : request.auth.token.companyId;
 
     const db = admin.firestore();
     const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
@@ -1357,11 +806,6 @@ exports.getAdminAnalytics = onCall(
       // Always include the owner.
       const coSnap = await db.doc('companies/' + companyId).get();
       if (coSnap.exists && coSnap.data().ownerId) uids.push(coSnap.data().ownerId);
-      // Solo-operator fallback: no company doc yet but companyId
-      // matches the caller's uid — they ARE the owner. Include the
-      // caller so their own rollup shows their own numbers instead
-      // of zeroed-out filters.
-      if (isSoloOwner && companyId === uid) uids.push(uid);
       return [...new Set(uids)];
     }
 
@@ -1463,219 +907,10 @@ exports.getAdminAnalytics = onCall(
   }
 );
 
-// ─── revokePortalToken ────────────────────────────────────
-// Flips all active tokens for a lead to active:false so they stop
-// resolving in getHomeownerPortalView. Owner-scoped — a rep can
-// only revoke tokens on their own leads. Platform admin unrestricted.
-exports.revokePortalToken = onCall(
-  {
-    region: 'us-central1',
-    cors: CORS_ORIGINS,
-    enforceAppCheck: true,
-    timeoutSeconds: 15,
-    memory: '256MiB'
-  },
-  async (request) => {
-    const uid = request.auth && request.auth.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
-    await callableRateLimit(request, 'revokePortalToken', 30, 60_000);
-    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
-    const tokenId = typeof request.data?.token === 'string' ? request.data.token : null;
-    if (!leadId && !tokenId) {
-      throw new HttpsError('invalid-argument', 'leadId or token required');
-    }
-
-    const db = admin.firestore();
-    const isAdmin = request.auth.token.role === 'admin';
-    let revoked = [];
-
-    if (tokenId) {
-      const ref = db.doc(`portal_tokens/${tokenId}`);
-      const snap = await ref.get();
-      if (!snap.exists) throw new HttpsError('not-found', 'Token not found');
-      if (!isAdmin && snap.data().ownerUid !== uid) {
-        throw new HttpsError('permission-denied', 'Not your token');
-      }
-      // We flip to an expired timestamp rather than deleting so the
-      // audit trail survives. getHomeownerPortalView checks expiresAt.
-      await ref.update({
-        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
-        revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-        revokedBy: uid
-      });
-      revoked = [tokenId];
-    } else {
-      // Revoke every token for this lead owned by the caller.
-      const q = await db.collection('portal_tokens')
-        .where('leadId', '==', leadId)
-        .get();
-      const batch = db.batch();
-      q.forEach(d => {
-        const data = d.data();
-        if (!isAdmin && data.ownerUid !== uid) return;
-        batch.update(d.ref, {
-          expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
-          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-          revokedBy: uid
-        });
-        revoked.push(d.id);
-      });
-      if (revoked.length) await batch.commit();
-    }
-    logger.info('revokePortalToken', { leadId, count: revoked.length });
-    return { success: true, revoked: revoked.length };
-  }
-);
-
-exports.getHomeownerPortalView = onRequest(
-  {
-    region: 'us-central1',
-    cors: true, // intentionally open — this is the homeowner-facing endpoint
-    maxInstances: 20,
-    concurrency: 80,
-    timeoutSeconds: 15,
-    memory: '256MiB',
-    // BoldSign key: needed to mint the embedded signing URL when
-    // the estimate is awaiting signature.
-    secrets: [_intSecrets.BOLDSIGN_API_KEY]
-  },
-  async (req, res) => {
-    // F-06: POST only. Previously accepted GET with the token in the
-    // query string, which leaked via access logs / Referer / browser
-    // history on every homeowner pageload. portal.html now POSTs.
-    if (req.method !== 'POST') { res.status(405).end(); return; }
-
-    // Rate-limit per IP — 30/min is plenty for a homeowner on the
-    // page and stops an attacker from brute-forcing tokens.
-    if (!(await httpRateLimit(req, res, 'portal:ip', 30, 60_000))) return;
-
-    const token = (req.body && req.body.token) || '';
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
-      res.status(400).json({ error: 'Invalid token' });
-      return;
-    }
-
-    const db = admin.firestore();
-    const tokRef = db.doc(`portal_tokens/${token}`);
-    const tokSnap = await tokRef.get();
-    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
-    const tok = tokSnap.data();
-
-    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.' });
-      return;
-    }
-    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
-      res.status(429).json({ error: 'This link has been opened too many times.' });
-      return;
-    }
-
-    // Load the lead, rep, and latest estimate in parallel.
-    const [leadSnap, repSnap, estSnap] = await Promise.all([
-      db.doc(`leads/${tok.leadId}`).get(),
-      db.doc(`users/${tok.ownerUid}`).get(),
-      db.collection('estimates')
-        .where('leadId', '==', tok.leadId)
-        .limit(10)
-        .get()
-    ]);
-
-    if (!leadSnap.exists) { res.status(404).json({ error: 'Project not found' }); return; }
-    const lead = leadSnap.data();
-    const rep = repSnap.exists ? repSnap.data() : {};
-
-    // Pick the latest estimate (createdAt desc). In-memory sort to
-    // avoid a composite-index requirement for this rarely-hit path.
-    const estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    estimates.sort((a, b) => {
-      const ta = a.createdAt?.toMillis?.() || 0;
-      const tb = b.createdAt?.toMillis?.() || 0;
-      return tb - ta;
-    });
-    const latest = estimates[0] || null;
-
-    // REDACTION: only non-sensitive fields reach the homeowner.
-    // In particular: no claim details, no internal notes, no rep
-    // commission, no other leads.
-
-    // If the estimate is awaiting signature AND BoldSign is
-    // configured AND the signer email on file matches the one
-    // stored on the estimate, request a fresh embed signing URL so
-    // the homeowner can sign right inside the portal instead of
-    // digging up the BoldSign email. We never expose the document
-    // id — only the iframe URL, which BoldSign scopes to the signer
-    // email automatically.
-    let signEmbedUrl = null;
-    if (latest
-        && (latest.signatureStatus === 'sent' || latest.signatureStatus === 'viewed')
-        && latest.signatureProvider === 'boldsign'
-        && latest.signatureDocumentId
-        && latest.signerEmail
-        && _hasInt('BOLDSIGN_API_KEY')) {
-      try {
-        const apiKey = _getInt('BOLDSIGN_API_KEY');
-        const embedRes = await fetch(
-          `https://api.boldsign.com/v1/document/getEmbeddedSignLink?documentId=${encodeURIComponent(latest.signatureDocumentId)}&signerEmail=${encodeURIComponent(latest.signerEmail)}`,
-          { headers: { 'X-API-KEY': apiKey } }
-        );
-        if (embedRes.ok) {
-          const d = await embedRes.json();
-          signEmbedUrl = d.signLink || d.signUrl || null;
-        }
-      } catch (e) {
-        logger.warn('portal embed link fetch failed', { err: e.message });
-      }
-    }
-
-    const view = {
-      homeowner: {
-        firstName: lead.firstName || '',
-        lastName:  lead.lastName || '',
-        address:   lead.address || ''
-      },
-      rep: {
-        displayName:    rep.displayName || lead.repName || 'Your Rep',
-        calcomUsername: rep.calcomUsername || null,
-        calcomEventSlug: rep.calcomEventSlug || 'roof-inspection',
-        phone: rep.phone || null
-      },
-      company: {
-        name: rep.companyName || 'No Big Deal Home Solutions'
-      },
-      estimate: latest ? {
-        id:              latest.id,
-        builder:         latest.builder || 'classic',
-        grandTotal:      latest.grandTotal || latest.total || null,
-        tierName:        latest.tierName || null,
-        signatureStatus: latest.signatureStatus || 'none',
-        signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
-        signedDocumentUrl: latest.signedDocumentUrl || null,
-        signEmbedUrl:    signEmbedUrl,
-        // Line-item summary only — NOT the internal cost breakdown.
-        lineCount: Array.isArray(latest.lines) ? latest.lines.length : null,
-        createdAt: latest.createdAt?.toDate?.()?.toISOString() || null
-      } : null,
-      bookingUrl: rep.calcomUsername
-        ? ('https://cal.com/' + rep.calcomUsername + '/' + (rep.calcomEventSlug || 'roof-inspection'))
-        : null,
-      tokenInfo: {
-        // Let the UI show "expires in N days" without exposing the
-        // exact timestamp shape.
-        daysRemaining: tok.expiresAt
-          ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))
-          : null
-      }
-    };
-
-    // Bump use counter (fire-and-forget; don't fail the response).
-    tokRef.update({
-      uses: admin.firestore.FieldValue.increment(1),
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
-
-    res.status(200).json(view);
-  }
-);
+// L-03: revokePortalToken + getHomeownerPortalView moved to
+// functions/portal.js alongside createPortalToken (loaded near the
+// top of this file via `Object.assign(exports, portalFunctions)`).
+// Full history: `git log --follow functions/portal.js`.
 
 // ═══════════════════════════════════════════════════════════════
 // INVOICE FUNCTIONS
@@ -1688,119 +923,6 @@ exports.getHomeownerPortalView = onRequest(
  * Headers: Authorization: Bearer <firebase-id-token>
  * Returns: { url: string, paymentLinkId: string }
  */
-exports.createStripePaymentLink = onRequest(
-  {
-    cors: CORS_ORIGINS,
-    secrets: [STRIPE_SECRET_KEY],
-    enforceAppCheck: true,
-    maxInstances: 20,
-    concurrency: 40,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    if (!(await httpRateLimit(req, res, 'createStripePaymentLink:ip', 30, 60_000))) return;
-
-    const authResult = await requireAuth(req);
-    if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
-    const { decoded } = authResult;
-
-    try {
-      const { invoiceId } = req.body;
-
-      if (!invoiceId) {
-        res.status(400).json({ error: 'invoiceId required' });
-        return;
-      }
-
-      // Fetch invoice from Firestore
-      const db = admin.firestore();
-      const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
-
-      if (!invoiceSnap.exists) {
-        res.status(404).json({ error: 'Invoice not found' });
-        return;
-      }
-
-      const invoice = invoiceSnap.data();
-
-      // Validate ownership
-      if (invoice.createdBy !== decoded.uid) {
-        res.status(403).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      // Recompute totals server-side from canonical product prices where possible.
-      // For items with a productId, look up the catalog; otherwise use the
-      // client-provided total but enforce sanity bounds to block $0.01/absurd values.
-      const MIN_CENTS = 100;            // $1.00 minimum per line
-      const MAX_CENTS = 10_000_000;     // $100k maximum per line
-      const lineItems = [];
-      for (const item of (invoice.items || [])) {
-        let cents;
-        if (item.productId) {
-          const prodSnap = await db.doc(`products/${item.productId}`).get();
-          if (prodSnap.exists && prodSnap.data().userId === decoded.uid) {
-            const unit = prodSnap.data().unitPrice;
-            const qty = Math.max(1, Number(item.quantity) || 1);
-            if (typeof unit === 'number' && unit > 0) {
-              cents = Math.round(unit * qty * 100);
-            }
-          }
-        }
-        if (cents === undefined) {
-          cents = Math.round(Number(item.total || 0) * 100);
-        }
-        if (!Number.isFinite(cents) || cents < MIN_CENTS || cents > MAX_CENTS) {
-          res.status(400).json({ error: 'Line item amount out of allowed range' });
-          return;
-        }
-        lineItems.push({
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: String(item.description || 'Invoice line item').slice(0, 250),
-              description: `Invoice ${invoiceId}`,
-            },
-            unit_amount: cents,
-          },
-          quantity: 1,
-        });
-      }
-      if (lineItems.length === 0) {
-        res.status(400).json({ error: 'Invoice has no line items' });
-        return;
-      }
-
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-      const paymentLink = await stripe.paymentLinks.create({
-        line_items: lineItems,
-        metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
-        payment_intent_data: {
-          metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
-        },
-        after_completion: {
-          type: 'redirect',
-          redirect: {
-            url: `https://nobigdealwithjoedeal.com/pro/invoice-success.html?invoiceId=${encodeURIComponent(invoiceId)}`,
-          },
-        },
-      });
-
-      logger.info('payment_link_created', { invoiceId, uid: decoded.uid, paymentLinkId: paymentLink.id });
-      res.json({ url: paymentLink.url, paymentLinkId: paymentLink.id });
-
-    } catch (e) {
-      logger.error('createStripePaymentLink error', { uid: decoded.uid, err: e.message });
-      res.status(500).json({ error: 'Failed to create payment link' });
-    }
-  }
-);
 
 /**
  * Handles Stripe webhook events for invoice payments
@@ -1808,95 +930,6 @@ exports.createStripePaymentLink = onRequest(
  * No auth required (verifies Stripe signature instead)
  * Handles: payment_intent.succeeded → marks invoice as paid
  */
-exports.invoiceWebhook = onRequest(
-  {
-    cors: false, // Webhook should not use CORS
-    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
-    maxInstances: 5,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    try {
-      const signature = req.headers['stripe-signature'] || '';
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
-
-      // H-6: same rawBody requirement as stripeWebhook. The previous
-      // `req.rawBody || req.body` fallback is a footgun — it gives
-      // stripe.constructEvent a parsed object that never yields a
-      // valid signature match, silently 400ing legit events, or (on
-      // older SDKs) re-serialising into a different byte sequence
-      // and accepting forgeries.
-      if (!req.rawBody || !Buffer.isBuffer(req.rawBody)) {
-        logger.error('invoiceWebhook missing rawBody');
-        res.status(400).json({ error: 'Invalid request body' });
-        return;
-      }
-      if (!signature) {
-        res.status(400).json({ error: 'Missing signature' });
-        return;
-      }
-
-      // Verify Stripe signature with explicit replay tolerance.
-      let event;
-      try {
-        event = stripe.webhooks.constructEvent(
-          req.rawBody,
-          signature,
-          STRIPE_WEBHOOK_SECRET.value(),
-          300
-        );
-      } catch (err) {
-        logger.error('invoiceWebhook signature verification failed', { err: err.message });
-        res.status(400).json({ error: 'Invalid signature' });
-        return;
-      }
-
-      // Handle payment_intent.succeeded event
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const metadata = paymentIntent.metadata || {};
-        const invoiceId = metadata.invoiceId;
-        const claimedUserId = metadata.userId;
-
-        if (invoiceId) {
-          const db = admin.firestore();
-          const invRef = db.collection('invoices').doc(invoiceId);
-          const invSnap = await invRef.get();
-          if (!invSnap.exists) {
-            logger.warn('invoiceWebhook: invoice not found', { invoiceId });
-          } else if (claimedUserId && invSnap.data().createdBy !== claimedUserId) {
-            // Metadata tampering — record the event but do not mark paid.
-            logger.error('invoiceWebhook: metadata userId mismatch', {
-              invoiceId,
-              claimedUserId,
-              actualCreatedBy: invSnap.data().createdBy,
-            });
-          } else {
-            await invRef.update({
-              status: 'paid',
-              paidAt: admin.firestore.FieldValue.serverTimestamp(),
-              stripePaymentIntentId: paymentIntent.id,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            logger.info('invoice_paid', { invoiceId });
-          }
-        }
-      }
-
-      res.json({ received: true });
-
-    } catch (e) {
-      logger.error('invoiceWebhook error', { err: e.message });
-      res.status(500).json({ error: 'Webhook processing failed' });
-    }
-  }
-);
 
 
 // ── Verification Functions (SMS OTP + Lead Notifications) ──
@@ -2721,27 +1754,42 @@ exports.activateInvitedRep = onCall(
 //   - Generic 200 response with opaque id so enumerating invalid
 //     payloads gives no side-channel.
 // ═════════════════════════════════════════════════════════════
+// M-04: explicit per-kind allowlist for optional fields. The previous
+// pass-through loop accepted ANY string field ≤500 chars from the
+// request body and wrote it into Firestore under that key, which
+// let an attacker stuff arbitrary keys (e.g. `leadScore`, `qualified`,
+// `assignedTo`) into a guide_leads doc. Default posture is strict —
+// only marketing-attribution UTMs + HTTP referrer pass through; add
+// to the allowlist deliberately when a real need appears.
+const PUBLIC_LEAD_OPTIONAL_DEFAULTS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'referrer'
+];
+
 const PUBLIC_LEAD_KINDS = {
   guide: {
     collection: 'guide_leads',
     required: ['name', 'email', 'source'],
-    maxLen:   { name: 200, email: 200, source: 200 }
+    maxLen:   { name: 200, email: 200, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   contact: {
     collection: 'contact_leads',
     required: ['firstName', 'phone', 'source'],
-    maxLen:   { firstName: 200, phone: 30, source: 200 }
+    maxLen:   { firstName: 200, phone: 30, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   estimate: {
     collection: 'estimate_leads',
     required: ['address', 'source'],
-    maxLen:   { address: 500, source: 200 }
+    maxLen:   { address: 500, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   },
   storm: {
     collection: 'storm_alert_subscribers',
     required: ['name', 'phone', 'zip', 'source'],
     maxLen:   { name: 200, phone: 30, zip: 10, source: 200 },
-    exact:    { zip: 5 }
+    exact:    { zip: 5 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
   }
 };
 
@@ -2807,12 +1855,14 @@ exports.submitPublicLead = onRequest(
       data[key] = val;
     }
 
-    // Optional fields — passed through but bounded.
-    for (const key of Object.keys(body)) {
-      if (spec.required.includes(key)) continue;
-      if (['kind', 'website'].includes(key)) continue;
+    // M-04: optional fields are a per-kind allowlist (UTMs + referrer
+    // today). Keys outside the allowlist are silently dropped — we
+    // do NOT 400 on extras because benign callers paste the whole
+    // query string from a landing page.
+    for (const key of (spec.optional || [])) {
       const v = body[key];
-      if (typeof v !== 'string' || v.length > 500) continue;
+      if (typeof v !== 'string') continue;
+      if (v.length === 0 || v.length > 500) continue;
       data[key] = v;
     }
 

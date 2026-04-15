@@ -100,7 +100,8 @@ Run these as a freshly-registered free user, a paid user, and an admin:
 - [ ] `curl POST /seedDemoData` → 404.
 - [ ] `curl POST /validateAccessCode '{"data":{"code":"NBD-ADMIN"}}'` → 403 (App Check missing) or `not-found`.
 - [ ] `curl POST /incomingSMS` with an invalid signature → 403.
-- [ ] `curl GET /imageProxy?path=photos/<someone_else>/x.jpg` with your ID token → 403.
+- [ ] `curl GET /imageProxy?path=anything` → 410 Gone (R-03 — function is retired; caller must use `POST /signImageUrl`).
+- [ ] `curl POST /signImageUrl -d '{"path":"photos/<someone_else>/x.jpg"}'` with your ID token → 403.
 - [ ] `curl GET https://nbd-ai-proxy.<acct>.workers.dev` → 410 (or 404 if you deleted the worker).
 - [ ] Ask-Joe AI works for a paid user → `api_usage` doc appears → 30 calls in 1 min → 429.
 - [ ] Stripe checkout works for a paid user → webhook creates `subscriptions/{uid}` → audit_log entry exists.
@@ -442,8 +443,148 @@ lack the IAM admin role. Run once from Joe's identity.
 - `ANTHROPIC_API_KEY` — already set for claudeProxy; the voice
   pipeline reuses it for analysis + consent checks.
 
+## 18b. CSP `'unsafe-inline'` rollout (M1) — incremental hardening
 
-- **Rate limits on Firestore** — the rate-limit helper still reads/writes `_rate_limits_ip/*` in Firestore. Under 10k users/hour this will cost a few extra ms per call. Migrate to Upstash Redis or Memorystore when you have bandwidth.
+The audit's M1 item: drop `'unsafe-inline'` from the enforced CSP
+on every page that doesn't actually need it. Status (2026-04-15):
+
+| Page | script-src | style-src | Status |
+|---|---|---|---|
+| `/admin/index.html` | clean | **clean** | ✅ Pilot landed — both directives strict |
+| `/admin/login.html` | clean | needs `<style>` block hashed/extracted | ⏳ next |
+| `/admin/analytics.html` | clean | needs `<style>` block hashed/extracted | ⏳ next |
+| `/admin/mfa-enroll.html` | (no per-page CSP yet) | 8 inline attrs + 1 `<style>` block | ⏳ adds per-page CSP after extraction |
+| `/admin/vault.html` | needs 30+ `on*=` handlers extracted | many inline attrs | ⏳ content rewrite required |
+| `/admin/project-codex.html` | needs 2 inline `<script>` + 57 handlers extracted | many inline attrs | ⏳ content rewrite required |
+| `/pro/dashboard.html` | ~435 inline handlers | many | ⏳ biggest sprint — defer |
+| `/pro/customer.html` | ~114 inline handlers | many | ⏳ |
+| `/pro/ai-tool-finder.html` | ~61 inline handlers | many | ⏳ |
+| Global `**/*.html` fallback | still allows `'unsafe-inline'` | still allows `'unsafe-inline'` | ⏳ tightens last, after all pages migrate |
+
+**Pattern for each next page** (login + analytics are easiest — single
+`<style>` block, zero inline event handlers):
+1. Extract the inline `<style>` block to an external `.css` file under
+   `docs/admin/css/` (or per-page co-located).
+2. Reference it via `<link rel="stylesheet" href="...">` and ensure
+   `style-src 'self'` covers it (it does).
+3. Remove the `'style-src 'unsafe-inline''` portion from the per-page
+   CSP entry in `firebase.json`.
+4. Add the page's strict CSP shape to `tests/smoke.test.js` (pattern at
+   the M1 pilot section — parses the directive, asserts no `'unsafe-inline'`).
+
+Don't touch the global `**/*.html` CSP until every page covered by it
+is on a strict per-page override or is itself inline-free. Premature
+global tightening would break `dashboard.html` + every other inline-heavy
+page in production.
+
+## 18a. Cloud Function sizing (R-05) — hot-path ceilings + minInstances cost
+
+The audit's R-05 finding was that every user-facing endpoint was
+sized for single-digit-QPS dev traffic. Hot paths are now sized for
+a 10k-concurrent spike:
+
+| Function | max × concurrency = pool | minInstances | Why |
+|---|---|---|---|
+| `claudeProxy` | 300 × 80 = **24,000** | 3 | audit R-02: AI tail latency burns instances |
+| `signImageUrl` | 200 × 80 = **16,000** | 2 | every photo render calls this |
+| `getSubscriptionStatus` | 200 × 80 = **16,000** | 2 | every pro-surface page-load |
+| `getHomeownerPortalView` | 80 × 80 = 6,400 | — | homeowner email-blast burst |
+| `createCheckoutSession` | 50 × 40 = 2,000 | — | end-of-trial conversion funnel |
+| `stripeWebhook` | 20 × (default) | — | billing-day retry storm |
+| `invoiceWebhook` | 10 × (default) | — | payment_intent fanout |
+
+**`minInstances` is the only meaningful cost delta** — Cloud Run
+charges for idle CPU/memory on these instances. On 256Mi × 7 total
+idle instances that's ≈ **$25/month** ($0.0000025/instance-sec ×
+256Mi × 730h). If spend is a concern pre-launch, drop `minInstances`
+to 1 on each; the per-cold-start UX cost is ~1s on the first request
+after a quiet window, which is acceptable for Starter-tier users.
+
+The regression smoke test `R-05` pins these ceilings — an accidental
+revert (e.g. a merge that drops `maxInstances` on `claudeProxy` back
+to 100) now fails CI.
+
+## 18. Rate-limit provider (R-01) — flip to Upstash before launch
+
+**Who:** ops (Joe). **When:** before 10k-user launch. **Why:**
+Firestore documents have a ~1 write/sec/doc ceiling. `_rate_limits_ip/*`
+is one doc per (namespace, hashed-IP), so when a mobile carrier NATs
+thousands of users onto one egress IP every hit from that carrier
+rewrites the same doc. Under load legitimate users get 429'd. Upstash
+Redis has no such ceiling and adds ~15ms latency from us-central1.
+
+The adapter is already in place (`functions/integrations/
+upstash-ratelimit.js`). It's a drop-in replacement that keeps the
+Firestore limiter wired as a failover path for transient Upstash
+errors. All you need to do is provision + flip.
+
+### 18.1 Create the Redis instance
+
+1. <https://console.upstash.com> → **Create Database**.
+2. **Name**: `nbd-pro-ratelimit`. **Region**: choose the `us-central1`-
+   closest regional (not global — lower latency, lower cost at this
+   scale). **Eviction**: keep the default allkeys-lru.
+3. Copy the **REST URL** and **REST Token** from the dashboard.
+
+### 18.2 Provision the two secrets
+
+```
+firebase functions:secrets:set UPSTASH_REDIS_REST_URL --project=nobigdeal-pro
+firebase functions:secrets:set UPSTASH_REDIS_REST_TOKEN --project=nobigdeal-pro
+```
+
+Paste the matching values when prompted. These are NOT stubbed by
+CI at deploy time — the stub uses the `__unset__` sentinel which
+the adapter treats as "not configured" (see
+`integrations/_shared.js:hasSecret`).
+
+### 18.3 Flip the provider
+
+`NBD_RATE_LIMIT_PROVIDER` is a plain env var (not a secret). Set it
+on every function that reads rate limits. With the current codebase
+that's effectively every HTTP / callable function in
+`functions/index.js` + `sms-functions.js` + `compliance.js`.
+
+The simplest path is the functions runtime env:
+
+```
+firebase functions:config:set nbd.rate_limit_provider=upstash --project=nobigdeal-pro
+```
+
+…or set it directly in `functions/package.json` `functions.env` if
+you prefer an in-repo declaration. Redeploy functions afterwards.
+
+### 18.4 Verify the flip landed
+
+Two signals:
+
+1. **Cold-start log**: search Cloud Logging for
+   `jsonPayload.message="rate_limit_provider_info"`. Each fresh
+   container logs:
+   ```
+   rate_limit_provider_info  envPref=upstash upstashConfigured=true active=upstash
+   ```
+   If any instance logs `rate_limit_provider_drift` instead,
+   provisioning didn't complete — fix 18.2 and redeploy.
+
+2. **integrationStatus callable**: sign in as a platform admin and
+   invoke `integrationStatus`. The response now includes
+   `rateLimitProvider: "upstash"` (was `"firestore"` pre-flip). This
+   is the post-deploy smoke-check Joe / ops can run from devtools
+   in one line:
+   ```js
+   firebase.functions().httpsCallable('integrationStatus')().then(r => console.log(r.data.rateLimitProvider));
+   ```
+   Expected: `"upstash"`. Anything else blocks launch.
+
+### 18.5 Rollback
+
+If Upstash misbehaves post-launch, unset the env var and redeploy —
+the adapter immediately reverts to the Firestore limiter with no
+code change needed. The Firestore limiter is slower under load but
+correct.
+
+
 - **Full inline-script removal on the big pages** — `dashboard.html` (~435 onclick handlers), `customer.html` (~114), `ai-tool-finder.html` (~61), `landing.html` (~15), `admin/vault.html` (~32) still use inline scripts + handlers. The Phase-3 Report-Only CSP header shows every violation in the devtools console so you can triage them. Plan a focused sprint to extract these to external files.
 - **Populate `functions/data/zip-to-county.json`** with the full zip→county map for every service area before re-enabling storm alerts.
 - **`docs/pro/js/_archive/` directory** — 33 legacy JS files, ~1.1 MB, not loaded by any current HTML. Can be deleted once you're confident nothing references them.

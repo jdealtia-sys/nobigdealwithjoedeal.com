@@ -116,9 +116,48 @@
     return div.innerHTML;
   }
 
+  // Audit finding #10: Safari's date-string parser is much stricter
+  // than Chrome/Firefox. `new Date('2026-04-15 14:30')` (no T
+  // separator) returns Invalid Date in Safari but a valid Date in
+  // Chrome. Code downstream then does `.toDateString()` which
+  // returns the literal string "Invalid Date" — the isToday
+  // comparison silently never matches, follow-up reminders never
+  // fire, and the user has no idea their pipeline is broken.
+  //
+  // Hardened toDate(): try toDate() (Firestore Timestamp), then
+  // direct Date construction, then a normalized retry with the
+  // common Safari-incompatible patterns fixed (space → T,
+  // /-separated → -separated). Returns null on any unparseable
+  // input so callers can guard with a nullcheck instead of
+  // silently working with NaN-valued Dates.
+  function toDate(d) {
+    if (!d) return null;
+    if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+    if (typeof d.toDate === 'function') {
+      try { const t = d.toDate(); return (t && !isNaN(t.getTime())) ? t : null; }
+      catch (_) { return null; }
+    }
+    if (typeof d === 'number') {
+      const t = new Date(d);
+      return isNaN(t.getTime()) ? null : t;
+    }
+    if (typeof d === 'string') {
+      let t = new Date(d);
+      if (!isNaN(t.getTime())) return t;
+      // Safari rescue: replace space-separator with T.
+      t = new Date(d.replace(' ', 'T'));
+      if (!isNaN(t.getTime())) return t;
+      // Safari rescue: yyyy/mm/dd → yyyy-mm-dd
+      t = new Date(d.replace(/\//g, '-'));
+      if (!isNaN(t.getTime())) return t;
+      return null;
+    }
+    return null;
+  }
+
   function timeAgo(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     const now = new Date();
     const sec = Math.floor((now - date) / 1000);
     if (sec < 60) return 'just now';
@@ -132,22 +171,15 @@
   }
 
   function formatTime(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
   function formatDate(d) {
-    if (!d) return '';
-    const date = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+    const date = toDate(d);
+    if (!date) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  function toDate(d) {
-    if (!d) return null;
-    if (d instanceof Date) return d;
-    if (d.toDate) return d.toDate();
-    return new Date(d);
   }
 
   function isToday(d) {
@@ -200,29 +232,93 @@
   // ============================================================================
   // OFFLINE SYNC QUEUE
   // ============================================================================
+  // Audit findings #5, #14 (D2D-local copy of the protections that
+  // landed in offline-manager.js). D2D's queue lives in localStorage
+  // — Safari purges it after 7 days of PWA inactivity AND quotas it
+  // around 5MB.
+  const D2D_QUEUE_MAX = 500;
+  const D2D_QUEUE_LAST_KNOWN_KEY = 'nbd_d2d_queue_last_known_size';
+
   function loadOfflineQueue() {
     try {
       offlineQueue = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
-    } catch(e) { offlineQueue = []; }
+      if (!Array.isArray(offlineQueue)) offlineQueue = [];
+    } catch(e) {
+      // JSON corruption — log loudly rather than silently wiping
+      // the queue. Stash the corrupt value in case we want to
+      // recover by hand. Only THEN reset.
+      console.error('D2D: offline queue JSON corrupt, stashing for recovery', e);
+      try { localStorage.setItem(SYNC_QUEUE_KEY + '_corrupt_' + Date.now(), localStorage.getItem(SYNC_QUEUE_KEY) || ''); } catch (_) {}
+      offlineQueue = [];
+    }
+
+    // Audit finding #5: detect Safari 7-day purge. localStorage
+    // _can_ survive the IDB purge (different rules across iOS
+    // versions), but it can also vanish. Bumped to lastKnown on
+    // every save; if the queue is empty here AND lastKnown > 0,
+    // we lost the queue between sessions.
+    try {
+      const lastKnown = Number(localStorage.getItem(D2D_QUEUE_LAST_KNOWN_KEY) || '0');
+      if (lastKnown > 0 && offlineQueue.length === 0) {
+        console.warn('D2D: offline queue loss detected', lastKnown, '→ 0');
+        // Defer the toast slightly so it lands after the page is
+        // visible (showToast called pre-render is a no-op).
+        setTimeout(() => {
+          window.showToast?.(
+            'Heads up — ' + lastKnown + ' offline knock'
+            + (lastKnown === 1 ? '' : 's') + ' from your last session were lost (browser cleared offline storage).',
+            'warning'
+          );
+        }, 1500);
+        try { localStorage.setItem(D2D_QUEUE_LAST_KNOWN_KEY, '0'); } catch (_) {}
+      }
+    } catch (_) { /* localStorage may be inaccessible in private mode */ }
   }
 
   function saveOfflineQueue() {
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(offlineQueue));
+    try {
+      localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(offlineQueue));
+      try { localStorage.setItem(D2D_QUEUE_LAST_KNOWN_KEY, String(offlineQueue.length)); } catch (_) {}
+    } catch (e) {
+      // QuotaExceededError lands here — surface it instead of
+      // letting the user think their knock saved.
+      console.error('D2D: localStorage write failed', e && e.name);
+      window.showToast?.(
+        e && e.name === 'QuotaExceededError'
+          ? 'Browser storage is full. Reconnect to sync, or clear some space.'
+          : 'Could not save offline — please retry',
+        'error'
+      );
+    }
   }
 
   function enqueueOffline(action, data) {
+    if (offlineQueue.length >= D2D_QUEUE_MAX) {
+      window.showToast?.(
+        'Offline queue is full (' + D2D_QUEUE_MAX + ' knocks). Reconnect to sync.',
+        'error'
+      );
+      return false;
+    }
     offlineQueue.push({ action, data, timestamp: Date.now() });
     saveOfflineQueue();
     window.showToast?.('Saved offline — will sync when connected', 'warning');
+    return true;
   }
 
   async function flushOfflineQueue() {
     if (offlineQueue.length === 0) return;
+    // Snapshot the queue, clear it, persist the empty queue. Items
+    // that fail re-enter via the catch below + saveOfflineQueue at
+    // the end — so the persisted state always reflects the in-memory
+    // state at flush exit, not at flush entry.
     const queue = [...offlineQueue];
     offlineQueue = [];
     saveOfflineQueue();
 
     let synced = 0;
+    let failed = 0;
+    let authFailures = 0;
     for (const item of queue) {
       try {
         if (item.action === 'submitKnock') {
@@ -237,10 +333,26 @@
         }
       } catch(e) {
         offlineQueue.push(item);
+        failed++;
+        // Firestore SDK error codes for auth failures.
+        const code = e && (e.code || '');
+        if (/permission-denied|unauthenticated/i.test(code)) authFailures++;
       }
     }
     saveOfflineQueue();
     if (synced > 0) window.showToast?.(`Synced ${synced} offline knock${synced !== 1 ? 's' : ''}`, 'success');
+    // Surface persistent failures — auth-related ones are the worst
+    // because the items will keep failing every flush until the user
+    // re-authenticates.
+    if (authFailures > 0) {
+      window.showToast?.(
+        authFailures + ' knock' + (authFailures === 1 ? '' : 's')
+        + " couldn't sync — please sign in again",
+        'warning'
+      );
+    } else if (failed > 0) {
+      console.warn('D2D flush: ' + failed + ' items failed (non-auth), will retry next online window');
+    }
   }
 
   window.addEventListener('online', () => {
@@ -1152,6 +1264,10 @@
 
   function watchLocationAndCenter() {
     if (!navigator.geolocation) return;
+    // Defensive: clear any prior watch before opening a new one. Without
+    // this, a route that re-enters D2D (e.g. tab switch + return) leaks
+    // multiple GPS subscribers, each draining battery.
+    stopLocationWatch();
     watchId = navigator.geolocation.watchPosition(
       function(pos) {
         currentLocation = [pos.coords.latitude, pos.coords.longitude];
@@ -1164,6 +1280,40 @@
       function(err) { console.warn('Geolocation error:', err); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
+  }
+
+  // Audit findings #3 + #12: the GPS watch was never released. Safari
+  // throttles aggressively in background but does NOT auto-cancel a
+  // watchPosition() handle on tab hide — battery drain on iPhone D2D
+  // sessions was severe (60-min session ≈ 30% battery). Three exit
+  // paths now stop the watch:
+  //   (a) explicit stopLocationWatch() called from D2D teardown
+  //   (b) page visibility change → hidden  → stop; visible → restart
+  //   (c) beforeunload / pagehide → stop unconditionally
+  // Resume on visibility-restore is conditional on the map still being
+  // mounted; D2D module unload paths leave d2dMap === null which short-
+  // circuits the resume.
+  function stopLocationWatch() {
+    if (watchId !== null && navigator.geolocation) {
+      try { navigator.geolocation.clearWatch(watchId); } catch (_) {}
+      watchId = null;
+    }
+    if (locationMarker && d2dMap) { try { d2dMap.removeLayer(locationMarker); } catch (_) {} locationMarker = null; }
+    if (accuracyCircle && d2dMap) { try { d2dMap.removeLayer(accuracyCircle); } catch (_) {} accuracyCircle = null; }
+  }
+  if (typeof document !== 'undefined' && !document._nbdD2DGeoLifecycle) {
+    document._nbdD2DGeoLifecycle = true;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        stopLocationWatch();
+      } else if (document.visibilityState === 'visible' && d2dMap && d2dInited) {
+        watchLocationAndCenter();
+      }
+    });
+    // pagehide is the only event that fires reliably across Safari
+    // back/forward cache + iOS PWA tab close. beforeunload doesn't
+    // fire in iOS Safari standalone.
+    window.addEventListener('pagehide', stopLocationWatch);
   }
 
   function centerOnMe() {
@@ -1644,6 +1794,36 @@
     input.click();
   }
 
+  // Derive a Firebase-Storage-rule-acceptable contentType from a File.
+  // Safari iPhone leaves File.type as the empty string for HEIC/HEIF
+  // pulled from the photo library in some configurations — uploadBytes
+  // with no contentType then either lets Storage guess (which it does
+  // poorly) or sends `application/octet-stream`, both of which the
+  // storage.rules:29 isImage() regex rejects with an opaque 403.
+  // Map by lowercase extension to one of the rule's accepted MIMEs.
+  // Returns null when the extension isn't an allowed image type, so
+  // the caller can surface a clear "unsupported format" error rather
+  // than letting the upload fail silently with 403.
+  function inferImageContentType(file) {
+    const declared = (file && file.type || '').toLowerCase().trim();
+    // image/* declared types are accepted as-is provided they're in
+    // the rules' allowlist. Lowercase normalize handles browsers that
+    // ship "Image/JPEG" or similar.
+    if (/^image\/(jpeg|jpg|png|webp|heic|heif|avif|gif)$/.test(declared)) {
+      // Storage rules allowlist uses 'jpeg' canonical; 'jpg' is the
+      // same byte stream so coerce the alias.
+      return declared === 'image/jpg' ? 'image/jpeg' : declared;
+    }
+    const name = String(file && file.name || '').toLowerCase();
+    const ext = name.split('.').pop() || '';
+    const map = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+      avif: 'image/avif', gif: 'image/gif'
+    };
+    return map[ext] || null;
+  }
+
   async function uploadPhotos(files, knockId) {
     if (!files || !files.length) return [];
     const urls = [];
@@ -1657,14 +1837,37 @@
       console.error('d2d photo upload: not signed in');
       return [];
     }
+    let rejected = 0;
     for (const file of files) {
       try {
+        const contentType = inferImageContentType(file);
+        if (!contentType) {
+          // Unsupported format — surface to the user rather than
+          // letting Storage reject with an opaque 403.
+          console.warn('d2d photo upload: unsupported file', file && file.name, file && file.type);
+          rejected++;
+          continue;
+        }
         const safeName = String(file.name || 'knock').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
         const storageRef = ref(window._storage, `photos/${uid}/d2d/${knockId}/${Date.now()}_${safeName}`);
-        await window.uploadBytes(storageRef, file);
+        // Pass contentType explicitly so Storage doesn't infer
+        // application/octet-stream for HEIC files where Safari left
+        // file.type empty.
+        await window.uploadBytes(storageRef, file, { contentType });
         const url = await getDownloadURL(storageRef);
         urls.push(url);
-      } catch(e) { console.error('Photo upload failed:', e); }
+      } catch(e) {
+        console.error('Photo upload failed:', e && e.code, e && e.message, file && file.name, file && file.type);
+        rejected++;
+      }
+    }
+    if (rejected > 0 && window.showToast) {
+      const ok = files.length - rejected;
+      if (ok === 0) {
+        window.showToast('Photo upload failed — unsupported format or network error', 'error');
+      } else {
+        window.showToast(`${rejected} of ${files.length} photo${files.length > 1 ? 's' : ''} failed to upload`, 'warning');
+      }
     }
     return urls;
   }
@@ -1768,30 +1971,74 @@
   }
 
   function openSMSTemplateChooser(knock) {
+    // Audit finding #13: single-overlay guard. Without this, fast
+    // double-taps stacked multiple overlays in the DOM; only the
+    // top one was clickable and the others were leaked.
+    const existing = document.getElementById('d2d-sms-overlay');
+    if (existing) { existing.remove(); }
+
     const overlay = document.createElement('div');
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-sms-overlay';
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
     const modal = document.createElement('div');
     modal.className = 'd2d-modal';
     modal.style.maxWidth = '400px';
-    modal.innerHTML = `
-      <div class="d2d-modal-hdr">
-        <div class="d2d-modal-title">Send Follow-up</div>
-        <button class="d2d-modal-close" onclick="document.getElementById('d2d-sms-overlay')?.remove()">×</button>
-      </div>
-      <div style="padding:var(--s2);">
-        <p style="color:var(--m);font-size:12px;margin-bottom:12px;">Choose a template:</p>
-        ${Object.entries(SMS_TEMPLATES).map(([key, tmpl]) => `
-          <div style="padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'" onclick="window.D2D.sendFollowUpSMS(${JSON.stringify({phone:knock.phone,homeowner:knock.homeowner,address:knock.address,disposition:knock.disposition,followUpDate:knock.followUpDate}).replace(/"/g,'&quot;')},'${key}');document.getElementById('d2d-sms-overlay')?.remove()">
-            <div style="font-weight:600;font-size:13px;color:var(--t);">${tmpl.label}</div>
-            <div style="font-size:11px;color:var(--m);margin-top:4px;">${tmpl.body.substring(0, 80)}...</div>
-          </div>
-        `).join('')}
-        ${knock.email ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--br);"><button onclick="window.D2D.sendFollowUpEmail(${JSON.stringify({email:knock.email,homeowner:knock.homeowner,address:knock.address,disposition:knock.disposition}).replace(/"/g,'&quot;')});document.getElementById('d2d-sms-overlay')?.remove()" style="width:100%;padding:10px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">📧 Send Email Instead</button></div>` : ''}
-      </div>
-    `;
+
+    // Header (no inline onclick — CSP-safe + future inline-script removal).
+    const hdr = document.createElement('div');
+    hdr.className = 'd2d-modal-hdr';
+    hdr.innerHTML = '<div class="d2d-modal-title">Send Follow-up</div>'
+      + '<button class="d2d-modal-close" type="button" aria-label="Close">×</button>';
+    hdr.querySelector('.d2d-modal-close').addEventListener('click', () => overlay.remove());
+    modal.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.style.padding = 'var(--s2)';
+    body.innerHTML = '<p style="color:var(--m);font-size:12px;margin-bottom:12px;">Choose a template:</p>';
+
+    // Per-template option button. Click handler is attached
+    // programmatically so closure captures `knock` + `key` directly
+    // — no JSON-stringify dance, no inline onclick attribute.
+    const smsArgs = {
+      phone: knock.phone, homeowner: knock.homeowner, address: knock.address,
+      disposition: knock.disposition, followUpDate: knock.followUpDate
+    };
+    Object.entries(SMS_TEMPLATES).forEach(([key, tmpl]) => {
+      const opt = document.createElement('div');
+      opt.style.cssText = 'padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;';
+      opt.innerHTML = '<div style="font-weight:600;font-size:13px;color:var(--t);">' + tmpl.label + '</div>'
+        + '<div style="font-size:11px;color:var(--m);margin-top:4px;">' + tmpl.body.substring(0, 80) + '...</div>';
+      opt.addEventListener('mouseenter', () => { opt.style.borderColor = 'var(--blue)'; });
+      opt.addEventListener('mouseleave', () => { opt.style.borderColor = 'var(--br)'; });
+      opt.addEventListener('click', () => {
+        window.D2D.sendFollowUpSMS(smsArgs, key);
+        overlay.remove();
+      });
+      body.appendChild(opt);
+    });
+
+    if (knock.email) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid var(--br);';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.style.cssText = 'width:100%;padding:10px;background:var(--blue, #4A9EFF);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+      btn.textContent = '📧 Send Email Instead';
+      const emailArgs = {
+        email: knock.email, homeowner: knock.homeowner,
+        address: knock.address, disposition: knock.disposition
+      };
+      btn.addEventListener('click', () => {
+        window.D2D.sendFollowUpEmail(emailArgs);
+        overlay.remove();
+      });
+      sep.appendChild(btn);
+      body.appendChild(sep);
+    }
+
+    modal.appendChild(body);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
   }
@@ -2602,6 +2849,43 @@
       return;
     }
 
+    // Auth gate — three failure modes folded into one:
+    //   (a) Race: D2D tab tapped before Firebase onAuthStateChanged
+    //       fires. Common in iOS Safari standalone PWA where the
+    //       Firebase Auth IndexedDB cold-start is slow.
+    //   (b) Hung init: PWA storage was wiped (Safari 7-day rule) so
+    //       Firebase Auth can't restore session; promise never settles.
+    //   (c) Stale shell: SW served a cached dashboard.html that runs
+    //       BEFORE the auth bootstrap completes for this session.
+    //
+    // Strategy: await window._nbdAuth (the init promise NBDAuth.init
+    // returns at dashboard.html:145). If it resolves with a user → go.
+    // If it resolves with null → free-tier path that shouldn't reach
+    // here, but tolerate it. If it never resolves within 5s → hard
+    // redirect to login (covers (b) reliably).
+    if (!window._user || !window._user.uid) {
+      try {
+        if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
+          await Promise.race([
+            window._nbdAuth,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 5000))
+          ]);
+        }
+      } catch (e) {
+        console.warn('initD2D: auth promise did not resolve within 5s — redirecting to login', e.message);
+        try { renderD2D(); } catch (_) {}
+        window.location.replace('/pro/login.html?from=d2d');
+        return;
+      }
+      // After the wait, _user may have been set by NBDAuth.
+      if (!window._user || !window._user.uid) {
+        console.warn('initD2D: still no _user after auth resolved — redirecting to login');
+        try { renderD2D(); } catch (_) {}
+        window.location.replace('/pro/login.html?from=d2d');
+        return;
+      }
+    }
+
     try {
       loadOfflineQueue();
       await loadRepProfile();
@@ -2618,6 +2902,9 @@
     } catch (e) {
       console.error('initD2D failed:', e);
       window.showToast?.('Failed to initialize D2D', 'error');
+      // Always render the shell so the spinner clears — a hung
+      // spinner on a thrown init is the worst UX failure mode.
+      try { renderD2D(); } catch (_) {}
     }
   }
 
