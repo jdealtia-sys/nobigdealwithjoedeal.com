@@ -528,16 +528,20 @@ section('Push-3: booking-link SMS uses calcomUsername');
 
 section('Push-4: homeowner portal page + token callables');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: portal handlers now live in functions/portal.js, mounted
+  // onto index.js exports via Object.assign. Source-scan assertions
+  // read from portal.js; the export-liveness check at the end of
+  // this file verifies index.js still re-exposes them.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   for (const fn of ['createPortalToken', 'getHomeownerPortalView']) {
-    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(idx));
+    assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(psrc));
   }
   assert('createPortalToken owner-scopes by lead.userId',
-    /lead\.userId !== uid && !isAdmin/.test(idx));
+    /lead\.userId !== uid && !isAdmin/.test(psrc));
   assert('getHomeownerPortalView rate-limits by IP',
-    /httpRateLimit\(req, res, 'portal:ip'/.test(idx));
+    /httpRateLimit\(req, res, 'portal:ip'/.test(psrc));
   assert('view response redacts sensitive fields (no claim / notes)',
-    /REDACTION:/.test(idx));
+    /REDACTION:/.test(psrc));
   assert('portal.html exists + reads token from query string',
     fs.existsSync(path.join(ROOT, 'docs/pro/portal.html')));
   const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
@@ -644,11 +648,12 @@ section('Wave A5: firestore rules tests cover new collections');
 
 section('Wave B1: portal BoldSign signing embed');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: portal view lives in portal.js, not index.js.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   assert('portal view requests fresh embed URL when awaiting signature',
-    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(idx));
+    /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(psrc));
   assert('portal view returns signEmbedUrl field',
-    /signEmbedUrl:\s*signEmbedUrl/.test(idx));
+    /signEmbedUrl:\s*signEmbedUrl/.test(psrc));
   const p = read(path.join(ROOT, 'docs/pro/portal.html'));
   assert('portal.html renders signing iframe when signEmbedUrl present',
     /awaitingSign && signEmbedUrl/.test(p));
@@ -675,11 +680,12 @@ section('Wave B3: live estimates snapshot');
 
 section('Wave B4+B5: revoke / regenerate portal link');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: revokePortalToken moved to portal.js.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   assert('revokePortalToken callable exported',
-    /exports\.revokePortalToken\s*=/.test(idx));
+    /exports\.revokePortalToken\s*=/.test(psrc));
   assert('revoke flips expiresAt to past',
-    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(idx));
+    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(psrc));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('lead detail has Revoke & Regenerate button',
     /Revoke &amp; Regenerate/.test(dash));
@@ -779,9 +785,13 @@ section('D1: mutation callables rate-limited');
   const idx = read(path.join(FUNCTIONS, 'index.js'));
   assert('callableRateLimit helper defined',
     /async function callableRateLimit/.test(idx));
+  // L-03: portal handlers moved to portal.js (which has its own
+  // inlined callableRateLimit). Resolve each function's rate-limit
+  // site by searching BOTH files.
+  const psrc = read(path.join(FUNCTIONS, 'portal.js'));
   for (const name of ['createPortalToken','revokePortalToken','createTeamMember','updateUserRole','deactivateUser']) {
-    assert(name + ' rate-limited',
-      new RegExp("callableRateLimit\\(request, '" + name + "'").test(idx));
+    const re = new RegExp("callableRateLimit\\(request, '" + name + "'");
+    assert(name + ' rate-limited', re.test(idx) || re.test(psrc));
   }
   const meas = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
   assert('requestMeasurement rate-limited',
@@ -916,7 +926,8 @@ section('F-03/F-04: admin analytics uses custom-claim gate');
 
 section('F-06: getHomeownerPortalView is POST-only');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03: moved to portal.js.
+  const src = read(path.join(FUNCTIONS, 'portal.js'));
   // Grab the function block and assert GET is not accepted. Window
   // sized to tolerate the R-05 sizing-rationale comment that was
   // added inside the config object.
@@ -2151,7 +2162,13 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   assert('R-05: getSubscriptionStatus minInstances >= 2',
     intField(subStatus, 'minInstances') >= 2);
 
-  const portal = configOf('getHomeownerPortalView');
+  // L-03: getHomeownerPortalView moved to portal.js. Look there
+  // first; fall back to the index.js helper if a future refactor
+  // moves it back.
+  const portalSrc = read(path.join(FUNCTIONS, 'portal.js'));
+  const portalRe = /exports\.getHomeownerPortalView\s*=\s*onRequest\(\s*\{([\s\S]*?)\}\s*,/m;
+  const portalMatch = portalSrc.match(portalRe);
+  const portal = portalMatch ? portalMatch[1] : configOf('getHomeownerPortalView');
   assert('R-05: getHomeownerPortalView maxInstances >= 80 (email-blast burst)',
     intField(portal, 'maxInstances') >= 80);
 
@@ -2171,6 +2188,76 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
       intField(vcode, 'maxInstances') <= 10,
       'got ' + intField(vcode, 'maxInstances') + ' — loosening defeats anti-brute');
   }
+}
+
+section('L-01: admin/index.html markup no longer advertises an admin surface');
+{
+  const src = read(path.join(ROOT, 'docs/admin/index.html'));
+  assert('L-01: title is generic (not "NBD Admin")',
+    !/<title>\s*NBD Admin\s*<\/title>/i.test(src));
+  assert('L-01: og:url admin path removed',
+    !/<meta property="og:url"[^>]*\/admin/i.test(src));
+  // The noindex signal still has to be present at the markup level
+  // (Firebase Hosting also sets X-Robots-Tag but the meta survives
+  // if someone views-source in devtools).
+  assert('L-01: noindex,nofollow meta preserved',
+    /<meta name="robots" content="noindex,\s*nofollow"/i.test(src));
+}
+
+section('L-02: retired Cloudflare Worker stub removed from repo');
+{
+  assert('L-02: workers/nbd-ai-proxy.js is gone',
+    !fs.existsSync(path.join(ROOT, 'workers/nbd-ai-proxy.js')));
+  assert('L-02: workers/wrangler.toml is gone',
+    !fs.existsSync(path.join(ROOT, 'workers/wrangler.toml')));
+  assert('L-02: workers/ directory is gone (no stray files)',
+    !fs.existsSync(path.join(ROOT, 'workers')));
+  const sec = read(path.join(ROOT, 'SECURITY.md'));
+  assert('L-02: SECURITY.md documents the retirement + CF-dashboard ops step',
+    /Retired surfaces[\s\S]{0,600}nbd-ai-proxy[\s\S]{0,600}Cloudflare dashboard/.test(sec));
+}
+
+section('L-03: portal handlers extracted to functions/portal.js');
+{
+  const portalPath = path.join(FUNCTIONS, 'portal.js');
+  assert('L-03: functions/portal.js exists', fs.existsSync(portalPath));
+  if (fs.existsSync(portalPath)) {
+    assert('L-03: portal.js parses cleanly', syntaxCheck(portalPath).ok);
+    const psrc = read(portalPath);
+    assert('L-03: portal.js exports createPortalToken',
+      /exports\.createPortalToken\s*=\s*onCall/.test(psrc));
+    assert('L-03: portal.js exports revokePortalToken',
+      /exports\.revokePortalToken\s*=\s*onCall/.test(psrc));
+    assert('L-03: portal.js exports getHomeownerPortalView',
+      /exports\.getHomeownerPortalView\s*=\s*onRequest/.test(psrc));
+    assert('L-03: portal.js is self-contained (does not require ../index)',
+      !/require\(['"]\.\.\/index['"]\)/.test(psrc));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('L-03: index.js loads portal.js via require + Object.assign',
+    /require\(['"]\.\/portal['"]\)/.test(idx)
+    && /Object\.assign\(exports,\s*portalFunctions\)/.test(idx));
+  // The portal handlers must NOT be defined inline in index.js any
+  // more — duplicate exports would cause Firebase deploy to collide.
+  assert('L-03: createPortalToken no longer defined inline in index.js',
+    !/exports\.createPortalToken\s*=\s*onCall/.test(idx));
+  assert('L-03: revokePortalToken no longer defined inline in index.js',
+    !/exports\.revokePortalToken\s*=\s*onCall/.test(idx));
+  assert('L-03: getHomeownerPortalView no longer defined inline in index.js',
+    !/exports\.getHomeownerPortalView\s*=\s*onRequest/.test(idx));
+}
+
+section('L-04: confirmAccountErasure GET is rate-limited');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  // The GET branch must call httpRateLimit BEFORE emitting the HTML
+  // so a bandwidth-DoS hits the 429 path, not the 3KB body.
+  assert('L-04: GET branch invokes httpRateLimit on confirmErasureGet:ip',
+    // Window sized to tolerate the explanatory comment block added
+    // with this fix.
+    /if\s*\(req\.method\s*===\s*'GET'\)[\s\S]{0,1200}httpRateLimit\([^)]*confirmErasureGet:ip/.test(src));
+  assert('L-04: rate-limit uses per-IP key (60/min)',
+    /confirmErasureGet:ip[^)]*,\s*60,\s*60_000/.test(src));
 }
 
 // ── Summary ─────────────────────────────────────────────────

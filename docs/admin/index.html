@@ -3,10 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- L-01: generic title + no og:url. Firebase Hosting sets
+     X-Robots-Tag: noindex,nofollow + Cache-Control: no-store on
+     /admin/** (firebase.json:73) so search engines won't crawl
+     this page, but scrapers that pull the markup get nothing
+     advertising an admin surface. -->
 <meta name="robots" content="noindex, nofollow">
-<title>NBD Admin</title>
+<title>NBD Pro</title>
 <script type="module" src="js/pages/index-redirect.js"></script>
-  <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/admin">
 </head>
 <body></body>
 </html>

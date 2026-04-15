@@ -419,6 +419,16 @@ exports.confirmAccountErasure = onRequest(
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
     if (req.method === 'GET') {
+      // L-04: the GET is stateless (serves a static HTML confirmation
+      // page) but still returns ~3KB of inline HTML/CSS/JS per call.
+      // An attacker hammering this for bandwidth-DoS costs the
+      // function-instance pool and Cloud Run egress. 60/min/IP is
+      // plenty for a real user (one confirmation email = one page
+      // load) and cheap to enforce. Uses the same Upstash-or-fallback
+      // path as the POST's rate limit below.
+      const rl = require('./upstash-ratelimit');
+      if (!(await rl.httpRateLimit(req, res, 'confirmErasureGet:ip', 60, 60_000))) return;
+
       // Show confirmation page. NO state change — safe for scanner pre-fetch.
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');

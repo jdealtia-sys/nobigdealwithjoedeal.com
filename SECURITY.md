@@ -98,6 +98,39 @@ security-sensitive diffs (see `.github/CODEOWNERS` for the list).
 - [ ] New PII fields are handled by the redactor in `functions/audit-triggers.js`.
 - [ ] No new inline `onclick=` handlers (migrate to delegated `data-action=`).
 
+## Retired surfaces
+
+These endpoints are intentionally no longer part of the platform.
+Listed here so an auditor / future dev doesn't resurrect one by
+accident:
+
+- **Cloudflare Worker `nbd-ai-proxy`** (retired 2026-04-11, repo
+  files removed 2026-04-15). The worker forwarded Anthropic calls
+  guarded only by an Origin header, which was bypassed when the
+  header was absent. All AI traffic now flows through Firebase
+  `claudeProxy` which enforces App Check + Firebase ID token +
+  subscription gate + per-uid rate limit + daily token budget.
+
+  **Ops action still required**: delete the `nbd-ai-proxy` worker
+  in the Cloudflare dashboard (removing the repo files stops new
+  deploys but doesn't revoke the live endpoint). The deployed
+  worker returns 410 Gone today, so the attack surface is zero,
+  but leaving it live costs a named DNS entry + pollutes the
+  Cloudflare console.
+
+- **`imageProxy` Cloud Function** (retired 2026-04-15, R-03). The
+  function streamed Storage bytes through Cloud Functions, which
+  doubled egress cost and starved the instance pool at scale. It
+  also echoed attacker-chosen Content-Types from Storage metadata
+  to the client (stored-XSS vector, H-01). Replacement is
+  `signImageUrl` + the `NBDSignedUrl` client helper — clients get
+  a 15-minute v4-signed Storage URL and fetch bytes directly from
+  `storage.googleapis.com`. A 410 Gone stub remains at the
+  `imageProxy` endpoint for stale clients; deletable after 7+ days
+  of zero calls in Cloud Logging.
+
 ## Version history
 
 - **2026-04** — v1.0 policy published.
+- **2026-04-15** — retired-surfaces section added (nbd-ai-proxy
+  Worker files removed; imageProxy function replaced with 410 stub).
