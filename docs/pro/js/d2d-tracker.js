@@ -200,29 +200,93 @@
   // ============================================================================
   // OFFLINE SYNC QUEUE
   // ============================================================================
+  // Audit findings #5, #14 (D2D-local copy of the protections that
+  // landed in offline-manager.js). D2D's queue lives in localStorage
+  // — Safari purges it after 7 days of PWA inactivity AND quotas it
+  // around 5MB.
+  const D2D_QUEUE_MAX = 500;
+  const D2D_QUEUE_LAST_KNOWN_KEY = 'nbd_d2d_queue_last_known_size';
+
   function loadOfflineQueue() {
     try {
       offlineQueue = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
-    } catch(e) { offlineQueue = []; }
+      if (!Array.isArray(offlineQueue)) offlineQueue = [];
+    } catch(e) {
+      // JSON corruption — log loudly rather than silently wiping
+      // the queue. Stash the corrupt value in case we want to
+      // recover by hand. Only THEN reset.
+      console.error('D2D: offline queue JSON corrupt, stashing for recovery', e);
+      try { localStorage.setItem(SYNC_QUEUE_KEY + '_corrupt_' + Date.now(), localStorage.getItem(SYNC_QUEUE_KEY) || ''); } catch (_) {}
+      offlineQueue = [];
+    }
+
+    // Audit finding #5: detect Safari 7-day purge. localStorage
+    // _can_ survive the IDB purge (different rules across iOS
+    // versions), but it can also vanish. Bumped to lastKnown on
+    // every save; if the queue is empty here AND lastKnown > 0,
+    // we lost the queue between sessions.
+    try {
+      const lastKnown = Number(localStorage.getItem(D2D_QUEUE_LAST_KNOWN_KEY) || '0');
+      if (lastKnown > 0 && offlineQueue.length === 0) {
+        console.warn('D2D: offline queue loss detected', lastKnown, '→ 0');
+        // Defer the toast slightly so it lands after the page is
+        // visible (showToast called pre-render is a no-op).
+        setTimeout(() => {
+          window.showToast?.(
+            'Heads up — ' + lastKnown + ' offline knock'
+            + (lastKnown === 1 ? '' : 's') + ' from your last session were lost (browser cleared offline storage).',
+            'warning'
+          );
+        }, 1500);
+        try { localStorage.setItem(D2D_QUEUE_LAST_KNOWN_KEY, '0'); } catch (_) {}
+      }
+    } catch (_) { /* localStorage may be inaccessible in private mode */ }
   }
 
   function saveOfflineQueue() {
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(offlineQueue));
+    try {
+      localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(offlineQueue));
+      try { localStorage.setItem(D2D_QUEUE_LAST_KNOWN_KEY, String(offlineQueue.length)); } catch (_) {}
+    } catch (e) {
+      // QuotaExceededError lands here — surface it instead of
+      // letting the user think their knock saved.
+      console.error('D2D: localStorage write failed', e && e.name);
+      window.showToast?.(
+        e && e.name === 'QuotaExceededError'
+          ? 'Browser storage is full. Reconnect to sync, or clear some space.'
+          : 'Could not save offline — please retry',
+        'error'
+      );
+    }
   }
 
   function enqueueOffline(action, data) {
+    if (offlineQueue.length >= D2D_QUEUE_MAX) {
+      window.showToast?.(
+        'Offline queue is full (' + D2D_QUEUE_MAX + ' knocks). Reconnect to sync.',
+        'error'
+      );
+      return false;
+    }
     offlineQueue.push({ action, data, timestamp: Date.now() });
     saveOfflineQueue();
     window.showToast?.('Saved offline — will sync when connected', 'warning');
+    return true;
   }
 
   async function flushOfflineQueue() {
     if (offlineQueue.length === 0) return;
+    // Snapshot the queue, clear it, persist the empty queue. Items
+    // that fail re-enter via the catch below + saveOfflineQueue at
+    // the end — so the persisted state always reflects the in-memory
+    // state at flush exit, not at flush entry.
     const queue = [...offlineQueue];
     offlineQueue = [];
     saveOfflineQueue();
 
     let synced = 0;
+    let failed = 0;
+    let authFailures = 0;
     for (const item of queue) {
       try {
         if (item.action === 'submitKnock') {
@@ -237,10 +301,26 @@
         }
       } catch(e) {
         offlineQueue.push(item);
+        failed++;
+        // Firestore SDK error codes for auth failures.
+        const code = e && (e.code || '');
+        if (/permission-denied|unauthenticated/i.test(code)) authFailures++;
       }
     }
     saveOfflineQueue();
     if (synced > 0) window.showToast?.(`Synced ${synced} offline knock${synced !== 1 ? 's' : ''}`, 'success');
+    // Surface persistent failures — auth-related ones are the worst
+    // because the items will keep failing every flush until the user
+    // re-authenticates.
+    if (authFailures > 0) {
+      window.showToast?.(
+        authFailures + ' knock' + (authFailures === 1 ? '' : 's')
+        + " couldn't sync — please sign in again",
+        'warning'
+      );
+    } else if (failed > 0) {
+      console.warn('D2D flush: ' + failed + ' items failed (non-auth), will retry next online window');
+    }
   }
 
   window.addEventListener('online', () => {

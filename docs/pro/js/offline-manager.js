@@ -19,6 +19,19 @@
   const DB_STORE = 'pending-writes';
   const DB_VERSION = 1;
 
+  // Audit finding #14: hard cap on queued writes. Without it,
+  // `store.add()` eventually throws QuotaExceededError on Safari
+  // (~50MB IDB cap per origin) and the toast still says "Saved
+  // offline" — silent data loss. 500 items at ~2KB each ≈ 1MB,
+  // well under any realistic quota; keeps the cap as a tripwire,
+  // not a usage limit.
+  const MAX_QUEUE_SIZE = 500;
+  // localStorage key used to detect Safari's 7-day storage purge
+  // for PWAs (audit finding #5). When the queue grows we bump this
+  // counter; on init we compare against actual IDB count and warn
+  // the user if IDB lost data while localStorage survived.
+  const QUEUE_LAST_KNOWN_KEY = 'nbd_offline_queue_last_known_size';
+
   let db = null;
   let isOnline = navigator.onLine;
   let swRegistration = null;
@@ -28,6 +41,12 @@
   // ─────────────────────────────────────────────────────────
   async function init() {
     await initIndexedDB();
+
+    // Audit finding #5: Safari WebKit clears IndexedDB after 7 days
+    // of PWA inactivity. If localStorage's last-known queue size is
+    // > 0 but IDB is empty, we just lost the queue — surface the
+    // loss to the user instead of silently resolving.
+    try { await detectQueueLoss(); } catch (e) { console.warn('queue-loss check failed', e); }
 
     if ('serviceWorker' in navigator) {
       try {
@@ -54,6 +73,40 @@
     if (isOnline) {
       flushQueue();
     }
+  }
+
+  // Compares the localStorage-tracked queue size to the actual
+  // IndexedDB count. Mismatch → IDB was purged (almost always Safari
+  // 7-day rule) while localStorage survived. Surface a clear toast.
+  async function detectQueueLoss() {
+    if (!db) return;
+    const lastKnown = Number(localStorage.getItem(QUEUE_LAST_KNOWN_KEY) || '0');
+    if (lastKnown <= 0) return;
+    const actual = await getQueueCount();
+    if (actual < lastKnown) {
+      const lost = lastKnown - actual;
+      console.warn('offline queue loss detected:', { lastKnown, actual, lost });
+      showOfflineToast(
+        'Heads up — ' + lost + ' offline ' + (lost === 1 ? 'item was' : 'items were')
+        + ' lost (Safari clears offline storage after 7 days of inactivity).',
+        'warning'
+      );
+      // Resync the counter to the new reality so we don't re-warn
+      // every page load.
+      try { localStorage.setItem(QUEUE_LAST_KNOWN_KEY, String(actual)); } catch (_) {}
+    }
+  }
+
+  function getQueueCount() {
+    return new Promise((resolve) => {
+      if (!db) return resolve(0);
+      try {
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const req = tx.objectStore(DB_STORE).count();
+        req.onsuccess = () => resolve(req.result || 0);
+        req.onerror = () => resolve(0);
+      } catch (_) { resolve(0); }
+    });
   }
 
   // ─────────────────────────────────────────────────────────
@@ -88,10 +141,26 @@
   // ─────────────────────────────────────────────────────────
   // Public API: Queue a Firestore write for offline
   // ─────────────────────────────────────────────────────────
-  function queueWrite(collection, docId, data, method = 'set') {
+  async function queueWrite(collection, docId, data, method = 'set') {
     if (!db) {
       console.warn('IndexedDB not initialized');
+      // Audit finding #14: surface to the user so they don't think
+      // it saved. Previously the rejection went only to console.
+      showOfflineToast('Cannot save offline — storage unavailable. Reconnect to save.', 'error');
       return Promise.reject(new Error('IndexedDB unavailable'));
+    }
+
+    // Size cap (audit #14). Hit the cap → surface a clear error
+    // instead of silently letting Safari throw QuotaExceededError
+    // somewhere down the line.
+    const currentCount = await getQueueCount();
+    if (currentCount >= MAX_QUEUE_SIZE) {
+      console.warn('offline queue full', currentCount, '/', MAX_QUEUE_SIZE);
+      showOfflineToast(
+        'Offline queue is full (' + MAX_QUEUE_SIZE + ' items). Reconnect to sync.',
+        'error'
+      );
+      return Promise.reject(new Error('queue-full'));
     }
 
     return new Promise((resolve, reject) => {
@@ -111,12 +180,24 @@
       const req = store.add(item);
 
       req.onerror = () => {
-        console.warn('Failed to queue write:', req.error);
+        // QuotaExceededError lands here too (despite the size cap
+        // above — quota can be tighter than MAX_QUEUE_SIZE if other
+        // origins under the same eTLD+1 are also storing data).
+        console.warn('Failed to queue write:', req.error && req.error.name, req.error);
+        const msg = req.error && req.error.name === 'QuotaExceededError'
+          ? 'Browser storage is full. Reconnect to sync, or clear some space.'
+          : 'Could not save offline — please retry';
+        showOfflineToast(msg, 'error');
         reject(req.error);
       };
 
       req.onsuccess = () => {
         showOfflineToast('Saved offline — will sync when connected');
+        // Audit finding #5: track the post-write size in localStorage
+        // so detectQueueLoss() can compare on next boot.
+        try {
+          localStorage.setItem(QUEUE_LAST_KNOWN_KEY, String(currentCount + 1));
+        } catch (_) {}
         resolve(req.result);
       };
 
@@ -144,22 +225,49 @@
         const items = req.result;
 
         if (items.length === 0) {
+          // Sync the localStorage counter to reality (audit #5).
+          try { localStorage.setItem(QUEUE_LAST_KNOWN_KEY, '0'); } catch (_) {}
+          resolve();
+          return;
+        }
+
+        // Audit finding #6: pre-fetch the token ONCE up front. If
+        // the user is signed out (or token-refresh fails), bail
+        // cleanly — items stay queued for the next online window
+        // when auth is healthy. Old code attempted each fetch with
+        // a null/stale token, racked up failures, then surfaced
+        // none of it to the user.
+        const token = await getAuthToken();
+        if (!token) {
+          console.warn('flushQueue aborted: no auth token (sign-in lost?)');
+          // Surface to the user — silent flush-failure with auth
+          // loss is the failure mode that turned a 5-minute outage
+          // into "where did all my knocks go?".
+          showOfflineToast(
+            items.length + ' offline ' + (items.length === 1 ? 'item' : 'items')
+            + ' waiting to sync — please sign in again',
+            'warning'
+          );
           resolve();
           return;
         }
 
         let synced = 0;
         let failed = 0;
+        let authFailures = 0;
 
         for (const item of items) {
           try {
-            const response = await performFirestoreWrite(item);
+            const response = await performFirestoreWrite(item, token);
 
             if (response.ok) {
               await deleteQueueItem(item.id);
               synced++;
             } else {
               failed++;
+              if (response.status === 401 || response.status === 403) {
+                authFailures++;
+              }
             }
           } catch (err) {
             console.warn('Failed to sync item:', err);
@@ -175,8 +283,26 @@
         }
 
         if (failed > 0) {
-          console.warn(`${failed} items failed to sync`);
+          console.warn(`${failed} items failed to sync (auth-related: ${authFailures})`);
+          // Audit #6: surface persistent failures. Items that 401/403
+          // stay queued (we never deleteQueueItem on a non-ok response)
+          // — the user needs to know they should reauthenticate so the
+          // next flush can succeed.
+          if (authFailures > 0) {
+            showOfflineToast(
+              authFailures + ' ' + (authFailures === 1 ? 'item' : 'items')
+              + ' couldn\'t sync — please sign in again',
+              'warning'
+            );
+          }
         }
+
+        // Sync the counter to the actual remaining queue size so
+        // detectQueueLoss() doesn't false-fire on next boot.
+        try {
+          const remaining = await getQueueCount();
+          localStorage.setItem(QUEUE_LAST_KNOWN_KEY, String(remaining));
+        } catch (_) {}
 
         resolve();
       };
@@ -191,8 +317,12 @@
   // ─────────────────────────────────────────────────────────
   // Perform actual Firestore write (requires auth token)
   // ─────────────────────────────────────────────────────────
-  async function performFirestoreWrite(item) {
-    const token = await getAuthToken();
+  // Accepts an optional pre-fetched token from flushQueue (avoids one
+  // getIdToken(true) per queue item — at 500 items that's 500 round-
+  // trips to Firebase Auth). Falls back to fetching its own if called
+  // outside the flushQueue path.
+  async function performFirestoreWrite(item, preFetchedToken) {
+    const token = preFetchedToken || await getAuthToken();
 
     if (!token) {
       throw new Error('No auth token available');
@@ -252,11 +382,28 @@
     return { stringValue: String(val) };
   }
 
-  function getAuthToken() {
+  // Audit finding #6: get a FRESH ID token every flush. The previous
+  // localStorage('_firebase_token') fallback is a footgun — it served
+  // a token captured at sign-in time which expires after ~1 hour.
+  // Offline queues that survive past expiry would always 401, and
+  // the flushQueue catch swallowed the failure into "synced=0,
+  // failed=N" with no user-visible signal.
+  //
+  // Strategy:
+  //   1. Force-refresh via getIdToken(true) so a token nearing expiry
+  //      is rotated before the flush even starts.
+  //   2. Return null on no-user. flushQueue() now treats null as
+  //      "abort the flush, items stay queued" rather than discarding.
+  async function getAuthToken() {
     if (window._user && typeof window._user.getIdToken === 'function') {
-      return window._user.getIdToken();
+      try {
+        return await window._user.getIdToken(/* forceRefresh */ true);
+      } catch (e) {
+        console.warn('getIdToken failed:', e && e.code, e && e.message);
+        return null;
+      }
     }
-    return Promise.resolve(localStorage.getItem('_firebase_token'));
+    return null;
   }
 
   function deleteQueueItem(id) {
