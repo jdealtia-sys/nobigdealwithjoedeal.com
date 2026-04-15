@@ -847,7 +847,10 @@ section('D7: GDPR two-step erasure');
   assert('confirmation token hashed before storage',
     /createHash\('sha256'\)\.update\(token\)\.digest\('hex'\)/.test(src));
   assert('cascade deletes user-owned docs',
-    /where\('userId', '==', uid\)\.limit\(500\)/.test(src));
+    // M-01: query shape is now split across lines in the
+    // registry-driven loop; allow whitespace/newlines between tokens.
+    /where\(\s*ownerField,\s*'==',\s*uid\s*\)[\s\S]{0,40}\.limit\(500\)/.test(src)
+    || /where\('userId',\s*'==',\s*uid\)[\s\S]{0,40}\.limit\(500\)/.test(src));
   assert('disables Auth account + revokes refresh tokens',
     /updateUser\(uid, \{ disabled: true \}\)[\s\S]{0,60}revokeRefreshTokens/.test(src));
   const rules = read(path.join(ROOT, 'firestore.rules'));
@@ -1556,25 +1559,21 @@ section('C1: Voice Intelligence backend pipeline');
     /Object\.assign\(exports,\s*voiceIntelligenceIntegration\)/.test(idx));
 }
 
-section('C0: GDPR erasure cascade covers Storage + collectionGroups');
+section('C0: GDPR erasure cascade covers Storage + collectionGroups (registry-driven)');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
-  // (1) flat-path cascade still intact
-  assert('C0: flat-path OWNED_COLLECTIONS still present',
-    /OWNED_COLLECTIONS\s*=\s*\[[\s\S]{0,200}'leads'[\s\S]{0,200}'training_sessions'/.test(src));
-  // (2) collectionGroup sweep added (recordings)
-  assert('C0: OWNED_COLLECTION_GROUPS includes recordings',
-    /OWNED_COLLECTION_GROUPS\s*=\s*\[[\s\S]{0,200}'recordings'/.test(src));
-  assert('C0: erasure runs collectionGroup query for userId==uid',
+  // The original C0 assertions pinned inline constants
+  // (OWNED_COLLECTIONS / OWNED_COLLECTION_GROUPS / OWNED_STORAGE_PREFIXES).
+  // Those moved to the single-source-of-truth registry in M-01/M-02.
+  // Forward-looking checks that the cascade STILL reaches each class:
+  assert('C0: erasure still runs collectionGroup query for userId==uid',
     /collectionGroup\(groupName\)[\s\S]{0,200}where\('userId', '==', uid\)/.test(src));
-  // (3) Storage sweep added for owner-keyed prefixes
-  assert('C0: OWNED_STORAGE_PREFIXES includes audio + photos + docs',
-    /OWNED_STORAGE_PREFIXES\s*=\s*\[[\s\S]{0,200}'audio'[\s\S]{0,200}'photos'[\s\S]{0,200}'docs'/.test(src));
-  assert('C0: erasure calls bucket.deleteFiles with uid-keyed prefix',
+  assert('C0: erasure still calls bucket.deleteFiles with uid-keyed prefix',
     /bucket\.deleteFiles\(\s*\{[\s\S]{0,200}prefix:[\s\S]{0,80}uid[\s\S]{0,80}force: true/.test(src));
-  // exportMyData picks up collectionGroup rows too
-  assert('C0: exportMyData also covers collectionGroup OWNED_GROUPS',
-    /OWNED_GROUPS\s*=\s*\['recordings'\][\s\S]{0,400}collectionGroup\(group\)\.where\('userId', '==', uid\)/.test(src));
+  // exportMyData now uses the same registry collectionGroup list
+  // (COLLECTION_GROUPS_WITH_USERID), exercised in the M-02 section.
+  assert('C0: exportMyData covers collectionGroup rows via the registry',
+    /for \(const group of COLLECTION_GROUPS_WITH_USERID\)[\s\S]{0,400}collectionGroup\(group\)\.where\('userId', '==', uid\)/.test(src));
 }
 
 section('Q1: clientIp XFF parsing (F-13 follow-up)');
@@ -1926,6 +1925,95 @@ section('H-03: nbd-auth fails closed to free on network error');
     'found ' + setterMatches + ' setItem(nbd_user_plan) call(s)');
   assert('H-03: network-error branch hard-drops to free with _failOpen:false',
     /_userPlan\s*=\s*'free';[\s\S]{0,160}_failOpen:\s*false/.test(src));
+}
+
+section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
+{
+  const regPath = path.join(FUNCTIONS, 'integrations/user-owned.js');
+  assert('M-01/M-02: registry module exists', fs.existsSync(regPath));
+  if (fs.existsSync(regPath)) {
+    assert('M-01/M-02: registry parses cleanly', syntaxCheck(regPath).ok);
+    // Load the module and assert the shape — smoke test already uses
+    // zero deps other than Node stdlib, and this module is pure
+    // constants + a helper fn, so require() is safe.
+    const reg = require(regPath);
+    assert('M-01/M-02: FLAT_USER_COLLECTIONS has at least 22 entries',
+      Array.isArray(reg.FLAT_USER_COLLECTIONS) && reg.FLAT_USER_COLLECTIONS.length >= 22,
+      'count=' + (reg.FLAT_USER_COLLECTIONS || []).length);
+    assert('M-01/M-02: every flat-collection entry has a name',
+      reg.FLAT_USER_COLLECTIONS.every(s => typeof s.name === 'string' && s.name.length > 0));
+    // Invoices is the only collection with a non-default ownerField.
+    const invoices = reg.FLAT_USER_COLLECTIONS.find(s => s.name === 'invoices');
+    assert('M-01/M-02: invoices is registered with ownerField=createdBy',
+      invoices && invoices.ownerField === 'createdBy');
+    assert('M-01/M-02: COLLECTION_GROUPS_WITH_USERID includes recordings + activity',
+      Array.isArray(reg.COLLECTION_GROUPS_WITH_USERID)
+      && reg.COLLECTION_GROUPS_WITH_USERID.includes('recordings')
+      && reg.COLLECTION_GROUPS_WITH_USERID.includes('activity'));
+    assert('M-01/M-02: STORAGE_PREFIXES covers all 8 storage.rules prefixes',
+      Array.isArray(reg.STORAGE_PREFIXES)
+      && ['audio','photos','docs','portals','galleries','reports','shared_docs','deal_rooms']
+          .every(p => reg.STORAGE_PREFIXES.includes(p)));
+    assert('M-01/M-02: OWNER_KEYED_DOCS covers the user/sub/settings doc set',
+      Array.isArray(reg.OWNER_KEYED_DOCS)
+      && ['users','subscriptions','userSettings','leaderboard','reps','estimate_drafts','feature_flags']
+          .every(c => reg.OWNER_KEYED_DOCS.includes(c)));
+    assert('M-01/M-02: NESTED_LEADS_PATH(uid) returns leads/{uid}',
+      typeof reg.NESTED_LEADS_PATH === 'function'
+      && reg.NESTED_LEADS_PATH('abc') === 'leads/abc');
+    // Audit trails intentionally excluded — prevents a future
+    // caller from wiring account_erasures into the cascade and
+    // obliterating the very audit record of the operation.
+    assert('M-01/M-02: audit trails NOT in owner-keyed erasure scope',
+      !reg.OWNER_KEYED_DOCS.includes('account_erasures')
+      && !reg.OWNER_KEYED_DOCS.includes('audit_log'));
+  }
+}
+
+section('M-01: confirmAccountErasure uses the registry + recursiveDelete');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('M-01: compliance.js imports the registry module',
+    /require\(['"]\.\/user-owned['"]\)/.test(src));
+  assert('M-01: cascade iterates FLAT_USER_COLLECTIONS (not an inline list)',
+    /for \(const spec of FLAT_USER_COLLECTIONS\)/.test(src));
+  assert('M-01: cascade honors per-collection ownerField',
+    /spec\.ownerField\s*\|\|\s*'userId'/.test(src));
+  assert('M-01: cascade iterates COLLECTION_GROUPS_WITH_USERID',
+    /for \(const groupName of COLLECTION_GROUPS_WITH_USERID\)/.test(src));
+  assert('M-01: cascade sweeps STORAGE_PREFIXES',
+    /for \(const prefix of STORAGE_PREFIXES\)/.test(src));
+  assert('M-01: cascade deletes every OWNER_KEYED_DOCS entry',
+    /for \(const coll of OWNER_KEYED_DOCS\)/.test(src));
+  assert('M-01: nested-leads subtree scrubbed via recursiveDelete',
+    /db\.recursiveDelete\(db\.doc\(NESTED_LEADS_PATH\(uid\)\)\)/.test(src));
+  // The old inline OWNED_COLLECTIONS constant must be gone.
+  assert('M-01: old inline OWNED_COLLECTIONS list removed',
+    !/const OWNED_COLLECTIONS\s*=\s*\[/.test(src));
+}
+
+section('M-02: exportMyData uses the registry + Storage enumeration');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  assert('M-02: export iterates FLAT_USER_COLLECTIONS',
+    /exports\.exportMyData[\s\S]{0,5000}for \(const spec of FLAT_USER_COLLECTIONS\)/.test(src));
+  assert('M-02: export iterates COLLECTION_GROUPS_WITH_USERID',
+    /for \(const group of COLLECTION_GROUPS_WITH_USERID\)/.test(src));
+  assert('M-02: export enumerates Storage prefixes (getFiles)',
+    /bucket\.getFiles\(\s*\{\s*prefix:/.test(src));
+  assert('M-02: export signs 24h download URLs per Storage object',
+    /f\.getSignedUrl\([\s\S]{0,160}24\s*\*\s*3_600_000/.test(src));
+  assert('M-02: export reads every OWNER_KEYED_DOCS entry',
+    /for \(const coll of OWNER_KEYED_DOCS\)/.test(src));
+  assert('M-02: export walks nested-leads subtree via listCollections()',
+    /NESTED_LEADS_PATH\(uid\)[\s\S]{0,300}listCollections\(\)/.test(src));
+  // Backwards compat — clients reading the old shape see the same keys.
+  assert('M-02: legacy `profile` + `subscription` aliases preserved',
+    /out\.profile\s*=\s*out\.ownerDocs\.users/.test(src)
+    && /out\.subscription\s*=\s*out\.ownerDocs\.subscriptions/.test(src));
+  // The old inline OWNED constant must be gone.
+  assert('M-02: old inline OWNED list removed from export path',
+    !/const OWNED\s*=\s*\['leads'/.test(src));
 }
 
 // ── Summary ─────────────────────────────────────────────────
