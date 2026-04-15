@@ -1737,6 +1737,197 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
   assert('Q6: all flat-file requires from index.js resolve + are not ignored', true);
 }
 
+// ─────────────────────────────────────────────────────────────
+// 2026-04-15 invulnerability roadmap — regression locks for the
+// 10-item 72-hour fix plan. Each assertion either pins the fix
+// in place or catches the old vulnerable shape reappearing.
+// ─────────────────────────────────────────────────────────────
+section('C-01: sendD2DSMS IDOR + collection rename + .exists property fix');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('C-01: sms-functions.js no longer references the dead `d2d_knocks` collection',
+    !/d2d_knocks/.test(src));
+  assert('C-01: sendD2DSMS now reads from `knocks/`',
+    /db\.doc\(`knocks\/\$\{knockId\}`\)\.get\(\)/.test(src));
+  assert('C-01: knockSnap.exists is used as a property, not a method',
+    /knockSnap\.exists\b(?!\()/.test(src) && !/knockSnap\.exists\(\)/.test(src));
+  assert('C-01: handler enforces knock.userId ownership check',
+    /knock\.userId\s*===\s*decoded\.uid/.test(src)
+    && /isOwnKnock/.test(src)
+    && /!isPlatformAdmin\s*&&\s*!isOwnKnock/.test(src));
+  assert('C-01: handler returns 403 "Not your knock" on IDOR attempt',
+    /403[^\n]*Not your knock/.test(src));
+  assert('C-01: handler logs the attempt for detection',
+    /sendD2DSMS IDOR attempt/.test(src));
+  assert('C-01: handler allows same-company manager/company_admin cross-rep access',
+    /isManagerInSameCompany/.test(src));
+}
+
+section('C-02: SMS subscription + email-verify gate');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('C-02: requirePaidSubscription helper is defined',
+    /async function requirePaidSubscription\s*\(/.test(src));
+  assert('C-02: helper allows admin bypass',
+    /decoded\.role\s*===\s*'admin'[\s\S]{0,80}ok:\s*true/.test(src));
+  assert('C-02: helper gates on email_verified',
+    /decoded\.email_verified\s*!==\s*true/.test(src));
+  assert('C-02: helper rejects free / missing subscriptions',
+    /sub\.plan\s*!==\s*'free'/.test(src));
+  // Both handlers must call the gate before the per-uid rate-limit burn.
+  // Heuristic: each handler block contains the call at least once.
+  const sendSmsCallCount   = (src.match(/exports\.sendSMS\s*=\s*onRequest/g) || []).length;
+  const sendD2dCallCount   = (src.match(/exports\.sendD2DSMS\s*=\s*onRequest/g) || []).length;
+  const subGateCallCount   = (src.match(/await requirePaidSubscription\(/g) || []).length;
+  assert('C-02: both SMS handlers invoke the subscription gate',
+    sendSmsCallCount === 1 && sendD2dCallCount === 1 && subGateCallCount >= 2,
+    'sendSMS=' + sendSmsCallCount + ' sendD2DSMS=' + sendD2dCallCount + ' gateCalls=' + subGateCallCount);
+}
+
+section('C-03 + M-03: claudeProxy transactional budget + starter plan entry');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('C-03: reserveClaudeBudget helper defined',
+    /async function reserveClaudeBudget\s*\(/.test(src));
+  assert('C-03: reserveClaudeBudget uses a Firestore transaction',
+    /db\.runTransaction\b/.test(src));
+  assert('C-03: adjustClaudeBudget helper defined',
+    /async function adjustClaudeBudget\s*\(/.test(src));
+  assert('C-03: estimateInputTokens helper defined',
+    /function estimateInputTokens\s*\(/.test(src));
+  assert('C-03: reservation ceiling is bounded (CLAUDE_RESERVATION_MAX)',
+    /const CLAUDE_RESERVATION_MAX\s*=\s*4\s*\*\s*CLAUDE_MAX_TOKENS_CAP/.test(src));
+  assert('C-03: claudeProxy reserves before calling Anthropic',
+    // Order-sensitive: the reserve call must appear BEFORE the
+    // Anthropic fetch in source order. Use index comparison rather
+    // than a greedy regex distance (the span between the two can
+    // include a long comment block).
+    (() => {
+      const r = src.indexOf('await reserveClaudeBudget(');
+      const a = src.indexOf("api.anthropic.com/v1/messages");
+      return r > 0 && a > r;
+    })());
+  assert('C-03: refunds reservation on Anthropic fetch failure',
+    /adjustClaudeBudget\([^)]*-reservation\)/.test(src));
+  assert('C-03: reconciles actual vs reservation after success',
+    /const delta\s*=\s*total\s*-\s*reservation/.test(src));
+  assert('C-03: old read-then-check branch removed',
+    !/consumedUid\s*>=\s*CLAUDE_DAILY_TOKEN_BUDGET/.test(src));
+  // M-03: canonical `starter` plan name has an explicit budget entry.
+  assert('M-03: CLAUDE_COMPANY_BUDGET includes starter plan (normalized from foundation)',
+    /CLAUDE_COMPANY_BUDGET\s*=\s*\{[\s\S]{0,400}starter:\s*50_000/.test(src));
+}
+
+section('H-07: claudeProxy message-array + payload-size caps');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('H-07: CLAUDE_MAX_MESSAGES constant defined',
+    /const CLAUDE_MAX_MESSAGES\s*=\s*40\b/.test(src));
+  assert('H-07: CLAUDE_MAX_PAYLOAD_BYTES constant defined',
+    /const CLAUDE_MAX_PAYLOAD_BYTES\s*=\s*200_000/.test(src));
+  assert('H-07: messages.length > cap returns 400',
+    /messages\.length\s*>\s*CLAUDE_MAX_MESSAGES[\s\S]{0,200}status\(400\)/.test(src));
+  assert('H-07: oversize serialized payload returns 413',
+    /serializedMessages\.length\s*>\s*CLAUDE_MAX_PAYLOAD_BYTES[\s\S]{0,200}status\(413\)/.test(src));
+}
+
+section('H-01: imageProxy + signImageUrl portals/ strip + MIME allowlist');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // The previous regex was `(photos|portals|galleries|reports|docs)`.
+  // Both active sites now exclude portals.
+  const matchRegexes = src.match(/\(photos\|[^)]+\)/g) || [];
+  assert('H-01: neither proxy regex still includes portals',
+    matchRegexes.length > 0 && matchRegexes.every(r => !/portals/.test(r)),
+    'found ' + matchRegexes.length + ' alternation(s): ' + matchRegexes.join(' | '));
+  assert('H-01: imageProxy enforces image/* content-type allowlist',
+    /!\/\^image\\\//.test(src) || /!\/\^image\\\/\/i\.test\(ct\)/.test(src));
+  assert('H-01: imageProxy sets sandbox CSP on response',
+    /Content-Security-Policy[^\n]*sandbox/.test(src));
+  assert('H-01: non-image content-types return 415',
+    /status\(415\)[^\n]*Unsupported content type/.test(src));
+}
+
+section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('H-04: isSoloOwner reference removed',
+    !/isSoloOwner/.test(src));
+  // The new gate throws permission-denied unless isPlatformAdmin||isCompanyAdmin.
+  assert('H-04: solo-owner escape hatch no longer exists on getAdminAnalytics',
+    /if\s*\(!isPlatformAdmin\s*&&\s*!isCompanyAdmin\)\s*\{\s*throw new HttpsError\('permission-denied'/.test(src));
+  assert('H-04: getAdminAnalytics now rate-limits per-uid',
+    /callableRateLimit\(request,\s*'getAdminAnalytics'/.test(src));
+}
+
+section('H-06: integrationStatus admin-only gate');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // The role check sits inside the integrationStatus handler block.
+  const m = src.match(/exports\.integrationStatus\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
+  assert('H-06: integrationStatus handler block located', !!m);
+  if (m) {
+    assert('H-06: handler rejects non-admin / non-company_admin callers',
+      /\['admin',\s*'company_admin'\]\.includes\(callerRole\)/.test(m[0])
+      && /permission-denied/.test(m[0]));
+  }
+}
+
+section('M-04: submitPublicLead optional-field allowlist');
+{
+  const src = read(path.join(FUNCTIONS, 'index.js'));
+  assert('M-04: PUBLIC_LEAD_OPTIONAL_DEFAULTS defined (utm + referrer)',
+    /PUBLIC_LEAD_OPTIONAL_DEFAULTS\s*=\s*\[[^\]]*utm_source[^\]]*utm_medium[^\]]*utm_campaign[^\]]*referrer/.test(src));
+  assert('M-04: guide kind carries an explicit optional list',
+    /guide:\s*\{[\s\S]{0,300}optional:\s*\[/.test(src));
+  assert('M-04: submitPublicLead iterates spec.optional, not Object.keys(body)',
+    /for\s*\(const key of \(spec\.optional \|\| \[\]\)\)/.test(src));
+  assert('M-04: old passthrough loop over Object.keys(body) is gone',
+    !/for\s*\(const key of Object\.keys\(body\)\)\s*\{[\s\S]{0,160}spec\.required\.includes/.test(src));
+}
+
+section('H-02: nbd-auth demo bypass keyed on custom claim, not email');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
+  assert('H-02: demo@nobigdeal.pro literal removed',
+    !/demo@nobigdeal\.pro/.test(src));
+  assert('H-02: demo bypass now reads token.claims.demo',
+    /tokenResult\.claims\.demo\s*===\s*true/.test(src));
+  assert('H-02: demo accounts never receive admin role client-side',
+    /_role\s*=\s*'demo_viewer'/.test(src) && !/_role\s*=\s*'admin';\s*\n\s*_subscription\s*=\s*\{\s*plan:\s*'professional'/.test(src));
+}
+
+section('H-02 ops: scripts/grant-demo-claim.js provisioner');
+{
+  const p = path.join(ROOT, 'scripts/grant-demo-claim.js');
+  assert('H-02: grant-demo-claim.js exists', fs.existsSync(p));
+  if (fs.existsSync(p)) {
+    const src = read(p);
+    assert('H-02: provisioner sets demo:true custom claim',
+      /setCustomUserClaims\([^)]+,\s*next\)/.test(src) && /next\.demo\s*=\s*true/.test(src));
+    assert('H-02: provisioner supports --remove flag for claim revocation',
+      /--remove/.test(src) && /delete next\.demo/.test(src));
+    assert('H-02: provisioner revokes refresh tokens so the claim takes effect',
+      /revokeRefreshTokens\(/.test(src));
+    assert('H-02: provisioner parses cleanly',
+      syntaxCheck(p).ok);
+  }
+}
+
+section('H-03: nbd-auth fails closed to free on network error');
+{
+  const src = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
+  assert('H-03: localStorage plan cache read removed',
+    !/localStorage\.getItem\('nbd_user_plan'\)/.test(src));
+  // The setter call survives only in logout() for cleanup of stale keys.
+  const setterMatches = (src.match(/localStorage\.setItem\('nbd_user_plan'/g) || []).length;
+  assert('H-03: localStorage plan cache write removed (no setItem calls)',
+    setterMatches === 0,
+    'found ' + setterMatches + ' setItem(nbd_user_plan) call(s)');
+  assert('H-03: network-error branch hard-drops to free with _failOpen:false',
+    /_userPlan\s*=\s*'free';[\s\S]{0,160}_failOpen:\s*false/.test(src));
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
