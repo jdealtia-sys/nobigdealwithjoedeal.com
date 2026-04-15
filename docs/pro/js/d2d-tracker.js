@@ -1682,6 +1682,36 @@
     input.click();
   }
 
+  // Derive a Firebase-Storage-rule-acceptable contentType from a File.
+  // Safari iPhone leaves File.type as the empty string for HEIC/HEIF
+  // pulled from the photo library in some configurations — uploadBytes
+  // with no contentType then either lets Storage guess (which it does
+  // poorly) or sends `application/octet-stream`, both of which the
+  // storage.rules:29 isImage() regex rejects with an opaque 403.
+  // Map by lowercase extension to one of the rule's accepted MIMEs.
+  // Returns null when the extension isn't an allowed image type, so
+  // the caller can surface a clear "unsupported format" error rather
+  // than letting the upload fail silently with 403.
+  function inferImageContentType(file) {
+    const declared = (file && file.type || '').toLowerCase().trim();
+    // image/* declared types are accepted as-is provided they're in
+    // the rules' allowlist. Lowercase normalize handles browsers that
+    // ship "Image/JPEG" or similar.
+    if (/^image\/(jpeg|jpg|png|webp|heic|heif|avif|gif)$/.test(declared)) {
+      // Storage rules allowlist uses 'jpeg' canonical; 'jpg' is the
+      // same byte stream so coerce the alias.
+      return declared === 'image/jpg' ? 'image/jpeg' : declared;
+    }
+    const name = String(file && file.name || '').toLowerCase();
+    const ext = name.split('.').pop() || '';
+    const map = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+      avif: 'image/avif', gif: 'image/gif'
+    };
+    return map[ext] || null;
+  }
+
   async function uploadPhotos(files, knockId) {
     if (!files || !files.length) return [];
     const urls = [];
@@ -1695,14 +1725,37 @@
       console.error('d2d photo upload: not signed in');
       return [];
     }
+    let rejected = 0;
     for (const file of files) {
       try {
+        const contentType = inferImageContentType(file);
+        if (!contentType) {
+          // Unsupported format — surface to the user rather than
+          // letting Storage reject with an opaque 403.
+          console.warn('d2d photo upload: unsupported file', file && file.name, file && file.type);
+          rejected++;
+          continue;
+        }
         const safeName = String(file.name || 'knock').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
         const storageRef = ref(window._storage, `photos/${uid}/d2d/${knockId}/${Date.now()}_${safeName}`);
-        await window.uploadBytes(storageRef, file);
+        // Pass contentType explicitly so Storage doesn't infer
+        // application/octet-stream for HEIC files where Safari left
+        // file.type empty.
+        await window.uploadBytes(storageRef, file, { contentType });
         const url = await getDownloadURL(storageRef);
         urls.push(url);
-      } catch(e) { console.error('Photo upload failed:', e); }
+      } catch(e) {
+        console.error('Photo upload failed:', e && e.code, e && e.message, file && file.name, file && file.type);
+        rejected++;
+      }
+    }
+    if (rejected > 0 && window.showToast) {
+      const ok = files.length - rejected;
+      if (ok === 0) {
+        window.showToast('Photo upload failed — unsupported format or network error', 'error');
+      } else {
+        window.showToast(`${rejected} of ${files.length} photo${files.length > 1 ? 's' : ''} failed to upload`, 'warning');
+      }
     }
     return urls;
   }
