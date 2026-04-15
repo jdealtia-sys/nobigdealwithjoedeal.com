@@ -357,14 +357,16 @@ jobs:
       # removed now that the split-deploy strategy works cleanly. If
       # a future deploy goes opaque again, add --debug back as the
       # first investigation step.
-      - name: Deploy Cloud Functions (strict — skips IAM-blocked 8)
+      - name: Deploy Cloud Functions (strict — skips IAM-blocked 9)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
           # Names that fail with cloudscheduler.jobs.update or
           # identityplatform.admin denials. Clear this list once
           # those roles are granted.
-          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup"
+          # recordingRetentionCron added 2026-04-15: scheduled fn from
+          # voice-intelligence.js fails on update (same SA gap).
+          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup,recordingRetentionCron"
         run: |
           set -e
           # Enumerate every function export across functions/*.js +
@@ -400,7 +402,7 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup"
+          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup,recordingRetentionCron"
         run: |
           set +e
           RETRY=""
