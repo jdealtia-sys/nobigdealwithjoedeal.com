@@ -60,6 +60,13 @@ const FLAT_USER_COLLECTIONS = [
   // Invoices use `createdBy` (not `userId`) for historical reasons —
   // the original invoice schema predated the userId convention.
   { name: 'invoices', ownerField: 'createdBy' },
+  // Appointments are written by the Cal.com webhook (admin-SDK only,
+  // see firestore.rules:481-484) but stamp `userId` on each booking
+  // so the rep who owns the lead can read them. Caught by the
+  // registry-drift sweep — was previously missing from the GDPR
+  // cascade, leaving homeowner appointment metadata behind on
+  // right-to-be-forgotten.
+  { name: 'appointments' },
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────

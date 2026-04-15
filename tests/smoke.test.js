@@ -2426,6 +2426,96 @@ section('M1 pilot: /admin/index.html drops unsafe-inline (script-src + style-src
     !/<style[ >]/.test(page));
 }
 
+section('Registry drift: every owner-keyed rule has a FLAT_USER_COLLECTIONS entry');
+{
+  // M-01/M-02 follow-up. The canonical user-owned registry at
+  // functions/integrations/user-owned.js is consumed by both the
+  // erasure cascade and the GDPR export. Any new top-level Firestore
+  // collection added with `isOwner(resource.data.userId)` (or
+  // .createdBy) authorization must also land in the registry — or
+  // erasure leaves the user's data behind, and Article-20 export
+  // misses it entirely.
+  //
+  // This sweep fails CI if any owner-keyed top-level match block in
+  // firestore.rules names a collection that isn't in either the
+  // registry's FLAT_USER_COLLECTIONS or the explicit exclusion list
+  // below. Adding an exclusion is a deliberate design decision —
+  // document the reason inline so a future reader sees the intent.
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  const registry = require(path.join(FUNCTIONS, 'integrations/user-owned.js'));
+  const registered = new Set(registry.FLAT_USER_COLLECTIONS.map(s => s.name));
+
+  // Top-level match blocks live at indent depth 4 (the
+  // `match /databases/.../documents {` block opens at depth 2).
+  // Capture each `    match /COLL/{<id>} {` line and its body, where
+  // the body runs until the matching close-brace at the same indent.
+  const lines = rules.split('\n');
+  const blocks = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^    match \/([a-zA-Z_]+)\/\{[a-zA-Z]+\}\s*\{?\s*$/);
+    if (!m) continue;
+    const coll = m[1];
+    // Walk forward to find the closing brace at the same indent.
+    let depth = 1;
+    let j = i + 1;
+    for (; j < lines.length; j++) {
+      const opens = (lines[j].match(/\{/g) || []).length;
+      const closes = (lines[j].match(/\}/g) || []).length;
+      depth += opens - closes;
+      if (depth <= 0) break;
+    }
+    blocks.push({ coll, body: lines.slice(i, j + 1).join('\n') });
+  }
+
+  // Every top-level rule whose authz consults resource.data.userId
+  // or resource.data.createdBy belongs to a user-owned collection.
+  const ownerKeyedColls = blocks
+    .filter(b => /isOwner\(resource\.data\.(userId|createdBy)\)/.test(b.body))
+    .map(b => b.coll);
+
+  // Intentional exclusions: collections whose authz uses owner-keyed
+  // shape but that we deliberately do NOT include in the GDPR registry.
+  // Audit trails + admin-only writes survive erasure on purpose.
+  // None today; placeholder list documents the exclusion mechanism for
+  // future schema additions.
+  const REGISTRY_EXCLUSIONS = new Set([
+    // Example shape (uncomment and document if a real exclusion appears):
+    // 'audit_log_writes', // append-only audit trail; survives erasure by design
+  ]);
+
+  const missing = ownerKeyedColls.filter(c =>
+    !registered.has(c) && !REGISTRY_EXCLUSIONS.has(c));
+
+  assert('Registry: every owner-keyed top-level rule has a FLAT_USER_COLLECTIONS entry',
+    missing.length === 0,
+    missing.length
+      ? 'missing from registry: ' + missing.join(', ')
+        + '. Add to FLAT_USER_COLLECTIONS in functions/integrations/user-owned.js'
+        + ' OR add to REGISTRY_EXCLUSIONS in this test with a documented reason.'
+      : '');
+
+  // Sanity: our sweep should be finding SOMETHING. If the regex breaks
+  // or rules.txt format changes, this catches a silently-empty result.
+  assert('Registry: sweep observed at least 15 owner-keyed collections',
+    ownerKeyedColls.length >= 15,
+    'observed ' + ownerKeyedColls.length + ' (regex may be broken)');
+
+  // Inverse direction (informational only — does not fail CI):
+  // collections in the registry that no longer have a matching rule.
+  // A registry entry without a rule isn't dangerous (erasure just
+  // queries an empty/non-existent collection), but it's a stale-list
+  // signal worth surfacing for a future cleanup.
+  const stale = registry.FLAT_USER_COLLECTIONS
+    .map(s => s.name)
+    .filter(name => !blocks.some(b => b.coll === name));
+  if (stale.length > 0) {
+    console.log('  ℹ  Registry has ' + stale.length
+      + ' entries with no matching rule (informational): '
+      + stale.join(', '));
+  }
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
