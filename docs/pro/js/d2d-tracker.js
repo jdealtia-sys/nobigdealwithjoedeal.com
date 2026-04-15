@@ -1152,6 +1152,10 @@
 
   function watchLocationAndCenter() {
     if (!navigator.geolocation) return;
+    // Defensive: clear any prior watch before opening a new one. Without
+    // this, a route that re-enters D2D (e.g. tab switch + return) leaks
+    // multiple GPS subscribers, each draining battery.
+    stopLocationWatch();
     watchId = navigator.geolocation.watchPosition(
       function(pos) {
         currentLocation = [pos.coords.latitude, pos.coords.longitude];
@@ -1164,6 +1168,40 @@
       function(err) { console.warn('Geolocation error:', err); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
+  }
+
+  // Audit findings #3 + #12: the GPS watch was never released. Safari
+  // throttles aggressively in background but does NOT auto-cancel a
+  // watchPosition() handle on tab hide — battery drain on iPhone D2D
+  // sessions was severe (60-min session ≈ 30% battery). Three exit
+  // paths now stop the watch:
+  //   (a) explicit stopLocationWatch() called from D2D teardown
+  //   (b) page visibility change → hidden  → stop; visible → restart
+  //   (c) beforeunload / pagehide → stop unconditionally
+  // Resume on visibility-restore is conditional on the map still being
+  // mounted; D2D module unload paths leave d2dMap === null which short-
+  // circuits the resume.
+  function stopLocationWatch() {
+    if (watchId !== null && navigator.geolocation) {
+      try { navigator.geolocation.clearWatch(watchId); } catch (_) {}
+      watchId = null;
+    }
+    if (locationMarker && d2dMap) { try { d2dMap.removeLayer(locationMarker); } catch (_) {} locationMarker = null; }
+    if (accuracyCircle && d2dMap) { try { d2dMap.removeLayer(accuracyCircle); } catch (_) {} accuracyCircle = null; }
+  }
+  if (typeof document !== 'undefined' && !document._nbdD2DGeoLifecycle) {
+    document._nbdD2DGeoLifecycle = true;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        stopLocationWatch();
+      } else if (document.visibilityState === 'visible' && d2dMap && d2dInited) {
+        watchLocationAndCenter();
+      }
+    });
+    // pagehide is the only event that fires reliably across Safari
+    // back/forward cache + iOS PWA tab close. beforeunload doesn't
+    // fire in iOS Safari standalone.
+    window.addEventListener('pagehide', stopLocationWatch);
   }
 
   function centerOnMe() {
