@@ -2640,23 +2640,41 @@
       return;
     }
 
-    // Fail-fast auth guard. Safari standalone PWAs (home-screen icon)
-    // keep a SEPARATE cookie/storage jar from the parent Safari
-    // browser session — a user who's signed in via Safari can launch
-    // the installed PWA and find `window._user === null`. Every
-    // downstream call below dereferences `_user.uid` (loadRepProfile,
-    // loadKnocks, knock create, voice upload, etc.). Without this
-    // guard the first throw lands in the catch below, the loading
-    // spinner never resolves, and the page hangs at "Loading door-
-    // to-door tracker…" with a black map. Surfacing a clear toast
-    // + return turns a silent hang into an actionable signal.
+    // Auth gate — three failure modes folded into one:
+    //   (a) Race: D2D tab tapped before Firebase onAuthStateChanged
+    //       fires. Common in iOS Safari standalone PWA where the
+    //       Firebase Auth IndexedDB cold-start is slow.
+    //   (b) Hung init: PWA storage was wiped (Safari 7-day rule) so
+    //       Firebase Auth can't restore session; promise never settles.
+    //   (c) Stale shell: SW served a cached dashboard.html that runs
+    //       BEFORE the auth bootstrap completes for this session.
+    //
+    // Strategy: await window._nbdAuth (the init promise NBDAuth.init
+    // returns at dashboard.html:145). If it resolves with a user → go.
+    // If it resolves with null → free-tier path that shouldn't reach
+    // here, but tolerate it. If it never resolves within 5s → hard
+    // redirect to login (covers (b) reliably).
     if (!window._user || !window._user.uid) {
-      console.warn('initD2D: not signed in (window._user is null) — likely standalone-PWA cookie-jar split');
-      window.showToast?.('Please sign in to use the door-to-door tracker', 'error');
-      // Render an empty shell so the spinner clears even though
-      // we're not loading data.
-      try { renderD2D(); } catch (_) {}
-      return;
+      try {
+        if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
+          await Promise.race([
+            window._nbdAuth,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 5000))
+          ]);
+        }
+      } catch (e) {
+        console.warn('initD2D: auth promise did not resolve within 5s — redirecting to login', e.message);
+        try { renderD2D(); } catch (_) {}
+        window.location.replace('/pro/login.html?from=d2d');
+        return;
+      }
+      // After the wait, _user may have been set by NBDAuth.
+      if (!window._user || !window._user.uid) {
+        console.warn('initD2D: still no _user after auth resolved — redirecting to login');
+        try { renderD2D(); } catch (_) {}
+        window.location.replace('/pro/login.html?from=d2d');
+        return;
+      }
     }
 
     try {
