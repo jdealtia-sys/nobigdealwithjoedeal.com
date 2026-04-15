@@ -25,6 +25,18 @@ const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
+// M-01/M-02: single source of truth for what "user-owned" means.
+// Erasure cascade + Article 20 export both import from here so the
+// two cannot drift (historical bug: the original lists were inlined
+// and diverged — erasure knew 7 collections, export knew 9).
+const {
+  FLAT_USER_COLLECTIONS,
+  COLLECTION_GROUPS_WITH_USERID,
+  STORAGE_PREFIXES,
+  OWNER_KEYED_DOCS,
+  NESTED_LEADS_PATH,
+} = require('./user-owned');
+
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
@@ -152,22 +164,35 @@ exports.exportMyData = onCall(
     }
 
     const db = admin.firestore();
-    const out = { uid, generatedAt: new Date().toISOString(), collections: {} };
+    const out = {
+      uid,
+      generatedAt: new Date().toISOString(),
+      collections: {},
+      ownerDocs: {},
+      storage: {},
+    };
 
-    // Collections the user owns via userId field.
-    const OWNED = ['leads', 'estimates', 'photos', 'pins', 'tasks', 'documents', 'training_sessions'];
-    for (const coll of OWNED) {
+    // M-02: pull the registry so export + erasure can never drift.
+    //   (1) flat user-owned collections (per-row userId / createdBy)
+    //   (2) collectionGroups that stamp userId
+    //   (3) nested-leads subtree (listed inline below)
+    //   (4) Storage prefixes — metadata + 24h signed download URLs
+    //   (5) owner-keyed `{uid}`-path docs
+    //   (6) api_usage (last 90d, admin-SDK only, keyed on `uid`)
+
+    // ── (1) flat collections ──
+    for (const spec of FLAT_USER_COLLECTIONS) {
+      const ownerField = spec.ownerField || 'userId';
       try {
-        const snap = await db.collection(coll).where('userId', '==', uid).get();
-        out.collections[coll] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const snap = await db.collection(spec.name).where(ownerField, '==', uid).get();
+        out.collections[spec.name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       } catch (e) {
-        out.collections[coll] = { error: e.message };
+        out.collections[spec.name] = { error: e.message };
       }
     }
-    // collectionGroup exports — subcollection rows that key on
-    // userId (e.g. recordings under leads/{leadId}/recordings/).
-    const OWNED_GROUPS = ['recordings'];
-    for (const group of OWNED_GROUPS) {
+
+    // ── (2) collectionGroup sweeps ──
+    for (const group of COLLECTION_GROUPS_WITH_USERID) {
       try {
         const snap = await db.collectionGroup(group).where('userId', '==', uid).get();
         out.collections[group] = snap.docs.map(d => ({
@@ -178,18 +203,84 @@ exports.exportMyData = onCall(
       }
     }
 
-    // Profile doc + subscription.
+    // ── (3) nested-leads subtree ──
+    // Firestore doesn't offer a single-call subtree read, but the
+    // collectionGroups above catch `activity` and `recordings`; the
+    // nested-leads parent (`leads/{uid}/leads/*`) is the remaining
+    // surface. List its direct children and dump anything found.
     try {
-      const u = await db.doc('users/' + uid).get();
-      out.profile = u.exists ? u.data() : null;
-    } catch (e) { out.profile = { error: e.message }; }
-    try {
-      const s = await db.doc('subscriptions/' + uid).get();
-      out.subscription = s.exists ? s.data() : null;
-    } catch (e) { out.subscription = { error: e.message }; }
+      const nestedParent = db.doc(NESTED_LEADS_PATH(uid));
+      const children = await nestedParent.listCollections();
+      const nested = {};
+      for (const childColl of children) {
+        const snap = await childColl.limit(5000).get();
+        nested[childColl.id] = snap.docs.map(d => ({
+          path: d.ref.path, ...d.data()
+        }));
+      }
+      if (Object.keys(nested).length) out.collections.nested_leads = nested;
+    } catch (e) {
+      out.collections.nested_leads = { error: e.message };
+    }
 
-    // api_usage — last 90 days is plenty; older rows are aggregated
-    // into analytics and tell the user nothing personal.
+    // ── (4) Storage prefix listing ──
+    // Include object metadata + a 24h signed download URL per file so
+    // the user can actually retrieve their binary payload. Caps at
+    // 1000 files per prefix to stop a pathological upload history
+    // from blowing the export timeout; users over that limit get a
+    // `truncated: true` marker per prefix.
+    try {
+      const bucket = admin.storage().bucket();
+      for (const prefix of STORAGE_PREFIXES) {
+        try {
+          const [files] = await bucket.getFiles({
+            prefix: prefix + '/' + uid + '/',
+            maxResults: 1001,
+          });
+          const truncated = files.length > 1000;
+          const slice = files.slice(0, 1000);
+          const entries = await Promise.all(slice.map(async f => {
+            let url = null;
+            try {
+              const [signed] = await f.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + 24 * 3_600_000,
+                version: 'v4',
+              });
+              url = signed;
+            } catch (_) { /* signing failure non-fatal for export */ }
+            return {
+              name: f.name,
+              size: f.metadata && Number(f.metadata.size) || 0,
+              contentType: f.metadata && f.metadata.contentType || null,
+              updated: f.metadata && f.metadata.updated || null,
+              downloadUrl: url,
+            };
+          }));
+          out.storage[prefix] = { count: entries.length, truncated, files: entries };
+        } catch (e) {
+          out.storage[prefix] = { error: e.message };
+        }
+      }
+    } catch (e) {
+      out.storage._error = e.message;
+    }
+
+    // ── (5) owner-keyed {uid}-path docs ──
+    for (const coll of OWNER_KEYED_DOCS) {
+      try {
+        const s = await db.doc(coll + '/' + uid).get();
+        out.ownerDocs[coll] = s.exists ? s.data() : null;
+      } catch (e) {
+        out.ownerDocs[coll] = { error: e.message };
+      }
+    }
+    // Alias `profile` / `subscription` at the top level for backwards
+    // compat with the previous export shape (clients may parse them).
+    out.profile = out.ownerDocs.users || null;
+    out.subscription = out.ownerDocs.subscriptions || null;
+
+    // ── (6) api_usage (last 90 days) ──
     try {
       const since = admin.firestore.Timestamp.fromMillis(Date.now() - 90 * 86_400_000);
       const snap = await db.collection('api_usage')
@@ -436,41 +527,32 @@ exports.confirmAccountErasure = onRequest(
       confirmedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Cascade: delete all docs owned by this uid. Covers three
-    // classes of data the pre-2026-04 implementation missed:
-    //
-    //   1. Flat-path userId-keyed collections (the original scope).
-    //   2. collectionGroup for subcollection rows that carry a
-    //      userId field — e.g. recordings live at
-    //      leads/{leadId}/recordings/{id} with userId stamped on
-    //      each. A flat collection() query against the parent path
-    //      never reaches them.
-    //   3. Owner-keyed Storage prefixes — audio, photos, docs,
-    //      portals, galleries, reports, shared_docs, deal_rooms.
-    //      Right-to-be-forgotten is not satisfied by deleting the
-    //      Firestore doc while the binary payload stays in the
-    //      bucket.
-    const OWNED_COLLECTIONS = [
-      'leads', 'estimates', 'photos', 'pins', 'tasks',
-      'documents', 'training_sessions'
-    ];
-    // collectionGroup names we sweep for userId == uid. These are
-    // subcollections that don't surface on flat-path queries.
-    const OWNED_COLLECTION_GROUPS = [
-      'recordings'   // leads/{leadId}/recordings/{id} — Voice Intelligence
-    ];
-    // Owner-keyed Storage prefixes. Every path here matches a rule
-    // in storage.rules that keys on /{uid}/ in the second segment.
-    const OWNED_STORAGE_PREFIXES = [
-      'audio', 'photos', 'docs', 'portals', 'galleries',
-      'reports', 'shared_docs', 'deal_rooms'
-    ];
+    // M-01: cascade uses the canonical user-owned registry so the
+    // surface stays synchronized with Article 20 export. Covers:
+    //   (1) flat-path user-owned collections (per-row owner field,
+    //       usually `userId` — `invoices` uses `createdBy`)
+    //   (2) collectionGroup sweeps for subcollections whose rows
+    //       carry `userId` (recordings, activity)
+    //   (3) `leads/{uid}/leads/**` nested-leads subtree — vestigial
+    //       but writable per firestore.rules:140-145; previously
+    //       missed by the cascade entirely. `recursiveDelete` walks
+    //       the whole subtree (doc + every child collection) in one
+    //       Admin SDK call.
+    //   (4) Owner-keyed Storage prefixes
+    //   (5) Owner-keyed `{uid}`-path docs (users, subscriptions,
+    //       userSettings, leaderboard, reps, estimate_drafts,
+    //       feature_flags). `account_erasures/{uid}` intentionally
+    //       NOT deleted — it's the audit trail for this operation.
 
     // ── (1) flat-path collections ──
-    for (const coll of OWNED_COLLECTIONS) {
+    for (const spec of FLAT_USER_COLLECTIONS) {
+      const ownerField = spec.ownerField || 'userId';
       try {
         while (true) {
-          const snap = await db.collection(coll).where('userId', '==', uid).limit(500).get();
+          const snap = await db.collection(spec.name)
+            .where(ownerField, '==', uid)
+            .limit(500)
+            .get();
           if (snap.empty) break;
           const batch = db.batch();
           snap.docs.forEach(d => batch.delete(d.ref));
@@ -478,12 +560,12 @@ exports.confirmAccountErasure = onRequest(
           if (snap.size < 500) break;
         }
       } catch (e) {
-        logger.warn('erasure: cascade failed for ' + coll, { err: e.message });
+        logger.warn('erasure: cascade failed for ' + spec.name, { err: e.message });
       }
     }
 
     // ── (2) collectionGroup sweeps (subcollections with userId) ──
-    for (const groupName of OWNED_COLLECTION_GROUPS) {
+    for (const groupName of COLLECTION_GROUPS_WITH_USERID) {
       try {
         while (true) {
           const snap = await db.collectionGroup(groupName)
@@ -502,10 +584,22 @@ exports.confirmAccountErasure = onRequest(
       }
     }
 
-    // ── (3) Storage prefix sweeps ──
+    // ── (3) nested-leads recursive delete ──
+    // recursiveDelete(docRef) walks the doc + every subcollection
+    // (including activity/tasks/notes children of each nested lead)
+    // with an internal BulkWriter. Available in firebase-admin v12+
+    // via @google-cloud/firestore.
+    try {
+      await db.recursiveDelete(db.doc(NESTED_LEADS_PATH(uid)));
+    } catch (e) {
+      logger.warn('erasure: nested-leads recursiveDelete failed',
+        { uid, err: e.message });
+    }
+
+    // ── (4) Storage prefix sweeps ──
     try {
       const bucket = admin.storage().bucket();
-      for (const prefix of OWNED_STORAGE_PREFIXES) {
+      for (const prefix of STORAGE_PREFIXES) {
         try {
           await bucket.deleteFiles({ prefix: prefix + '/' + uid + '/', force: true });
         } catch (e) {
@@ -515,9 +609,12 @@ exports.confirmAccountErasure = onRequest(
     } catch (e) {
       logger.warn('erasure: storage bucket unavailable', { err: e.message });
     }
-    // Profile doc + subscription (owner-scoped).
-    try { await db.doc('users/' + uid).delete(); } catch (e) {}
-    try { await db.doc('subscriptions/' + uid).delete(); } catch (e) {}
+
+    // ── (5) owner-keyed `{uid}`-path docs ──
+    for (const coll of OWNER_KEYED_DOCS) {
+      try { await db.doc(coll + '/' + uid).delete(); }
+      catch (e) { logger.warn('erasure: owner-doc delete failed for ' + coll, { err: e.message }); }
+    }
 
     // Disable the Auth account (don't delete — we keep the uid so
     // future fraud investigations can correlate).
