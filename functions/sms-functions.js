@@ -131,6 +131,46 @@ async function verifyAuth(req) {
   }
 }
 
+/**
+ * C-02: require the caller to hold an active paid subscription AND
+ * a verified email before they can send SMS. Without this gate,
+ * any free-tier or trial-expired account that passes App Check
+ * can burn the platform Twilio budget — per-uid cap 100/day ×
+ * ~$0.008/SMS × 1000 burner accounts ≈ $800/day toll fraud, plus
+ * TCPA exposure on unsolicited marketing messages.
+ *
+ * Admin is exempt (for support flows). Mirrors the `claudeProxy`
+ * sub-gate at functions/index.js:152-159.
+ *
+ * Returns { ok: true, plan } on success, or
+ * { ok: false, status, error } with the HTTP status the handler
+ * should respond with on failure.
+ */
+async function requirePaidSubscription(db, decoded) {
+  if (decoded.role === 'admin') return { ok: true, plan: 'admin' };
+  if (decoded.email_verified !== true) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Verify your email before sending SMS.',
+    };
+  }
+  const snap = await db.doc('subscriptions/' + decoded.uid).get();
+  const sub = snap.exists ? snap.data() : null;
+  const active = sub
+    && sub.status === 'active'
+    && sub.plan
+    && sub.plan !== 'free';
+  if (!active) {
+    return {
+      ok: false,
+      status: 402,
+      error: 'SMS requires an active paid subscription.',
+    };
+  }
+  return { ok: true, plan: sub.plan };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CLOUD FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
@@ -162,6 +202,15 @@ exports.sendSMS = onRequest(
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // C-02: paid-subscription + email-verify gate. Rejected callers
+    // NEVER reach the per-uid rate-limit increment below, so a
+    // failed gate doesn't burn their budget.
+    const subGate = await requirePaidSubscription(admin.firestore(), decoded);
+    if (!subGate.ok) {
+      res.status(subGate.status).json({ error: subGate.error });
       return;
     }
 
@@ -294,6 +343,14 @@ exports.sendD2DSMS = onRequest(
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
+    // C-02: paid-subscription + email-verify gate (see sendSMS).
+    const subGate = await requirePaidSubscription(admin.firestore(), decoded);
+    if (!subGate.ok) {
+      res.status(subGate.status).json({ error: subGate.error });
+      return;
+    }
+
     try {
       await enforceRateLimit('sendD2DSMS:uid', decoded.uid, 200, 86_400_000);
     } catch (e) {
@@ -319,14 +376,48 @@ exports.sendD2DSMS = onRequest(
     try {
       const db = admin.firestore();
 
-      // Look up knock
-      const knockSnap = await db.doc(`d2d_knocks/${knockId}`).get();
-      if (!knockSnap.exists()) {
+      // C-01: collection is `knocks` (matches firestore.rules:282,
+      // functions/index.js:2217,2448, seed-demo.js:487, and every
+      // client writer in docs/pro/js/). Previous code hit a legacy
+      // non-existent collection name so every call 404'd — rename
+      // fixes the correctness bug AND lands the IDOR fix.
+      const knockSnap = await db.doc(`knocks/${knockId}`).get();
+      // firebase-admin v12 DocumentSnapshot.exists is a property,
+      // not a method — the previous `.exists()` call threw
+      // TypeError and fell through to the 500 catch branch.
+      if (!knockSnap.exists) {
         res.status(404).json({ error: 'Knock not found' });
         return;
       }
 
       const knock = knockSnap.data();
+
+      // C-01: ownership check. Without this, any authenticated
+      // user could trigger an SMS from the platform Twilio number
+      // to any knock's homeowner by guessing/leaking the knockId
+      // (the admin SDK lookup bypasses the Firestore rule at
+      // firestore.rules:282-288). Mirror the rule's authorization
+      // matrix: owner, platform admin, or a manager/company_admin
+      // in the same tenant.
+      const callerRole = decoded.role || '';
+      const callerCompanyId = decoded.companyId || null;
+      const isPlatformAdmin = callerRole === 'admin';
+      const isOwnKnock = knock.userId === decoded.uid;
+      const isManagerInSameCompany =
+        ['manager', 'company_admin'].includes(callerRole)
+        && callerCompanyId
+        && knock.companyId
+        && knock.companyId === callerCompanyId;
+      if (!isPlatformAdmin && !isOwnKnock && !isManagerInSameCompany) {
+        logger.warn('sendD2DSMS IDOR attempt', {
+          caller: decoded.uid,
+          knockId,
+          knockOwner: knock.userId,
+        });
+        res.status(403).json({ error: 'Not your knock' });
+        return;
+      }
+
       const phoneNumber = knock.phone || knock.phoneNumber;
 
       if (!phoneNumber || !isValidPhoneNumber(phoneNumber)) {
@@ -401,7 +492,7 @@ exports.sendD2DSMS = onRequest(
       });
 
       // Update knock with lastSmsSent
-      await db.doc(`d2d_knocks/${knockId}`).update({
+      await db.doc(`knocks/${knockId}`).update({
         lastSmsSent: admin.firestore.FieldValue.serverTimestamp()
       });
 
