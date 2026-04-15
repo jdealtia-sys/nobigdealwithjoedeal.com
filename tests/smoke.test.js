@@ -257,7 +257,8 @@ section('H-5: per-company Claude budget');
 // ── H-6: Stripe webhook hardening ───────────────────────────
 section('H-6: Stripe webhook raw body + replay');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('stripeWebhook rejects when rawBody is not a Buffer',
     /stripeWebhook missing rawBody[\s\S]{0,200}Buffer\.isBuffer/.test(src) ||
     /!Buffer\.isBuffer\(req\.rawBody\)[\s\S]{0,100}stripeWebhook/.test(src) ||
@@ -952,7 +953,8 @@ section('F-06: getHomeownerPortalView is POST-only');
 
 section('F-07: Stripe webhook idempotency is atomic');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('F-07: eventRef.create used for idempotency',
     /eventRef\.create\(\{[\s\S]{0,200}processedAt:/.test(src));
   assert('F-07: ALREADY_EXISTS code handled',
@@ -961,7 +963,8 @@ section('F-07: Stripe webhook idempotency is atomic');
 
 section('F-08: Stripe plan derived from price id, not metadata');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('F-08: in-code PRICE_TO_PLAN map exists',
     /PRICE_TO_PLAN\s*=\s*\{[\s\S]{0,400}STRIPE_PRICE_FOUNDATION[\s\S]{0,200}STRIPE_PRICE_PROFESSIONAL/.test(src));
   assert('F-08: price.metadata.plan no longer trusted for tier',
@@ -1035,7 +1038,8 @@ section('D9: new-device sign-in alert');
 
 section('E1: Stripe dunning on payment failed');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const src = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('dunning enqueues email on payment_failed',
     /invoice\.payment_failed[\s\S]{0,3000}email_queue/.test(src));
   assert('dunning writes activity entry when leadId present',
@@ -1124,15 +1128,16 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /verifyWebhookHmac\(provider,\s*req\.rawBody/.test(m));
 
   // Stripe webhooks: both stripeWebhook and invoiceWebhook must verify.
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js.
+  const stripeSrc = read(path.join(FUNCTIONS, 'stripe.js'));
   assert('stripeWebhook calls stripe.webhooks.constructEvent',
-    /exports\.stripeWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+    /exports\.stripeWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(stripeSrc));
   assert('invoiceWebhook calls stripe.webhooks.constructEvent',
-    /exports\.invoiceWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(idx));
+    /exports\.invoiceWebhook[\s\S]{0,4000}stripe\.webhooks\.constructEvent/.test(stripeSrc));
   assert('stripeWebhook requires rawBody Buffer',
-    /stripeWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
+    /stripeWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
   assert('invoiceWebhook requires rawBody Buffer',
-    /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(idx));
+    /invoiceWebhook[\s\S]{0,2000}!Buffer\.isBuffer\(req\.rawBody\)/.test(stripeSrc));
 }
 
 section('F3: TCPA STOP/HELP + opt-out list');
@@ -2124,7 +2129,11 @@ section('R-01: rate-limit provider visibility + cold-start misconfig warning');
 
 section('R-05: hot-path Cloud Function sizing for 10k-user spike');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  // L-03 cont.: Stripe handlers moved to functions/stripe.js. Scan
+  // both files so hot-path sizing asserts work no matter which
+  // module owns the handler today.
+  const src = read(path.join(FUNCTIONS, 'index.js'))
+    + '\n' + read(path.join(FUNCTIONS, 'stripe.js'));
 
   // Helper: extract the {…} config-object immediately following
   // `exports.FNAME = onRequest(` in source order. We match the
@@ -2328,6 +2337,42 @@ section('B2: shared authz + rate-limit helpers');
     || /\{[^}]*requirePaidSubscription[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(sms));
   assert('B2: sms-functions.js no longer defines requirePaidSubscription inline',
     !/async function requirePaidSubscription\s*\(/.test(sms));
+}
+
+section('L-03 cont.: Stripe handlers extracted to functions/stripe.js');
+{
+  const stripePath = path.join(FUNCTIONS, 'stripe.js');
+  assert('Stripe: functions/stripe.js exists', fs.existsSync(stripePath));
+  if (fs.existsSync(stripePath)) {
+    assert('Stripe: stripe.js parses cleanly', syntaxCheck(stripePath).ok);
+    const s = read(stripePath);
+    for (const name of [
+      'createCheckoutSession', 'stripeWebhook', 'createCustomerPortalSession',
+      'getSubscriptionStatus', 'createStripePaymentLink', 'invoiceWebhook',
+    ]) {
+      assert('Stripe: stripe.js exports ' + name,
+        new RegExp('exports\\.' + name + '\\s*=\\s*onRequest').test(s));
+    }
+    assert('Stripe: stripe.js is self-contained (no require("../index"))',
+      !/require\(['"]\.\.\/index['"]\)/.test(s));
+    assert('Stripe: stripe.js imports requireAuth from ./shared',
+      /require\(['"]\.\/shared['"]\)/.test(s) && /requireAuth/.test(s));
+    assert('Stripe: stripe.js imports httpRateLimit from the upstash adapter',
+      /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(s));
+  }
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('Stripe: index.js loads stripe.js via require + Object.assign',
+    /require\(['"]\.\/stripe['"]\)/.test(idx)
+    && /Object\.assign\(exports,\s*stripeFunctions\)/.test(idx));
+  // None of the six handlers may be defined inline in index.js any
+  // more — duplicate exports would make Firebase deploy collide.
+  for (const name of [
+    'createCheckoutSession', 'stripeWebhook', 'createCustomerPortalSession',
+    'getSubscriptionStatus', 'createStripePaymentLink', 'invoiceWebhook',
+  ]) {
+    assert('Stripe: ' + name + ' no longer defined inline in index.js',
+      !new RegExp('exports\\.' + name + '\\s*=\\s*onRequest').test(idx));
+  }
 }
 
 // ── Summary ─────────────────────────────────────────────────
