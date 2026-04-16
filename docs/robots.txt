@@ -1,9 +1,86 @@
+# No Big Deal Home Solutions — robots.txt
+# Site: https://www.nobigdealwithjoedeal.com
+# AI/LLM guide: https://www.nobigdealwithjoedeal.com/llms.txt
+
 User-agent: *
 Allow: /
 Allow: /pro/landing.html
 Allow: /pro/landing
 
+# Explicit welcome for AI / LLM crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: Timpibot
+Allow: /
+
 Sitemap: https://www.nobigdealwithjoedeal.com/sitemap.xml
+
+# LLM context file (see https://llmstxt.org)
+# Additional context: https://www.nobigdealwithjoedeal.com/llms.txt
 
 # Block private app pages
 Disallow: /tools/
@@ -28,8 +105,8 @@ Disallow: /pro/daily-success/
 Disallow: /pro/js/
 Disallow: /pro/img/
 
-# Block the Oaks preview — it's a private template site for a specific
-# customer, not part of the public NBD marketing content.
+# Block the Oaks preview — private template site for a specific customer,
+# not part of the public NBD marketing content.
 Disallow: /sites/oaks/
 Disallow: /sites/oaks.html
 Disallow: /sites/template.html
