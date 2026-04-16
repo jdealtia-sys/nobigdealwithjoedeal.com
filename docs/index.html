@@ -51,7 +51,7 @@ body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(-
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
 
 /* ── NAV ── */
-nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px}
+nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px;border-bottom:3px solid var(--orange)}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .nav-logo-badge{background:var(--orange);color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white;}
@@ -83,7 +83,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 /* ── SHARED ── */
 .reveal{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
 .reveal.visible{opacity:1;transform:translateY(0)}
-.btn-primary{background:var(--orange);color:white;padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
+.btn-primary{background:var(--orange);color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
 .btn-primary:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,114,12,.4)}
 .btn-secondary{background:transparent;color:var(--navy-dark);padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid var(--navy-dark);display:inline-flex;align-items:center;gap:8px}
 .btn-secondary:hover{background:var(--navy-dark);color:white}
@@ -101,7 +101,7 @@ section{padding:80px 40px}
 .sec-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,3.5vw,3rem);color:var(--navy-dark);letter-spacing:.03em;line-height:1.05;margin-bottom:16px}
 .sec-title span{color:var(--orange)}
 .sec-title.white{color:white}
-.sec-desc{color:var(--gray);max-width:580px;margin:0 auto;line-height:1.7;font-size:.93rem}
+.sec-desc{color:var(--gray);max-width:580px;margin:0 auto;line-height:1.75;font-size:1rem}
 
 /* ── HERO ── */
 .hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
@@ -142,7 +142,7 @@ section{padding:80px 40px}
 .trust-item:last-child{border-right:none}
 .trust-icon{width:38px;height:38px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem}
 .trust-text strong{display:block;font-size:.82rem;font-weight:700;letter-spacing:.04em}
-.trust-text span{font-size:.7rem;color:rgba(255,255,255,.55)}
+.trust-text span{font-size:.7rem;color:rgba(255,255,255,.72)}
 
 /* ── SERVICES ── */
 .services-section{background:var(--off-white)}
@@ -151,9 +151,11 @@ section{padding:80px 40px}
 .service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--orange);transform:scaleX(0);transition:transform .28s;transform-origin:left}
 .service-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.1);border-color:transparent}
 .service-card:hover::before{transform:scaleX(1)}
+.sc-badge{position:absolute;top:14px;right:14px;background:var(--orange);color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
+.sc-badge.sc-badge-storm{background:var(--navy-dark)}
 .sc-icon{font-size:2rem;margin-bottom:14px;display:block}
 .sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:10px}
-.sc-body{font-size:.83rem;color:var(--gray);line-height:1.65;margin-bottom:18px}
+.sc-body{font-size:.93rem;color:var(--gray);line-height:1.7;margin-bottom:18px}
 .sc-bullets{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
 .sc-bullet{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;color:var(--gray-sub)}
 .sc-bullet::before{content:'→';color:var(--orange);font-weight:800;flex-shrink:0;font-size:.8rem}
@@ -167,7 +169,7 @@ section{padding:80px 40px}
 .hiw-step{position:relative;z-index:1;text-align:center}
 .hiw-num{width:56px;height:56px;border-radius:50%;background:var(--navy-dark);border:3px solid var(--orange);color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 4px 20px rgba(20,42,82,.25)}
 .hiw-title{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:10px}
-.hiw-body{font-size:.82rem;color:var(--gray);line-height:1.65}
+.hiw-body{font-size:.92rem;color:var(--gray);line-height:1.75}
 .hiw-cta{text-align:center;margin-top:56px}
 
 /* ── WHY NOT BIG GUYS ── */
@@ -229,7 +231,7 @@ section{padding:80px 40px}
 .review-card{background:var(--off-white);border-radius:12px;padding:28px;border:1px solid var(--light-gray);position:relative;transition:box-shadow .2s;display:flex;flex-direction:column}
 .review-card:hover{box-shadow:0 8px 30px rgba(0,0,0,.08)}
 .review-stars{color:var(--orange);font-size:1rem;letter-spacing:2px;margin-bottom:14px}
-.review-text{font-size:.87rem;line-height:1.7;color:var(--gray);margin-bottom:20px;font-style:italic;flex:1}
+.review-text{font-size:.93rem;line-height:1.75;color:var(--gray);margin-bottom:20px;font-style:italic;flex:1}
 .review-author{display:flex;align-items:center;gap:12px;margin-top:auto}
 .review-avatar{width:40px;height:40px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--orange-light);font-size:1.1rem}
 .review-name{font-weight:700;font-size:.85rem;color:var(--navy-dark)}
@@ -275,7 +277,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .footer-logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px;margin-bottom:16px}
 .footer-logo-card .logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
 .footer-logo-card .logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
-.footer-desc{font-size:.82rem;color:rgba(255,255,255,.45);line-height:1.7;margin-bottom:20px}
+.footer-desc{font-size:.82rem;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:20px}
 .footer-badges{display:flex;flex-wrap:wrap;gap:8px}
 .footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
 .footer-col-title{font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:16px}
@@ -333,6 +335,18 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .areas-grid .area-tag:nth-child(n+11){display:none}
   .areas-ky-label{display:none}
   .areas-grid[data-ky]{display:none}
+}
+
+/* ── STICKY MOBILE CTA ── */
+.mobile-cta-strip{display:none}
+@media(max-width:768px){
+  .mobile-cta-strip{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--navy-dark);border-top:3px solid var(--orange);padding:12px 16px 16px;gap:10px;align-items:center;justify-content:center}
+  .mobile-cta-strip a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 10px;border-radius:8px;font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;text-align:center}
+  .mobile-cta-call{background:var(--orange);color:white}
+  .mobile-cta-text{background:rgba(255,255,255,.08);color:white;border:1px solid rgba(255,255,255,.2)}
+  .mobile-cta-strip svg{width:16px;height:16px;flex-shrink:0}
+  /* Push footer content above the strip */
+  body{padding-bottom:80px}
 }
 
 /* ── HOMEPAGE SIDEBAR ───────────────────────────── */
@@ -536,14 +550,12 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   <div class="hero-content">
     <div class="hero-left">
       <div class="hero-badge">Cincinnati Area, OH</div>
-      <h1>One Call.<br><span>One Person.</span></h1>
-      <div class="hero-tagline">No Big Deal with Joe Deal</div>
+      <h1>Cincinnati Roofer.<br><span>Owner-Operated.</span></h1>
+      <div class="hero-tagline">One call. One person. No Big Deal with Joe Deal.</div>
       <p>Roofing, siding, gutters, and storm damage claims — handled personally, start to finish. Not a franchise. Not a call center. Just Joe Deal, and I'll take care of it.</p>
       <div class="hero-btns">
         <a href="tel:8594207382" class="btn-primary">📞 Call Joe — (859) 420-7382</a>
-        <a href="/estimate" class="btn-ghost" style="border-color:var(--orange);color:var(--orange);">⚡ Instant Estimate</a>
-        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-cal">📅 Schedule Inspection</a>
-        <a href="#contact" class="btn-ghost">Get an Estimate →</a>
+        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-ghost">📅 Schedule Inspection</a>
       </div>
       <div class="hero-trust">
         <div class="hero-trust-item">✅ Licensed &amp; Insured</div>
@@ -629,6 +641,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     <div class="services-grid">
 
       <div class="service-card reveal">
+        <span class="sc-badge">Most Requested</span>
         <span class="sc-icon">🏠</span>
         <div class="sc-title">Roof Replacement</div>
         <div class="sc-body">Full tear-off and installation using GAF Timberline shingles — lifetime manufacturer warranty on materials. We inspect for structural issues and handle insurance claims start to finish.</div>
@@ -639,7 +652,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Insurance claim assistance</li>
           <li class="sc-bullet">Lifetime labor guarantee — NBD backed, every package</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Roof Replacement">Request a Quote →</a>
+        <a href="/services/roof-replacement" class="sc-link" data-service="Roof Replacement">See Full Details →</a>
       </div>
 
       <div class="service-card reveal">
@@ -652,7 +665,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Storm damage response</li>
           <li class="sc-bullet">Pipe boot &amp; valley repair</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Roof Repair">Request a Quote →</a>
+        <a href="/services/roof-repair" class="sc-link" data-service="Roof Repair">See Full Details →</a>
       </div>
 
       <div class="service-card reveal">
@@ -665,7 +678,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">House wrap &amp; insulation upgrade</li>
           <li class="sc-bullet">Insurance claim support</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Siding Replacement">Request a Quote →</a>
+        <a href="/services/siding-replacement" class="sc-link" data-service="Siding Replacement">See Full Details →</a>
       </div>
 
       <div class="service-card reveal">
@@ -678,7 +691,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Storm &amp; impact damage repair</li>
           <li class="sc-bullet">Caulking &amp; sealing</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Siding Repair">Request a Quote →</a>
+        <a href="/services/siding-repair" class="sc-link" data-service="Siding Repair">See Full Details →</a>
       </div>
 
       <div class="service-card reveal">
@@ -691,10 +704,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Downspout installation</li>
           <li class="sc-bullet">Gutter guard options</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Gutter Replacement">Request a Quote →</a>
+        <a href="/services/gutter-replacement" class="sc-link" data-service="Gutter Replacement">See Full Details →</a>
       </div>
 
       <div class="service-card reveal">
+        <span class="sc-badge sc-badge-storm">Storm Claim?</span>
         <span class="sc-icon">⚡</span>
         <div class="sc-title">Storm Damage &amp; Insurance</div>
         <div class="sc-body">Storm hit your home? We document damage, assist with your insurance claim, and get your home back to 100%.</div>
@@ -704,7 +718,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Emergency tarping available</li>
           <li class="sc-bullet">Works with all major insurers</li>
         </ul>
-        <a href="#contact" class="sc-link" data-service="Storm Damage / Insurance Claim">Request a Quote →</a>
+        <a href="/services/storm-damage" class="sc-link" data-service="Storm Damage / Insurance Claim">See Full Details →</a>
       </div>
 
     </div>
@@ -804,10 +818,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     <div class="about-grid">
       <div class="about-img-block reveal">
         <div class="about-img-main">
-          <div class="about-ph">
-            <span class="ico">🏠</span>
-            <p>Your home deserves the best</p>
-          </div>
+          <img src="/assets/images/joe-hero.jpg" alt="Joe Deal — Owner &amp; Operator, No Big Deal Home Solutions" style="width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:16px;display:block;">
         </div>
         <div class="about-badge">
           <span class="big-num">5★</span>
@@ -1445,5 +1456,17 @@ async function submitForm(){
   }
 })();
 </script>
+
+<!-- STICKY MOBILE CTA STRIP -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+    Call Joe
+  </a>
+  <a href="sms:+18594207382" class="mobile-cta-text">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+    Text Us
+  </a>
+</div>
 </body>
 </html>

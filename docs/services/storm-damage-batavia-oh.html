@@ -53,10 +53,20 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:white;line-height:1.
 footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:40px;text-align:center}
 footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{color:var(--orange-light);text-decoration:none}
 @media(max-width:768px){nav{padding:0 16px;height:60px}.nav-links{display:none}section{padding:40px 20px}.hero-content{padding:48px 20px}h1{font-size:2.2rem}.steps{grid-template-columns:1fr 1fr}.btns{flex-direction:column;align-items:stretch}}
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
 </style>
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/services/storm-damage-batavia-oh">
 </head>
 <body>
+
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
 <nav><a href="/" class="nav-logo"><img src="/assets/images/nbd-logo.png" alt="NBD"><div class="nav-logo-text"><div class="brand">NO BIG DEAL</div><div class="sub">Home Solutions</div></div></a>
 <ul class="nav-links"><li><a href="/#services">Services</a></li><li><a href="/#reviews">Reviews</a></li><li><a href="/#areas">Areas</a></li><li><a href="/blog">Blog</a></li><li><a href="/#contact" class="nav-cta">Free Estimate →</a></li></ul></nav>
         <li><a href="/estimate" style="color:var(--orange);">Instant Estimate ⚡</a></li>
@@ -84,4 +94,20 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
 <div class="btns" style="justify-content:center"><a href="tel:8594207382" class="btn-p">📞 (859) 420-7382</a><a href="mailto:jd@nobigdealwithjoedeal.com" class="btn-g" style="border-color:rgba(255,255,255,.3);color:white">✉️ Email Joe</a></div></section>
 
 <footer><p>&copy; 2025 No Big Deal Home Solutions<br><a href="/services/storm-damage">Storm Damage Repair</a> · <a href="/areas/batavia-oh">Batavia Area</a> · <a href="tel:8594207382">(859) 420-7382</a> · <a href="/">nobigdealwithjoedeal.com</a></p></footer>
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
+</script>
 </body></html>

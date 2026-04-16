@@ -25,7 +25,10 @@ html { scroll-behavior: smooth; }
 body { font-family: 'Montserrat', sans-serif; color: #1a1a1a; background: var(--white); }
 a { text-decoration: none; color: inherit; }
 
-.ann-bar { background: var(--orange); color: var(--white); text-align: center; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; padding: 9px 16px; text-transform: uppercase; }
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
 
 nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); border-bottom: 3px solid var(--orange); padding: 0 5%; display: flex; align-items: center; justify-content: space-between; height: 70px; }
 .nav-logo { display: flex; align-items: center; gap: 10px; }
@@ -137,7 +140,11 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 </head>
 <body>
 
-<div class="ann-bar">⭐ Lifetime Labor Guarantee on Every Install — Roofing, Siding &amp; Gutters</div>
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
 
 <nav id="mainNav">
   <a href="/" class="nav-logo">
@@ -529,6 +536,22 @@ if (document.readyState === 'loading') {
 } else {
   renderPosts();
 }
+</script>
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
 </script>
 
 </body>

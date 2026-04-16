@@ -57,6 +57,11 @@
 html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
+
 /* NAV */
 nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,.4);height:70px}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
@@ -100,12 +105,12 @@ section{padding:64px 40px}
 .why-card{background:white;border:1px solid var(--light-gray);border-radius:10px;padding:24px;transition:box-shadow .2s}
 .why-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .why-card h3{font-size:.95rem;font-weight:700;color:var(--navy-dark);margin-bottom:6px}
-.why-card p{font-size:.82rem;color:var(--gray);line-height:1.6}
+.why-card p{font-size:.93rem;color:var(--gray);line-height:1.6}
 
 /* STORM INFO */
 .storm-section{border-left:4px solid var(--orange);padding-left:24px;margin:28px 0;background:rgba(232,114,12,.04);padding:24px 24px 24px 28px;border-radius:0 10px 10px 0}
 .storm-section h3{font-size:.95rem;font-weight:700;color:var(--navy-dark);margin-bottom:8px}
-.storm-section p{font-size:.85rem;color:var(--gray);line-height:1.7}
+.storm-section p{font-size:.93rem;color:var(--gray);line-height:1.7}
 
 /* SERVICES GRID */
 .svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
@@ -151,6 +156,12 @@ footer a{color:var(--orange-light);text-decoration:none}
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/areas/amelia-oh">
 </head>
 <body>
+
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -237,7 +248,7 @@ document.querySelector('.hamburger')?.addEventListener('click', function(){
       <h3>⛈️ Why Amelia roofs are at risk</h3>
       <p>Amelia sits on higher ground east of Batavia, catching storm systems as they sweep across Clermont County. The open farmland to the south provides no wind break, making Amelia roofs particularly vulnerable to straight-line wind events.</p>
     </div>
-    <p style="color:var(--gray);font-size:.88rem;line-height:1.7;margin-top:16px">
+    <p style="color:var(--gray);font-size:.93rem;line-height:1.7;margin-top:16px">
       <strong>Think your Amelia roof might have storm damage?</strong> Joe offers free roof inspections with photo documentation. If there's damage, he'll walk you through the insurance claim process step by step. If there isn't, he'll tell you honestly — no manufactured urgency.
     </p>
   </div>
@@ -332,5 +343,21 @@ document.querySelector('.hamburger')?.addEventListener('click', function(){
   <a href="tel:8594207382">(859) 420-7382</a> · <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a> · <a href="/">nobigdealwithjoedeal.com</a></p>
 </footer>
 
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
+</script>
 </body>
 </html>

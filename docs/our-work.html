@@ -28,8 +28,14 @@
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white)}
 a{text-decoration:none}
 
+/* ANN BAR */
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
+
 /* NAV */
-nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4)}
+nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4);border-bottom:3px solid var(--orange)}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}.nav-logo img{height:42px;border-radius:6px}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white}.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6)}
 .nav-links{display:flex;list-style:none;gap:24px;align-items:center}.nav-links a{color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600}
@@ -131,6 +137,12 @@ footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}footer a{co
 </style>
 </head>
 <body>
+
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -387,6 +399,22 @@ function filterProjects(cat, btn) {
     }
   });
 }
+</script>
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
 </script>
 </body>
 </html>

@@ -35,6 +35,10 @@
 :root{--navy:#1e3a6e;--navy-dark:#142a52;--navy-deep:#0c1e3a;--orange:#e8720c;--orange-light:#f08030;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:white;min-height:100vh;min-height:100dvh}
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
 .nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:64px}
 .nav-logo img{height:42px;border-radius:6px}
 .nav-links{display:flex;gap:24px;align-items:center}
@@ -95,7 +99,13 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:white
 }
 </style>
 </head>
-<body><!-- NAV -->
+<body>
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
+<!-- NAV -->
 <nav class="nav">
   <a href="/"><img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" class="nav-logo" style="height:42px;border-radius:6px;"></a>
   <div class="nav-links">
@@ -205,5 +215,21 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:white
   <p>&copy; 2026 No Big Deal Home Solutions &bull; <a href="/">nobigdealwithjoedeal.com</a> &bull; <a href="tel:8594207382">(859) 420-7382</a></p>
 </div>
 
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
+</script>
 </body>
 </html>

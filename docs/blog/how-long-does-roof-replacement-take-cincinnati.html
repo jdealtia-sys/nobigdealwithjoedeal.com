@@ -34,7 +34,10 @@
 html{scroll-behavior:smooth;}
 body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:var(--white);}
 a{text-decoration:none;color:inherit;}
-.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;}
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
 nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px;}
 .nav-logo{display:flex;align-items:center;gap:10px;}
 .nav-logo-badge{background:var(--orange);color:var(--white);font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
@@ -171,7 +174,11 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
   <meta property="og:url" content="https://www.nobigdealwithjoedeal.com/blog/architectural-shingles-vs-3-tab">
 </head>
 <body>
-<div class="ann-bar">📞 Call or Text Joe Directly — (859) 420-7382 · Free Estimates · No Pressure</div>
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+</div>
 <nav>
   <a href="/" class="nav-logo">
     <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
@@ -443,5 +450,21 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
   </div>
   <p style="margin-top:12px;font-size:.7rem;color:rgba(255,255,255,.4)">GAF Certified &#8226; Licensed &amp; Insured &#8226; 5-Star Rated</p>
 </div>
+<script>
+(function(){
+  const slides = document.querySelectorAll('.ann-slide');
+  let current = 0;
+  if(slides.length < 2) return;
+  setInterval(()=>{
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const prev = current;
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+    slides[current].classList.remove('exit');
+    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
+  }, 4000);
+})();
+</script>
 </body>
 </html>
