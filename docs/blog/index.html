@@ -201,10 +201,10 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 
     <aside class="sidebar">
     <div class="cta-sidebar">
-      <h3>Get a Free Estimate</h3>
+      <h3>Got a Roof Question?</h3>
       <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
-      <a href="/#contact">Get My Free Estimate →</a>
-      <a href="tel:8594207382" class="phone-link">📞 (859) 420-7382</a>
+      <a href="tel:8594207382">📞 Call Joe — (859) 420-7382</a>
+      <a href="/#contact" class="phone-link">Send a message →</a>
     </div>
 
     <div class="sidebar-card">
@@ -219,9 +219,9 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
   </div>
 
 <section style="background:var(--off-white);border-top:3px solid var(--orange);padding:48px 5%;text-align:center;">
-  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy);margin-bottom:8px;">Free Guide: Dominate Your Local Market</h2>
-  <p style="color:var(--gray-sub);font-size:.9rem;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;">12 proven systems. Zero ad spend. Built by a contractor who's done it.</p>
-  <a href="/free-guide/" style="display:inline-block;background:var(--orange);color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;">Get the Free Guide →</a>
+  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy);margin-bottom:8px;">Questions About Your Roof or a Claim?</h2>
+  <p style="color:var(--gray-sub);font-size:.9rem;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;">Skip the article. Call Joe — I'll give you a straight answer in two minutes.</p>
+  <a href="tel:8594207382" style="display:inline-block;background:var(--orange);color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;">📞 Call Joe — (859) 420-7382</a>
 </section>
 
 <footer>
@@ -295,6 +295,7 @@ const POSTS = [
     meta: "By Joe Deal · March 2026 · 9 min read",
     excerpt: "Outmarket bigger contractors with this 30-minute weekly system. Stack 4 trust signals, spy on competitors for free, and build an unfair advantage — no big budget needed.",
     published: "2026-03-21",
+    audience: "contractor",
   },
   {
     url: "/blog/ai-search-contractors-geo",
@@ -303,6 +304,7 @@ const POSTS = [
     meta: "By Joe Deal · March 2026 · 11 min read",
     excerpt: "AI search is changing how homeowners find contractors. Learn the 5 GEO rules, the 3-step audit, and the content strategy that gets you cited by ChatGPT and Google AI.",
     published: "2026-03-28",
+    audience: "contractor",
   },
   {
     url: "/blog/contractor-seo-90-day-fix",
@@ -311,6 +313,7 @@ const POSTS = [
     meta: "By Joe Deal · March 2026 · 10 min read",
     excerpt: "Your contractor website isn't ranking because of 3 fixable mistakes. Here's the exact 90-day SEO plan to go from invisible to page 1 — no agency required.",
     published: "2026-03-06",
+    audience: "contractor",
   },
   {
     url: "/blog/contractor-review-system",
@@ -319,6 +322,7 @@ const POSTS = [
     meta: "By Joe Deal · February 2026 · 8 min read",
     excerpt: "Get more 5-star reviews as a contractor with this automated 3-step system. SMS templates, email follow-ups, and the velocity principle that beats volume every time.",
     published: "2026-02-27",
+    audience: "contractor",
   },
   {
     url: "/blog/google-maps-contractor-ranking",
@@ -327,6 +331,7 @@ const POSTS = [
     meta: "By Joe Deal · March 2026 · 9 min read",
     excerpt: "Rank higher on Google Maps as a contractor. Learn the 7-day GBP routine, hyperlocal suburb strategy, and the 3 ranking factors that matter. No ad spend needed.",
     published: "2026-03-13",
+    audience: "contractor",
   },
   {
     url: "/blog/how-to-file-storm-damage-insurance-claim-ohio",
@@ -490,7 +495,10 @@ function buildCard(post) {
 function renderPosts() {
   const grid = document.getElementById('blog-posts-grid');
   if (!grid) return;
-  grid.innerHTML = POSTS.map(buildCard).join('');
+  // Homeowner blog — filter out any posts flagged for contractor audience.
+  // Contractor-audience posts stay in the POSTS array for a future NBD Pro blog.
+  const homeownerPosts = POSTS.filter(p => p.audience !== 'contractor');
+  grid.innerHTML = homeownerPosts.map(buildCard).join('');
   startCountdowns();
 }
 
