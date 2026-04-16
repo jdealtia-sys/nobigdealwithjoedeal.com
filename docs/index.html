@@ -308,23 +308,31 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 }
 @media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}}
 @media(max-width:768px){
-  section{padding:60px 20px}
+  section{padding:44px 20px}
   nav{padding:0 20px}
   .nav-links{display:none}
   .hamburger{display:flex}
-  .hero-content{padding:60px 20px}
-  .services-grid{grid-template-columns:1fr}
-  .hiw-grid{grid-template-columns:1fr 1fr}
+  .hero-content{padding:52px 20px}
+  .section-header{margin-bottom:36px}
+  .services-grid{grid-template-columns:1fr;gap:16px}
+  .service-card{padding:22px 20px}
+  .sc-bullets{margin-bottom:14px}
+  .hiw-grid{grid-template-columns:1fr 1fr;gap:20px}
+  .hiw-step{padding-bottom:0}
   .compare-table{grid-template-columns:1fr auto 1fr}
-  .reviews-grid{grid-template-columns:1fr}
+  .reviews-grid{grid-template-columns:1fr;gap:16px}
   .trust-bar-inner{flex-wrap:wrap}
-  .trust-item{border-right:none;border-bottom:1px solid rgba(255,255,255,.08);justify-content:flex-start}
+  .trust-item{border-right:none;border-bottom:1px solid rgba(255,255,255,.08);justify-content:flex-start;padding:14px}
   footer{padding:40px 20px 0}
-  .footer-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr;gap:28px}
   .footer-bottom{flex-direction:column;gap:12px;text-align:center}
-  .areas-contact{grid-template-columns:1fr 1fr}
+  .areas-contact{grid-template-columns:1fr 1fr;gap:14px}
   .form-row{grid-template-columns:1fr}
   .ann-bar{font-size:.68rem}
+  /* Hide overflow city tags on mobile — show 10 most common, then link to full list */
+  .areas-grid .area-tag:nth-child(n+11){display:none}
+  .areas-ky-label{display:none}
+  .areas-grid[data-ky]{display:none}
 }
 
 /* ── HOMEPAGE SIDEBAR ───────────────────────────── */
@@ -804,11 +812,14 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     <div class="areas-ky-label reveal" style="text-align:center;margin:18px 0 10px;">
       <span style="font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);background:rgba(232,114,12,.1);padding:5px 18px;border-radius:100px;border:1px solid rgba(232,114,12,.25);">Also Serving Northern Kentucky</span>
     </div>
-    <div class="areas-grid reveal" style="max-width:600px;margin:0 auto;">
+    <div class="areas-grid reveal" data-ky="true" style="max-width:600px;margin:0 auto;">
       <a href="/areas/florence-ky" class="area-tag" style="text-decoration:none;color:inherit;">Florence, KY</a>
       <a href="/areas/erlanger-ky" class="area-tag" style="text-decoration:none;color:inherit;">Erlanger, KY</a>
       <a href="/areas/covington-ky" class="area-tag" style="text-decoration:none;color:inherit;">Covington, KY</a>
       <a href="/areas/fort-mitchell-ky" class="area-tag" style="text-decoration:none;color:inherit;">Fort Mitchell, KY</a>
+    </div>
+    <div class="areas-view-all reveal" style="text-align:center;margin:20px 0 28px;">
+      <a href="/areas/" style="display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;padding:10px 22px;border-radius:100px;font-size:.82rem;font-weight:700;text-decoration:none;letter-spacing:.04em;">View All 25+ Cities →</a>
     </div>
     <div class="areas-contact reveal">
       <div class="areas-contact-item">
