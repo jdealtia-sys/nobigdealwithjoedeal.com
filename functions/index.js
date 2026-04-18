@@ -2465,3 +2465,16 @@ exports.cspReport = onRequest(
 const funnelRecovery = require('./funnel-recovery');
 exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
 exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
+
+// ═══════════════════════════════════════════════════════════════
+// VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
+// ═══════════════════════════════════════════════════════════════
+//
+// Real AI-edited image of the user's home (replaces the old canvas
+// color-filter fake "visualization"). ~$0.02-$0.04 per call.
+//
+// Ships DISABLED by default. Set VISUALIZER_IMAGEGEN_ENABLED=true on
+// the visualizerImageGen Cloud Run revision to go live (requires the
+// GOOGLE_AI_API_KEY secret populated first).
+const visualizerImageGen = require('./visualizer-image-gen');
+exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;

@@ -761,40 +761,41 @@ async function runVisualizer() {
     features.includes('doors') ? 'Front door: new front door' : '',
   ].filter(Boolean).join('; ');
 
-  // Call the publicVisualizerAI Cloud Function. It requires an App Check
-  // token (reCAPTCHA Enterprise on the web), which is attached automatically
-  // by the Firebase App Check SDK loaded in <head>.
+  // Call BOTH endpoints in parallel:
+  //   1. publicVisualizerAI → Joe's text assessment (Claude, ~2s)
+  //   2. visualizerImageGen → real AI-edited image (Gemini 2.5 Flash Image, ~5s)
+  //
+  // The image endpoint is gated by a server-side feature flag — when off
+  // it returns 503 and we fall back to the canvas color filter below.
+  const base64 = uploadedDataUrl.split(',')[1];
+  const mediaType = uploadedDataUrl.split(';')[0].split(':')[1];
+  const FUNCTIONS_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+
+  // Get the App Check token (shared across both requests). Silent-fail
+  // is fine — the endpoints don't currently enforce App Check.
+  let appCheckToken = '';
+  if (window._nbdAppCheck) {
+    try {
+      const tokenResult = await window._nbdGetAppCheckToken(window._nbdAppCheck);
+      appCheckToken = tokenResult && tokenResult.token ? tokenResult.token : '';
+    } catch (_) { /* continue — request will still send */ }
+  }
+  const commonHeaders = {
+    'Content-Type': 'application/json',
+    ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+  };
+
   let aiText = '';
   let canvasDescription = '';
-  try {
-    const base64 = uploadedDataUrl.split(',')[1];
-    const mediaType = uploadedDataUrl.split(';')[0].split(':')[1];
+  let generatedImageDataUrl = null;   // set when Gemini image gen succeeds
 
-    // Get the App Check token — the function returns 401 without it.
-    let appCheckToken = '';
-    if (window._nbdAppCheck) {
-      try {
-        const tokenResult = await window._nbdGetAppCheckToken(window._nbdAppCheck);
-        appCheckToken = tokenResult && tokenResult.token ? tokenResult.token : '';
-      } catch (_) { /* fall through — function will reject and we show fallback */ }
-    }
-
-    const response = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/publicVisualizerAI', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
-      },
-      body: JSON.stringify({
-        imageBase64: base64,
-        mediaType,
-        selectionsText,
-        notes,
-      }),
-    });
-
+  // ── Text analysis (Claude) ─────────────────────────────────────
+  const textPromise = fetch(FUNCTIONS_BASE + '/publicVisualizerAI', {
+    method: 'POST',
+    headers: commonHeaders,
+    body: JSON.stringify({ imageBase64: base64, mediaType, selectionsText, notes }),
+  }).then(async (response) => {
     if (!response.ok) {
-      // Keep specific status on the error so the catch block can pick the right user message.
       const err = new Error('visualizer_failed_' + response.status);
       err.status = response.status;
       throw err;
@@ -802,13 +803,48 @@ async function runVisualizer() {
     const data = await response.json();
     const fullText = data.text || '';
     const canvasIdx = fullText.indexOf('CANVAS:');
-    aiText = canvasIdx > -1 ? fullText.substring(0, canvasIdx).trim() : fullText;
-    canvasDescription = canvasIdx > -1 ? fullText.substring(canvasIdx + 7).trim() : '';
-  } catch (err) {
-    // Tailor the fallback message to the actual failure so users know whether
-    // to retry, pick a smaller photo, or just call Joe.
+    return {
+      aiText: canvasIdx > -1 ? fullText.substring(0, canvasIdx).trim() : fullText,
+      canvasDescription: canvasIdx > -1 ? fullText.substring(canvasIdx + 7).trim() : '',
+    };
+  });
+
+  // ── Image generation (Gemini 2.5 Flash Image) ──────────────────
+  const imagePromise = fetch(FUNCTIONS_BASE + '/visualizerImageGen', {
+    method: 'POST',
+    headers: commonHeaders,
+    body: JSON.stringify({
+      imageBase64: base64,
+      mediaType,
+      features: state.features,
+      roofStyle:   state.roofStyle,
+      roofColor:   state.roofColor,
+      sidingStyle: state.sidingStyle,
+      sidingColor: state.sidingColor,
+      gutterColor: state.gutterColor,
+      notes,
+    }),
+  }).then(async (response) => {
+    if (!response.ok) {
+      const err = new Error('image_gen_failed_' + response.status);
+      err.status = response.status;
+      throw err;
+    }
+    const data = await response.json();
+    if (!data.imageBase64) throw new Error('image_gen_empty');
+    return 'data:' + (data.mediaType || 'image/png') + ';base64,' + data.imageBase64;
+  });
+
+  // Await both; one failure shouldn't crash the other path.
+  const [textResult, imageResult] = await Promise.allSettled([textPromise, imagePromise]);
+
+  if (textResult.status === 'fulfilled') {
+    aiText = textResult.value.aiText;
+    canvasDescription = textResult.value.canvasDescription;
+  } else {
+    const err = textResult.reason || {};
     if (err && err.status === 413) {
-      aiText = "That photo is too large for the AI to process. Try a different one — most phone camera photos work fine. If the new resize isn't shrinking it enough, give Joe a call at (859) 420-7382 and he'll review it for you directly.";
+      aiText = "That photo is too large for the AI to process. Try a different one — most phone camera photos work fine. If it still doesn't work, give Joe a call at (859) 420-7382 and he'll review it for you directly.";
     } else if (err && err.status === 429) {
       aiText = "You've hit the hourly limit for the free visualizer (5 photos per hour). Come back in an hour, or just give Joe a call at (859) 420-7382 — he'll walk you through what your selections would look like.";
     } else if (err && err.status >= 500) {
@@ -817,6 +853,12 @@ async function runVisualizer() {
       aiText = "We're having trouble connecting to the AI right now. Based on your selections, you've got great taste — that combination works well on most Ohio homes. Give Joe a call at (859) 420-7382 and he'll walk you through exactly what it would look like in person.";
     }
   }
+
+  if (imageResult.status === 'fulfilled') {
+    generatedImageDataUrl = imageResult.value;
+  }
+  // If image gen fails, generatedImageDataUrl stays null and the canvas
+  // color-filter code below runs as a fallback (same behavior as pre-Gemini).
 
   clearInterval(stepInterval);
   steps.forEach(s => document.getElementById(s).className = 'loading-step done');
@@ -829,15 +871,60 @@ async function runVisualizer() {
   // Set original image
   document.getElementById('resultOriginalImg').src = uploadedDataUrl;
 
-  // Draw canvas visualization
+  // ── Render the AFTER image ────────────────────────────────────
+  // When Gemini image gen succeeded, render the real edited photo
+  // directly onto the canvas at its natural resolution (no filter).
+  // When it failed, fall through to the legacy canvas color-filter
+  // so users always see SOMETHING.
   const canvas = document.getElementById('resultCanvas');
   const ctx = canvas.getContext('2d');
   const container = document.getElementById('resultAiOutput');
   canvas.width = container.offsetWidth || 500;
   canvas.height = container.offsetHeight || 280;
 
+  if (generatedImageDataUrl) {
+    // Real Gemini-generated image — draw it at canvas size preserving
+    // aspect ratio via cover-fit.
+    const realImg = new Image();
+    realImg.onload = () => {
+      // Cover-fit: fill the canvas while preserving aspect
+      const srcRatio = realImg.naturalWidth / realImg.naturalHeight;
+      const dstRatio = canvas.width / canvas.height;
+      let drawW, drawH, drawX, drawY;
+      if (srcRatio > dstRatio) {
+        drawH = canvas.height;
+        drawW = drawH * srcRatio;
+        drawX = (canvas.width - drawW) / 2;
+        drawY = 0;
+      } else {
+        drawW = canvas.width;
+        drawH = drawW / srcRatio;
+        drawX = 0;
+        drawY = (canvas.height - drawH) / 2;
+      }
+      ctx.drawImage(realImg, drawX, drawY, drawW, drawH);
+      // Subtle watermark so it's clear this is AI-generated
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 11px Montserrat, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✨ AI Visualization — For Reference Only', canvas.width / 2, canvas.height - 10);
+    };
+    realImg.src = generatedImageDataUrl;
+    // Skip the legacy canvas-filter code below by returning early
+    // from the onload path. The `return` guards the remainder of
+    // this function so we don't run the legacy filter over it.
+    // (Using the img.onload pattern below still works identically for
+    // the non-Gemini fallback path.)
+  }
+
   const img = new Image();
   img.onload = () => {
+    // Fallback path (legacy canvas color filter) — only runs when
+    // Gemini didn't produce an image. Visually identical to the
+    // pre-Gemini build.
+    if (generatedImageDataUrl) return; // already rendered the real image
     // Draw original image as base
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
