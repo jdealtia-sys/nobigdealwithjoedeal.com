@@ -598,17 +598,71 @@ uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag
 uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) handleFile(f); });
 fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
 
-function handleFile(file) {
+// Max dimensions + target bytes for the backend (AI endpoint rejects
+// anything over ~1.5 MB base64 which is ~1.1 MB raw). Modern phone
+// photos are 3-10 MB, so client-side resize is mandatory.
+const MAX_UPLOAD_EDGE = 1600;     // max pixels on the longest edge
+const MAX_UPLOAD_BYTES = 1_100_000; // raw bytes before base64 inflation (leaves headroom)
+const JPEG_QUALITY_START = 0.85;
+
+async function resizeAndCompress(file) {
+  // Load the file into an Image element via object URL
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Could not read that image — try a different photo.'));
+      i.src = objectUrl;
+    });
+
+    // Compute resize target — only downscale, never upscale
+    const longest = Math.max(img.naturalWidth, img.naturalHeight);
+    const scale = longest > MAX_UPLOAD_EDGE ? MAX_UPLOAD_EDGE / longest : 1;
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // Iteratively drop quality until size is under limit (rare — 1600px @ 0.85 is almost always under)
+    let quality = JPEG_QUALITY_START;
+    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+    while (dataUrl.length * 0.75 > MAX_UPLOAD_BYTES && quality > 0.45) {
+      quality = Math.max(0.45, quality - 0.1);
+      dataUrl = canvas.toDataURL('image/jpeg', quality);
+    }
+
+    return { dataUrl, width: w, height: h, quality };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function handleFile(file) {
   uploadedFile = file;
-  const reader = new FileReader();
-  reader.onload = e => {
-    uploadedDataUrl = e.target.result;
-    previewImg.src = uploadedDataUrl;
+  // Show a quick "processing" hint on the zone in case resize takes >200ms on slow devices
+  const hint = document.createElement('div');
+  hint.className = 'upload-hint-temp';
+  hint.style.cssText = 'font-size:.78rem;color:var(--gray);margin-top:8px;';
+  hint.textContent = 'Processing photo…';
+  try { uploadZone.appendChild(hint); } catch (_) {}
+
+  try {
+    const { dataUrl } = await resizeAndCompress(file);
+    uploadedDataUrl = dataUrl;
+    previewImg.src = dataUrl;
     uploadZone.style.display = 'none';
     previewContainer.style.display = 'block';
     toStep2Btn.disabled = false;
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    alert(err.message || 'That image could not be used. Please try another photo.');
+  } finally {
+    try { hint.remove(); } catch (_) {}
+  }
 }
 
 function resetUpload() {
@@ -739,14 +793,29 @@ async function runVisualizer() {
       }),
     });
 
-    if (!response.ok) throw new Error('visualizer_failed_' + response.status);
+    if (!response.ok) {
+      // Keep specific status on the error so the catch block can pick the right user message.
+      const err = new Error('visualizer_failed_' + response.status);
+      err.status = response.status;
+      throw err;
+    }
     const data = await response.json();
     const fullText = data.text || '';
     const canvasIdx = fullText.indexOf('CANVAS:');
     aiText = canvasIdx > -1 ? fullText.substring(0, canvasIdx).trim() : fullText;
     canvasDescription = canvasIdx > -1 ? fullText.substring(canvasIdx + 7).trim() : '';
   } catch (err) {
-    aiText = "We're having trouble connecting to the AI right now. Based on your selections, you've got great taste — that combination works well on most Ohio homes. Give Joe a call and he'll walk you through exactly what it would look like in person.";
+    // Tailor the fallback message to the actual failure so users know whether
+    // to retry, pick a smaller photo, or just call Joe.
+    if (err && err.status === 413) {
+      aiText = "That photo is too large for the AI to process. Try a different one — most phone camera photos work fine. If the new resize isn't shrinking it enough, give Joe a call at (859) 420-7382 and he'll review it for you directly.";
+    } else if (err && err.status === 429) {
+      aiText = "You've hit the hourly limit for the free visualizer (5 photos per hour). Come back in an hour, or just give Joe a call at (859) 420-7382 — he'll walk you through what your selections would look like.";
+    } else if (err && err.status >= 500) {
+      aiText = "The AI service is having a hiccup on our end. Based on your selections, you've got solid taste — that combination works well on most Ohio homes. Give Joe a call at (859) 420-7382 and he'll walk you through exactly what it would look like.";
+    } else {
+      aiText = "We're having trouble connecting to the AI right now. Based on your selections, you've got great taste — that combination works well on most Ohio homes. Give Joe a call at (859) 420-7382 and he'll walk you through exactly what it would look like in person.";
+    }
   }
 
   clearInterval(stepInterval);
