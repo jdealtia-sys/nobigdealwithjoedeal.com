@@ -138,8 +138,10 @@ section{padding:80px 40px}
 /* ── TRUST BAR ── */
 .trust-bar{background:var(--navy);border-top:3px solid var(--orange)}
 .trust-bar-inner{max-width:1200px;margin:0 auto;padding:0 40px;display:flex;align-items:stretch;justify-content:space-around}
-.trust-item{display:flex;align-items:center;gap:14px;padding:20px 16px;color:white;border-right:1px solid rgba(255,255,255,.08);flex:1;justify-content:center}
+.trust-item{display:flex;align-items:center;gap:14px;padding:20px 16px;color:white;border-right:1px solid rgba(255,255,255,.08);flex:1;justify-content:center;text-decoration:none;transition:background .2s}
 .trust-item:last-child{border-right:none}
+a.trust-item:hover{background:rgba(232,114,12,.08)}
+a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .trust-icon{width:38px;height:38px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem}
 .trust-text strong{display:block;font-size:.82rem;font-weight:700;letter-spacing:.04em}
 .trust-text span{font-size:.7rem;color:rgba(255,255,255,.72)}
@@ -147,20 +149,22 @@ section{padding:80px 40px}
 /* ── SERVICES ── */
 .services-section{background:var(--off-white)}
 .services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-.service-card{background:white;border-radius:12px;border:1px solid var(--light-gray);padding:28px 24px;transition:all .28s;position:relative;overflow:hidden}
+.service-card{background:white;border-radius:12px;border:1px solid var(--light-gray);padding:28px 24px;transition:all .28s;position:relative;overflow:hidden;display:block;text-decoration:none;color:inherit;cursor:pointer}
+.service-card:hover .sc-link{gap:10px}
+.service-card:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
 .service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--orange);transform:scaleX(0);transition:transform .28s;transform-origin:left}
 .service-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.1);border-color:transparent}
 .service-card:hover::before{transform:scaleX(1)}
 .sc-badge{position:absolute;top:14px;right:14px;background:var(--orange);color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
 .sc-badge.sc-badge-storm{background:var(--navy-dark)}
-.sc-icon{font-size:2rem;margin-bottom:14px;display:block}
+.sc-icon{width:44px;height:44px;margin-bottom:16px;display:block;color:var(--navy-dark);stroke-width:2;flex-shrink:0}
+.service-card:hover .sc-icon{color:var(--orange);transition:color .28s}
 .sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:10px}
 .sc-body{font-size:.93rem;color:var(--gray);line-height:1.7;margin-bottom:18px}
 .sc-bullets{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
 .sc-bullet{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;color:var(--gray-sub)}
 .sc-bullet::before{content:'→';color:var(--orange);font-weight:800;flex-shrink:0;font-size:.8rem}
-.sc-link{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--orange);text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:gap .2s}
-.sc-link:hover{gap:10px}
+.sc-link{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--orange);text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:gap .2s;margin-top:auto}
 
 /* ── HOW IT WORKS ── */
 .hiw-section{background:white}
@@ -520,13 +524,14 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   </a>
 
   <ul class="nav-links" id="navLinks">
-    <li><a href="#services">Services</a></li>
-    <li><a href="#about">About Joe</a></li>
-    <li><a href="#reviews">Reviews</a></li>
-    <li><a href="#areas">Service Areas</a></li>
+    <li><a href="/#services">Services</a></li>
+    <li><a href="/#about">About Joe</a></li>
+    <li><a href="/#reviews">Reviews</a></li>
+    <li><a href="/services/financing">Financing</a></li>
+    <li><a href="/#areas">Service Areas</a></li>
     <li><a href="/our-work">Our Work</a></li>
         <li><a href="/blog">Blog</a></li>
-        <li><a href="#contact" class="nav-cta">Free Estimate →</a></li>
+        <li><a href="/estimate" class="nav-cta">Free Estimate →</a></li>
   </ul>
 
   <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
@@ -536,11 +541,12 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 
 <!-- MOBILE NAV -->
 <div class="mobile-nav" id="mobileNav">
-  <a href="#services" onclick="closeMobileNav()">Services</a>
-  <a href="#about" onclick="closeMobileNav()">About Joe</a>
-  <a href="#reviews" onclick="closeMobileNav()">Reviews</a>
-  <a href="#areas" onclick="closeMobileNav()">Service Areas</a>
-  <a href="#contact" class="mobile-cta-btn" onclick="closeMobileNav()">📞 Get a Free Estimate</a>
+  <a href="/#services" onclick="closeMobileNav()">Services</a>
+  <a href="/#about" onclick="closeMobileNav()">About Joe</a>
+  <a href="/#reviews" onclick="closeMobileNav()">Reviews</a>
+  <a href="/services/financing" onclick="closeMobileNav()">Financing</a>
+  <a href="/#areas" onclick="closeMobileNav()">Service Areas</a>
+  <a href="/estimate" class="mobile-cta-btn" onclick="closeMobileNav()">📞 Get My Free Estimate</a>
 </div>
 
 <!-- HERO -->
@@ -557,6 +563,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <a href="tel:8594207382" class="btn-primary">📞 Call Joe — (859) 420-7382</a>
         <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-ghost">📅 Schedule Inspection</a>
       </div>
+      <div class="hero-btns-sub" style="font-size:.82rem;color:rgba(255,255,255,.7);margin-top:10px;">📅 Or book directly — free, 30 min, no pressure.</div>
       <div class="hero-trust">
         <div class="hero-trust-item">✅ Licensed &amp; Insured</div>
         <div class="hero-trust-dot"></div>
@@ -623,10 +630,10 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
       <div class="trust-icon">⭐</div>
       <div class="trust-text"><strong>5-Star Rated</strong><span>Honest quotes, real results</span></div>
     </div>
-    <div class="trust-item">
+    <a href="/services/financing" class="trust-item">
       <div class="trust-icon">💰</div>
       <div class="trust-text"><strong>0% Financing</strong><span>Available through Improvifi</span></div>
-    </div>
+    </a>
   </div>
 </div>
 
@@ -640,9 +647,9 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     </div>
     <div class="services-grid">
 
-      <div class="service-card reveal">
+      <a href="/services/roof-replacement" class="service-card reveal">
         <span class="sc-badge">Most Requested</span>
-        <span class="sc-icon">🏠</span>
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <div class="sc-title">Roof Replacement</div>
         <div class="sc-body">Full tear-off and installation using GAF Timberline shingles — lifetime manufacturer warranty on materials. We inspect for structural issues and handle insurance claims start to finish.</div>
         <ul class="sc-bullets">
@@ -652,11 +659,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Insurance claim assistance</li>
           <li class="sc-bullet">Lifetime labor guarantee — NBD backed, every package</li>
         </ul>
-        <a href="/services/roof-replacement" class="sc-link" data-service="Roof Replacement">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
-      <div class="service-card reveal">
-        <span class="sc-icon">🔧</span>
+      <a href="/services/roof-repair" class="service-card reveal">
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         <div class="sc-title">Roof Repair</div>
         <div class="sc-body">Leaks, missing shingles, flashing problems — we fix what others won't. We believe in repair when repair is the right call.</div>
         <ul class="sc-bullets">
@@ -665,11 +672,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Storm damage response</li>
           <li class="sc-bullet">Pipe boot &amp; valley repair</li>
         </ul>
-        <a href="/services/roof-repair" class="sc-link" data-service="Roof Repair">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
-      <div class="service-card reveal">
-        <span class="sc-icon">🏡</span>
+      <a href="/services/siding-replacement" class="service-card reveal">
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
         <div class="sc-title">Siding Replacement</div>
         <div class="sc-body">Vinyl, shake, dutch lap, reverse board batten and more. We use trusted brands like Polaris and Royal and help with insurance claims.</div>
         <ul class="sc-bullets">
@@ -678,11 +685,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">House wrap &amp; insulation upgrade</li>
           <li class="sc-bullet">Insurance claim support</li>
         </ul>
-        <a href="/services/siding-replacement" class="sc-link" data-service="Siding Replacement">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
-      <div class="service-card reveal">
-        <span class="sc-icon">🛠️</span>
+      <a href="/services/siding-repair" class="service-card reveal">
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 12-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/></svg>
         <div class="sc-title">Siding Repair</div>
         <div class="sc-body">Cracked panels, loose boards, gaps from weather — we fix the problem without pushing a full replacement you don't need.</div>
         <ul class="sc-bullets">
@@ -691,11 +698,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Storm &amp; impact damage repair</li>
           <li class="sc-bullet">Caulking &amp; sealing</li>
         </ul>
-        <a href="/services/siding-repair" class="sc-link" data-service="Siding Repair">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
-      <div class="service-card reveal">
-        <span class="sc-icon">🌧️</span>
+      <a href="/services/gutter-replacement" class="service-card reveal">
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>
         <div class="sc-title">Gutter Replacement</div>
         <div class="sc-body">Custom-cut seamless gutters installed on-site. Fewer joints means fewer leaks and less maintenance year after year.</div>
         <ul class="sc-bullets">
@@ -704,12 +711,12 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Downspout installation</li>
           <li class="sc-bullet">Gutter guard options</li>
         </ul>
-        <a href="/services/gutter-replacement" class="sc-link" data-service="Gutter Replacement">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
-      <div class="service-card reveal">
+      <a href="/services/storm-damage" class="service-card reveal">
         <span class="sc-badge sc-badge-storm">Storm Claim?</span>
-        <span class="sc-icon">⚡</span>
+        <svg class="sc-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>
         <div class="sc-title">Storm Damage &amp; Insurance</div>
         <div class="sc-body">Storm hit your home? We document damage, assist with your insurance claim, and get your home back to 100%.</div>
         <ul class="sc-bullets">
@@ -718,8 +725,8 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <li class="sc-bullet">Emergency tarping available</li>
           <li class="sc-bullet">Works with all major insurers</li>
         </ul>
-        <a href="/services/storm-damage" class="sc-link" data-service="Storm Damage / Insurance Claim">See Full Details →</a>
-      </div>
+        <span class="sc-link">See Full Details →</span>
+      </a>
 
     </div>
   </div>
@@ -756,7 +763,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
       </div>
     </div>
     <div class="hiw-cta reveal" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <a href="#contact" class="btn-primary">Get Your Free Estimate →</a>
+      <a href="/#contact" class="btn-primary">Get My Free Estimate →</a>
       <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background:var(--navy);border:2px solid var(--orange);">📅 Pick a Time Online →</a>
     </div>
   </div>
@@ -807,7 +814,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 
     <div class="compare-cta reveal">
       <p>Ready to work with someone who just does the job right?</p>
-      <a href="#contact" class="btn-primary">Get a Free Honest Estimate →</a>
+      <a href="/#contact" class="btn-primary">Get My Free Estimate →</a>
     </div>
   </div>
 </section>
@@ -847,7 +854,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
             <div class="about-result-text">Number of people who answers the phone when you call. Joe. Not a call center — Joe.</div>
           </div>
         </div>
-        <a href="#contact" class="btn-primary">Talk to Joe Today →</a>
+        <a href="/#contact" class="btn-primary">Talk to Joe Today →</a>
       </div>
     </div>
   </div>
@@ -942,7 +949,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="reviews-score">5.0 / 5.0</div>
         <div class="reviews-score-sub">Based on Google Reviews</div>
       </div>
-      <a href="#contact" class="btn-primary" style="margin-left:auto">Get Your Free Estimate →</a>
+      <a href="/#contact" class="btn-primary" style="margin-left:auto">Get My Free Estimate →</a>
     </div>
     <div class="reviews-grid">
       <div class="review-card reveal">
@@ -1105,7 +1112,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
             <div style="position:absolute;left:-9999px;"><label>Leave blank</label><input type="text" id="fieldWebsite" tabindex="-1" autocomplete="off"></div>
-            <button class="form-submit" onclick="submitForm()">Send My Free Estimate Request →</button>
+            <button class="form-submit" onclick="submitForm()">Get My Free Estimate →</button>
             <p class="form-note">🔒 No spam, no pressure. Joe will reach out personally — usually same day.</p>
           </div>
         </div>
@@ -1116,7 +1123,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="hs-cta">
           <h3>Free Estimate</h3>
           <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
-          <a href="#contact" class="hs-btn">Get My Free Estimate →</a>
+          <a href="/#contact" class="hs-btn">Get My Free Estimate →</a>
           <a href="tel:8594207382" class="hs-phone">📞 (859) 420-7382</a>
         </div>
 
@@ -1348,30 +1355,8 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
   });
 });
 
-// ── SERVICE CARD PRE-FILL ──
-// Clicking "Request a Quote →" on a service card scrolls to the form
-// and pre-selects that service in the dropdown.
-document.querySelectorAll('.sc-link[data-service]').forEach(link=>{
-  link.addEventListener('click', e=>{
-    e.preventDefault();
-    const svc = link.getAttribute('data-service');
-    const select = document.getElementById('fieldService');
-    if(select && svc){
-      // Find the matching option
-      Array.from(select.options).forEach(opt=>{
-        if(opt.text === svc) opt.selected = true;
-      });
-    }
-    const contact = document.getElementById('contact');
-    if(contact){
-      const navH = document.getElementById('mainNav')?.offsetHeight || 70;
-      const y = contact.getBoundingClientRect().top + window.scrollY - navH - 12;
-      window.scrollTo({top:y, behavior:'smooth'});
-    }
-    // Focus the message box so user can type right away
-    setTimeout(()=>{ document.getElementById('fieldMessage')?.focus(); }, 600);
-  });
-});
+// Service cards are now full-card anchors linking to /services/* detail pages.
+// (The old pre-fill-form intercept was removed so the detail pages finally get traffic.)
 
 // ── CONTACT FORM — FormSubmit ──
 // FormSubmit.co forwards submissions to jd@nobigdealwithjoedeal.com
@@ -1430,7 +1415,7 @@ async function submitForm(){
       throw new Error('Server error');
     }
   } catch(err){
-    btn.textContent = 'Send My Free Estimate Request →';
+    btn.textContent = 'Get My Free Estimate →';
     btn.disabled = false;
     alert('Something went wrong. Please call or text Joe directly at (859) 420-7382.');
   }
