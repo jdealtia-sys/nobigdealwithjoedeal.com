@@ -2451,3 +2451,17 @@ exports.cspReport = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// ABANDONED FUNNEL RECOVERY — /estimate partial-state + hourly sender
+// ═══════════════════════════════════════════════════════════════
+//
+// Re-exports from functions/funnel-recovery.js:
+//   - saveFunnelProgress (onRequest) — client saves partial state
+//   - runAbandonRecovery (onSchedule) — hourly recovery email sender
+//
+// Ships DRY-RUN by default. Set FUNNEL_RECOVERY_ENABLED=true on the
+// runAbandonRecovery Cloud Run revision to go live.
+const funnelRecovery = require('./funnel-recovery');
+exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
+exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;

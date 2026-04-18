@@ -578,6 +578,26 @@ window._notifyJoe = async (leadData) => {
     console.warn('Joe notification failed:', e);
   }
 };
+
+// Abandoned funnel recovery — silently save partial state so we can
+// send a warm recovery email an hour later if they don't complete.
+// Single-fire-per-value debouncing handled at the call site.
+window._saveFunnelProgress = async (payload) => {
+  try {
+    const base = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+    await fetch(base + '/saveFunnelProgress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      // `keepalive:true` so the request still fires if the user navigates
+      // away immediately after typing their email.
+      keepalive: true
+    });
+  } catch (e) {
+    // Fire-and-forget — abandonment capture is a nice-to-have, never
+    // block the funnel UX on it.
+  }
+};
 </script>
 
 <!-- ═══════════════════════ MAIN SCRIPT ═══════════════════════ -->
@@ -591,6 +611,19 @@ const CONFIG = {
 };
 
 /* ── State ── */
+// Generate a stable per-session funnelId for abandoned-funnel recovery.
+// Uses crypto.randomUUID where available (all modern browsers over HTTPS)
+// and falls back to a Math.random hex ID on older runtimes.
+const _funnelId = (function () {
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+  } catch (e) {}
+  return 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+})();
+let _lastProgressEmail = '';
+
 let currentStep = 1;
 let funnelData = {
   address: '',
@@ -956,6 +989,25 @@ function checkSubmitReady() {
 });
 document.getElementById('tcpaConsent').addEventListener('change', checkSubmitReady);
 
+// Abandoned funnel recovery — save partial state on email blur.
+// Fires at most once per unique email value per session.
+document.getElementById('emailAddress').addEventListener('blur', function () {
+  const email = this.value.trim().toLowerCase();
+  if (!email || !email.includes('@') || email === _lastProgressEmail) return;
+  _lastProgressEmail = email;
+  if (!window._saveFunnelProgress) return;
+  window._saveFunnelProgress({
+    funnelId: _funnelId,
+    email: email,
+    firstName: document.getElementById('firstName').value.trim(),
+    lastName: document.getElementById('lastName').value.trim(),
+    phoneNumber: document.getElementById('phoneNumber').value.trim(),
+    address: funnelData.address || '',
+    currentStep: currentStep,
+    completed: false
+  });
+});
+
 /* ── Submit & Get Estimate ── */
 async function submitAndGetEstimate() {
   const btn = document.getElementById('btnSubmit');
@@ -966,6 +1018,20 @@ async function submitAndGetEstimate() {
   funnelData.lastName = document.getElementById('lastName').value.trim();
   funnelData.phone = document.getElementById('phoneNumber').value.trim();
   funnelData.email = document.getElementById('emailAddress').value.trim();
+
+  // Mark funnel-recovery record as completed so the hourly recovery job skips it.
+  if (window._saveFunnelProgress && funnelData.email) {
+    window._saveFunnelProgress({
+      funnelId: _funnelId,
+      email: funnelData.email.toLowerCase(),
+      firstName: funnelData.firstName,
+      lastName: funnelData.lastName,
+      phoneNumber: funnelData.phone,
+      address: funnelData.address || '',
+      currentStep: currentStep,
+      completed: true
+    });
+  }
 
   // Show loading
   document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
