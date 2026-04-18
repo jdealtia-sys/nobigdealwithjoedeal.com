@@ -14,7 +14,7 @@ Goal: prove every request to your Cloud Functions came from your real website, n
    - **Domains:**
      ```
      nobigdealwithjoedeal.com
-     www.nobigdealwithjoedeal.com
+     nobigdealwithjoedeal.com
      nbd-pro.web.app
      ```
    - Accept the terms.

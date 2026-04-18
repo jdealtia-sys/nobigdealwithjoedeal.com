@@ -1,6 +1,6 @@
 # No Big Deal Home Solutions — robots.txt
-# Site: https://www.nobigdealwithjoedeal.com
-# AI/LLM guide: https://www.nobigdealwithjoedeal.com/llms.txt
+# Site: https://nobigdealwithjoedeal.com
+# AI/LLM guide: https://nobigdealwithjoedeal.com/llms.txt
 
 User-agent: *
 Allow: /
@@ -77,10 +77,10 @@ Allow: /
 User-agent: Timpibot
 Allow: /
 
-Sitemap: https://www.nobigdealwithjoedeal.com/sitemap.xml
+Sitemap: https://nobigdealwithjoedeal.com/sitemap.xml
 
 # LLM context file (see https://llmstxt.org)
-# Additional context: https://www.nobigdealwithjoedeal.com/llms.txt
+# Additional context: https://nobigdealwithjoedeal.com/llms.txt
 
 # Block private app pages
 Disallow: /tools/

@@ -15,7 +15,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
 const OUT = path.join(DOCS, 'sitemap.xml');
-const ORIGIN = 'https://www.nobigdealwithjoedeal.com';
+const ORIGIN = 'https://nobigdealwithjoedeal.com';
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // Stable: homepage + 7 top-level customer-facing pages. Rendered as root paths.
