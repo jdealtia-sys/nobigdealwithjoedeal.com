@@ -2516,6 +2516,23 @@ section('Registry drift: every owner-keyed rule has a FLAT_USER_COLLECTIONS entr
   }
 }
 
+// ── Inline HTML <script> syntax ─────────────────────────────
+// Guards against the class of bug where an inline <script> inside an
+// HTML file has a syntax error (unclosed brace, etc.) — browsers
+// silently log it to console and the page renders but every JS
+// feature on the page is dead. Full fixture-based suite at
+// tests/inline-html-scripts.test.js; we gate on it passing.
+try {
+  execSync('node ' + JSON.stringify(path.join(__dirname, 'inline-html-scripts.test.js')), {
+    stdio: 'inherit',
+    cwd: ROOT,
+  });
+  passed++;
+} catch (e) {
+  failed++;
+  failures.push('inline-html-scripts.test.js — inline <script> in docs/ has syntax error (see output above)');
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);

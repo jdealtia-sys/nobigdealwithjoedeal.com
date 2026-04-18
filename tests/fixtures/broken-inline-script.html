@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><title>Deliberately broken inline script — regression fixture</title></head>
+<body>
+  <!--
+    This fixture is used by tests/inline-html-scripts.test.js to prove
+    the scripts/check-inline-html-scripts.js tool catches broken JS
+    inside HTML. The script below is missing a closing brace on purpose —
+    if you "fix" it, the regression test will start failing (which is
+    correct — the test IS the alarm).
+  -->
+  <script>
+    function deliberatelyBroken() {
+      const x = 1;
+      if (x > 0) {
+        console.log('this block never closes');
+  </script>
+</body>
+</html>
