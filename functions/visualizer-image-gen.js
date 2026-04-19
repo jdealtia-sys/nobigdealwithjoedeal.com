@@ -53,23 +53,27 @@ const MAX_B64_BYTES = 1_500_000; // ~1.1 MB raw before base64 inflation
 // unknown selections fall back cleanly instead of leaking raw tile IDs
 // into the prompt.
 
+// Each style/color label includes (a) the human-readable material name
+// and (b) an explicit hex color so Gemini can't drift from the target.
+// Hexes are picked to match the swatches shown in the UI.
+
 const ROOF_STYLE_LABELS = {
-  architectural: 'architectural dimensional shingles',
-  '3-tab': 'traditional 3-tab shingles',
-  luxury: 'luxury designer shingles',
-  metal: 'standing-seam metal roofing',
-  slate: 'slate tile roofing',
+  architectural: 'architectural dimensional asphalt shingles',
+  '3-tab': 'traditional 3-tab asphalt shingles',
+  luxury: 'luxury designer asphalt shingles',
+  metal: 'standing-seam metal roofing panels',
+  slate: 'natural slate tile',
 };
 
 const ROOF_COLOR_LABELS = {
-  charcoal: 'charcoal black-gray',
-  'weathered-wood': 'weathered-wood warm brown',
-  driftwood: 'driftwood tan',
-  onyx: 'deep onyx black',
-  sand: 'sand beige',
-  pewter: 'pewter gray',
-  'rustic-red': 'rustic barn red',
-  'hunter-green': 'hunter green',
+  charcoal:        { name: 'charcoal black-gray',       hex: '#3a3a3a' },
+  'weathered-wood':{ name: 'weathered-wood warm brown', hex: '#5c4a3a' },
+  driftwood:       { name: 'driftwood tan',             hex: '#8b7355' },
+  onyx:            { name: 'deep onyx black',           hex: '#1a1a1a' },
+  sand:            { name: 'sand beige',                hex: '#c8b89a' },
+  pewter:          { name: 'pewter gray',               hex: '#6b7280' },
+  'rustic-red':    { name: 'rich rustic barn red',      hex: '#8b3a3a' },
+  'hunter-green':  { name: 'deep hunter green',         hex: '#3d5a3e' },
 };
 
 const SIDING_STYLE_LABELS = {
@@ -77,26 +81,26 @@ const SIDING_STYLE_LABELS = {
   'board-batten': 'board-and-batten vertical siding',
   shake: 'cedar-shake-style siding',
   horizontal: 'horizontal lap siding',
-  'fiber-cement': 'James Hardie fiber-cement siding',
+  'fiber-cement': 'James Hardie fiber-cement lap siding',
 };
 
 const SIDING_COLOR_LABELS = {
-  cream: 'warm cream',
-  linen: 'soft linen white',
-  'slate-gray': 'slate gray',
-  'charcoal-blue': 'charcoal blue-gray',
-  navy: 'deep navy blue',
-  cedar: 'cedar brown',
-  forest: 'forest green',
-  black: 'matte black',
+  cream:          { name: 'warm cream',         hex: '#f5f0e8' },
+  linen:          { name: 'soft linen white',   hex: '#e8e0d0' },
+  'slate-gray':   { name: 'slate gray',         hex: '#6b7280' },
+  'charcoal-blue':{ name: 'charcoal blue-gray', hex: '#374151' },
+  navy:           { name: 'deep navy blue',     hex: '#1e3a6e' },
+  cedar:          { name: 'cedar brown',        hex: '#78350f' },
+  forest:         { name: 'forest green',       hex: '#065f46' },
+  black:          { name: 'matte black',        hex: '#1c1917' },
 };
 
 const GUTTER_COLOR_LABELS = {
-  white: 'crisp white',
-  bronze: 'dark bronze',
-  black: 'matte black',
-  brown: 'warm brown',
-  'match-trim': 'a color matching the trim',
+  white:        { name: 'crisp white',            hex: '#ffffff' },
+  bronze:       { name: 'dark bronze',            hex: '#3c2a20' },
+  black:        { name: 'matte black',            hex: '#1c1917' },
+  brown:        { name: 'warm brown',             hex: '#57392a' },
+  'match-trim': { name: 'a color matching trim',  hex: null },
 };
 
 function sanitizeString(value, maxLen = 400) {
@@ -104,46 +108,83 @@ function sanitizeString(value, maxLen = 400) {
   return value.trim().slice(0, maxLen);
 }
 
+function resolveColor(map, key, fallbackKey) {
+  return map[key] || (fallbackKey ? map[fallbackKey] : null) || { name: key || 'neutral', hex: null };
+}
+
 function buildPrompt(selections) {
-  const parts = [];
+  const instructions = [];
 
   if (selections.features.includes('roof')) {
-    const style = ROOF_STYLE_LABELS[selections.roofStyle] || 'architectural shingles';
-    const color = ROOF_COLOR_LABELS[selections.roofColor] || selections.roofColor || 'charcoal';
-    parts.push(`Replace the roof with ${style} in ${color}. Keep the roof shape, pitch, and every architectural detail identical — only change the shingle material and color.`);
+    const style = ROOF_STYLE_LABELS[selections.roofStyle] || 'architectural dimensional asphalt shingles';
+    const color = resolveColor(ROOF_COLOR_LABELS, selections.roofColor, 'charcoal');
+    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    instructions.push(
+      `RE-ROOF THIS HOUSE: Replace every visible section of the existing roof with brand-new ${style} in ${color.name}${hexClause}. ` +
+      `The new roof must look installed, not filtered — show the shingle texture, the courses running down the slope, the ridge caps, the cut edges at hips and valleys. ` +
+      `Make the change unmistakably visible. This is the whole point of the image.`
+    );
   }
 
   if (selections.features.includes('siding')) {
     const style = SIDING_STYLE_LABELS[selections.sidingStyle] || 'horizontal lap siding';
-    const color = SIDING_COLOR_LABELS[selections.sidingColor] || selections.sidingColor || 'cream';
-    parts.push(`Replace the siding with ${style} in ${color}. Keep every window, door, trim line, porch railing, and architectural detail identical — only change the siding material and color.`);
+    const color = resolveColor(SIDING_COLOR_LABELS, selections.sidingColor, 'cream');
+    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    instructions.push(
+      `RE-SIDE THIS HOUSE: Replace every exterior wall with brand-new ${style} in ${color.name}${hexClause}. ` +
+      `Show the panel lines, the trim transitions, and consistent color saturation across every wall. ` +
+      `The siding change must be clearly visible, not a subtle tint.`
+    );
   }
 
   if (selections.features.includes('gutters')) {
-    const color = GUTTER_COLOR_LABELS[selections.gutterColor] || selections.gutterColor || 'white';
-    parts.push(`Replace the gutters and downspouts with seamless K-style in ${color}.`);
+    const color = resolveColor(GUTTER_COLOR_LABELS, selections.gutterColor, 'white');
+    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    instructions.push(
+      `Replace the gutters and downspouts with clean seamless K-style in ${color.name}${hexClause}.`
+    );
   }
 
-  if (selections.features.includes('windows')) parts.push('Subtly refresh the window frames (clean, modern, same size and placement).');
-  if (selections.features.includes('garage')) parts.push('Update the garage door to a modern paneled design (same size and position).');
-  if (selections.features.includes('shutters')) parts.push('Add or refresh exterior shutters that match the trim color.');
-  if (selections.features.includes('doors')) parts.push('Freshen the front door with a color that complements the new exterior.');
+  if (selections.features.includes('windows')) instructions.push('Freshen the window frames with clean modern trim.');
+  if (selections.features.includes('garage'))  instructions.push('Update the garage door to a modern paneled design (same size and placement).');
+  if (selections.features.includes('shutters'))instructions.push('Add or refresh exterior shutters in a color that complements the new trim.');
+  if (selections.features.includes('doors'))   instructions.push('Freshen the front door with a color that complements the new exterior palette.');
 
-  if (!parts.length) parts.push('Leave the home essentially unchanged; just clean up and color-correct the image.');
+  if (!instructions.length) {
+    instructions.push('No specific exterior changes were selected — return the image essentially unchanged.');
+  }
 
   const notes = sanitizeString(selections.notes, 300);
-  if (notes) parts.push(`Additional notes from the homeowner: ${notes}`);
+  if (notes) instructions.push(`Homeowner\'s extra notes: ${notes}`);
 
-  // System-style instructions to keep the model on-task
-  const guardrails = [
-    'This is a real homeowner\'s property — be photorealistic and accurate.',
-    'Do NOT change the house shape, the landscaping, the sky, the ground, neighboring properties, vehicles, or any people.',
-    'Preserve the original photo\'s perspective, lighting direction, and shadow angles.',
-    'Do not add text, watermarks, logos, or signage.',
-    'Output a single photorealistic JPEG image. No commentary, no bullet list, just the edited photo.',
+  // Keep-unchanged list is kept TIGHT — we only call out the things
+  // Gemini might otherwise re-invent (sky, vehicles, neighboring homes).
+  // We intentionally do NOT say "preserve every detail" — that wording
+  // made 2.5 Flash Image under-edit the roof.
+  const keepUnchanged = [
+    'The house\'s silhouette, window placement, door placement, and overall geometry.',
+    'The sky, trees, lawn, driveway, sidewalks, vehicles, and any neighboring properties or power lines.',
+    'The camera angle, perspective, and time of day (same sun direction, same shadows).',
+    'Any people or pets visible in the photo.',
   ];
 
-  return parts.join(' ') + '\n\n' + guardrails.join(' ');
+  const outputRules = [
+    'Output ONE photorealistic image showing the SAME house from the SAME angle, with the exterior changes above actually performed — not a color filter, not a tint, actually re-roofed / re-sided.',
+    'Do not add watermarks, logos, text, signage, or floating labels.',
+    'Keep the result believable. Match lighting, shadow direction, and material realism so it looks like a professional photograph.',
+  ];
+
+  return [
+    'You are generating an exterior-remodel preview for a real homeowner. They want to see what their house would look like after the following renovation work:',
+    '',
+    instructions.map((s, i) => `${i + 1}. ${s}`).join('\n'),
+    '',
+    'Keep the following unchanged from the input photo:',
+    keepUnchanged.map((s) => `- ${s}`).join('\n'),
+    '',
+    'Output rules:',
+    outputRules.map((s) => `- ${s}`).join('\n'),
+  ].join('\n');
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -191,9 +232,11 @@ exports.visualizerImageGen = onRequest(
       return;
     }
 
-    // Tight rate limit — image gen is ~5x the cost of the text endpoint,
-    // so 3/hour/IP caps each abuser at ~$0.12/hour.
-    if (!(await httpRateLimit(req, res, 'visualizerImageGen:ip', 3, 3_600_000))) return;
+    // Rate limit per IP. Bumped to 15/hour during initial prompt tuning
+    // so Joe can iterate on outputs. Tighten back to 5/hour after launch
+    // (image gen is ~5x cost of the text endpoint; 15/hr caps each IP at
+    // roughly $0.60/hr worst case).
+    if (!(await httpRateLimit(req, res, 'visualizerImageGen:ip', 15, 3_600_000))) return;
 
     try {
       const body = req.body || {};
