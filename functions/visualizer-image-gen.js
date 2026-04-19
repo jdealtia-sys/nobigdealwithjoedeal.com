@@ -267,11 +267,11 @@ exports.visualizerImageGen = onRequest(
       return;
     }
 
-    // Rate limit per IP. Bumped to 15/hour during initial prompt tuning
-    // so Joe can iterate on outputs. Tighten back to 5/hour after launch
-    // (image gen is ~$0.08 per call via FLUX Kontext Max; 15/hr caps each
-    // IP at roughly $1.20/hour worst case).
-    if (!(await httpRateLimit(req, res, 'visualizerImageGen:ip', 15, 3_600_000))) return;
+    // Rate limit per IP: 5 calls per hour. Image gen via FLUX Kontext Pro
+    // is ~$0.04/call, so a pegged attacker caps at ~$0.20/hour per IP.
+    // Tuning mode (15/hr) was used during launch; safe to tighten now
+    // that quality is confirmed.
+    if (!(await httpRateLimit(req, res, 'visualizerImageGen:ip', 5, 3_600_000))) return;
 
     try {
       const body = req.body || {};
