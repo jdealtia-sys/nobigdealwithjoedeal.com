@@ -55,10 +55,11 @@ article > .post-body{max-width:760px;margin:0 auto;padding:52px 5% 32px;color:#1
 .related-posts .related-title{font-size:.95rem;font-weight:800;color:var(--navy,#1e3a6e);line-height:1.35;margin-bottom:8px}
 .related-posts .related-desc{font-size:.85rem;color:var(--gray-sub,#4a4a4a);line-height:1.55}
 .related-posts .related-card:hover .related-title{color:var(--orange,#e8720c)}
-.blog-footer{max-width:1200px;margin:24px auto 0;padding:32px 5%;text-align:center;color:rgba(0,0,0,.6);font-size:.85rem;border-top:1px solid var(--light-gray,#e8e5e0)}
-.blog-footer .footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--navy,#1e3a6e);letter-spacing:.05em;margin-bottom:8px}
+.blog-footer{max-width:none;margin:0;padding:44px 5% 28px;text-align:center;color:rgba(255,255,255,.75);font-size:.85rem;background:var(--navy-dark,#142a52)}
+.blog-footer p{color:rgba(255,255,255,.75)}
+.blog-footer .footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;letter-spacing:.05em;margin-bottom:8px}
 .blog-footer .footer-links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:14px 0}
-.blog-footer .footer-links a{color:var(--navy,#1e3a6e);font-weight:600;font-size:.83rem;text-decoration:none}
+.blog-footer .footer-links a{color:rgba(255,255,255,.85);font-weight:600;font-size:.83rem;text-decoration:none;transition:color .2s}
 .blog-footer .footer-links a:hover{color:var(--orange,#e8720c)}
 @media(max-width:760px){
   .related-posts .related-grid{grid-template-columns:1fr}

@@ -255,10 +255,11 @@ article > .post-body{max-width:760px;margin:0 auto;padding:52px 5% 32px;color:#1
 .related-posts .related-title{font-size:.95rem;font-weight:800;color:var(--navy,#1e3a6e);line-height:1.35;margin-bottom:8px}
 .related-posts .related-desc{font-size:.85rem;color:var(--gray-sub,#4a4a4a);line-height:1.55}
 .related-posts .related-card:hover .related-title{color:var(--orange,#e8720c)}
-.blog-footer{max-width:1200px;margin:24px auto 0;padding:32px 5%;text-align:center;color:rgba(0,0,0,.6);font-size:.85rem;border-top:1px solid var(--light-gray,#e8e5e0)}
-.blog-footer .footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--navy,#1e3a6e);letter-spacing:.05em;margin-bottom:8px}
+.blog-footer{max-width:none;margin:0;padding:44px 5% 28px;text-align:center;color:rgba(255,255,255,.75);font-size:.85rem;background:var(--navy-dark,#142a52)}
+.blog-footer p{color:rgba(255,255,255,.75)}
+.blog-footer .footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#fff;letter-spacing:.05em;margin-bottom:8px}
 .blog-footer .footer-links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:14px 0}
-.blog-footer .footer-links a{color:var(--navy,#1e3a6e);font-weight:600;font-size:.83rem;text-decoration:none}
+.blog-footer .footer-links a{color:rgba(255,255,255,.85);font-weight:600;font-size:.83rem;text-decoration:none;transition:color .2s}
 .blog-footer .footer-links a:hover{color:var(--orange,#e8720c)}
 @media(max-width:760px){
   .related-posts .related-grid{grid-template-columns:1fr}
@@ -268,6 +269,20 @@ article > .post-body{max-width:760px;margin:0 auto;padding:52px 5% 32px;color:#1
   .post-body h2{font-size:1.5rem}
   .post-cta{padding:26px 22px;margin:12px 5% 32px}
 }
+</style>
+<style>
+/* footer contrast fix (injected) */
+footer .label{color:rgba(255,255,255,.72)!important;font-weight:700}
+footer .footer-col ul li a{color:rgba(255,255,255,.82)!important}
+footer .footer-col ul li a:hover{color:var(--orange,#e8720c)!important}
+footer .footer-contact-item .val,footer .footer-contact-item .val a{color:rgba(255,255,255,.9)!important}
+footer p{color:rgba(255,255,255,.7)!important}
+footer .footer-desc{color:rgba(255,255,255,.72)!important}
+footer .footer-bottom p{color:rgba(255,255,255,.55)!important}
+footer .footer-bottom a{color:rgba(255,255,255,.65)!important}
+footer .footer-bottom a:hover{color:var(--orange,#e8720c)!important}
+footer .pro-door{color:rgba(255,255,255,.65)!important}
+footer .pro-door:hover{color:var(--orange,#e8720c)!important}
 </style>
 </head>
 <body>
@@ -411,7 +426,7 @@ article > .post-body{max-width:760px;margin:0 auto;padding:52px 5% 32px;color:#1
   <div class="footer-links">
     <a href="/">Home</a><a href="/#services">Services</a>
     <a href="/about">About Joe</a><a href="/blog">Blog</a><a href="/#contact">Contact</a>
-    <a href="/estimate" style="color:#e8720c;">Instant Estimate ⚡</a><a href="/storm-alerts" style="color:#f59e0b;">Storm Alerts 🌩️</a>
+    <a href="/estimate" style="color:#e8720c;">Instant Estimate</a><a href="/storm-alerts" style="color:#f59e0b;">Storm Alerts</a>
   </div>
   <p style="margin-top:16px;font-size:.75rem;opacity:.5;">© 2026 No Big Deal Home Solutions</p>
 </footer>
