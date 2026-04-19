@@ -116,13 +116,30 @@ function buildPrompt(selections) {
   const instructions = [];
 
   if (selections.features.includes('roof')) {
-    const style = ROOF_STYLE_LABELS[selections.roofStyle] || 'architectural dimensional asphalt shingles';
+    const styleKey = selections.roofStyle;
+    const style = ROOF_STYLE_LABELS[styleKey] || 'architectural dimensional asphalt shingles';
     const color = resolveColor(ROOF_COLOR_LABELS, selections.roofColor, 'charcoal');
     const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+
+    // Per-material surface descriptions force Gemini to commit to a visibly
+    // different TEXTURE, not just a color tint. Without this, swaps like
+    // asphalt→metal came back as the original asphalt with a color shift.
+    let textureNote = '';
+    if (styleKey === 'metal') {
+      textureNote = ' The new surface is smooth, flat metal panels with visible STANDING SEAMS running down each slope and crisp ridge cap trim — NOT asphalt shingle courses. If the input photo shows asphalt shingles, those must be entirely replaced with flat metal panels. The surface must read as metal, not as tinted shingles.';
+    } else if (styleKey === 'slate') {
+      textureNote = ' The new surface is layered natural slate tiles with clean straight bottom edges and slight color variation between individual tiles — NOT asphalt shingles. Replace any existing shingles entirely with slate tiles.';
+    } else if (styleKey === 'luxury' || styleKey === 'architectural') {
+      textureNote = ' The new surface has deep dimensional shadow lines between every course, thick laminated shingle tabs, and crisp staggered edges — a noticeable upgrade in texture from flat 3-tab shingles.';
+    } else if (styleKey === '3-tab') {
+      textureNote = ' The new surface is flat traditional 3-tab asphalt shingles with clean horizontal cut lines — simple, uniform, no dimensional shadowing.';
+    }
+
     instructions.push(
-      `RE-ROOF THIS HOUSE: Replace every visible section of the existing roof with brand-new ${style} in ${color.name}${hexClause}. ` +
-      `The new roof must look installed, not filtered — show the shingle texture, the courses running down the slope, the ridge caps, the cut edges at hips and valleys. ` +
-      `Make the change unmistakably visible. This is the whole point of the image.`
+      `RE-ROOF THIS HOUSE: Replace every visible section of the existing roof with brand-new ${style} in ${color.name}${hexClause}.` +
+      textureNote +
+      ` The new roof must look installed, not filtered — show the material texture, the courses, the ridge caps, and the cut edges at hips and valleys. ` +
+      `Make the change unmistakably visible. This is the whole point of the image — a ${styleKey || 'new'} roof in ${color.name} where the old roof used to be.`
     );
   }
 
@@ -268,8 +285,14 @@ exports.visualizerImageGen = onRequest(
       const geminiBody = {
         contents: [{
           parts: [
-            { text: prompt },
+            // IMAGE FIRST, TEXT AFTER: Gemini 2.5 Flash Image weights the
+            // final part heavily, so putting the edit instructions last
+            // gives it more authority. Early testing with text-first had
+            // the model produce near-identical outputs for material swaps
+            // (asphalt → metal) — flipping the order made the edits
+            // commit more aggressively.
             { inline_data: { mime_type: mediaType, data: imageBase64 } },
+            { text: prompt },
           ],
         }],
         // Gemini 2.5 Flash Image requires BOTH text and image modalities —
@@ -277,6 +300,10 @@ exports.visualizerImageGen = onRequest(
         // and we drop the text part server-side so the client never sees it.
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
+          // Higher temperature pushes the model to commit to the edit
+          // rather than defaulting to "near-identical output." Default
+          // is ~0.4 for image gen; 1.0 is the max for Gemini 2.5.
+          temperature: 1.0,
         },
       };
 

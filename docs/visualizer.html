@@ -746,19 +746,38 @@ async function runVisualizer() {
     }
   }, 4500);
 
-  // Build selections summary
+  // Build selections summary — map style IDs to correct product names.
+  // Previously we hardcoded " shingles" for every roof style which made
+  // Claude refer to metal panels as "metal shingles" (wrong product).
+  const ROOF_STYLE_PRODUCT = {
+    architectural: 'architectural dimensional asphalt shingles',
+    '3-tab':       'traditional 3-tab asphalt shingles',
+    luxury:        'luxury designer asphalt shingles',
+    metal:         'standing-seam metal roofing panels',
+    slate:         'natural slate tile',
+  };
+  const SIDING_STYLE_PRODUCT = {
+    'dutch-lap':    'dutch-lap vinyl siding',
+    'board-batten': 'board-and-batten vertical siding',
+    shake:          'cedar-shake siding',
+    horizontal:     'horizontal lap siding',
+    'fiber-cement': 'James Hardie fiber-cement lap siding',
+  };
+
   const features = state.features.length ? state.features : ['roof'];
   const roofColorName = document.querySelector('#roofColors .swatch.selected')?.title || state.roofColor;
   const sidingColorName = document.querySelector('#sidingColors .swatch.selected')?.title || state.sidingColor;
   const notes = document.getElementById('additionalNotes').value.trim();
+  const roofProduct = ROOF_STYLE_PRODUCT[state.roofStyle] || `${state.roofStyle} shingles`;
+  const sidingProduct = SIDING_STYLE_PRODUCT[state.sidingStyle] || `${state.sidingStyle} siding`;
   const selectionsText = [
-    features.includes('roof') ? `Roof: ${state.roofStyle} shingles in ${roofColorName}` : '',
-    features.includes('siding') ? `Siding: ${state.sidingStyle} style in ${sidingColorName}` : '',
-    features.includes('gutters') ? `Gutters: ${state.gutterColor} color seamless K-style` : '',
-    features.includes('windows') ? 'Windows: updated window frames' : '',
-    features.includes('garage') ? 'Garage door: new style' : '',
-    features.includes('shutters') ? 'Shutters: updated shutters' : '',
-    features.includes('doors') ? 'Front door: new front door' : '',
+    features.includes('roof') ? `Roof: ${roofProduct} in ${roofColorName}` : '',
+    features.includes('siding') ? `Siding: ${sidingProduct} in ${sidingColorName}` : '',
+    features.includes('gutters') ? `Gutters: seamless K-style in ${state.gutterColor}` : '',
+    features.includes('windows') ? 'Windows: refreshed frames' : '',
+    features.includes('garage') ? 'Garage door: modern panelled' : '',
+    features.includes('shutters') ? 'Shutters: refreshed exterior shutters' : '',
+    features.includes('doors') ? 'Front door: refreshed color' : '',
   ].filter(Boolean).join('; ');
 
   // Call BOTH endpoints in parallel:
