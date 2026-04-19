@@ -229,8 +229,11 @@ exports.visualizerImageGen = onRequest(
             { inline_data: { mime_type: mediaType, data: imageBase64 } },
           ],
         }],
+        // Gemini 2.5 Flash Image requires BOTH text and image modalities —
+        // image-only is rejected. The response always includes an image part
+        // and we drop the text part server-side so the client never sees it.
         generationConfig: {
-          responseModalities: ['IMAGE'],
+          responseModalities: ['TEXT', 'IMAGE'],
         },
       };
 
@@ -245,11 +248,15 @@ exports.visualizerImageGen = onRequest(
 
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
+        // Log full upstream body so we can diagnose from Firebase logs.
+        // Never echoes this to the client — stays in Cloud Logging only.
         logger.warn('visualizerImageGen: upstream error', {
           status: response.status,
-          body: errText.slice(0, 500),
+          body: errText.slice(0, 2000),
         });
-        res.status(502).json({ error: 'upstream_error' });
+        // Echo the upstream status as a machine-parseable hint. Client only
+        // sees 'upstream_error' text so no internal details leak to users.
+        res.status(502).json({ error: 'upstream_error', upstream_status: response.status });
         return;
       }
 
