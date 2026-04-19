@@ -143,10 +143,25 @@ footer .footer-bottom a:hover{color:var(--orange,#e8720c)!important}
 footer .pro-door{color:rgba(255,255,255,.65)!important}
 footer .pro-door:hover{color:var(--orange,#e8720c)!important}
 </style>
+<style>
+/* tool-nav minimal chrome (injected) */
+nav.tool-nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark,#142a52);border-bottom:3px solid var(--orange,#e8720c);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px}
+nav.tool-nav .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+nav.tool-nav .nav-logo-text .brand{font-size:1rem;font-weight:800;color:#fff}
+nav.tool-nav .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:500}
+nav.tool-nav .tool-nav-right{display:flex;align-items:center;gap:22px}
+nav.tool-nav .tool-nav-home{color:rgba(255,255,255,.7);font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;transition:color .2s;display:inline-flex;align-items:center}
+nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#f08030)}
+nav.tool-nav .nav-cta{background:var(--orange,#e8720c);color:#fff!important;padding:10px 20px;border-radius:6px;font-weight:700;font-size:.82rem;letter-spacing:.04em;text-decoration:none;display:inline-flex;align-items:center;transition:background .2s}
+nav.tool-nav .nav-cta:hover{background:var(--orange-dark,#c45e08)}
+@media(max-width:560px){
+  nav.tool-nav .tool-nav-home{display:none}
+}
+</style>
 </head>
 <body>
 
-<nav id="mainNav" class="nav">
+<nav id="mainNav" class="nav tool-nav">
   <a href="/" class="nav-logo">
     <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text">
@@ -154,36 +169,14 @@ footer .pro-door:hover{color:var(--orange,#e8720c)!important}
       <div class="sub">Home Solutions</div>
     </div>
   </a>
-  <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services">Services
-      <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
-      <ul class="dropdown-menu">
-        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
-        <li><a href="/services/roof-repair">Roof Repair</a></li>
-        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
-        <li><a href="/services/siding-repair">Siding Repair</a></li>
-        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
-        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
-        <li><a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a></li>
-        <li><a href="/services/roof-inspection">Roof Inspection</a></li>
-        <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
-        <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
-        <li><a href="/services/financing">Financing</a></li>
-        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
-      </ul>
-    </li>
-    <li><a href="/about">About Joe</a></li>
-    <li><a href="/review">Reviews</a></li>
-    <li><a href="/our-work">Our Work</a></li>
-    <li><a href="/#areas">Service Areas</a></li>
-    <li><a href="/blog">Blog</a></li>
-    <li><a href="/estimate" class="nav-instant">Instant Estimate
-      <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
-    <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
-  </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
-    <span></span><span></span><span></span>
-  </button>
+  <div class="tool-nav-right">
+    <a href="/" class="tool-nav-home">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:4px"><polyline points="15 18 9 12 15 6"/></svg>Back to site
+    </a>
+    <a href="tel:8594207382" class="nav-cta">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;vertical-align:-2px;margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe
+    </a>
+  </div>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Services</div>
