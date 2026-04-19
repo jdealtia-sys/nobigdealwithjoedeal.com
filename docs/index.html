@@ -67,9 +67,17 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .logo-card-divider{width:100%;height:3px;background:var(--orange);flex-shrink:0}
 .logo-card-bottom{background:var(--navy-dark);width:100%;padding:4px 10px 5px;text-align:center}
 .lw-script{font-family:'Dancing Script',cursive;font-size:.65rem;color:white;white-space:nowrap;display:block}
-.nav-links{display:flex;align-items:center;gap:28px;list-style:none}
-.nav-links a{color:rgba(255,255,255,.8);text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;padding:4px 0;border-bottom:2px solid transparent}
-.nav-links a:hover{color:var(--orange-light);border-bottom-color:var(--orange-light)}
+.nav-links{display:flex;align-items:center;gap:24px;list-style:none}
+.nav-links > li > a{color:rgba(255,255,255,.85);text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;padding:4px 0;border-bottom:2px solid transparent;display:inline-flex;align-items:center;gap:5px}
+.nav-links > li > a:hover{color:var(--orange-light);border-bottom-color:var(--orange-light)}
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark);border:2px solid var(--orange);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.nav-instant{color:var(--orange-light)!important}
 .nav-cta{background:var(--orange)!important;color:white!important;padding:10px 22px!important;border-radius:4px;border-bottom:none!important;transition:background .2s!important}
 .nav-cta:hover{background:var(--orange-light)!important}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;z-index:1001}
@@ -88,6 +96,12 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .btn-secondary{background:transparent;color:var(--navy-dark);padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid var(--navy-dark);display:inline-flex;align-items:center;gap:8px}
 .btn-secondary:hover{background:var(--navy-dark);color:white}
 .btn-ghost{background:transparent;color:white;padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid rgba(255,255,255,.35);display:inline-flex;align-items:center;gap:8px}
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+.trust-icon svg.ico{width:28px;height:28px}
+.aci-icon svg.ico,.cm-icon svg.ico{width:22px;height:22px}
+.wc-phone-icon svg.ico{width:26px;height:26px}
+.hs-trust-item .icon svg.ico{width:18px;height:18px}
 .btn-ghost:hover{border-color:white;background:rgba(255,255,255,.08)}
 .btn-cal{background:white;color:var(--navy-dark);padding:14px 32px;border-radius:4px;font-weight:800;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid white;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .btn-cal:hover{background:var(--orange-light);color:white;border-color:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,114,12,.4)}
@@ -278,9 +292,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .footer-inner{max-width:1200px;margin:0 auto}
 .footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
 .footer-logo-block{display:flex;flex-direction:column;align-items:flex-start}
-.footer-logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px;margin-bottom:16px}
-.footer-logo-card .logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
-.footer-logo-card .logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
+.footer-nav-logo{margin-bottom:18px}
 .footer-desc{font-size:.82rem;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:20px}
 .footer-badges{display:flex;flex-wrap:wrap;gap:8px}
 .footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
@@ -501,14 +513,60 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   ]
 }
 </script>
+<style>
+/* unified-emoji-swap injected */
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
+.wc-phone-icon svg.ico{width:26px;height:26px}
+</style>
+<style>
+/* trust-icon fix */
+.trust-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+</style>
+<style>
+/* nav-ico sizing (injected) */
+.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
+.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
+.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
+.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
+
+/* ico sizing (injected) */
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
+.wc-phone-icon svg.ico{width:26px;height:26px}
+.trust-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+</style>
+<style>
+/* nav base (injected) */
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#142a52);z-index:999;border-top:2px solid var(--orange,#e8720c);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
+.mobile-nav.open{display:block}
+.mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
+.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px;background:transparent;border:none}
+.hamburger span{display:block;width:24px;height:2.5px;background:#fff;border-radius:2px}
+@media (max-width:900px){
+  .nav-links{display:none}
+  .hamburger{display:flex}
+}
+</style>
 </head>
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
-  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
-  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg>NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg>Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg>Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
 
 <!-- Storm messages now in unified ann-bar -->
@@ -522,33 +580,63 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
       <div class="sub">Home Solutions</div>
     </div>
   </a>
-
   <ul class="nav-links" id="navLinks">
-    <li><a href="/#services">Services</a></li>
-    <li><a href="/#about">About Joe</a></li>
-    <li><a href="/#reviews">Reviews</a></li>
-    <li><a href="/services/financing">Financing</a></li>
-    <li><a href="/#areas">Service Areas</a></li>
+    <li class="dropdown"><a href="/#services">Services
+      <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
+      <ul class="dropdown-menu">
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/roof-repair">Roof Repair</a></li>
+        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+        <li><a href="/services/siding-repair">Siding Repair</a></li>
+        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+        <li><a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a></li>
+        <li><a href="/services/roof-inspection">Roof Inspection</a></li>
+        <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
+        <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
+        <li><a href="/services/financing">Financing</a></li>
+        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
+      </ul>
+    </li>
+    <li><a href="/about">About Joe</a></li>
+    <li><a href="/review">Reviews</a></li>
     <li><a href="/our-work">Our Work</a></li>
-        <li><a href="/blog">Blog</a></li>
-        <li><a href="/estimate" class="nav-cta">Free Estimate →</a></li>
+    <li><a href="/#areas">Service Areas</a></li>
+    <li><a href="/blog">Blog</a></li>
+    <li><a href="/estimate" class="nav-instant">Instant Estimate
+      <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
+    <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-
-  <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
     <span></span><span></span><span></span>
-  </div>
+  </button>
 </nav>
 
 <!-- MOBILE NAV -->
 <div class="mobile-nav" id="mobileNav">
-  <a href="/#services" onclick="closeMobileNav()">Services</a>
-  <a href="/#about" onclick="closeMobileNav()">About Joe</a>
-  <a href="/#reviews" onclick="closeMobileNav()">Reviews</a>
-  <a href="/services/financing" onclick="closeMobileNav()">Financing</a>
-  <a href="/#areas" onclick="closeMobileNav()">Service Areas</a>
-  <a href="/estimate" class="mobile-cta-btn" onclick="closeMobileNav()">📞 Get My Free Estimate</a>
+  <div class="mnav-group">Services</div>
+  <a href="/services/roof-replacement">Roof Replacement</a>
+  <a href="/services/roof-repair">Roof Repair</a>
+  <a href="/services/siding-replacement">Siding Replacement</a>
+  <a href="/services/siding-repair">Siding Repair</a>
+  <a href="/services/gutter-replacement">Gutter Replacement</a>
+  <a href="/services/storm-damage">Storm Damage &amp; Insurance</a>
+  <a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a>
+  <a href="/services/roof-inspection">Roof Inspection</a>
+  <a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a>
+  <a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a>
+  <a href="/services/financing">Financing</a>
+  <div class="mnav-group">Company</div>
+  <a href="/about">About Joe</a>
+  <a href="/review">Reviews</a>
+  <a href="/our-work">Our Work</a>
+  <a href="/#areas">Service Areas</a>
+  <a href="/blog">Blog</a>
+  <div class="mnav-group">Tools</div>
+  <a href="/estimate" style="color:var(--orange-light,#f08030)">Instant Estimate</a>
+  <a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a>
+  <a href="/#contact" style="color:var(--orange,#e8720c);font-weight:800;">Free Estimate &rarr;</a>
 </div>
-
 <!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-pattern"></div>
@@ -560,16 +648,16 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
       <div class="hero-tagline">One call. One person. No Big Deal with Joe Deal.</div>
       <p>Roofing, siding, gutters, and storm damage claims — handled personally, start to finish. Not a franchise. Not a call center. Just Joe Deal, and I'll take care of it.</p>
       <div class="hero-btns">
-        <a href="tel:8594207382" class="btn-primary">📞 Call Joe — (859) 420-7382</a>
-        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-ghost">📅 Schedule Inspection</a>
+        <a href="tel:8594207382" class="btn-primary"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe — (859) 420-7382</a>
+        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-ghost"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Schedule Inspection</a>
       </div>
-      <div class="hero-btns-sub" style="font-size:.82rem;color:rgba(255,255,255,.7);margin-top:10px;">📅 Or book directly — free, 30 min, no pressure.</div>
+      <div class="hero-btns-sub" style="font-size:.82rem;color:rgba(255,255,255,.7);margin-top:10px;display:flex;align-items:center;gap:6px;"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or book directly — free, 30 min, no pressure.</div>
       <div class="hero-trust">
-        <div class="hero-trust-item">✅ Licensed &amp; Insured</div>
+        <div class="hero-trust-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>Licensed &amp; Insured</div>
         <div class="hero-trust-dot"></div>
-        <div class="hero-trust-item">⭐ 5-Star Rated</div>
+        <div class="hero-trust-item"><svg class="ico ico-fill" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg>5-Star Rated</div>
         <div class="hero-trust-dot"></div>
-        <div class="hero-trust-item">🏠 Locally Owned</div>
+        <div class="hero-trust-item"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg>Locally Owned</div>
       </div>
     </div>
     <div class="hero-right">
@@ -578,21 +666,21 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="wc-title">We Put Our Name On It</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin:16px 0;">
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #c8a87a;">
-            <div style="font-size:1.3rem;flex-shrink:0;margin-top:1px;">🏠</div>
+            <div style="flex-shrink:0;margin-top:1px;color:#1a2b5e;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
             <div>
               <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Standard — Lifetime Labor Guarantee</div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">GAF Timberline shingles · GAF lifetime manufacturer warranty</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #e8720c;">
-            <div style="font-size:1.3rem;flex-shrink:0;margin-top:1px;">🛡️</div>
+            <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
             <div>
               <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Preferred — Lifetime + Transferable</div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">GAF HDZ · Transfers to one new owner · 48hr callback</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#fff4ee;border-radius:6px;border-left:3px solid #e8720c;">
-            <div style="font-size:1.3rem;flex-shrink:0;margin-top:1px;">⭐</div>
+            <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico ico-fill" viewBox="0 0 24 24" style="width:22px;height:22px"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
             <div>
               <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Elite — Lifetime + Follows the House Forever</div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">GAF UHDZ · Fully transferable · Annual inspection · Signed certificate</div>
@@ -600,7 +688,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           </div>
         </div>
         <a href="tel:8594207382" class="wc-phone">
-          <div class="wc-phone-icon">📞</div>
+          <div class="wc-phone-icon"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg></div>
           <div class="wc-phone-text">
             <strong>(859) 420-7382</strong>
             <span>Call or text Joe directly</span>
@@ -615,23 +703,23 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 <div class="trust-bar">
   <div class="trust-bar-inner">
     <div class="trust-item">
-      <div class="trust-icon">🛡️</div>
+      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
       <div class="trust-text"><strong>Licensed &amp; Insured</strong><span>Every job, fully covered</span></div>
     </div>
     <div class="trust-item">
-      <div class="trust-icon">🏠</div>
+      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
       <div class="trust-text"><strong>Locally Owned</strong><span>Goshen, OH — your neighbor</span></div>
     </div>
     <div class="trust-item">
-      <div class="trust-icon">📋</div>
+      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></div>
       <div class="trust-text"><strong>Insurance Claims</strong><span>We navigate the process</span></div>
     </div>
     <div class="trust-item">
-      <div class="trust-icon">⭐</div>
+      <div class="trust-icon"><svg class="ico ico-fill" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
       <div class="trust-text"><strong>5-Star Rated</strong><span>Honest quotes, real results</span></div>
     </div>
     <a href="/services/financing" class="trust-item">
-      <div class="trust-icon">💰</div>
+      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><line x1="6" y1="12" x2="6" y2="12.01"/><line x1="18" y1="12" x2="18" y2="12.01"/></svg></div>
       <div class="trust-text"><strong>0% Financing</strong><span>Available through Improvifi</span></div>
     </a>
   </div>
@@ -764,7 +852,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     </div>
     <div class="hiw-cta reveal" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
       <a href="/#contact" class="btn-primary">Get My Free Estimate →</a>
-      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background:var(--navy);border:2px solid var(--orange);">📅 Pick a Time Online →</a>
+      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background:var(--navy);border:2px solid var(--orange);"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Pick a Time Online →</a>
     </div>
   </div>
 </section>
@@ -905,28 +993,28 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     </div>
     <div class="areas-contact reveal">
       <div class="areas-contact-item">
-        <div class="aci-icon">📞</div>
+        <div class="aci-icon" style="color:var(--orange)"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg></div>
         <div class="aci-text">
           <strong>Call or Text</strong>
           <a href="tel:8594207382">(859) 420-7382</a>
         </div>
       </div>
       <div class="areas-contact-item">
-        <div class="aci-icon">📧</div>
+        <div class="aci-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg></div>
         <div class="aci-text">
           <strong>Email Joe</strong>
           <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
         </div>
       </div>
       <div class="areas-contact-item">
-        <div class="aci-icon">📍</div>
+        <div class="aci-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s-7-7.5-7-13a7 7 0 0 1 14 0c0 5.5-7 13-7 13z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
         <div class="aci-text">
           <strong>Based In</strong>
           <span>Goshen / Cincinnati area, OH</span>
         </div>
       </div>
       <div class="areas-contact-item">
-        <div class="aci-icon">🕐</div>
+        <div class="aci-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></div>
         <div class="aci-text">
           <strong>Hours</strong>
           <span>Mon–Sat 7AM–6PM, Sun available</span>
@@ -1042,14 +1130,14 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <p>No pressure. No obligation. No callback from someone you've never met. Tell Joe what's going on and he'll give you a straight answer — usually same day.</p>
         <div class="contact-methods">
           <a href="tel:8594207382" class="contact-method">
-            <div class="cm-icon">📞</div>
+            <div class="cm-icon" style="color:var(--orange)"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg></div>
             <div class="cm-text">
               <strong>(859) 420-7382</strong>
               <span>Call or text Joe directly</span>
             </div>
           </a>
           <a href="mailto:jd@nobigdealwithjoedeal.com" class="contact-method">
-            <div class="cm-icon">📧</div>
+            <div class="cm-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg></div>
             <div class="cm-text">
               <strong>jd@nobigdealwithjoedeal.com</strong>
               <span>Email Joe anytime</span>
@@ -1064,7 +1152,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <div class="cf-sub">Joe will get back to you personally — usually same day.</div>
 
           <div id="formSuccess" class="form-success">
-            <div class="form-success-icon">✅</div>
+            <div class="form-success-icon" style="color:#22a06b"><svg class="ico" viewBox="0 0 24 24" style="width:48px;height:48px;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><polyline points="7 12 11 16 17 9"/></svg></div>
             <h3>You're All Set!</h3>
             <p>Your request is in. Joe will reach out personally within a few hours — usually same day.</p>
           </div>
@@ -1124,7 +1212,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
           <h3>Free Estimate</h3>
           <p>Call or text Joe directly. No call centers, no pressure, no runaround.</p>
           <a href="/#contact" class="hs-btn">Get My Free Estimate →</a>
-          <a href="tel:8594207382" class="hs-phone">📞 (859) 420-7382</a>
+          <a href="tel:8594207382" class="hs-phone"><svg class="ico ico-fill" viewBox="0 0 24 24" style="width:1em;height:1em;margin-right:4px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>(859) 420-7382</a>
         </div>
 
         <div class="hs-card">
@@ -1146,11 +1234,11 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
         <div class="hs-card">
           <h3>Why Joe?</h3>
           <div class="hs-trust">
-            <div class="hs-trust-item"><span class="icon">⭐</span><div><strong>5-Star Rated</strong> across Google &amp; Facebook</div></div>
-            <div class="hs-trust-item"><span class="icon">📋</span><div><strong>Licensed &amp; Insured</strong> in Ohio</div></div>
-            <div class="hs-trust-item"><span class="icon">🏠</span><div><strong>Locally Owned</strong> — Goshen, OH</div></div>
-            <div class="hs-trust-item"><span class="icon">📞</span><div><strong>Joe picks up</strong> — no call centers</div></div>
-            <div class="hs-trust-item"><span class="icon">🔍</span><div><strong>Free inspections</strong> — no obligation</div></div>
+            <div class="hs-trust-item"><span class="icon" style="color:var(--orange)"><svg class="ico ico-fill" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></span><div><strong>5-Star Rated</strong> across Google &amp; Facebook</div></div>
+            <div class="hs-trust-item"><span class="icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg></span><div><strong>Licensed &amp; Insured</strong> in Ohio</div></div>
+            <div class="hs-trust-item"><span class="icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></span><div><strong>Locally Owned</strong> — Goshen, OH</div></div>
+            <div class="hs-trust-item"><span class="icon" style="color:var(--orange)"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg></span><div><strong>Joe picks up</strong> — no call centers</div></div>
+            <div class="hs-trust-item"><span class="icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/></svg></span><div><strong>Free inspections</strong> — no obligation</div></div>
           </div>
         </div>
 
@@ -1196,24 +1284,13 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   <div class="footer-inner">
     <div class="footer-grid">
       <div class="footer-logo-block">
-        <div class="footer-logo-card logo-card">
-          <div class="logo-card-top">
-            <svg viewBox="0 0 60 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 34 L30 6 L56 34" stroke="#1e3a6e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <path d="M10 31 L10 38 L50 38 L50 31" stroke="#1e3a6e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              <rect x="24" y="28" width="12" height="10" rx="2" fill="#e8720c"/>
-            </svg>
-            <div class="logo-card-name">
-              <span class="lw-nobig">NO BIG</span>
-              <span class="lw-deal">DEAL</span>
-            </div>
-            <div class="logo-card-sub">Home Solutions</div>
+        <a href="/" class="nav-logo footer-nav-logo">
+          <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
+          <div class="nav-logo-text">
+            <div class="brand" style="color:#fff">NO BIG DEAL</div>
+            <div class="sub" style="color:rgba(255,255,255,.6)">Home Solutions</div>
           </div>
-          <div class="logo-card-divider"></div>
-          <div class="logo-card-bottom">
-            <span class="lw-script">No Big Deal with Joe Deal</span>
-          </div>
-        </div>
+        </a>
         <p class="footer-desc">It's just Joe Deal — and when you're dealing with a roof problem, a hail claim, or a contractor you can't trust, that's exactly who you want. Greater Cincinnati's owner-operated roofing and insurance restoration specialist.</p>
         <div class="footer-badges">
           <span class="footer-badge">Licensed</span>
@@ -1242,17 +1319,16 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
       <div>
         <div class="footer-col-title">Company</div>
         <ul class="footer-links">
-          <li><a href="#about">About Joe</a></li>
-          <li><a href="#reviews">Reviews</a></li>
-          <li><a href="#areas">Service Areas</a></li>
+          <li><a href="/about">About Joe</a></li>
+          <li><a href="/review">Reviews</a></li>
+          <li><a href="/our-work">Our Work</a></li>
           <li><a href="#process">How It Works</a></li>
           <li><a href="#contact">Get My Free Estimate →</a></li>
-        <li><a href="/blog">Blog</a></li>
-        <li><a href="/visualizer">AI Visualizer ✨</a></li>
-        <li><a href="/estimate">Instant Estimate ⚡</a></li>
-        <li><a href="/storm-alerts">Storm Alerts 🌩️</a></li>
-
-        <li><a href="/areas/">All Service Areas</a></li>
+          <li><a href="/blog">Blog</a></li>
+          <li><a href="/visualizer">AI Visualizer</a></li>
+          <li><a href="/estimate">Instant Estimate</a></li>
+          <li><a href="/storm-alerts">Storm Alerts</a></li>
+          <li><a href="/areas/">All Service Areas</a></li>
         </ul>
       </div>
 

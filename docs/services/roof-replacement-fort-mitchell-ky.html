@@ -142,35 +142,133 @@ footer a{color:var(--orange-light);text-decoration:none}
 .svc-icon{font-size:1.4rem;flex-shrink:0}
 .svc-name{flex:1}
 .svc-arrow{color:var(--orange);font-weight:700}
+
+/* unified-nav injected */
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
+.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
+
+/* unified-emoji-swap injected */
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
+.wc-phone-icon svg.ico{width:26px;height:26px}
+</style><style>
+/* trust-icon fix */
+.trust-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+</style>
+<style>
+/* nav-ico sizing (injected) */
+.nav-links .nav-ico{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.18em}
+.nav-links > li > a{display:inline-flex;align-items:center;gap:5px}
+.nav-links > li > a.nav-instant{color:var(--orange-light,#f08030)!important}
+.mobile-nav .mnav-group{font-size:.65rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange-light,#f08030);padding:14px 24px 6px;opacity:.75;border-bottom:none!important}
+
+/* ico sizing (injected) */
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
+.wc-phone-icon svg.ico{width:26px;height:26px}
+.trust-icon svg.ico{color:#fff}
+.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+</style>
+<style>
+/* nav base (injected) */
+.nav-links .dropdown{position:relative}
+.nav-links .dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--navy-dark,#142a52);border:2px solid var(--orange,#e8720c);border-top:none;min-width:230px;border-radius:0 0 8px 8px;padding:8px 0;z-index:999;list-style:none;margin:0}
+.nav-links .dropdown:hover .dropdown-menu{display:block}
+.nav-links .dropdown-menu a{display:block;padding:10px 18px;font-size:.75rem;border-bottom:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none;letter-spacing:.06em;text-transform:uppercase;font-weight:600;transition:color .2s,background .2s}
+.nav-links .dropdown-menu a:last-child{border-bottom:none}
+.nav-links .dropdown-menu a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04);border-bottom-color:rgba(255,255,255,.08)}
+.mobile-nav{display:none;position:fixed;top:70px;left:0;right:0;background:var(--navy-dark,#142a52);z-index:999;border-top:2px solid var(--orange,#e8720c);max-height:calc(100vh - 70px);overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4);padding-top:0}
+.mobile-nav.open{display:block}
+.mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
+.mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px;background:transparent;border:none}
+.hamburger span{display:block;width:24px;height:2.5px;background:#fff;border-radius:2px}
+@media (max-width:900px){
+  .nav-links{display:none}
+  .hamburger{display:flex}
+}
 </style>
 </head>
 <body>
 
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active">🛡️ NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
-  <div class="ann-slide">🏠 Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
-  <div class="ann-slide">⚡ Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
 
-<nav>
+<nav id="mainNav">
   <a href="/" class="nav-logo">
-    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions">
+    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text">
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
     </div>
   </a>
-  <ul class="nav-links">
-    <li><a href="/#services">Services</a></li>
-    <li><a href="/#reviews">Reviews</a></li>
-    <li><a href="/#areas">Areas</a></li>
+  <ul class="nav-links" id="navLinks">
+    <li class="dropdown"><a href="/#services">Services
+      <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
+      <ul class="dropdown-menu">
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/roof-repair">Roof Repair</a></li>
+        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
+        <li><a href="/services/siding-repair">Siding Repair</a></li>
+        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage &amp; Insurance</a></li>
+        <li><a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a></li>
+        <li><a href="/services/roof-inspection">Roof Inspection</a></li>
+        <li><a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a></li>
+        <li><a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a></li>
+        <li><a href="/services/financing">Financing</a></li>
+        <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
+      </ul>
+    </li>
+    <li><a href="/about">About Joe</a></li>
+    <li><a href="/review">Reviews</a></li>
+    <li><a href="/our-work">Our Work</a></li>
+    <li><a href="/#areas">Service Areas</a></li>
     <li><a href="/blog">Blog</a></li>
-    <li><a href="/estimate" style="color:var(--orange);">Instant Estimate ⚡</a></li>
-    <li><a href="/storm-alerts">Storm Alerts 🌩️</a></li>
-    <li><a href="/#contact" class="nav-cta">Free Estimate →</a></li>
+    <li><a href="/estimate" class="nav-instant">Instant Estimate
+      <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
+    <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
+  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
-
+<div class="mobile-nav" id="mobileNav">
+  <div class="mnav-group">Services</div>
+  <a href="/services/roof-replacement">Roof Replacement</a>
+  <a href="/services/roof-repair">Roof Repair</a>
+  <a href="/services/siding-replacement">Siding Replacement</a>
+  <a href="/services/siding-repair">Siding Repair</a>
+  <a href="/services/gutter-replacement">Gutter Replacement</a>
+  <a href="/services/storm-damage">Storm Damage &amp; Insurance</a>
+  <a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a>
+  <a href="/services/roof-inspection">Roof Inspection</a>
+  <a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a>
+  <a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a>
+  <a href="/services/financing">Financing</a>
+  <div class="mnav-group">Company</div>
+  <a href="/about">About Joe</a>
+  <a href="/review">Reviews</a>
+  <a href="/our-work">Our Work</a>
+  <a href="/#areas">Service Areas</a>
+  <a href="/blog">Blog</a>
+  <div class="mnav-group">Tools</div>
+  <a href="/estimate" style="color:var(--orange-light,#f08030)">Instant Estimate</a>
+  <a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a>
+  <a href="/#contact" style="color:var(--orange,#e8720c);font-weight:800;">Free Estimate &rarr;</a>
+</div>
 <div class="breadcrumb">
   <a href="/">Home</a> › <a href="/services/roof-replacement">Roof Replacement</a> › <a href="/areas/fort-mitchell-ky">Fort Mitchell, KY</a> › Roof Replacement
 </div>
@@ -182,9 +280,9 @@ footer a{color:var(--orange-light);text-decoration:none}
     <h1>Roof Replacement<br>in <span>Fort Mitchell, KY</span></h1>
     <p>Fort Mitchell's hillside character, historic homes, and layered-deck challenges make roof replacement more complex than a standard suburban job. Joe handles the full picture — hillside access, multi-layer tear-offs, Kentucky building code compliance, and insurance claim coordination when storm damage is involved.</p>
     <div class="hero-btns">
-      <a href="tel:8594207382" class="btn-primary">📞 Call Joe: (859) 420-7382</a>
+      <a href="tel:8594207382" class="btn-primary"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg> Call Joe: (859) 420-7382</a>
       <a href="/#contact" class="btn-ghost">Get My Free Estimate →</a>
-      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-cal">📅 Schedule Inspection</a>
+      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-cal"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg> Schedule Inspection</a>
     </div>
   </div>
 </section>
@@ -252,7 +350,7 @@ footer a{color:var(--orange-light);text-decoration:none}
   <div class="hero-btns" style="justify-content:center">
     <a href="tel:8594207382" class="btn-primary">📞 (859) 420-7382</a>
     <a href="mailto:jd@nobigdealwithjoedeal.com" class="btn-ghost">✉️ Email Joe</a>
-    <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-cal">📅 Schedule Inspection</a>
+    <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-cal"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg> Schedule Inspection</a>
   </div>
 </section>
 
