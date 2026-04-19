@@ -24,14 +24,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --navy: #1e3a6e; --navy-dark: #142a52; --navy-deep: #0a1628;
+  --navy: #1e3a6e; --navy-dark: #142a52;
   --orange: #e8720c; --orange-light: #f08030; --orange-glow: rgba(232,114,12,.15);
   --white: #fff; --off-white: #f5f3ef; --gray: #6b7280; --light-gray: #e8e5e0;
-  --success: #22c55e; --success-bg: rgba(34,197,94,.08);
+  --success: #22a06b; --success-bg: rgba(34,160,107,.08);
   --error: #ef4444;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(--white);min-height:100vh;min-height:100dvh;overflow-x:hidden;}
+body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:var(--white);min-height:100vh;min-height:100dvh;overflow-x:hidden;}
 
 /* ── Nav ── */
 .nav{position:sticky;top:0;z-index:100;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px;}
@@ -138,7 +138,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 .otp-row{display:flex;gap:8px;justify-content:center;margin:16px 0;}
 .otp-input{width:46px;height:52px;text-align:center;font-size:1.3rem;font-weight:800;font-family:'Montserrat',sans-serif;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);border-radius:10px;color:var(--white);outline:none;transition:border-color .2s;}
 .otp-input:focus{border-color:var(--orange);}
-.otp-input.filled{border-color:var(--success);background:rgba(34,197,94,.06);}
+.otp-input.filled{border-color:var(--success);background:rgba(34,160,107,.06);}
 .otp-status{font-size:.78rem;text-align:center;margin-top:8px;}
 .otp-status.sending{color:var(--orange);}
 .otp-status.sent{color:var(--success);}
@@ -148,7 +148,7 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-deep);color:var(-
 .btn-send-code{padding:14px 20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:var(--white);font-family:'Montserrat',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;letter-spacing:.04em;text-transform:uppercase;}
 .btn-send-code:hover:not(:disabled){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);}
 .btn-send-code:disabled{opacity:.5;cursor:not-allowed;}
-.btn-send-code.verified{background:rgba(34,197,94,.15);border-color:var(--success);color:var(--success);}
+.btn-send-code.verified{background:rgba(34,160,107,.15);border-color:var(--success);color:var(--success);}
 
 /* ── TCPA ── */
 .tcpa-check{display:flex;gap:10px;align-items:flex-start;margin:20px 0 8px;}
@@ -746,9 +746,9 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
   </div>
 
   <div style="margin-top:20px;padding:14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;text-align:center;">
-    <div style="font-size:.75rem;font-weight:700;color:#f59e0b;margin-bottom:4px;">&#9889;&#65039; STORM ALERTS</div>
+    <div style="font-size:.75rem;font-weight:700;color:#e8720c;margin-bottom:4px;">&#9889;&#65039; STORM ALERTS</div>
     <div style="font-size:.8rem;color:rgba(255,255,255,.6);margin-bottom:8px;">Get a free text when hail hits your zip code.</div>
-    <a href="/storm-alerts" style="color:#f59e0b;font-size:.82rem;font-weight:700;text-decoration:none;">Sign up free &#x2192;</a>
+    <a href="/storm-alerts" style="color:#e8720c;font-size:.82rem;font-weight:700;text-decoration:none;">Sign up free &#x2192;</a>
   </div>
 </div>
 
@@ -1034,7 +1034,7 @@ function showSatelliteFallback() {
         '<div style="font-size:3rem;margin-bottom:12px;">&#128506;</div>' +
         '<div style="font-size:.9rem;font-weight:700;color:var(--white);">Property Located</div>' +
         '<div style="font-size:.78rem;color:rgba(255,255,255,.4);margin-top:4px;">Coordinates: ' + funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4) + '</div>' +
-        '<div style="margin-top:12px;padding:8px 16px;border:1px solid rgba(34,197,94,.3);border-radius:8px;background:rgba(34,197,94,.08);font-size:.75rem;font-weight:600;color:var(--success);">&#10003; Address verified</div>' +
+        '<div style="margin-top:12px;padding:8px 16px;border:1px solid rgba(34,160,107,.3);border-radius:8px;background:rgba(34,160,107,.08);font-size:.75rem;font-weight:600;color:var(--success);">&#10003; Address verified</div>' +
       '</div>';
   } else {
     placeholder.innerHTML =
