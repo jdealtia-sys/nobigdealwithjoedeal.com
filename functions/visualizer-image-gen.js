@@ -49,11 +49,19 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
-// Replicate endpoint for black-forest-labs/flux-kontext-max. The
-// model-name path auto-selects the latest version, so we don't have
-// to hardcode a version hash that eventually gets deprecated.
-const REPLICATE_ENDPOINT =
-  'https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-max/predictions';
+// Replicate model. Configurable via FLUX_MODEL env var so we can swap
+// between flux-kontext-pro (cheaper, broader account access) and
+// flux-kontext-max (premium tier, best quality, requires active paid
+// billing). Defaults to pro — max is a notch more restrictive on new
+// Replicate accounts and returns 402 before spending limits are set.
+//
+// Model            Approx cost per image   Quality
+// flux-kontext-pro ~$0.04                  Strong — matches Gemini Nano Banana
+// flux-kontext-max ~$0.08                  Best in class for typography/complex edits
+function replicateEndpoint() {
+  const model = process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
+  return 'https://api.replicate.com/v1/models/' + model + '/predictions';
+}
 
 // Max input image — match the text endpoint's cap so the frontend can
 // use one resize path for both requests.
@@ -309,7 +317,7 @@ exports.visualizerImageGen = onRequest(
         },
       };
 
-      const response = await fetch(REPLICATE_ENDPOINT, {
+      const response = await fetch(replicateEndpoint(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
