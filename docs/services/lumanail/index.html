@@ -183,7 +183,18 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .x { color: var(--danger); font-weight: 900; flex-shrink: 0; }
 .check { color: var(--success); font-weight: 900; flex-shrink: 0; }
 .vs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--light-gray); }
-@media(max-width:700px){.compare-row{grid-template-columns:1fr;padding:14px 18px}.vs-dot{display:none}.left-cell{justify-content:flex-start;text-align:left}.left-cell::before{content:"Commodity: ";font-weight:800;color:var(--danger);margin-right:4px}.right-cell::before{content:"LumaNail: ";font-weight:800;color:var(--success);margin-right:4px}.compare-row .x,.compare-row .check{display:none}}
+@media(max-width:700px){
+  /* Mobile: keep 2-column 'vs' narrative — don't collapse to single stacked list */
+  .compare-head{grid-template-columns:1fr 1fr;padding:14px 16px;gap:8px}
+  .compare-head .vs{display:none}
+  .compare-head .side{font-size:.74rem}
+  .compare-row{grid-template-columns:1fr 1fr;padding:14px 14px;gap:10px}
+  .vs-dot{display:none}
+  .left-cell,.right-cell{font-size:.78rem;line-height:1.45;align-items:flex-start}
+  .left-cell{justify-content:flex-start;text-align:left;color:var(--gray)}
+  .right-cell{color:var(--navy-dark);font-weight:600}
+  .compare-row .x,.compare-row .check{font-size:.9rem}
+}
 
 /* PROCESS */
 .process-section { padding: 80px 5% 60px; }
@@ -346,7 +357,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,.72); padding: 60
 <section class="cobrand-strip">
   <div class="cobrand-inner">
     <div class="cobrand-text">
-      <strong>A premium upgrade NBD bundles into every Elite roof.</strong> Powered by <strong>LumaTuff™ LumaNail</strong> — the engineered fluorescent-orange roofing fastener you can actually verify. NBD installs it; LumaTuff manufactures it.
+      <strong>A premium upgrade NBD bundles into every Elite roof.</strong> Powered by <strong>LumaTuff™ LumaNail</strong> — the engineered fluorescent-orange roofing fastener you can actually verify. I install it; LumaTuff manufactures it.
     </div>
     <div class="cobrand-logo">
       <span class="label">Manufactured by</span>
@@ -481,7 +492,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,.72); padding: 60
   <div class="process-grid">
     <div class="pstep">
       <div class="stepnum">01</div>
-      <h3>Joe picks up</h3>
+      <h3>I pick up</h3>
       <p>Call or text me directly — I answer myself. We talk about your roof, storm history, and whether the Elite tier (with LumaNail standard) is the right fit for your situation.</p>
     </div>
     <div class="pstep">
