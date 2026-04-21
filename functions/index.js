@@ -1791,6 +1791,19 @@ const PUBLIC_LEAD_KINDS = {
     maxLen:   { name: 200, phone: 30, zip: 10, source: 200 },
     exact:    { zip: 5 },
     optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
+  },
+  // "One Free Roof a Year" giveaway entries. Nominator can be the
+  // homeowner themselves or a neighbor / family member. Story is the
+  // free-text pitch for why this homeowner should win.
+  free_roof: {
+    collection: 'free_roof_entries',
+    required: ['nomineeName', 'phone', 'address', 'story', 'source'],
+    maxLen:   {
+      nomineeName: 200, phone: 30, email: 200, address: 500,
+      story: 1500, source: 200, nominatorName: 200, nominatorRelation: 100,
+      category: 50
+    },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'nominatorName', 'nominatorRelation', 'category']
   }
 };
 
@@ -2478,3 +2491,13 @@ exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
 // GOOGLE_AI_API_KEY secret populated first).
 const visualizerImageGen = require('./visualizer-image-gen');
 exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;
+
+// ═══════════════════════════════════════════════════════════════
+// GOOGLE REVIEWS — Places API proxy with 6-hour Firestore cache
+// ═══════════════════════════════════════════════════════════════
+//
+// Public onRequest endpoint. Keeps the Places API key server-side,
+// serves cached review data to /review and any embedded widgets.
+// See functions/google-reviews.README.md for setup.
+const googleReviews = require('./google-reviews');
+exports.getGoogleReviews = googleReviews.getGoogleReviews;

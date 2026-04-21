@@ -13,7 +13,8 @@
       { "source": "/tools", "destination": "/tools/index.html" },
       { "source": "/privacy", "destination": "/privacy.html" },
       { "source": "/pro/account-erasure", "function": { "functionId": "confirmAccountErasure", "region": "us-central1" } },
-      { "source": "/cspReport", "function": { "functionId": "cspReport", "region": "us-central1" } }
+      { "source": "/cspReport", "function": { "functionId": "cspReport", "region": "us-central1" } },
+      { "source": "/api/google-reviews", "function": { "functionId": "getGoogleReviews", "region": "us-central1" } }
     ],
     "headers": [
       {
