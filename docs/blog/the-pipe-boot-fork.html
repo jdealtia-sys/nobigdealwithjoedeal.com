@@ -83,7 +83,13 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .compare-row .pivot{color:var(--gray-sub)}
 .compare-row .roofivent{color:var(--gray-sub)}
 .compare-row .pivot strong,.compare-row .roofivent strong{color:#1a1a1a}
-@media(max-width:680px){.compare-row{grid-template-columns:1fr;gap:6px;padding:14px}.compare-row.head .ours::before{content:"GAF Pivot vs Roofivent: "}.compare-row .pivot::before{content:"GAF Pivot: ";font-weight:800;color:var(--navy)}.compare-row .roofivent::before{content:"Roofivent: ";font-weight:800;color:var(--orange)}}
+@media(max-width:680px){
+  /* Mobile: keep 3-column mini-table — preserves 'GAF Pivot vs Roofivent' visual read */
+  .compare-row{grid-template-columns:.9fr 1fr 1fr;gap:8px;padding:12px 14px;font-size:.76rem}
+  .compare-row.head{font-size:.7rem}
+  .compare-row .label{font-size:.78rem}
+  .compare-row .pivot strong,.compare-row .roofivent strong{font-size:.76rem}
+}
 .callout{background:var(--navy-dark);color:#fff;border-radius:12px;padding:28px 32px;margin:32px 0}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px}

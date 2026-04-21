@@ -187,9 +187,14 @@ nav {
 .section-label {
   font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--orange);
-  margin-bottom: 10px; display: block;
+  margin-bottom: 10px; display: inline-flex; align-items: center; gap: 10px;
+}
+.section-label::before {
+  content: ''; width: 7px; height: 7px; background: var(--orange);
+  border-radius: 50%; box-shadow: 0 0 10px rgba(232,114,12,.6); flex-shrink: 0;
 }
 .section-label-light { color: rgba(255,255,255,0.6); }
+.section-label-light::before { background: rgba(255,255,255,0.6); box-shadow: 0 0 10px rgba(255,255,255,.3); }
 h2.section-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: clamp(2rem, 4vw, 3rem); line-height: 1.0;
@@ -616,12 +621,12 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
     </div>
     <div class="vs-col us">
       <div class="vs-header us-h">No Big Deal Home Solutions</div>
-      <div class="vs-item good">Joe answers the phone — first call, every time</div>
-      <div class="vs-item good">Joe inspects, estimates, and shows up for the job</div>
+      <div class="vs-item good">I answer the phone — first call, every time</div>
+      <div class="vs-item good">I inspect, estimate, and show up for the job</div>
       <div class="vs-item good">You know who you're working with from day one</div>
-      <div class="vs-item good">Problem? Text Joe directly. He responds.</div>
+      <div class="vs-item good">Problem? Text me directly. I respond.</div>
       <div class="vs-item good">NBD Lifetime Pledge — backed personally</div>
-      <div class="vs-item good">Your roof is his reputation</div>
+      <div class="vs-item good">Your roof is my reputation</div>
     </div>
   </div>
 </section>
@@ -634,22 +639,75 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
     <div class="truth-card">
       <div class="truth-icon">🌩️</div>
       <div class="truth-title">Insurance Restoration</div>
-      <div class="truth-body">Joe has worked hundreds of insurance claims — storm, hail, wind, fire, water. He knows how adjusters think, where claims get undervalued, and how to document damage so you get what you're actually owed.</div>
+      <div class="truth-body">I've worked hundreds of insurance claims — storm, hail, wind, fire, water. I know how adjusters think, where claims get undervalued, and how to document damage so you get what you're actually owed.</div>
     </div>
     <div class="truth-card">
       <div class="truth-icon">📋</div>
       <div class="truth-title">Xactimate Estimating</div>
-      <div class="truth-body">Xactimate is the industry-standard software insurance companies use to price claims. Joe knows it inside and out — which means he speaks the same language as your adjuster and can fight line items that get underbid.</div>
+      <div class="truth-body">Xactimate is the industry-standard software insurance companies use to price claims. I know it inside and out — which means I speak the same language as your adjuster and can fight line items that get underbid.</div>
     </div>
     <div class="truth-card">
       <div class="truth-icon">🏠</div>
       <div class="truth-title">Full Exterior Scope</div>
-      <div class="truth-body">Roofing, siding, gutters, fascia, soffit, decking, flashing — Joe handles the complete exterior. He installs the full GAF system on every roof; the manufacturer warranty applies to GAF installations. (GAF contractor certification application is in progress — official System Plus / Silver Pledge / Golden Pledge warranties launch as cert levels clear.)</div>
+      <div class="truth-body">Roofing, siding, gutters, fascia, soffit, decking, flashing — I handle the complete exterior. I install the full GAF system on every roof; the manufacturer warranty applies to GAF installations. (GAF contractor certification application is in progress — official System Plus / Silver Pledge / Golden Pledge warranties launch as cert levels clear.)</div>
     </div>
     <div class="truth-card">
       <div class="truth-icon">💬</div>
       <div class="truth-title">Direct Communication</div>
-      <div class="truth-body">Joe gives every client his number. Not a company line — his number. He responds to texts and calls personally throughout the project. If something comes up, you're not filing a ticket. You're texting the guy.</div>
+      <div class="truth-body">I give every client my number. Not a company line — my number. I respond to texts and calls personally throughout the project. If something comes up, you're not filing a ticket. You're texting me.</div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY THESE BRANDS -->
+<section class="about-section alt">
+  <span class="section-label">Brand Picks</span>
+  <h2 class="section-title">Why I Install<br>What I Install.</h2>
+  <p style="max-width:720px;font-size:1rem;color:var(--gray-sub);line-height:1.7;margin-bottom:36px;">I don't get sponsorship money to promote any brand. Every product on my roofs earned its spot the hard way — through years of watching what fails at year 7 and what's still holding up at year 20. These three are where I landed:</p>
+  <div class="truth-grid">
+    <div class="truth-card">
+      <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:2.2rem;line-height:1;">GAF</div>
+      <div class="truth-title">GAF Shingles + Master Flow Pivot Boots</div>
+      <div class="truth-body">Top-tier shingle line (Timberline NS / HDZ / UHDZ) with the most coherent warranty system in the industry, and their all-metal Pivot Pipe Boot is the only commercial boot I've seen that completely eliminates the rubber-gasket failure that kills normal roofs at year 10. <a href="/services/gaf-pivot-boot" style="color:var(--orange);font-weight:700;">Read my take →</a></div>
+    </div>
+    <div class="truth-card">
+      <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;">Luma<br>Tuff</div>
+      <div class="truth-title">LumaNail Fasteners</div>
+      <div class="truth-body">Orange-coated, ring-shank, UV-reactive roofing nail. I install it on every Elite roof because it's the only fastener where I can physically verify every nail was driven correctly — and you can too. <a href="/services/lumanail" style="color:var(--orange);font-weight:700;">Read my take →</a></div>
+    </div>
+    <div class="truth-card">
+      <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1;">Roof<br>ivent</div>
+      <div class="truth-title">Roofivent Ventilation + Pipe Flashing</div>
+      <div class="truth-body">Polypropylene bodies that don't UV-degrade, replaceable EPDM gaskets that I can swap in 10 minutes on an annual visit instead of tearing into the roof. Built to be maintained, which matches how I actually work. <a href="/services/roofivent" style="color:var(--orange);font-weight:700;">Read my take →</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW I WORK WITH YOU -->
+<section class="about-section">
+  <span class="section-label">Process</span>
+  <h2 class="section-title">How I Work<br>With You.</h2>
+  <p style="max-width:680px;font-size:1rem;color:var(--gray-sub);line-height:1.7;margin-bottom:36px;">Four steps, start to finish. You talk to me at every one.</p>
+  <div class="timeline" style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px;">
+    <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--orange);line-height:1;margin-bottom:8px;">01</div>
+      <div style="font-weight:800;color:var(--navy-dark,#142a52);margin-bottom:8px;">I pick up</div>
+      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">Call or text me directly. Not a call center, not a scheduler. Talk to the person doing the work from call one.</div>
+    </div>
+    <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--orange);line-height:1;margin-bottom:8px;">02</div>
+      <div style="font-weight:800;color:var(--navy-dark,#142a52);margin-bottom:8px;">Free inspection</div>
+      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">I come out personally, get on the roof, document with drone and chalk. You get a straight, honest assessment — not a sales pitch.</div>
+    </div>
+    <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--orange);line-height:1;margin-bottom:8px;">03</div>
+      <div style="font-weight:800;color:var(--navy-dark,#142a52);margin-bottom:8px;">Install day</div>
+      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">I'm on your roof with the crew. Tear-off, decking check, full GAF system, signed-off before I leave. Usually one day.</div>
+    </div>
+    <div class="tl-step" style="background:var(--off-white,#f5f3ef);padding:24px;border-radius:10px;border-top:3px solid var(--orange);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--orange);line-height:1;margin-bottom:8px;">04</div>
+      <div style="font-weight:800;color:var(--navy-dark,#142a52);margin-bottom:8px;">I come back</div>
+      <div style="font-size:.88rem;color:var(--gray-sub);line-height:1.6;">NBD Lifetime Pledge. If anything goes wrong, I come back — regardless of tier, regardless of year. Elite tier also gets a written annual inspection.</div>
     </div>
   </div>
 </section>
@@ -658,7 +716,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 <section class="about-section dark" style="text-align:center;">
   <span class="section-label section-label-light">Work With Joe</span>
   <h2 class="section-title light" style="max-width:600px;margin:0 auto 20px;">Ready to Talk to<br>a Real Person?</h2>
-  <p style="color:rgba(255,255,255,.7);max-width:480px;margin:0 auto 36px;line-height:1.7;">No forms to fill out, no waiting for a callback from someone you've never met. Call or text Joe directly. He answers.</p>
+  <p style="color:rgba(255,255,255,.7);max-width:480px;margin:0 auto 36px;line-height:1.7;">No forms to fill out, no waiting for a callback from someone you've never met. Call or text me directly. I answer.</p>
   <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
     <a href="tel:8594207382" class="btn-primary" style="font-size:1rem;padding:18px 36px;"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg> Call Joe — (859) 420-7382</a>
     <a href="/estimate" class="btn-outline" style="font-size:1rem;padding:18px 36px;border-color:var(--orange);color:var(--orange);"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> Get an Instant Estimate</a>
