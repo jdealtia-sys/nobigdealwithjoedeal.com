@@ -52,8 +52,9 @@ const SEASONAL_MAP = {
   'signs-your-roof-needs-replacement-vs-repair': '2025-03-24', // oldest
 };
 
-// Tag inference from slug
+// Tag inference from slug. Order matters — more specific matchers first.
 const TAG_GUESSES = [
+  [/^field-notes/, 'Field Notes'],
   [/lumanail|roofivent|pipe-boot|gaf-pivot/, 'Premium Components'],
   [/hail-season|storm-damage/, 'Storm Damage'],
   [/insurance|adjuster|claim|state-farm|allstate|insurance-check/, 'Insurance'],
