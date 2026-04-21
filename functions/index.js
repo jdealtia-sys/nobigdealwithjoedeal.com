@@ -2478,3 +2478,13 @@ exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
 // GOOGLE_AI_API_KEY secret populated first).
 const visualizerImageGen = require('./visualizer-image-gen');
 exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;
+
+// ═══════════════════════════════════════════════════════════════
+// GOOGLE REVIEWS — Places API proxy with 6-hour Firestore cache
+// ═══════════════════════════════════════════════════════════════
+//
+// Public onRequest endpoint. Keeps the Places API key server-side,
+// serves cached review data to /review and any embedded widgets.
+// See functions/google-reviews.README.md for setup.
+const googleReviews = require('./google-reviews');
+exports.getGoogleReviews = googleReviews.getGoogleReviews;
