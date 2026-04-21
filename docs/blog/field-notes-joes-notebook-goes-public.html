@@ -301,15 +301,40 @@ p{font-size:.95rem;line-height:1.72;color:#4a4a4a}
 a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weight:700!important}
 </style>
 <style>
-/* nav-responsive-fix v2 */
-@media(max-width:1280px){
+/* nbd-social-v1 */
+.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
+.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
+.nbd-social a:hover{transform:translateY(-2px);color:#fff}
+.nbd-social a.s-fb:hover{background:#1877f2}
+.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.nbd-social a.s-gg:hover{background:#4285f4}
+.nbd-social a.s-yelp:hover{background:#d32323}
+.nbd-social svg{width:15px;height:15px;display:block}
+@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
+footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
+</style>
+<style>
+/* nav-responsive-fix v3 */
+@media(max-width:1024px){
   nav .nav-links{display:none!important}
   nav .hamburger,nav button.hamburger{display:flex!important}
   nav{padding-left:20px!important;padding-right:20px!important}
 }
+/* Compact desktop nav in the 1025-1440 range so it fits on one line
+   without crashing into the logo card. Above 1440 the default applies. */
+@media(min-width:1025px) and (max-width:1440px){
+  nav{padding-left:24px!important;padding-right:24px!important}
+  nav .nav-links{gap:14px!important}
+  nav .nav-links > li > a{font-size:.7rem!important;letter-spacing:.05em!important;padding:4px 0!important}
+  nav .nav-cta{padding:8px 14px!important;font-size:.7rem!important}
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+  nav .nav-logo{margin-right:12px!important}
+}
 </style>
 <style>
-/* nbd-readability-v1 */
+/* nbd-readability-v2 */
 /* Root + body floor: 16px + generous line-height */
 html{font-size:16px}
 body{font-size:1rem;line-height:1.65;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -336,30 +361,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 .ann-bar{font-size:.8rem!important;letter-spacing:.04em!important}
 @media(max-width:640px){.ann-bar{font-size:.72rem!important;padding:10px 14px!important;min-height:40px!important}}
 
-/* Nav breathing room at desktop widths */
-@media(min-width:1281px){
+/* Nav breathing room at TRULY wide desktop (>=1441). v3 nav-responsive-fix
+   keeps a compact nav style in the 1025-1440 range; this block only
+   loosens things up on big displays where there's room to breathe. */
+@media(min-width:1441px){
   nav{padding-left:40px!important;padding-right:40px!important}
   nav .nav-logo{margin-right:28px!important}
   nav .nav-links{gap:22px!important}
   nav .nav-links > li > a{font-size:.78rem!important;letter-spacing:.07em!important}
 }
-@media(min-width:1440px){
+@media(min-width:1600px){
   nav{padding-left:56px!important;padding-right:56px!important}
   nav .nav-links{gap:28px!important}
 }
-</style>
-<style>
-/* nbd-social-v1 */
-.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
-.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
-.nbd-social a:hover{transform:translateY(-2px);color:#fff}
-.nbd-social a.s-fb:hover{background:#1877f2}
-.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
-.nbd-social a.s-gg:hover{background:#4285f4}
-.nbd-social a.s-yelp:hover{background:#d32323}
-.nbd-social svg{width:15px;height:15px;display:block}
-@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
-footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
 </style>
 </head>
 <body>

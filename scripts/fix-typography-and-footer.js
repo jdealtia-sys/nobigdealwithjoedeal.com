@@ -14,7 +14,8 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', 'docs');
 const SKIP_DIRS = new Set(['admin', 'pro', 'sites', 'assets', 'deploy', 'tools']);
 
-const TYPO_MARKER = '/* nbd-readability-v1 */';
+const TYPO_MARKER_OLD = '/* nbd-readability-v1 */';
+const TYPO_MARKER = '/* nbd-readability-v2 */';
 const TYPO_CSS = `<style>
 ${TYPO_MARKER}
 /* Root + body floor: 16px + generous line-height */
@@ -43,14 +44,16 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 .ann-bar{font-size:.8rem!important;letter-spacing:.04em!important}
 @media(max-width:640px){.ann-bar{font-size:.72rem!important;padding:10px 14px!important;min-height:40px!important}}
 
-/* Nav breathing room at desktop widths */
-@media(min-width:1281px){
+/* Nav breathing room at TRULY wide desktop (>=1441). v3 nav-responsive-fix
+   keeps a compact nav style in the 1025-1440 range; this block only
+   loosens things up on big displays where there's room to breathe. */
+@media(min-width:1441px){
   nav{padding-left:40px!important;padding-right:40px!important}
   nav .nav-logo{margin-right:28px!important}
   nav .nav-links{gap:22px!important}
   nav .nav-links > li > a{font-size:.78rem!important;letter-spacing:.07em!important}
 }
-@media(min-width:1440px){
+@media(min-width:1600px){
   nav{padding-left:56px!important;padding-right:56px!important}
   nav .nav-links{gap:28px!important}
 }
@@ -73,6 +76,9 @@ function walk(dir, out = []) {
 
 function injectTypography(html) {
   if (html.includes(TYPO_MARKER)) return { html, changed: false };
+  // Strip prior typo-fix versions so we don't stack blocks on re-run.
+  const priorRe = /<style>\s*\/\* nbd-readability-v\d+ \*\/[\s\S]*?<\/style>\s*/g;
+  html = html.replace(priorRe, '');
   const idx = html.lastIndexOf('</head>');
   if (idx < 0) return { html, changed: false };
   return {
