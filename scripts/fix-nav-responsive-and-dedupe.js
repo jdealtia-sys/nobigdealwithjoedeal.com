@@ -17,13 +17,29 @@ const ROOT = path.resolve(__dirname, '..', 'docs');
 const SKIP_DIRS = new Set(['admin', 'pro', 'sites', 'assets', 'deploy', 'tools']);
 
 const RESPONSIVE_MARKER_OLD = '/* nav-responsive-fix v1 */';
-const RESPONSIVE_MARKER = '/* nav-responsive-fix v2 */';
+const RESPONSIVE_MARKER = '/* nav-responsive-fix v3 */';
+// v3: drop hamburger to 1024px (v2 at 1280 was too aggressive — collapsed the
+// desktop nav on mid-range laptop viewports where people expect to SEE the
+// buttons). Above 1024 we compact the nav so it still fits without bleeding
+// into the logo.
 const RESPONSIVE_CSS = `<style>
 ${RESPONSIVE_MARKER}
-@media(max-width:1280px){
+@media(max-width:1024px){
   nav .nav-links{display:none!important}
   nav .hamburger,nav button.hamburger{display:flex!important}
   nav{padding-left:20px!important;padding-right:20px!important}
+}
+/* Compact desktop nav in the 1025-1440 range so it fits on one line
+   without crashing into the logo card. Above 1440 the default applies. */
+@media(min-width:1025px) and (max-width:1440px){
+  nav{padding-left:24px!important;padding-right:24px!important}
+  nav .nav-links{gap:14px!important}
+  nav .nav-links > li > a{font-size:.7rem!important;letter-spacing:.05em!important;padding:4px 0!important}
+  nav .nav-cta{padding:8px 14px!important;font-size:.7rem!important}
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+  nav .nav-logo{margin-right:12px!important}
 }
 </style>`;
 
