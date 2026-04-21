@@ -16,6 +16,7 @@
 <meta name="twitter:description" content="Hail damage repair in Covington, KY. Free inspection, impact documentation, Kentucky insurance claim help.">
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -129,7 +130,7 @@ section{padding:56px 40px}
 footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:40px;text-align:center}
 footer p{color:rgba(255,255,255,.5);font-size:.75rem;line-height:1.7}
 footer a{color:var(--orange-light);text-decoration:none}
-@media(max-width:768px){nav{padding:0 16px;height:60px}.nav-links{display:none}.combo-hero{padding:48px 20px}.combo-hero h1{font-size:2rem}section{padding:40px 20px}.hero-btns{flex-direction:column;align-items:stretch}.breadcrumb{padding:10px 16px}}
+@media(max-width:900px){.nav-links{display:none!important}.hamburger{display:flex!important}}@media(max-width:768px){nav{padding:0 16px;height:60px}.combo-hero{padding:48px 20px}.combo-hero h1{font-size:2rem}section{padding:40px 20px}.hero-btns{flex-direction:column;align-items:stretch}.breadcrumb{padding:10px 16px}}
 .btn-cal{background:white;color:var(--navy-dark);padding:15px 28px;border-radius:8px;font-weight:800;font-size:.9rem;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid white;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .btn-cal:hover{background:var(--orange);color:white;border-color:var(--orange);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,114,12,.4)}
 .ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
@@ -190,8 +191,8 @@ footer a{color:var(--orange-light);text-decoration:none}
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
 .mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
-.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px;background:transparent;border:none}
-.hamburger span{display:block;width:24px;height:2.5px;background:#fff;border-radius:2px}
+.hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
+.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:900px){
   .nav-links{display:none}
   .hamburger{display:flex}
@@ -239,7 +240,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 <body>
 
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> NBD Guarantee — 5-Year to Lifetime Labor Coverage on Every Install</div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> NBD Lifetime Pledge — Joe stands behind every install personally</div>
   <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
 </div>
@@ -256,7 +257,12 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
     <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
-        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
+<li><a href="/services/the-nbd-better-build" style="color:#f08030;font-weight:800;">The Better Build</a></li>
+<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+<li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/roof-repair">Roof Repair</a></li>
         <li><a href="/services/siding-replacement">Siding Replacement</a></li>
         <li><a href="/services/siding-repair">Siding Repair</a></li>
@@ -284,6 +290,9 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
   </button>
 </nav>
 <div class="mobile-nav" id="mobileNav">
+  <div class="mnav-group">The Guarantee</div>
+  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee — Tier System</a>
+  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade (Elite)</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -350,7 +359,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div class="inc-item"><span class="inc-check">✓</span> Adjuster coordination — Joe meets them at your Covington property</div>
       <div class="inc-item"><span class="inc-check">✓</span> Supplement negotiation if initial adjuster scope is underpaid</div>
       <div class="inc-item"><span class="inc-check">✓</span> Full repair or replacement with materials matched to original spec</div>
-      <div class="inc-item"><span class="inc-check">✓</span> Lifetime labor guarantee on all installed work</div>
+      <div class="inc-item"><span class="inc-check">✓</span> NBD Lifetime Pledge on all installed work</div>
     </div>
   </div>
 </section>

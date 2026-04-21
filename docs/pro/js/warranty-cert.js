@@ -43,9 +43,9 @@ function generateWarrantyCertPDF() {
   const certNum = 'NBD-' + Date.now().toString().slice(-6);
 
   const tierLabels = {
-    standard: 'Standard — Lifetime Labor Guarantee',
-    preferred: 'Preferred — Lifetime Labor Guarantee (Transferable to One Owner)',
-    elite: 'Elite — Lifetime Labor Guarantee (Fully Transferable + Annual Inspection)'
+    standard: 'Standard — NBD Lifetime Pledge',
+    preferred: 'Preferred — NBD Lifetime Pledge (Transferable to One Owner)',
+    elite: 'Elite — NBD Lifetime Pledge (Fully Transferable + Annual Inspection)'
   };
   const tierLabel = tierLabels[tier];
   const tierDesc = WC_TIER_DESCS[tier];
@@ -118,7 +118,7 @@ function generateWarrantyCertPDF() {
   </div>
 
   <div class="features">
-    <div class="feature"><div class="feature-dot"></div>Lifetime labor guarantee — no expiration</div>
+    <div class="feature"><div class="feature-dot"></div>NBD Lifetime Pledge — no expiration</div>
     <div class="feature"><div class="feature-dot"></div>GAF Timberline lifetime manufacturer shingle warranty</div>
     ${isPreferred||isElite ? '<div class="feature"><div class="feature-dot"></div>Transferable to new owner on sale</div>' : ''}
     ${isElite ? '<div class="feature"><div class="feature-dot"></div>Annual courtesy inspection included</div>' : ''}

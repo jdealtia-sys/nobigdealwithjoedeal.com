@@ -11,6 +11,18 @@
   <url><loc>https://nobigdealwithjoedeal.com/privacy</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/review</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
 
+  <!-- The NBD Guarantee + Premium Components -->
+  <url><loc>https://nobigdealwithjoedeal.com/services/the-nbd-guarantee</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.95</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/the-nbd-better-build</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.90</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/lumanail</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/roofivent</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/services/gaf-pivot-boot</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.85</priority></url>
+
+  <!-- New Blog Posts (Premium Components Series) -->
+  <url><loc>https://nobigdealwithjoedeal.com/blog/why-i-install-lumanail-on-every-elite-roof</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/why-roofivent-is-on-my-roofs</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/blog/the-pipe-boot-fork</loc><lastmod>2026-04-20</lastmod><changefreq>monthly</changefreq><priority>0.75</priority></url>
+
   <!-- Services -->
   <url><loc>https://nobigdealwithjoedeal.com/services/financing</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/services/fire-water-smoke-damage</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
@@ -175,16 +187,16 @@
   <url><loc>https://nobigdealwithjoedeal.com/areas/wilmington-oh</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
 
   <!-- Blog Posts -->
-  <url><loc>https://nobigdealwithjoedeal.com/blog/ai-search-contractors-geo</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/pro/blog/ai-search-contractors-geo</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/architectural-shingles-vs-3-tab</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/can-i-keep-insurance-check-not-fix-roof</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/cincinnati-hail-season-2026</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/competition-crusher-contractor-marketing</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/contractor-review-system</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/contractor-seo-90-day-fix</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/pro/blog/competition-crusher-contractor-marketing</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/pro/blog/contractor-review-system</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/pro/blog/contractor-seo-90-day-fix</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/does-homeowner-insurance-cover-hail-damage-ohio</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/gaf-vs-owens-corning-vs-atlas-shingles</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://nobigdealwithjoedeal.com/blog/google-maps-contractor-ranking</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://nobigdealwithjoedeal.com/pro/blog/google-maps-contractor-ranking</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-long-does-roof-replacement-take-cincinnati</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-long-roof-insurance-claim-ohio</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://nobigdealwithjoedeal.com/blog/how-much-does-roof-cost-cincinnati-2026</loc><lastmod>2026-04-18</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
