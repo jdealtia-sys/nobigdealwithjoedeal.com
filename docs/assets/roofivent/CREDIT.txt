@@ -1,13 +1,18 @@
-Roofivent placeholder imagery
-==============================
-Source: ripped from https://roofivent.com (2026-04-21)
-Files:
-  logo-black.png  - Roofivent primary logo (black on transparent)
-  logo-2022.jpg   - alternate logo
-  ivent-eco-hero.jpg - iVent ECO product hero photo
-  ivent-turbo.png    - iVent TURBO product render
-  ivent-roto.png     - iVent ROTO turbine product detail
+Roofivent imagery
+==================
+Sources (2026-04-21):
+  logo-roofivent.png        - https://roofivent.com/wp-content/themes/kronoplast/images/logot.png
+  logo-roofivent-footer.png - https://roofivent.com/wp-content/themes/kronoplast/images/logo2.png
+  ivent-pipe-flashing.png   - https://shop.roofivent.com (PP-27-PG product image)
+  ivent-eco.png             - https://shop.roofivent.com (006_KPG_ecoline_02)
+  ivent-roto.png            - real Roofivent iVent ROTO on standing-seam roof (ripped from roofivent.com 2026-04-10)
+  ivent-flow.png            - https://shop.roofivent.com (WP-2-02-KPG-72)
 
-Status: PLACEHOLDER until Joe shoots his own install photos.
+Previous files removed (they were incorrectly ripped from other companies):
+  logo-black.png            - was Max Roofing (unrelated)
+  logo-2022.jpg             - was JSI Roofing (unrelated)
+  ivent-turbo.png           - no "iVent TURBO" product on our site
+  ivent-eco-hero.jpg        - faded lifestyle banner; replaced with clean product render
+
 Brand: Roofivent LLC, 8330 S Madison St, Suite 70, Burr Ridge IL 60527.
-NBD is an independent installer, not affiliated with Roofivent.
+NBD is an independent installer, not affiliated with or controlled by Roofivent.
