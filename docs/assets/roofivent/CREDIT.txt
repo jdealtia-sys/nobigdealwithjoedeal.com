@@ -1,0 +1,13 @@
+Roofivent placeholder imagery
+==============================
+Source: ripped from https://roofivent.com (2026-04-21)
+Files:
+  logo-black.png  - Roofivent primary logo (black on transparent)
+  logo-2022.jpg   - alternate logo
+  ivent-eco-hero.jpg - iVent ECO product hero photo
+  ivent-turbo.png    - iVent TURBO product render
+  ivent-roto.png     - iVent ROTO turbine product detail
+
+Status: PLACEHOLDER until Joe shoots his own install photos.
+Brand: Roofivent LLC, 8330 S Madison St, Suite 70, Burr Ridge IL 60527.
+NBD is an independent installer, not affiliated with Roofivent.
