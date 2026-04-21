@@ -1,7 +1,15 @@
-GAF Master Flow Pivot Boot placeholder imagery
-================================================
-Status: PENDING — direct rip from gaf.com blocked by bot detection.
-TODO: Manually save product photo from
-  https://www.gaf.com/en-us/roofing-materials/residential-roofing-materials/rooftop-accessories/master-flow-pivot-pipe-boot-flashing
-or photograph Joe's first install. Until then, the page references the GAF link directly.
-Brand: Master Flow / GAF, Inc. NBD is an independent installer.
+GAF Master Flow Pivot Boot imagery
+===================================
+Sources (2026-04-21):
+  pivot-boot-hero.jpg - product hero shot (item #754846 "754846_default_hero")
+                        sourced via Beacon Building Products / Dealer's Choice CDN
+                        (static-ng.becn.digital). Real Master Flow Pivot Pipe Boot
+                        installed on a shingle roof.
+  gaf-logo.svg        - Official GAF wordmark, sourced from Wikimedia Commons
+                        (https://commons.wikimedia.org/wiki/File:GAF_logo.svg),
+                        CC BY-SA 4.0.
+
+Brand: Master Flow™ / GAF, Inc.
+NBD is an independent contractor enrolled in GAF programs — we're not an employee
+or agent of GAF, and GAF does not control or supervise NBD's operations.
+Master Flow™, Pivot™, and the GAF logo are trademarks of GAF / BMIC LLC.
