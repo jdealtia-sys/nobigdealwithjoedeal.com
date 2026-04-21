@@ -542,6 +542,21 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Entries for the annual "One Free Roof" giveaway. Written only by
+    // the submitPublicLead Cloud Function via admin SDK; NBD staff
+    // triages entries through the Firebase console (server-side) so no
+    // client read surface is needed.
+    match /free_roof_entries/{id} {
+      allow read, write: if false;
+    }
+
+    // Public cache doc for /api/google-reviews. Written by the Cloud
+    // Function with admin SDK; clients fetch the function endpoint,
+    // never the doc directly.
+    match /public_cache/{key} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
