@@ -140,6 +140,14 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 .footer-bottom a{color:var(--orange)}
 @media(max-width:760px){.footer-grid{grid-template-columns:1fr;gap:32px}}
 </style>
+<style>
+/* nav-responsive-fix v2 */
+@media(max-width:1280px){
+  nav .nav-links{display:none!important}
+  nav .hamburger,nav button.hamburger{display:flex!important}
+  nav{padding-left:20px!important;padding-right:20px!important}
+}
+</style>
 </head>
 <body>
 
@@ -166,20 +174,35 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
   <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()"><span></span><span></span><span></span></button>
 </nav>
 <div class="mobile-nav" id="mobileNav">
-  <div class="mnav-group">The Guarantee</div>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee — Tier System</a>
-  <a href="/services/the-nbd-better-build" style="color:#f08030;font-weight:800;">The NBD Better Build</a>
-  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a>
+  <div class="mnav-group">Featured</div>
+  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-better-build" style="color:#f08030;font-weight:800;">The Better Build</a>
+  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>
   <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Master Flow Pivot Boot</a>
+  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
-  <a href="/services/storm-damage">Storm Damage</a>
+  <a href="/services/siding-replacement">Siding Replacement</a>
+  <a href="/services/siding-repair">Siding Repair</a>
+  <a href="/services/gutter-replacement">Gutter Replacement</a>
+  <a href="/services/storm-damage">Storm Damage &amp; Insurance</a>
+  <a href="/services/hail-damage-insurance-claim">Hail Damage Claims</a>
+  <a href="/services/roof-inspection">Roof Inspection</a>
+  <a href="/services/roof-cleaning-soft-wash">Roof Cleaning</a>
+  <a href="/services/fire-water-smoke-damage">Fire &amp; Water Damage</a>
+  <a href="/services/financing">Financing</a>
   <div class="mnav-group">Company</div>
   <a href="/about">About Joe</a>
+  <a href="/review">Reviews</a>
+  <a href="/our-work">Our Work</a>
+  <a href="/areas/">Service Areas</a>
   <a href="/blog">Blog</a>
-  <a href="/#contact" style="color:var(--orange);font-weight:800;">Free Estimate &rarr;</a>
+  <div class="mnav-group">Tools</div>
+  <a href="/estimate" style="color:#f08030">Instant Estimate</a>
+  <a href="/visualizer" style="color:#f08030">Roof Visualizer</a>
+  <a href="/storm-alerts" style="color:#f08030">Storm Alerts</a>
+  <a href="/#contact" style="color:#e8720c;font-weight:800;">Free Estimate &rarr;</a>
 </div>
 
 <div class="breadcrumb"><a href="/">Home</a><span>›</span><a href="/services/the-nbd-better-build">Better Build</a><span>›</span>GAF Master Flow Pivot Boot</div>
