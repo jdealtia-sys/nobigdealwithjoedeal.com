@@ -17,7 +17,7 @@
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Storm Alert SMS","description":"Free text message alerts when hail or severe storms hit your zip code in Greater Cincinnati.","url":"https://nobigdealwithjoedeal.com/storm-alerts","applicationCategory":"Weather","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382"}}</script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -122,8 +122,8 @@ nav { background:var(--navy-dark); border-bottom:3px solid var(--orange); paddin
 .mobile-nav.open{display:block}
 .mobile-nav > a{display:block;padding:12px 24px;color:rgba(255,255,255,.85);text-decoration:none;font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06)}
 .mobile-nav > a:hover{color:var(--orange-light,#f08030);background:rgba(255,255,255,.04)}
-.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:8px;background:transparent;border:none}
-.hamburger span{display:block;width:24px;height:2.5px;background:#fff;border-radius:2px}
+.hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
+.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 @media (max-width:900px){
   .nav-links{display:none}
   .hamburger{display:flex}
@@ -208,6 +208,9 @@ body{color:rgba(255,255,255,.92)!important}
   </div>
 </nav>
 <div class="mobile-nav" id="mobileNav">
+  <div class="mnav-group">The Guarantee</div>
+  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee — Tier System</a>
+  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade (Elite)</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
