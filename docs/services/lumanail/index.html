@@ -666,9 +666,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,.72); padding: 60
 </footer>
 
 <script>
-document.querySelector('.hamburger')?.addEventListener('click', () => {
-  document.getElementById('mobileNav').classList.toggle('open');
-});
+
 document.querySelectorAll('.faq-q').forEach(q => {
   q.addEventListener('click', () => {
     const item = q.parentElement;

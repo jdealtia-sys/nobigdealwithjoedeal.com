@@ -283,7 +283,6 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 </footer>
 
 <script>
-document.querySelector('.hamburger')?.addEventListener('click',()=>{document.getElementById('mobileNav').classList.toggle('open')});
 (function(){const slides=document.querySelectorAll('.ann-slide');let current=0;if(slides.length<2)return;setInterval(()=>{slides[current].classList.remove('active');slides[current].classList.add('exit');const prev=current;current=(current+1)%slides.length;slides[current].classList.add('active');slides[current].classList.remove('exit');setTimeout(()=>slides[prev].classList.remove('exit'),600)},4000)})();
 </script>
 </body>
