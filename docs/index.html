@@ -528,9 +528,20 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .wc-phone-icon svg.ico{width:26px;height:26px}
 </style>
 <style>
-/* trust-icon fix */
+/* trust-icon fix — explicit child selectors so stroke paints even if SVG inheritance fails in some renderers */
+.trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:#fff}
 .trust-icon svg.ico{color:#fff}
 .aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.trust-icon svg.ico path,.trust-icon svg.ico rect,.trust-icon svg.ico line,.trust-icon svg.ico circle,.trust-icon svg.ico polyline,.trust-icon svg.ico polygon,
+.aci-icon svg.ico path,.aci-icon svg.ico rect,.aci-icon svg.ico line,.aci-icon svg.ico circle,.aci-icon svg.ico polyline,.aci-icon svg.ico polygon,
+.cm-icon svg.ico path,.cm-icon svg.ico rect,.cm-icon svg.ico line,.cm-icon svg.ico circle,.cm-icon svg.ico polyline,.cm-icon svg.ico polygon,
+.wc-phone-icon svg.ico path,.wc-phone-icon svg.ico rect,.wc-phone-icon svg.ico line,.wc-phone-icon svg.ico circle,.wc-phone-icon svg.ico polyline,.wc-phone-icon svg.ico polygon,
+.form-success-icon svg.ico path,.form-success-icon svg.ico rect,.form-success-icon svg.ico line,.form-success-icon svg.ico circle,.form-success-icon svg.ico polyline,.form-success-icon svg.ico polygon{stroke:currentColor;fill:none}
+.trust-icon svg.ico.ico-fill path,.trust-icon svg.ico.ico-fill polygon,
+.aci-icon svg.ico.ico-fill path,.aci-icon svg.ico.ico-fill polygon,
+.cm-icon svg.ico.ico-fill path,.cm-icon svg.ico.ico-fill polygon,
+.wc-phone-icon svg.ico.ico-fill path,.wc-phone-icon svg.ico.ico-fill polygon,
+.form-success-icon svg.ico.ico-fill path,.form-success-icon svg.ico.ico-fill polygon{fill:currentColor;stroke:none}
 </style>
 <style>
 /* nav-ico sizing (injected) */
