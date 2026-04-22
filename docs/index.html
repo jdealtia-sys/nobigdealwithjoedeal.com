@@ -89,8 +89,18 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .mobile-cta-btn{margin:16px;background:var(--orange)!important;color:white!important;text-align:center;border-radius:6px;border-bottom:none!important;padding:14px 24px!important;display:block}
 
 /* ── SHARED ── */
-.reveal{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+/* Reveal: visible by default. Hide pre-animation ONLY when JS has signaled readiness
+   (html.js-reveal-ready) AND the user has not requested reduced motion.
+   This guarantees no-JS and motion-reduce users see every section. */
+.reveal{opacity:1;transform:none;transition:opacity .65s ease,transform .65s ease}
+@media (prefers-reduced-motion: no-preference){
+  html.js-reveal-ready .reveal:not(.visible){opacity:0;transform:translateY(28px)}
+}
 .reveal.visible{opacity:1;transform:translateY(0)}
+/* Global motion-reduce guard: kill all transitions/animations for motion-reduce users */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.001ms!important;animation-iteration-count:1!important;transition-duration:0.001ms!important;scroll-behavior:auto!important}
+}
 .btn-primary{background:var(--orange);color:white;padding:14px 32px;border-radius:8px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif}
 .btn-primary:hover{background:var(--orange-light);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,114,12,.4)}
 .btn-secondary{background:transparent;color:var(--navy-dark);padding:14px 32px;border-radius:4px;font-weight:700;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:all .25s;border:2px solid var(--navy-dark);display:inline-flex;align-items:center;gap:8px}
@@ -268,6 +278,14 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .cm-icon{width:42px;height:42px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
 .cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em}
 .cm-text span{font-size:.72rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em}
+.contact-process{margin-top:36px;padding-top:28px;border-top:1px solid rgba(255,255,255,.09)}
+.contact-process .eyebrow-small{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--orange);text-transform:uppercase;margin-bottom:16px}
+.contact-steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:20px}
+.contact-steps li{display:flex;gap:16px;align-items:flex-start}
+.contact-steps .step-num{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;font-weight:400;color:var(--orange);line-height:1;min-width:3rem;letter-spacing:.02em}
+.contact-steps strong{display:block;color:white;font-size:1.02rem;margin-bottom:4px;letter-spacing:.01em}
+.contact-steps p{color:rgba(255,255,255,.68);font-size:.88rem;line-height:1.55;margin:0}
+@media(max-width:900px){.contact-process{display:none}}
 .contact-form-card{background:white;border-radius:14px;padding:36px 32px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .cf-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:4px}
 .cf-sub{font-size:.8rem;color:var(--gray);margin-bottom:24px}
@@ -366,7 +384,8 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 @media(max-width:768px){
   .mobile-cta-strip{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--navy-dark);border-top:3px solid var(--orange);padding:12px 16px 16px;gap:10px;align-items:center;justify-content:center}
   .mobile-cta-strip a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 10px;border-radius:8px;font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;text-align:center}
-  .mobile-cta-call{background:var(--orange);color:white}
+  .mobile-cta-call{background:var(--navy-dark);color:white;border:2px solid var(--orange)}
+  .mobile-cta-call:hover{background:var(--orange)}
   .mobile-cta-text{background:rgba(255,255,255,.08);color:white;border:1px solid rgba(255,255,255,.2)}
   .mobile-cta-strip svg{width:16px;height:16px;flex-shrink:0}
   /* Push footer content above the strip */
@@ -677,6 +696,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 /* Announcement bar legibility floor */
 .ann-bar{font-size:.8rem!important;letter-spacing:.04em!important}
 @media(max-width:640px){.ann-bar{font-size:.72rem!important;padding:10px 14px!important;min-height:40px!important}}
+.ann-short{display:none}
+@media(max-width:600px){.ann-long{display:none}.ann-short{display:inline}}
+@media(max-width:480px){.trim-mobile{display:none}}
 
 /* Nav breathing room at TRULY wide desktop (>=1441). v3 nav-responsive-fix
    keeps a compact nav style in the 1025-1440 range; this block only
@@ -697,10 +719,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
 <!-- ANNOUNCEMENT BAR -->
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg>NBD Lifetime Pledge — Joe stands behind every install personally</div>
-  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Free Roof Inspections — Call or Text Joe: (859) 420-7382</div>
-  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg>Storm Damage? We Handle the Insurance Claim for You — No Big Deal</div>
-  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg>One free roof a year — nominate a Cincinnati neighbor &rarr;</a></div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg><span class="ann-long">NBD Lifetime Pledge — Joe stands behind every install personally</span><span class="ann-short">NBD Lifetime Pledge — Backed by Joe</span></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg><span class="ann-long">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span><span class="ann-short">Free Inspections — (859) 420-7382</span></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg><span class="ann-long">Storm Damage? We Handle the Insurance Claim for You — No Big Deal</span><span class="ann-short">Storm Damage? We Handle the Claim</span></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-long">One free roof a year — nominate a Cincinnati neighbor &rarr;</span><span class="ann-short">One free roof a year &rarr;</span></a></div>
 </div>
 
 <!-- Storm messages now in unified ann-bar -->
@@ -792,13 +814,12 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <div class="hero-badge">Cincinnati Area, OH · Owner-Operated</div>
       <h1>No Big Deal.<br><span>Seriously — it's in the name.</span></h1>
       <div class="hero-tagline">One call. One guy. One roof done right.</div>
-      <p>I'm Joe Deal. I pick up the phone. I walk your roof. I put my name on every install. Roofing, siding, gutters, storm claims — start to finish, no call centers, no handoffs, no BS. That's it. That's the pitch.</p>
-      <p style="color:rgba(255,255,255,.55);font-size:.86rem;font-style:italic;margin-top:-14px;margin-bottom:28px;max-width:500px">Seven years on Cincinnati roofs under other companies — now finally under my own name.</p>
+      <p>I'm Joe Deal. I pick up the phone.<span class="trim-mobile"> I walk your roof. I put my name on every install.</span> Roofing, siding, gutters, storm claims &mdash; start to finish, no call centers, no handoffs, no BS.<span class="trim-mobile"> That's it. That's the pitch.</span></p>
+      <p class="trim-mobile" style="color:rgba(255,255,255,.55);font-size:.86rem;font-style:italic;margin-top:-14px;margin-bottom:28px;max-width:500px">Seven years on Cincinnati roofs under other companies &mdash; now finally under my own name.</p>
       <div class="hero-btns">
         <a href="tel:8594207382" class="btn-primary"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe — (859) 420-7382</a>
-        <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="btn-ghost"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Schedule Inspection</a>
       </div>
-      <div class="hero-btns-sub" style="font-size:.82rem;color:rgba(255,255,255,.7);margin-top:10px;display:flex;align-items:center;gap:6px;"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or book directly — free, 30 min, no pressure.</div>
+      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="hero-link-secondary" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:.92rem;text-decoration:underline;text-underline-offset:4px;margin-top:14px;transition:color .2s ease" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='rgba(255,255,255,.82)'"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or schedule a free inspection online →</a>
       <div class="hero-trust">
         <div class="hero-trust-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>Licensed &amp; Insured</div>
         <div class="hero-trust-dot"></div>
@@ -856,28 +877,24 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </div>
 </section>
 
-<!-- TRUST BAR -->
+<!-- TRUST BAR (canonical 4-item set) -->
 <div class="trust-bar">
   <div class="trust-bar-inner">
     <div class="trust-item">
       <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
       <div class="trust-text"><strong>Licensed &amp; Insured</strong><span>Every job, fully covered</span></div>
     </div>
+    <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" class="trust-item">
+      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>
+      <div class="trust-text"><strong>GAF Certified&trade;</strong><span>Verify on GAF.com</span></div>
+    </a>
     <div class="trust-item">
       <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
-      <div class="trust-text"><strong>Locally Owned</strong><span>Goshen, OH — your neighbor</span></div>
+      <div class="trust-text"><strong>Locally Owned</strong><span>Goshen, OH &mdash; your neighbor</span></div>
     </div>
-    <div class="trust-item">
-      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></div>
-      <div class="trust-text"><strong>Insurance Claims</strong><span>We navigate the process</span></div>
-    </div>
-    <div class="trust-item">
+    <a href="/review" class="trust-item">
       <div class="trust-icon"><svg class="ico ico-fill" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
-      <div class="trust-text"><strong>5-Star Rated</strong><span>Honest quotes, real results</span></div>
-    </div>
-    <a href="/services/financing" class="trust-item">
-      <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><line x1="6" y1="12" x2="6" y2="12.01"/><line x1="18" y1="12" x2="18" y2="12.01"/></svg></div>
-      <div class="trust-text"><strong>0% Financing</strong><span>Available through Improvifi</span></div>
+      <div class="trust-text"><strong>5-Star Rated</strong><span>Verified Google reviews</span></div>
     </a>
   </div>
 </div>
@@ -1358,7 +1375,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
-        <div style="background:white;border-radius:6px;padding:18px 10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/james-hardie.svg" alt="James Hardie — fiber cement siding manufacturer" width="80" height="20" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
+        <div style="background:white;border-radius:6px;padding:18px 10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/james-hardie.svg" alt="James Hardie — fiber cement siding manufacturer" width="76" height="76" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
         <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:6px">Siding Alliance</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">James Hardie</p>
         <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">Fiber cement siding certified installer</p>
@@ -1367,7 +1384,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
 
     <p style="text-align:center;font-size:.75rem;color:rgba(255,255,255,.4);margin-top:20px">Also sourcing from <strong style="color:rgba(255,255,255,.65)">ABC Supply</strong>, <strong style="color:rgba(255,255,255,.65)">SRS Distribution</strong>, and <strong style="color:rgba(255,255,255,.65)">Beacon Building Products</strong> — only top-tier wholesale channels.</p>
-    <p style="text-align:center;font-size:.62rem;color:rgba(255,255,255,.32);margin-top:14px;line-height:1.6;max-width:880px;margin-left:auto;margin-right:auto">No Big Deal Home Solutions is an Independent Contractor and is not an employee or agent of GAF Materials LLC. Contractors enrolled in GAF certification programs are not employees or agents of GAF, and GAF does not control or otherwise supervise these independent businesses. Contractors may receive benefits, such as loyalty rewards points and discounts on marketing tools from GAF, for participating in the program. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011.</p>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.72);margin-top:14px;line-height:1.65;max-width:880px;margin-left:auto;margin-right:auto">No Big Deal Home Solutions is an Independent Contractor and is not an employee or agent of GAF Materials LLC. Contractors enrolled in GAF certification programs are not employees or agents of GAF, and GAF does not control or otherwise supervise these independent businesses. Contractors may receive benefits, such as loyalty rewards points and discounts on marketing tools from GAF, for participating in the program. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011.</p>
   </div>
 </section>
 
@@ -1395,6 +1412,32 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             </div>
           </a>
         </div>
+        <div class="contact-process">
+          <div class="eyebrow-small">After you submit</div>
+          <ol class="contact-steps">
+            <li>
+              <span class="step-num">01</span>
+              <div>
+                <strong>I'll read it personally.</strong>
+                <p>Usually within the hour during business hours. No auto-reply queue.</p>
+              </div>
+            </li>
+            <li>
+              <span class="step-num">02</span>
+              <div>
+                <strong>I'll call or text you back.</strong>
+                <p>From (859) 420-7382 — same number you'd use to reach me directly.</p>
+              </div>
+            </li>
+            <li>
+              <span class="step-num">03</span>
+              <div>
+                <strong>We'll book a free inspection.</strong>
+                <p>On your schedule. No pressure, no obligation, no sales rep.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
       </div>
 
       <div class="contact-right reveal">
@@ -1402,8 +1445,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           <div class="cf-title">Free Estimate Request</div>
           <div class="cf-sub">I will get back to you personally — usually same day.</div>
 
-          <div id="formSuccess" class="form-success">
-            <div class="form-success-icon" style="color:#22a06b"><svg class="ico" viewBox="0 0 24 24" style="width:48px;height:48px;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><polyline points="7 12 11 16 17 9"/></svg></div>
+          <div id="formSuccess" class="form-success" role="status" aria-live="polite" aria-atomic="true">
+            <div class="form-success-icon" style="color:#22a06b" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" style="width:48px;height:48px;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><polyline points="7 12 11 16 17 9"/></svg></div>
             <h3>You're All Set!</h3>
             <p>Your request is in. I will reach out personally within a few hours — usually same day.</p>
           </div>
@@ -1540,11 +1583,21 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div style="max-width:1200px;margin:0 auto;text-align:center">
     <div class="eyebrow" style="margin-bottom:18px">Brands We Install</div>
     <p style="color:var(--gray);max-width:640px;margin:0 auto 24px;font-size:.95rem;line-height:1.6">We install premium materials from manufacturers that stand behind their products. If a shingle, siding panel, or trim piece fails — I want the same people backing us up as I count on.</p>
-    <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:18px 32px;margin-top:12px">
-      <div class="brand-chip" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.05em;color:var(--navy-dark);min-width:160px;justify-content:center">GAF</div>
-      <div class="brand-chip" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.05em;color:var(--navy-dark);min-width:160px;justify-content:center">James&nbsp;Hardie</div>
-      <div class="brand-chip" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.05em;color:var(--navy-dark);min-width:160px;justify-content:center">Royal Building Products</div>
-      <div class="brand-chip" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.25rem;letter-spacing:.05em;color:var(--navy-dark);min-width:160px;justify-content:center">Polaris Siding</div>
+    <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:24px 40px;margin-top:12px">
+      <div class="brand-mark" aria-label="GAF" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
+        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor" width="72" height="52" loading="lazy" style="height:52px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+      </div>
+      <div class="brand-mark" aria-label="James Hardie" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
+        <img src="/assets/partners/james-hardie.svg" alt="James Hardie" width="140" height="36" loading="lazy" style="height:28px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+      </div>
+      <div class="brand-mark" aria-label="Royal Building Products" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;color:#555;line-height:1">
+        <span style="font-size:1.5rem;font-weight:400">ROYAL</span>
+        <span style="font-size:.7rem;letter-spacing:.14em;color:#888;margin-top:2px;font-family:'Montserrat',sans-serif;font-weight:600">BUILDING PRODUCTS</span>
+      </div>
+      <div class="brand-mark" aria-label="Polaris Siding" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;color:#555;line-height:1">
+        <span style="font-size:1.5rem;font-weight:400">POLARIS</span>
+        <span style="font-size:.7rem;letter-spacing:.14em;color:#888;margin-top:2px;font-family:'Montserrat',sans-serif;font-weight:600">SIDING</span>
+      </div>
     </div>
     <p style="color:var(--gray);font-size:.75rem;margin-top:22px;opacity:.7">Brand names are trademarks of their respective manufacturers. NBD Home Solutions is an independent installer.</p>
   </div>
@@ -1675,10 +1728,16 @@ window._captureContactLead = async (data) => {
 })();
 
 // ── SCROLL REVEALS ──
-const observer = new IntersectionObserver((entries)=>{
-  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); observer.unobserve(e.target); }});
-},{threshold:0.12});
-document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+// Content is visible by default (see .reveal CSS). We only hide pre-animation
+// when JS is ready AND the user has not requested reduced motion. If JS fails
+// or IntersectionObserver is unavailable, every section stays visible.
+if('IntersectionObserver' in window){
+  document.documentElement.classList.add('js-reveal-ready');
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); observer.unobserve(e.target); }});
+  },{threshold:0.12});
+  document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+}
 
 // ── BACK TO TOP ──
 window.addEventListener('scroll',()=>{
