@@ -1,0 +1,23 @@
+/* Service-page mobile polish: horizontal-scroll trust bar so hero CTA stays above fold. */
+@media (max-width: 768px) {
+  .trust-bar-inner {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: .5rem;
+    padding: .75rem 1rem !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .trust-bar-inner::-webkit-scrollbar { display: none; }
+  .trust-bar-inner .trust-item {
+    flex: 0 0 auto !important;
+    scroll-snap-align: start;
+    white-space: nowrap;
+    border-right: none !important;
+    border-bottom: none !important;
+    justify-content: center !important;
+    padding: 12px 18px !important;
+  }
+}
