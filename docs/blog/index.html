@@ -66,6 +66,18 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 
 .blog-main { padding: 64px 5%; display: grid; grid-template-columns: 1fr 320px; gap: 56px; max-width: 1200px; margin: 0 auto; }
 .blog-grid { display: flex; flex-direction: column; gap: 36px; }
+#blog-posts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+#blog-posts-grid .post-card.featured { grid-column: 1 / -1; background: linear-gradient(135deg, var(--navy-dark), var(--navy)); color: #fff; border-left: 6px solid var(--orange); border-color: transparent; padding: 16px 24px 8px; border-radius: 16px; }
+#blog-posts-grid .post-card.featured .post-card-body { padding: 24px 8px 24px; }
+#blog-posts-grid .post-card.featured h2 { font-size: 2rem; color: #fff; margin-bottom: 14px; line-height: 1.15; }
+#blog-posts-grid .post-card.featured h2 a { color: #fff; }
+#blog-posts-grid .post-card.featured h2 a:hover { color: var(--orange); }
+#blog-posts-grid .post-card.featured p, #blog-posts-grid .post-card.featured .post-excerpt { color: rgba(255,255,255,0.85); font-size: 1.05rem; line-height: 1.6; }
+#blog-posts-grid .post-card.featured .post-tag { background: rgba(232,114,12,.2); color: var(--orange); }
+#blog-posts-grid .post-card.featured .post-meta, #blog-posts-grid .post-card.featured .post-meta * { color: rgba(255,255,255,0.6); }
+#blog-posts-grid .post-card.featured .read-more { color: var(--orange); font-weight: 700; }
+#blog-posts-grid .post-card.featured::before { content: 'FEATURED'; display: inline-block; font-size: .7rem; font-weight: 800; letter-spacing: .18em; color: var(--orange); background: rgba(232,114,12,.15); padding: 4px 12px; border-radius: 999px; margin-bottom: 8px; }
+@media(max-width:768px){ #blog-posts-grid .post-card.featured { padding: 10px 16px; } #blog-posts-grid .post-card.featured h2 { font-size: 1.5rem; } }
 
 .post-card { background: var(--white); border: 1px solid var(--light-gray); border-radius: 14px; overflow: hidden; transition: box-shadow 0.2s, transform 0.15s; }
 .post-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.1); transform: translateY(-2px); }
@@ -626,6 +638,9 @@ function renderPosts() {
   // Contractor-audience posts stay in the POSTS array for a future NBD Pro blog.
   const homeownerPosts = POSTS.filter(p => p.audience !== 'contractor');
   grid.innerHTML = homeownerPosts.map(buildCard).join('');
+  // Mark the first live (non-coming-soon) post as featured so it reads as the headline.
+  var firstLive = grid.querySelector('.post-card:not(.coming-soon)');
+  if (firstLive) firstLive.classList.add('featured');
   startCountdowns();
 }
 
