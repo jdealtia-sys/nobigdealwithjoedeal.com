@@ -62,6 +62,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 </style>
 </head>
 <body>
+<!-- a11y: skip link + main landmark. Hidden visually until focused. -->
+<a href="#main" class="nbd-skip-link" style="position:absolute;left:-999px;top:0;background:#e8720c;color:#000;padding:8px 14px;font-weight:700;z-index:99999;" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
+<main id="main">
 
 <div class="header">
   <div class="brand">NBD PRO</div>
@@ -174,6 +177,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
     <div class="faq-a">Because I built this for myself first. No VC money to pay back. No sales team commissions to cover. No enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
   </div>
 </div>
+
+</main>
 
 <div class="footer">
   <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a><br>

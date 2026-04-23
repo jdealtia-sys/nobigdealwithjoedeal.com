@@ -179,6 +179,9 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/login">
 </head>
 <body>
+<!-- a11y: skip link + main landmark. Hidden visually until focused. -->
+<a href="#main" class="nbd-skip-link" style="position:absolute;left:-999px;top:0;background:#e8720c;color:#000;padding:8px 14px;font-weight:700;z-index:99999;" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
+<main id="main">
 
 <!-- BRAND PANEL -->
 <div class="bp">
@@ -307,6 +310,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
   </div>
 
 </div><!-- /lp -->
+</main>
 
 <script type="module" src="js/pages/login.js"></script>
 <script src="js/offline-manager.js?v=3"></script>

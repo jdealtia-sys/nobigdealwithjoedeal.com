@@ -2533,6 +2533,23 @@ try {
   failures.push('inline-html-scripts.test.js — inline <script> in docs/ has syntax error (see output above)');
 }
 
+// ── A11y: main landmark + skip-link on public pages ─────────
+// These are the pages users touch before authentication. Screen-reader
+// and keyboard users need a "skip to main content" target + a
+// <main id="main"> landmark to jump to. The test is tight — we only
+// gate the public auth-entry pages so adding landmarks to the rest of
+// the app can happen incrementally without breaking CI.
+section('A11y: main landmark + skip-link on public pages');
+{
+  const PAGES = ['docs/pro/login.html', 'docs/pro/register.html', 'docs/pro/pricing.html'];
+  for (const p of PAGES) {
+    const html = fs.readFileSync(path.join(ROOT, p), 'utf8');
+    assert(p + ' has <main id="main">',  /<main[^>]*id=["']main["']/.test(html));
+    assert(p + ' has skip-to-main link',
+      /href=["']#main["']/.test(html) && /Skip to main content/i.test(html));
+  }
+}
+
 // ── Perf: no new oversized images ───────────────────────────
 // Guard against someone dropping an uncompressed PNG/JPEG into the
 // build. Anything > 1MB is almost always a mistake (should be a WebP
