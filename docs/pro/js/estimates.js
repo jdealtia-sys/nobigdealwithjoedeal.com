@@ -243,8 +243,15 @@ function collectAddOns() {
   const skylight = document.getElementById('estSkylight')?.checked;
   const gutterLF = Math.max(0, parseFloat(document.getElementById('estGutterLF')?.value) || 0);
 
-  const permitCents = _toCents(d.permitCost != null ? d.permitCost : DEFAULT_PERMIT_COST);
-  const dumpCents   = _toCents(d.dumpFee    != null ? d.dumpFee    : DEFAULT_DUMP_FEE);
+  // Permit: user override > city-derived > fallback. Gets set any time
+  // the user picks a city from the selector.
+  const cityEl = document.getElementById('estCity');
+  const city = cityEl ? cityEl.value : '';
+  const permitDollars = d.permitCost != null ? d.permitCost
+                       : city         ? lookupPermitCost(city)
+                       : DEFAULT_PERMIT_COST;
+  const permitCents = _toCents(permitDollars);
+  const dumpCents   = _toCents(d.dumpFee != null ? d.dumpFee : DEFAULT_DUMP_FEE);
   const extraLayers = Math.max(0, tearOffLayers - 1);
   const extraLayerCents = extraLayers * sq * LAYER_TEAROFF_PER_SQ_CENTS;
   const valleyCents   = valley   ? _toCents(Math.max(0, eave * 0.25 * 12)) : 0; // ~$12/LF rough
@@ -266,14 +273,33 @@ function collectAddOns() {
   };
 }
 
-// EBv2 price: flat per-SQ tier rate × squares + add-ons. Enforces the
-// $2,500 job minimum and rounds to the nearest $25. All intermediate
-// math is in cents so we don't accrue float drift before rounding.
-function calcEstimateTotalCents(sq, tier, addOns) {
+// Look up the sales tax rate for a given county. Unknown counties fall
+// back to 7% (reasonable average across the Tri-State). Insurance mode
+// returns 0 regardless — per spec the adjuster's ACV/RCV covers tax.
+function lookupTaxRate(county, mode) {
+  if (mode === 'insurance') return 0;
+  if (!county) return DEFAULT_TAX_RATE;
+  return COUNTY_TAX_RATES[county] != null ? COUNTY_TAX_RATES[county] : DEFAULT_TAX_RATE;
+}
+
+function lookupPermitCost(city) {
+  if (!city) return DEFAULT_PERMIT_COST;
+  return PERMIT_COSTS[city] != null ? PERMIT_COSTS[city] : DEFAULT_PERMIT_COST;
+}
+
+// EBv2 price: flat per-SQ tier rate × squares + add-ons + tax.
+// Enforces the $2,500 job minimum and rounds to the nearest $25.
+// All intermediate math is in cents so we don't accrue float drift
+// before rounding. Tax is applied to (base + add-ons) then added.
+function calcEstimateTotalCents(sq, tier, addOns, opts) {
+  opts = opts || {};
   const rate = TIER_RATES[tier] || TIER_RATES.better;
   const baseCents = _toCents(sq * rate);
   const addOnsCents = (addOns && addOns.totalCents) || 0;
-  const preRound = _applyJobMin(baseCents + addOnsCents);
+  const subtotalCents = baseCents + addOnsCents;
+  const taxRate = opts.taxRate != null ? opts.taxRate : 0;
+  const taxCents = Math.round(subtotalCents * taxRate);
+  const preRound = _applyJobMin(subtotalCents + taxCents);
   return _roundNearest25(preRound);
 }
 
@@ -292,9 +318,27 @@ function calcTierPrices() {
 
   const addOns = collectAddOns();
 
-  const goodCents   = calcEstimateTotalCents(sq, 'good',   addOns);
-  const betterCents = calcEstimateTotalCents(sq, 'better', addOns);
-  const bestCents   = calcEstimateTotalCents(sq, 'best',   addOns);
+  // Mode: Insurance (carrier covers tax via ACV/RCV) vs Cash (show tax
+  // at county rate). Default Cash so unconfigured estimates are
+  // conservative — never quote a customer a missing-tax price.
+  const mode = document.getElementById('estMode')?.value || 'cash';
+  const county = document.getElementById('estCounty')?.value || '';
+  const taxRate = lookupTaxRate(county, mode);
+  estData.mode = mode; estData.county = county; estData.taxRate = taxRate;
+
+  const goodCents   = calcEstimateTotalCents(sq, 'good',   addOns, { taxRate });
+  const betterCents = calcEstimateTotalCents(sq, 'better', addOns, { taxRate });
+  const bestCents   = calcEstimateTotalCents(sq, 'best',   addOns, { taxRate });
+
+  // Capture pre-tax subtotal + tax amount for the selected tier so
+  // buildReview() can render the tax line without recomputing.
+  if (selectedTier) {
+    const rate = TIER_RATES[selectedTier];
+    const baseCents = _toCents(sq * rate);
+    const subtotalCents = baseCents + (addOns.totalCents || 0);
+    estData.subtotal = _fromCents(subtotalCents);
+    estData.taxAmount = _fromCents(Math.round(subtotalCents * taxRate));
+  }
 
   estData.ridge = ridge; estData.eave = eave; estData.hip = hip; estData.pipes = pipes;
   estData.deckSq = deckSq; estData.iwsSq = iwsSq;
@@ -463,6 +507,12 @@ function buildReview() {
       <thead><tr><th>Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
       <tbody>
         ${rows.map(r=>`<tr><td class="code">${esc(r.code)}</td><td>${esc(r.desc)}</td><td>${esc(r.qty)}</td><td>${esc(r.rate)}</td><td><strong>${fmt(r.total)}</strong></td></tr>`).join('')}
+        ${(d.mode === 'cash' && d.taxAmount > 0) ? `
+        <tr><td class="code">TAX</td><td>Sales tax${d.county ? ' — ' + esc(d.county) + ' County' : ''} (${((d.taxRate||0)*100).toFixed(2)}%)</td><td></td><td></td><td><strong>${fmt(d.taxAmount)}</strong></td></tr>
+        ` : ''}
+        ${(d.mode === 'insurance') ? `
+        <tr><td class="code" style="color:var(--blue);">INS</td><td colspan="3" style="color:var(--m);font-style:italic;">Insurance mode — tax covered by adjuster (ACV/RCV)</td><td></td></tr>
+        ` : ''}
         <tr class="total-row grand"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(grandTotal)}</strong></td></tr>
       </tbody>
     </table>
@@ -478,6 +528,65 @@ window.toggleInternalView = function toggleInternalView() {
   const el = document.getElementById('internalViewPanel');
   if (!el) return;
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+// ── Presets ────────────────────────────────────────────────
+// Pre-wired configurations for the most common job types. Each preset
+// sets a sensible default tier + add-ons + mode so the rep only has
+// to drop in measurements. Everything is still user-overridable.
+const ESTIMATE_PRESETS = {
+  standard: {
+    label: 'Standard Reroof',
+    tier: 'better',   mode: 'cash',
+    tearOff: 1,       cutUp: false,
+    addOns: { valley: false, chimney: false, skylight: false, gutterLF: 0 }
+  },
+  storm: {
+    label: 'Storm Claim',
+    tier: 'better',   mode: 'insurance',
+    tearOff: 1,       cutUp: true,
+    addOns: { valley: true, chimney: true, skylight: false, gutterLF: 0 }
+  },
+  repair: {
+    label: 'Small Repair',
+    tier: 'good',     mode: 'cash',
+    tearOff: 1,       cutUp: false,
+    addOns: { valley: false, chimney: false, skylight: false, gutterLF: 0 }
+  },
+  redeck: {
+    label: 'Full Redeck',
+    tier: 'best',     mode: 'cash',
+    tearOff: 1,       cutUp: false,
+    addOns: { valley: true, chimney: false, skylight: false, gutterLF: 0 }
+  },
+  hail: {
+    label: 'Hail Damage Insurance',
+    tier: 'better',   mode: 'insurance',
+    tearOff: 1,       cutUp: true,
+    addOns: { valley: false, chimney: false, skylight: false, gutterLF: 0 }
+  }
+};
+
+window.applyEstimatePreset = function applyEstimatePreset(key) {
+  const p = ESTIMATE_PRESETS[key];
+  if (!p) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; } };
+  const check = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  set('estMode',    p.mode);
+  set('estTearOff', String(p.tearOff));
+  check('estCutUp', p.cutUp);
+  check('estValley',   p.addOns.valley);
+  check('estChimney',  p.addOns.chimney);
+  check('estSkylight', p.addOns.skylight);
+  set('estGutterLF', p.addOns.gutterLF || '');
+  // Auto-select the tier card so the rep sees the price immediately.
+  if (typeof selectTier === 'function') {
+    const card = document.querySelector('.tier-card[onclick*="' + p.tier + '"]');
+    selectTier(p.tier, card || null);
+  }
+  updateEstCalc();
+  if (typeof calcTierPrices === 'function') calcTierPrices();
+  if (typeof showToast === 'function') showToast('Applied preset: ' + p.label, 'info');
 };
 
 let _savingEstimate = false;

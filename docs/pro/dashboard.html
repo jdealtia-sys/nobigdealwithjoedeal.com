@@ -7836,7 +7836,17 @@ function switchScTab(tab, btn) {
     <div id="est-builder" style="display:none;flex:1;overflow-y:auto;" class="view-scroll">
       <div class="page-hdr">
         <div><div class="page-title" id="estBuilderTitle">New Estimate</div></div>
-        <button class="btn btn-ghost" onclick="cancelEstimate()">← Back</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="estPreset" onchange="applyEstimatePreset(this.value)" style="padding:6px 10px;font-size:11px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
+            <option value="">Presets…</option>
+            <option value="standard">Standard Reroof</option>
+            <option value="storm">Storm Claim</option>
+            <option value="repair">Small Repair</option>
+            <option value="redeck">Full Redeck</option>
+            <option value="hail">Hail Damage Insurance</option>
+          </select>
+          <button class="btn btn-ghost" onclick="cancelEstimate()">← Back</button>
+        </div>
       </div>
       <!-- Progress -->
       <div class="est-steps">
@@ -7926,6 +7936,62 @@ function switchScTab(tab, btn) {
                   <option value="2">2 layers (+$50/SQ)</option>
                   <option value="3">3 layers (+$100/SQ)</option>
                 </select>
+              </label>
+            </div>
+            <!-- EBv2: Payment mode, county (tax), city (permit), add-on checkboxes.
+                 All feed calcTierPrices() so the tier cards reflect live math. -->
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br);display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
+              <div class="meas-field"><label>Payment Mode</label>
+                <select id="estMode" onchange="calcTierPrices()">
+                  <option value="cash" selected>Cash (tax shown)</option>
+                  <option value="insurance">Insurance (no tax line)</option>
+                </select>
+              </div>
+              <div class="meas-field"><label>County (sales tax)</label>
+                <select id="estCounty" onchange="calcTierPrices()">
+                  <option value="">Auto (7.00% fallback)</option>
+                  <option value="Hamilton">Hamilton OH · 7.80%</option>
+                  <option value="Butler">Butler OH · 7.25%</option>
+                  <option value="Warren">Warren OH · 6.75%</option>
+                  <option value="Clermont">Clermont OH · 7.25%</option>
+                  <option value="Kenton">Kenton KY · 6.00%</option>
+                  <option value="Boone">Boone KY · 6.00%</option>
+                  <option value="Campbell">Campbell KY · 6.00%</option>
+                </select>
+              </div>
+              <div class="meas-field"><label>City (permit)</label>
+                <select id="estCity" onchange="calcTierPrices()">
+                  <option value="">— Default $150 —</option>
+                  <option value="Cincinnati">Cincinnati — $175</option>
+                  <option value="Hamilton">Hamilton — $150</option>
+                  <option value="Fairfield">Fairfield — $140</option>
+                  <option value="Mason">Mason — $160</option>
+                  <option value="West Chester">West Chester — $165</option>
+                  <option value="Milford">Milford — $150</option>
+                  <option value="Loveland">Loveland — $150</option>
+                  <option value="Fort Thomas">Fort Thomas — $135</option>
+                  <option value="Covington">Covington — $140</option>
+                  <option value="Florence">Florence — $140</option>
+                  <option value="Newport">Newport — $135</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--t);">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="estValley" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <span>Valley metal flashing</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="estChimney" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <span>Chimney flashing (+$425)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="estSkylight" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <span>Skylight flashing (+$275)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;">
+                <span>Gutter LF:</span>
+                <input type="number" id="estGutterLF" min="0" placeholder="0" oninput="calcTierPrices()" style="width:70px;padding:3px 6px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
               </label>
             </div>
             <div class="calc-result" style="margin-top:8px;">
