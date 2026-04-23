@@ -20,6 +20,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -183,6 +184,30 @@ export const NBDAuth = {
       _app = initializeApp(FIREBASE_CONFIG);
       _auth = getAuth(_app);
       _db = getFirestore(_app);
+
+      // ── App Check (reCAPTCHA v3) ────────────────────────
+      // The site key is set by the host page via a top-of-<head>
+      // <script> that assigns window.__NBD_APP_CHECK_KEY. The key is
+      // per-origin and safe to ship in HTML; reCAPTCHA validates it
+      // against the registered domain list. When the key is empty we
+      // skip init so dev/local still works — but every Cloud Function
+      // with `enforceAppCheck: true` will reject those calls in prod,
+      // so this warning is load-bearing. Only initialize once per
+      // page; initializeAppCheck throws on repeat calls.
+      try {
+        const appCheckKey = (typeof window !== 'undefined' && window.__NBD_APP_CHECK_KEY || '').trim();
+        if (appCheckKey && !window.__NBD_APP_CHECK_INITIALIZED) {
+          initializeAppCheck(_app, {
+            provider: new ReCaptchaV3Provider(appCheckKey),
+            isTokenAutoRefreshEnabled: true
+          });
+          window.__NBD_APP_CHECK_INITIALIZED = true;
+        } else if (!appCheckKey) {
+          console.warn('[nbd-auth] App Check not configured — window.__NBD_APP_CHECK_KEY empty. Cloud Functions with enforceAppCheck:true WILL reject these calls once enforcement is live.');
+        }
+      } catch (e) {
+        console.error('[nbd-auth] App Check init failed:', e);
+      }
 
       // Expose on window for legacy pages
       window._auth = _auth;

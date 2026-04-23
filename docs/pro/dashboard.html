@@ -363,16 +363,17 @@
   // HTML (they're validated by reCAPTCHA, not secret). An unset key
   // falls back to an init-skipped warning so dev/local still works.
   const APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
-  if (APP_CHECK_KEY) {
+  if (APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
     try {
       initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(APP_CHECK_KEY),
         isTokenAutoRefreshEnabled: true
       });
+      window.__NBD_APP_CHECK_INITIALIZED = true;
     } catch (e) {
       console.error('App Check init failed:', e);
     }
-  } else {
+  } else if (!APP_CHECK_KEY) {
     console.warn('App Check not configured. Set window.__NBD_APP_CHECK_KEY via the meta tag in dashboard.html <head>. Callable functions with enforceAppCheck: true WILL reject these requests in production.');
   }
 
