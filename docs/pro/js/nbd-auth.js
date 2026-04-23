@@ -32,6 +32,32 @@ const FIREBASE_CONFIG = {
   appId:             "1:717435841570:web:c2338e11052c96fde02e7b"
 };
 
+// ── Sentry DSN (single source of truth) ──────────────────
+// Shared across every page that imports this module, so observability
+// is automatic instead of requiring a <script> tag on each HTML file.
+// DSN is public per Sentry (origin identifier, not a secret). Set this
+// once and every page auto-loads the browser SDK via sentry-init.js.
+// Empty = no-op; __NBD_SENTRY_DSN on the window overrides for dev.
+const DEFAULT_SENTRY_DSN = "";
+
+// Bootstrap Sentry early — BEFORE Firebase init — so any error during
+// config or auth also reaches Sentry. Load once per page; guarded.
+(function _bootstrapSentry() {
+  if (typeof window === 'undefined') return;
+  if (window.__NBD_SENTRY_BOOTSTRAPPED) return;
+  window.__NBD_SENTRY_BOOTSTRAPPED = true;
+  if (!window.__NBD_SENTRY_DSN) window.__NBD_SENTRY_DSN = DEFAULT_SENTRY_DSN;
+  // Idempotency: if the page already loaded sentry-init.js via a <script>
+  // tag, NBDSentry exists and we skip re-loading.
+  if (window.NBDSentry && window.NBDSentry.__sentinel === 'nbd-sentry-v1') return;
+  try {
+    const s = document.createElement('script');
+    s.src = '/pro/js/sentry-init.js?v=1';
+    s.async = true;
+    document.head.appendChild(s);
+  } catch (e) { /* non-fatal — error reporter failing to load is not an app-breaking event */ }
+})();
+
 // ── Plan Hierarchy ────────────────────────────────────────
 // Canonical plan keys: free, lite, foundation, blueprint, professional.
 // Stripe + pricing.html historically wrote alternate names (starter,
