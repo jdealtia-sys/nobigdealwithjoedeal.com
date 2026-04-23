@@ -480,6 +480,10 @@
   async function reverseGeocode(lat, lng) {
     try {
       const resp = await fetch(`${NOMINATIM_REVERSE}&lat=${lat}&lon=${lng}`);
+      // Nominatim returns a 200 with an HTML error page on rate-limit and
+      // 429/5xx on outages. Calling .json() on a non-OK body either throws
+      // or returns useless data, but the exception was being swallowed.
+      if (!resp.ok) { console.warn('Reverse geocode HTTP', resp.status); return ''; }
       const data = await resp.json();
       if (data.address) {
         const num = data.address.house_number || '';
@@ -496,6 +500,7 @@
     if (!query || query.length < 3) return [];
     try {
       const resp = await fetch(NOMINATIM_SEARCH + encodeURIComponent(query));
+      if (!resp.ok) { console.warn('Address search HTTP', resp.status); return []; }
       return await resp.json();
     } catch(e) { return []; }
   }
@@ -2510,7 +2515,15 @@
     voiceBlob = null;
   }
 
+  let _knockSubmitInFlight = false;
   async function handleSubmitKnock() {
+    // Guard against double-submit: photo+voice uploads can take several
+    // seconds, during which the user can tap Save again and create
+    // duplicate knock records (plus duplicate uploads that eat storage
+    // quota). Single flag, cleared in a finally block below.
+    if (_knockSubmitInFlight) return;
+    _knockSubmitInFlight = true;
+    try {
     const address = (document.getElementById('d2d-qk-address')?.value || '').trim();
     if (!address) { window.showToast?.('Address required', 'error'); return; }
     if (!currentKnockEntry?.disposition) { window.showToast?.('Disposition required', 'error'); return; }
@@ -2565,6 +2578,9 @@
           if (knock) openSMSTemplateChooser(knock);
         }
       }, 500);
+    }
+    } finally {
+      _knockSubmitInFlight = false;
     }
   }
 

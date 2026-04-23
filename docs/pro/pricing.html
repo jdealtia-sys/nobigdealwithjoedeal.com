@@ -107,7 +107,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>24 document templates</li>
       <li class="disabled">Team features</li>
     </ul>
-    <a href="#" onclick="subscribe('starter')" class="cta cta-primary">Subscribe — $99/mo</a>
+    <a href="#" onclick="subscribe('starter', event)" class="cta cta-primary">Subscribe — $99/mo</a>
   </div>
 
   <!-- GROWTH -->
@@ -127,7 +127,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>Customer portals</li>
       <li>Priority support</li>
     </ul>
-    <a href="#" onclick="subscribe('growth')" class="cta cta-primary">Start 14-Day Free Trial</a>
+    <a href="#" onclick="subscribe('growth', event)" class="cta cta-primary">Start 14-Day Free Trial</a>
   </div>
 
   <!-- ENTERPRISE -->
@@ -192,7 +192,13 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   });
   const auth = getAuth(app);
 
-  window.subscribe = async function(plan) {
+  window.subscribe = async function(plan, evt) {
+    // Resolve the button from the explicit event arg (preferred) with a fallback
+    // to window.event for legacy onclick calls. Never rely on the undeclared
+    // global `event` identifier — that silently fails under strict mode.
+    const btn = (evt && evt.target) || (typeof window !== 'undefined' && window.event && window.event.target) || null;
+    const originalLabel = btn ? btn.textContent : '';
+
     // Check if user is signed in
     const user = auth.currentUser;
     if (!user) {
@@ -204,7 +210,6 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
     // Get ID token
     try {
-      const btn = event?.target;
       if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
 
       const idToken = await user.getIdToken();
@@ -224,12 +229,12 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
         window.location.href = data.url;
       } else {
         alert('Error: ' + (data.error || 'Could not create checkout session. Try again.'));
-        if (btn) { btn.textContent = 'Subscribe'; btn.disabled = false; }
+        if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
       }
     } catch (e) {
       console.error('Checkout error:', e);
       alert('Connection error. Please try again.');
-      if (event?.target) { event.target.textContent = 'Subscribe'; event.target.disabled = false; }
+      if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
     }
   };
 

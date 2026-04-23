@@ -175,13 +175,17 @@ function calcTierPrices() {
   const hip=Math.max(0, parseFloat(document.getElementById('estHip')?.value)||0);
   const pipes=Math.max(0, parseInt(document.getElementById('estPipes')?.value)||0);
   const deckSq=sq*R.deckPct;
+  // Ice & Water Shield: 6-ft strip along eaves (building-code minimum in most
+  // cold-climate jurisdictions). 100 sf per square, minimum 1 SQ so we never
+  // bill zero. Replaces the previous hard-coded 5 SQ constant.
+  const iwsSq = Math.max(1, Math.ceil((eave * 6) / 100));
 
   const good = sq*R.shingle + sq*R.felt + sq*R.tear + eave*R.starter + eave*R.drip + ridge*R.ridge;
-  const better = good + 5*R.iws + pipes*R.pipe + hip*R.hip + deckSq*R.deck;
+  const better = good + iwsSq*R.iws + pipes*R.pipe + hip*R.hip + deckSq*R.deck;
   const best = better + sq*R.deck + eave*R.gutter;
 
   estData.ridge=ridge; estData.eave=eave; estData.hip=hip; estData.pipes=pipes;
-  estData.deckSq=deckSq;
+  estData.deckSq=deckSq; estData.iwsSq=iwsSq;
   estData.prices={good,better,best};
 
   const setPrice = (id, val) => {
@@ -221,7 +225,7 @@ function getLineItems() {
   rows.push({code:'RFG DRPE',desc:getProductName('drip','Drip edge – aluminum'),qty:d.eave+'LF',rate:'$'+R.drip,total:d.eave*R.drip});
   rows.push({code:'RFG RIDG',desc:getProductName('ridge','Ridge cap shingles'),qty:d.ridge+'LF',rate:'$'+R.ridge,total:d.ridge*R.ridge});
   if(tier==='better'||tier==='best'){
-    rows.push({code:'RFG I&WS',desc:getProductName('iws','Ice & water shield'),qty:'5SQ',rate:'$'+R.iws,total:5*R.iws});
+    rows.push({code:'RFG I&WS',desc:getProductName('iws','Ice & water shield'),qty:(d.iwsSq||1)+'SQ',rate:'$'+R.iws,total:(d.iwsSq||1)*R.iws});
     rows.push({code:'RFG HIPC',desc:getProductName('hip','Hip cap shingles'),qty:d.hip+'LF',rate:'$'+R.hip,total:d.hip*R.hip});
     for(let i=1;i<=d.pipes;i++) rows.push({code:'RFG PIPE',desc:getProductName('pipe',`Pipe boot / plumbing flashing #${i}`),qty:'1EA',rate:'$'+R.pipe,total:R.pipe});
     rows.push({code:'RFG DECK',desc:`OSB decking – partial replacement (${Math.round(R.deckPct*100)}%)`,qty:d.deckSq.toFixed(2)+'SQ',rate:'$'+R.deck,total:d.deckSq*R.deck});

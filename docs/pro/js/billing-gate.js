@@ -50,6 +50,25 @@
     return !!email && OWNER_EMAILS.has(email);
   }
 
+  // Wait up to `ms` for the Firestore window globals to exist. The
+  // modular Firebase SDK is imported in an ES module script in the page
+  // head; if loadSubscription() races it, the first call would throw and
+  // silently fall back to 'free'. Poll briefly so the caller can see the
+  // real sub doc on the first successful tick.
+  function _waitForFirestore(ms) {
+    const deadline = Date.now() + ms;
+    return new Promise((resolve) => {
+      (function tick() {
+        const ready = typeof window.getDoc === 'function'
+                   && typeof window.doc === 'function'
+                   && window.db;
+        if (ready) return resolve(true);
+        if (Date.now() >= deadline) return resolve(false);
+        setTimeout(tick, 50);
+      })();
+    });
+  }
+
   // ── Load subscription data from Firestore ──
   async function loadSubscription() {
     try {
@@ -65,6 +84,15 @@
         _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
         _trialEndsAt = null;
         _loaded = true;
+        return;
+      }
+
+      const firestoreReady = await _waitForFirestore(3000);
+      if (!firestoreReady) {
+        // Surface the race explicitly instead of silently becoming 'free'.
+        // Leave _loaded=false so softGate()/hardGate() treat the user as
+        // "plan unknown — allow the action" rather than falsely free.
+        console.error('[Billing] Firestore SDK not ready after 3s — plan unknown, deferring gating.');
         return;
       }
 
