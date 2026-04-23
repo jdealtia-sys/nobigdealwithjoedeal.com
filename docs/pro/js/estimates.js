@@ -466,6 +466,18 @@ function buildReview() {
   const marginPct = grandTotal > 0 ? (margin / grandTotal) * 100 : 0;
   estData.costBasis = costBasis; estData.margin = margin; estData.marginPct = marginPct;
 
+  // Insurance overlay: only populated/rendered in Insurance mode.
+  const insuranceFields = d.mode === 'insurance' ? collectInsuranceFields() : null;
+  estData.insurance = insuranceFields;
+
+  // Deposit: Cash 50/50 default, Insurance 0% default, user override persists.
+  const deposit = calcDeposit(grandTotal, d.mode, d.depositPctOverride);
+  estData.deposit = deposit;
+
+  // Revision version — carry forward whatever was set when editing an
+  // existing estimate; default to v1 for new drafts.
+  if (!estData.version) estData.version = 1;
+
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   // Escape every interpolated user-typed value. The classic review
   // step was previously dropping addr/owner/parcel/yr/roofType + row
@@ -522,11 +534,54 @@ function buildReview() {
         <tr class="total-row grand"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(grandTotal)}</strong></td></tr>
       </tbody>
     </table>
-    <div style="margin-top:10px;display:flex;justify-content:flex-end;">
-      <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleInternalView()">🔒 Internal View</button>
+    ${d.mode === 'insurance' && insuranceFields ? `
+    <div style="margin-top:14px;padding:10px 12px;background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.25);border-radius:7px;font-size:12px;">
+      <div style="font-weight:700;color:var(--blue);margin-bottom:6px;">Insurance Claim Details</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;color:var(--t);">
+        <div><span style="color:var(--m);">Carrier:</span> ${esc(insuranceFields.carrier || '—')}</div>
+        <div><span style="color:var(--m);">Claim #:</span> ${esc(insuranceFields.claimNumber || '—')}</div>
+        <div><span style="color:var(--m);">Deductible:</span> ${insuranceFields.deductible != null ? fmt(insuranceFields.deductible) : '—'}</div>
+        <div><span style="color:var(--m);">Date of Loss:</span> ${esc(insuranceFields.dateOfLoss || '—')}</div>
+        ${insuranceFields.adjuster       ? `<div><span style="color:var(--m);">Adjuster:</span> ${esc(insuranceFields.adjuster)}</div>` : ''}
+        ${insuranceFields.policyNumber   ? `<div><span style="color:var(--m);">Policy #:</span> ${esc(insuranceFields.policyNumber)}</div>` : ''}
+        ${insuranceFields.rcv != null    ? `<div><span style="color:var(--m);">RCV:</span> ${fmt(insuranceFields.rcv)}</div>` : ''}
+        ${insuranceFields.acv != null    ? `<div><span style="color:var(--m);">ACV:</span> ${fmt(insuranceFields.acv)}</div>` : ''}
+        ${insuranceFields.op != null     ? `<div><span style="color:var(--m);">O&P:</span> ${fmt(insuranceFields.op)}</div>` : ''}
+        ${insuranceFields.depreciation != null    ? `<div><span style="color:var(--m);">Depreciation:</span> ${fmt(insuranceFields.depreciation)}</div>` : ''}
+        ${insuranceFields.recoverableDep != null  ? `<div><span style="color:var(--m);">Recoverable Dep:</span> ${fmt(insuranceFields.recoverableDep)}</div>` : ''}
+      </div>
+    </div>` : ''}
+    <div style="margin-top:14px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;font-size:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-weight:700;color:var(--t);">Deposit Schedule</div>
+        <div style="font-size:10px;color:var(--m);">Default ${d.mode === 'insurance' ? '0% (insurance)' : '50/50 (cash)'} · override below</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+        <div><div style="color:var(--m);font-size:10px;">Due at Signing</div><div style="font-weight:700;">${fmt(deposit.amount)} (${deposit.pct}%)</div></div>
+        <div><div style="color:var(--m);font-size:10px;">Balance at Completion</div><div style="font-weight:700;">${fmt(deposit.remainder)}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:10px;color:var(--m);">Override %:</label>
+          <input type="number" min="0" max="100" value="${deposit.pct}" onchange="setDepositOverride(this.value)" style="width:56px;padding:2px 6px;border-radius:4px;background:var(--s);border:1px solid var(--br);color:var(--t);font-size:11px;">
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:10px;color:var(--m);">Version v${d.version || 1}${d.revisedFrom ? ' · revised from prior estimate' : ''}</div>
+      <div style="display:flex;gap:6px;">
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="createEstimateRevision()">↻ Create Revision</button>
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleInternalView()">🔒 Internal View</button>
+      </div>
     </div>
     ${internalViewHtml}`;
 }
+
+// Persist the deposit-% override on estData so the math re-renders on
+// the next buildReview() tick. Called inline from the review step.
+window.setDepositOverride = function setDepositOverride(val) {
+  const pct = Math.max(0, Math.min(100, parseFloat(val) || 0));
+  estData.depositPctOverride = pct;
+  if (typeof buildReview === 'function') buildReview();
+};
 
 // Toggle the margin / cost-basis panel on the review step. Kept on
 // window so the onclick handler in the review HTML can find it.
@@ -1139,3 +1194,83 @@ window.duplicateEstimateAction = duplicateEstimateAction;
 window.renameEstimateAction = renameEstimateAction;
 window.assignEstimateAction = assignEstimateAction;
 window.deleteEstimateAction = deleteEstimateAction;
+
+// ════════════════════════════════════════════════════════════
+// EBv2 — Insurance Overlay, Deposit Math, Revisions
+// ════════════════════════════════════════════════════════════
+
+// Collect insurance-claim fields from the DOM into a single object so
+// buildReview() can render them conditionally and saveEstimate() can
+// persist them. Only Carrier / Claim # / Deductible / Date of Loss are
+// required for Insurance mode; the rest of the spec fields are
+// progressively expandable via the "Add more" toggle.
+function collectInsuranceFields() {
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  const num = (id) => {
+    const v = parseFloat(val(id));
+    return isNaN(v) ? null : v;
+  };
+  return {
+    carrier:        val('insCarrier'),
+    claimNumber:    val('insClaim'),
+    deductible:     num('insDeductible'),
+    dateOfLoss:     val('insDOL'),
+    adjuster:       val('insAdjuster'),
+    policyNumber:   val('insPolicy'),
+    rcv:            num('insRCV'),
+    acv:            num('insACV'),
+    op:             num('insOP'),             // overhead & profit
+    depreciation:   num('insDep'),
+    recoverableDep: num('insRecDep'),
+  };
+}
+
+// Deposit math per spec: Cash jobs default 50% due at contract signing
+// + 50% at completion; Insurance jobs default $0 down (ACV covers the
+// first check once the carrier pays). User can override the split on
+// either mode — this is the spec's documented behavior.
+function calcDeposit(grandTotal, mode, overridePct) {
+  if (grandTotal <= 0) return { pct: 0, amount: 0, remainder: grandTotal };
+  const defaultPct = mode === 'insurance' ? 0 : 50;
+  const pct = (overridePct != null && overridePct >= 0 && overridePct <= 100)
+    ? overridePct
+    : defaultPct;
+  const amount = Math.round(grandTotal * (pct / 100) * 100) / 100;
+  const remainder = Math.round((grandTotal - amount) * 100) / 100;
+  return { pct, amount, remainder };
+}
+
+// Revisions: when an estimate is moved from any status → a later stage,
+// bump the version. The caller passes the prior version + the prior
+// status to detect the transition. Manual "Create Revision" just
+// increments unconditionally.
+function nextRevisionVersion(prevVersion, fromStatus, toStatus) {
+  const cur = Math.max(1, parseInt(prevVersion) || 1);
+  // Status-forward transitions that warrant a version bump.
+  const LADDER = ['draft', 'sent', 'viewed', 'accepted', 'signed', 'paid'];
+  const fi = LADDER.indexOf((fromStatus || '').toLowerCase());
+  const ti = LADDER.indexOf((toStatus || '').toLowerCase());
+  if (fi >= 0 && ti > fi) return cur + 1;
+  return cur;
+}
+
+// Manually kick off a revision — called from the review screen's
+// "Create Revision" button. Clones the current estData into a new
+// draft with version++ and resets the id so saveEstimate() writes
+// a fresh doc.
+window.createEstimateRevision = function createEstimateRevision() {
+  if (!estData || !estData.grandTotal) {
+    if (typeof showToast === 'function') showToast('Nothing to revise — build an estimate first', 'error');
+    return;
+  }
+  const prev = parseInt(estData.version) || 1;
+  estData.version = prev + 1;
+  estData.revisedFrom = window._editingEstimateId || null;
+  window._editingEstimateId = null;  // forces a new Firestore doc on save
+  if (typeof showToast === 'function') showToast(`Started revision v${estData.version}`, 'info');
+  if (typeof buildReview === 'function') buildReview();
+};
+
+window.collectInsuranceFields = collectInsuranceFields;
+window.calcDeposit            = calcDeposit;
+window.nextRevisionVersion    = nextRevisionVersion;

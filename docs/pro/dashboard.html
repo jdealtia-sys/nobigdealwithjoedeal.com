@@ -7942,7 +7942,7 @@ function switchScTab(tab, btn) {
                  All feed calcTierPrices() so the tier cards reflect live math. -->
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br);display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
               <div class="meas-field"><label>Payment Mode</label>
-                <select id="estMode" onchange="calcTierPrices()">
+                <select id="estMode" onchange="calcTierPrices(); toggleInsuranceOverlay();">
                   <option value="cash" selected>Cash (tax shown)</option>
                   <option value="insurance">Insurance (no tax line)</option>
                 </select>
@@ -7994,6 +7994,39 @@ function switchScTab(tab, btn) {
                 <input type="number" id="estGutterLF" min="0" placeholder="0" oninput="calcTierPrices()" style="width:70px;padding:3px 6px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
               </label>
             </div>
+            <!-- EBv2 insurance overlay: hidden until Mode=Insurance.
+                 Minimal required fields first; "Show more" reveals the
+                 full ACV/RCV/depreciation block per spec. -->
+            <div id="estInsuranceBlock" style="display:none;margin-top:14px;padding-top:12px;border-top:1px dashed var(--br);">
+              <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase;">Insurance Claim</div>
+              <div class="est-meas-grid">
+                <div class="meas-field"><label>Carrier</label><input type="text" id="insCarrier" placeholder="State Farm, Allstate…"></div>
+                <div class="meas-field"><label>Claim #</label><input type="text" id="insClaim" placeholder="e.g. 23-1234-5678"></div>
+                <div class="meas-field"><label>Deductible</label><input type="number" id="insDeductible" min="0" step="0.01" placeholder="1000"></div>
+                <div class="meas-field"><label>Date of Loss</label><input type="date" id="insDOL"></div>
+              </div>
+              <details style="margin-top:10px;">
+                <summary style="cursor:pointer;font-size:11px;color:var(--m);">+ Add more (Adjuster, RCV/ACV, O&P, Depreciation)</summary>
+                <div class="est-meas-grid" style="margin-top:8px;">
+                  <div class="meas-field"><label>Adjuster</label><input type="text" id="insAdjuster"></div>
+                  <div class="meas-field"><label>Policy #</label><input type="text" id="insPolicy"></div>
+                  <div class="meas-field"><label>RCV</label><input type="number" id="insRCV" min="0" step="0.01"></div>
+                  <div class="meas-field"><label>ACV</label><input type="number" id="insACV" min="0" step="0.01"></div>
+                  <div class="meas-field"><label>O&P (%)</label><input type="number" id="insOP" min="0" step="0.01" placeholder="20"></div>
+                  <div class="meas-field"><label>Depreciation</label><input type="number" id="insDep" min="0" step="0.01"></div>
+                  <div class="meas-field"><label>Recoverable Dep</label><input type="number" id="insRecDep" min="0" step="0.01"></div>
+                </div>
+              </details>
+            </div>
+            <script>
+              // Show/hide the insurance overlay based on the mode selector.
+              // Kept tiny and inline so it runs regardless of script order.
+              window.toggleInsuranceOverlay = function() {
+                var m = document.getElementById('estMode');
+                var b = document.getElementById('estInsuranceBlock');
+                if (m && b) b.style.display = (m.value === 'insurance') ? 'block' : 'none';
+              };
+            </script>
             <div class="calc-result" style="margin-top:8px;">
               <div class="cr-row"><span class="cr-key">Raw SqFt</span><span class="cr-val" id="ec-raw">—</span></div>
               <div class="cr-row"><span class="cr-key">Pitch Factor</span><span class="cr-val" id="ec-pitch">1.202×</span></div>
