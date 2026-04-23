@@ -246,9 +246,33 @@ function addPinMarker(p) {
   pinMarkers[p.id] = m;
 }
 
+// Escape untrusted strings for HTML text AND double-quoted attribute contexts.
+// Covers &, <, >, ", ' — the five XSS vectors that matter for innerHTML sinks.
+function _mapsEscHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Escape for a single-quoted JS string sitting inside an HTML attribute
+// (e.g. onclick="fn('...')"). First neutralise \ and ', then HTML-escape
+// so the attribute-value parsing can't be broken either.
+function _mapsEscJsInAttr(v) {
+  if (v === null || v === undefined) return '';
+  const js = String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return _mapsEscHtml(js);
+}
+
 function buildPinPopupHTML(p, lead) {
+  const esc = _mapsEscHtml;
+  const escA = _mapsEscJsInAttr;
+  // PIN_COLORS values are all whitelisted hex strings, but fall through esc
+  // in case a future status is added with untrusted content.
   const statusColor = PIN_COLORS[p.status] || '#9CA3AF';
-  const statusLabel = PIN_LABELS[p.status] || p.status;
+  const statusLabel = PIN_LABELS[p.status] || p.status || '';
   if(lead) {
     const name  = ((lead.firstName||'')+ ' ' +(lead.lastName||'')).trim() || lead.address || 'Lead';
     const addr  = (lead.address||'').split(',').slice(0,2).join(',');
@@ -258,32 +282,32 @@ function buildPinPopupHTML(p, lead) {
     const claim = lead.claimStatus || '—';
     return `<div class="pin-lead-popup">
       <div class="plp-header">
-        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;"></span>${statusLabel}</div>
-        <div class="plp-name">${name}</div>
-        <div class="plp-addr">${addr}</div>
+        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${esc(statusColor)};display:inline-block;"></span>${esc(statusLabel)}</div>
+        <div class="plp-name">${esc(name)}</div>
+        <div class="plp-addr">${esc(addr)}</div>
       </div>
       <div class="plp-body">
-        <div class="plp-row"><span class="plp-key">Stage</span><span class="plp-val">${stage}</span></div>
-        <div class="plp-row"><span class="plp-key">Damage</span><span class="plp-val">${dmg}</span></div>
-        <div class="plp-row"><span class="plp-key">Claim</span><span class="plp-val">${claim}</span></div>
-        <div class="plp-row"><span class="plp-key">Value</span><span class="plp-val" style="color:var(--green);">${val}</span></div>
-        ${p.notes ? `<div class="plp-row"><span class="plp-key">Notes</span><span class="plp-val">${p.notes}</span></div>` : ''}
+        <div class="plp-row"><span class="plp-key">Stage</span><span class="plp-val">${esc(stage)}</span></div>
+        <div class="plp-row"><span class="plp-key">Damage</span><span class="plp-val">${esc(dmg)}</span></div>
+        <div class="plp-row"><span class="plp-key">Claim</span><span class="plp-val">${esc(claim)}</span></div>
+        <div class="plp-row"><span class="plp-key">Value</span><span class="plp-val" style="color:var(--green);">${esc(val)}</span></div>
+        ${p.notes ? `<div class="plp-row"><span class="plp-key">Notes</span><span class="plp-val">${esc(p.notes)}</span></div>` : ''}
       </div>
       <div class="plp-btns">
-        <button class="plp-btn-go" onclick="goToLeadFromPin('${lead.id}')">→ Go to Lead</button>
-        <button class="plp-btn-del" onclick="deleteLeadFromPin('${lead.id}','${name.replace(/'/g,'&#39;')}',this)">🗑 Delete Lead</button>
+        <button class="plp-btn-go" onclick="goToLeadFromPin('${escA(lead.id)}')">→ Go to Lead</button>
+        <button class="plp-btn-del" onclick="deleteLeadFromPin('${escA(lead.id)}','${escA(name)}',this)">🗑 Delete Lead</button>
       </div>
     </div>`;
   } else {
     return `<div class="pin-lead-popup">
       <div class="plp-header">
-        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;"></span>${statusLabel}</div>
+        <div class="plp-status"><span style="width:8px;height:8px;border-radius:50%;background:${esc(statusColor)};display:inline-block;"></span>${esc(statusLabel)}</div>
         <div class="plp-name">No lead linked</div>
-        <div class="plp-addr">${p.notes || 'No notes'}</div>
+        <div class="plp-addr">${esc(p.notes || 'No notes')}</div>
       </div>
       <div class="plp-btns">
-        <button class="plp-btn-go" onclick="makeLeadFromPin('${p.id}')">＋ Create Lead Here</button>
-        <button class="plp-btn-del" onclick="deletePinOnly('${p.id}')">🗑 Delete Pin</button>
+        <button class="plp-btn-go" onclick="makeLeadFromPin('${escA(p.id)}')">＋ Create Lead Here</button>
+        <button class="plp-btn-del" onclick="deletePinOnly('${escA(p.id)}')">🗑 Delete Pin</button>
       </div>
     </div>`;
   }
@@ -464,7 +488,22 @@ function makeLeadFromSearch() {
   }, 80);
 }
 
-function damagNearMe() { showToast('Getting location...'); navigator.geolocation?.getCurrentPosition(p=>{ if(mainMap) mainMap.setView([p.coords.latitude,p.coords.longitude],15); }, ()=>showToast('Location unavailable','error')); }
+function damagNearMe() {
+  if (!navigator.geolocation) { showToast('Location not supported by this browser', 'error'); return; }
+  showToast('Getting location...');
+  navigator.geolocation.getCurrentPosition(
+    (p) => { if (mainMap) mainMap.setView([p.coords.latitude, p.coords.longitude], 15); },
+    (err) => {
+      // Differentiate the three PositionError codes so the user knows what
+      // to do next instead of seeing a generic "unavailable" for a denied
+      // permission vs. a timeout vs. an iframe block.
+      if (err && err.code === 1) showToast('Location permission denied — enable it in browser settings', 'error');
+      else if (err && err.code === 3) showToast('Location timed out — try again', 'error');
+      else showToast('Location unavailable', 'error');
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+  );
+}
 
 // ══════════════════════════════════════════════
 // DRAW MAP

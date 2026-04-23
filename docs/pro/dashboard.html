@@ -424,12 +424,16 @@
     if (!user) { window.location.replace("/pro/login.html"); return; }
     
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
-    // Check if user has active subscription (unless demo/owner account)
-    const isDemoAccount = user.email === 'demo@nobigdeal.pro';
     // Owner bypass — founder/staff emails always resolve to professional.
     // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
     // a missing/stale subscriptions/ doc never flips Joe to 'free' and
     // triggers the "upgrade to unlock" wall for his own product.
+    //
+    // NOTE: the previous `isDemoAccount = user.email === 'demo@nobigdeal.pro'`
+    // hardcoded bypass was REMOVED (2026-04-23). Demo accounts now flow
+    // through NBDAuth's claim-based demo path (H-02). Trusting an email
+    // literal here was a second auth surface that could diverge from the
+    // claim-based path and silently grant professional-tier access.
     const _emailLower = (user.email || '').trim().toLowerCase();
     const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
                         || _emailLower === 'jonathandeal459@gmail.com';
@@ -438,7 +442,7 @@
       window._userPlan = 'professional';
       window._subscription = { plan: 'professional', status: 'active', _owner: true };
       console.log('✓ Owner account — professional plan granted');
-    } else if (!isDemoAccount) {
+    } else {
       // Subscription check — SOFT. Never block the dashboard load.
       // The billing-gate module handles limits via soft gates.
       // Access code users, free tier, and trial users all have no
@@ -459,16 +463,15 @@
           console.log('No subscription doc — defaulting to free tier');
         }
       } catch (error) {
-        // Fail open — don't block the app for a Firestore hiccup
-        console.warn('Subscription check failed — failing open:', error.message);
-        window._subscription = { plan: 'free', status: 'active', _failOpen: true };
+        // Fail CLOSED — on Firestore error, restrict to the most limited
+        // tier. The old comment here said "Fail open" but the code already
+        // set plan='free' (which IS fail-closed). Renamed the flag and
+        // comment to match intent so this doesn't get "fixed" back to
+        // actually-fail-open by a future reader misled by the label.
+        console.warn('Subscription check failed — failing closed to free:', error.message);
+        window._subscription = { plan: 'free', status: 'active', _failClosed: true };
         window._userPlan = 'free';
       }
-    } else {
-      // Demo account - grant access
-      window._userPlan = 'professional';
-      window._subscription = { plan: 'professional', status: 'active' };
-      console.log('Demo account access granted');
     }
     
     document.documentElement.style.visibility="visible";

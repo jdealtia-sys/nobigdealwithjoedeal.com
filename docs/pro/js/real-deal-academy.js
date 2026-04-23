@@ -26,17 +26,38 @@
       this._injectStyles();
       this._loadProgress();
       this._stylesInjected = true;
+
+      // If auth hasn't resolved yet, re-read progress once it does so a
+      // real uid replaces the initial null and per-user Firestore sync
+      // can take over. Prevents two different users on the same browser
+      // from sharing the 'anonymous' bucket.
+      if (!this._userId && window.auth && typeof window.auth.onAuthStateChanged === 'function') {
+        const off = window.auth.onAuthStateChanged((user) => {
+          if (user && user.uid && !this._userId) {
+            this._userId = user.uid;
+            this._loadProgress();
+          }
+        });
+        this._authUnsub = off;
+      }
     },
 
     _getCurrentUserId() {
-      // Try multiple sources to get current user ID
+      // Try multiple sources to get current user ID. Return null when no
+      // real user is known — callers MUST treat null as "do not persist
+      // cross-session." Never return a shared literal like 'anonymous',
+      // which silently bleeds progress between users on the same browser.
       if (window.currentUser && window.currentUser.uid) return window.currentUser.uid;
       if (window.auth && window.auth.currentUser && window.auth.currentUser.uid) return window.auth.currentUser.uid;
-      if (localStorage.getItem('nbd_user_id')) return localStorage.getItem('nbd_user_id');
-      return 'anonymous';
+      const stored = localStorage.getItem('nbd_user_id');
+      if (stored && stored !== 'anonymous') return stored;
+      return null;
     },
 
     _loadProgress() {
+      // No real user yet — keep whatever is in memory; do NOT read a
+      // shared 'anonymous' bucket. Will re-run once auth resolves.
+      if (!this._userId) return;
       const key = `rda_progress_${this._userId}`;
 
       // Try Firestore (v9 modular SDK via window globals) first
@@ -73,6 +94,10 @@
     },
 
     _saveProgress() {
+      // Do not persist under a shared bucket when no real uid is known —
+      // progress stays in memory until auth resolves and we have a proper
+      // per-user key.
+      if (!this._userId) return;
       const key = `rda_progress_${this._userId}`;
       const data = {
         completedNodes: Array.from(this._progressData.completedNodes),
@@ -1815,10 +1840,19 @@
     },
 
     _isAdmin() {
-      // Check if current user is admin
-      if (window.currentUser && window.currentUser.role === 'admin') return true;
-      if (localStorage.getItem('nbd_admin_user') === 'true') return true;
-      return false;
+      // Admin role is set server-side (Firebase custom claim → NBDAuth._role).
+      // NEVER trust localStorage for privilege: any user can open DevTools
+      // and set the key, so the old `nbd_admin_user === 'true'` check
+      // was an auth bypass. Delegate to NBDAuth.isAdmin when available
+      // (it's fail-closed and checks owner-email + claim), and fall back
+      // to the window.currentUser.role assignment which itself should only
+      // ever be populated from a verified claim.
+      try {
+        if (window.NBDAuth && typeof window.NBDAuth.isAdmin !== 'undefined') {
+          return !!window.NBDAuth.isAdmin;
+        }
+      } catch (_) { /* fall through */ }
+      return !!(window.currentUser && window.currentUser.role === 'admin');
     }
   };
 

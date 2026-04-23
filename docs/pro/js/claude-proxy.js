@@ -46,6 +46,7 @@ async function callClaude(params) {
     params.feature = active ? (active.id || '').replace(/^view-/, '') : null;
   }
   let result;
+  let proxyError = null;
   // Try Cloud Function first (if available or unknown)
   if (_proxyAvailable !== false || Date.now() - _proxyLastCheck > PROXY_CHECK_INTERVAL) {
     try {
@@ -53,14 +54,26 @@ async function callClaude(params) {
       _proxyAvailable = true;
       _proxyLastCheck = Date.now();
     } catch (e) {
-      console.warn('Cloud Function unavailable, falling back to direct call:', e.message);
+      proxyError = e;
       _proxyAvailable = false;
       _proxyLastCheck = Date.now();
     }
   }
 
-  // Fallback: direct browser call with localStorage key
-  if (!result) result = await _callDirect(params);
+  // Fallback: direct browser call with localStorage key.
+  // SECURITY: the direct path exposes the user's sk-ant key to the network tab
+  // and to any XSS on the page. Disabled by default — users who need it in a
+  // dev/local context can opt in with `window.NBD_ALLOW_DIRECT_ANTHROPIC = true`.
+  if (!result) {
+    if (window.NBD_ALLOW_DIRECT_ANTHROPIC === true) {
+      result = await _callDirect(params);
+    } else {
+      throw new Error(
+        'Claude proxy unavailable' + (proxyError ? (': ' + proxyError.message) : '') +
+        '. Direct browser calls are disabled for key safety.'
+      );
+    }
+  }
 
   // Track usage for the analytics page
   _trackUsage(result, params.model);

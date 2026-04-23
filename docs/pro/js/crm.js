@@ -623,9 +623,16 @@ function buildCard(l){
     </div>
   </div>`;
 
-  // Apply search highlighting to the card HTML
+  // Apply search highlighting to the card HTML.
+  // SECURITY: running a naive regex.replace across already-rendered HTML can
+  // corrupt tags/attributes (e.g. searching for `class` or `"` matches inside
+  // `class="kc-card"` and injects <mark> into the opening tag). Refuse any
+  // query containing characters that appear in HTML structure so the regex
+  // can only hit user-visible text. This is a self-XSS guard; real fix is
+  // text-node based highlighting — tracked separately.
   if(window._searchQuery && window._searchQuery.length >= 2){
     const sq = window._searchQuery;
+    if(/[<>"'&=\/]/.test(sq)) return html;
     const escaped = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp('(' + escaped + ')', 'gi');
     return html.replace(regex, '<mark style="background:var(--orange);color:#000;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
