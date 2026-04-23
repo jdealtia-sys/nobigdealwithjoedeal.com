@@ -2533,6 +2533,46 @@ try {
   failures.push('inline-html-scripts.test.js — inline <script> in docs/ has syntax error (see output above)');
 }
 
+// ── Perf: no new oversized images ───────────────────────────
+// Guard against someone dropping an uncompressed PNG/JPEG into the
+// build. Anything > 1MB is almost always a mistake (should be a WebP
+// under 200KB or a sized JPEG). The existing known offenders
+// (roofivent product shots) are whitelisted — the guard is specifically
+// for NEW regressions, not for retro-cleaning binaries we can't edit
+// in this worktree.
+section('Perf: oversized image regression guard');
+{
+  const MAX_IMAGE_BYTES = 1 * 1024 * 1024;  // 1 MB
+  const WHITELIST = new Set([
+    // Existing product imagery — documented large, lazy-loaded on
+    // /services/roofivent/ below the fold, converted to WebP/AVIF
+    // in a follow-up perf pass.
+    'docs/assets/roofivent/ivent-roto.png',
+    'docs/assets/roofivent/ivent-eco.png',
+  ]);
+  function walk(dir, out) {
+    if (!fs.existsSync(dir)) return out;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, out);
+      else if (/\.(png|jpg|jpeg|gif|webp|avif)$/i.test(entry.name)) out.push(full);
+    }
+    return out;
+  }
+  const imgs = walk(path.join(ROOT, 'docs'), []);
+  const offenders = [];
+  for (const abs of imgs) {
+    const rel = path.relative(ROOT, abs).replace(/\\/g, '/');
+    const size = fs.statSync(abs).size;
+    if (size > MAX_IMAGE_BYTES && !WHITELIST.has(rel)) {
+      offenders.push(rel + ' (' + (size / 1024 / 1024).toFixed(1) + ' MB)');
+    }
+  }
+  assert('Perf: no new image > 1MB (' + imgs.length + ' scanned, ' + WHITELIST.size + ' whitelisted)',
+    offenders.length === 0,
+    offenders.length ? 'offenders: ' + offenders.join(', ') : '');
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
