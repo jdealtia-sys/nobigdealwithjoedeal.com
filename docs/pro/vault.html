@@ -974,9 +974,19 @@ async function loadFromFirestore() {
 }
 
 async function saveToFirestore() {
+  // Explicit precondition check. Before this, `const {doc, setDoc} =
+  // firestore` threw a generic "Cannot destructure property 'doc'" that
+  // the catch block surfaced as "Failed to save to Firestore" with no
+  // signal that the root cause was Firestore not loaded. Users clicked
+  // Save over and over with no way to know waiting would fix it.
+  if (!firestore || !db) {
+    console.warn('[vault] saveToFirestore skipped — Firestore not ready yet');
+    toast('Firestore still loading — please retry in a moment', 'info');
+    return false;
+  }
   try {
     const {doc, setDoc} = firestore;
-    
+
     // Save to codex/latest
     const latestRef = doc(db, 'codex', 'latest');
     await setDoc(latestRef, {
@@ -984,7 +994,7 @@ async function saveToFirestore() {
       lastSaved: new Date().toISOString(),
       savedBy: 'vault-v2'
     });
-    
+
     console.log('✓ Saved to Firestore');
     updateSaveIndicator(true);
     unsavedChanges = false;
@@ -992,7 +1002,7 @@ async function saveToFirestore() {
     return true;
   } catch (error) {
     console.error('❌ Firestore save error:', error);
-    toast('Failed to save to Firestore', 'error');
+    toast('Failed to save to Firestore: ' + (error?.message || 'unknown error'), 'error');
     return false;
   }
 }

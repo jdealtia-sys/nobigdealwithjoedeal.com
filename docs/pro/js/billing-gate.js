@@ -24,11 +24,17 @@
   if (window.NBDBilling) return;
 
   // ── Plan definitions ──
+  // Canonical keys match the Stripe price tiers. `foundation`/`professional`
+  // are alias entries so billing-gate stays in sync with nbd-auth.js when
+  // a user doc happens to carry those names (the two modules developed
+  // independently and diverged — see _normalizePlan in nbd-auth.js).
   const PLANS = {
-    free:       { label: 'Free',       leads: 10,  reports: 0,  aiCalls: 0,  reps: 1,  price: 0 },
-    starter:    { label: 'Starter',    leads: 50,  reports: 2,  aiCalls: 20, reps: 1,  price: 99 },
-    growth:     { label: 'Growth',     leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5, price: 249 },
-    enterprise: { label: 'Enterprise', leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
+    free:         { label: 'Free',         leads: 10,  reports: 0,        aiCalls: 0,        reps: 1,        price: 0 },
+    starter:      { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
+    foundation:   { label: 'Foundation',   leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
+    growth:       { label: 'Growth',       leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 249 },
+    professional: { label: 'Professional', leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 249 },
+    enterprise:   { label: 'Enterprise',   leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
   };
 
   let _plan = 'free';

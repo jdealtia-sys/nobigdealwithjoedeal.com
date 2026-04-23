@@ -202,4 +202,5 @@ window.callClaude = callClaude;
 window.isClaudeProxyAvailable = isProxyAvailable;
 window.resetClaudeProxyCheck = resetProxyCheck;
 
-console.log('✓ Claude proxy loaded (Cloud Function + localStorage fallback)');
+// Load marker removed — no console spam in production. The direct-browser
+// fallback is disabled by default now; see callClaude() for the opt-in.

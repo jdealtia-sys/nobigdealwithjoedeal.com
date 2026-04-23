@@ -32,7 +32,24 @@ const FIREBASE_CONFIG = {
 };
 
 // ── Plan Hierarchy ────────────────────────────────────────
-const PLAN_LEVELS = { free: 0, lite: 1, foundation: 2, blueprint: 3, professional: 4 };
+// Canonical plan keys: free, lite, foundation, blueprint, professional.
+// Stripe + pricing.html historically wrote alternate names (starter,
+// growth, enterprise) directly into subscriptions/{uid}.plan. Without
+// normalization a paying "growth" user looked up as PLAN_LEVELS['growth']
+// = undefined → 0 → gated at free tier, the exact upgrade-wall bug Joe
+// kept seeing on his own admin account.
+const PLAN_LEVELS = { free: 0, lite: 1, foundation: 2, blueprint: 3, professional: 4, enterprise: 5 };
+const PLAN_ALIASES = {
+  starter:    'foundation',
+  growth:     'professional',
+  // 'enterprise' stays itself — above professional in PLAN_LEVELS.
+};
+function _normalizePlan(raw) {
+  const k = (raw || '').toLowerCase().trim();
+  if (PLAN_ALIASES[k]) return PLAN_ALIASES[k];
+  if (PLAN_LEVELS[k] !== undefined) return k;
+  return 'free';
+}
 
 // ── Owner bypass ──────────────────────────────────────────
 // These email addresses always resolve to the highest plan and
@@ -287,7 +304,7 @@ export const NBDAuth = {
           if (subSnap.exists()) {
             _subscription = subSnap.data();
             if (_subscription.status === 'active') {
-              _userPlan = _subscription.plan || 'foundation';
+              _userPlan = _normalizePlan(_subscription.plan || 'foundation');
 
               // ── Trial expiration check ──
               if (_subscription.trialEndsAt) {

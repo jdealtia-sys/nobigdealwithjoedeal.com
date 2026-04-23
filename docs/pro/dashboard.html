@@ -506,7 +506,10 @@
         } catch (e) { console.warn('Rep activation skipped:', e.message); }
       }
     } catch (e) { window._userClaims = {}; }
-    requestNotifPermission();
+    // Notification permission is now opt-in via a user gesture.
+    // A page-load requestPermission() call is auto-denied by modern
+    // browsers and poisons the permission state. See crm.js enable-
+    // notifications click handler.
     // Pick up pending warranty cert from customer page.
     // warranty-cert.js is lazy-loaded via ScriptLoader when the Docs
     // view activates, so wait for that before invoking the wizard.
@@ -521,11 +524,28 @@
             ? window.ScriptLoader.preloadForView('docs')
             : Promise.resolve();
           preload.then(() => {
-            if (typeof openWarrantyCertWizard === 'function') openWarrantyCertWizard(data);
+            if (typeof openWarrantyCertWizard === 'function') {
+              openWarrantyCertWizard(data);
+            } else {
+              // Previously this silently returned — users clicked "Generate
+              // Cert" from customer.html and landed on Docs with nothing
+              // happening. Surface the failure so we at least know the
+              // handoff dropped the data.
+              console.warn('[dashboard] _pendingCert pickup failed: openWarrantyCertWizard not loaded');
+              if (typeof showToast === 'function') showToast('Warranty wizard failed to load — open Docs → Warranty manually', 'warning');
+            }
+          }).catch(err => {
+            console.warn('[dashboard] _pendingCert preload failed:', err);
+            if (typeof showToast === 'function') showToast('Warranty wizard couldn\u2019t load — try again from Docs', 'error');
           });
         }, 800);
       }
-    } catch(e) {}
+    } catch(e) {
+      // JSON.parse failure means the sessionStorage payload is corrupt —
+      // clear it so we don't keep retrying with bad data on every reload.
+      console.warn('[dashboard] _pendingCert parse failed, clearing:', e);
+      try { sessionStorage.removeItem('_pendingCert'); } catch(_) {}
+    }
     // If subscription check failed open, show a subtle non-blocking warning
     if (window._subscription?._failOpen) {
       setTimeout(() => showToast('Subscription check had a hiccup - you are in. Refreshing will resolve it.', 'warning'), 2000);

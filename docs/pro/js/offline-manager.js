@@ -50,9 +50,19 @@
 
     if ('serviceWorker' in navigator) {
       try {
-        swRegistration = await navigator.serviceWorker.register('/pro/sw.js', {
-          scope: '/pro/'
+        // updateViaCache: 'none' forces the browser to bypass its own HTTP
+        // cache when fetching sw.js itself, so a deployed SW update is seen
+        // on the next page load instead of being pinned for hours by the
+        // default 'imports' policy. The script file gets a ?v= bust too so
+        // proxies/CDNs revalidate.
+        swRegistration = await navigator.serviceWorker.register('/pro/sw.js?v=' + (window.__NBD_BUILD || '13'), {
+          scope: '/pro/',
+          updateViaCache: 'none'
         });
+        // Ask the browser to check for a newer SW on every init — cheap,
+        // and if there is one it fires controllerchange below which shows
+        // the update toast to the user.
+        try { swRegistration.update(); } catch (_) {}
         console.log('✓ Service Worker registered');
 
         navigator.serviceWorker.addEventListener('controllerchange', () => {

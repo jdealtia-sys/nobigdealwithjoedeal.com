@@ -23,7 +23,15 @@ function debounce(fn, ms, key){
 // ══════════════════════════════════════════════
 // CRM
 // ══════════════════════════════════════════════
-// Firebase shim — aliases window globals for use in this file
+// Firebase shim — aliases window globals for use in this file.
+//
+// LOAD-ORDER CONTRACT: crm.js MUST load after the Firebase ES-module
+// script in the host page (dashboard.html / customer.html) populates
+// window.db, window.collection, etc. If any of these are undefined at
+// parse time the module locks them in as undefined forever and every
+// Firestore call below silently no-ops. The assertion below fails loud
+// at load time so misordered script tags show up in the console
+// immediately instead of as invisible "nothing saved" bugs later.
 const db = window.db;
 const col = window.collection;
 const _addDoc = window.addDoc;
@@ -37,6 +45,18 @@ const _orderBy = window.orderBy;
 const _query = window.query;
 const _serverTimestamp = window.serverTimestamp;
 const _arrayUnion = window.arrayUnion;
+(function _assertFirebaseLoaded() {
+  const missing = [
+    ['db', db], ['collection', col], ['addDoc', _addDoc], ['updateDoc', _updateDoc],
+    ['deleteDoc', _deleteDoc], ['doc', _doc], ['getDoc', _getDoc], ['getDocs', _getDocs],
+    ['where', _where], ['orderBy', _orderBy], ['query', _query],
+    ['serverTimestamp', _serverTimestamp], ['arrayUnion', _arrayUnion]
+  ].filter(([, v]) => !v).map(([n]) => n);
+  if (missing.length) {
+    console.error('[crm.js] Firebase not ready at parse time — missing: ' + missing.join(', ') +
+                  '. Every Firestore call in this file will silently no-op. Check script order in the host page.');
+  }
+})();
 
 
 function openLeadModal(){
@@ -1556,13 +1576,34 @@ window.restoreNotification = restoreNotification;
 window.toggleDismissedNotifications = toggleDismissedNotifications;
 window.renderDismissedNotifications = renderDismissedNotifications;
 
-// Request browser notification permission on first load (once)
+// Request browser notification permission.
+// Must be called from a user-gesture handler (click/tap) per Chrome 80+,
+// Firefox 72+, and Safari. Calling on page load gets silently denied on
+// every modern browser and poisons the permission state until the user
+// manually resets it. We now defer until the user clicks "Enable
+// notifications" — wired via enableNotifCTA below.
 async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
+  if (!('Notification' in window)) return 'unsupported';
+  if (Notification.permission !== 'default') return Notification.permission;
+  try {
+    return await Notification.requestPermission();
+  } catch (e) {
+    console.warn('[notif] permission request threw:', e);
+    return 'denied';
   }
 }
+// Attach to any element tagged data-action="enable-notifications" so the
+// call happens inside the click handler. Safe to call multiple times.
+window.addEventListener('click', (e) => {
+  const el = e.target && e.target.closest && e.target.closest('[data-action="enable-notifications"]');
+  if (!el) return;
+  requestNotifPermission().then(state => {
+    if (typeof showToast === 'function') {
+      if (state === 'granted') showToast('Notifications enabled', 'success');
+      else if (state === 'denied') showToast('Notifications blocked — check browser settings', 'error');
+    }
+  });
+});
 // ══ END FOLLOW-UP NOTIFICATION ENGINE ═════════════════════════════════
 
 // Load notifications on auth - poll for window._user set by main auth callback

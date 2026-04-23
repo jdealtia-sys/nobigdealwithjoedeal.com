@@ -57,7 +57,15 @@
   }
 
   function requireConfigured(key, humanName) {
-    if (!state.status) return true; // fail open if status not yet loaded
+    // Fail CLOSED on missing status: allowing calls through pretends the
+    // integration is configured, which surfaces cryptic server errors
+    // mid-flow (and quietly bills against API quotas). A short "still
+    // checking" toast + false is a much better UX and forces the caller
+    // to retry after the background status() fetch lands.
+    if (!state.status) {
+      toast(humanName + ' integration status still loading — try again in a second.', 'info');
+      return false;
+    }
     if (!state.status.configured || !state.status.configured[key]) {
       toast(humanName + ' integration not set up. Contact support.', 'error');
       return false;

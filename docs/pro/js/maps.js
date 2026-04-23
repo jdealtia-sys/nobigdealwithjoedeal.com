@@ -104,35 +104,53 @@ function showAllPins() { Object.values(pinMarkers).forEach(m=>m.addTo(mainMap));
 function hideAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); }
 
 // ── JOBS OVERLAY ──────────────────────────────────
+// Process-scoped cache so toggling the overlay on/off doesn't re-geocode
+// every active job; keyed by normalised address. Null entries mean
+// "Nominatim returned nothing" so we don't retry on each toggle.
+const _jobsGeocodeCache = new Map();
+const _JOBS_GEOCODE_CAP = 20; // hard cap per buildJobsLayer() run
 async function buildJobsLayer() {
   if(!mainMap) return;
   jobMarkers.forEach(m=>mainMap.removeLayer(m));
   jobMarkers = [];
   const leads = window._leads || [];
   const active = leads.filter(l => ['In Progress','Complete','Finalizing'].includes(l.stage||''));
+  const esc = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml : (s => String(s||''));
+  let liveRequests = 0;
   for(const lead of active) {
     const addr = lead.address || lead.addr || '';
     if(!addr) continue;
     try {
-      const geo = await geocode(addr);
+      const key = addr.trim().toLowerCase();
+      let geo;
+      if (_jobsGeocodeCache.has(key)) {
+        geo = _jobsGeocodeCache.get(key);
+      } else {
+        if (liveRequests >= _JOBS_GEOCODE_CAP) continue; // respect fair-use
+        geo = await geocode(addr);
+        _jobsGeocodeCache.set(key, geo || null);
+        liveRequests++;
+        // Nominatim fair-use: ≥ 1 req/s. Previous 180ms = 5.5 req/s and
+        // tripped their rate-limiter on any user with > 10 active jobs.
+        await new Promise(r => setTimeout(r, 1100));
+      }
       if(!geo) continue;
       const val = parseFloat(lead.value||lead.jobValue||lead.contractValue||0);
       const label = val > 0 ? '$'+val.toLocaleString() : lead.stage;
       const color = lead.stage==='Complete' ? '#34D399' : lead.stage==='In Progress' ? '#4A9EFF' : '#EAB308';
       const icon = L.divIcon({
-        html:`<div style="background:${color};color:#0A0C0F;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ${label}</div>`,
+        html:`<div style="background:${esc(color)};color:#0A0C0F;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ${esc(label)}</div>`,
         iconAnchor:[0,0], className:''
       });
       const m = L.marker([parseFloat(geo.lat),parseFloat(geo.lon)],{icon});
       m.bindPopup(`<div style="font-family:sans-serif;min-width:160px;">
-        <b style="font-size:13px;color:${color};">${lead.name||'Lead'}</b>
-        <p style="font-size:11px;color:#666;margin:4px 0;">${addr}</p>
-        <p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ${lead.stage}</p>
-        ${val>0?`<p style="font-size:12px;font-weight:700;color:${color};">$${val.toLocaleString()}</p>`:''}
+        <b style="font-size:13px;color:${esc(color)};">${esc(lead.name||'Lead')}</b>
+        <p style="font-size:11px;color:#666;margin:4px 0;">${esc(addr)}</p>
+        <p style="font-size:11px;margin:2px 0;"><b>Stage:</b> ${esc(lead.stage)}</p>
+        ${val>0?`<p style="font-size:12px;font-weight:700;color:${esc(color)};">$${val.toLocaleString()}</p>`:''}
       </div>`);
       jobMarkers.push(m);
       if(overlayState.jobs) m.addTo(mainMap);
-      await new Promise(r=>setTimeout(r,180)); // rate-limit Nominatim
     } catch(e){ console.warn('Job overlay geocode failed for:', lead.address, e.message); }
   }
 }
@@ -326,12 +344,26 @@ function openPinLeadPopup(p, marker) {
   if (!matched) {
     const pinLat = parseFloat(p.lat), pinLng = parseFloat(p.lng);
     
-    // Try matching notes → address
+    // Try matching notes → address. Require a street-number prefix match
+    // before checking substring so "123 Main" doesn't false-match a lead
+    // at "23 Main" or "1234 Main". Extract the leading numeric token from
+    // the first address segment and require both that number AND the rest
+    // of the segment to appear in notes.
     if (p.notes) {
       const notesLower = p.notes.toLowerCase();
       matched = leads.find(l => {
-        const addr = (l.address||'').toLowerCase();
-        return addr && notesLower.includes(addr.split(',')[0].toLowerCase());
+        const addr = (l.address || '').toLowerCase();
+        if (!addr) return false;
+        const firstSeg = addr.split(',')[0].trim();
+        const numMatch = firstSeg.match(/^(\d+)\s+(.+)$/);
+        if (numMatch) {
+          const [, num, rest] = numMatch;
+          // Word-boundary on the street number prevents "23" matching "123".
+          const numRe = new RegExp('\\b' + num + '\\b');
+          return numRe.test(notesLower) && notesLower.includes(rest);
+        }
+        // No leading number — fall back to literal substring.
+        return notesLower.includes(firstSeg);
       });
     }
     
