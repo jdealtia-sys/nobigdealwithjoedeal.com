@@ -2533,6 +2533,29 @@ try {
   failures.push('inline-html-scripts.test.js — inline <script> in docs/ has syntax error (see output above)');
 }
 
+// ── SEO: every blog post appears in sitemap.xml ─────────────
+// Blog posts are the top-of-funnel SEO engine — a new post that
+// doesn't land in the sitemap stays uncrawled by Google until
+// someone notices (weeks later). This check keeps sitemap.xml
+// honest against docs/blog/*.html and fails loud the moment a
+// post lands in one without the other.
+section('SEO: every /docs/blog/*.html has a sitemap entry');
+{
+  const sitemapPath = path.join(ROOT, 'docs/sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    const sitemap = fs.readFileSync(sitemapPath, 'utf8');
+    const blogDir = path.join(ROOT, 'docs/blog');
+    const posts = fs.readdirSync(blogDir)
+      .filter(f => f.endsWith('.html') && f !== 'index.html');
+    for (const file of posts) {
+      const slug = file.replace(/\.html$/, '');
+      assert('sitemap has /blog/' + slug, sitemap.includes('/blog/' + slug));
+    }
+  } else {
+    assert('sitemap.xml exists at docs/sitemap.xml', false);
+  }
+}
+
 // ── CSP: strict pages stay free of inline event handlers ────
 // firebase.json ships tight per-page CSPs (script-src-attr 'none')
 // for the pages below. That header BLOCKS any onclick=/onsubmit=/
