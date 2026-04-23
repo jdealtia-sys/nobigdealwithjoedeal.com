@@ -1022,8 +1022,8 @@
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
-    // Init supplier pricing database
-    // SupplierPricing archived (see js/_archive/) — feature disabled
+    // Supplier pricing: feature was removed; archive folder deleted with
+    // the 2026-04-23 dead-code cleanup.
   }
   window._loadLeads = loadLeads;
   // DO NOT call loadLeads() here at module parse time.
