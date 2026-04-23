@@ -81,14 +81,19 @@ jobs:
             npm install --silent --no-audit --no-fund
           fi
 
-      # Fail the build on moderate+ npm advisories. The known LOW
-      # transitive advisories (see functions/NPM_AUDIT_ACCEPTED.md)
-      # are below this threshold and intentionally not addressed
-      # until the upstream Google Cloud SDK chain releases a fix.
-      - name: Audit dependencies (moderate and above)
+      # Fail the build on HIGH+ npm advisories. The known LOW and
+      # MODERATE transitive advisories (see functions/NPM_AUDIT_ACCEPTED.md)
+      # are below this threshold and intentionally not addressed — each
+      # one is a transitive dep of firebase-admin / @google-cloud/*
+      # whose vulnerable code path is unreachable from our handlers,
+      # and the only available fixes are `npm audit fix --force`
+      # downgrades that regress firebase-admin to 10.x (breaks
+      # multi-tenant + App Check). Re-audit on every dep-review
+      # sprint; any HIGH or CRITICAL is a P1.
+      - name: Audit dependencies (high and above)
         run: |
           cd functions
-          npm audit --audit-level=moderate
+          npm audit --audit-level=high
       - name: Require every integration module
         run: |
           cd functions
