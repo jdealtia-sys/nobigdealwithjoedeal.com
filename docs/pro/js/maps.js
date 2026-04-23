@@ -5,6 +5,29 @@
 // ============================================================
 
 // ══════════════════════════════════════════════
+// GEODETIC HELPERS
+// Haversine distance (returns feet; R is Earth radius in ft)
+// and midpoint between two Leaflet latLng-like objects.
+// Previously lived in dashboard.html — moved here so maps.js
+// is self-contained and works across pages that load it.
+// Kept as function declarations (not const) so they hoist
+// above all callers below and match the original signatures.
+// ══════════════════════════════════════════════
+function hav(a, b) {
+  const R = 20902231; // Earth radius in feet
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lng - a.lng) * Math.PI / 180;
+  const aa = Math.sin(dLat / 2) ** 2
+    + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+}
+function mid(a, b) {
+  return L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
+}
+// Expose for any remaining callers still referencing the dashboard globals.
+if (typeof window !== 'undefined') { window.hav = hav; window.mid = mid; }
+
+// ══════════════════════════════════════════════
 // MAIN MAP
 // ══════════════════════════════════════════════
 let mainMap, curPinStatus='not-home', curPinColor='#9CA3AF', pinMarkers={}, pinClusterGroup=null;
@@ -31,9 +54,12 @@ let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 
 function initMainMap() {
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
-  // Google satellite — native zoom up to 22 (vs ESRI's 19). Much sharper
-  // imagery for roof-level inspection and pin placement.
-  L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',attribution:'© Google',maxNativeZoom:22,maxZoom:23}).addTo(mainMap);
+  // Esri World Imagery — documented, stable endpoint. Native z=19, upscale to 22.
+  // Previously used undocumented mt{s}.google.com which returns 403 with no SLA.
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri', maxNativeZoom: 19, maxZoom: 22 }
+  ).addTo(mainMap);
   // Initialize marker cluster group for performance with many pins
   if(typeof L.markerClusterGroup === 'function') {
     pinClusterGroup = L.markerClusterGroup({ maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true, disableClusteringAtZoom:18 });
@@ -533,12 +559,25 @@ function initDrawMap() {
   if (!container) { console.error('drawMap container not found'); return; }
 
   drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],20);
-  // Map layers — Google satellite for maximum zoom/clarity on roof measurements
-  drawMapLayers.satellite = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',attribution:'© Google',maxNativeZoom:22,maxZoom:23});
+  // Map layers — Esri World Imagery (documented, reliable, ToS-friendly).
+  // Previously used undocumented Google mt{s}.google.com endpoint which
+  // routinely 403s and has no SLA. Esri caps at z=19 native — we let
+  // Leaflet upscale to z=22 for drawing precision.
+  const ESRI_ATTR = 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+  drawMapLayers.satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: ESRI_ATTR, maxNativeZoom: 19, maxZoom: 22 }
+  );
   drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:22});
   drawMapLayers.hybrid = L.layerGroup([
-    L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:'0123',maxNativeZoom:22,maxZoom:23}),
-    L.tileLayer('https://mt{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',{subdomains:'0123',maxNativeZoom:22,maxZoom:23,opacity:.7})
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxNativeZoom: 19, maxZoom: 22 }
+    ),
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      { maxNativeZoom: 19, maxZoom: 22, opacity: 0.75 }
+    )
   ]);
   drawMapLayers.satellite.addTo(drawMap);
   currentLayerType = 'satellite';
@@ -796,32 +835,38 @@ function handleLineClick(latlng) {
 }
 
 // ── DRAGGABLE DOT FACTORY ────────────────────
+// Handles both mouse and touch input. Leaflet's `mousedown` event does
+// NOT fire on touch-only devices (iOS Safari, iPad), so we also bind
+// native `touchstart`/`touchmove`/`touchend` on the rendered SVG path
+// element. Two-finger gestures fall through to Leaflet for zoom/pan.
 function makeDraggableDot(latlng, color, opts) {
   const dot = L.circleMarker(latlng, {
     radius:6, color:'#fff', fillColor:color, fillOpacity:1, weight:2,
     draggable:true, ...(opts||{})
   }).addTo(drawMap);
-  // Make draggable via mouse events
-  let dragging = false, dragLine = null;
-  dot.on('mousedown', e => {
-    if(drawOn) return; // Don't drag while drawing
-    L.DomEvent.stopPropagation(e);
+
+  let dragging = false;
+
+  function containerPointToLatLng(clientX, clientY) {
+    // Leaflet expects point relative to the map container
+    const rect = drawMap.getContainer().getBoundingClientRect();
+    return drawMap.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
+  }
+
+  function startDrag() {
+    if (drawOn) return false; // Don't drag while actively drawing
     dragging = true;
     drawMap.dragging.disable();
-    drawMap.on('mousemove', onDragMove);
-    drawMap.on('mouseup', onDragEnd);
-  });
-  function onDragMove(e) {
-    if(!dragging) return;
-    dot.setLatLng(e.latlng);
-    updateLinesForDot(dot, e.latlng);
+    // Stop touch scrolling on the whole map while a dot is being dragged
+    drawMap.getContainer().style.touchAction = 'none';
+    return true;
   }
-  function onDragEnd(e) {
-    if(!dragging) return;
+
+  function endDrag() {
+    if (!dragging) return;
     dragging = false;
     drawMap.dragging.enable();
-    drawMap.off('mousemove', onDragMove);
-    drawMap.off('mouseup', onDragEnd);
+    drawMap.getContainer().style.touchAction = '';
     updateLinesForDot(dot, dot.getLatLng());
     recalc(); recalcGutters(); autoSaveDrawing();
     // Update facet polygons
@@ -830,6 +875,62 @@ function makeDraggableDot(latlng, color, opts) {
       if(dotIdx >= 0) { f.points[dotIdx] = dot.getLatLng(); rebuildFacetPolygon(fi); }
     });
   }
+
+  // ── Mouse path (desktop) ──
+  dot.on('mousedown', e => {
+    L.DomEvent.stopPropagation(e);
+    if (!startDrag()) return;
+    drawMap.on('mousemove', onMouseMove);
+    drawMap.on('mouseup', onMouseUp);
+  });
+  function onMouseMove(e) {
+    if (!dragging) return;
+    dot.setLatLng(e.latlng);
+    updateLinesForDot(dot, e.latlng);
+  }
+  function onMouseUp() {
+    drawMap.off('mousemove', onMouseMove);
+    drawMap.off('mouseup', onMouseUp);
+    endDrag();
+  }
+
+  // ── Touch path (iOS/Android) ──
+  // Bind on the underlying SVG path element once Leaflet has rendered it.
+  // Retry in a microtask because the path isn't in the DOM until addTo().
+  function bindTouch() {
+    const el = dot._path || dot.getElement?.();
+    if (!el) { setTimeout(bindTouch, 30); return; }
+    el.style.touchAction = 'none'; // Prevent browser gesture on the dot itself
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+
+    function onTouchStart(ev) {
+      if (ev.touches.length !== 1) return; // Ignore pinch/multi-touch
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!startDrag()) return;
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      document.addEventListener('touchend', onTouchEnd);
+      document.addEventListener('touchcancel', onTouchEnd);
+    }
+    function onTouchMove(ev) {
+      if (!dragging) return;
+      if (ev.touches.length !== 1) return;
+      ev.preventDefault();
+      const t = ev.touches[0];
+      const newLatLng = containerPointToLatLng(t.clientX, t.clientY);
+      dot.setLatLng(newLatLng);
+      updateLinesForDot(dot, newLatLng);
+    }
+    function onTouchEnd() {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+      endDrag();
+    }
+  }
+  bindTouch();
+
   dot._nbd_id = Date.now() + Math.random();
   return dot;
 }
@@ -1502,9 +1603,17 @@ function screenshotMap() {
 }
 
 function importToEstimate() {
-  // Collect all measurements from the drawing tool
+  // Collect all measurements from the drawing tool.
+  //
+  // IMPORTANT: the estimate builders expect `rawSqft` = actual roof surface
+  // area with pitch ALREADY APPLIED (see estimate-logic-engine.js:43 comment
+  // — "'rawSqft', // Actual roof area (pitch applied)"). The drawing tool's
+  // `cr-pitched` readout is that value; `cr-base` is the unpitched footprint
+  // and was the historical import source — sending it meant every estimate
+  // was under-counted by the pitch factor (12–41% depending on pitch).
   const addr = document.getElementById('drawSearch').value || '';
-  const rawSqft = parseFloat(document.getElementById('cr-base').textContent) || 0;
+  const pitchedSqft = parseFloat(document.getElementById('cr-pitched').textContent) || 0;
+  const baseSqft = parseFloat(document.getElementById('cr-base').textContent) || 0;
   // Line types: 0=ridge, 1=valley, 2=hip, 3=rake, 4=wall, 5=eave
   const ridgeLf = Math.round(drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0));
   const eaveLf = Math.round(drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0));
@@ -1513,10 +1622,19 @@ function importToEstimate() {
   const rakeLf = Math.round(drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0));
   const wallLf = Math.round(drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0));
 
+  // The global pitch selector value is "<multiplier>" (e.g. "1.202" for 8/12).
+  // Multi-facet drawings already compose per-facet pitch into `cr-pitched`,
+  // so we just need a representative pitch rise to pass through for rules
+  // like pitch-surcharge pricing.
+  const globalPitchMult = parseFloat(document.getElementById('pitchSel')?.value || 1.202) || 1.202;
+  // Invert sqrt(1 + (rise/12)^2) to recover rise from multiplier
+  const pitchRise = Math.round(12 * Math.sqrt(Math.max(0, globalPitchMult * globalPitchMult - 1))) || 8;
+
   // Ask which builder to use
   const useV2 = window.openEstimateV2Builder && confirm(
     'Open V2 Builder (line-item mode) with these measurements?\n\n'
-    + 'Raw area: ' + Math.round(rawSqft) + ' SF\n'
+    + 'Pitched area: ' + Math.round(pitchedSqft) + ' SF '
+    + '(footprint ' + Math.round(baseSqft) + ' SF × pitch)\n'
     + 'Eave: ' + eaveLf + ' LF · Ridge: ' + ridgeLf + ' LF\n'
     + 'Rake: ' + rakeLf + ' LF · Hip: ' + hipLf + ' LF\n'
     + 'Valley: ' + valleyLf + ' LF · Wall: ' + wallLf + ' LF\n\n'
@@ -1524,13 +1642,12 @@ function importToEstimate() {
   );
 
   if (useV2) {
-    // Pre-fill V2 Builder measurements via its state object
+    // V2 Builder: rawSqft is pitched area (logic engine only applies waste).
     window.openEstimateV2Builder();
-    // The V2 Builder opens as a full-screen modal — wait for it
-    // to render, then set the measurement fields via DOM inputs.
     setTimeout(() => {
       const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); } };
-      setVal('v2rawSqft', Math.round(rawSqft));
+      setVal('v2rawSqft', Math.round(pitchedSqft));
+      setVal('v2pitch', pitchRise);
       setVal('v2eaveLf', eaveLf);
       setVal('v2ridgeLf', ridgeLf);
       setVal('v2rakeLf', rakeLf);
@@ -1539,16 +1656,26 @@ function importToEstimate() {
       if (typeof showToast === 'function') showToast('Drawing measurements imported into V2 Builder', 'success');
     }, 300);
   } else {
-    // Classic builder flow (original behavior)
+    // Classic builder: `updateEstCalc` does raw × pitch × waste. The drawing
+    // tool already baked pitch (and per-facet pitch on multi-facet drawings)
+    // into cr-pitched, so we pass pitched area AND pin the classic pitch
+    // selector to Flat (1.000×) so it isn't multiplied a second time.
     goTo('est');
     startNewEstimate();
     setTimeout(() => {
       document.getElementById('estAddr').value = addr;
-      document.getElementById('estRawSqft').value = Math.round(rawSqft);
+      document.getElementById('estRawSqft').value = Math.round(pitchedSqft);
+      const pitchSelEl = document.getElementById('estPitch');
+      if (pitchSelEl) pitchSelEl.value = '1.0|Flat';
       document.getElementById('estRidge').value = ridgeLf;
       document.getElementById('estEave').value = eaveLf;
       document.getElementById('estHip').value = hipLf;
-      document.getElementById('drawImportNote').style.display = 'block';
+      const noteEl = document.getElementById('drawImportNote');
+      if (noteEl) {
+        noteEl.style.display = 'block';
+        noteEl.textContent = 'Pitched area imported from drawing tool. Pitch set to Flat so your '
+          + pitchRise + '/12 drawing pitch is not applied twice.';
+      }
       updateEstCalc();
     }, 100);
   }
@@ -1644,6 +1771,123 @@ async function saveDrawingToCustomer() {
     console.error('Save drawing failed:', e);
     showToast('Save failed: ' + e.message, 'error');
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOAD DRAWING FROM CUSTOMER
+// Inverse of saveDrawingToCustomer. Matches by address → pulls
+// the most recent drawing from leads/{leadId}/drawings (or the
+// unlinked collection) and rehydrates facets/lines onto the map.
+// Safe to call without a current drawing — will replace whatever
+// is on screen after confirmation if the canvas is non-empty.
+// ═══════════════════════════════════════════════════════════
+async function loadDrawingFromCustomer() {
+  const addr = (document.getElementById('drawSearch')?.value || '').trim();
+  if (!addr) {
+    showToast('Enter an address first so we can find the customer', 'error');
+    return;
+  }
+  if (!window._user?.uid || !window._db) {
+    showToast('Not signed in — cannot load', 'error');
+    return;
+  }
+
+  // Find matching lead (same logic as save)
+  const leads = window._leads || [];
+  const addrNorm = addr.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const matched = leads.find(l => {
+    const lNorm = (l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return lNorm && addrNorm && (lNorm.includes(addrNorm.substring(0, 12)) || addrNorm.includes(lNorm.substring(0, 12)));
+  });
+
+  const leadId = matched?.id || ('_unlinked_' + window._user.uid);
+  const isUnlinked = leadId.startsWith('_unlinked_');
+
+  try {
+    // Query the appropriate collection, ordered by version desc, limit 1
+    const collPath = isUnlinked
+      ? window.collection(window._db, 'drawings')
+      : window.collection(window._db, 'leads', leadId, 'drawings');
+
+    // For unlinked, we filter to this user; linked is scoped to the lead.
+    const q = isUnlinked
+      ? window.query(collPath, window.where('userId', '==', window._user.uid), window.orderBy('version', 'desc'), window.limit(1))
+      : window.query(collPath, window.orderBy('version', 'desc'), window.limit(1));
+
+    const snap = await window.getDocs(q);
+    if (snap.empty) {
+      showToast('No saved drawings found for this address', 'info');
+      return;
+    }
+
+    const data = snap.docs[0].data() || {};
+
+    // Confirm replacement if canvas has work
+    if ((drawnLines && drawnLines.length) || (facets && facets.length)) {
+      if (!confirm('Replace the current drawing with v' + (data.version || '?') + ' from ' + (matched?.firstName || matched?.address || 'customer') + '?')) return;
+    }
+
+    // Clear current state
+    if (typeof clearAll === 'function') {
+      clearAll();
+    } else {
+      // Fallback: manual reset
+      drawnLines = [];
+      facets = [];
+    }
+
+    // Restore pitch/waste selectors
+    const pitchSel = document.getElementById('pitchSel');
+    if (pitchSel && data.pitch) pitchSel.value = String(data.pitch);
+    const wasteSel = document.getElementById('wasteSel');
+    if (wasteSel && data.waste) wasteSel.value = String(data.waste);
+
+    // Rehydrate lines
+    (data.lines || []).forEach(l => {
+      try {
+        drawnLines.push({
+          type: l.type, name: l.name, dist: l.dist,
+          p1: L.latLng(l.p1.lat, l.p1.lng),
+          p2: L.latLng(l.p2.lat, l.p2.lng)
+        });
+      } catch (err) { /* skip malformed line */ }
+    });
+
+    // Rehydrate facets
+    (data.facets || []).forEach(f => {
+      try {
+        facets.push({
+          name: f.name, pitch: f.pitch, closed: !!f.closed, baseArea: f.baseArea,
+          points: (f.points || []).map(p => L.latLng(p.lat, p.lng))
+        });
+      } catch (err) { /* skip malformed facet */ }
+    });
+
+    // Redraw + recompute
+    if (typeof redrawAll === 'function') redrawAll();
+    if (typeof recalc === 'function') recalc();
+
+    // Center map on drawing bounds if possible
+    try {
+      const allPts = [];
+      drawnLines.forEach(l => { allPts.push(l.p1, l.p2); });
+      facets.forEach(f => { (f.points || []).forEach(p => allPts.push(p)); });
+      if (allPts.length && drawMap) {
+        const bounds = L.latLngBounds(allPts);
+        drawMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 21 });
+      }
+    } catch (err) { /* bounds best-effort */ }
+
+    showToast('Loaded v' + (data.version || '?') + (matched ? ' from ' + (matched.firstName || matched.address || 'customer') : ' (unlinked)'), 'success');
+  } catch (e) {
+    console.error('Load drawing failed:', e);
+    showToast('Load failed: ' + e.message, 'error');
+  }
+}
+
+// Expose for inline button onclick in dashboard.html
+if (typeof window !== 'undefined') {
+  window.loadDrawingFromCustomer = loadDrawingFromCustomer;
 }
 
 // ═══════════════════════════════════════════════════════════

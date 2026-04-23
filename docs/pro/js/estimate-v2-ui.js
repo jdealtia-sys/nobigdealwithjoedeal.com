@@ -1328,35 +1328,52 @@
     };
   }
 
+  // Audit #21: both catch blocks were fully silent — if localStorage quota
+  // blew up OR the Firestore push kept failing (offline/permissions), the
+  // user had no idea their draft wasn't saving. We now log both errors and
+  // surface a one-shot toast the first time a Firestore push fails in a
+  // session so reps don't think "I saved it" when they didn't.
+  let _draftRemoteErrorNotified = false;
+
   function saveDraftDebounced() {
     clearTimeout(_draftLocalTimer);
     _draftLocalTimer = setTimeout(() => {
       try {
         const payload = collectDraft();
         localStorage.setItem(DRAFT_KEY_LOCAL, JSON.stringify(payload));
-      } catch (e) { /* quota exhausted — not fatal */ }
+      } catch (e) {
+        // QuotaExceededError means old drafts need clearing; tell the user.
+        console.warn('[estimate-v2] localStorage draft save failed:', e);
+        window.showToast?.('Could not auto-save draft locally — browser storage is full. Clear old drafts or save manually.', 'warning', 6000);
+      }
       // Firestore push at most every 10s.
       const now = Date.now();
       if (now - _lastDraftRemotePush > 10_000) {
         _lastDraftRemotePush = now;
-        pushDraftToFirestore().catch(() => {});
+        pushDraftToFirestore().catch(err => {
+          console.warn('[estimate-v2] draft push to Firestore failed:', err);
+          if (!_draftRemoteErrorNotified) {
+            _draftRemoteErrorNotified = true;
+            window.showToast?.('Cloud auto-save hit an error. Your draft is saved locally — click Save to retry syncing.', 'warning', 7000);
+          }
+        });
       }
     }, 400);
   }
 
   async function pushDraftToFirestore() {
     if (!window.db || !window.doc || !window.setDoc || !window._user) return;
-    try {
-      await window.setDoc(
-        window.doc(window.db, 'estimate_drafts', window._user.uid),
-        {
-          userId: window._user.uid,
-          updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
-          draft: collectDraft()
-        },
-        { merge: true }
-      );
-    } catch (e) { /* silent */ }
+    await window.setDoc(
+      window.doc(window.db, 'estimate_drafts', window._user.uid),
+      {
+        userId: window._user.uid,
+        updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+        draft: collectDraft()
+      },
+      { merge: true }
+    );
+    // Caller's .catch() will report failures now — no silent catch here.
+    _draftRemoteErrorNotified = false;
   }
 
   async function restoreDraft() {

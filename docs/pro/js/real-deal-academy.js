@@ -39,19 +39,23 @@
     _loadProgress() {
       const key = `rda_progress_${this._userId}`;
 
-      // Try Firebase first
-      if (typeof firebase !== 'undefined' && window.auth && window.auth.currentUser) {
-        const db = firebase.firestore();
-        db.collection('academy_progress').doc(this._userId).get()
-          .then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              this._progressData.completedNodes = new Set(data.completedNodes || []);
-              this._progressData.completedLessons = new Set(data.completedLessons || []);
-              this._progressData.quizScores = data.quizScores || {};
-            }
-          })
-          .catch(err => console.warn('Firebase load failed, using localStorage:', err));
+      // Try Firestore (v9 modular SDK via window globals) first
+      if (window._db && window.doc && window.getDoc && window.auth && window.auth.currentUser) {
+        try {
+          const ref = window.doc(window._db, 'academy_progress', this._userId);
+          window.getDoc(ref)
+            .then(snap => {
+              if (snap.exists()) {
+                const data = snap.data() || {};
+                this._progressData.completedNodes = new Set(data.completedNodes || []);
+                this._progressData.completedLessons = new Set(data.completedLessons || []);
+                this._progressData.quizScores = data.quizScores || {};
+              }
+            })
+            .catch(err => console.warn('Firestore load failed, using localStorage:', err));
+        } catch (err) {
+          console.warn('Firestore load threw, using localStorage:', err);
+        }
       }
 
       // Fallback to localStorage
@@ -78,11 +82,15 @@
 
       localStorage.setItem(key, JSON.stringify(data));
 
-      // Save to Firebase if available
-      if (typeof firebase !== 'undefined' && window.auth && window.auth.currentUser) {
-        const db = firebase.firestore();
-        db.collection('academy_progress').doc(this._userId).set(data, { merge: true })
-          .catch(err => console.warn('Firebase save failed:', err));
+      // Save to Firestore (v9 modular SDK via window globals) if available
+      if (window._db && window.doc && window.setDoc && window.auth && window.auth.currentUser) {
+        try {
+          const ref = window.doc(window._db, 'academy_progress', this._userId);
+          window.setDoc(ref, data, { merge: true })
+            .catch(err => console.warn('Firestore save failed:', err));
+        } catch (err) {
+          console.warn('Firestore save threw:', err);
+        }
       }
     },
 

@@ -39,7 +39,97 @@
 
   const MAX_ATTEMPTS = 5;
   const CINCINNATI = [39.10, -84.51];
-  const GOOGLE_SAT_TILES = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+
+  // ============================================================================
+  // iOS-SAFE MODAL CONFIRM / PROMPT
+  // ----------------------------------------------------------------------------
+  // Native `confirm()` / `prompt()` are unreliable on iOS Safari/PWA installs —
+  // they're blocked inside WKWebView standalone contexts and can no-op silently,
+  // especially after a gesture boundary (e.g. touchend → async handler). These
+  // helpers render a real DOM modal that works everywhere and returns a Promise.
+  // ============================================================================
+  function uiConfirm(message, { okLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'd2d-modal-overlay open';
+      overlay.style.zIndex = '10005';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      const okColor = danger ? '#E05252' : 'var(--accent, #2ECC8A)';
+      overlay.innerHTML = `
+        <div class="d2d-modal" style="padding:20px;max-width:360px;width:92%;">
+          <div style="font-size:15px;line-height:1.45;margin-bottom:18px;color:var(--text, #111);white-space:pre-wrap;">${escapeHtml(message)}</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" data-act="cancel" style="padding:10px 16px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:transparent;color:var(--text,#111);font-weight:600;cursor:pointer;">${escapeHtml(cancelLabel)}</button>
+            <button type="button" data-act="ok" style="padding:10px 16px;border-radius:10px;border:none;background:${okColor};color:#fff;font-weight:700;cursor:pointer;">${escapeHtml(okLabel)}</button>
+          </div>
+        </div>`;
+      function close(result) {
+        overlay.removeEventListener('click', onOverlay);
+        overlay.remove();
+        resolve(result);
+      }
+      function onOverlay(ev) {
+        if (ev.target === overlay) return close(false);
+        const btn = ev.target.closest('button[data-act]');
+        if (!btn) return;
+        close(btn.dataset.act === 'ok');
+      }
+      overlay.addEventListener('click', onOverlay);
+      document.body.appendChild(overlay);
+    });
+  }
+
+  function uiPrompt(message, defaultValue = '', { okLabel = 'Save', cancelLabel = 'Cancel', maxLength = 200 } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'd2d-modal-overlay open';
+      overlay.style.zIndex = '10005';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.innerHTML = `
+        <div class="d2d-modal" style="padding:20px;max-width:380px;width:92%;">
+          <div style="font-size:15px;line-height:1.45;margin-bottom:12px;color:var(--text, #111);">${escapeHtml(message)}</div>
+          <input type="text" data-role="input" maxlength="${Number(maxLength)}" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:var(--surface,#fff);color:var(--text,#111);font-size:15px;margin-bottom:16px;box-sizing:border-box;" />
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" data-act="cancel" style="padding:10px 16px;border-radius:10px;border:1px solid var(--border,#D1D5DB);background:transparent;color:var(--text,#111);font-weight:600;cursor:pointer;">${escapeHtml(cancelLabel)}</button>
+            <button type="button" data-act="ok" style="padding:10px 16px;border-radius:10px;border:none;background:var(--accent,#2ECC8A);color:#fff;font-weight:700;cursor:pointer;">${escapeHtml(okLabel)}</button>
+          </div>
+        </div>`;
+      const input = overlay.querySelector('input[data-role="input"]');
+      input.value = defaultValue || '';
+      function close(result) {
+        overlay.removeEventListener('click', onOverlay);
+        overlay.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        resolve(result);
+      }
+      function onOverlay(ev) {
+        if (ev.target === overlay) return close(null);
+        const btn = ev.target.closest('button[data-act]');
+        if (!btn) return;
+        close(btn.dataset.act === 'ok' ? (input.value || '') : null);
+      }
+      function onKey(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); close(input.value || ''); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); close(null); }
+      }
+      overlay.addEventListener('click', onOverlay);
+      overlay.addEventListener('keydown', onKey, true);
+      document.body.appendChild(overlay);
+      setTimeout(() => input.focus(), 20);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Esri World Imagery (documented, stable). Was undocumented Google mt{s} endpoint.
+  // Const name kept for backwards compatibility with callers.
+  const GOOGLE_SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -560,7 +650,13 @@
       if (nums.length >= 2) {
         const min = Math.min(...nums);
         const max = Math.max(...nums);
-        const step = nums.every(n => n % 2 === 0) || nums.every(n => n % 2 === 1) ? 2 : 2;
+        // Audit #17: both ternary branches returned 2 — so mixed-parity streets
+        // (e.g. odd-west + even-east side of the same street) produced duplicate
+        // ghost addresses. If all house numbers share parity we step 2 (skip
+        // the opposite side), otherwise 1 (canvas both sides sequentially).
+        const allEven = nums.every(n => n % 2 === 0);
+        const allOdd = nums.every(n => n % 2 === 1);
+        const step = (allEven || allOdd) ? 2 : 1;
         for (let n = min; n <= max; n += step) {
           if (!streets[st].find(d => d.houseNum === n)) {
             streets[st].push({ address: `${n} ${st}`, houseNum: n, lat: null, lng: null, knocked: false, disposition: null, knockId: null });
@@ -582,11 +678,18 @@
     const addrSet = new Set(knocks.map(k => normalizeAddress(k.address)));
 
     // Get latest knock per address for pins
+    // Audit #18: raw `k.createdAt > other.createdAt` compared Firestore
+    // Timestamp objects, which coerce to `NaN > NaN === false` — meaning the
+    // "latest" rule never actually replaced the first-seen knock. Normalize
+    // both sides through toDate() so the comparison is numeric.
     const addrMap = new Map();
     knocks.forEach(k => {
       if (!k.lat || !k.lng) return;
       const norm = normalizeAddress(k.address);
-      if (!addrMap.has(norm) || k.createdAt > addrMap.get(norm).createdAt) {
+      const existing = addrMap.get(norm);
+      const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
+      const eMs = existing ? (toDate(existing.createdAt) || new Date(0)).getTime() : -Infinity;
+      if (!existing || kMs > eMs) {
         addrMap.set(norm, k);
       }
     });
@@ -684,13 +787,34 @@
     }
   }
 
+  // Max knocks loaded per call. A rep doing 40/day for a full year is ~14k
+  // docs — loading all of them at once blows mobile RAM and stalls the UI
+  // for ~8–10s on cold start. 500 is ~12 active days for a heavy knocker,
+  // which covers every practical feed filter (`today` / `week` / `month`).
+  // `Load older knocks` button extends via a cursor query when needed.
+  const KNOCK_PAGE_SIZE = 500;
+
   async function loadKnocks() {
     try {
       let q;
+      // orderBy + limit require the composite index at
+      // firestore.indexes.json:62 (userId + createdAt desc) which already
+      // exists. Team-mode needs companyId + createdAt; if that index is
+      // missing the query throws and the catch falls back gracefully.
       if (teamMode && currentRep?.role === 'manager') {
-        q = window.query(window.collection(window._db, 'knocks'), window.where('companyId', '==', currentRep.companyId));
+        q = window.query(
+          window.collection(window._db, 'knocks'),
+          window.where('companyId', '==', currentRep.companyId),
+          window.orderBy('createdAt', 'desc'),
+          window.limit(KNOCK_PAGE_SIZE)
+        );
       } else {
-        q = window.query(window.collection(window._db, 'knocks'), window.where('userId', '==', window._user.uid));
+        q = window.query(
+          window.collection(window._db, 'knocks'),
+          window.where('userId', '==', window._user.uid),
+          window.orderBy('createdAt', 'desc'),
+          window.limit(KNOCK_PAGE_SIZE)
+        );
       }
       const snap = await window.getDocs(q);
       knocks = snap.docs.map(d => {
@@ -710,6 +834,31 @@
       updateNavBadge();
     } catch (e) {
       console.error('loadKnocks failed:', e);
+      // Common failure: composite index missing. Fall back to unbounded
+      // query (old behavior) so the rep isn't stranded, but warn.
+      if (String(e.message || '').toLowerCase().includes('index')) {
+        console.warn('Knocks index missing — falling back to unbounded query. Deploy firestore.indexes.json.');
+        try {
+          const fallback = teamMode && currentRep?.role === 'manager'
+            ? window.query(window.collection(window._db, 'knocks'), window.where('companyId', '==', currentRep.companyId))
+            : window.query(window.collection(window._db, 'knocks'), window.where('userId', '==', window._user.uid));
+          const snap2 = await window.getDocs(fallback);
+          knocks = snap2.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              createdAt: toDate(data.createdAt) || new Date(0),
+              updatedAt: toDate(data.updatedAt) || new Date(0),
+              followUpDate: toDate(data.followUpDate) || null
+            };
+          }).sort((a, b) => b.createdAt - a.createdAt);
+          buildStreetSequences();
+          calculateNeighborhoodScores();
+          updateNavBadge();
+          return;
+        } catch (e2) { console.error('fallback loadKnocks also failed:', e2); }
+      }
       window.showToast?.('Failed to load knocks', 'error');
     }
   }
@@ -812,7 +961,7 @@
   }
 
   async function deleteKnock(id) {
-    if (!confirm('Delete this knock?')) return;
+    if (!(await uiConfirm('Delete this knock?', { okLabel: 'Delete', danger: true }))) return;
     if (!isOnline) { enqueueOffline('deleteKnock', { id }); return; }
     try {
       await window.deleteDoc(window.doc(window._db, 'knocks', id));
@@ -1008,13 +1157,25 @@
   async function saveTerritory(data) {
     try {
       const territoryData = { ...data, companyId: currentRep?.companyId || 'default', userId: window._user.uid, updatedAt: window.serverTimestamp() };
-      if (data.id) {
-        await window.updateDoc(window.doc(window._db, 'territories', data.id), territoryData);
+      let id = data.id;
+      if (id) {
+        await window.updateDoc(window.doc(window._db, 'territories', id), territoryData);
       } else {
-        await window.addDoc(window.collection(window._db, 'territories'), { ...territoryData, createdAt: window.serverTimestamp() });
+        const ref = await window.addDoc(window.collection(window._db, 'territories'), { ...territoryData, createdAt: window.serverTimestamp() });
+        id = ref && ref.id;
       }
       await loadTerritories();
-    } catch (e) { console.error('saveTerritory failed:', e); }
+      return id || null;
+    } catch (e) { console.error('saveTerritory failed:', e); return null; }
+  }
+
+  async function deleteTerritory(id) {
+    if (!id) return false;
+    try {
+      await window.deleteDoc(window.doc(window._db, 'territories', id));
+      territories = territories.filter(t => t.id !== id);
+      return true;
+    } catch (e) { console.error('deleteTerritory failed:', e); return false; }
   }
 
   // ============================================================================
@@ -1066,6 +1227,7 @@
     const month = knocks.filter(k => isThisMonth(k.createdAt));
     const uniqueAddrs = new Set(knocks.map(k => normalizeAddress(k.address)));
     const appointments = knocks.filter(k => k.disposition === 'appointment');
+    const appointmentsWeek = week.filter(k => k.disposition === 'appointment');
     const appointmentsToday = today.filter(k => k.disposition === 'appointment');
     const insuranceToday = today.filter(k => INS_DISPOSITIONS.includes(k.disposition));
     const conversations = knocks.filter(k => !['not_home', 'do_not_knock', 'cold_dead'].includes(k.disposition));
@@ -1103,8 +1265,11 @@
       interested: knocks.filter(k => k.disposition === 'interested').length,
       stormDmg: knocks.filter(k => k.disposition === 'storm_damage').length,
       conversations: conversations.length,
-      conversionRate: week.length > 0 ? Math.round(appointments.length / week.length * 100) : 0,
-      knocksPerAppt: appointments.length > 0 ? Math.round(week.length / appointments.length) : '—',
+      // Audit #16: prior formula divided all-time appointments by this-week
+      // knocks, which could produce >100% conversion rates. Both sides of the
+      // ratio are now week-bounded so the metric is interpretable.
+      conversionRate: week.length > 0 ? Math.round(appointmentsWeek.length / week.length * 100) : 0,
+      knocksPerAppt: appointmentsWeek.length > 0 ? Math.round(week.length / appointmentsWeek.length) : '—',
       followUpsDue,
       streak
     };
@@ -1274,14 +1439,29 @@
     createLayerPanel();
   }
 
+  // Tracks whether we've surfaced a GPS-denial/error toast this session —
+  // suppresses a stream of identical toasts when watchPosition emits repeatedly.
+  let _gpsErrorNotified = false;
+
   function watchLocationAndCenter() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      // Audit #15: was a silent return. Now give the rep a clear explanation
+      // so they know why the blue-dot location marker isn't appearing.
+      window.showToast?.('GPS not available on this device. D2D map will still work, but your location won\'t auto-track.', 'warning', 6000);
+      return;
+    }
+    // Require HTTPS for geolocation — iOS Safari silently denies on http://
+    if (typeof window !== 'undefined' && window.location && window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      window.showToast?.('GPS requires HTTPS. Open this site via https:// to enable location tracking.', 'warning', 6000);
+      return;
+    }
     // Defensive: clear any prior watch before opening a new one. Without
     // this, a route that re-enters D2D (e.g. tab switch + return) leaks
     // multiple GPS subscribers, each draining battery.
     stopLocationWatch();
     watchId = navigator.geolocation.watchPosition(
       function(pos) {
+        _gpsErrorNotified = false; // clear on first successful fix
         currentLocation = [pos.coords.latitude, pos.coords.longitude];
         if (locationMarker) d2dMap.removeLayer(locationMarker);
         if (accuracyCircle) d2dMap.removeLayer(accuracyCircle);
@@ -1289,7 +1469,23 @@
         accuracyCircle = L.circle(currentLocation, { radius: pos.coords.accuracy, color: '#4A9EFF', fillColor: '#4A9EFF', fillOpacity: 0.1, weight: 1 }).addTo(d2dMap);
         locationMarker = L.circleMarker(currentLocation, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#4A9EFF', fillOpacity: 1, className: 'd2d-location-pulse' }).addTo(d2dMap);
       },
-      function(err) { console.warn('Geolocation error:', err); },
+      function(err) {
+        console.warn('Geolocation error:', err);
+        if (_gpsErrorNotified) return; // only surface once per session
+        _gpsErrorNotified = true;
+        // err.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+        let msg;
+        if (err && err.code === 1) {
+          msg = 'Location permission denied. Enable it in Settings → Safari → Location to track knocks on the map.';
+        } else if (err && err.code === 2) {
+          msg = 'Can\'t determine your location right now. Try moving to an area with a clearer sky view.';
+        } else if (err && err.code === 3) {
+          msg = 'GPS is slow to respond. You can still tap the map to log knocks manually.';
+        } else {
+          msg = 'GPS is unavailable. Tap on the map to log knocks manually.';
+        }
+        window.showToast?.(msg, 'warning', 7000);
+      },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
   }
@@ -1340,10 +1536,16 @@
     d2dCluster.clearLayers();
     if (d2dHeat) d2dMap.removeLayer(d2dHeat);
 
+    // Audit #18 (same class of bug): Timestamp > Timestamp is NaN > NaN.
+    // Normalize both sides through toDate() so the map pins reflect the most
+    // recent disposition per address instead of the first-seen one.
     const addrMap = new Map();
     knocks.forEach(k => {
       const norm = normalizeAddress(k.address);
-      if (!addrMap.has(norm) || k.createdAt > addrMap.get(norm).createdAt) {
+      const existing = addrMap.get(norm);
+      const kMs = (toDate(k.createdAt) || new Date(0)).getTime();
+      const eMs = existing ? (toDate(existing.createdAt) || new Date(0)).getTime() : -Infinity;
+      if (!existing || kMs > eMs) {
         addrMap.set(norm, k);
       }
     });
@@ -1535,6 +1737,16 @@
   // Uses lead lat/lng directly if available (from D2D knock
   // auto-convert or manual entry), falling back to Nominatim
   // geocoding for leads that only have an address string.
+  //
+  // Audit #20: Nominatim fair-use policy is ≥1 request/second. The prior
+  // 200ms sleep was 5× over the rate limit and would eventually get the
+  // app IP-banned. We now: (1) share a long-lived cache keyed on address
+  // so repeated toggles don't re-geocode, (2) sleep 1100ms between live
+  // requests, (3) cap a single build at 15 live geocodes to avoid pinning
+  // the user on one operation for 20+ seconds.
+  const D2D_GEOCODE_CACHE = new Map(); // addr → { lat, lng } | null
+  const D2D_GEOCODE_PER_BUILD_CAP = 15;
+
   async function buildD2DJobsLayer() {
     if (!d2dMap) return;
     d2dJobMarkers.forEach(m => d2dMap.removeLayer(m));
@@ -1552,20 +1764,36 @@
       return JOB_STAGES.has(sk);
     });
 
+    let liveRequests = 0;
+    let skippedDueToCap = 0;
     for (const lead of active) {
       let lat = Number(lead.lat);
       let lng = Number(lead.lng);
-      // If no coords, try Nominatim geocoding (rate-limited)
+      // If no coords, try Nominatim geocoding (cache-first, rate-limited)
       if (!lat || !lng) {
-        const addr = lead.address || '';
+        const addr = (lead.address || '').trim();
         if (!addr) continue;
-        try {
-          const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(addr) + '&limit=1',
-            { headers: { 'User-Agent': 'NBDPro/1.0' } });
-          const data = await res.json();
-          if (data && data[0]) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
-          await new Promise(r => setTimeout(r, 200)); // rate limit
-        } catch (e) { continue; }
+        const cacheKey = addr.toLowerCase();
+        if (D2D_GEOCODE_CACHE.has(cacheKey)) {
+          const hit = D2D_GEOCODE_CACHE.get(cacheKey);
+          if (!hit) continue;
+          lat = hit.lat; lng = hit.lng;
+        } else {
+          if (liveRequests >= D2D_GEOCODE_PER_BUILD_CAP) { skippedDueToCap++; continue; }
+          try {
+            const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(addr) + '&limit=1',
+              { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (data && data[0]) {
+              lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon);
+              D2D_GEOCODE_CACHE.set(cacheKey, { lat, lng });
+            } else {
+              D2D_GEOCODE_CACHE.set(cacheKey, null);
+            }
+            liveRequests++;
+            await new Promise(r => setTimeout(r, 1100)); // Nominatim fair-use ≥ 1 req/s
+          } catch (e) { continue; }
+        }
       }
       if (!lat || !lng) continue;
 
@@ -1592,6 +1820,8 @@
     }
     if (d2dJobMarkers.length === 0) {
       window.showToast?.('No active jobs with locations to display', 'info');
+    } else if (skippedDueToCap > 0) {
+      window.showToast?.(`${skippedDueToCap} job${skippedDueToCap > 1 ? 's' : ''} skipped — address lookup limit reached. Toggle the layer again to load more.`, 'info', 5000);
     }
   }
 
@@ -1680,8 +1910,8 @@
         const layer = e.layer;
         d2dTerritoryGroup.addLayer(layer);
 
-        // Prompt for a name
-        const name = window.prompt('Name this territory zone:', 'Zone ' + (territories.length + 1));
+        // Prompt for a name (iOS-safe modal — native prompt() is blocked in iOS PWA)
+        const name = await uiPrompt('Name this territory zone:', 'Zone ' + (territories.length + 1), { okLabel: 'Save Zone' });
         if (!name) {
           d2dTerritoryGroup.removeLayer(layer);
           return;
@@ -1689,7 +1919,7 @@
 
         // Extract GeoJSON coordinates for Firestore storage
         const geoJSON = layer.toGeoJSON();
-        await saveTerritory({
+        const newId = await saveTerritory({
           name: name.trim().substring(0, 80),
           type: e.layerType,
           geoJSON: geoJSON,
@@ -1700,6 +1930,10 @@
             west: layer.getBounds().getWest()
           } : null
         });
+        // Audit #19: tag the layer with its Firestore doc id so the DELETED
+        // handler can actually remove it from the backend — previously the
+        // save returned no id and deletions only cleared the map client-side.
+        if (newId) layer._nbdTerritoryId = newId;
         window.showToast?.('✓ Territory "' + name + '" saved', 'success');
 
         // Add label to the polygon
@@ -1707,11 +1941,21 @@
       });
 
       // Listen for deleted shapes
-      d2dMap.on(L.Draw.Event.DELETED, function (e) {
-        // For now, removing from the map only — Firestore deletion
-        // would need matching the layer to its territory ID. We can
-        // add that when territory management becomes a full feature.
-        window.showToast?.('Territory removed from map', 'info');
+      d2dMap.on(L.Draw.Event.DELETED, async function (e) {
+        // Audit #19: actually delete from Firestore now that each layer has a
+        // _nbdTerritoryId tag (assigned on create and on render of saved docs).
+        const ids = [];
+        try {
+          e.layers.eachLayer(function (l) { if (l && l._nbdTerritoryId) ids.push(l._nbdTerritoryId); });
+        } catch (_) {}
+        if (ids.length === 0) {
+          window.showToast?.('Territory removed from map (no saved copy to delete)', 'info');
+          return;
+        }
+        const results = await Promise.all(ids.map(id => deleteTerritory(id)));
+        const ok = results.filter(Boolean).length;
+        if (ok === ids.length) window.showToast?.(`✓ ${ok} territory zone${ok > 1 ? 's' : ''} deleted`, 'success');
+        else window.showToast?.(`Deleted ${ok}/${ids.length} — some zones may still exist on the server`, 'warning');
       });
     }
 
@@ -1748,6 +1992,9 @@
           }
         });
         layer.addTo(d2dTerritoryGroup);
+        // Audit #19: tag every sub-layer with the Firestore doc id so delete
+        // events know which docs to remove server-side.
+        layer.eachLayer(function (l) { l._nbdTerritoryId = t.id; });
         // Add a label tooltip with the territory name
         layer.eachLayer(function (l) {
           if (l.getBounds) {
@@ -1930,10 +2177,19 @@
     if (!blob) return '';
     try {
       const { ref, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js');
-      const storageRef = ref(window._storage, `d2d_voice/${window._user.uid}/${knockId}_${Date.now()}.webm`);
+      // Path must live under `audio/{uid}/...` — storage.rules:146 is the
+      // only allowlisted path for audio uploads, everything else hits the
+      // default-deny at storage.rules:155. Keep the `d2d/` prefix for
+      // lineage and so onAudioUploaded can tell D2D memos apart from
+      // Voice Intelligence recordings.
+      const storageRef = ref(window._storage, `audio/${window._user.uid}/d2d/${knockId}_${Date.now()}.webm`);
       await window.uploadBytes(storageRef, blob);
       return await getDownloadURL(storageRef);
-    } catch(e) { console.error('Voice upload failed:', e); return ''; }
+    } catch(e) {
+      console.error('Voice upload failed:', e);
+      window.showToast?.('Voice memo upload failed — will retry when you reopen this knock', 'error');
+      return '';
+    }
   }
 
   // ============================================================================
@@ -2303,8 +2559,8 @@
     }
     // Offer SMS follow-up for relevant dispositions (if not already converting)
     else if (savedPhone && ['interested', 'appointment', 'storm_damage', 'ins_has_claim'].includes(savedDispo)) {
-      setTimeout(() => {
-        if (confirm('Send follow-up text?')) {
+      setTimeout(async () => {
+        if (await uiConfirm('Send follow-up text?', { okLabel: 'Yes, text them' })) {
           const knock = knocks.find(k => k.id === knockId);
           if (knock) openSMSTemplateChooser(knock);
         }

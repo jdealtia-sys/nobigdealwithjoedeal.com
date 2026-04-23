@@ -69,9 +69,11 @@ function buildJoeContext() {
 
   // Tasks due today
   const tasksDue = [];
+  const taskCache = window._taskCache || {};
   (window._leads||[]).forEach(lead=>{
-    (window._taskCache[lead.id]||[]).forEach(t=>{
-      if(t.done) return;
+    if(!lead || !lead.id) return;
+    (taskCache[lead.id]||[]).forEach(t=>{
+      if(!t || t.done) return;
       const due = t.dueDate ? new Date(t.dueDate+'T23:59:59') : null;
       if(due && due <= new Date()) {
         tasksDue.push(`"${t.text}" for ${(lead.firstName||'')} ${(lead.lastName||'')||lead.address}`);

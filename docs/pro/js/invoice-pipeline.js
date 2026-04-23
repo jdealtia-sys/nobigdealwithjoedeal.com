@@ -65,13 +65,14 @@
   }
 
   /**
-   * Get Firestore db reference
+   * Get Firestore db reference (v9 modular SDK instance exposed on window._db).
+   * Throws if Firestore SDK not loaded or window globals not exposed.
    */
   function getDb() {
-    if (!window._firebaseApp) {
-      throw new Error('Firebase not initialized');
+    if (!window._db || !window.doc || !window.collection) {
+      throw new Error('Firestore (v9) not initialized — window._db missing');
     }
-    return window._firebaseApp.firestore?.() || firebase.firestore();
+    return window._db;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -87,17 +88,17 @@
     const db = getDb();
 
     try {
-      // Read estimate from Firestore
-      const estRef = db.collection('estimates').doc(estimateId);
-      const estSnap = await estRef.get();
+      // Read estimate from Firestore (v9 modular)
+      const estRef = window.doc(db, 'estimates', estimateId);
+      const estSnap = await window.getDoc(estRef);
 
-      if (!estSnap.exists) {
+      if (!estSnap.exists()) {
         // Try window._estimates cache
-        const est = window._estimates?.find(e => e.id === estimateId);
-        if (!est) throw new Error('Estimate not found');
+        const cached = window._estimates?.find(e => e.id === estimateId);
+        if (!cached) throw new Error('Estimate not found');
       }
 
-      const est = estSnap.exists ? estSnap.data() : window._estimates?.find(e => e.id === estimateId);
+      const est = estSnap.exists() ? estSnap.data() : window._estimates?.find(e => e.id === estimateId);
 
       // Build invoice from estimate
       const items = (est.rows || []).map(row => ({
@@ -140,7 +141,7 @@
         createdBy: window._auth?.currentUser?.uid || 'system'
       };
 
-      const invoiceRef = await db.collection('invoices').add(invoiceData);
+      const invoiceRef = await window.addDoc(window.collection(db, 'invoices'), invoiceData);
       return invoiceRef.id;
 
     } catch (error) {
@@ -160,9 +161,9 @@
         invoiceId: invoiceId
       });
 
-      // Update invoice with stripe info
+      // Update invoice with stripe info (v9 modular)
       const db = getDb();
-      await db.collection('invoices').doc(invoiceId).update({
+      await window.updateDoc(window.doc(db, 'invoices', invoiceId), {
         stripePaymentLink: result.url,
         stripeInvoiceId: result.paymentLinkId,
         updatedAt: new Date()
@@ -185,10 +186,10 @@
     const db = getDb();
 
     try {
-      const invRef = db.collection('invoices').doc(invoiceId);
-      const invSnap = await invRef.get();
+      const invRef = window.doc(db, 'invoices', invoiceId);
+      const invSnap = await window.getDoc(invRef);
 
-      if (!invSnap.exists) throw new Error('Invoice not found');
+      if (!invSnap.exists()) throw new Error('Invoice not found');
 
       const invoice = invSnap.data();
 
@@ -221,17 +222,17 @@
         }
 
       } else if (method === 'portal') {
-        // Update customer portal
+        // Update customer portal (v9 modular)
         if (invoice.leadId) {
-          await db.collection('leads').doc(invoice.leadId).update({
-            invoices: firebase.firestore.FieldValue.arrayUnion(invoiceId),
+          await window.updateDoc(window.doc(db, 'leads', invoice.leadId), {
+            invoices: window.arrayUnion(invoiceId),
             updatedAt: new Date()
           });
         }
       }
 
       // Update invoice status
-      await invRef.update({
+      await window.updateDoc(invRef, {
         status: 'sent',
         sentAt: new Date(),
         updatedAt: new Date()
@@ -253,27 +254,30 @@
     const db = getDb();
 
     try {
-      const invRef = db.collection('invoices').doc(invoiceId);
-      const invSnap = await invRef.get();
+      const invRef = window.doc(db, 'invoices', invoiceId);
+      const invSnap = await window.getDoc(invRef);
 
-      if (!invSnap.exists) throw new Error('Invoice not found');
+      if (!invSnap.exists()) throw new Error('Invoice not found');
 
       const invoice = invSnap.data();
-      const newBalanceDue = Math.max(0, invoice.balanceDue - amount);
+      const newBalanceDue = Math.max(0, (invoice.balanceDue || 0) - amount);
 
       // Update invoice
-      await invRef.update({
-        depositPaid: amount >= invoice.depositAmount || invoice.depositPaid,
+      await window.updateDoc(invRef, {
+        depositPaid: amount >= (invoice.depositAmount || 0) || invoice.depositPaid,
         balanceDue: newBalanceDue,
         status: newBalanceDue === 0 ? 'paid' : invoice.status,
         paidAt: newBalanceDue === 0 ? new Date() : invoice.paidAt,
         updatedAt: new Date()
       });
 
-      // If fully paid, update lead stage
+      // If fully paid, advance lead stage. Use 'Approved' — a real stage from the
+      // pipeline (New/Inspected/Estimate Sent/Approved/In Progress/Complete/Lost).
+      // The previous 'Job Scheduled' value was a phantom stage and silently
+      // orphaned the lead from the Kanban board.
       if (newBalanceDue === 0 && invoice.leadId) {
-        await db.collection('leads').doc(invoice.leadId).update({
-          stage: 'Job Scheduled',
+        await window.updateDoc(window.doc(db, 'leads', invoice.leadId), {
+          stage: 'Approved',
           updatedAt: new Date()
         });
       }
@@ -307,13 +311,15 @@
     const db = getDb();
 
     try {
-      // Fetch invoices for lead
-      const snap = await db.collection('invoices')
-        .where('leadId', '==', leadId)
-        .orderBy('createdAt', 'desc')
-        .get();
+      // Fetch invoices for lead (v9 modular; requires leadId+createdAt composite index)
+      const q = window.query(
+        window.collection(db, 'invoices'),
+        window.where('leadId', '==', leadId),
+        window.orderBy('createdAt', 'desc')
+      );
+      const snap = await window.getDocs(q);
 
-      const invoices = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const invoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       let html = `
         <div class="invoice-panel" style="padding:16px;background:var(--s1);border-radius:8px;border:1px solid var(--br);">
@@ -365,8 +371,8 @@
     const db = getDb();
 
     try {
-      const snap = await db.collection('invoices').doc(invoiceId).get();
-      if (!snap.exists) throw new Error('Invoice not found');
+      const snap = await window.getDoc(window.doc(db, 'invoices', invoiceId));
+      if (!snap.exists()) throw new Error('Invoice not found');
 
       const inv = snap.data();
 
@@ -473,13 +479,16 @@
     const db = getDb();
 
     try {
-      const snap = await db.collection('invoices')
-        .where('createdBy', '==', window._auth?.currentUser?.uid || 'system')
-        .orderBy('createdAt', 'desc')
-        .limit(50)
-        .get();
+      // v9 modular; requires createdBy+createdAt composite index
+      const q = window.query(
+        window.collection(db, 'invoices'),
+        window.where('createdBy', '==', window._auth?.currentUser?.uid || 'system'),
+        window.orderBy('createdAt', 'desc'),
+        window.limit(50)
+      );
+      const snap = await window.getDocs(q);
 
-      const invoices = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const invoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       // Calculate total outstanding
       const totalOutstanding = invoices
