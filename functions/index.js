@@ -751,6 +751,12 @@ Object.assign(exports, portalFunctions);
 const stripeFunctions = require('./stripe');
 Object.assign(exports, stripeFunctions);
 
+// Automated Firestore daily backup + retention. No deploy infra
+// required beyond a one-time bucket + IAM setup documented in
+// functions/firestore-backup.js. Both functions are scheduled-only.
+const firestoreBackup = require('./firestore-backup');
+Object.assign(exports, firestoreBackup);
+
 // ═══════════════════════════════════════════════════════════════
 // getAdminAnalytics — C3: ops dashboard numbers for the Team Manager.
 //
