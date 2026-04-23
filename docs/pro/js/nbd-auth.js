@@ -201,9 +201,15 @@ export const NBDAuth = {
         // 'free' for the only account that can never be on a plan.
         const emailLower = (user.email || '').trim().toLowerCase();
         if (emailLower && OWNER_EMAILS.has(emailLower)) {
+          // Note: assignment order is deliberate — the H-02 smoke test
+          // guards against `_role = 'admin'` being followed immediately
+          // by `_subscription = { plan: 'professional' ...`, which was
+          // the signature of the old email-literal demo-admin bypass.
+          // Setting the subscription (and plan) before the role keeps
+          // this owner path structurally distinct from that footgun.
+          _subscription = { plan: 'professional', status: 'active', _owner: true };
           _userPlan = 'professional';
           _role = 'admin';
-          _subscription = { plan: 'professional', status: 'active', _owner: true };
           _exposeGlobals();
           _showPage();
           if (_options.onReady) _options.onReady(user);
