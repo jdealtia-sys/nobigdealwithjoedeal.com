@@ -8,7 +8,10 @@
     "test:smoke": "node ./smoke.test.js",
     "test:rules": "firebase emulators:exec --only firestore,storage --project nbd-test 'node ./firestore-rules.test.js'",
     "test:storage": "firebase emulators:exec --only storage --project nbd-storage-test 'node ./storage-rules.test.js'",
-    "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'"
+    "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'",
+    "test:e2e": "playwright test --config=playwright.config.js",
+    "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "firebase": "^10.12.2",
@@ -16,6 +19,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
+    "@playwright/test": "^1.48.0",
     "firebase-tools": "^13.0.0"
   }
 }
