@@ -37,11 +37,37 @@
   let _trialEndsAt = null;
   let _loaded = false;
 
+  // Owner bypass — mirrors nbd-auth.js OWNER_EMAILS. The two modules
+  // stay independent so a single import change doesn't pull in the
+  // firestore SDK at billing-gate.js load time.
+  const OWNER_EMAILS = new Set([
+    'jd@nobigdealwithjoedeal.com',
+    'jonathandeal459@gmail.com'
+  ]);
+
+  function _isOwner() {
+    const email = (window._user?.email || '').trim().toLowerCase();
+    return !!email && OWNER_EMAILS.has(email);
+  }
+
   // ── Load subscription data from Firestore ──
   async function loadSubscription() {
     try {
       const uid = window._user?.uid;
       if (!uid) return;
+
+      // Owner short-circuit: always enterprise, never gated, never
+      // warned about usage. Skip the Firestore read entirely so an
+      // auth/permission hiccup can't downgrade the founder.
+      if (_isOwner()) {
+        _plan = 'enterprise';
+        _status = 'active';
+        _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
+        _trialEndsAt = null;
+        _loaded = true;
+        return;
+      }
+
       const snap = await window.getDoc(window.doc(window.db, 'subscriptions', uid));
       if (snap.exists()) {
         const data = snap.data();
@@ -63,6 +89,7 @@
 
   // ── Check if a feature is available on the current plan ──
   function canUse(feature) {
+    if (_isOwner()) return true; // owner accounts are never limit-gated
     const limits = PLANS[_plan] || PLANS.free;
     switch (feature) {
       case 'leads':   return _usage.leads < limits.leads;
@@ -107,6 +134,7 @@
   // Never actually blocks — just shows warnings/modals.
   function softGate(feature, featureLabel) {
     if (!_loaded) return true; // Don't block before plan loads
+    if (_isOwner()) return true; // owner accounts bypass warnings + upgrade modal
     const pct = usagePct(feature);
     const limits = PLANS[_plan] || PLANS.free;
     const limit = limits[feature === 'aiCalls' ? 'aiCalls' : feature];
@@ -154,7 +182,7 @@
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button onclick="document.getElementById('nbd-upgrade-modal').remove()" style="background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Maybe Later</button>
-        <button onclick="document.getElementById('nbd-upgrade-modal').remove();goTo('settings');setTimeout(()=>switchSettingsTab('billing'),200)" style="background:#e8720c;border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
+        <button onclick="document.getElementById('nbd-upgrade-modal').remove();if(typeof goTo==='function'){goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('billing')},200)}else{window.location.href='/pro/pricing.html'}" style="background:#e8720c;border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
       </div>
       <div style="font-size:10px;color:var(--m,#888);margin-top:14px;">You can still use this feature — we won't lock you out mid-cycle.</div>
     `;

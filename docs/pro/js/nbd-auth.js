@@ -34,6 +34,19 @@ const FIREBASE_CONFIG = {
 // ── Plan Hierarchy ────────────────────────────────────────
 const PLAN_LEVELS = { free: 0, lite: 1, foundation: 2, blueprint: 3, professional: 4 };
 
+// ── Owner bypass ──────────────────────────────────────────
+// These email addresses always resolve to the highest plan and
+// admin role, regardless of what the subscriptions/ doc says.
+// This prevents the "upgrade to unlock" wall from ever blocking
+// the founder/staff accounts, which happens whenever the
+// subscription doc is missing, stale, or fails to read.
+//
+// Keep this list tight — it's the SaaS equivalent of a root user.
+const OWNER_EMAILS = new Set([
+  'jd@nobigdealwithjoedeal.com',
+  'jonathandeal459@gmail.com'
+]);
+
 // ── Page → Required Plan Mapping ──────────────────────────
 const PAGE_PLANS = {
   // Free — no auth required
@@ -111,6 +124,10 @@ export const NBDAuth = {
   get userPlan()     { return _userPlan; },
   get role()         { return _role; },
   get isAdmin()      { return _role === 'admin'; },
+  get isOwner()      {
+    const email = (_user?.email || '').trim().toLowerCase();
+    return !!email && OWNER_EMAILS.has(email);
+  },
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
   get trialDaysLeft(){ return _trialDaysLeft; },
   get isTrialUser()  { return _isTrialUser; },
@@ -174,6 +191,25 @@ export const NBDAuth = {
 
         _user = user;
         window._user = user;
+
+        // ── Owner bypass ──
+        // Short-circuit plan/role resolution for the founder/staff
+        // accounts listed in OWNER_EMAILS. This fixes the case where
+        // Joe signs in as admin but the UI says "upgrade to use some
+        // features" because the subscriptions/ doc is missing, stale,
+        // or unreadable. No Firestore round-trip = no fail-closed to
+        // 'free' for the only account that can never be on a plan.
+        const emailLower = (user.email || '').trim().toLowerCase();
+        if (emailLower && OWNER_EMAILS.has(emailLower)) {
+          _userPlan = 'professional';
+          _role = 'admin';
+          _subscription = { plan: 'professional', status: 'active', _owner: true };
+          _exposeGlobals();
+          _showPage();
+          if (_options.onReady) _options.onReady(user);
+          resolve(user);
+          return;
+        }
 
         // H-02: demo bypass is keyed on a `demo:true` custom claim,
         // not a hardcoded email literal. The old code let anyone who
@@ -319,9 +355,12 @@ export const NBDAuth = {
   },
 
   /**
-   * Check if user has access to a specific plan level
+   * Check if user has access to a specific plan level.
+   * Owner accounts always return true — they bypass plan gates.
    */
   hasAccess(plan) {
+    const email = (_user?.email || '').trim().toLowerCase();
+    if (email && OWNER_EMAILS.has(email)) return true;
     return (PLAN_LEVELS[_userPlan] || 0) >= (PLAN_LEVELS[plan] || 0);
   },
 

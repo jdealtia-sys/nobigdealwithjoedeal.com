@@ -424,10 +424,21 @@
     if (!user) { window.location.replace("/pro/login.html"); return; }
     
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
-    // Check if user has active subscription (unless demo account)
+    // Check if user has active subscription (unless demo/owner account)
     const isDemoAccount = user.email === 'demo@nobigdeal.pro';
-    
-    if (!isDemoAccount) {
+    // Owner bypass — founder/staff emails always resolve to professional.
+    // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
+    // a missing/stale subscriptions/ doc never flips Joe to 'free' and
+    // triggers the "upgrade to unlock" wall for his own product.
+    const _emailLower = (user.email || '').trim().toLowerCase();
+    const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
+                        || _emailLower === 'jonathandeal459@gmail.com';
+
+    if (isOwnerAccount) {
+      window._userPlan = 'professional';
+      window._subscription = { plan: 'professional', status: 'active', _owner: true };
+      console.log('✓ Owner account — professional plan granted');
+    } else if (!isDemoAccount) {
       // Subscription check — SOFT. Never block the dashboard load.
       // The billing-gate module handles limits via soft gates.
       // Access code users, free tier, and trial users all have no
@@ -438,7 +449,8 @@
           const subscription = subSnap.data();
           window._subscription = subscription;
           window._userPlan = subscription.plan || 'free';
-          try { localStorage.setItem('nbd_user_plan', subscription.plan); } catch(e) {}
+          // H-03: do NOT persist plan in localStorage — it reintroduces
+          // the fail-open hole that nbd-auth.js explicitly removed.
           console.log('✓ Subscription:', subscription.plan, subscription.status);
         } else {
           // No subscription doc — normal for access code / free tier users

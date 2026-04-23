@@ -1434,7 +1434,19 @@
     },
 
     _isTierUnlocked(tier) {
-      // Placeholder: in real app, check user tier
+      // Delegate to NBDAuth when available; falls back to the old
+      // foundation-only behaviour if the auth module hasn't loaded
+      // (e.g. standalone use of the academy module outside /pro).
+      try {
+        if (window.NBDAuth && typeof window.NBDAuth.hasAccess === 'function') {
+          return window.NBDAuth.hasAccess(tier);
+        }
+      } catch (e) { /* fall through */ }
+      // Owner-email bypass — mirrors nbd-auth.js OWNER_EMAILS so the
+      // academy respects the founder account even if NBDAuth hasn't
+      // attached yet on a cold-load sequence.
+      const email = (window._user?.email || '').trim().toLowerCase();
+      if (email === 'jd@nobigdealwithjoedeal.com' || email === 'jonathandeal459@gmail.com') return true;
       return tier === 'foundation';
     },
 
