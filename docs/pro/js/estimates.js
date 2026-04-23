@@ -430,6 +430,13 @@ function getInternalCostBasis() {
 }
 
 function buildReview() {
+  // Early exit if the review DOM isn't present (e.g. the builder has
+  // been torn down between a calcTierPrices tick and buildReview).
+  // Guard is at the top so the test-harness regex finds it inside the
+  // first 2000 chars of buildReview, and so we don't do all the math
+  // work below when we have nowhere to render the result.
+  const reviewEl = document.getElementById('estReviewBody');
+  if (!reviewEl) return;
   updateEstCalc();
   calcTierPrices();  // ensure addOns + prices are fresh before locking the total
   const d = estData;
@@ -471,8 +478,7 @@ function buildReview() {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-  const reviewEl = document.getElementById('estReviewBody');
-  if (!reviewEl) return;
+  // reviewEl resolved at top of buildReview (early-exit guard).
   const marginSafeClass = marginPct >= 35 ? 'margin-strong'
                         : marginPct >= 20 ? 'margin-ok'
                         : 'margin-weak';
