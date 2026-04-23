@@ -15,17 +15,10 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     
-    :root {
-      --bg: #0a0c0f;
-      --s: #13151a;
-      --s2: #1a1d24;
-      --s3: #21252e;
-      --br: #2a2f3a;
-      --t: #e5e7eb;
-      --m: #9ca3af;
-      --orange: #e8720c;
-      --og: rgba(232,114,12,0.1);
-    }
+    /* Audit #29: shared theme vars now come from css/theme-system.css
+       (--bg, --s, --s2, --s3, --br, --t, --m, --orange, --og). The local
+       block used to hardcode nbd-original values unconditionally, which
+       silently overrode whatever theme the user picked. */
     
     body {
       font-family: 'Barlow', -apple-system, BlinkMacSystemFont, sans-serif;

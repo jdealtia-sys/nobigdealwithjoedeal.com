@@ -7,7 +7,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBD Pro — Leaderboard</title>
-  <link rel="manifest" href="/manifest.json">
+  <!-- Audit #32: manifest lives under /pro/; the root /manifest.json returns
+       the marketing-site manifest which breaks PWA install from this page. -->
+  <link rel="manifest" href="/pro/manifest.json">
   <meta name="theme-color" content="#0A0C0F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,20 +20,19 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Audit #29: alias page-specific tokens to shared theme-system.css vars
+       so theme switching actually repaints the leaderboard. Core palette
+       (--orange, --green, --blue, --red) now inherits from :root[data-theme=*]. */
     :root {
-      --orange: #e8720c;
-      --orange-light: #f08030;
-      --navy: #0A0C0F;
-      --navy-mid: #111418;
-      --navy-light: #181C22;
-      --border: rgba(255,255,255,0.08);
+      --orange-light: var(--ob, #f08030);
+      --navy: var(--bg, #0A0C0F);
+      --navy-mid: var(--s, #111418);
+      --navy-light: var(--s2, #181C22);
+      --border: var(--br, rgba(255,255,255,0.08));
       --text-muted: rgba(255,255,255,0.45);
       --text-dim: rgba(255,255,255,0.70);
       --radius: 10px;
       --shadow: 0 4px 24px rgba(0,0,0,0.4);
-      --green: #2ECC8A;
-      --blue: #4E9BF5;
-      --red: #E05252;
     }
 
     body {
@@ -137,7 +138,9 @@
 
 <nav class="nav">
   <span class="nav-brand"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></span>
-  <a href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
+  <!-- Audit #31: added .nav-back class so the "Back to Dashboard" affordance
+       picks up the shared hover/transition styles defined above. -->
+  <a class="nav-back" href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
 </nav>
 
 <div class="hero">

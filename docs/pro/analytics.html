@@ -17,15 +17,21 @@
 <script type="module" src="js/pages/pro-analytics-gate.js"></script>
 
 <style>
+/* Audit #29: core palette (--bg --s --s2 --s3 --orange --green --red --blue --t)
+   now comes from css/theme-system.css so theme switching actually repaints
+   this page. Page-specific tokens (--s4, --border2, --text*, --orange-d etc.)
+   remain local. --text/--border alias the shared --t/--br to keep existing
+   selectors working. Transition timing renamed from --t to --dur to avoid
+   clashing with the shared text-color token. */
 :root{
-  --bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--s4:#1C2535;
-  --border:rgba(255,255,255,0.07);--border2:#243044;
-  --orange:#e8720c;--orange-d:rgba(232,114,12,.12);
-  --green:#3DD68C;--green-d:rgba(61,214,140,.10);
-  --red:#E05252;--red-d:rgba(224,82,82,.10);
-  --blue:#4E9BF5;--blue-d:rgba(78,155,245,.10);
-  --text:#E2E8F0;--text2:#8892A4;--text3:#4A5568;
-  --ease:cubic-bezier(0.22,1,0.36,1);--t:.2s;--r:8px;--rlg:14px;
+  --s4:#1C2535;
+  --border:var(--br, rgba(255,255,255,0.07));--border2:#243044;
+  --orange-d:rgba(232,114,12,.12);
+  --green-d:rgba(61,214,140,.10);
+  --red-d:rgba(224,82,82,.10);
+  --blue-d:rgba(78,155,245,.10);
+  --text:var(--t, #E2E8F0);--text2:#8892A4;--text3:#4A5568;
+  --ease:cubic-bezier(0.22,1,0.36,1);--dur:.2s;--r:8px;--rlg:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh}
@@ -38,7 +44,7 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 .tb-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text)}
 .tb-title span{color:var(--orange)}
 .tb-links{display:flex;gap:6px;margin-left:auto;align-items:center}
-.tb-link{padding:5px 12px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.tb-link{padding:5px 12px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:10px;text-decoration:none;transition:all var(--dur) var(--ease);letter-spacing:.5px}
 .tb-link:hover{border-color:var(--orange);color:var(--orange)}
 .tb-link.active{background:var(--orange-d);border-color:rgba(232,114,12,.4);color:var(--orange)}
 
@@ -54,13 +60,13 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 
 /* TIME TABS */
 .time-tabs{display:flex;gap:4px;background:var(--s);border:1px solid var(--border);border-radius:var(--r);padding:3px;flex-shrink:0}
-.tt{background:transparent;border:none;color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 16px;border-radius:6px;cursor:pointer;transition:all var(--t) var(--ease)}
+.tt{background:transparent;border:none;color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 16px;border-radius:6px;cursor:pointer;transition:all var(--dur) var(--ease)}
 .tt:hover{color:var(--text2)}
 .tt.active{background:var(--orange);color:#fff}
 
 /* STAT CARDS */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
-.sc{background:var(--s);border:1px solid var(--border);border-radius:var(--rlg);padding:22px 20px;position:relative;overflow:hidden;transition:all var(--t) var(--ease)}
+.sc{background:var(--s);border:1px solid var(--border);border-radius:var(--rlg);padding:22px 20px;position:relative;overflow:hidden;transition:all var(--dur) var(--ease)}
 .sc:hover{border-color:var(--border2);transform:translateY(-2px)}
 .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
 .sc.blue::before{background:var(--blue)}.sc.orange::before{background:var(--orange)}.sc.green::before{background:var(--green)}.sc.cyan::before{background:var(--orange)}
@@ -74,7 +80,7 @@ body::before{content:'';position:fixed;top:0;right:0;bottom:0;left:0;background-
 .card-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .card-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
 .card-body{padding:22px}
-.btn{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:7px 14px;border-radius:var(--r);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--t) var(--ease);letter-spacing:.5px}
+.btn{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:7px 14px;border-radius:var(--r);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all var(--dur) var(--ease);letter-spacing:.5px}
 .btn:hover{border-color:var(--orange);color:var(--orange)}
 
 /* CHART */

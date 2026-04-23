@@ -72,14 +72,16 @@ body::after {
 }
 
 /* ── NAV ──────────────────────────────────────────────── */
+/* Audit #29: nav colors now reference shared theme vars so switching theme
+   repaints the top bar instead of leaving it locked to nbd-original orange. */
 :root {
   --nbd-nav-h: 52px;
-  --nbd-nav-bg: #0A0C0F;
-  --nbd-nav-border: rgba(232,114,12,0.25);
-  --nbd-nav-orange: #e8720c;
-  --nbd-nav-cyan: #e8720c;
-  --nbd-nav-text: #8b9bb4;
-  --nbd-nav-white: #f0f6fc;
+  --nbd-nav-bg: var(--bg, #0A0C0F);
+  --nbd-nav-border: var(--og, rgba(232,114,12,0.25));
+  --nbd-nav-orange: var(--orange, #e8720c);
+  --nbd-nav-cyan: var(--orange, #e8720c);
+  --nbd-nav-text: var(--m, #8b9bb4);
+  --nbd-nav-white: var(--t, #f0f6fc);
 }
 
 #nbd-pro-nav {

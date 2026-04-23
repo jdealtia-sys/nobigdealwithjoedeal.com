@@ -1,18 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="nbd-original">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Your Project · No Big Deal Home Solutions</title>
 <link rel="icon" href="/pro/favicon.svg">
+<!-- Audit #30: ship shared theme-system so the portal isn't stuck in the
+     hardcoded dark palette and respects the tenant's theme choice. -->
+<link rel="stylesheet" href="css/theme-system.css">
 <style>
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface-2: #1c222b;
-    --border: #2a2f35;
-    --text: #e8eaf0;
+    /* Page-specific tokens alias shared theme-system.css vars so the portal
+       repaints whenever the tenant changes theme. --bg itself is already
+       defined by theme-system.css — don't re-declare it here (a self-reference
+       would make --bg resolve to the CSS initial value). */
+    --surface: var(--s, #161b22);
+    --surface-2: var(--s2, #1c222b);
+    --border: var(--br, #2a2f35);
+    --text: var(--t, #e8eaf0);
     --muted: #8b8e96;
     --orange: #e8720c;
     --green: #2ecc8a;

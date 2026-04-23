@@ -17,9 +17,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Audit #28: switched from inline one-theme to shared theme-system.css so this
+     page honors whatever theme the user picked across the app instead of being
+     permanently locked to nbd-original. -->
+<link rel="stylesheet" href="css/theme-system.css">
 <style id="theme-system">
-/* Theme system matches dashboard.html */
-[data-theme="nbd-original"] { --orange:#e8720c; --ob:#f08030; --og:rgba(232,114,12,.22); --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229; --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280; --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017; --paper:#1E2229; --ink:#E8EAF0; --rule:rgba(255,255,255,.09); }
+/* Shared theme vars now live in css/theme-system.css — all 80+ themes supported. */
 
 /* EMPTY STATES */
 .empty {

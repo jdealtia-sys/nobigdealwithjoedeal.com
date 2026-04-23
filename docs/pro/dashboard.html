@@ -94,7 +94,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=12" as="script">
+<link rel="preload" href="js/crm.js?v=13" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7659,6 +7659,7 @@ function switchScTab(tab, btn) {
 
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
         <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;background:var(--green);border-color:var(--green);" onclick="saveDrawingToCustomer()">💾 Save to Customer</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="loadDrawingFromCustomer()">📂 Load from Customer</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Measurement Report</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="generateScopeFromDrawing()">📋 Scope of Work</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
@@ -12482,9 +12483,8 @@ if(document.readyState==='loading') {
   initAllAutocomplete();
 }
 
-// HAV + MID
-function hav(a,b){const R=20902231,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lng-a.lng)*Math.PI/180,aa=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));}
-function mid(a,b){return L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);}
+// HAV + MID — moved to docs/pro/js/maps.js (hoisted at top of file, also exposed on window)
+// Canonical definitions now live there; this dashboard.html copy was deleted to prevent drift.
 
 // ══════════════════════════════════════════════
 // DOCUMENT LIBRARY

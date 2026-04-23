@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="nbd-original">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -8,9 +8,13 @@
 <title>NBD Pro Pricing — Contractor-Built, Contractor-Priced</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- Audit #30: pricing page now joins the shared theme system. Hex values are
+     still hardcoded throughout this file — switching themes won't repaint until
+     those are migrated to var(--bg)/var(--orange)/etc. (tracked as follow-up). -->
+<link rel="stylesheet" href="css/theme-system.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Barlow',sans-serif;background:#0A0C0F;color:#f0f0f0;min-height:100vh;}
+body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t, #f0f0f0);min-height:100vh;}
 .header{text-align:center;padding:60px 24px 40px;position:relative;}
 .header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:120px;height:4px;background:#e8720c;border-radius:2px;}
 .brand{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2em;color:#e8720c;text-transform:uppercase;margin-bottom:12px;}
