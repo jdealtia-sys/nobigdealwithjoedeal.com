@@ -793,6 +793,30 @@ exports.invoiceWebhook = onRequest(
         return;
       }
 
+      // ── Idempotency guard ──
+      // Mirrors the stripeWebhook pattern (F-07). Stripe retries up to
+      // 15 times on transient failure; the current "update invoice to
+      // paid" body is idempotent for the invoice doc itself, but any
+      // future side effects (receipt emails, Slack notifications,
+      // analytics events) MUST NOT fire twice — so gate the whole
+      // handler behind an atomic create() that fails on duplicate.
+      const db = admin.firestore();
+      const eventRef = db.doc(`stripe_events/${event.id}`);
+      try {
+        await eventRef.create({
+          type: event.type,
+          source: 'invoiceWebhook',
+          processedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {
+        if (e.code === 6 || /already exists/i.test(String(e.message))) {
+          logger.info('invoiceWebhook.duplicate_event', { eventId: event.id });
+          res.json({ received: true, duplicate: true });
+          return;
+        }
+        throw e;
+      }
+
       // Handle payment_intent.succeeded event
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object;
@@ -801,7 +825,6 @@ exports.invoiceWebhook = onRequest(
         const claimedUserId = metadata.userId;
 
         if (invoiceId) {
-          const db = admin.firestore();
           const invRef = db.collection('invoices').doc(invoiceId);
           const invSnap = await invRef.get();
           if (!invSnap.exists) {

@@ -557,6 +557,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── STRIPE WEBHOOK IDEMPOTENCY (admin-SDK only) ──
+    // F-07 + invoiceWebhook idempotency: stripe.js atomic-creates a
+    // doc here keyed by event.id to block duplicate deliveries. The
+    // admin SDK bypasses rules; clients never need to touch this.
+    // An explicit rule (vs. falling through to default-deny) makes
+    // the intent clear for future readers.
+    match /stripe_events/{eventId} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
