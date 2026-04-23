@@ -43,8 +43,11 @@ messaging.onBackgroundMessage((payload) => {
   // Default notification options
   const notificationOptions = {
     body: body,
-    icon: '/pro/images/icon-192x192.png',
-    badge: '/pro/images/icon-192x192.png',
+    // Audit #22: prior path /pro/images/icon-192x192.png 404'd — real icons
+    // live under /pro/img/ with a different naming scheme. A missing icon
+    // causes the OS to render a blank/generic bell on Android/iOS PWA.
+    icon: '/pro/img/nbd-icon-192.png',
+    badge: '/pro/img/nbd-icon-192.png',
     tag: data?.notificationId || 'nbd-notification',
     requireInteraction: data?.requireInteraction === 'true' || false,
     actions: getNotificationActions(data?.type),

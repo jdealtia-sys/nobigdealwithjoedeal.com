@@ -10,6 +10,7 @@ tests/ui-debug.log
 tests/pubsub-debug.log
 tests/storage-debug.log
 *.firebase-debug.log
+firebase-debug.log
 
 # docs/pro/js doesn't have a project of its own
 docs/pro/js/package-lock.json

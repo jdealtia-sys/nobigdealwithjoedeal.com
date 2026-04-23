@@ -137,12 +137,12 @@ service cloud.firestore {
       }
     }
 
-    match /leads/{uid}/leads/{leadId} {
-      allow read, write: if isOwner(uid) || isAdmin();
-      match /activity/{activityId} { allow read, write: if isOwner(uid) || isAdmin(); }
-      match /tasks/{taskId}        { allow read, write: if isOwner(uid) || isAdmin(); }
-      match /notes/{noteId}        { allow read, write: if isOwner(uid) || isAdmin(); }
-    }
+    // Audit #23: the nested /leads/{uid}/leads/{leadId} rule was a leftover
+    // from an earlier nested schema. The live app stores leads flat at
+    // /leads/{leadId} (see rule above). Only archived code under
+    // docs/pro/js/_archive/ still references the nested path, so this rule
+    // was granting unused read/write surface area. Removed — flat rule above
+    // is the canonical path.
 
     // ── ESTIMATES ─────────────────────────────────────
     match /estimates/{estimateId} {
