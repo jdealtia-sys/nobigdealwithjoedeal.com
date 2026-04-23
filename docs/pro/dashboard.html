@@ -7902,15 +7902,31 @@ function switchScTab(tab, btn) {
                   <option value="1.414|12/12">12/12 (1.414×)</option>
                 </select>
               </div>
-              <div class="meas-field"><label>Waste Factor</label>
+              <div class="meas-field"><label>Waste Factor <span style="color:var(--m);font-weight:400;">(auto from pitch)</span></label>
                 <select id="estWaste" onchange="updateEstCalc()">
+                  <option value="" selected>Auto (recommended)</option>
                   <option value="1.10">10%</option>
+                  <option value="1.12">12%</option>
                   <option value="1.15">15%</option>
-                  <option value="1.17" selected>17%</option>
+                  <option value="1.17">17%</option>
                   <option value="1.20">20%</option>
                   <option value="1.25">25%</option>
                 </select>
               </div>
+            </div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="estCutUp" onchange="updateEstCalc()" style="accent-color:var(--orange);">
+                <span>Cut-up roof (dormers / valleys / +3% waste)</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <span>Tear-off layers:</span>
+                <select id="estTearOff" onchange="calcTierPrices()" style="padding:3px 8px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
+                  <option value="1" selected>1 layer</option>
+                  <option value="2">2 layers (+$50/SQ)</option>
+                  <option value="3">3 layers (+$100/SQ)</option>
+                </select>
+              </label>
             </div>
             <div class="calc-result" style="margin-top:8px;">
               <div class="cr-row"><span class="cr-key">Raw SqFt</span><span class="cr-val" id="ec-raw">—</span></div>

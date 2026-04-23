@@ -3,6 +3,49 @@
 // Inline estimate builder (original), calculations, tier pricing
 // Extracted from dashboard.html for maintainability
 // ============================================================
+//
+// ── PRICING MODEL (Estimate Builder v2, 2026-04-23) ──────────
+// Per the locked site-wide spec, customer price = SQ × TIER_RATE
+// plus itemized add-ons (permit, dump, extra tear-off layers,
+// gutters, valley metal, etc). The previous cost-plus-markup
+// sum-of-line-items model under-priced jobs by roughly $10K at
+// Better tier — a 39-SQ Better job quoted $12,672 vs the correct
+// $23,205 (39 × $595).
+//
+// The itemized line items produced by getLineItems() are retained
+// but are now the internal cost basis used by the "Internal View"
+// toggle to surface markup + margin; they no longer drive the
+// customer-facing grand total.
+const TIER_RATES = { good: 545, better: 595, best: 660 };
+const JOB_MINIMUM_CENTS = 250000; // $2,500 — covers trip, dump, permit, mobilization
+const ROUND_TO_CENTS = 2500;      // Nearest $25
+
+// Ohio + Northern Kentucky county sales tax rates (2026-04). Insurance
+// mode hides the line; Cash mode shows it and adds to total.
+const COUNTY_TAX_RATES = {
+  Hamilton: 0.0780, Butler: 0.0725, Warren: 0.0675, Clermont: 0.0725,
+  Kenton:   0.0600, Boone:  0.0600, Campbell: 0.0600,
+};
+const DEFAULT_TAX_RATE = 0.0700; // fallback
+
+// Permit cost by city. Values are editable at runtime via estData.permitCost
+// override; these are the sensible defaults.
+const PERMIT_COSTS = {
+  Cincinnati: 175, Hamilton: 150, Fairfield: 140, Mason: 160,
+  'West Chester': 165, Milford: 150, Loveland: 150,
+  'Fort Thomas': 135, Covington: 140, Florence: 140, Newport: 135,
+};
+const DEFAULT_PERMIT_COST = 150;
+const DEFAULT_DUMP_FEE    = 550; // flat, editable per-estimate
+const LAYER_TEAROFF_PER_SQ_CENTS = 5000; // +$50/SQ per extra layer beyond the first
+const CUT_UP_WASTE_BONUS = 0.03; // +3% waste when the "cut-up roof" box is checked
+
+// All dollar math stays in cents internally to avoid float drift.
+const _toCents   = (d) => Math.round(d * 100);
+const _fromCents = (c) => c / 100;
+const _roundUpTo = (cents, step) => Math.ceil(cents / step) * step;
+const _applyJobMin = (cents) => Math.max(cents, JOB_MINIMUM_CENTS);
+const _roundNearest25 = (cents) => Math.round(cents / ROUND_TO_CENTS) * ROUND_TO_CENTS;
 
 // Default pricing table (Cincinnati/Ohio market fallback)
 //
@@ -152,49 +195,124 @@ function estNext(from) {
 }
 function estBack(from){ showEstStep(from-1); }
 
+// Map pitch → recommended waste factor. Steeper roofs lose more material
+// to cuts; this mirrors the IKO/Owens-Corning shingle waste tables and
+// is what every experienced estimator does in their head. The "cut-up
+// roof" checkbox adds another +3% per spec for dormers/valleys/etc.
+function recommendedWasteForPitch(pitchFactor) {
+  if (pitchFactor <= 1.054) return 1.10;  // 4/12 and below
+  if (pitchFactor <= 1.118) return 1.12;  // 5/12 – 6/12
+  if (pitchFactor <= 1.202) return 1.15;  // 7/12 – 8/12
+  if (pitchFactor <= 1.302) return 1.18;  // 9/12 – 10/12
+  return 1.22;                            // 11/12+
+}
+
 function updateEstCalc() {
-  const raw=Math.max(0, parseFloat(document.getElementById('estRawSqft')?.value)||0);
-  const pitchVal=document.getElementById('estPitch')?.value||'1.202|8/12';
-  const [pf,pl]=pitchVal.split('|');
-  const wf=Math.max(1, parseFloat(document.getElementById('estWaste')?.value||1.17));
-  const adj=raw*parseFloat(pf)*wf;
-  const sq=adj/100;
-  const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  el('ec-raw',raw+' sf'); el('ec-pitch',parseFloat(pf).toFixed(4)+'×'); el('ec-waste',wf.toFixed(3)+'×');
-  el('ec-adj',Math.round(adj)+' sf'); el('ec-sq',sq.toFixed(2)+' sq');
-  estData.raw=raw; estData.pf=parseFloat(pf); estData.pl=pl||'8/12'; estData.wf=wf; estData.adj=adj; estData.sq=sq;
+  const raw = Math.max(0, parseFloat(document.getElementById('estRawSqft')?.value) || 0);
+  const pitchVal = document.getElementById('estPitch')?.value || '1.202|8/12';
+  const [pf, pl] = pitchVal.split('|');
+  const pfNum = parseFloat(pf);
+  const cutUp = !!document.getElementById('estCutUp')?.checked;
+  // Waste factor: user override takes precedence, else auto-derive from
+  // pitch and layer the +3% cut-up bonus on top.
+  const manual = parseFloat(document.getElementById('estWaste')?.value);
+  const auto = recommendedWasteForPitch(pfNum) + (cutUp ? CUT_UP_WASTE_BONUS : 0);
+  const wf = Math.max(1, manual > 0 ? manual + (cutUp ? CUT_UP_WASTE_BONUS : 0) : auto);
+  const adj = raw * pfNum * wf;
+  const sq = adj / 100;
+  const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  el('ec-raw',   raw + ' sf');
+  el('ec-pitch', pfNum.toFixed(4) + '×');
+  el('ec-waste', wf.toFixed(3) + '×' + (cutUp ? ' (cut-up +3%)' : ''));
+  el('ec-adj',   Math.round(adj) + ' sf');
+  el('ec-sq',    sq.toFixed(2) + ' sq');
+  estData.raw = raw; estData.pf = pfNum; estData.pl = pl || '8/12';
+  estData.wf = wf; estData.adj = adj; estData.sq = sq; estData.cutUp = cutUp;
+}
+
+// Gather the user-selectable add-ons from step 2/3 DOM + estData overrides.
+// Returns a detailed cents breakdown so buildReview() can render each line.
+function collectAddOns() {
+  const d = estData;
+  const eave = Math.max(0, parseFloat(document.getElementById('estEave')?.value) || 0);
+  const pipes = Math.max(0, parseInt(document.getElementById('estPipes')?.value) || 0);
+  const sq = d.sq || 0;
+  const tearOffLayers = Math.max(1, parseInt(document.getElementById('estTearOff')?.value) || 1);
+  const valley = document.getElementById('estValley')?.checked;
+  const chimney = document.getElementById('estChimney')?.checked;
+  const skylight = document.getElementById('estSkylight')?.checked;
+  const gutterLF = Math.max(0, parseFloat(document.getElementById('estGutterLF')?.value) || 0);
+
+  const permitCents = _toCents(d.permitCost != null ? d.permitCost : DEFAULT_PERMIT_COST);
+  const dumpCents   = _toCents(d.dumpFee    != null ? d.dumpFee    : DEFAULT_DUMP_FEE);
+  const extraLayers = Math.max(0, tearOffLayers - 1);
+  const extraLayerCents = extraLayers * sq * LAYER_TEAROFF_PER_SQ_CENTS;
+  const valleyCents   = valley   ? _toCents(Math.max(0, eave * 0.25 * 12)) : 0; // ~$12/LF rough
+  const chimneyCents  = chimney  ? _toCents(425) : 0;
+  const skylightCents = skylight ? _toCents(275) : 0;
+  const gutterCents   = _toCents(gutterLF * 8.50);
+  // Extra pipe boots beyond 4 are a spec-called-out add-on; use R.pipe
+  // to keep parity with the product library's pricing.
+  const extraPipes = Math.max(0, pipes - 4);
+  const extraPipeCents = _toCents(extraPipes * (window.R?.pipe || 45));
+
+  return {
+    permitCents, dumpCents, extraLayerCents, valleyCents, chimneyCents,
+    skylightCents, gutterCents, extraPipeCents,
+    tearOffLayers, extraLayers, gutterLF, hasValley: !!valley,
+    hasChimney: !!chimney, hasSkylight: !!skylight, extraPipes,
+    totalCents: permitCents + dumpCents + extraLayerCents + valleyCents
+              + chimneyCents + skylightCents + gutterCents + extraPipeCents
+  };
+}
+
+// EBv2 price: flat per-SQ tier rate × squares + add-ons. Enforces the
+// $2,500 job minimum and rounds to the nearest $25. All intermediate
+// math is in cents so we don't accrue float drift before rounding.
+function calcEstimateTotalCents(sq, tier, addOns) {
+  const rate = TIER_RATES[tier] || TIER_RATES.better;
+  const baseCents = _toCents(sq * rate);
+  const addOnsCents = (addOns && addOns.totalCents) || 0;
+  const preRound = _applyJobMin(baseCents + addOnsCents);
+  return _roundNearest25(preRound);
 }
 
 function calcTierPrices() {
-  // Re-sync rates from product library each time tiers are recalculated
+  // Re-sync rates from product library each time tiers are recalculated —
+  // needed for the internal cost basis, not the customer price.
   syncRatesFromProductLibrary(selectedTier || 'better');
   updateEstCalc();
-  const sq=estData.sq||0;
-  const ridge=Math.max(0, parseFloat(document.getElementById('estRidge')?.value)||0);
-  const eave=Math.max(0, parseFloat(document.getElementById('estEave')?.value)||0);
-  const hip=Math.max(0, parseFloat(document.getElementById('estHip')?.value)||0);
-  const pipes=Math.max(0, parseInt(document.getElementById('estPipes')?.value)||0);
-  const deckSq=sq*R.deckPct;
-  // Ice & Water Shield: 6-ft strip along eaves (building-code minimum in most
-  // cold-climate jurisdictions). 100 sf per square, minimum 1 SQ so we never
-  // bill zero. Replaces the previous hard-coded 5 SQ constant.
+  const sq = estData.sq || 0;
+  const ridge = Math.max(0, parseFloat(document.getElementById('estRidge')?.value) || 0);
+  const eave  = Math.max(0, parseFloat(document.getElementById('estEave')?.value) || 0);
+  const hip   = Math.max(0, parseFloat(document.getElementById('estHip')?.value) || 0);
+  const pipes = Math.max(0, parseInt(document.getElementById('estPipes')?.value) || 0);
+  const deckSq = sq * R.deckPct;
   const iwsSq = Math.max(1, Math.ceil((eave * 6) / 100));
 
-  const good = sq*R.shingle + sq*R.felt + sq*R.tear + eave*R.starter + eave*R.drip + ridge*R.ridge;
-  const better = good + iwsSq*R.iws + pipes*R.pipe + hip*R.hip + deckSq*R.deck;
-  const best = better + sq*R.deck + eave*R.gutter;
+  const addOns = collectAddOns();
 
-  estData.ridge=ridge; estData.eave=eave; estData.hip=hip; estData.pipes=pipes;
-  estData.deckSq=deckSq; estData.iwsSq=iwsSq;
-  estData.prices={good,better,best};
+  const goodCents   = calcEstimateTotalCents(sq, 'good',   addOns);
+  const betterCents = calcEstimateTotalCents(sq, 'better', addOns);
+  const bestCents   = calcEstimateTotalCents(sq, 'best',   addOns);
 
-  const setPrice = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = '$'+val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  estData.ridge = ridge; estData.eave = eave; estData.hip = hip; estData.pipes = pipes;
+  estData.deckSq = deckSq; estData.iwsSq = iwsSq;
+  estData.addOns = addOns;
+  estData.prices = {
+    good:   _fromCents(goodCents),
+    better: _fromCents(betterCents),
+    best:   _fromCents(bestCents)
   };
-  setPrice('price-good', good);
-  setPrice('price-better', better);
-  setPrice('price-best', best);
+
+  const setPrice = (id, cents) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '$' + _fromCents(cents).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+  setPrice('price-good',   goodCents);
+  setPrice('price-better', betterCents);
+  setPrice('price-best',   bestCents);
 }
 
 function selectTier(tier,el) {
@@ -212,46 +330,90 @@ function getProductName(mapKey, fallback) {
   return p ? p.name : fallback;
 }
 
+// Customer-facing line items. Under EBv2 the top line is the flat
+// per-SQ tier driver; add-ons append below. The internal cost-basis
+// breakdown (shingle/felt/ridge/etc.) is available via
+// getInternalCostBasis() and is surfaced only in the "Internal View"
+// toggle, not on the customer estimate.
 function getLineItems() {
-  // Ensure rates are synced for the selected tier
   syncRatesFromProductLibrary(selectedTier || 'better');
-  const d=estData, sq=d.sq, tier=selectedTier;
-  const fmt=(n)=>'$'+(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const rows=[];
-  rows.push({code:'RFG SHNG',desc:getProductName('shingle','Roofing shingles – architectural 30yr'),qty:sq.toFixed(2)+'SQ',rate:'$'+R.shingle,total:sq*R.shingle});
-  rows.push({code:'RFG FELT',desc:getProductName('felt','Underlayment / roofing felt'),qty:sq.toFixed(2)+'SQ',rate:'$'+R.felt,total:sq*R.felt});
-  rows.push({code:'RFG TEAR',desc:'Remove existing roof covering',qty:sq.toFixed(2)+'SQ',rate:'$'+R.tear,total:sq*R.tear});
-  rows.push({code:'RFG STRT',desc:getProductName('starter','Starter strip shingles'),qty:d.eave+'LF',rate:'$'+R.starter,total:d.eave*R.starter});
-  rows.push({code:'RFG DRPE',desc:getProductName('drip','Drip edge – aluminum'),qty:d.eave+'LF',rate:'$'+R.drip,total:d.eave*R.drip});
-  rows.push({code:'RFG RIDG',desc:getProductName('ridge','Ridge cap shingles'),qty:d.ridge+'LF',rate:'$'+R.ridge,total:d.ridge*R.ridge});
-  if(tier==='better'||tier==='best'){
-    rows.push({code:'RFG I&WS',desc:getProductName('iws','Ice & water shield'),qty:(d.iwsSq||1)+'SQ',rate:'$'+R.iws,total:(d.iwsSq||1)*R.iws});
-    rows.push({code:'RFG HIPC',desc:getProductName('hip','Hip cap shingles'),qty:d.hip+'LF',rate:'$'+R.hip,total:d.hip*R.hip});
-    for(let i=1;i<=d.pipes;i++) rows.push({code:'RFG PIPE',desc:getProductName('pipe',`Pipe boot / plumbing flashing #${i}`),qty:'1EA',rate:'$'+R.pipe,total:R.pipe});
-    rows.push({code:'RFG DECK',desc:`OSB decking – partial replacement (${Math.round(R.deckPct*100)}%)`,qty:d.deckSq.toFixed(2)+'SQ',rate:'$'+R.deck,total:d.deckSq*R.deck});
-  }
-  if(tier==='best'){
-    rows.push({code:'RFG DECK',desc:'OSB decking – full replacement',qty:sq.toFixed(2)+'SQ',rate:'$'+R.deck,total:sq*R.deck});
-    rows.push({code:'GUT ALUM',desc:'Seamless aluminum gutters (6")',qty:d.eave+'LF',rate:'$'+R.gutter,total:d.eave*R.gutter});
-  }
+  const d = estData;
+  const sq = d.sq || 0;
+  const tier = selectedTier || 'better';
+  const addOns = d.addOns || collectAddOns();
+  const rate = TIER_RATES[tier];
+  const tierLabel = { good: 'Good — Standard Reroof', better: 'Better — Reroof Plus', best: 'Best — Full Redeck' }[tier] || tier;
+
+  const rows = [];
+  rows.push({
+    code: 'RFG SYS',
+    desc: tierLabel + ' · turnkey per-square price',
+    qty:  sq.toFixed(2) + ' SQ',
+    rate: '$' + rate + '/SQ',
+    total: sq * rate
+  });
+  if (addOns.permitCents)    rows.push({ code: 'PERMIT', desc: 'Local building permit',                           qty: '1 EA', rate: '', total: _fromCents(addOns.permitCents) });
+  if (addOns.dumpCents)      rows.push({ code: 'DUMP',   desc: 'Dump / disposal fee',                              qty: '1 EA', rate: '', total: _fromCents(addOns.dumpCents) });
+  if (addOns.extraLayers)    rows.push({ code: 'TEAR+',  desc: 'Extra tear-off layer(s) — ' + addOns.extraLayers + '×',
+                                         qty: sq.toFixed(2) + ' SQ', rate: '$50/SQ', total: _fromCents(addOns.extraLayerCents) });
+  if (addOns.hasValley)      rows.push({ code: 'VALLEY', desc: 'Valley metal flashing',                            qty: 'set', rate: '', total: _fromCents(addOns.valleyCents) });
+  if (addOns.hasChimney)     rows.push({ code: 'CHIM',   desc: 'Chimney flashing kit',                             qty: '1 EA', rate: '', total: _fromCents(addOns.chimneyCents) });
+  if (addOns.hasSkylight)    rows.push({ code: 'SKY',    desc: 'Skylight flashing kit',                            qty: '1 EA', rate: '', total: _fromCents(addOns.skylightCents) });
+  if (addOns.gutterLF)       rows.push({ code: 'GUTTER', desc: 'Seamless aluminum gutters (6")',                   qty: addOns.gutterLF + ' LF', rate: '$8.50/LF', total: _fromCents(addOns.gutterCents) });
+  if (addOns.extraPipes)     rows.push({ code: 'PIPE+',  desc: 'Extra pipe boots beyond 4',                        qty: addOns.extraPipes + ' EA', rate: '', total: _fromCents(addOns.extraPipeCents) });
+
   return rows;
+}
+
+// Internal cost basis — what the job actually costs us in materials +
+// labor. Used by the Internal View toggle to show markup + margin.
+// NOT shown to customers. Sum of per-item rates × quantities from the
+// product library, same math the old builder used for customer price.
+function getInternalCostBasis() {
+  syncRatesFromProductLibrary(selectedTier || 'better');
+  const d = estData;
+  const sq = d.sq || 0;
+  const ridge = d.ridge || 0, eave = d.eave || 0, hip = d.hip || 0, pipes = d.pipes || 0;
+  const deckSq = d.deckSq || 0;
+  const iwsSq = d.iwsSq || 0;
+  const tier = selectedTier || 'better';
+
+  const good = sq * R.shingle + sq * R.felt + sq * R.tear + eave * R.starter + eave * R.drip + ridge * R.ridge;
+  const better = good + iwsSq * R.iws + pipes * R.pipe + hip * R.hip + deckSq * R.deck;
+  const best = better + sq * R.deck + eave * R.gutter;
+  const byTier = { good, better, best };
+  return byTier[tier] || better;
 }
 
 function buildReview() {
   updateEstCalc();
-  const d=estData;
+  calcTierPrices();  // ensure addOns + prices are fresh before locking the total
+  const d = estData;
   const val = (id) => document.getElementById(id)?.value || '—';
-  const addr=val('estAddr');
-  const owner=val('estOwner');
-  const parcel=val('estParcel');
-  const yr=val('estYear');
-  const roofType=val('estRoofType');
-  const tierNames={'good':'Standard Reroof','better':'Reroof Plus','best':'Full Redeck'};
-  const rows=getLineItems();
-  const grandTotal=rows.reduce((s,r)=>s+r.total,0);
-  estData.grandTotal=grandTotal;
-  estData.addr=addr; estData.owner=owner; estData.parcel=parcel; estData.yr=yr; estData.roofType=roofType;
-  estData.tierName=tierNames[selectedTier]; estData.rows=rows;
+  const addr = val('estAddr');
+  const owner = val('estOwner');
+  const parcel = val('estParcel');
+  const yr = val('estYear');
+  const roofType = val('estRoofType');
+  const tierNames = { 'good': 'Standard Reroof', 'better': 'Reroof Plus', 'best': 'Full Redeck' };
+  const rows = getLineItems();
+  // Grand total is the LOCKED tier price from calcTierPrices(), NOT the
+  // sum of display line items. This matters because the individual rows
+  // render as whole dollars while the underlying math carries cents —
+  // summing the rounded display values would reintroduce drift.
+  const tierCents = _toCents(d.prices?.[selectedTier] || 0);
+  const grandTotal = _fromCents(tierCents);
+  estData.grandTotal = grandTotal;
+  estData.addr = addr; estData.owner = owner; estData.parcel = parcel; estData.yr = yr; estData.roofType = roofType;
+  estData.tierName = tierNames[selectedTier]; estData.rows = rows;
+
+  // Internal margin for the optional Internal View toggle. Not rendered
+  // unless the user clicks through to it — customer-facing review stays
+  // clean.
+  const costBasis = getInternalCostBasis();
+  const margin = grandTotal - costBasis;
+  const marginPct = grandTotal > 0 ? (margin / grandTotal) * 100 : 0;
+  estData.costBasis = costBasis; estData.margin = margin; estData.marginPct = marginPct;
 
   const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   // Escape every interpolated user-typed value. The classic review
@@ -267,7 +429,19 @@ function buildReview() {
     .replace(/'/g, '&#39;');
   const reviewEl = document.getElementById('estReviewBody');
   if (!reviewEl) return;
-  reviewEl.innerHTML=`
+  const marginSafeClass = marginPct >= 35 ? 'margin-strong'
+                        : marginPct >= 20 ? 'margin-ok'
+                        : 'margin-weak';
+  const internalViewHtml = `
+    <div id="internalViewPanel" style="display:none;margin-top:16px;padding:12px;background:var(--s2);border:1px dashed var(--orange);border-radius:7px;font-size:11px;">
+      <div style="font-weight:700;color:var(--orange);margin-bottom:8px;">Internal View — NOT FOR CUSTOMER</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div><div style="color:var(--m);">Customer Price</div><div style="font-weight:700;">${fmt(grandTotal)}</div></div>
+        <div><div style="color:var(--m);">Cost Basis</div><div style="font-weight:700;">${fmt(costBasis)}</div></div>
+        <div><div style="color:var(--m);">Margin</div><div class="${marginSafeClass}" style="font-weight:700;">${fmt(margin)} · ${marginPct.toFixed(1)}%</div></div>
+      </div>
+    </div>`;
+  reviewEl.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
       <div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--m);margin-bottom:4px;">Property</div>
@@ -291,8 +465,20 @@ function buildReview() {
         ${rows.map(r=>`<tr><td class="code">${esc(r.code)}</td><td>${esc(r.desc)}</td><td>${esc(r.qty)}</td><td>${esc(r.rate)}</td><td><strong>${fmt(r.total)}</strong></td></tr>`).join('')}
         <tr class="total-row grand"><td colspan="4"><strong>ESTIMATE TOTAL</strong></td><td><strong>${fmt(grandTotal)}</strong></td></tr>
       </tbody>
-    </table>`;
+    </table>
+    <div style="margin-top:10px;display:flex;justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleInternalView()">🔒 Internal View</button>
+    </div>
+    ${internalViewHtml}`;
 }
+
+// Toggle the margin / cost-basis panel on the review step. Kept on
+// window so the onclick handler in the review HTML can find it.
+window.toggleInternalView = function toggleInternalView() {
+  const el = document.getElementById('internalViewPanel');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
 
 let _savingEstimate = false;
 async function saveEstimate() {
