@@ -156,6 +156,11 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
   a, button { touch-action:manipulation; }
   input, select { font-size:16px!important; } /* prevent iOS zoom */
 }
+/* a11y: skip-to-main link visible only on keyboard focus. Pure CSS
+   so it works under the strict per-page CSP (script-src-attr 'none'
+   blocks inline onfocus handlers). */
+.nbd-skip-link { position:absolute; left:-9999px; top:8px; background:#e8720c; color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
+.nbd-skip-link:focus { left:8px; outline:2px solid #000; }
 </style>
 <style id="theme-system">
 [data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
@@ -180,7 +185,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
 </head>
 <body>
 <!-- a11y: skip link + main landmark. Hidden visually until focused. -->
-<a href="#main" class="nbd-skip-link" style="position:absolute;left:-999px;top:0;background:#e8720c;color:#000;padding:8px 14px;font-weight:700;z-index:99999;" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
+<a href="#main" class="nbd-skip-link">Skip to main content</a>
 <main id="main">
 
 <!-- BRAND PANEL -->

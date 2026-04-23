@@ -2533,6 +2533,38 @@ try {
   failures.push('inline-html-scripts.test.js — inline <script> in docs/ has syntax error (see output above)');
 }
 
+// ── CSP: strict pages stay free of inline event handlers ────
+// firebase.json ships tight per-page CSPs (script-src-attr 'none')
+// for the pages below. That header BLOCKS any onclick=/onsubmit=/
+// onfocus= handler in the HTML — which is what we want, but the
+// blocking is silent, so a stray inline handler just breaks the page
+// without a visible error. This check refuses to let a new inline
+// handler land on those files.
+section('CSP: strict-CSP pages have zero inline event handlers');
+{
+  const STRICT_PAGES = [
+    'docs/pro/login.html',
+    'docs/pro/register.html',
+    'docs/pro/stripe-success.html',
+    'docs/pro/analytics.html',
+    'docs/pro/leaderboard.html',
+    'docs/pro/ask-joe.html',
+    'docs/pro/diagnostic.html',
+    'docs/pro/understand.html',
+    'docs/pro/ai-tree.html',
+  ];
+  const INLINE_HANDLER_RE = /\son(click|submit|change|input|load|focus|blur|keyup|keydown|mouseover|mouseout|mouseenter|mouseleave|drag|drop|touchstart|touchend)\s*=/;
+  for (const p of STRICT_PAGES) {
+    const full = path.join(ROOT, p);
+    if (!fs.existsSync(full)) continue;
+    const html = fs.readFileSync(full, 'utf8');
+    const match = html.match(INLINE_HANDLER_RE);
+    assert(p + ' has no inline event handlers (strict CSP)',
+      !match,
+      match ? 'found: ' + match[0] + ' at offset ' + match.index : '');
+  }
+}
+
 // ── A11y: main landmark + skip-link on public pages ─────────
 // These are the pages users touch before authentication. Screen-reader
 // and keyboard users need a "skip to main content" target + a
