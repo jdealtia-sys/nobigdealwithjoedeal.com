@@ -1576,6 +1576,75 @@ window.restoreNotification = restoreNotification;
 window.toggleDismissedNotifications = toggleDismissedNotifications;
 window.renderDismissedNotifications = renderDismissedNotifications;
 
+// ═══════════════════════════════════════════════════════════
+// Auto-log communications from tel:/sms:/mailto: clicks
+// ═══════════════════════════════════════════════════════════
+// Critical Finding: "Communication not auto-logged — trust/memory hole."
+// customer.html already logs on its own Call/Text/Email buttons, but
+// every other surface (pipeline kanban cards, contact drawer rows,
+// map popups, dashboard quick-contacts) just renders a plain
+// <a href="tel:..."> with no logging. Reps tap those daily and nothing
+// hits the timeline, so weeks later nobody can remember whether the
+// customer was actually contacted.
+//
+// This delegated click handler catches EVERY tel:/sms:/mailto: anchor
+// anywhere on the authed app and posts a lightweight `communications`
+// doc if we can resolve a leadId from the surrounding DOM context.
+// It deliberately doesn't block navigation — the protocol handler fires
+// as normal; we just fire-and-forget the Firestore write alongside.
+(function setupCommLogDelegate() {
+  if (window.__NBD_COMM_LOG_DELEGATE) return;
+  window.__NBD_COMM_LOG_DELEGATE = true;
+
+  function resolveLeadId(anchor) {
+    // Walk up from the clicked anchor looking for a data-lead-id,
+    // data-id on a pipeline card, or the globally-current customer.
+    let el = anchor;
+    while (el && el !== document.body) {
+      if (el.dataset && el.dataset.leadId) return el.dataset.leadId;
+      if (el.dataset && el.dataset.id && el.classList && el.classList.contains('kc-card')) return el.dataset.id;
+      el = el.parentElement;
+    }
+    return window._customerId || window._cardDetailLeadId || null;
+  }
+
+  function typeFromHref(href) {
+    if (!href) return null;
+    if (href.startsWith('tel:'))    return 'call';
+    if (href.startsWith('sms:'))    return 'sms';
+    if (href.startsWith('mailto:')) return 'email';
+    return null;
+  }
+
+  document.addEventListener('click', function (e) {
+    const a = e.target && e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    const type = typeFromHref(a.getAttribute('href') || '');
+    if (!type) return;
+    const leadId = resolveLeadId(a);
+    if (!leadId) return;
+    // Skip if this anchor already has a dedicated handler that logs
+    // (customer.html does; flag = data-nbd-log-skip="1").
+    if (a.dataset && a.dataset.nbdLogSkip === '1') return;
+
+    try {
+      const uid = (window._user && window._user.uid) || null;
+      if (!uid || !_db || !_addDoc || !_serverTimestamp) return;
+      const descByType = { call: 'Tapped call link', sms: 'Tapped SMS link', email: 'Tapped email link' };
+      _addDoc(col(_db, 'communications'), {
+        leadId, userId: uid, type,
+        direction: 'outbound',
+        content: descByType[type] || 'Contacted customer',
+        timestamp: _serverTimestamp(),
+        source: 'crm_link_click'
+      }).catch(err => console.warn('[comm-log] write failed:', err.message));
+    } catch (err) {
+      // Never break navigation because of a logging hiccup.
+      console.warn('[comm-log] delegate threw:', err.message);
+    }
+  }, true);  // capture-phase so we fire before any stopPropagation handlers
+})();
+
 // Request browser notification permission.
 // Must be called from a user-gesture handler (click/tap) per Chrome 80+,
 // Firefox 72+, and Safari. Calling on page load gets silently denied on

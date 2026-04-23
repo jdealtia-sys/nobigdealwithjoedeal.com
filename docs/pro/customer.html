@@ -2260,6 +2260,12 @@ async function loadCustomerData(id) {
     }
 
     // ── Communication auto-logging: wire quick-action buttons ──
+    // Mark each anchor so the crm.js delegated logger skips it (these
+    // have richer inline logging and we don't want a duplicate row).
+    ['callLink','emailLink','smsBookingLink','contactCallBtn','contactTextBtn','contactEmailBtn'].forEach(i => {
+      const el = document.getElementById(i);
+      if (el) el.dataset.nbdLogSkip = '1';
+    });
     // Header Call button
     const callBtn = document.getElementById('callLink');
     if (callBtn) {
