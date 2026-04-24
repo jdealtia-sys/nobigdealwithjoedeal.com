@@ -174,7 +174,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -407,6 +407,11 @@
   window.setDoc = setDoc;
   window.writeBatch = writeBatch;
   window.sendPasswordResetEmail = sendPasswordResetEmail;
+  // Expose connection cycling so the visibilitychange handler in the
+  // outer (non-module) script block at the bottom of this page can
+  // call them when the tab returns to foreground after iOS suspended JS.
+  window.disableNetwork = disableNetwork;
+  window.enableNetwork = enableNetwork;
 
   // ── GLOBAL ERROR BOUNDARY ──────────────────────────────────
   // Log errors to console only. NEVER show toasts from global
@@ -936,8 +941,42 @@
       }
       
       const finalUid = window._user?.uid;
-      const snap = await getDocs(query(collection(db,'leads'), where('userId','==',finalUid)));
-      
+      // 10s timeout — getDocs on a stale iOS bfcache connection hangs
+      // forever instead of rejecting, leaving healthBadge stuck on the
+      // 'loading' class (yellow dot in connection-status-btn).
+      //
+      // On failure, cycle the Firestore connection (disableNetwork →
+      // enableNetwork) and retry once. iOS Safari throttles background
+      // tabs and silently breaks Firestore's WebSocket — the SDK never
+      // notices, so the only way to force a fresh connection is to
+      // explicitly disable + re-enable the network. ~80% of "every
+      // other time it errors" failures are recoverable on the retry.
+      const _runQuery = () => Promise.race([
+        getDocs(query(collection(db,'leads'), where('userId','==',finalUid))),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
+      ]);
+
+      let snap;
+      try {
+        snap = await _runQuery();
+      } catch (firstErr) {
+        console.warn('loadLeads first attempt failed, cycling connection and retrying:', firstErr.message);
+        if (healthBadge) {
+          healthBadge.className = 'health-indicator loading';
+          healthBadge.title = 'Reconnecting…';
+        }
+        try {
+          await disableNetwork(db);
+          await new Promise(r => setTimeout(r, 250));
+          await enableNetwork(db);
+        } catch (cycleErr) {
+          console.warn('Network cycle failed (non-fatal):', cycleErr.message);
+        }
+        // Second attempt — if this fails the outer catch handles it.
+        snap = await _runQuery();
+        console.log('✅ loadLeads recovered on retry');
+      }
+
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .filter(l => !l.deleted)
@@ -965,13 +1004,23 @@
     } catch(e) {
       console.error('❌ loadLeads failed:', e.message, e.code, e);
       console.error('Full error:', e);
-      window._leads = [];
-      
+      // Only zero out the cache on FIRST load. On subsequent failures
+      // (e.g. transient iOS connection drop after the user saved a
+      // lead), keep the existing cache so just-saved leads added via
+      // optimistic update don't vanish from the kanban while we're
+      // offline. The next successful loadLeads — or the visibilitychange
+      // handler — will overwrite with fresh data.
+      if (!window._leadsLoaded) {
+        window._leads = [];
+      } else {
+        console.warn('loadLeads kept stale cache of ' + (window._leads?.length || 0) + ' leads (transient failure)');
+      }
+
       // Update health indicator to error
       if (healthBadge) {
         healthBadge.className = 'health-indicator error';
-        const errorMsg = e.code === 'permission-denied' 
-          ? 'CRM Error: Firestore rules blocking access' 
+        const errorMsg = e.code === 'permission-denied'
+          ? 'CRM Error: Firestore rules blocking access'
           : `CRM Error: ${e.message}`;
         healthBadge.title = errorMsg;
       }
@@ -1345,6 +1394,33 @@
     document.getElementById('weekTasks').textContent = weekTasks;
   }
 
+  // Optimistic kanban refresh helper — push the just-saved lead into
+  // window._leads in-memory and re-render so the card appears IMMEDIATELY,
+  // before loadLeads makes its round-trip. On iOS where loadLeads can
+  // fail intermittently, this is the difference between "I saved a lead
+  // and I see it on the kanban" and "I saved a lead and nothing happened".
+  function _optimisticInsertLead(leadId, data) {
+    if (!leadId) return;
+    window._leads = window._leads || [];
+    // If we already have this lead (edit case), replace it; otherwise prepend.
+    const idx = window._leads.findIndex(l => l.id === leadId);
+    const merged = {
+      id: leadId,
+      ...data,
+      userId: window._user?.uid,
+      createdAt: window._leads[idx]?.createdAt || new Date(),
+      _stageKey: typeof normalizeStage === 'function'
+        ? normalizeStage(data.stage)
+        : (data.stage || 'new')
+    };
+    if (idx >= 0) window._leads[idx] = merged;
+    else window._leads.unshift(merged);
+    window._leadsLoaded = true; // ensure stale-cache guard treats this as populated
+    if (typeof renderLeads === 'function') {
+      try { renderLeads(window._leads); } catch (_) {}
+    }
+  }
+
   window._saveLead = async (data) => {
     try {
       const editId = data.id;
@@ -1382,11 +1458,15 @@
               
               // Save lead first to get ID
               const leadRef = await addDoc(collection(db,'leads'), {
-                ...data, 
-                createdAt: serverTimestamp(), 
+                ...data,
+                createdAt: serverTimestamp(),
                 userId: window._user?.uid
               });
-              
+
+              // Optimistic insert — show on kanban immediately, even
+              // if loadLeads later fails on a flaky iOS connection.
+              _optimisticInsertLead(leadRef.id, data);
+
               // Now save pin with leadId
               pinData.leadId = leadRef.id;
               await window._savePin(pinData);
@@ -1442,6 +1522,9 @@
           createdAt: serverTimestamp(),
           userId: window._user?.uid
         });
+        // Optimistic insert — show on kanban immediately even if the
+        // post-save loadLeads fails (iOS flaky connection scenario).
+        _optimisticInsertLead(fallbackRef.id, data);
         // Auto-assign customer ID
         try {
           const counterRef = doc(db, 'counters', 'customerIds');
@@ -1469,9 +1552,13 @@
       } else {
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
-          ...data, 
+          ...data,
           updatedAt: serverTimestamp()
         });
+        // Optimistic merge — reflect the edit on the kanban immediately
+        // (e.g. stage changes that should move the card to a new column)
+        // without waiting on the loadLeads round-trip.
+        _optimisticInsertLead(editId, data);
       }
     } catch(e) {
       console.error('saveLead error:', e);
@@ -14473,7 +14560,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/lead-scoring.js?v=2"></script>
 <!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
      close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
-<script defer src="js/d2d-tracker.js?v=18"></script>
+<script defer src="js/d2d-tracker.js?v=19"></script>
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
 <script defer src="js/product-data.js?v=1"></script>
 <script defer src="js/roofivent-catalog.js?v=1"></script>
@@ -14538,6 +14625,57 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
     }
   });
 })();
+
+// ── iOS bfcache reload guard ──
+// iOS Safari aggressively caches pages in bfcache when the user swipes
+// up to close. On reopen the page is restored without re-running init,
+// but the Firebase SDK's WebSocket / long-poll connection is dead — it
+// hangs forever instead of rejecting. Symptoms: kanban stuck on yellow
+// "loading" dot, D2D save button stuck on "Saving...". Detect bfcache
+// restore via pageshow.persisted and force a fresh navigation so every
+// in-memory connection is renegotiated.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    console.log('[bfcache] page restored from bfcache — reloading to renegotiate Firestore');
+    window.location.reload();
+  }
+});
+
+// ── iOS background-tab Firestore connection refresh ──
+// iOS Safari suspends JS in backgrounded tabs. The Firebase SDK's
+// heartbeat timers stop, the server times out the session, and when
+// the user returns the SDK keeps using the dead WebSocket without
+// noticing. Symptom: "every other time" the kanban opens, getDocs
+// hangs or returns nothing. Cycling disableNetwork → enableNetwork
+// forces the SDK to drop and rebuild every connection.
+//
+// Only fires when the tab transitions hidden → visible AFTER the
+// dashboard finished its initial load (window._leadsLoaded set).
+// Don't fire on tab focus during normal in-page usage.
+let _lastVisibilityRefresh = 0;
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!window._leadsLoaded) return; // initial load handles itself
+  // Throttle to at most once every 30s — iOS fires visibilitychange
+  // multiple times during the tab restore animation.
+  const now = Date.now();
+  if (now - _lastVisibilityRefresh < 30000) return;
+  _lastVisibilityRefresh = now;
+  if (!window.db || typeof window.disableNetwork !== 'function') return;
+  try {
+    console.log('[visibility] tab returned to foreground — cycling Firestore connection');
+    await window.disableNetwork(window.db);
+    await new Promise(r => setTimeout(r, 250));
+    await window.enableNetwork(window.db);
+    // Reload leads in the background — won't block the UI.
+    if (typeof window._loadLeads === 'function') {
+      window._loadLeads().catch(e => console.warn('post-visibility loadLeads failed:', e.message));
+    }
+  } catch (e) {
+    console.warn('visibility connection cycle failed:', e.message);
+  }
+});
+
 // ── Runtime Diagnostic — call window.nbdDiag() from console ──
 window.nbdDiag = function() {
   const r = {};

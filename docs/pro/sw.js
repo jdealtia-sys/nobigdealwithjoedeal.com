@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v13', // v13 — Firestore data-read timeout in initD2D
-  cdn: 'nbd-cdn-v13',     // v13 — forces re-fetch of all JS + CSS (including d2d-tracker.js?v=18)
+  shell: 'nbd-shell-v15', // v15 — auto-retry loadLeads + visibilitychange Firestore reconnect
+  cdn: 'nbd-cdn-v15',     // v15 — forces re-fetch of all CDN-cached JS/CSS
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

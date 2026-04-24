@@ -868,6 +868,16 @@
     }
   }
 
+  // Wrap a Firestore promise in a timeout so iOS Safari bfcache zombies
+  // (where the SDK has a dead WebSocket but never rejects) surface as
+  // an error the caller can handle instead of hanging the UI forever.
+  function _withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout after ' + ms + 'ms')), ms))
+    ]);
+  }
+
   async function submitKnock(data, fromSync) {
     if (!isOnline && !fromSync) {
       enqueueOffline('submitKnock', data);
@@ -927,7 +937,14 @@
 
       if (followUpDate) knockDoc.followUpDate = followUpDate;
 
-      const ref = await window.addDoc(window.collection(window._db, 'knocks'), knockDoc);
+      // 12s timeout — addDoc on a stale iOS bfcache connection never
+      // resolves or rejects. Without this the Save button is stuck on
+      // "Saving..." forever (handleSubmitKnock can't reach its finally).
+      const ref = await _withTimeout(
+        window.addDoc(window.collection(window._db, 'knocks'), knockDoc),
+        12000,
+        'addDoc(knocks)'
+      );
       await loadKnocks();
       renderD2D();
       refreshMapMarkers();
@@ -2117,8 +2134,11 @@
         // Pass contentType explicitly so Storage doesn't infer
         // application/octet-stream for HEIC files where Safari left
         // file.type empty.
-        await window.uploadBytes(storageRef, file, { contentType });
-        const url = await getDownloadURL(storageRef);
+        // 20s upload timeout — Storage uploads on a stale iOS bfcache
+        // connection hang the same way Firestore writes do. Per-photo
+        // timeout so one bad photo doesn't block the rest of the batch.
+        await _withTimeout(window.uploadBytes(storageRef, file, { contentType }), 20000, 'uploadBytes(photo)');
+        const url = await _withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL(photo)');
         urls.push(url);
       } catch(e) {
         console.error('Photo upload failed:', e && e.code, e && e.message, file && file.name, file && file.type);
@@ -2188,8 +2208,10 @@
       // lineage and so onAudioUploaded can tell D2D memos apart from
       // Voice Intelligence recordings.
       const storageRef = ref(window._storage, `audio/${window._user.uid}/d2d/${knockId}_${Date.now()}.webm`);
-      await window.uploadBytes(storageRef, blob);
-      return await getDownloadURL(storageRef);
+      // Same iOS bfcache timeout treatment as photo uploads — voice
+      // memos are typically larger so allow a longer ceiling (30s).
+      await _withTimeout(window.uploadBytes(storageRef, blob), 30000, 'uploadBytes(voice)');
+      return await _withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL(voice)');
     } catch(e) {
       console.error('Voice upload failed:', e);
       window.showToast?.('Voice memo upload failed — will retry when you reopen this knock', 'error');
@@ -2523,6 +2545,14 @@
     // quota). Single flag, cleared in a finally block below.
     if (_knockSubmitInFlight) return;
     _knockSubmitInFlight = true;
+    // Capture the button + its original label up here so the finally
+    // block below ALWAYS restores it, even if submitKnock throws or
+    // times out. Previously the button was only re-enabled implicitly
+    // by closeQuickKnock(); on a hung addDoc that never ran, leaving
+    // the button stuck on "Saving..." with no recovery path.
+    const saveBtn = document.getElementById('d2d-qk-save');
+    const originalLabel = saveBtn ? saveBtn.textContent : '';
+    let knockSaved = false;
     try {
     const address = (document.getElementById('d2d-qk-address')?.value || '').trim();
     if (!address) { window.showToast?.('Address required', 'error'); return; }
@@ -2538,7 +2568,6 @@
     currentKnockEntry.insCarrier = document.getElementById('d2d-qk-carrier')?.value || '';
     currentKnockEntry.claimNumber = document.getElementById('d2d-qk-claim')?.value || '';
 
-    const saveBtn = document.getElementById('d2d-qk-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
     // Upload photos and voice before saving
@@ -2559,9 +2588,15 @@
     const savedDispo = currentKnockEntry.disposition;
     const savedPhone = currentKnockEntry.phone;
     const knockId = await submitKnock(currentKnockEntry);
-    closeQuickKnock();
 
-    if (!knockId) return;
+    if (!knockId) {
+      // submitKnock returned null = error toast already shown.
+      // Leave the modal open so the user can retry without re-typing.
+      return;
+    }
+
+    knockSaved = true;
+    closeQuickKnock();
 
     // Auto-offer lead conversion for hot dispositions
     if (HOT_DISPOSITIONS.includes(savedDispo)) {
@@ -2579,7 +2614,25 @@
         }
       }, 500);
     }
+    } catch (err) {
+      // submitKnock catches its own errors, so reaching here means a
+      // throw from uploadPhotos / uploadVoiceMemo / addDoc timeout.
+      console.error('handleSubmitKnock failed:', err);
+      window.showToast?.(
+        err && /timeout/i.test(err.message || '')
+          ? 'Save timed out — check connection and try again'
+          : 'Save failed — please try again',
+        'error'
+      );
     } finally {
+      // Restore button state even on hang/throw. closeQuickKnock removes
+      // the overlay (and the button with it) on success, so this only
+      // matters when the modal is still open — exactly the failure path
+      // where the user needs to retry.
+      if (!knockSaved && saveBtn && document.body.contains(saveBtn)) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalLabel || 'Save Knock';
+      }
       _knockSubmitInFlight = false;
     }
   }

@@ -2134,6 +2134,18 @@ window.getDownloadURL = getDownloadURL;
 window._user = null;  // Set in onAuthStateChanged
 window._leads = [];   // Populated with current customer data
 
+// ── iOS bfcache reload guard ──
+// Same fix as dashboard.html — when iOS restores this page from bfcache
+// (swipe-up close → reopen), the Firestore SDK's connection is dead.
+// Force a fresh navigation so loadCustomerData gets a live connection
+// instead of hanging on a zombie WebSocket.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    console.log('[bfcache] customer page restored from bfcache — reloading');
+    window.location.reload();
+  }
+});
+
 // Auth guard
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
