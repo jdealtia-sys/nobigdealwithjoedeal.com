@@ -2114,7 +2114,7 @@ section('R-01: rate-limit provider visibility + cold-start misconfig warning');
     /rateLimitProvider:\s*rateLimitProvider\(\)/.test(idx)
     && /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
 
-  const runbook = read(path.join(ROOT, 'POST_DEPLOY_CHECKLIST.md'));
+  const runbook = read(path.join(ROOT, 'docs', 'dev', 'legacy', 'POST_DEPLOY_CHECKLIST.md'));
   assert('R-01: POST_DEPLOY_CHECKLIST has an Upstash runbook section',
     /##\s*18\.\s*Rate-limit provider/i.test(runbook));
   assert('R-01: runbook walks through secret provisioning',

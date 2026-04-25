@@ -6,7 +6,8 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "dev/**"
     ],
     "rewrites": [
       { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
@@ -21,7 +22,8 @@
         "source": "**/*.@(js|css)",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=300" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
         ]
       },
       {
