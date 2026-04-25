@@ -5518,6 +5518,31 @@ body {
   .kc-email-line{ display:none!important; }
 }
 
+/* ─── Mobile dropdown panels — keep them inside the viewport ─────────
+   The header bell + recent-customers dropdowns use position:absolute;
+   right:0 relative to their tiny icon button, with min-width:320px on
+   notif. On a 390px iPhone viewport with the icons near the right edge,
+   the dropdown overflows the LEFT side of the screen — text gets clipped
+   ("ue Follow-Up" instead of "Overdue Follow-Up"). Convert to full-width
+   fixed panels under the header on mobile. */
+@media (max-width:600px){
+  #notifDropdown, #recentDropdown {
+    position: fixed!important;
+    top: calc(56px + env(safe-area-inset-top, 0px))!important;
+    left: 8px!important;
+    right: 8px!important;
+    min-width: 0!important;
+    max-width: none!important;
+    width: auto!important;
+    max-height: calc(100vh - 80px)!important;
+    max-height: calc(100dvh - 80px - env(safe-area-inset-bottom,0px))!important;
+    overflow-y: auto!important;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Notification badge "50" shouldn't overflow the bell icon */
+  #notifBadge { font-size: 8.5px!important; padding: 1px 3.5px!important; min-width: 14px!important; }
+}
+
 </style>
 <style id="kanban-force-css">
 
