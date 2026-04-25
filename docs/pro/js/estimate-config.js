@@ -76,6 +76,15 @@
     // "cut-up roof" checkbox is on.
     CUT_UP_ROOF_WASTE_BONUS: 0.03,
 
+    // Add-on flat charges (Rock 2 PR 4b — Joe-confirmed prices).
+    // Classic and V2 had divergent values for these:
+    //   chimney: classic $425, V2 $285 → unified at $425 (Joe pick)
+    //   skylight: classic $275, V2 $350 → unified at $350 (Joe pick)
+    // Valley LF and extra-pipe-boot stay engine-specific for now —
+    // both Joe-flagged "low margin", revisit later if it matters.
+    ADDON_CHIMNEY_FLASH:  425,
+    ADDON_SKYLIGHT_FLASH: 350,
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.

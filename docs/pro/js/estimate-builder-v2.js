@@ -81,10 +81,15 @@
   };
   const FALLBACK_TAX_RATE = 0.07;
 
-  // Per-SQ mode add-on unit prices
+  // Per-SQ mode add-on unit prices.
+  // chimneyFlash + skylightFlash are unified with classic via
+  // estimate-config.js (Rock 2 PR 4b — chimney $425, skylight $350,
+  // Joe-confirmed). The other three remain engine-local pending
+  // a separate decision; Joe flagged them as "low margin" so the
+  // value drift isn't material yet.
   const ADDON_PRICES = {
-    chimneyFlash:   285,
-    skylightFlash:  350,
+    chimneyFlash:   (_NBD_CFG && _NBD_CFG.ADDON_CHIMNEY_FLASH)  || 425,
+    skylightFlash:  (_NBD_CFG && _NBD_CFG.ADDON_SKYLIGHT_FLASH) || 350,
     valleyMetalLf:  8.50,
     guttersLf:      8.50,
     extraPipeBoot:  85      // When pipe count > 4
