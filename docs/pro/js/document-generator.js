@@ -882,16 +882,19 @@ window.NBDDocGen = {
     let lineItemsHTML = '<table><thead><tr><th>Item</th><th style="width: 8%;">Qty</th><th style="width: 10%;">Unit</th><th style="width: 12%;">Unit Price</th><th class="price-column" style="width: 12%;">Total</th></tr></thead><tbody>';
 
     let total = 0;
+    const _esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     merged.lineItems.forEach(item => {
       const totalAmount = item.total || (item.qty * item.unitPrice);
       total += totalAmount;
       lineItemsHTML += `
         <tr>
-          <td>${item.description}</td>
-          <td style="text-align: center;">${item.qty}</td>
-          <td style="text-align: center;">${item.unit}</td>
-          <td class="price-column">$${item.unitPrice.toFixed(2)}</td>
-          <td class="price-column">$${totalAmount.toFixed(2)}</td>
+          <td>${_esc(item.description)}</td>
+          <td style="text-align: center;">${_esc(item.qty)}</td>
+          <td style="text-align: center;">${_esc(item.unit)}</td>
+          <td class="price-column">$${Number(item.unitPrice||0).toFixed(2)}</td>
+          <td class="price-column">$${Number(totalAmount||0).toFixed(2)}</td>
         </tr>
       `;
     });
@@ -906,7 +909,7 @@ window.NBDDocGen = {
     // Build scope list
     let scopeHTML = '<ul class="scope-list">';
     merged.scopeItems.forEach(item => {
-      scopeHTML += `<li>${item}</li>`;
+      scopeHTML += `<li>${_esc(item)}</li>`;
     });
     scopeHTML += '</ul>';
 

@@ -222,16 +222,28 @@
         }
 
       } else if (method === 'portal') {
-        // Update customer portal (v9 modular)
-        if (invoice.leadId) {
-          await window.updateDoc(window.doc(db, 'leads', invoice.leadId), {
+        // Update lead + mark invoice sent atomically — if the lead
+        // write fails the invoice should NOT show as sent. Otherwise
+        // the customer record claims the invoice is delivered while
+        // the invoice itself is still draft and never reached them.
+        if (invoice.leadId && window.writeBatch) {
+          const batch = window.writeBatch(db);
+          batch.update(window.doc(db, 'leads', invoice.leadId), {
             invoices: window.arrayUnion(invoiceId),
             updatedAt: new Date()
           });
+          batch.update(invRef, {
+            status: 'sent',
+            sentAt: new Date(),
+            updatedAt: new Date()
+          });
+          await batch.commit();
+          return;
         }
       }
 
-      // Update invoice status
+      // Email/SMS branches (and portal-without-lead): mark invoice sent
+      // only after the outbound side-effect above resolved.
       await window.updateDoc(invRef, {
         status: 'sent',
         sentAt: new Date(),
@@ -375,17 +387,23 @@
       if (!snap.exists()) throw new Error('Invoice not found');
 
       const inv = snap.data();
+      const _esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      const _escJs = (s) => String(s == null ? '' : s)
+        .replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"')
+        .replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n');
 
       let html = `
         <div class="invoice-detail" style="padding:20px;background:#fff;border-radius:8px;max-width:900px;margin:0 auto;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
             <div>
               <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--orange);">NBD ROOFING</div>
-              <div style="font-size:12px;color:var(--m);">Invoice ${invoiceId}</div>
+              <div style="font-size:12px;color:var(--m);">Invoice ${_esc(invoiceId)}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:32px;font-weight:700;color:var(--orange);">${formatCurrency(inv.total)}</div>
-              <div style="font-size:11px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">${inv.status}</div>
+              <div style="font-size:11px;color:var(--m);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">${_esc(inv.status)}</div>
             </div>
           </div>
 
@@ -400,7 +418,7 @@
               <div style="display:grid;gap:4px;font-size:12px;">
                 <div><strong>Date:</strong> ${new Date(inv.createdAt?.toDate?.() || inv.createdAt).toLocaleDateString()}</div>
                 <div><strong>Due Date:</strong> ${new Date(inv.dueDate?.toDate?.() || inv.dueDate).toLocaleDateString()}</div>
-                <div><strong>Status:</strong> ${inv.status.toUpperCase()}</div>
+                <div><strong>Status:</strong> ${_esc((inv.status||'').toString().toUpperCase())}</div>
               </div>
             </div>
           </div>
@@ -420,8 +438,8 @@
       inv.items?.forEach(item => {
         html += `
           <tr style="border-bottom:1px solid var(--br);">
-            <td style="padding:8px;">${item.description}</td>
-            <td style="text-align:right;padding:8px;">${item.quantity}</td>
+            <td style="padding:8px;">${_esc(item.description)}</td>
+            <td style="text-align:right;padding:8px;">${_esc(item.quantity)}</td>
             <td style="text-align:right;padding:8px;">${formatCurrency(item.unitPrice)}</td>
             <td style="text-align:right;padding:8px;font-weight:700;">${formatCurrency(item.total)}</td>
           </tr>
@@ -451,13 +469,14 @@
 
           <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
             <button onclick="window.print()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
-            <button onclick="window.InvoicePipeline.sendInvoiceUI('${invoiceId}')" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
-            ${inv.stripePaymentLink ? `<button onclick="navigator.clipboard.writeText('${inv.stripePaymentLink}'); if(typeof showToast==='function')showToast('Payment link copied!','ok');else alert('Payment link copied!')" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
+            <button onclick="window.InvoicePipeline.sendInvoiceUI('${_escJs(invoiceId)}')" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
+            ${inv.stripePaymentLink ? `<button onclick="navigator.clipboard.writeText('${_escJs(inv.stripePaymentLink)}'); if(typeof showToast==='function')showToast('Payment link copied!','ok');else alert('Payment link copied!')" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
           </div>
 
           <div style="background:var(--s2);padding:12px;border-radius:5px;font-size:11px;color:var(--m);">
-            <strong>Terms:</strong> ${inv.terms}
+            <strong>Terms:</strong> ${_esc(inv.terms)}
           </div>
+          ${inv.notes ? `<div style="background:var(--s2);padding:12px;border-radius:5px;font-size:11px;color:var(--m);margin-top:8px;"><strong>Notes:</strong> ${_esc(inv.notes)}</div>` : ''}
         </div>
       `;
 

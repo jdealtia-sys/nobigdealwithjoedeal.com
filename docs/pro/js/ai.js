@@ -13,11 +13,23 @@ let _joeMessages = []; // {role, content}
 let _joeTyping   = false;
 
 // ── Key management ──────────────────────────────────────────────────
-function getJoeKey()  { try { return localStorage.getItem(JOE_KEY_STORE)||''; } catch { return ''; } }
+// Anthropic key is held in sessionStorage so it dies with the tab —
+// reduces XSS exfil window vs localStorage. We migrate any pre-existing
+// localStorage value on first read, then purge it.
+function _migrateJoeKey() {
+  try {
+    const legacy = localStorage.getItem(JOE_KEY_STORE);
+    if (legacy && !sessionStorage.getItem(JOE_KEY_STORE)) {
+      sessionStorage.setItem(JOE_KEY_STORE, legacy);
+    }
+    if (legacy) localStorage.removeItem(JOE_KEY_STORE);
+  } catch(e){}
+}
+function getJoeKey()  { _migrateJoeKey(); try { return sessionStorage.getItem(JOE_KEY_STORE)||''; } catch { return ''; } }
 function saveJoeKey() {
   const v = document.getElementById('joeKeyInput')?.value?.trim();
   if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
-  try { localStorage.setItem(JOE_KEY_STORE, v); } catch(e){}
+  try { sessionStorage.setItem(JOE_KEY_STORE, v); localStorage.removeItem(JOE_KEY_STORE); } catch(e){}
   // Update status display in settings
   const status = document.getElementById('joeKeyStatus');
   if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
@@ -28,7 +40,11 @@ function saveJoeKey() {
   showToast('✓ Joe AI activated', 'success');
 }
 function clearJoeKey() {
-  try { localStorage.removeItem(JOE_KEY_STORE); localStorage.removeItem(JOE_CHAT_STORE); } catch(e){}
+  try {
+    sessionStorage.removeItem(JOE_KEY_STORE);
+    localStorage.removeItem(JOE_KEY_STORE);
+    localStorage.removeItem(JOE_CHAT_STORE);
+  } catch(e){}
   _joeMessages = [];
   initJoeChat();
 }
@@ -329,22 +345,28 @@ function joeQuick(msg) {
   sendJoeMessage();
 }
 
-// Hook into goTo to init chat when tab opens
+// Hook into goTo to init chat when tab opens. The previous version
+// redefined window.goTo with a single-arg signature, which dropped
+// the `params` object that admin-manager.js's wrapper passes through.
+// Now we forward `arguments` verbatim so any caller's signature works.
 (function(){
-  const _prev = window.goTo;
-  window.goTo = function(view) {
-    if(_prev) _prev(view);
-    if(view === 'joe') {
-      setTimeout(initJoeChat, 80);
-    }
-  };
+  function install() {
+    const _prev = window.goTo;
+    if (typeof _prev !== 'function') { setTimeout(install, 200); return; }
+    window.goTo = function() {
+      const result = _prev.apply(this, arguments);
+      if (arguments[0] === 'joe') setTimeout(initJoeChat, 80);
+      return result;
+    };
+  }
+  install();
 })();
 
 // Settings page key save (reads from #joeKeyInputSettings instead of #joeKeyInput)
 function saveJoeKeyFromSettings() {
   const v = document.getElementById('joeKeyInputSettings')?.value?.trim();
   if(!v || !v.startsWith('sk-ant')) { showToast('Paste a valid Anthropic key (starts with sk-ant)', 'error'); return; }
-  try { localStorage.setItem(JOE_KEY_STORE, v); } catch(e){}
+  try { sessionStorage.setItem(JOE_KEY_STORE, v); localStorage.removeItem(JOE_KEY_STORE); } catch(e){}
   const status = document.getElementById('joeKeyStatus');
   if (status) { status.textContent = '✓ Key saved — Joe AI is active'; status.style.color = 'var(--green)'; }
   const inp = document.getElementById('joeKeyInputSettings');

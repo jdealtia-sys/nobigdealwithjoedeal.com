@@ -14,31 +14,27 @@ useDefault = true
 # the first push flagged `gcp-api-key` on docs/admin/js/pages/mfa-enroll.js:21
 # despite having the allowlist in place.
 [allowlist]
-description = "NBD Pro allowlist — client-side public material + test fixtures"
+description = "NBD Pro allowlist — known-public client material + placeholders"
 
 # Paths exempted from ALL rules:
-#
-# - docs/**/*.js + docs/**/*.html are the public web client. Firebase
-#   Web API keys (AIza*) are domain-restricted, not secrets. Stripe
-#   publishable keys (pk_live_*) are public. Any real server secret
-#   that reached the client would be visible in devtools anyway, so
-#   defense-in-depth lives in the grep secret-scan job (still runs
-#   on these paths via the CI workflow) and the server-side
-#   defineSecret() discipline in functions/.
-# - tests/** never contains real secrets; synthetic fixtures only.
-# - _archive/** is quarantined legacy code awaiting deletion.
+# Tests carry synthetic fixtures only. _archive/** is quarantined.
+# We INTENTIONALLY no longer blanket-allowlist docs/** — a real Stripe
+# live secret or Anthropic key in a debug file under docs/ should fail
+# CI. Instead we exempt the specific regex patterns that are documented
+# as public (Firebase web API keys, Stripe publishable keys) below.
 paths = [
-    '''^docs/.*\.html$''',
-    '''^docs/.*\.js$''',
     '''^tests/''',
     '''.*/_archive/.*''',
 ]
 
 # Content regexes exempted globally — match against the secret body.
-# These patterns are PLACEHOLDERS used in setup instructions; real
-# secrets never take this shape.
+# These patterns are PUBLIC by design or placeholders in setup
+# instructions; real server secrets never take these shapes.
 regexTarget = "match"
 regexes = [
+    '''AIza[0-9A-Za-z_-]{35}''',    # Firebase Web API key (domain-restricted, public)
+    '''pk_live_[0-9A-Za-z]{20,}''', # Stripe publishable key (public by design)
+    '''pk_test_[0-9A-Za-z]{20,}''', # Stripe test publishable key
     '''sk-ant-\.{3,}''',            # sk-ant-... placeholder
     '''sk_live_\.{3,}''',           # sk_live_... placeholder
     '''paste your sk[_-]''',        # "paste your sk_..." instructions
