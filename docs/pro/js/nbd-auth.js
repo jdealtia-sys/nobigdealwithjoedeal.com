@@ -20,7 +20,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -224,7 +224,7 @@ export const NBDAuth = {
         const appCheckKey = (typeof window !== 'undefined' && window.__NBD_APP_CHECK_KEY || '').trim();
         if (appCheckKey && !window.__NBD_APP_CHECK_INITIALIZED) {
           initializeAppCheck(_app, {
-            provider: new ReCaptchaV3Provider(appCheckKey),
+            provider: new ReCaptchaEnterpriseProvider(appCheckKey),
             isTokenAutoRefreshEnabled: true
           });
           window.__NBD_APP_CHECK_INITIALIZED = true;
