@@ -607,6 +607,32 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
 
+    <div class="tile-group" id="homeSizeGroup">
+      <div class="tile-group-label">Home Size</div>
+      <div class="tiles">
+        <div class="tile" data-value="small" onclick="selectTile(this,'homeSize')">
+          <div class="tile-icon">&#127969;</div>
+          <div class="tile-label">Small</div>
+          <div class="tile-desc">Under 1,500 sq ft</div>
+        </div>
+        <div class="tile selected" data-value="typical" onclick="selectTile(this,'homeSize')">
+          <div class="tile-icon">&#127968;</div>
+          <div class="tile-label">Typical</div>
+          <div class="tile-desc">1,500 – 2,500 sq ft</div>
+        </div>
+        <div class="tile" data-value="large" onclick="selectTile(this,'homeSize')">
+          <div class="tile-icon">&#127960;</div>
+          <div class="tile-label">Large</div>
+          <div class="tile-desc">2,500+ sq ft</div>
+        </div>
+        <div class="tile" data-value="not_sure" onclick="selectTile(this,'homeSize')">
+          <div class="tile-icon">&#10067;</div>
+          <div class="tile-label">Not Sure</div>
+          <div class="tile-desc">Joe will measure</div>
+        </div>
+      </div>
+    </div>
+
     <div class="tile-group">
       <div class="tile-group-label">Timeline</div>
       <div class="tiles">
@@ -984,7 +1010,9 @@ let funnelData = {
   lon: null,
   service: '',
   roofType: 'asphalt',
+  homeSize: 'typical',     // small | typical | large | not_sure
   timeline: '',
+  insuranceClaim: null,    // null | true | false (storm-damage only)
   firstName: '',
   lastName: '',
   phone: '',
@@ -993,6 +1021,52 @@ let funnelData = {
   ballpark: { min: 0, max: 0 },
   estimate: null
 };
+
+/* ── Unified pricing model — single source of truth ──
+ * Per-square pricing for shingles ($/square = 100 sqft of roof).
+ * Tier midpoint of "Better" (architectural) drives the ballpark range
+ * shown on step 4; AI estimate + fallback use the same numbers so the
+ * homeowner never sees a price drop or jump between screens.
+ * Rates: Greater Cincinnati / N. Kentucky / SE Indiana market, Q2 2026.
+ */
+const PRICING = {
+  // $/square installed (1 square = 100 sq ft of roof)
+  roof: {
+    asphalt: { good: [320, 380],  better: [420, 520],  best: [580, 750] },
+    metal:   { good: [900, 1100], better: [1100, 1400], best: [1400, 1800] },
+    flat:    { good: [400, 500],  better: [500, 650],  best: [650, 850] }
+  },
+  // Roof repair = scope-based, not size-based
+  roofRepair: {
+    asphalt: [350, 2500],
+    metal:   [500, 3500],
+    flat:    [300, 2000],
+    other:   [350, 2500]
+  },
+  // Siding $/sq ft of wall
+  siding: {
+    vinyl:        { good: [4.5, 6.5], better: [6.5, 9],   best: [9, 12] },
+    fiber_cement: { good: [8, 11],    better: [11, 14],   best: [14, 18] },
+    wood:         { good: [7, 10],    better: [10, 13],   best: [13, 17] }
+  },
+  sidingRepair: [400, 3500],
+  // Gutters $/linear ft installed
+  gutters: {
+    aluminum: [9, 14],
+    seamless: [12, 22]
+  },
+  // Storm damage routed through insurance — homeowner pays deductible only
+  stormDeductible: [500, 2500]
+};
+
+// Roof squares (100 sqft) by home-size tile
+const SIZE_SQUARES = { small: 14, typical: 20, large: 30, not_sure: 20 };
+// Approximate exterior wall sqft for siding (single-story * perimeter * ~9ft)
+const SIZE_WALL_SQFT = { small: 1100, typical: 1700, large: 2700, not_sure: 1700 };
+// Approximate gutter linear feet
+const SIZE_GUTTER_LF = { small: 130, typical: 200, large: 300, not_sure: 200 };
+// Human label
+const SIZE_LABEL = { small: 'Small (~1,200 sq ft)', typical: 'Typical (~2,000 sq ft)', large: 'Large (~3,000 sq ft)', not_sure: 'Joe will measure' };
 
 /* ── Progress Bar ── */
 function updateProgress(step) {
@@ -1296,66 +1370,24 @@ function selectTile(el, group) {
     }
   } else if (group === 'roofType') {
     funnelData.roofType = value;
+  } else if (group === 'homeSize') {
+    funnelData.homeSize = value;
   } else if (group === 'timeline') {
     funnelData.timeline = value;
   }
 
-  // Enable/disable next button
-  document.getElementById('btnStep3').disabled = !(funnelData.service && funnelData.timeline);
+  // Enable/disable next button — service, size, and timeline all required
+  document.getElementById('btnStep3').disabled = !(funnelData.service && funnelData.homeSize && funnelData.timeline);
 }
 
-/* ── Ballpark Calculation ── */
+/* ── Ballpark Calculation ──
+ * Drives step-4 ballpark. Always uses the unified PRICING model so the
+ * range you see on step 4 is consistent with the AI estimate and fallback
+ * shown on step 5+.
+ */
 function calculateBallpark() {
-  const ranges = {
-    'roof-replacement': {
-      asphalt: { min: 8500, max: 15000 },
-      metal: { min: 18000, max: 32000 },
-      flat: { min: 10000, max: 18000 }
-    },
-    'roof-repair': {
-      asphalt: { min: 350, max: 2500 },
-      metal: { min: 500, max: 3500 },
-      flat: { min: 300, max: 2000 }
-    },
-    'siding': {
-      vinyl: { min: 8000, max: 16000 },
-      fiber_cement: { min: 12000, max: 24000 },
-      wood: { min: 10000, max: 20000 }
-    },
-    'gutters': {
-      aluminum: { min: 1200, max: 3000 },
-      seamless: { min: 1500, max: 4000 }
-    },
-    'storm-damage': {
-      asphalt: { min: 8500, max: 15000 },
-      metal: { min: 18000, max: 32000 },
-      flat: { min: 10000, max: 18000 }
-    }
-  };
-
-  // Map service tile values to ranges keys (siding-replacement → siding, etc.)
-  var serviceKey = funnelData.service;
-  if (serviceKey === 'siding-replacement' || serviceKey === 'siding-repair') serviceKey = 'siding';
-  if (serviceKey === 'gutter-replacement') serviceKey = 'gutters';
-
-  // Default material fallback when roof type group isn't shown (siding/gutters)
-  var materialKey = funnelData.roofType;
-  if (serviceKey === 'siding' && !ranges.siding[materialKey]) materialKey = 'vinyl';
-  if (serviceKey === 'gutters' && !ranges.gutters[materialKey]) materialKey = 'seamless';
-
-  var range = ranges[serviceKey] && ranges[serviceKey][materialKey];
-  if (!range) {
-    // Fallback: use the first material option for the service
-    var svc = ranges[serviceKey] || ranges['roof-replacement'];
-    var firstKey = Object.keys(svc)[0];
-    range = svc[firstKey];
-  }
-
-  // Storm damage or ASAP timeline nudges the range up slightly (urgency premium)
-  if (funnelData.timeline === 'asap') {
-    range = { min: Math.round(range.min * 1.05), max: Math.round(range.max * 1.10) };
-  }
-
+  var size = funnelData.homeSize || 'typical';
+  var range = priceRangeForFunnel(size);
   funnelData.ballpark = { min: range.min, max: range.max };
 
   // Update ballpark reveal DOM
@@ -1363,6 +1395,19 @@ function calculateBallpark() {
   var priceEl = document.getElementById('ballparkPrice');
   if (priceEl) {
     priceEl.innerHTML = fmt(range.min) + ' <span>&#8211; ' + fmt(range.max) + '</span>';
+  }
+
+  // Reframe context line so homeowner doesn't expect the next screen to match exactly
+  var contextEl = document.getElementById('ballparkContext');
+  if (contextEl) {
+    var serviceKey = funnelData.service;
+    if (serviceKey === 'storm-damage') {
+      contextEl.textContent = 'Typical out-of-pocket if going through insurance — your deductible. Insurance covers the rest.';
+    } else if (serviceKey === 'roof-replacement') {
+      contextEl.textContent = 'Architectural-shingle range for a ' + sizeShortLabel(size) + ' home in your area. The next step shows tier-by-tier pricing once we have your details.';
+    } else {
+      contextEl.textContent = 'Typical range for a ' + sizeShortLabel(size) + ' home in your area. The next step shows the detailed breakdown.';
+    }
   }
 
   // Factor cards
@@ -1398,13 +1443,71 @@ function calculateBallpark() {
   var bpArea     = document.getElementById('bpArea');
   if (bpService)  bpService.textContent  = serviceLabels[funnelData.service]  || funnelData.service || '—';
   if (bpTimeline) bpTimeline.textContent = timelineLabels[funnelData.timeline] || funnelData.timeline || '—';
-  if (bpMaterial) bpMaterial.textContent = materialLabels[materialKey]         || materialKey        || '—';
+  if (bpMaterial) bpMaterial.textContent = funnelData.service === 'storm-damage'
+    ? 'Insurance Claim'
+    : (materialLabels[ballparkMaterialKey()] || ballparkMaterialKey() || '—');
   if (bpArea) {
-    // Extract city / region from the address when we can
     var addr = funnelData.address || '';
     var m = addr.match(/,\s*([^,]+?),\s*([A-Z]{2})\b/);
     bpArea.textContent = m ? (m[1].trim() + ', ' + m[2]) : 'Greater Cincinnati, OH';
   }
+}
+
+function sizeShortLabel(s) {
+  if (s === 'small')   return 'small';
+  if (s === 'large')   return 'large';
+  if (s === 'not_sure') return 'typical';
+  return 'typical';
+}
+
+// Material defaulted for the chosen service (used by ballpark + AI fallback)
+function ballparkMaterialKey() {
+  var s = funnelData.service;
+  var m = funnelData.roofType;
+  if (s === 'siding-replacement' || s === 'siding-repair') {
+    return ['vinyl', 'fiber_cement', 'wood'].indexOf(m) >= 0 ? m : 'vinyl';
+  }
+  if (s === 'gutter-replacement') {
+    return ['aluminum', 'seamless'].indexOf(m) >= 0 ? m : 'seamless';
+  }
+  if (m === 'other') return 'asphalt';
+  return m || 'asphalt';
+}
+
+// Compute the headline price range for step 4 based on service + material + size.
+// All other surfaces (AI prompt, fallback) read from the same PRICING table.
+function priceRangeForFunnel(size) {
+  var s = funnelData.service;
+  var mat = ballparkMaterialKey();
+  var sz = SIZE_SQUARES[size] || 20;
+
+  if (s === 'storm-damage') {
+    return { min: PRICING.stormDeductible[0], max: PRICING.stormDeductible[1] };
+  }
+  if (s === 'roof-repair') {
+    var r = PRICING.roofRepair[mat] || PRICING.roofRepair.asphalt;
+    return { min: r[0], max: r[1] };
+  }
+  if (s === 'roof-replacement') {
+    // Use Better (architectural) tier as the headline range — most-chosen tier
+    var b = (PRICING.roof[mat] || PRICING.roof.asphalt).better;
+    return { min: Math.round(b[0] * sz), max: Math.round(b[1] * sz) };
+  }
+  if (s === 'siding-replacement') {
+    var w = SIZE_WALL_SQFT[size] || 1700;
+    var sb = (PRICING.siding[mat] || PRICING.siding.vinyl).better;
+    return { min: Math.round(sb[0] * w), max: Math.round(sb[1] * w) };
+  }
+  if (s === 'siding-repair') {
+    return { min: PRICING.sidingRepair[0], max: PRICING.sidingRepair[1] };
+  }
+  if (s === 'gutter-replacement') {
+    var lf = SIZE_GUTTER_LF[size] || 200;
+    var g = PRICING.gutters[mat] || PRICING.gutters.seamless;
+    return { min: Math.round(g[0] * lf), max: Math.round(g[1] * lf) };
+  }
+  // Sensible default
+  return { min: 8500, max: 13000 };
 }
 
 // Phone number formatting
@@ -1660,23 +1763,35 @@ async function submitAndGetEstimate() {
       flat: 'flat/low-slope roofing'
     }[funnelData.roofType] || 'asphalt shingles';
 
-    var prompt = 'You are Joe Deal, owner of No Big Deal Home Solutions, a roofing contractor in Greater Cincinnati, OH. A verified homeowner wants a detailed estimate.\n\n' +
+    // Pull NBD's actual per-square pricing into the prompt so the AI can't drift.
+    var roofMat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
+    var matPricing = PRICING.roof[roofMat] || PRICING.roof.asphalt;
+    var sizeCat = funnelData.homeSize || 'typical';
+    var sizeHint = SIZE_LABEL[sizeCat] || SIZE_LABEL.typical;
+    var coordHint = (funnelData.lat && funnelData.lon)
+      ? funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4)
+      : 'unknown';
+
+    var prompt = 'You are Joe Deal, owner of No Big Deal Home Solutions. NBD serves the Greater Cincinnati metro area — SW Ohio, Northern Kentucky, and SE Indiana. A verified homeowner wants a detailed roof estimate.\n\n' +
       'Address: ' + funnelData.address + '\n' +
+      'Coordinates: ' + coordHint + '\n' +
       'Service: ' + serviceLabel + '\n' +
       'Material preference: ' + materialLabel + '\n' +
+      'Homeowner-reported size: ' + sizeHint + '\n' +
       'Timeline: ' + funnelData.timeline + '\n' +
       'Name: ' + funnelData.firstName + '\n\n' +
-      'Based on this address and typical homes in this area, provide a JSON response with:\n' +
-      '1. Estimate the roof area in square feet\n' +
-      '2. Calculate squares (roof sqft / 100)\n' +
-      '3. Price ranges for 3 tiers: Good (3-tab), Better (architectural), Best (designer)\n' +
-      '4. Estimate the year built if possible\n' +
-      '5. A 2-3 sentence personalized "Joe\'s take" addressing ' + funnelData.firstName + ' by name\n\n' +
-      'Use 2026 Cincinnati-area rates:\n' +
-      '- Good (3-tab): $320-$380/square installed\n' +
-      '- Better (architectural): $420-$520/square installed\n' +
-      '- Best (designer/premium): $580-$750/square installed\n\n' +
-      'RESPOND ONLY WITH THIS JSON:\n' +
+      'Use the homeowner-reported size as your primary signal. Refine it with your knowledge of typical homes near these coordinates if you have it (lot patterns, year built norms, suburb characteristics). Do not assume a generic 1,800 sqft default — actually reason about the address.\n\n' +
+      'Apply NBD\'s actual installed pricing for this material:\n' +
+      '- Good (3-tab):           $' + matPricing.good[0]   + '-$' + matPricing.good[1]   + '/square\n' +
+      '- Better (architectural): $' + matPricing.better[0] + '-$' + matPricing.better[1] + '/square\n' +
+      '- Best (designer):        $' + matPricing.best[0]   + '-$' + matPricing.best[1]   + '/square\n\n' +
+      'Return JSON with:\n' +
+      '1. roofSqft: estimated roof area in sq ft\n' +
+      '2. squares: roofSqft / 100\n' +
+      '3. tiers: price ranges for Good / Better / Best (= squares × the per-square ranges above)\n' +
+      '4. yearBuilt: estimate if you can, else null\n' +
+      '5. joesTake: 2-3 sentence personalized note addressing ' + funnelData.firstName + ' by name. Reference the neighborhood/city if you can. Do not promise a specific price — say "Joe will give you the exact number after walking your roof."\n\n' +
+      'RESPOND ONLY WITH THIS JSON (no markdown, no commentary):\n' +
       '{"roofSqft":number,"squares":number,"yearBuilt":number_or_null,"tiers":{"good":{"min":number,"max":number},"better":{"min":number,"max":number},"best":{"min":number,"max":number}},"joesTake":"string"}';
 
     var resp = await fetch(CONFIG.PROXY_URL, {
@@ -1699,20 +1814,34 @@ async function submitAndGetEstimate() {
 
   } catch(err) {
     console.error('Estimate error:', err);
-    // Fallback estimate using regional averages
-    var fb = {
-      roofSqft: 1800, squares: 18, yearBuilt: null,
-      tiers: {
-        good: { min: 5760, max: 6840 },
-        better: { min: 7560, max: 9360 },
-        best: { min: 10440, max: 13500 }
-      },
-      joesTake: funnelData.firstName + ", I couldn't pull the exact details for this address right now, so the numbers above are typical Cincinnati-area ranges for a 1,800 sq ft roof. I'd love to come measure in person and give you real numbers — free, no obligation.",
-      _isFallback: true
-    };
-    funnelData.estimate = fb;
-    setTimeout(function() { showResults(fb); }, 1500);
+    setTimeout(function() { showResults(buildFallbackEstimate()); }, 1500);
   }
+}
+
+// Build a size-aware fallback that's consistent with the step-4 ballpark.
+// Same per-square pricing the AI is asked to use, so the homeowner never
+// sees a price drop or jump between screens.
+function buildFallbackEstimate() {
+  var size = funnelData.homeSize || 'typical';
+  var squares = SIZE_SQUARES[size] || 20;
+  var sqft = squares * 100;
+  var mat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
+  var p = PRICING.roof[mat] || PRICING.roof.asphalt;
+  var tiers = {
+    good:   { min: Math.round(p.good[0]   * squares), max: Math.round(p.good[1]   * squares) },
+    better: { min: Math.round(p.better[0] * squares), max: Math.round(p.better[1] * squares) },
+    best:   { min: Math.round(p.best[0]   * squares), max: Math.round(p.best[1]   * squares) }
+  };
+  var fb = {
+    roofSqft: sqft,
+    squares: squares,
+    yearBuilt: null,
+    tiers: tiers,
+    joesTake: funnelData.firstName + ", the live estimate engine couldn't reach me right now, so the numbers above are the architectural-tier range I install for a " + sizeShortLabel(size) + " home in your area. I'd rather measure your roof in person and give you the exact number — free, no obligation.",
+    _isFallback: true
+  };
+  funnelData.estimate = fb;
+  return fb;
 }
 
 /* ── Show Results ── */
