@@ -338,16 +338,16 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="row">
       <div class="field">
         <label>First Name</label>
-        <input type="text" id="alertName" placeholder="John">
+        <input type="text" id="alertName" placeholder="John" autocomplete="given-name">
       </div>
       <div class="field">
         <label>Phone Number</label>
-        <input type="tel" id="alertPhone" placeholder="(513) 555-0123">
+        <input type="tel" id="alertPhone" placeholder="(513) 555-0123" autocomplete="tel" inputmode="tel">
       </div>
     </div>
     <div class="field">
       <label>Zip Code</label>
-      <input type="text" id="alertZip" placeholder="45122" maxlength="5" pattern="[0-9]{5}">
+      <input type="text" id="alertZip" placeholder="45122" maxlength="5" pattern="[0-9]{5}" autocomplete="postal-code" inputmode="numeric">
     </div>
     <div class="field">
       <label>What Are You Most Concerned About?</label>
@@ -444,9 +444,15 @@ async function submitAlert() {
   btn.textContent = 'Signing you up...';
 
   const saved = await window._saveStormAlert?.({ name, phone: cleanPhone, zip, concern });
-  
-  document.getElementById('formState').style.display = 'none';
-  document.getElementById('successState').style.display = 'block';
+
+  if (saved) {
+    document.getElementById('formState').style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+  } else {
+    btn.disabled = false;
+    btn.textContent = '🔔 Sign Me Up — Free';
+    alert("Sorry — we couldn't sign you up just now. Please try again, or text Joe at (859) 420-7382.");
+  }
 }
 </script>
 </body>

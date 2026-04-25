@@ -364,12 +364,14 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 .about-hero-cta .btn-ghost { background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.35); padding:14px 26px; border-radius:8px; font-weight:700; font-size:.92rem; text-decoration:none; letter-spacing:.02em; display:inline-flex; align-items:center; gap:8px; transition:border-color .18s ease, background .18s ease; }
 .about-hero-cta .btn-ghost:hover { border-color:var(--orange); background:rgba(232,114,12,.1); }
 .about-photo-wrap { position:relative; justify-self:center; }
+.about-photo-frame { position:relative; display:block; width:100%; max-width:360px; margin:0 auto; }
 .about-photo { position:relative; z-index:1; width:100%; max-width:360px; aspect-ratio:1; object-fit:cover; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.45); display:block; }
-.about-photo-caption { position:relative; z-index:1; margin-top:16px; text-align:center; font-size:.78rem; color:rgba(255,255,255,.6); letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
+.about-photo-caption { position:relative; z-index:1; margin-top:18px; text-align:center; font-size:.92rem; color:rgba(255,255,255,.92); letter-spacing:.1em; text-transform:uppercase; font-weight:800; }
 .about-photo-caption span { color:var(--orange); }
 @media(max-width:860px) {
   .about-inner { grid-template-columns:1fr; gap:40px; }
   .about-photo-wrap { order:-1; max-width:280px; margin:0 auto; }
+  .about-photo-frame { max-width:280px; }
   .about-photo { max-width:280px; }
 }
 .about-section { padding:72px 5%; }
@@ -413,7 +415,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 </style><style>
 /* trust-icon fix */
 .trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
 /* nav-ico sizing (injected) */
@@ -428,7 +430,7 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
 .wc-phone-icon svg.ico{width:26px;height:26px}
 .trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
 /* nav base (injected) */
@@ -615,11 +617,13 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
         <a href="/estimate" class="btn-ghost">Get My Free Estimate →</a>
       </div>
     </div>
-    <div class="about-photo-wrap" style="position:relative;">
-      <img src="/assets/images/joe-hero.jpg" alt="Joe Deal — owner and operator of No Big Deal Home Solutions, Greater Cincinnati roofer" class="about-photo" width="720" height="720" loading="eager" fetchpriority="high">
-      <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor status on GAF.com" style="position:absolute;bottom:14px;right:14px;background:#fff;border:2px solid rgba(0,0,0,.06);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:block;line-height:0;transition:transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified™ Residential Roofing Contractor" width="84" height="84" loading="lazy" style="display:block;">
-      </a>
+    <div class="about-photo-wrap">
+      <div class="about-photo-frame">
+        <img src="/assets/images/joe-hero.jpg" alt="Joe Deal — owner and operator of No Big Deal Home Solutions, Greater Cincinnati roofer" class="about-photo" width="720" height="720" loading="eager" fetchpriority="high">
+        <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor status on GAF.com" style="position:absolute;bottom:14px;right:14px;z-index:2;background:#fff;border:2px solid rgba(0,0,0,.06);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:block;line-height:0;transition:transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified™ Residential Roofing Contractor" width="84" height="84" loading="lazy" style="display:block;">
+        </a>
+      </div>
       <div class="about-photo-caption">This is Joe. <span>You'll deal with him.</span></div>
     </div>
   </div>
