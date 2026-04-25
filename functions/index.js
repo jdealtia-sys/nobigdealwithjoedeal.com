@@ -1509,6 +1509,173 @@ exports.migratePinsToKnocks = onCall(
 );
 
 // ═════════════════════════════════════════════════════════════
+// auditCustomerDataIntegrity (Rock 3 PR 2)
+//
+// Read-only inventory of the caller's leads. Reports counts of
+// leads missing companyId or customerId, plus 5 sample doc IDs of
+// each so Joe can spot-check before running backfill. Caller-scoped
+// — only sees their own leads (filtered by userId == request.auth.uid),
+// so a rep can't audit somebody else's tenant.
+//
+// Returns:
+//   {
+//     total: <int>,
+//     missingCompanyId: <int>, sampleMissingCompanyId: [docId, ...],
+//     missingCustomerId: <int>, sampleMissingCustomerId: [docId, ...]
+//   }
+//
+// Counterpart write fn: backfillCustomerData (next).
+// ═════════════════════════════════════════════════════════════
+exports.auditCustomerDataIntegrity = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 120,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const db = admin.firestore();
+    const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
+
+    let missingCompanyId = 0;
+    let missingCustomerId = 0;
+    const sampleMissingCompanyId = [];
+    const sampleMissingCustomerId = [];
+
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (!d.companyId) {
+        missingCompanyId++;
+        if (sampleMissingCompanyId.length < 5) sampleMissingCompanyId.push(doc.id);
+      }
+      if (!d.customerId) {
+        missingCustomerId++;
+        if (sampleMissingCustomerId.length < 5) sampleMissingCustomerId.push(doc.id);
+      }
+    }
+
+    logger.info('auditCustomerDataIntegrity', {
+      uid, total: snap.size, missingCompanyId, missingCustomerId
+    });
+
+    return {
+      total: snap.size,
+      missingCompanyId,
+      sampleMissingCompanyId,
+      missingCustomerId,
+      sampleMissingCustomerId
+    };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// backfillCustomerData (Rock 3 PR 2)
+//
+// Idempotent migration: scans the caller's leads and patches any
+// doc missing `companyId` or `customerId`. Companies default to
+// the caller's existing companyId claim, falling back to their uid
+// (matches the solo-operator convention used in _saveLead and the
+// `callerCompanyId = decoded.companyId || decoded.uid` pattern in
+// the analytics callables). customerIds are allocated via the
+// existing counters/customerIds transaction so we don't reuse
+// numbers from the live counter.
+//
+// Safe to run multiple times — re-runs no-op on docs already fixed.
+//
+// Returns:
+//   {
+//     scanned: <int>,
+//     fixedCompanyId: <int>,
+//     fixedCustomerId: <int>,
+//     stillMissing: <int>   // any doc the function couldn't safely patch
+//   }
+// ═════════════════════════════════════════════════════════════
+exports.backfillCustomerData = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 540,
+    memory: '512MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const db = admin.firestore();
+    const callerCompanyId = (request.auth.token && request.auth.token.companyId) || uid;
+
+    const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
+
+    let fixedCompanyId = 0;
+    let fixedCustomerId = 0;
+    let stillMissing = 0;
+    let batch = db.batch();
+    let batchCount = 0;
+
+    const counterRef = db.collection('counters').doc('customerIds');
+
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const updates = {};
+
+      if (!d.companyId) {
+        updates.companyId = callerCompanyId;
+        fixedCompanyId++;
+      }
+
+      if (!d.customerId) {
+        // Allocate a new NBD-#### transactionally, OUTSIDE the batch,
+        // because the counter increment is global and the batch must
+        // not race with a concurrent _saveLead client write.
+        try {
+          const newCid = await db.runTransaction(async (tx) => {
+            const cs = await tx.get(counterRef);
+            const next = cs.exists ? (cs.data().next || 0) + 1 : 1;
+            tx.set(counterRef, { next }, { merge: true });
+            return 'NBD-' + String(next).padStart(4, '0');
+          });
+          updates.customerId = newCid;
+          fixedCustomerId++;
+        } catch (cidErr) {
+          logger.warn('backfillCustomerData: customerId alloc failed', { docId: doc.id, err: cidErr && cidErr.message });
+          stillMissing++;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updates.backfilledAt = admin.firestore.FieldValue.serverTimestamp();
+        batch.update(doc.ref, updates);
+        batchCount++;
+
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = db.batch();
+          batchCount = 0;
+        }
+      }
+    }
+
+    if (batchCount > 0) await batch.commit();
+
+    logger.info('backfillCustomerData: done', {
+      uid, scanned: snap.size, fixedCompanyId, fixedCustomerId, stillMissing
+    });
+
+    return {
+      scanned: snap.size,
+      fixedCompanyId,
+      fixedCustomerId,
+      stillMissing
+    };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
 // onRepSignup — Blocking auth trigger (beforeUserCreated)
 //
 // Fires when ANY user creates an account. Checks if their email
