@@ -389,10 +389,28 @@ export const NBDAuth = {
           ]);
           if (subSnap.exists()) {
             _subscription = subSnap.data();
-            if (_subscription.status === 'active') {
+            // Stripe's standard "active" states are 'active' AND 'trialing'.
+            // Previously only 'active' was honoured — every user inside
+            // their 14-day trial window (the typical Stripe state during
+            // trial) silently downgraded to 'free' the moment they
+            // logged in. Trial users got locked out of Pro features
+            // with no upgrade-flow surfacing. Now both states resolve
+            // to the paid plan; the trialEndsAt check below still
+            // downgrades to lite once the trial actually expires.
+            const _isActiveStatus = _subscription.status === 'active'
+              || _subscription.status === 'trialing';
+            if (_isActiveStatus) {
               _userPlan = _normalizePlan(_subscription.plan || 'foundation');
 
               // ── Trial expiration check ──
+              // Mark trial users explicitly when status === 'trialing'
+              // even if no trialEndsAt is set — billing-gate.js reads
+              // _isTrialUser to drive the trial banner / countdown UI,
+              // and we don't want to lose that signal just because a
+              // trialing-state doc happens not to carry the timestamp.
+              if (_subscription.status === 'trialing') {
+                _isTrialUser = true;
+              }
               if (_subscription.trialEndsAt) {
                 const trialEnd = _subscription.trialEndsAt.toDate ? _subscription.trialEndsAt.toDate() : new Date(_subscription.trialEndsAt);
                 const now = new Date();

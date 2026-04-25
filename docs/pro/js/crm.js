@@ -872,22 +872,59 @@ async function moveCard(id, newStage){
   if (isLostMove && lostReason) historyEvent.lostReason = lostReason;
 
   try {
-    // Save to Firebase in background
+    // Save to Firebase in background.
+    // Cross-tab guard: previous code did a bare updateDoc which let
+    // two tabs viewing the same lead each fire `arrayUnion` on
+    // stageHistory and a fresh stageStartedAt — duplicate "Stage moved"
+    // notes appeared on the timeline and the days-in-stage badge
+    // reset to whichever serverTimestamp landed last. Use a Firestore
+    // transaction that aborts if the server's `stage` no longer
+    // matches the `oldStage` we expect — that means another tab beat
+    // us, and we should NOT re-apply our move.
     const leadRef = window.doc(window.db, 'leads', id);
-    const updatePayload = {
-      stage: newStage,
-      updatedAt: window.serverTimestamp(),
-      // stageStartedAt — drives the days-in-stage badge on customer.html.
-      // Reset every time the stage actually changes; staying at the same
-      // stage (no-op move) preserves the original timestamp.
-      stageStartedAt: window.serverTimestamp(),
-      stageHistory: window.arrayUnion(historyEvent)
-    };
-    if (isLostMove) {
-      updatePayload.closedAt = window.serverTimestamp();
-      if (lostReason) updatePayload.lostReason = lostReason;
+    if (typeof window.runTransaction === 'function') {
+      await window.runTransaction(window.db, async (tx) => {
+        const snap = await tx.get(leadRef);
+        if (!snap.exists()) throw new Error('Lead not found');
+        const cur = snap.data() || {};
+        // Stage already matches — another tab won. No-op write but
+        // throw so the catch path can restore our optimistic state.
+        if (cur.stage === newStage) {
+          throw new Error('STAGE_RACE_NOOP');
+        }
+        // Only enforce the from-stage check when we actually have one
+        // recorded; brand-new optimistic-inserted leads can have
+        // undefined `lead.stage` locally even though Firestore has
+        // already settled on 'New'. Treat undefined as "trust me".
+        if (oldStage && cur.stage && cur.stage !== oldStage) {
+          throw new Error('STAGE_RACE_LOST');
+        }
+        const payload = {
+          stage: newStage,
+          updatedAt: window.serverTimestamp(),
+          stageStartedAt: window.serverTimestamp(),
+          stageHistory: window.arrayUnion(historyEvent)
+        };
+        if (isLostMove) {
+          payload.closedAt = window.serverTimestamp();
+          if (lostReason) payload.lostReason = lostReason;
+        }
+        tx.update(leadRef, payload);
+      });
+    } else {
+      // Fallback for any page where runTransaction isn't exposed yet.
+      const updatePayload = {
+        stage: newStage,
+        updatedAt: window.serverTimestamp(),
+        stageStartedAt: window.serverTimestamp(),
+        stageHistory: window.arrayUnion(historyEvent)
+      };
+      if (isLostMove) {
+        updatePayload.closedAt = window.serverTimestamp();
+        if (lostReason) updatePayload.lostReason = lostReason;
+      }
+      await window.updateDoc(leadRef, updatePayload);
     }
-    await window.updateDoc(leadRef, updatePayload);
     
     // Update local state with history
     if(!lead.stageHistory) lead.stageHistory = [];
@@ -926,20 +963,42 @@ async function moveCard(id, newStage){
     
     renderLeads(window._leads, window._filteredLeads);
     
-  } catch(e){ 
+  } catch(e){
     console.error('moveCard error',e);
-    
+
     // ══════════════════════════════════════════════
     // ROLLBACK — Revert UI if Firebase fails
     // ══════════════════════════════════════════════
+    // STAGE_RACE_NOOP: another tab already moved this card to the
+    // same stage we wanted. The destination is correct — clear the
+    // syncing flag and pull the latest doc so we agree with Firestore.
+    if (e && e.message === 'STAGE_RACE_NOOP') {
+      lead._syncing = false;
+      delete lead._pending;
+      try { await loadLeads(); } catch(_) {}
+      return;
+    }
+    // STAGE_RACE_LOST: another tab moved this card to a DIFFERENT
+    // stage. Don't override their move — restore from Firestore so
+    // the kanban reflects the actual stored stage.
+    if (e && e.message === 'STAGE_RACE_LOST') {
+      lead._syncing = false;
+      delete lead._pending;
+      if (typeof window.showToast === 'function') {
+        window.showToast('Another tab moved this card — refreshed.', 'info');
+      }
+      try { await loadLeads(); } catch(_) {}
+      return;
+    }
+
     lead.stage = oldStage;
     lead._stageKey = oldStageKey;
     lead._syncing = false;
     lead._syncError = true;
     delete lead._pending;
-    
+
     renderLeads(window._leads, window._filteredLeads);
-    
+
     // Show error toast with undo action
     if (typeof window.showToast === 'function') {
       window.showToast({
