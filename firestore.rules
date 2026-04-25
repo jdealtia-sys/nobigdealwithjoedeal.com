@@ -59,9 +59,23 @@ service cloud.firestore {
     }
 
     // ── LEADS ─────────────────────────────────────────
+    // companyId is required on create. The Rock 3 backfill
+    // (PR #56 audit/backfill callable) stamped companyId on every
+    // pre-existing lead, so the field is now an invariant — every
+    // lead in /leads/{leadId} must carry the creator's tenant scope.
+    // Enforcing it here closes the "stray lead with no companyId"
+    // hole that would otherwise let team-scoped queries (managers,
+    // leaderboard rollups) silently miss new records.
+    //
+    // Token-claim ownership match (companyId == myCompanyId()) is
+    // intentionally NOT enforced yet — that's a follow-up after
+    // verifying every active user's custom claims include companyId.
     match /leads/{leadId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0;
 
       // D3: flat-path subcollections — the measurementWebhook +
       // esignWebhook auto-append activity here via admin SDK. Rules
