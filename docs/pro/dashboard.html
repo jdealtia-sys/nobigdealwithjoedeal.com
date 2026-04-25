@@ -1383,33 +1383,69 @@
   }
   window.testFirestoreRules = testFirestoreRules;
   
-  // Capture console logs for debug panel
+  // Capture console logs for debug panel.
+  //
+  // CRITICAL: stringify must NOT throw — Firebase's WebChannel error
+  // objects are circular (Y.i = Ka with src closing the cycle), and
+  // a previous version of this block called JSON.stringify directly
+  // on every object arg. On any transient Firestore network blip the
+  // SDK would call console.warn(circularError), our override would
+  // throw inside JSON.stringify, that uncaught throw killed Firebase's
+  // internal logger, the logger threw on every retry, and Firestore
+  // wedged into the offline state with no recovery. Symptoms in the
+  // field: "Failed to get document because the client is offline",
+  // kanban never loads, theme-achievements + mobile-nav-customizer
+  // both error out, all originating from the same JSON.stringify trap.
+  //
+  // _safeStringify uses a circular-ref-aware replacer that returns
+  // '[Circular]' instead of throwing, plus a try/catch as last-resort
+  // so even getter-throwing objects can't kill the override.
   if (!window._debugLogs) {
     window._debugLogs = [];
-    const originalLog = console.log;
-    const originalWarn = console.warn;
+    const originalLog   = console.log;
+    const originalWarn  = console.warn;
     const originalError = console.error;
-    
+
+    function _safeStringify(value) {
+      try {
+        const seen = new WeakSet();
+        return JSON.stringify(value, function (_key, v) {
+          if (typeof v === 'object' && v !== null) {
+            if (seen.has(v)) return '[Circular]';
+            seen.add(v);
+          }
+          if (typeof v === 'function') return '[Function]';
+          return v;
+        });
+      } catch (_e) {
+        try { return String(value); } catch (_e2) { return '[Unstringifiable]'; }
+      }
+    }
+
+    function _formatArgs(args) {
+      return args.map(a => typeof a === 'object' && a !== null ? _safeStringify(a) : String(a)).join(' ');
+    }
+
     console.log = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = _formatArgs(args);
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('🔍') || msg.includes('✅') || msg.includes('❌')) {
         window._debugLogs.push(`[LOG] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift(); // Keep last 50
       }
       originalLog.apply(console, args);
     };
-    
+
     console.warn = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = _formatArgs(args);
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('⚠️')) {
         window._debugLogs.push(`[WARN] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift();
       }
       originalWarn.apply(console, args);
     };
-    
+
     console.error = function(...args) {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+      const msg = _formatArgs(args);
       if (msg.includes('loadLeads') || msg.includes('CRM') || msg.includes('❌')) {
         window._debugLogs.push(`[ERROR] ${msg}`);
         if (window._debugLogs.length > 50) window._debugLogs.shift();
