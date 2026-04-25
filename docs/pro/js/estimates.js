@@ -290,8 +290,12 @@ function collectAddOns() {
   const extraLayers = Math.max(0, tearOffLayers - 1);
   const extraLayerCents = extraLayers * sq * LAYER_TEAROFF_PER_SQ_CENTS;
   const valleyCents   = valley   ? _toCents(Math.max(0, eave * 0.25 * 12)) : 0; // ~$12/LF rough
-  const chimneyCents  = chimney  ? _toCents(425) : 0;
-  const skylightCents = skylight ? _toCents(275) : 0;
+  // chimney + skylight unified with V2 via estimate-config.js (Rock 2 PR 4b).
+  // Joe-confirmed prices: chimney $425, skylight $350 (was $275 here).
+  const chimneyDollars  = (_NBD_CFG && _NBD_CFG.ADDON_CHIMNEY_FLASH)  || 425;
+  const skylightDollars = (_NBD_CFG && _NBD_CFG.ADDON_SKYLIGHT_FLASH) || 350;
+  const chimneyCents    = chimney  ? _toCents(chimneyDollars)  : 0;
+  const skylightCents   = skylight ? _toCents(skylightDollars) : 0;
   const gutterCents   = _toCents(gutterLF * 8.50);
   // Extra pipe boots beyond 4 are a spec-called-out add-on; use R.pipe
   // to keep parity with the product library's pricing.

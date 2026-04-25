@@ -219,6 +219,34 @@ test('calculateEstimate: insurance mode → 0 deposit, full remainder', () => {
   eq(r.depositRemainder, r.total, 'remainder = total');
 });
 
+// ── Add-on prices unified with classic (Rock 2 PR 4b) ──
+// Joe-confirmed values: chimney $425, skylight $350.
+test('ADDON_PRICES: chimney flash = $425 (Joe pick over V2 default $285)', () => {
+  eq(EBv2.ADDON_PRICES.chimneyFlash, 425);
+});
+test('ADDON_PRICES: skylight flash = $350 (Joe pick over classic $275)', () => {
+  eq(EBv2.ADDON_PRICES.skylightFlash, 350);
+});
+test('ADDON_PRICES: chimney+skylight match estimate-config source of truth', () => {
+  const cfg = require(require('path').join('..', 'docs', 'pro', 'js', 'estimate-config.js'));
+  eq(EBv2.ADDON_PRICES.chimneyFlash,  cfg.ADDON_CHIMNEY_FLASH,  'chimney');
+  eq(EBv2.ADDON_PRICES.skylightFlash, cfg.ADDON_SKYLIGHT_FLASH, 'skylight');
+});
+test('calculateEstimate: chimney add-on adds $425 to subtotal', () => {
+  const common = { method:'per-sq', tier:'better', mode:'insurance',
+                   rawSqft: 2000, pitch: 6, wasteFactorOverride: 1.0 };
+  const a = EBv2.calculateEstimate(Object.assign({}, common, { hasChimneyFlash: false }));
+  const b = EBv2.calculateEstimate(Object.assign({}, common, { hasChimneyFlash: true }));
+  near(b.addOnsTotal - a.addOnsTotal, 425, 0.5, 'chimney add-on premium');
+});
+test('calculateEstimate: skylight add-on adds $350 to subtotal', () => {
+  const common = { method:'per-sq', tier:'better', mode:'insurance',
+                   rawSqft: 2000, pitch: 6, wasteFactorOverride: 1.0 };
+  const a = EBv2.calculateEstimate(Object.assign({}, common, { hasSkylightFlash: false }));
+  const b = EBv2.calculateEstimate(Object.assign({}, common, { hasSkylightFlash: true }));
+  near(b.addOnsTotal - a.addOnsTotal, 350, 0.5, 'skylight add-on premium');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
