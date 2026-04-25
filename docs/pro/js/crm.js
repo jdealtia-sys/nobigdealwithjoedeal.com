@@ -868,6 +868,10 @@ async function moveCard(id, newStage){
     const updatePayload = {
       stage: newStage,
       updatedAt: window.serverTimestamp(),
+      // stageStartedAt — drives the days-in-stage badge on customer.html.
+      // Reset every time the stage actually changes; staying at the same
+      // stage (no-op move) preserves the original timestamp.
+      stageStartedAt: window.serverTimestamp(),
       stageHistory: window.arrayUnion(historyEvent)
     };
     if (isLostMove) {
@@ -1769,7 +1773,8 @@ async function bulkMoveStage() {
     return;
   }
 
-  if (!confirm(`Move ${window._bulkSelected.size} lead(s) to "${newStage}"?`)) {
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask(`Move ${window._bulkSelected.size} lead(s) to "${newStage}"?`))) {
     return;
   }
   
@@ -1799,7 +1804,8 @@ async function bulkDelete() {
     return;
   }
 
-  if (!confirm(`Delete ${window._bulkSelected.size} lead(s)? They will be moved to the trash.`)) {
+  const _askDel = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _askDel(`Delete ${window._bulkSelected.size} lead(s)? They will be moved to the trash.`))) {
     return;
   }
   
@@ -1993,7 +1999,8 @@ async function restoreDeletedLead(id) {
 }
 
 async function permanentDeleteLead(id, name) {
-  if(!confirm(`Permanently delete "${name}"? This CANNOT be undone.`)) return;
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask(`Permanently delete "${name}"? This CANNOT be undone.`))) return;
   const card = document.getElementById('dc-'+id);
   if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
   await window._permanentDeleteLead(id);
