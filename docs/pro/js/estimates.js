@@ -655,15 +655,30 @@ async function saveEstimate() {
   if(_savingEstimate) return;
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
 
-  // Resolve leadId — from URL param flow, QM import, or address match against loaded leads
+  // Resolve leadId — from URL param flow, QM import, or strict address
+  // match against loaded leads. The previous 12-char substring match was
+  // too loose ("123 Main St" matched "123 Main Street NW" or any other
+  // address sharing the same prefix). We now require either a fully
+  // normalized equality or a unique normalized prefix; ambiguous matches
+  // fall through and let the user pick a lead explicitly.
   let leadId = window._estLinkedLeadId || null;
   if (!leadId && estData.addr) {
-    const addrNorm = (estData.addr||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-    const matched = (window._leads||[]).find(l => {
-      const lNorm = (l.address||'').toLowerCase().replace(/[^a-z0-9]/g,'');
-      return lNorm && addrNorm && lNorm.includes(addrNorm.substring(0,12));
-    });
-    if (matched) leadId = matched.id;
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const addrNorm = norm(estData.addr);
+    if (addrNorm) {
+      const exact = (window._leads || []).filter(l => norm(l.address) === addrNorm);
+      if (exact.length === 1) {
+        leadId = exact[0].id;
+      } else if (exact.length === 0) {
+        // No exact match — try a prefix match but ONLY if exactly one
+        // lead matches, to avoid silently linking to the wrong customer.
+        const prefix = (window._leads || []).filter(l => {
+          const ln = norm(l.address);
+          return ln && ln.length >= addrNorm.length && ln.startsWith(addrNorm);
+        });
+        if (prefix.length === 1) leadId = prefix[0].id;
+      }
+    }
   }
 
   _savingEstimate = true;
@@ -699,8 +714,9 @@ async function saveEstimate() {
     // If we know the lead, offer to go back to customer page
     if (leadId) {
       showToast(isUpdate ? '✓ Estimate updated & linked to customer' : '✓ Estimate saved & linked to customer record', 'success');
-      setTimeout(() => {
-        if (confirm((isUpdate ? 'Estimate updated!' : 'Estimate saved!') + ' Go to customer record?')) {
+      setTimeout(async () => {
+        const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        if (await _ask((isUpdate ? 'Estimate updated!' : 'Estimate saved!') + ' Go to customer record?')) {
           window.location.href = `/pro/customer.html?id=${leadId}`;
         }
       }, 400);
@@ -1022,8 +1038,8 @@ async function deleteEstimateAction(id) {
   const src = (window._estimates || []).find(e => e.id === id);
   if (!src) { showToast('Estimate not found', 'error'); return; }
   const label = src.name || src.addr || 'this estimate';
-  // eslint-disable-next-line no-alert
-  if (!window.confirm('Delete "' + label + '"? This cannot be undone.')) return;
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask('Delete "' + label + '"? This cannot be undone.'))) return;
   if (typeof window._deleteEstimate !== 'function') {
     showToast('Delete not available', 'error');
     return;
