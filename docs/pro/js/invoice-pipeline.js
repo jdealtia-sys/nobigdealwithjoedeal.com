@@ -193,6 +193,50 @@
 
       const invoice = invSnap.data();
 
+      // ── Idempotency guard ──────────────────────────────────
+      // Refuse to re-send an invoice that's already been sent. Without
+      // this, a flaky network — where the email goes out but the
+      // followup `status:'sent'` write fails — left the invoice in
+      // 'draft' so the next "Send" tap delivered the same invoice
+      // twice to the customer. Even more important: an in-flight send
+      // (status:'sending') blocks concurrent taps from doubling up.
+      if (invoice.status === 'sent') {
+        const sentDate = invoice.sentAt?.toDate?.() || invoice.sentAt;
+        const niceDate = sentDate ? new Date(sentDate).toLocaleString() : 'previously';
+        if (window.showToast) {
+          window.showToast('Invoice already sent ' + niceDate + '. Use "Resend" to override.', 'info');
+        }
+        throw new Error('Invoice already sent');
+      }
+      if (invoice.status === 'sending') {
+        const startedAt = invoice.sendingAt?.toDate?.() || invoice.sendingAt;
+        const ageMs = startedAt ? (Date.now() - new Date(startedAt).getTime()) : 0;
+        // Stale sending lock (>2 min) means the prior attempt died
+        // before completing — release it. Otherwise refuse to
+        // double-send.
+        if (ageMs > 0 && ageMs < 120000) {
+          if (window.showToast) {
+            window.showToast('Already sending — wait a moment before retrying.', 'info');
+          }
+          throw new Error('Send already in progress');
+        }
+      }
+
+      // Take the lock before any side-effect. If two tabs race here,
+      // Firestore serializes the writes — both will succeed but the
+      // second one's status check above will catch it on the next
+      // call attempt. For tighter guarantees we'd use a transaction;
+      // this lock is sufficient for the iPhone/desktop double-tap case.
+      try {
+        await window.updateDoc(invRef, {
+          status: 'sending',
+          sendingAt: new Date(),
+          updatedAt: new Date()
+        });
+      } catch (lockErr) {
+        console.warn('sendInvoice lock acquire failed, proceeding cautiously:', lockErr && lockErr.message);
+      }
+
       if (method === 'email') {
         // Build invoice HTML
         const invoiceHtml = buildInvoiceHtml(invoice);
@@ -252,6 +296,23 @@
 
     } catch (error) {
       console.error('sendInvoice error:', error);
+      // Release the 'sending' lock on failure so the user can retry.
+      // Don't blindly reset 'sent' status though — the idempotency
+      // check at the top owns those branches.
+      try {
+        const invRef2 = window.doc(db, 'invoices', invoiceId);
+        const snap2 = await window.getDoc(invRef2);
+        if (snap2.exists() && snap2.data().status === 'sending') {
+          await window.updateDoc(invRef2, {
+            status: 'draft',
+            sendingAt: null,
+            lastSendError: (error && error.message) ? error.message.slice(0, 200) : 'unknown',
+            updatedAt: new Date()
+          });
+        }
+      } catch (releaseErr) {
+        console.warn('sendInvoice lock release failed:', releaseErr && releaseErr.message);
+      }
       throw error;
     }
   }
@@ -580,11 +641,26 @@
    * Build invoice HTML for email
    */
   function buildInvoiceHtml(invoice) {
+    // Escape every interpolated user-controlled field — this builder
+    // composes the EMAIL BODY sent to homeowners. PR #28 fixed
+    // renderInvoiceDetail (the in-app preview) but missed this
+    // builder, leaving an XSS sink that lands in the customer's
+    // mail client where our CSP doesn't apply.
+    const _esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    // For URL-bearing attributes (the Stripe link) reject anything
+    // that doesn't look like an http(s) URL. javascript:/data: URIs
+    // would otherwise execute when the customer clicks "Pay Online".
+    const _safeUrl = (u) => {
+      const s = String(u || '');
+      return /^https?:\/\//i.test(s) ? s : '';
+    };
     const items = (invoice.items || [])
       .map(item => `
         <tr>
-          <td style="padding:8px;border-bottom:1px solid #eee;">${item.description}</td>
-          <td style="text-align:right;padding:8px;border-bottom:1px solid #eee;">${item.quantity}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">${_esc(item.description)}</td>
+          <td style="text-align:right;padding:8px;border-bottom:1px solid #eee;">${_esc(item.quantity)}</td>
           <td style="text-align:right;padding:8px;border-bottom:1px solid #eee;">${formatCurrency(item.unitPrice)}</td>
           <td style="text-align:right;padding:8px;border-bottom:1px solid #eee;font-weight:700;">${formatCurrency(item.total)}</td>
         </tr>
@@ -631,8 +707,8 @@
                 </tr>
               </tbody>
             </table>
-            <p><strong>Payment Terms:</strong> ${invoice.terms}</p>
-            ${invoice.stripePaymentLink ? `<a href="${invoice.stripePaymentLink}" class="cta">Pay Online</a>` : ''}
+            <p><strong>Payment Terms:</strong> ${_esc(invoice.terms)}</p>
+            ${_safeUrl(invoice.stripePaymentLink) ? `<a href="${_esc(_safeUrl(invoice.stripePaymentLink))}" class="cta">Pay Online</a>` : ''}
             <p style="margin-top: 30px; font-size: 12px; color: #999;">Thank you for choosing NBD Roofing!</p>
           </div>
         </body>
