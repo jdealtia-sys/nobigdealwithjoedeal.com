@@ -135,6 +135,30 @@ service cloud.firestore {
         );
         allow write: if false;  // admin SDK only
       }
+
+      // ── DOCUMENTS attached to a lead ──────────────────
+      // Generated proposals/contracts/invoices/etc. that the rep
+      // attaches to a customer record. Same auth shape as notes/tasks
+      // — readable + writable by the lead owner (or admin). Without
+      // this rule the Firestore default-deny silently hid every
+      // attached document from the customer page documents list.
+      match /documents/{documentId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write: if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
+
+      // ── DRAWINGS (roof measurements, sketches) ────────
+      // Persistent maps.js drawings keyed under the lead. Same
+      // owner-or-admin auth pattern. Default-deny was hiding every
+      // saved drawing on customer page reload.
+      match /drawings/{drawingId} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write: if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
     }
 
     // Audit #23: the nested /leads/{uid}/leads/{leadId} rule was a leftover
@@ -246,6 +270,18 @@ service cloud.firestore {
         || isOwner(uid)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       allow write: if false;
+    }
+
+    // ── COUNTERS (atomic ID sequences) ────────────────
+    // Used by dashboard.html + customer.html runTransaction calls to
+    // mint sequential customer IDs (NBD-####). Without this rule the
+    // default-deny at the bottom rejected every transaction and the
+    // catches silently console.warn'd, so no lead ever got an ID.
+    // Auth-only — the counter doc holds an integer; tampering at worst
+    // skips numbers, never escalates privilege. Worth a lock-down to a
+    // Cloud Function someday but the current shape is safe to expose.
+    match /counters/{counterId} {
+      allow read, write: if isAuth();
     }
 
     // ── API USAGE LOGGING ─────────────────────────────

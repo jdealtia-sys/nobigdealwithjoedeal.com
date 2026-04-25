@@ -406,6 +406,15 @@
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
   window.db = db;
+  // _db mirror — invoice-pipeline.js and a handful of other modules
+  // were written against this name before the codebase settled on
+  // window.db. Expose both so existing call sites keep working.
+  window._db = db;
+  // _project — offline-manager.js uses this when building Firestore
+  // REST URLs to flush the queued writes. Without it the URL became
+  // /v1/projects/undefined/databases/(default)/... and every flush
+  // 404'd. Stamp it from the canonical config.
+  window._project = firebaseConfig.projectId;
   window.storage = storage;
   window.auth = auth;
   window.doc = doc;
@@ -1609,8 +1618,20 @@
         _optimisticInsertLead(editId, data);
       }
     } catch(e) {
+      // Surface the failure rather than fabricating a ghost lead. The
+      // previous catch unshifted a {id:'d-...', ...data} record into
+      // window._leads — but the very next line called loadLeads()
+      // which overwrites that array, so the ghost flashed on the
+      // kanban for ~200ms then vanished with no error toast. Result:
+      // silent lead-loss. Now toast the error AND re-throw so the
+      // caller can react (e.g., D2D auto-convert can leave the knock
+      // unmarked instead of claiming it converted).
       console.error('saveLead error:', e);
-      (window._leads||[]).unshift({id:'d-'+Date.now(),...data,createdAt:new Date()});
+      const msg = (e && e.message) ? e.message : 'unknown error';
+      if (typeof showToast === 'function') {
+        showToast('Lead save failed — ' + msg + '. Try again or check connection.', 'error');
+      }
+      throw e;
     }
     await loadLeads();
   };
@@ -1709,7 +1730,14 @@
         await loadEstimates();
         return ref2.id;
       }
-    } catch(e) { console.error('Save estimate error:', e); return null; }
+    } catch (e) {
+      // Re-throw — the previous swallow + return-null was making the
+      // caller in estimates.js fire its success toast even when the
+      // Firestore write failed. Silent estimate-loss in production.
+      // The caller now gets a real exception it can surface to the user.
+      console.error('Save estimate error:', e);
+      throw e;
+    }
   };
 
   // ── ESTIMATE CRUD HELPERS ─────────────────────
