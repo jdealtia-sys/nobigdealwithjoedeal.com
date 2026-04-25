@@ -47,6 +47,26 @@ const _roundUpTo = (cents, step) => Math.ceil(cents / step) * step;
 const _applyJobMin = (cents) => Math.max(cents, JOB_MINIMUM_CENTS);
 const _roundNearest25 = (cents) => Math.round(cents / ROUND_TO_CENTS) * ROUND_TO_CENTS;
 
+// ── Deprecation telemetry (Rock 2 PR 2) ─────────────────────────
+// Every classic pricing-math function below is duplicated by
+// EstimateBuilderV2. We warn once per page load when a deprecated
+// path runs so we can see in field logs which classic surfaces are
+// still hot before deleting them. console.warn passes through
+// console-quiet.js (Sentry needs warnings).
+//
+// Migration plan: docs/dev/estimate-engines-audit.md
+const _deprecationsWarned = new Set();
+function _warnDeprecatedOnce(name, replacement) {
+  if (_deprecationsWarned.has(name)) return;
+  _deprecationsWarned.add(name);
+  try {
+    console.warn(
+      '[estimates.js DEPRECATED] ' + name + ' is duplicated by ' + replacement +
+      '. Migration plan: docs/dev/estimate-engines-audit.md'
+    );
+  } catch (_) {}
+}
+
 // Default pricing table (Cincinnati/Ohio market fallback)
 //
 // UNIT CONVENTION: all SF-based items (shingle, felt, tear, iws, deck)
@@ -199,7 +219,9 @@ function estBack(from){ showEstStep(from-1); }
 // to cuts; this mirrors the IKO/Owens-Corning shingle waste tables and
 // is what every experienced estimator does in their head. The "cut-up
 // roof" checkbox adds another +3% per spec for dormers/valleys/etc.
+/** @deprecated Use EstimateBuilderV2.wasteFactorForPitch — see docs/dev/estimate-engines-audit.md */
 function recommendedWasteForPitch(pitchFactor) {
+  _warnDeprecatedOnce('recommendedWasteForPitch', 'EstimateBuilderV2.wasteFactorForPitch');
   if (pitchFactor <= 1.054) return 1.10;  // 4/12 and below
   if (pitchFactor <= 1.118) return 1.12;  // 5/12 – 6/12
   if (pitchFactor <= 1.202) return 1.15;  // 7/12 – 8/12
@@ -276,13 +298,17 @@ function collectAddOns() {
 // Look up the sales tax rate for a given county. Unknown counties fall
 // back to 7% (reasonable average across the Tri-State). Insurance mode
 // returns 0 regardless — per spec the adjuster's ACV/RCV covers tax.
+/** @deprecated Use EstimateBuilderV2.COUNTY_TAX[county] — see docs/dev/estimate-engines-audit.md */
 function lookupTaxRate(county, mode) {
+  _warnDeprecatedOnce('lookupTaxRate', 'EstimateBuilderV2.COUNTY_TAX[county]');
   if (mode === 'insurance') return 0;
   if (!county) return DEFAULT_TAX_RATE;
   return COUNTY_TAX_RATES[county] != null ? COUNTY_TAX_RATES[county] : DEFAULT_TAX_RATE;
 }
 
+/** @deprecated Use EstimateBuilderV2.PERMIT_COSTS[city] — see docs/dev/estimate-engines-audit.md */
 function lookupPermitCost(city) {
+  _warnDeprecatedOnce('lookupPermitCost', 'EstimateBuilderV2.PERMIT_COSTS[city]');
   if (!city) return DEFAULT_PERMIT_COST;
   return PERMIT_COSTS[city] != null ? PERMIT_COSTS[city] : DEFAULT_PERMIT_COST;
 }
@@ -291,7 +317,9 @@ function lookupPermitCost(city) {
 // Enforces the $2,500 job minimum and rounds to the nearest $25.
 // All intermediate math is in cents so we don't accrue float drift
 // before rounding. Tax is applied to (base + add-ons) then added.
+/** @deprecated Use EstimateBuilderV2.calculateEstimate — see docs/dev/estimate-engines-audit.md */
 function calcEstimateTotalCents(sq, tier, addOns, opts) {
+  _warnDeprecatedOnce('calcEstimateTotalCents', 'EstimateBuilderV2.calculateEstimate');
   opts = opts || {};
   const rate = TIER_RATES[tier] || TIER_RATES.better;
   const baseCents = _toCents(sq * rate);
@@ -303,7 +331,9 @@ function calcEstimateTotalCents(sq, tier, addOns, opts) {
   return _roundNearest25(preRound);
 }
 
+/** @deprecated Use EstimateBuilderV2.calculateAllTiers — see docs/dev/estimate-engines-audit.md */
 function calcTierPrices() {
+  _warnDeprecatedOnce('calcTierPrices', 'EstimateBuilderV2.calculateAllTiers');
   // Re-sync rates from product library each time tiers are recalculated —
   // needed for the internal cost basis, not the customer price.
   syncRatesFromProductLibrary(selectedTier || 'better');
