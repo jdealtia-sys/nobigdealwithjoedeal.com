@@ -38,4 +38,5 @@ regexes = [
     '''sk-ant-\.{3,}''',            # sk-ant-... placeholder
     '''sk_live_\.{3,}''',           # sk_live_... placeholder
     '''paste your sk[_-]''',        # "paste your sk_..." instructions
+    '''6L[0-9A-Za-z_-]{38}''',      # reCAPTCHA v3 site key (origin-bound, public — see docs/deploy/03-app-check.md)
 ]
