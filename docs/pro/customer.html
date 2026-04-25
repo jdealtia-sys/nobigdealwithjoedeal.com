@@ -3222,13 +3222,29 @@ window._uploadQueue = [];
 
 window.openUploadModal = function() {
   document.getElementById('uploadModal').classList.add('active');
+  // Belt-and-suspenders reset — Joe reported the prior batch's photos
+  // still showing when reopening the modal. Likely cause: iOS Safari
+  // BFCache or PWA state preservation can leave the queue + preview
+  // DOM intact across navigations, and reopening the modal didn't fully
+  // clear them. Force-reset all three sources of stale state:
+  //   1) the JS queue array
+  //   2) the preview container's innerHTML
+  //   3) the file input's selection (so the same files can be picked again)
   window._uploadQueue = [];
+  const preview = document.getElementById('uploadPreview');
+  if (preview) preview.innerHTML = '';
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.value = '';
   updateUploadPreview();
 };
 
 window.closeUploadModal = function() {
   document.getElementById('uploadModal').classList.remove('active');
   window._uploadQueue = [];
+  const preview = document.getElementById('uploadPreview');
+  if (preview) preview.innerHTML = '';
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.value = '';
   updateUploadPreview();
 };
 

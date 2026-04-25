@@ -240,6 +240,20 @@ export const NBDAuth = {
       window._db = _db;
       window._firebaseApp = _app;
 
+      // iOS Safari (and Firefox in some configurations) restore the
+      // Firebase auth session from IndexedDB asynchronously. The very
+      // first onAuthStateChanged callback can fire with user=null
+      // BEFORE the cached session is restored — typically within
+      // 200–1500 ms the second callback arrives with the real user.
+      // Without a grace window, nbd-auth was redirecting to login on
+      // the first null tick, kicking already-signed-in users out of
+      // the CRM (e.g. tapping "Back to Dashboard" from customer.html
+      // landed on the login screen). Skip the redirect for the first
+      // null tick if Firebase tells us a restore is in progress, and
+      // give the SDK up to ~2.5 s to settle before deciding the user
+      // really isn't logged in.
+      let _firstNullSeenAt = 0;
+      const REDIRECT_GRACE_MS = 2500;
       onAuthStateChanged(_auth, async (user) => {
         if (!user) {
           // No user logged in
@@ -252,10 +266,31 @@ export const NBDAuth = {
             resolve(null);
             return;
           }
-          // Redirect to login
-          window.location.replace(_options.redirectLogin);
+          // Grace-period defense against the iOS auth-restore race.
+          const now = Date.now();
+          if (!_firstNullSeenAt) {
+            _firstNullSeenAt = now;
+            // Wait the grace window. If the SDK then reports a real
+            // user via a second callback, that callback wins (this
+            // branch will simply not fire again with null). If the
+            // null persists past the grace window, then truly logged
+            // out — redirect.
+            setTimeout(() => {
+              if (!_auth.currentUser) {
+                window.location.replace(_options.redirectLogin);
+              }
+            }, REDIRECT_GRACE_MS);
+            return;
+          }
+          // Subsequent null callbacks after the grace window: redirect.
+          if (now - _firstNullSeenAt >= REDIRECT_GRACE_MS) {
+            window.location.replace(_options.redirectLogin);
+          }
           return;
         }
+        // Reset the grace tracker once we've seen a real user — covers
+        // the rare case of sign-out during an active session.
+        _firstNullSeenAt = 0;
 
         _user = user;
         window._user = user;
