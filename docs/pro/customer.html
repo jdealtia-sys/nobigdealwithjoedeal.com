@@ -13,6 +13,7 @@
 <link rel="manifest" href="/pro/manifest.json">
 <title>Customer Details — NBD Pro</title>
 <meta name="robots" content="noindex, nofollow">
+<script src="js/console-quiet.js?v=1"></script>
 <script src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,6 +119,18 @@ header {
 .stage-badge.stage-lost { background:#2a1414; color:var(--red); border-color:#7f1d1d; }
 .quick-actions {
   display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
+  /* Sticky action bar — keeps Call/Email/Move-Stage reachable while
+     scrolling the long single-page customer record. Spec said this
+     should be "always visible"; it now is. */
+  position:sticky;
+  top:0;
+  z-index:var(--z-sticky, 50);
+  background:var(--bg);
+  padding:8px 0;
+  margin-left:-12px; margin-right:-12px;
+  padding-left:12px; padding-right:12px;
+  border-bottom:1px solid var(--br);
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
 }
 .btn {
   padding:8px 16px; background:var(--s2); border:1px solid var(--br);
@@ -697,6 +710,7 @@ header {
     <div class="customer-meta">
       <div class="meta-item">
         <span class="stage-badge" id="customerStage">New</span>
+        <span id="daysInStageBadge" style="display:none;font-size:11px;color:var(--m);font-weight:600;background:var(--s);border:1px solid var(--br);padding:3px 9px;border-radius:12px;letter-spacing:.02em;" title="How long this lead has been at the current stage"></span>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
@@ -1273,7 +1287,7 @@ header {
       <button class="modal-close" onclick="closeUploadModal()">×</button>
     </div>
     
-    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple style="display:none;" onchange="handleFileSelect(event)">
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple capture="environment" style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
@@ -2244,7 +2258,38 @@ async function loadCustomerData(id) {
     };
     stageBadge.textContent = STAGE_LABELS[stage] || stage;
     stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
-    
+
+    // ── Days-in-stage badge ──
+    // Spec gap closed: shows how many days the lead has sat at the
+    // current stage. Pulls from lead.stageStartedAt if present, otherwise
+    // falls back to updatedAt (good-enough proxy until the stage-change
+    // handler in crm.js writes the dedicated field). Hidden if we can't
+    // resolve a date or the stage is terminal (closed/lost).
+    (function renderDaysInStage() {
+      const badge = document.getElementById('daysInStageBadge');
+      if (!badge) return;
+      const isTerminal = stage === 'closed' || stage === 'lost' || stage === 'Complete' || stage === 'Lost';
+      if (isTerminal) { badge.style.display = 'none'; return; }
+      const toDate = (v) => {
+        if (!v) return null;
+        if (v.toDate) return v.toDate();
+        if (v instanceof Date) return v;
+        const d = new Date(v);
+        return isNaN(d) ? null : d;
+      };
+      const ref = toDate(lead.stageStartedAt) || toDate(lead.updatedAt) || toDate(lead.createdAt);
+      if (!ref) { badge.style.display = 'none'; return; }
+      const today = new Date(); today.setHours(0,0,0,0);
+      const refNorm = new Date(ref); refNorm.setHours(0,0,0,0);
+      const days = Math.max(0, Math.floor((today - refNorm) / 86400000));
+      badge.textContent = days === 0 ? 'Today' : days === 1 ? '1 day in stage' : days + ' days in stage';
+      // Color escalates with stagnation: <3 muted, 3-7 amber, 8+ red.
+      if (days >= 8) { badge.style.color = '#fff'; badge.style.background = 'rgba(220,38,38,.85)'; badge.style.borderColor = 'rgba(220,38,38,.95)'; }
+      else if (days >= 3) { badge.style.color = '#fff'; badge.style.background = 'rgba(217,119,6,.75)'; badge.style.borderColor = 'rgba(217,119,6,.85)'; }
+      else { badge.style.color = 'var(--m)'; badge.style.background = 'var(--s)'; badge.style.borderColor = 'var(--br)'; }
+      badge.style.display = '';
+    })();
+
     document.getElementById('customerAddress').textContent = lead.address || '—';
     document.getElementById('customerPhone').textContent = lead.phone || '—';
     document.getElementById('customerEmail').textContent = lead.email || '—';
@@ -3269,7 +3314,7 @@ function updateUploadPreview() {
 
   const html = window._uploadQueue.map((item, idx) => `
     <div class="preview-item">
-      <img src="${item.preview}" alt="Preview">
+      <img src="${item.preview}" alt="Preview" loading="lazy" decoding="async">
       ${!item.uploading ? `
         <button class="preview-remove" onclick="removeFromQueue(${idx})">×</button>
       ` : ''}
@@ -4727,7 +4772,7 @@ window.showPhotoActions = function(idx, event) {
   
   card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
     '<div style="display:flex;align-items:center;gap:10px;">' +
-    '<img src="' + photo.url + '" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
+    '<img src="' + photo.url + '" loading="lazy" decoding="async" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
     '<div style="font-size:16px;font-weight:700;">Edit Photo</div></div>' +
     '<button onclick="document.getElementById(\'photoActionPopup\').remove()" style="background:none;border:none;color:var(--muted,#999);font-size:22px;cursor:pointer;">&times;</button></div>' +
     

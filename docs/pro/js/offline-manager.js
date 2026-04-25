@@ -96,10 +96,11 @@
     if (actual < lastKnown) {
       const lost = lastKnown - actual;
       console.warn('offline queue loss detected:', { lastKnown, actual, lost });
-      showOfflineToast(
-        'Heads up — ' + lost + ' offline ' + (lost === 1 ? 'item was' : 'items were')
-        + ' lost (Safari clears offline storage after 7 days of inactivity).',
-        'warning'
+      // Sticky banner — a 3s toast vanishes before a contractor in the
+      // field ever notices. The banner persists until dismissed.
+      showStickyOfflineBanner(
+        lost + ' offline ' + (lost === 1 ? 'item was' : 'items were')
+        + ' lost (Safari clears offline storage after 7 days of inactivity).'
       );
       // Resync the counter to the new reality so we don't re-warn
       // every page load.
@@ -655,6 +656,35 @@
       toast.style.animation = 'nbd-toast-out .25s ease forwards';
       setTimeout(() => toast.remove(), 250);
     }, 3000);
+  }
+
+  // Sticky banner — used for high-signal warnings that must survive
+  // the field worker glancing at their phone. Persists until the user
+  // taps × or the page reloads. Idempotent: one banner per session.
+  function showStickyOfflineBanner(message) {
+    if (document.getElementById('nbd-offline-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'nbd-offline-banner';
+    banner.style.cssText = [
+      'position:fixed','top:0','left:0','right:0',
+      'padding:10px 44px 10px 16px',
+      'background:#b45309','color:#fff',
+      'font-size:13px','font-weight:600',
+      'text-align:center','line-height:1.35',
+      'z-index:99000','box-shadow:0 2px 10px rgba(0,0,0,.35)',
+      'padding-top:calc(10px + env(safe-area-inset-top,0px))'
+    ].join(';');
+    const label = document.createElement('span');
+    label.textContent = '⚠ ' + message;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label','Dismiss offline warning');
+    close.style.cssText = 'position:absolute;top:6px;right:8px;background:transparent;border:0;color:#fff;font-size:22px;font-weight:700;cursor:pointer;padding:4px 10px;line-height:1;';
+    close.onclick = () => banner.remove();
+    banner.appendChild(label);
+    banner.appendChild(close);
+    document.body.appendChild(banner);
   }
 
   // ─────────────────────────────────────────────────────────
