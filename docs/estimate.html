@@ -113,11 +113,17 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:var(-
 .tile-desc{font-size:.65rem;color:rgba(255,255,255,.35);margin-top:3px;}
 
 /* ── Satellite Image ── */
-.satellite-container{border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.1);margin-bottom:20px;position:relative;background:var(--navy-dark);min-height:280px;display:flex;align-items:center;justify-content:center;}
+.satellite-container{border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.1);margin-bottom:20px;position:relative;background:var(--navy-dark);min-height:280px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;}
 .satellite-container img{width:100%;height:auto;display:block;}
-.satellite-placeholder{text-align:center;padding:40px 20px;color:rgba(255,255,255,.4);}
+.satellite-placeholder{text-align:center;padding:40px 20px;color:rgba(255,255,255,.4);width:100%;}
 .satellite-placeholder .icon{font-size:3rem;margin-bottom:12px;}
-.satellite-address{background:rgba(0,0,0,.6);padding:10px 16px;font-size:.8rem;font-weight:600;text-align:center;border-radius:0 0 10px 10px;position:absolute;bottom:0;left:0;right:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+.satellite-address{background:rgba(0,0,0,.6);padding:10px 16px;font-size:.8rem;font-weight:600;text-align:center;border-radius:0 0 10px 10px;position:absolute;bottom:0;left:0;right:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:401;}
+#leafletMap{width:100%;height:340px;background:var(--navy-dark);}
+#leafletMap .leaflet-control-attribution{font-size:.62rem;background:rgba(0,0,0,.5);color:rgba(255,255,255,.7)}
+#leafletMap .leaflet-control-attribution a{color:rgba(255,255,255,.85)}
+.satellite-meta{padding:14px 16px 50px;text-align:center;background:rgba(0,0,0,.25);}
+.satellite-meta .coords{font-size:.78rem;color:rgba(255,255,255,.65);font-variant-numeric:tabular-nums;letter-spacing:.02em;margin-bottom:8px;}
+.satellite-meta .verified{display:inline-block;padding:6px 14px;border:1px solid rgba(34,160,107,.4);border-radius:6px;background:rgba(34,160,107,.1);font-size:.75rem;font-weight:700;color:var(--success);}
 
 /* ── Ballpark Reveal ── */
 .ballpark-hero{text-align:center;padding:32px 0;}
@@ -716,7 +722,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <input type="text" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 5">
         <input type="text" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 6">
       </div>
-      <div class="otp-status" id="otpStatus"></div>
+      <div class="otp-status" id="otpStatus" role="status" aria-live="polite"></div>
     </div>
 
     <div class="input-group">
@@ -783,6 +789,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <div class="joes-take-name">Joe's Professional Assessment</div>
       </div>
       <div class="joes-take-text" id="joesText">Loading...</div>
+      <div id="estimateSourceNote" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:8px;font-size:.74rem;color:#ffc107;line-height:1.5;">
+        &#9888; Live estimate engine unavailable — these are regional averages. Joe will give you exact numbers in person.
+      </div>
     </div>
 
     <div class="cta-block">
@@ -1028,23 +1037,62 @@ function goToStep(step) {
 
 function validateStep(step) {
   if (step === 1) {
-    const addr = document.getElementById('addressInput').value.trim();
+    const inp = document.getElementById('addressInput');
+    const addr = inp.value.trim();
     if (!addr || addr.length < 5) {
-      document.getElementById('addressInput').parentElement.classList.add('has-error');
-      document.getElementById('addressInput').focus();
+      inp.parentElement.classList.add('has-error');
+      inp.focus();
+      _setAddressHint("Type your address, then pick it from the dropdown that appears.");
+      return false;
+    }
+    // Require a geocoded selection so step 2's satellite map can resolve.
+    // If user typed without picking from dropdown, attempt a single resolve
+    // before allowing them to advance.
+    if (!funnelData.addressFull) {
+      _resolveAddressInline(addr);
       return false;
     }
     funnelData.address = addr;
-    if (funnelData.addressFull) {
-      funnelData.lat = parseFloat(funnelData.addressFull.lat);
-      funnelData.lon = parseFloat(funnelData.addressFull.lon);
-    }
+    funnelData.lat = parseFloat(funnelData.addressFull.lat);
+    funnelData.lon = parseFloat(funnelData.addressFull.lon);
     return true;
   }
   if (step === 3) {
     return funnelData.service && funnelData.timeline;
   }
   return true;
+}
+
+function _setAddressHint(msg) {
+  let el = document.getElementById('addressHint');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'addressHint';
+    el.style.cssText = 'margin-top:10px;font-size:.78rem;color:rgba(255,255,255,.7);text-align:center;';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    const inp = document.getElementById('addressInput');
+    inp.parentElement.parentElement.appendChild(el);
+  }
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+async function _resolveAddressInline(q) {
+  _setAddressHint("Looking up that address…");
+  try {
+    const data = await _nominatimQuery(q);
+    if (!data || !data.length) {
+      _setAddressHint("Couldn't find that address. Please type more of it, then pick from the dropdown.");
+      return;
+    }
+    // Use the top match
+    selectAddr(0);
+    _setAddressHint("");
+    setTimeout(function () { goToStep(2); }, 100);
+  } catch (e) {
+    _setAddressHint("Address lookup failed. Check your connection and try again.");
+  }
 }
 
 /* ── Address Autocomplete (Nominatim) ── */
@@ -1064,17 +1112,39 @@ addrInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); goToStep(2); }
 });
 
+// Greater Cincinnati metro bbox (lon_min, lat_max, lon_max, lat_min — Nominatim viewbox order).
+// Covers SW Ohio, Northern Kentucky, and SE Indiana — matches our service-area pages.
+const _NOMI_VIEWBOX = '-85.2,39.5,-83.6,38.6';
+
+async function _nominatimQuery(q) {
+  // Bias toward Cincinnati metro but allow outside results (bounded=0) so a homeowner
+  // who just moved still finds their address.
+  const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) +
+    '&format=json&addressdetails=1&countrycodes=us&limit=5' +
+    '&viewbox=' + encodeURIComponent(_NOMI_VIEWBOX) + '&bounded=0';
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('geocode-failed');
+  return res.json();
+}
+
+let _searchSeq = 0;
 async function searchAddress(q) {
+  const myReq = ++_searchSeq;
   try {
-    const res = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&addressdetails=1&countrycodes=us&limit=5');
-    const data = await res.json();
+    const data = await _nominatimQuery(q);
+    // Drop stale responses if the user kept typing.
+    if (myReq !== _searchSeq) return;
     if (!data.length) { acDrop.style.display = 'none'; return; }
     acDrop.innerHTML = data.map(function(d, i) {
-      return '<div class="ac-item" onclick="selectAddr(' + i + ')">' + d.display_name + '</div>';
+      const safe = String(d.display_name || '').replace(/[<>]/g, '');
+      return '<div class="ac-item" role="option" onclick="selectAddr(' + i + ')">' + safe + '</div>';
     }).join('');
     acDrop.style.display = 'block';
     window._acResults = data;
-  } catch(e) { acDrop.style.display = 'none'; }
+  } catch(e) {
+    if (myReq !== _searchSeq) return;
+    acDrop.style.display = 'none';
+  }
 }
 
 function selectAddr(idx) {
@@ -1093,48 +1163,116 @@ document.addEventListener('click', function(e) {
 
 /* ── Satellite Image ── */
 function loadSatellite() {
-  const container = document.getElementById('satelliteContainer');
   const img = document.getElementById('satelliteImg');
   const placeholder = document.getElementById('satellitePlaceholder');
   const addrLabel = document.getElementById('satelliteAddress');
 
   addrLabel.textContent = funnelData.address;
 
+  // Prefer Google Static Maps if a key is configured (best imagery quality)
   if (CONFIG.GOOGLE_MAPS_KEY && funnelData.lat && funnelData.lon) {
     const url = 'https://maps.googleapis.com/maps/api/staticmap?center=' +
       funnelData.lat + ',' + funnelData.lon +
-      '&zoom=19&size=600x400&maptype=satellite&key=' + CONFIG.GOOGLE_MAPS_KEY;
+      '&zoom=19&size=600x400&maptype=satellite' +
+      '&markers=color:red%7C' + funnelData.lat + ',' + funnelData.lon +
+      '&key=' + CONFIG.GOOGLE_MAPS_KEY;
     img.src = url;
     img.onload = function() {
       placeholder.style.display = 'none';
       img.style.display = 'block';
     };
-    img.onerror = function() {
-      showSatelliteFallback();
-    };
-  } else {
-    showSatelliteFallback();
+    img.onerror = renderLeafletSatellite;
+    return;
   }
+  renderLeafletSatellite();
 }
 
-function showSatelliteFallback() {
+// Render an interactive satellite map (Esri World Imagery via Leaflet) with a pin
+function renderLeafletSatellite() {
   const placeholder = document.getElementById('satellitePlaceholder');
-  // Use an OpenStreetMap embed as fallback
-  if (funnelData.lat && funnelData.lon) {
-    const container = document.getElementById('satelliteContainer');
-    placeholder.innerHTML =
-      '<div style="width:100%;height:280px;position:relative;background:var(--navy-dark);display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
-        '<div style="font-size:3rem;margin-bottom:12px;">&#128506;</div>' +
-        '<div style="font-size:.9rem;font-weight:700;color:var(--white);">Property Located</div>' +
-        '<div style="font-size:.78rem;color:rgba(255,255,255,.4);margin-top:4px;">Coordinates: ' + funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4) + '</div>' +
-        '<div style="margin-top:12px;padding:8px 16px;border:1px solid rgba(34,160,107,.3);border-radius:8px;background:rgba(34,160,107,.08);font-size:.75rem;font-weight:600;color:var(--success);">&#10003; Address verified</div>' +
-      '</div>';
-  } else {
+  if (!funnelData.lat || !funnelData.lon) {
     placeholder.innerHTML =
       '<div class="icon">&#127968;</div>' +
       '<div style="font-size:.85rem;font-weight:600;color:var(--white);margin-bottom:4px;">Address Found</div>' +
-      '<div style="font-size:.75rem;color:rgba(255,255,255,.4);">Satellite view requires Google Maps API key</div>';
+      '<div style="font-size:.75rem;color:rgba(255,255,255,.55);">Satellite view temporarily unavailable.</div>';
+    return;
   }
+
+  placeholder.style.padding = '0';
+  placeholder.innerHTML =
+    '<div id="leafletMap" role="img" aria-label="Satellite view of your property"></div>' +
+    '<div class="satellite-meta">' +
+      '<div class="coords">Coordinates: ' + funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4) + '</div>' +
+      '<div class="verified">&#10003; Address verified</div>' +
+    '</div>';
+
+  if (typeof L === 'undefined') {
+    loadLeafletAssets(initLeafletMap);
+  } else {
+    initLeafletMap();
+  }
+}
+
+function loadLeafletAssets(cb) {
+  if (!document.getElementById('leaflet-css')) {
+    const css = document.createElement('link');
+    css.id = 'leaflet-css';
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.crossOrigin = '';
+    document.head.appendChild(css);
+  }
+  if (!document.getElementById('leaflet-js')) {
+    const js = document.createElement('script');
+    js.id = 'leaflet-js';
+    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.crossOrigin = '';
+    js.onload = cb;
+    js.onerror = function() {
+      const ph = document.getElementById('satellitePlaceholder');
+      ph.style.padding = '40px 20px';
+      ph.innerHTML =
+        '<div class="icon">&#128506;</div>' +
+        '<div style="font-size:.9rem;font-weight:700;color:var(--white);">Property Located</div>' +
+        '<div style="font-size:.78rem;color:rgba(255,255,255,.55);margin-top:4px;">Coordinates: ' + funnelData.lat.toFixed(4) + ', ' + funnelData.lon.toFixed(4) + '</div>' +
+        '<div style="margin-top:12px;padding:8px 16px;border:1px solid rgba(34,160,107,.4);border-radius:8px;background:rgba(34,160,107,.1);font-size:.75rem;font-weight:600;color:var(--success);">&#10003; Address verified</div>';
+    };
+    document.head.appendChild(js);
+  } else {
+    cb();
+  }
+}
+
+function initLeafletMap() {
+  const lat = funnelData.lat;
+  const lon = funnelData.lon;
+  const map = L.map('leafletMap', {
+    center: [lat, lon],
+    zoom: 19,
+    zoomControl: true,
+    scrollWheelZoom: false,
+    dragging: true,
+    doubleClickZoom: true,
+    touchZoom: true
+  });
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Imagery &copy; Esri',
+    maxZoom: 20,
+    maxNativeZoom: 19
+  }).addTo(map);
+  // Orange pin matching brand
+  const orangePin = L.divIcon({
+    className: 'nbd-map-pin',
+    html: '<div style="width:24px;height:24px;background:#e8720c;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);"></div>',
+    iconSize: [24, 24],
+    iconAnchor: [0, 0]
+  });
+  L.marker([lat, lon], { icon: orangePin, keyboard: false }).addTo(map);
+}
+
+// Legacy alias — original callsite name retained
+function showSatelliteFallback() {
+  renderLeafletSatellite();
 }
 
 /* ── Tile Selection ── */
@@ -1320,8 +1458,9 @@ async function sendVerificationCode() {
     otpStatus.textContent = 'Code sent! Check your messages.';
     btn.textContent = 'Resend';
     btn.disabled = false;
-    // Focus first OTP input
-    document.querySelector('.otp-input').focus();
+    // Bring the OTP input into view so the user knows where to type the code
+    otpSection.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.querySelector('.otp-input').focus({ preventScroll: true });
   } else {
     otpStatus.className = 'otp-status error';
     otpStatus.textContent = 'Failed to send code. Try again.';
@@ -1560,7 +1699,7 @@ async function submitAndGetEstimate() {
 
   } catch(err) {
     console.error('Estimate error:', err);
-    // Fallback estimate
+    // Fallback estimate using regional averages
     var fb = {
       roofSqft: 1800, squares: 18, yearBuilt: null,
       tiers: {
@@ -1568,7 +1707,8 @@ async function submitAndGetEstimate() {
         better: { min: 7560, max: 9360 },
         best: { min: 10440, max: 13500 }
       },
-      joesTake: funnelData.firstName + ", I couldn't pull the exact details for this address right now, but for a typical Cincinnati-area home, you're looking at the ranges shown above. I'd love to come take a look in person and give you real numbers — free, no obligation."
+      joesTake: funnelData.firstName + ", I couldn't pull the exact details for this address right now, so the numbers above are typical Cincinnati-area ranges for a 1,800 sq ft roof. I'd love to come measure in person and give you real numbers — free, no obligation.",
+      _isFallback: true
     };
     funnelData.estimate = fb;
     setTimeout(function() { showResults(fb); }, 1500);
@@ -1594,6 +1734,9 @@ function showResults(est) {
 
   // Joe's take
   document.getElementById('joesText').textContent = est.joesTake || 'Give Joe a call for the full picture.';
+  // Show fallback notice if AI estimate failed
+  const srcNote = document.getElementById('estimateSourceNote');
+  if (srcNote) srcNote.style.display = est && est._isFallback ? 'block' : 'none';
 
   // Update lead with estimate data
   if (window._saveLead) {
