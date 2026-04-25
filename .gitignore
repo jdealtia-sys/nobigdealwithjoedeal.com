@@ -12,6 +12,10 @@ tests/storage-debug.log
 *.firebase-debug.log
 firebase-debug.log
 
+# Playwright artifacts (traces, screenshots, videos from local runs)
+tests/test-results/
+tests/playwright-report/
+
 # docs/pro/js doesn't have a project of its own
 docs/pro/js/package-lock.json
 

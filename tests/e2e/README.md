@@ -79,7 +79,42 @@ stage, send invoice) come in a later PR with proper cleanup.
 - The auth fixture reads creds via env vars only — never committed
 - `pro-authed.spec.js` skips silently when env vars are missing, so
   running `npm test` locally without secrets stays clean
-- PR 1 contains only **read-only** journeys (no Firestore writes).
-  When destructive journeys land, every test seeds with a unique
-  prefix (`[E2E] ...`) and an `afterEach` deletes via the Firebase
-  Admin SDK to keep the prod DB clean.
+- Destructive journeys (Rock 3 PR 4) tag every Firestore doc they
+  create with `e2eTestData: true` and prefix names with `[E2E]`.
+  An `afterAll` hook calls the `cleanupE2ETestData` callable, which
+  deletes ONLY docs tagged `e2eTestData: true` belonging to the
+  test user — guarded both by Firestore query (`where('userId',
+  '==', uid)`) and a function-level check that the caller's user
+  doc has `e2eTestAccount: true`. A real human running cleanup on
+  themselves would delete nothing.
+- The cleanup callable also walks subcollections (activity, notes,
+  documents) before deleting the parent so children never orphan.
+
+### If a destructive test crashes mid-run
+
+The `afterAll` runs even after a failed test. Worst case (CI killed
+before afterAll fires): manually invoke the callable from DevTools:
+
+```js
+const m = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+const f = m['httpsCallable'](m['getFunctions'](),'cleanupE2ETestData');
+console.log((await f()).data);
+```
+
+Or filter the kanban by `[E2E]` and delete by hand — the prefix
+makes them visually obvious.
+
+### Provisioning the test user (one-shot, owner-only)
+
+Don't manually register + edit Firestore. There's a callable for that:
+
+```js
+const m = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+const f = m['httpsCallable'](m['getFunctions'](),'provisionE2ETestUser');
+const r = await f();
+alert(JSON.stringify(r));   // shows email + password ONCE
+```
+
+The callable creates the auth user, sets `e2eTestAccount: true`,
+and rotates the password if the user already exists. Capture the
+password, set it as the GitHub Secret, done.

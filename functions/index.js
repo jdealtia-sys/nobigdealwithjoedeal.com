@@ -1787,6 +1787,146 @@ exports.provisionE2ETestUser = onCall(
 );
 
 // ═════════════════════════════════════════════════════════════
+// cleanupE2ETestData (Rock 3 PR 4)
+//
+// Caller-scoped destructive sweep used by the Playwright authed
+// suite's afterAll hook. Deletes every doc in `leads`, `estimates`,
+// `notes`, and `documents` subcollections where the caller owns
+// the parent lead AND the doc is tagged `e2eTestData: true`.
+//
+// Why caller-scoped not admin-scoped: any user can call this on
+// THEIR OWN data only. The test user (e2eTestAccount: true) is the
+// only practical caller because all production users have
+// e2eTestData: false on every doc by default. A real human running
+// this on themselves would only delete docs they explicitly tagged
+// as test data, which is impossible via the UI — there's no field
+// for it. So functionally, this is test-user-only without needing
+// an explicit role check.
+//
+// Belt-and-suspenders: also requires the caller to have
+// `e2eTestAccount: true` on their users/{uid} doc. If a future bug
+// somehow tagged a real user's doc as test data, this guard prevents
+// the test cleanup from nuking it.
+//
+// Returns:
+//   {
+//     leadsDeleted: <int>,
+//     estimatesDeleted: <int>,
+//     activityDeleted: <int>,
+//     notesDeleted: <int>,
+//     documentsDeleted: <int>
+//   }
+// ═════════════════════════════════════════════════════════════
+exports.cleanupE2ETestData = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 120,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const db = admin.firestore();
+
+    // Belt-and-suspenders: only the e2eTestAccount user can run
+    // cleanup. A regular user calling this would see leadsDeleted=0
+    // because no production doc carries the e2eTestData flag, but
+    // the explicit guard makes intent obvious in the audit log.
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists || userDoc.data().e2eTestAccount !== true) {
+      throw new HttpsError('permission-denied',
+        'cleanupE2ETestData is only callable by the E2E test account');
+    }
+
+    let leadsDeleted = 0, estimatesDeleted = 0;
+    let activityDeleted = 0, notesDeleted = 0, documentsDeleted = 0;
+
+    // Lead deletion: scoped to userId == caller AND e2eTestData == true.
+    // Subcollections (activity, notes, documents) get walked and
+    // deleted before the parent so we never orphan children.
+    const leadsSnap = await db.collection('leads')
+      .where('userId', '==', uid)
+      .where('e2eTestData', '==', true)
+      .limit(1000)
+      .get();
+
+    for (const leadDoc of leadsSnap.docs) {
+      // Subcollections — admin SDK reaches under leads/{leadId}/*
+      for (const subPath of ['activity', 'notes', 'documents']) {
+        const subSnap = await leadDoc.ref.collection(subPath).limit(500).get();
+        if (subSnap.empty) continue;
+        let subBatch = db.batch();
+        let subBatchCount = 0;
+        for (const subDoc of subSnap.docs) {
+          subBatch.delete(subDoc.ref);
+          subBatchCount++;
+          if (subPath === 'activity') activityDeleted++;
+          else if (subPath === 'notes') notesDeleted++;
+          else documentsDeleted++;
+          if (subBatchCount >= 400) {
+            await subBatch.commit();
+            subBatch = db.batch();
+            subBatchCount = 0;
+          }
+        }
+        if (subBatchCount > 0) await subBatch.commit();
+      }
+    }
+
+    // Now batch-delete the leads themselves.
+    let batch = db.batch();
+    let batchCount = 0;
+    for (const leadDoc of leadsSnap.docs) {
+      batch.delete(leadDoc.ref);
+      batchCount++;
+      leadsDeleted++;
+      if (batchCount >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
+      }
+    }
+    if (batchCount > 0) await batch.commit();
+
+    // Estimates collection — flat, scoped by userId + e2eTestData.
+    const estSnap = await db.collection('estimates')
+      .where('userId', '==', uid)
+      .where('e2eTestData', '==', true)
+      .limit(1000)
+      .get();
+
+    let estBatch = db.batch();
+    let estBatchCount = 0;
+    for (const estDoc of estSnap.docs) {
+      estBatch.delete(estDoc.ref);
+      estBatchCount++;
+      estimatesDeleted++;
+      if (estBatchCount >= 400) {
+        await estBatch.commit();
+        estBatch = db.batch();
+        estBatchCount = 0;
+      }
+    }
+    if (estBatchCount > 0) await estBatch.commit();
+
+    logger.info('cleanupE2ETestData: done', {
+      uid, leadsDeleted, estimatesDeleted, activityDeleted, notesDeleted, documentsDeleted
+    });
+
+    return {
+      leadsDeleted,
+      estimatesDeleted,
+      activityDeleted,
+      notesDeleted,
+      documentsDeleted
+    };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
 // onRepSignup — Blocking auth trigger (beforeUserCreated)
 //
 // Fires when ANY user creates an account. Checks if their email

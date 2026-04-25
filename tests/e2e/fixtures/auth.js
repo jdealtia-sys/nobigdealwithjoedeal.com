@@ -77,4 +77,41 @@ async function logout(page) {
   });
 }
 
-module.exports = { requireTestUser, loginAs, logout };
+/**
+ * Invoke a Firebase callable Cloud Function from inside the page
+ * context. Avoids needing a Node-side Firebase Admin SDK + service
+ * account in CI. The page is already authed (via loginAs) and has
+ * App Check tokens minting, so the callable inherits everything it
+ * needs.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {string} name - the callable's exported name
+ * @param {object} [data] - request body, defaults to {}
+ * @returns {Promise<any>} the .data field from the callable response
+ */
+async function callCallableInPage(page, name, data) {
+  return page.evaluate(async ({ fnName, payload }) => {
+    const m = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const f = m.httpsCallable(m.getFunctions(), fnName);
+    const r = await f(payload || {});
+    return r && r.data;
+  }, { fnName: name, payload: data || {} });
+}
+
+/**
+ * Convenience wrapper for the destructive-test cleanup callable.
+ * Page must be authed as the e2eTestAccount user.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function cleanupE2EData(page) {
+  return callCallableInPage(page, 'cleanupE2ETestData');
+}
+
+module.exports = {
+  requireTestUser,
+  loginAs,
+  logout,
+  callCallableInPage,
+  cleanupE2EData
+};
