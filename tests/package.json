@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "description": "Firestore rules + rate-limit unit tests for NBD Pro. Run against the Firebase emulator.",
   "scripts": {
-    "test": "npm run test:smoke && npm run test:rules && npm run test:storage && npm run test:ratelimit",
+    "test": "npm run test:smoke && npm run test:pricing && npm run test:address && npm run test:rules && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
+    "test:pricing": "node ./estimate-pricing.test.js",
+    "test:address": "node ./address-match.test.js",
     "test:rules": "firebase emulators:exec --only firestore,storage --project nbd-test 'node ./firestore-rules.test.js'",
     "test:storage": "firebase emulators:exec --only storage --project nbd-storage-test 'node ./storage-rules.test.js'",
     "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'",
