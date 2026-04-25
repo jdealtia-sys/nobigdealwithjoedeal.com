@@ -122,38 +122,71 @@ window.NBDDocGen = {
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       const customerName = (data.customer && (data.customer.name || data.customer.firstName)) || '';
       const slug = (customerName || typeName).replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+
+      // Persist on generate — not on Save. The previous flow only ran
+      // the persist callback when the user explicitly tapped "Save"
+      // inside the doc viewer; closing the viewer (or downloading a
+      // PDF) without saving meant nothing was recorded. Now we kick
+      // off the persistence in the background as soon as generate()
+      // is called and use the doc id later in the onSave hook for
+      // any post-processing. The HTML body is also uploaded to
+      // Storage so the customer page can re-open the rendered
+      // document later — previously only PDF + memory existed.
+      const _leadIdEarly = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
+      const _filename = 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      let _persistPromise = null;
+      if (_leadIdEarly && window.db && window.addDoc && window.collection) {
+        _persistPromise = (async () => {
+          let htmlPath = null;
+          let htmlUrl = null;
+          // Upload the rendered HTML to Storage so we can re-open it
+          // from the documents tab later. Best-effort — if Storage
+          // isn't wired on this page we still record metadata.
+          try {
+            if (window.storage && window.ref && window.uploadBytes && window.getDownloadURL && window._user?.uid) {
+              const docId = 'd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+              htmlPath = `documents/${window._user.uid}/${_leadIdEarly}/${docId}.html`;
+              const sRef = window.ref(window.storage, htmlPath);
+              const blob = new Blob([html], { type: 'text/html' });
+              await window.uploadBytes(sRef, blob, { contentType: 'text/html' });
+              htmlUrl = await window.getDownloadURL(sRef);
+            }
+          } catch (e) {
+            console.warn('Document HTML upload failed:', e && e.message);
+          }
+          try {
+            await window.addDoc(
+              window.collection(window.db, 'leads', _leadIdEarly, 'documents'),
+              {
+                type: type,
+                typeName: typeName,
+                customerName: customerName || null,
+                filename: _filename,
+                htmlPath: htmlPath,
+                htmlUrl: htmlUrl,
+                createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
+                userId: window.auth?.currentUser?.uid || window._user?.uid || null,
+                snapshot: {
+                  total: (data.estimate && data.estimate.grandTotal) || data.total || null,
+                  address: (data.customer && data.customer.address) || null
+                }
+              }
+            );
+          } catch (e) {
+            console.warn('Document metadata persist failed:', e && e.message);
+          }
+        })();
+      }
       window.NBDDocViewer.open({
         html: html,
         title: typeName + (customerName ? ' — ' + customerName : ''),
-        filename: 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+        filename: _filename,
         onSave: async () => {
-          // Persist a metadata record so the customer page's
-          // Documents section shows entries instead of being empty
-          // forever. Subcollection rule (PR #38) gates reads/writes
-          // to the lead owner.
-          const _leadId = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
-          if (_leadId && window.db && window.addDoc && window.collection) {
-            try {
-              await window.addDoc(
-                window.collection(window.db, 'leads', _leadId, 'documents'),
-                {
-                  type: type,
-                  typeName: typeName,
-                  customerName: customerName || null,
-                  filename: 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
-                  createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
-                  createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
-                  userId: window.auth?.currentUser?.uid || window._user?.uid || null,
-                  snapshot: {
-                    total: (data.estimate && data.estimate.grandTotal) || data.total || null,
-                    address: (data.customer && data.customer.address) || null
-                  }
-                }
-              );
-            } catch (e) {
-              console.warn('Document persist failed:', e && e.message);
-            }
-          }
+          // Persistence already kicked off in the background via
+          // _persistPromise above \u2014 wait for it (no-op if already
+          // settled) so the success toast reflects the real state.
+          if (_persistPromise) { try { await _persistPromise; } catch (_) {} }
           if (typeof showToast === 'function') {
             showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
           }

@@ -21,6 +21,25 @@ let _proxyAvailable = null; // null = unknown, true/false = tested
 let _proxyLastCheck = 0;
 const PROXY_CHECK_INTERVAL = 300000; // Re-check every 5 minutes
 
+// Reset the proxy-availability cache when the browser reports network
+// connectivity restored. Without this, a single transient blip during
+// a Cloud Function call put the proxy into "unavailable" mode for the
+// next 5 minutes, even after the network came back — every Claude
+// call hit the local-fallback path or threw "Claude proxy unavailable"
+// for nearly five minutes after the user reconnected.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', () => {
+    _proxyAvailable = null;
+    _proxyLastCheck = 0;
+  });
+  // Also expose a manual reset for the diagnostic UI / future
+  // /pro/diagnostic.html page to call.
+  window.resetClaudeProxyCheck = function () {
+    _proxyAvailable = null;
+    _proxyLastCheck = 0;
+  };
+}
+
 /**
  * Call Claude API — secure proxy with fallback
  *

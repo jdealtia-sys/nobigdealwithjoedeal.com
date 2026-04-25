@@ -1099,6 +1099,25 @@ function clearCrmSearch(){
 
 window._notifications = [];
 window._notifDropdownOpen = false;
+window._notifUnsub = null; // onSnapshot unsubscribe handle
+
+function _renderNotifBadgeAndList(allNotifs) {
+  window._notifications = allNotifs.filter(n => !n.dismissed);
+  window._dismissedNotifications = allNotifs.filter(n => n.dismissed);
+  const unreadCount = window._notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notifBadge');
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.style.display = 'block';
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  if (window._notifDropdownOpen) {
+    renderNotifications();
+  }
+}
 
 async function loadNotifications() {
   try {
@@ -1108,41 +1127,44 @@ async function loadNotifications() {
     const user  = _auth.currentUser;
     if (!user) return;
 
-    // Load notifications from Firestore (including dismissed, we filter client-side)
-    const {getDocs: _getDocs, query: _query, collection: _col, where: _where, orderBy: _order, limit: _limit} =
+    const {getDocs: _getDocs, onSnapshot: _onSnap, query: _query, collection: _col, where: _where, orderBy: _order, limit: _limit} =
       await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const notifSnap = await _getDocs(
-      _query(
-        _col(_db, 'notifications'),
-        _where('userId', '==', user.uid),
-        _order('createdAt', 'desc'),
-        _limit(50)
-      )
+
+    const q = _query(
+      _col(_db, 'notifications'),
+      _where('userId', '==', user.uid),
+      _order('createdAt', 'desc'),
+      _limit(50)
     );
 
-    const allNotifs = notifSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    window._notifications = allNotifs.filter(n => !n.dismissed);
-    window._dismissedNotifications = allNotifs.filter(n => n.dismissed);
-
-    // Count unread (non-dismissed)
-    const unreadCount = window._notifications.filter(n => !n.read).length;
-
-    // Update badge
-    const badge = document.getElementById('notifBadge');
-    if (badge) {
-      if (unreadCount > 0) {
-        badge.style.display = 'block';
-        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-      } else {
-        badge.style.display = 'none';
-      }
+    // ── Live listener ──
+    // Previously this was a one-shot getDocs, so the bell badge was a
+    // snapshot — push messages, server-issued notifications, and peer
+    // activity never appeared until a hard reload. Subscribe via
+    // onSnapshot so the badge + list update in real time. We keep a
+    // single subscription per session (re-arming bails the old one)
+    // and tear down on sign-out.
+    if (typeof window._notifUnsub === 'function') {
+      try { window._notifUnsub(); } catch(_) {}
+      window._notifUnsub = null;
     }
-
-    // Render list if dropdown is open
-    if (window._notifDropdownOpen) {
-      renderNotifications();
+    if (typeof _onSnap === 'function') {
+      window._notifUnsub = _onSnap(q, (snap) => {
+        const allNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _renderNotifBadgeAndList(allNotifs);
+      }, (err) => {
+        // Listener errored — fall back to a one-shot read so the
+        // user at least sees something instead of a broken badge.
+        console.warn('notifications onSnapshot error:', err && err.message);
+        _getDocs(q).then(s => {
+          _renderNotifBadgeAndList(s.docs.map(d => ({ id: d.id, ...d.data() })));
+        }).catch(() => {});
+      });
+    } else {
+      // SDK shape changed — last-resort one-shot.
+      const snap = await _getDocs(q);
+      _renderNotifBadgeAndList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }
-
   } catch (error) {
     console.error('Error loading notifications:', error);
   }
