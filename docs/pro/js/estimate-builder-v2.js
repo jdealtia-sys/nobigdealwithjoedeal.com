@@ -844,6 +844,61 @@
     }
   };
 
+  // ── Custom presets (save-your-own) ──
+  // Spec gap closed: users can capture their current estimate config
+  // as a named preset. Stored in localStorage under a stable key so
+  // they survive reloads. Built-ins above always take priority on key
+  // collision — custom presets cannot overwrite the spec'd ones.
+  const CUSTOM_PRESETS_KEY = 'nbd_est_custom_presets_v1';
+
+  function loadCustomPresets() {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CUSTOM_PRESETS_KEY) : null;
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  }
+
+  function saveCustomPreset(name, defaults) {
+    if (!name || typeof name !== 'string') throw new Error('preset name required');
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('preset name required');
+    // Slugify for the key. Built-in keys can't be overwritten.
+    const key = 'custom-' + trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (PRESETS[key]) throw new Error('that name conflicts with a built-in preset');
+    const presets = loadCustomPresets();
+    presets[key] = {
+      name: trimmed,
+      description: 'Custom preset',
+      defaults: Object.assign({}, defaults || {}),
+      savedAt: new Date().toISOString()
+    };
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+      }
+    } catch (_) {}
+    return key;
+  }
+
+  function deleteCustomPreset(key) {
+    const presets = loadCustomPresets();
+    if (!presets[key]) return false;
+    delete presets[key];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  function getAllPresets() {
+    // Built-ins first; customs cannot collide thanks to the 'custom-' prefix.
+    return Object.assign({}, PRESETS, loadCustomPresets());
+  }
+
   // ═════════════════════════════════════════════════════════
   // SECTION 11 — Public API
   // ═════════════════════════════════════════════════════════
@@ -858,6 +913,11 @@
     CATALOG,
     TIER_MATERIAL_MAP,
     PRESETS,
+    // Custom-preset API (spec: "save your own preset")
+    loadCustomPresets,
+    saveCustomPreset,
+    deleteCustomPreset,
+    getAllPresets,
     DEFAULT_OVERHEAD_PCT,
     DEFAULT_PROFIT_PCT,
     DEFAULT_MATERIAL_MARKUP_PCT,

@@ -1076,6 +1076,11 @@
         d2dKnockId: knockId,
         lat: knock.lat || null,
         lng: knock.lng || null,
+        // Carry photos from the knock onto the freshly-minted lead so
+        // the rep doesn't lose the property/damage shots when the lead
+        // is auto-created. The CRM card render pulls from this same
+        // field, so they appear immediately on the kanban tile.
+        photoUrls: Array.isArray(knock.photoUrls) ? knock.photoUrls.slice() : [],
         followUp: followUpStr,
         // Prospect flag: appointments land in the kanban immediately,
         // everything else waits for manual promotion.
