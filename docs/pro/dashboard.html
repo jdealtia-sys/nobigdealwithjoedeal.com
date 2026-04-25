@@ -678,24 +678,13 @@
     if (typeof window._subscribeEstimates === 'function') {
       try { window._subscribeEstimates(); } catch (e) { /* degrade to one-shot */ }
     }
-    // D9: register device fingerprint so new-device sign-ins fire
-    // a Slack alert. Fire-and-forget — failure is non-fatal.
-    (async () => {
-      try {
-        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-        const fns = mod.getFunctions();
-        const fn = mod.httpsCallable(fns, 'registerDeviceFingerprint');
-        const fp = [
-          screen.width + 'x' + screen.height,
-          navigator.language,
-          new Date().getTimezoneOffset(),
-          (navigator.hardwareConcurrency || ''),
-          (navigator.deviceMemory || '')
-        ].join('|');
-        await fn({ fingerprint: fp, userAgent: (navigator.userAgent || '').slice(0, 400) });
-      } catch (e) { /* silent */ }
-    })();
-    
+    // D9 was: register device fingerprint so new-device sign-ins fire
+    // a Slack alert. The backend `registerDeviceFingerprint` callable
+    // was never deployed, so every dashboard load produced a 401 (no
+    // AppCheck) and later a CORS-failed preflight in the console.
+    // Removed the call until the function actually ships — silent
+    // failure was masking the dead path.
+
     // Check for query params (edit=xxx or tasks=xxx from customer.html)
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');

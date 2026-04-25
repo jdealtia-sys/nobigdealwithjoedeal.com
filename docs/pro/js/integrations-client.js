@@ -40,8 +40,28 @@
   const state = { status: null, statusFetchedAt: 0 };
   const STATUS_TTL_MS = 5 * 60 * 1000;
 
+  // The integrationStatus callable is gated server-side to admin /
+  // company_admin (functions/index.js:704). Non-admins were calling
+  // it on every dashboard load and getting 403 spam in the console
+  // and a wasted Cloud Function invocation per session. Now we
+  // short-circuit on the client so non-admins never hit the network.
+  function _isAdminCaller() {
+    const role = (typeof window !== 'undefined' && window._role) || '';
+    return role === 'admin' || role === 'company_admin';
+  }
+
   async function status(force) {
     if (!force && state.status && (Date.now() - state.statusFetchedAt) < STATUS_TTL_MS) {
+      return state.status;
+    }
+    // Non-admin: don't even attempt the call. Populate an empty
+    // status so requireConfigured() correctly reports "not set up"
+    // for any provider, and downstream UIs disable their buttons
+    // gracefully.
+    if (!_isAdminCaller()) {
+      state.status = { configured: {}, providers: {}, _skippedReason: 'not-admin' };
+      state.statusFetchedAt = Date.now();
+      window._integrationStatus = state.status;
       return state.status;
     }
     try {
