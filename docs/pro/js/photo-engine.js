@@ -1092,6 +1092,19 @@
       await uploadBytes(thumbRef, thumbBlob);
       const thumbUrl = await getDownloadURL(thumbRef);
 
+      // Derive a normalized `phase` field from the user-selected tags.
+      // share-gallery.js reads photo.phase to bucket photos into
+      // Before / During / After sections. Without a dedicated field,
+      // every photo defaulted to 'During' and the Before/After buckets
+      // were always empty. We honor whichever phase tag the user set;
+      // if none, we leave phase null so the gallery falls back to the
+      // existing 'During' default.
+      let phase = null;
+      const _tagList = Array.isArray(tags) ? tags : [];
+      if (_tagList.includes('before')) phase = 'Before';
+      else if (_tagList.includes('after')) phase = 'After';
+      else if (_tagList.includes('during')) phase = 'During';
+
       // Store metadata in Firestore
       const photoId = generateId();
       const photoData = {
@@ -1101,6 +1114,7 @@
         url: photoUrl,
         thumbUrl,
         tags,
+        phase,
         description,
         location,
         quality: state.currentPreset,

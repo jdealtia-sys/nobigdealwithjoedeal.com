@@ -1006,6 +1006,49 @@
       const knock = knocks.find(k => k.id === knockId);
       if (!knock || knock.convertedToLead) return;
 
+      // ─── Cross-call double-convert guard ───
+      // Hot dispositions auto-fire convertToLead from submitKnock(), and
+      // 400 ms later showConversionPrompt opens with another button that
+      // also calls convertToLead. The local `knocks` cache hasn't been
+      // refreshed yet so both calls pass the `knock.convertedToLead`
+      // check above. Result: two pipeline leads, two map pins, two
+      // customer-ID counter increments per hot knock.
+      //
+      // Use a Firestore transaction on knocks/{id} to flip
+      // convertedToLead atomically — only the FIRST call past the
+      // transaction wins; the second sees convertedToLead:true and
+      // bails before _saveLead runs again.
+      if (typeof window.runTransaction === 'function' && window._db) {
+        try {
+          await window.runTransaction(window._db, async (tx) => {
+            const knockRef = window.doc(window._db, 'knocks', knockId);
+            const snap = await tx.get(knockRef);
+            if (!snap.exists()) throw new Error('Knock not found');
+            const cur = snap.data() || {};
+            if (cur.convertedToLead) {
+              // Another call already won — abort with a sentinel that
+              // the outer catch translates into a quiet no-op.
+              throw new Error('KNOCK_ALREADY_CONVERTED');
+            }
+            tx.update(knockRef, {
+              convertedToLead: true,
+              conversionStartedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()
+            });
+          });
+        } catch (txErr) {
+          if (txErr && txErr.message === 'KNOCK_ALREADY_CONVERTED') {
+            // The other call beat us. Refresh and quietly bail.
+            try { await loadKnocks(); } catch (_) {}
+            return;
+          }
+          // Any other transaction error — re-throw to outer catch.
+          throw txErr;
+        }
+        // Reflect the lock in our local cache so subsequent renders
+        // know this knock is converting and don't re-offer the prompt.
+        knock.convertedToLead = true;
+      }
+
       const firstName = (knock.homeowner || '').split(' ')[0] || 'D2D';
       const lastName = (knock.homeowner || '').split(' ').slice(1).join(' ') || 'Lead';
 

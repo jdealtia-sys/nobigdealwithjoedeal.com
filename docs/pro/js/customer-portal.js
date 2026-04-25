@@ -115,20 +115,50 @@
       // Generate the portal HTML
       const html = buildPortalHTML(lead, photos, estimates, tasks, notes);
 
-      // Upload to Firebase Storage
-      const storageRef = window.ref(window.storage, `portals/${window._user.uid}/${leadId}.html`);
+      // ── Versioned upload ──
+      // The previous implementation always wrote `portals/{uid}/{leadId}.html`
+      // — every regenerate replaced the file at the same Storage path.
+      // Effects:
+      //   * No way to roll back if the rep accidentally exposed a
+      //     private note via regenerate.
+      //   * Customers who already received the old link see the new
+      //     content the next time they open it (privacy surprise).
+      // Now each regenerate writes a distinct timestamped file. The
+      // lead doc tracks the CURRENT version + a history array, so the
+      // most recently shared link points at the latest content but
+      // older versions stay reachable for audit/rollback. The lead's
+      // portalUrl always points at the newest version — homeowners
+      // who got the previous link don't get auto-promoted to the new
+      // content because the old URL is a different file.
+      const _ts = Date.now();
+      const _versionPath = `portals/${window._user.uid}/${leadId}/v-${_ts}.html`;
+      const storageRef = window.ref(window.storage, _versionPath);
       const blob = new Blob([html], { type: 'text/html' });
       await window.uploadBytes(storageRef, blob, { contentType: 'text/html' });
       const shareUrl = await window.getDownloadURL(storageRef);
 
-      // Save share URL to lead
-      await window.updateDoc(window.doc(window.db, 'leads', leadId), {
+      // Save share URL + history to lead
+      const _entry = {
+        url: shareUrl,
+        path: _versionPath,
+        generatedAt: new Date().toISOString(),
+        generatedBy: window.auth?.currentUser?.email || 'unknown'
+      };
+      const updatePayload = {
         portalUrl: shareUrl,
+        portalPath: _versionPath,
         portalGeneratedAt: window.serverTimestamp()
-      });
+      };
+      // arrayUnion appends without dupe — fine since the timestamp
+      // makes each entry unique.
+      if (window.arrayUnion) {
+        updatePayload.portalHistory = window.arrayUnion(_entry);
+      }
+      await window.updateDoc(window.doc(window.db, 'leads', leadId), updatePayload);
 
       // Update local lead cache
       lead.portalUrl = shareUrl;
+      lead.portalPath = _versionPath;
 
       if (typeof showToast === 'function') showToast('Portal ready! Link copied to clipboard', 'ok');
       try { await navigator.clipboard.writeText(shareUrl); } catch(e) {}
