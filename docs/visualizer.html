@@ -164,6 +164,8 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 }
 .pill:hover { border-color: var(--orange); color: var(--orange); }
 .pill.selected { border-color: var(--orange); background: var(--orange); color: var(--white); }
+.pill .pill-sub { display:block; font-size:0.65rem; font-weight:500; opacity:0.75; margin-top:1px; letter-spacing:0; text-transform:none; }
+.pill.selected .pill-sub { opacity:0.95; }
 .color-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 .swatch {
   width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
@@ -176,6 +178,13 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .swatch:hover .swatch-name { display: block; }
 .option-select { width: 100%; padding: 11px 14px; border: 2px solid var(--light-gray); border-radius: 8px; font-size: 0.88rem; font-family: inherit; color: var(--gray-sub); background: var(--white); transition: border-color 0.2s; }
 .option-select:focus { outline: none; border-color: var(--orange); }
+.gaf-badge-inline { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 12px; background: rgba(232,114,12,0.06); border: 1px solid rgba(232,114,12,0.18); border-radius: 10px; }
+.gaf-badge-inline img { display: block; flex-shrink: 0; }
+.group-sub { font-size: 0.74rem; color: var(--gray); line-height: 1.4; }
+#additionalNotes { width:100%; padding:12px 14px; border:2px solid var(--light-gray); border-radius:8px; font-family:inherit; font-size:0.88rem; color:var(--gray-sub); resize:vertical; min-height:80px; transition:border-color 0.2s; }
+#additionalNotes:focus { outline:none; border-color: var(--orange); }
+.swatch.light-bg { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+.color-swatches.compact .swatch { width:32px; height:32px; }
 
 /* PANEL 3 — RESULTS */
 .results-loading { text-align: center; padding: 48px 0; }
@@ -447,87 +456,91 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div class="options-grid">
 
         <!-- WHAT TO VISUALIZE -->
-        <div class="option-group">
+        <div class="option-group" style="grid-column:1 / -1;">
           <label class="group-label">What Would You Like to Visualize?</label>
-          <div class="option-pills" id="featurePills">
-            <span class="pill selected" data-val="roof">🏠 Roof</span>
-            <span class="pill" data-val="siding">🏡 Siding</span>
-            <span class="pill" data-val="gutters">🌧️ Gutters</span>
-            <span class="pill" data-val="windows">🪟 Windows</span>
-            <span class="pill" data-val="garage">🚗 Garage Door</span>
-            <span class="pill" data-val="shutters">🏠 Shutters</span>
-            <span class="pill" data-val="doors">🚪 Front Door</span>
-          </div>
+          <div class="option-pills" id="featurePills"></div>
         </div>
 
-        <!-- ROOF STYLE -->
-        <div class="option-group" id="roofStyleGroup">
-          <label class="group-label">Roof Shingle Style</label>
-          <div class="option-pills" id="roofStylePills">
-            <span class="pill selected" data-val="architectural">Architectural</span>
-            <span class="pill" data-val="impact">Impact-Resistant</span>
-            <span class="pill" data-val="designer">Designer / Premium</span>
-            <span class="pill" data-val="metal">Metal Roofing</span>
+        <!-- ROOF: GAF SHINGLE LINE -->
+        <div class="option-group" id="roofLineGroup" style="grid-column:1 / -1;">
+          <div class="gaf-badge-inline">
+            <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified Contractor" width="32" height="32" loading="lazy">
+            <div>
+              <label class="group-label" style="margin-bottom:2px;">Shingle Product Line · GAF</label>
+              <div class="group-sub">Joe is GAF Certified™ — every shingle below is from GAF's residential lineup.</div>
+            </div>
           </div>
+          <div class="option-pills" id="roofLinePills"></div>
         </div>
 
-        <!-- ROOF COLOR -->
-        <div class="option-group" id="roofColorGroup">
-          <label class="group-label">Roof Color</label>
-          <div class="color-swatches" id="roofColors">
-            <div class="swatch selected" style="background:#2c2c2c" data-val="charcoal" title="Charcoal"><span class="swatch-name">Charcoal</span></div>
-            <div class="swatch" style="background:#5c4a3a" data-val="weathered-wood" title="Weathered Wood"><span class="swatch-name">Weathered Wood</span></div>
-            <div class="swatch" style="background:#8b7355" data-val="driftwood" title="Driftwood"><span class="swatch-name">Driftwood</span></div>
-            <div class="swatch" style="background:#1a1a1a" data-val="onyx" title="Onyx Black"><span class="swatch-name">Onyx Black</span></div>
-            <div class="swatch" style="background:#c8b89a" data-val="sand" title="Desert Sand"><span class="swatch-name">Desert Sand</span></div>
-            <div class="swatch" style="background:#6b7280" data-val="pewter" title="Pewter Gray"><span class="swatch-name">Pewter Gray</span></div>
-            <div class="swatch" style="background:#8b3a3a" data-val="rustic-red" title="Rustic Red"><span class="swatch-name">Rustic Red</span></div>
-            <div class="swatch" style="background:#3d5a3e" data-val="hunter-green" title="Hunter Green"><span class="swatch-name">Hunter Green</span></div>
-          </div>
+        <!-- ROOF: COLOR -->
+        <div class="option-group" id="roofColorGroup" style="grid-column:1 / -1;">
+          <label class="group-label" id="roofColorLabel">Roof Color · GAF Timberline HDZ Palette</label>
+          <div class="color-swatches" id="roofColors"></div>
         </div>
 
-        <!-- SIDING STYLE -->
-        <div class="option-group" id="sidingStyleGroup" style="display:none">
-          <label class="group-label">Siding Style</label>
-          <div class="option-pills" id="sidingStylePills">
-            <span class="pill selected" data-val="lap">Traditional Lap</span>
-            <span class="pill" data-val="dutch-lap">Dutch Lap</span>
-            <span class="pill" data-val="shake">Shake</span>
-            <span class="pill" data-val="board-batten">Board &amp; Batten</span>
-          </div>
+        <!-- SIDING: MATERIAL -->
+        <div class="option-group" id="sidingMaterialGroup" style="display:none;">
+          <label class="group-label">Siding Material</label>
+          <div class="option-pills" id="sidingMaterialPills"></div>
         </div>
 
-        <!-- SIDING COLOR -->
-        <div class="option-group" id="sidingColorGroup" style="display:none">
+        <!-- SIDING: STYLE -->
+        <div class="option-group" id="sidingStyleGroup" style="display:none;">
+          <label class="group-label">Siding Profile</label>
+          <div class="option-pills" id="sidingStylePills"></div>
+        </div>
+
+        <!-- SIDING: COLOR -->
+        <div class="option-group" id="sidingColorGroup" style="display:none;grid-column:1 / -1;">
           <label class="group-label">Siding Color</label>
-          <div class="color-swatches" id="sidingColors">
-            <div class="swatch selected" style="background:#f5f0e8" data-val="cream" title="Classic Cream"><span class="swatch-name">Cream</span></div>
-            <div class="swatch" style="background:#e8e0d0" data-val="linen" title="Linen"><span class="swatch-name">Linen</span></div>
-            <div class="swatch" style="background:#6b7280" data-val="slate-gray" title="Slate Gray"><span class="swatch-name">Slate Gray</span></div>
-            <div class="swatch" style="background:#374151" data-val="charcoal-blue" title="Charcoal Blue"><span class="swatch-name">Charcoal Blue</span></div>
-            <div class="swatch" style="background:#1e3a6e" data-val="navy" title="Navy Blue"><span class="swatch-name">Navy Blue</span></div>
-            <div class="swatch" style="background:#78350f" data-val="cedar" title="Cedar Brown"><span class="swatch-name">Cedar</span></div>
-            <div class="swatch" style="background:#065f46" data-val="forest" title="Forest Green"><span class="swatch-name">Forest Green</span></div>
-            <div class="swatch" style="background:#1c1917" data-val="black" title="Matte Black"><span class="swatch-name">Matte Black</span></div>
-          </div>
+          <div class="color-swatches" id="sidingColors"></div>
         </div>
 
-        <!-- GUTTER COLOR -->
-        <div class="option-group" id="gutterColorGroup" style="display:none">
+        <!-- GUTTERS: STYLE -->
+        <div class="option-group" id="gutterStyleGroup" style="display:none;">
+          <label class="group-label">Gutter Profile</label>
+          <div class="option-pills" id="gutterStylePills"></div>
+        </div>
+
+        <!-- GUTTERS: COLOR -->
+        <div class="option-group" id="gutterColorGroup" style="display:none;">
           <label class="group-label">Gutter Color</label>
-          <div class="color-swatches" id="gutterColors">
-            <div class="swatch selected" style="background:#d1c8b8" data-val="almond" title="Almond"><span class="swatch-name">Almond</span></div>
-            <div class="swatch" style="background:#ffffff;border:1px solid #ccc" data-val="white" title="White"><span class="swatch-name">White</span></div>
-            <div class="swatch" style="background:#6b7280" data-val="gray" title="Gray"><span class="swatch-name">Gray</span></div>
-            <div class="swatch" style="background:#1a1a1a" data-val="black" title="Black"><span class="swatch-name">Black</span></div>
-            <div class="swatch" style="background:#78350f" data-val="brown" title="Brown"><span class="swatch-name">Brown</span></div>
-          </div>
+          <div class="color-swatches" id="gutterColors"></div>
+        </div>
+
+        <!-- WINDOWS: COLOR -->
+        <div class="option-group" id="windowColorGroup" style="display:none;">
+          <label class="group-label">Window Trim Color</label>
+          <div class="color-swatches" id="windowColors"></div>
+        </div>
+
+        <!-- GARAGE: STYLE + COLOR -->
+        <div class="option-group" id="garageStyleGroup" style="display:none;">
+          <label class="group-label">Garage Door Style</label>
+          <div class="option-pills" id="garageStylePills"></div>
+        </div>
+        <div class="option-group" id="garageColorGroup" style="display:none;">
+          <label class="group-label">Garage Door Color</label>
+          <div class="color-swatches" id="garageColors"></div>
+        </div>
+
+        <!-- SHUTTERS: COLOR -->
+        <div class="option-group" id="shutterColorGroup" style="display:none;">
+          <label class="group-label">Shutter Color</label>
+          <div class="color-swatches" id="shutterColors"></div>
+        </div>
+
+        <!-- FRONT DOOR: COLOR -->
+        <div class="option-group" id="doorColorGroup" style="display:none;">
+          <label class="group-label">Front Door Color</label>
+          <div class="color-swatches" id="doorColors"></div>
         </div>
 
         <!-- ADDITIONAL NOTES -->
-        <div class="option-group" style="grid-column: 1 / -1;">
+        <div class="option-group" style="grid-column:1 / -1;">
           <label class="group-label">Anything Else You Want the AI to Consider?</label>
-          <textarea id="additionalNotes" style="width:100%;padding:12px 14px;border:2px solid var(--light-gray);border-radius:8px;font-family:inherit;font-size:0.88rem;color:var(--gray-sub);resize:vertical;min-height:80px;transition:border-color 0.2s" placeholder="E.g. 'Our house is a ranch style', 'we're going for a modern farmhouse look', 'the neighbors have white siding', 'focus on the front-facing roof'..." onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--light-gray)'"></textarea>
+          <textarea id="additionalNotes" placeholder="E.g. 'Our house is a ranch style', 'we're going for a modern farmhouse look', 'match the neighbors' white trim', 'focus on the front-facing roof'…"></textarea>
         </div>
 
       </div>
@@ -662,16 +675,157 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 </footer>
 
 <script>
+/* ──────────────────────────────────────────────────────────────────────
+ * VIZ_OPTIONS — SINGLE SOURCE OF TRUTH
+ * Every option group below drives (1) the rendered UI on panel 2,
+ * (2) the AI prompt's `selectionsText`, and (3) the canvas-fallback
+ * color overlay. Adding/changing an option only requires editing here.
+ * ──────────────────────────────────────────────────────────────────── */
+const VIZ_OPTIONS = {
+  features: [
+    { id: 'roof',     label: '🏠 Roof' },
+    { id: 'siding',   label: '🏡 Siding' },
+    { id: 'gutters',  label: '🌧️ Gutters' },
+    { id: 'windows',  label: '🪟 Windows' },
+    { id: 'garage',   label: '🚗 Garage Door' },
+    { id: 'shutters', label: '🪟 Shutters' },
+    { id: 'doors',    label: '🚪 Front Door' },
+  ],
+
+  // GAF residential shingle product lines — Joe is GAF Certified™
+  roofLines: [
+    { id: 'timberline-hdz',  label: 'Timberline HDZ',     desc: 'Architectural · most popular',
+      ai: 'GAF Timberline HDZ architectural laminated asphalt shingles' },
+    { id: 'timberline-as2',  label: 'Timberline AS II',   desc: 'Impact-Resistant Class 4',
+      ai: 'GAF Timberline AS II Class 4 impact-resistant architectural asphalt shingles' },
+    { id: 'designer',        label: 'Camelot II / Slateline', desc: 'Designer · luxury',
+      ai: 'GAF designer luxury asphalt shingles (Camelot II or Slateline profile)' },
+    { id: 'royal-sovereign', label: 'Royal Sovereign',    desc: '3-Tab · budget',
+      ai: 'GAF Royal Sovereign traditional 3-tab asphalt shingles' },
+    { id: 'metal',           label: 'Standing-Seam Metal', desc: 'Premium metal panels',
+      ai: 'standing-seam metal roofing panels (NOT metal shingles — these are flat panels with raised seams)' },
+  ],
+
+  // Full GAF Timberline HDZ palette — actual color names from GAF.com,
+  // hex values are realistic approximations matched against GAF imagery.
+  shingleColors: [
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
+    { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e' },
+    { id: 'oyster-gray',        name: 'Oyster Gray',         hex: '#a8a39a', light: true },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
+    { id: 'appalachian-sky',    name: 'Appalachian Sky',     hex: '#4a5868' },
+    { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848' },
+    { id: 'nantucket-morning',  name: 'Nantucket Morning',   hex: '#7a8590' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
+    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
+    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
+    { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true },
+    { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030' },
+    { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
+    { id: 'sunset-brick',       name: 'Sunset Brick',        hex: '#7e3838' },
+    { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
+    { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#b8924a' },
+    { id: 'sedona-sunset',      name: 'Sedona Sunset',       hex: '#a06840' },
+  ],
+
+  // Standing-seam metal palette (shown when roofLine === 'metal')
+  metalColors: [
+    { id: 'matte-black',     name: 'Matte Black',     hex: '#1a1a1a' },
+    { id: 'charcoal',        name: 'Charcoal',        hex: '#3a3a3a' },
+    { id: 'galvalume',       name: 'Galvalume',       hex: '#a8a8a8', light: true },
+    { id: 'medium-bronze',   name: 'Medium Bronze',   hex: '#5e4530' },
+    { id: 'forest-green',    name: 'Forest Green',    hex: '#1f3528' },
+    { id: 'colonial-red',    name: 'Colonial Red',    hex: '#7a1c1c' },
+    { id: 'almond',          name: 'Almond',          hex: '#d8c8a8', light: true },
+    { id: 'stone-white',     name: 'Stone White',     hex: '#e8e0d0', light: true },
+  ],
+
+  sidingMaterials: [
+    { id: 'vinyl',        label: 'Vinyl',         desc: 'Most affordable, low maintenance',
+      ai: 'vinyl siding' },
+    { id: 'fiber-cement', label: 'Fiber-Cement',  desc: 'James Hardie® brand',
+      ai: 'James Hardie ColorPlus® fiber-cement siding' },
+    { id: 'wood',         label: 'Wood / Cedar',  desc: 'Natural classic look',
+      ai: 'natural cedar wood siding' },
+  ],
+
+  sidingStyles: [
+    { id: 'lap',          label: 'Traditional Lap',   ai: 'horizontal lap profile' },
+    { id: 'dutch-lap',    label: 'Dutch Lap',         ai: 'Dutch-lap profile' },
+    { id: 'board-batten', label: 'Board & Batten',    ai: 'board-and-batten vertical profile' },
+    { id: 'shake',        label: 'Shake',             ai: 'shake / shingle profile' },
+  ],
+
+  sidingColors: [
+    { id: 'arctic-white',   name: 'Arctic White',     hex: '#f0e8d8', light: true },
+    { id: 'cream',          name: 'Cream',            hex: '#e8d8b8', light: true },
+    { id: 'linen',          name: 'Linen',            hex: '#d8c8a8', light: true },
+    { id: 'sandstone',      name: 'Sandstone Beige',  hex: '#c8b898' },
+    { id: 'pebble',         name: 'Pebble Clay',      hex: '#a89888' },
+    { id: 'monterey-taupe', name: 'Monterey Taupe',   hex: '#8a7868' },
+    { id: 'cobblestone',    name: 'Cobblestone',      hex: '#6e6e6e' },
+    { id: 'pearl-gray',     name: 'Pearl Gray',       hex: '#a0a8a8', light: true },
+    { id: 'iron-gray',      name: 'Iron Gray',        hex: '#4a4e54' },
+    { id: 'aged-pewter',    name: 'Aged Pewter',      hex: '#3a3e44' },
+    { id: 'evening-blue',   name: 'Evening Blue',     hex: '#3e4858' },
+    { id: 'deep-ocean',     name: 'Deep Ocean',       hex: '#1e2c3e' },
+    { id: 'cypress',        name: 'Cypress Green',    hex: '#3a4a3e' },
+    { id: 'autumn-red',     name: 'Autumn Red',       hex: '#8e2828' },
+    { id: 'cedar',          name: 'Cedar Brown',      hex: '#6e4a30' },
+    { id: 'matte-black',    name: 'Matte Black',      hex: '#1c1917' },
+  ],
+
+  gutterStyles: [
+    { id: 'k-style',    label: 'K-Style',     ai: 'K-style seamless aluminum' },
+    { id: 'half-round', label: 'Half-Round',  ai: 'half-round seamless aluminum' },
+  ],
+
+  // Trim palette — used for gutters, windows, garage, shutters, doors
+  trimColors: [
+    { id: 'white',         name: 'White',          hex: '#f8f8f8', light: true },
+    { id: 'almond',        name: 'Almond',         hex: '#d1c8b8', light: true },
+    { id: 'sandstone',     name: 'Sandstone',      hex: '#c8b898' },
+    { id: 'gray',          name: 'Gray',           hex: '#6b7280' },
+    { id: 'iron-gray',     name: 'Iron Gray',      hex: '#4a4e54' },
+    { id: 'black',         name: 'Black',          hex: '#1a1a1a' },
+    { id: 'bronze',        name: 'Dark Bronze',    hex: '#3e3024' },
+    { id: 'brown',         name: 'Brown',          hex: '#4a3528' },
+    { id: 'cedar',         name: 'Natural Cedar',  hex: '#a06840' },
+    { id: 'forest-green',  name: 'Forest Green',   hex: '#2d4030' },
+    { id: 'navy',          name: 'Navy',           hex: '#1e3a6e' },
+    { id: 'red',           name: 'Red',            hex: '#7a1c1c' },
+  ],
+
+  garageStyles: [
+    { id: 'panel-classic',  label: 'Classic Panelled',   ai: 'classic raised-panel garage door' },
+    { id: 'flush',          label: 'Flush / Modern',     ai: 'flush modern minimalist garage door' },
+    { id: 'carriage',       label: 'Carriage House',     ai: 'carriage-house style garage door with decorative hinges' },
+    { id: 'glass-modern',   label: 'Glass-Panel Modern', ai: 'modern frosted-glass-panel garage door' },
+  ],
+};
+
 // ── STATE ──────────────────────────────────────────────────────
 let uploadedFile = null;
 let uploadedDataUrl = null;
 const state = {
-  features: ['roof'],
-  roofStyle: 'architectural',
-  roofColor: 'charcoal',
-  sidingStyle: 'lap',
-  sidingColor: 'cream',
-  gutterColor: 'almond',
+  features:        ['roof'],
+  roofLine:        'timberline-hdz',
+  roofColor:       'charcoal',
+  sidingMaterial:  'vinyl',
+  sidingStyle:     'lap',
+  sidingColor:     'cream',
+  gutterStyle:     'k-style',
+  gutterColor:     'almond',
+  windowColor:     'white',
+  garageStyle:     'panel-classic',
+  garageColor:     'white',
+  shutterColor:    'black',
+  doorColor:       'navy',
 };
 
 // ── NAV ────────────────────────────────────────────────────────
@@ -764,50 +918,104 @@ function resetUpload() {
   toStep2Btn.disabled = true;
 }
 
-// ── PILLS & SWATCHES ───────────────────────────────────────────
-function setupPills(containerId, stateKey, multi = false) {
-  document.getElementById(containerId).addEventListener('click', e => {
+// ── RENDERERS ──────────────────────────────────────────────────
+// Pills (radio or multi)
+function renderPills(containerId, items, opts) {
+  opts = opts || {};
+  const stateKey = opts.stateKey;
+  const multi    = !!opts.multi;
+  const onChange = opts.onChange;
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = items.map(it => {
+    const sel = multi
+      ? (state[stateKey] || []).includes(it.id)
+      : state[stateKey] === it.id;
+    const sub = it.desc ? `<span class="pill-sub">${it.desc}</span>` : '';
+    return `<span class="pill${sel ? ' selected' : ''}" data-val="${it.id}">${it.label}${sub}</span>`;
+  }).join('');
+  c.addEventListener('click', e => {
     const pill = e.target.closest('.pill');
     if (!pill) return;
     if (multi) {
       pill.classList.toggle('selected');
-      state[stateKey] = [...document.querySelectorAll(`#${containerId} .pill.selected`)].map(p => p.dataset.val);
-      updateOptionVisibility();
+      state[stateKey] = [...c.querySelectorAll('.pill.selected')].map(p => p.dataset.val);
     } else {
-      document.querySelectorAll(`#${containerId} .pill`).forEach(p => p.classList.remove('selected'));
+      c.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
       pill.classList.add('selected');
       state[stateKey] = pill.dataset.val;
     }
+    if (onChange) onChange();
   });
 }
 
-function setupSwatches(containerId, stateKey) {
-  document.getElementById(containerId).addEventListener('click', e => {
+// Swatches (single-select color)
+function renderSwatches(containerId, items, stateKey) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = items.map(it => {
+    const sel = state[stateKey] === it.id;
+    const cls = 'swatch' + (sel ? ' selected' : '') + (it.light ? ' light-bg' : '');
+    return `<div class="${cls}" style="background:${it.hex}" data-val="${it.id}" title="${it.name}"><span class="swatch-name">${it.name}</span></div>`;
+  }).join('');
+  c.addEventListener('click', e => {
     const sw = e.target.closest('.swatch');
     if (!sw) return;
-    document.querySelectorAll(`#${containerId} .swatch`).forEach(s => s.classList.remove('selected'));
+    c.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
     sw.classList.add('selected');
     state[stateKey] = sw.dataset.val;
   });
 }
 
-setupPills('featurePills', 'features', true);
-setupPills('roofStylePills', 'roofStyle');
-setupSwatches('roofColors', 'roofColor');
-setupPills('sidingStylePills', 'sidingStyle');
-setupSwatches('sidingColors', 'sidingColor');
-setupSwatches('gutterColors', 'gutterColor');
-// init features
-state.features = ['roof'];
+// Initial render
+renderPills('featurePills',         VIZ_OPTIONS.features,        { stateKey: 'features',       multi: true,  onChange: updateOptionVisibility });
+renderPills('roofLinePills',        VIZ_OPTIONS.roofLines,       { stateKey: 'roofLine',                     onChange: onRoofLineChange });
+renderSwatches('roofColors',        VIZ_OPTIONS.shingleColors,   'roofColor');
+renderPills('sidingMaterialPills',  VIZ_OPTIONS.sidingMaterials, { stateKey: 'sidingMaterial' });
+renderPills('sidingStylePills',     VIZ_OPTIONS.sidingStyles,    { stateKey: 'sidingStyle' });
+renderSwatches('sidingColors',      VIZ_OPTIONS.sidingColors,    'sidingColor');
+renderPills('gutterStylePills',     VIZ_OPTIONS.gutterStyles,    { stateKey: 'gutterStyle' });
+renderSwatches('gutterColors',      VIZ_OPTIONS.trimColors,      'gutterColor');
+renderSwatches('windowColors',      VIZ_OPTIONS.trimColors,      'windowColor');
+renderPills('garageStylePills',     VIZ_OPTIONS.garageStyles,    { stateKey: 'garageStyle' });
+renderSwatches('garageColors',      VIZ_OPTIONS.trimColors,      'garageColor');
+renderSwatches('shutterColors',     VIZ_OPTIONS.trimColors,      'shutterColor');
+renderSwatches('doorColors',        VIZ_OPTIONS.trimColors,      'doorColor');
+
+// When the roof line changes, swap palette: metal lines use metalColors, others use shingleColors
+function onRoofLineChange() {
+  const isMetal = state.roofLine === 'metal';
+  const palette = isMetal ? VIZ_OPTIONS.metalColors : VIZ_OPTIONS.shingleColors;
+  // If current roofColor isn't in the new palette, default to first
+  if (!palette.find(c => c.id === state.roofColor)) state.roofColor = palette[0].id;
+  // Re-render with new palette and update label
+  const lbl = document.getElementById('roofColorLabel');
+  if (lbl) lbl.textContent = isMetal
+    ? 'Roof Color · Standing-Seam Metal Palette'
+    : 'Roof Color · GAF Timberline HDZ Palette';
+  // Re-render swatches with new palette (replace listener via fresh render)
+  const c = document.getElementById('roofColors');
+  if (c) c.replaceWith(c.cloneNode(false)); // strip old listener
+  renderSwatches('roofColors', palette, 'roofColor');
+}
 
 function updateOptionVisibility() {
   const f = state.features;
-  document.getElementById('roofStyleGroup').style.display = f.includes('roof') ? '' : 'none';
-  document.getElementById('roofColorGroup').style.display = f.includes('roof') ? '' : 'none';
-  document.getElementById('sidingStyleGroup').style.display = f.includes('siding') ? '' : 'none';
-  document.getElementById('sidingColorGroup').style.display = f.includes('siding') ? '' : 'none';
-  document.getElementById('gutterColorGroup').style.display = f.includes('gutters') ? '' : 'none';
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('roofLineGroup',       f.includes('roof'));
+  show('roofColorGroup',      f.includes('roof'));
+  show('sidingMaterialGroup', f.includes('siding'));
+  show('sidingStyleGroup',    f.includes('siding'));
+  show('sidingColorGroup',    f.includes('siding'));
+  show('gutterStyleGroup',    f.includes('gutters'));
+  show('gutterColorGroup',    f.includes('gutters'));
+  show('windowColorGroup',    f.includes('windows'));
+  show('garageStyleGroup',    f.includes('garage'));
+  show('garageColorGroup',    f.includes('garage'));
+  show('shutterColorGroup',   f.includes('shutters'));
+  show('doorColorGroup',      f.includes('doors'));
 }
+updateOptionVisibility();
 
 // ── STEP NAV ───────────────────────────────────────────────────
 function goToStep(n) {
@@ -837,39 +1045,53 @@ async function runVisualizer() {
     }
   }, 4500);
 
-  // Build selections summary — map style IDs to correct product names.
-  // Previously we hardcoded " shingles" for every roof style which made
-  // Claude refer to metal panels as "metal shingles" (wrong product).
-  const ROOF_STYLE_PRODUCT = {
-    architectural: 'architectural dimensional asphalt shingles',
-    '3-tab':       'traditional 3-tab asphalt shingles',
-    luxury:        'luxury designer asphalt shingles',
-    metal:         'standing-seam metal roofing panels',
-    slate:         'natural slate tile',
-  };
-  const SIDING_STYLE_PRODUCT = {
-    'dutch-lap':    'dutch-lap vinyl siding',
-    'board-batten': 'board-and-batten vertical siding',
-    shake:          'cedar-shake siding',
-    horizontal:     'horizontal lap siding',
-    'fiber-cement': 'James Hardie fiber-cement lap siding',
-  };
-
+  // Helpers — every label/AI-name is derived from VIZ_OPTIONS so there is
+  // exactly one source of truth between the UI, the AI prompt, and the
+  // canvas-fallback color overlay.
+  const findById = (list, id) => list.find(x => x.id === id) || list[0];
   const features = state.features.length ? state.features : ['roof'];
-  const roofColorName = document.querySelector('#roofColors .swatch.selected')?.title || state.roofColor;
-  const sidingColorName = document.querySelector('#sidingColors .swatch.selected')?.title || state.sidingColor;
+
+  const roofLine     = findById(VIZ_OPTIONS.roofLines, state.roofLine);
+  const isMetalRoof  = roofLine.id === 'metal';
+  const roofPalette  = isMetalRoof ? VIZ_OPTIONS.metalColors : VIZ_OPTIONS.shingleColors;
+  const roofColor    = findById(roofPalette, state.roofColor);
+  const sidingMat    = findById(VIZ_OPTIONS.sidingMaterials, state.sidingMaterial);
+  const sidingStyle  = findById(VIZ_OPTIONS.sidingStyles, state.sidingStyle);
+  const sidingColor  = findById(VIZ_OPTIONS.sidingColors, state.sidingColor);
+  const gutterStyle  = findById(VIZ_OPTIONS.gutterStyles, state.gutterStyle);
+  const gutterColor  = findById(VIZ_OPTIONS.trimColors, state.gutterColor);
+  const windowColor  = findById(VIZ_OPTIONS.trimColors, state.windowColor);
+  const garageStyle  = findById(VIZ_OPTIONS.garageStyles, state.garageStyle);
+  const garageColor  = findById(VIZ_OPTIONS.trimColors, state.garageColor);
+  const shutterColor = findById(VIZ_OPTIONS.trimColors, state.shutterColor);
+  const doorColor    = findById(VIZ_OPTIONS.trimColors, state.doorColor);
+
   const notes = document.getElementById('additionalNotes').value.trim();
-  const roofProduct = ROOF_STYLE_PRODUCT[state.roofStyle] || `${state.roofStyle} shingles`;
-  const sidingProduct = SIDING_STYLE_PRODUCT[state.sidingStyle] || `${state.sidingStyle} siding`;
+
+  // AI-friendly text representation — used by the public /publicVisualizerAI
+  // endpoint which expects a `selectionsText` string.
   const selectionsText = [
-    features.includes('roof') ? `Roof: ${roofProduct} in ${roofColorName}` : '',
-    features.includes('siding') ? `Siding: ${sidingProduct} in ${sidingColorName}` : '',
-    features.includes('gutters') ? `Gutters: seamless K-style in ${state.gutterColor}` : '',
-    features.includes('windows') ? 'Windows: refreshed frames' : '',
-    features.includes('garage') ? 'Garage door: modern panelled' : '',
-    features.includes('shutters') ? 'Shutters: refreshed exterior shutters' : '',
-    features.includes('doors') ? 'Front door: refreshed color' : '',
+    features.includes('roof')     ? `Roof: ${roofLine.ai} in ${roofColor.name}` : '',
+    features.includes('siding')   ? `Siding: ${sidingMat.ai} with ${sidingStyle.ai} in ${sidingColor.name}` : '',
+    features.includes('gutters')  ? `Gutters: ${gutterStyle.ai} in ${gutterColor.name}` : '',
+    features.includes('windows')  ? `Windows: ${windowColor.name} trim` : '',
+    features.includes('garage')   ? `Garage door: ${garageStyle.ai} in ${garageColor.name}` : '',
+    features.includes('shutters') ? `Shutters: ${shutterColor.name}` : '',
+    features.includes('doors')    ? `Front door: ${doorColor.name}` : '',
   ].filter(Boolean).join('; ');
+
+  // Structured payload — sent alongside selectionsText so the image-gen
+  // endpoint and any future consumers don't have to re-parse the string.
+  const selections = {
+    features,
+    roof:    features.includes('roof')     ? { line: roofLine.id, lineName: roofLine.label, color: roofColor.id, colorName: roofColor.name, hex: roofColor.hex } : null,
+    siding:  features.includes('siding')   ? { material: sidingMat.id, materialName: sidingMat.label, style: sidingStyle.id, color: sidingColor.id, colorName: sidingColor.name, hex: sidingColor.hex } : null,
+    gutters: features.includes('gutters')  ? { style: gutterStyle.id, color: gutterColor.id, colorName: gutterColor.name, hex: gutterColor.hex } : null,
+    windows: features.includes('windows')  ? { color: windowColor.id, colorName: windowColor.name, hex: windowColor.hex } : null,
+    garage:  features.includes('garage')   ? { style: garageStyle.id, color: garageColor.id, colorName: garageColor.name, hex: garageColor.hex } : null,
+    shutters:features.includes('shutters') ? { color: shutterColor.id, colorName: shutterColor.name, hex: shutterColor.hex } : null,
+    doors:   features.includes('doors')    ? { color: doorColor.id, colorName: doorColor.name, hex: doorColor.hex } : null,
+  };
 
   // Call BOTH endpoints in parallel:
   //   1. publicVisualizerAI → Joe's text assessment (Claude, ~2s)
@@ -920,18 +1142,25 @@ async function runVisualizer() {
   });
 
   // ── Image generation (Gemini 2.5 Flash Image) ──────────────────
+  // Send both legacy fields (for the existing cloud function contract)
+  // AND the new structured `selections` block. Cloud function can adopt
+  // the structured field at its own pace; legacy fields keep it working.
   const imagePromise = fetch(FUNCTIONS_BASE + '/visualizerImageGen', {
     method: 'POST',
     headers: commonHeaders,
     body: JSON.stringify({
       imageBase64: base64,
       mediaType,
-      features: state.features,
-      roofStyle:   state.roofStyle,
+      features:    state.features,
+      // Legacy field names retained — map new line/material to old keys
+      roofStyle:   isMetalRoof ? 'metal' : (roofLine.id === 'royal-sovereign' ? '3-tab' : (roofLine.id === 'designer' ? 'luxury' : 'architectural')),
       roofColor:   state.roofColor,
       sidingStyle: state.sidingStyle,
       sidingColor: state.sidingColor,
       gutterColor: state.gutterColor,
+      // New structured payload — single source of truth
+      selections,
+      selectionsText,
       notes,
     }),
   }).then(async (response) => {
@@ -992,82 +1221,11 @@ async function runVisualizer() {
   canvas.width = container.offsetWidth || 500;
   canvas.height = container.offsetHeight || 280;
 
-  if (generatedImageDataUrl) {
-    // Real Gemini-generated image — draw it at canvas size preserving
-    // aspect ratio via cover-fit.
-    const realImg = new Image();
-    realImg.onload = () => {
-      // Cover-fit: fill the canvas while preserving aspect
-      const srcRatio = realImg.naturalWidth / realImg.naturalHeight;
-      const dstRatio = canvas.width / canvas.height;
-      let drawW, drawH, drawX, drawY;
-      if (srcRatio > dstRatio) {
-        drawH = canvas.height;
-        drawW = drawH * srcRatio;
-        drawX = (canvas.width - drawW) / 2;
-        drawY = 0;
-      } else {
-        drawW = canvas.width;
-        drawH = drawW / srcRatio;
-        drawX = 0;
-        drawY = (canvas.height - drawH) / 2;
-      }
-      ctx.drawImage(realImg, drawX, drawY, drawW, drawH);
-      // Subtle watermark so it's clear this is AI-generated
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '600 11px Montserrat, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('✨ AI Visualization — For Reference Only', canvas.width / 2, canvas.height - 10);
-    };
-    realImg.src = generatedImageDataUrl;
-    // Skip the legacy canvas-filter code below by returning early
-    // from the onload path. The `return` guards the remainder of
-    // this function so we don't run the legacy filter over it.
-    // (Using the img.onload pattern below still works identically for
-    // the non-Gemini fallback path.)
-  }
-
-  const img = new Image();
-  img.onload = () => {
-    // Fallback path (legacy canvas color filter) — only runs when
-    // Gemini didn't produce an image. Visually identical to the
-    // pre-Gemini build.
-    if (generatedImageDataUrl) return; // already rendered the real image
-    // Draw original image as base
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    // Apply color overlays based on selections — smart blending
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.35;
-
-    if (features.includes('roof')) {
-      const colorMap = {
-        'charcoal': '#3a3a3a', 'weathered-wood': '#5c4a3a', 'driftwood': '#8b7355',
-        'onyx': '#1a1a1a', 'sand': '#c8b89a', 'pewter': '#6b7280',
-        'rustic-red': '#8b3a3a', 'hunter-green': '#3d5a3e'
-      };
-      ctx.fillStyle = colorMap[state.roofColor] || '#3a3a3a';
-      // Roof is upper ~35% of image
-      ctx.fillRect(0, 0, canvas.width, canvas.height * 0.38);
-    }
-
-    if (features.includes('siding')) {
-      const colorMap = {
-        'cream': '#f5f0e8', 'linen': '#e8e0d0', 'slate-gray': '#6b7280',
-        'charcoal-blue': '#374151', 'navy': '#1e3a6e', 'cedar': '#78350f',
-        'forest': '#065f46', 'black': '#1c1917'
-      };
-      ctx.fillStyle = colorMap[state.sidingColor] || '#f5f0e8';
-      // Siding is middle/lower portion
-      ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
-    }
-
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
-
-    // Add "AI Visualization" watermark/label
+  // ── Render AFTER image ──
+  // Single render path. If Gemini produced an image, draw it. Otherwise
+  // fall through to the canvas color-overlay fallback. No race — exactly
+  // one onload triggers a render.
+  const drawWatermark = () => {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
     ctx.fillStyle = '#ffffff';
@@ -1075,31 +1233,67 @@ async function runVisualizer() {
     ctx.textAlign = 'center';
     ctx.fillText('✨ AI Visualization — For Reference Only', canvas.width / 2, canvas.height - 10);
   };
-  img.src = uploadedDataUrl;
+
+  if (generatedImageDataUrl) {
+    const realImg = new Image();
+    realImg.onload = () => {
+      const srcRatio = realImg.naturalWidth / realImg.naturalHeight;
+      const dstRatio = canvas.width / canvas.height;
+      let drawW, drawH, drawX, drawY;
+      if (srcRatio > dstRatio) {
+        drawH = canvas.height; drawW = drawH * srcRatio;
+        drawX = (canvas.width - drawW) / 2; drawY = 0;
+      } else {
+        drawW = canvas.width; drawH = drawW / srcRatio;
+        drawX = 0; drawY = (canvas.height - drawH) / 2;
+      }
+      ctx.drawImage(realImg, drawX, drawY, drawW, drawH);
+      drawWatermark();
+    };
+    realImg.src = generatedImageDataUrl;
+  } else {
+    // Legacy color-overlay fallback — uses the unified VIZ_OPTIONS hex
+    // values so swatch colors and overlay colors can never drift.
+    const baseImg = new Image();
+    baseImg.onload = () => {
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.35;
+      if (features.includes('roof')) {
+        ctx.fillStyle = roofColor.hex;
+        ctx.fillRect(0, 0, canvas.width, canvas.height * 0.38);
+      }
+      if (features.includes('siding')) {
+        ctx.fillStyle = sidingColor.hex;
+        ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      drawWatermark();
+    };
+    baseImg.src = uploadedDataUrl;
+  }
 
   // Set AI text
   document.getElementById('aiAnalysisText').textContent = aiText;
 
-  // Set tags
+  // Build result tags from selections — every label/hex comes from VIZ_OPTIONS
   const tagsBox = document.getElementById('aiTagsBox');
   tagsBox.innerHTML = '';
-  const colorMap = {
-    roof: state.roofColor, siding: state.sidingColor, gutters: state.gutterColor
-  };
-  const colorHexMap = {
-    'charcoal':'#3a3a3a','weathered-wood':'#5c4a3a','onyx':'#1a1a1a','driftwood':'#8b7355',
-    'sand':'#c8b89a','pewter':'#6b7280','rustic-red':'#8b3a3a','hunter-green':'#3d5a3e',
-    'cream':'#f5f0e8','linen':'#e8e0d0','slate-gray':'#6b7280','charcoal-blue':'#374151',
-    'navy':'#1e3a6e','cedar':'#78350f','forest':'#065f46','black':'#1c1917',
-    'almond':'#d1c8b8','white':'#ffffff','gray':'#6b7280','brown':'#78350f'
-  };
-
-  features.forEach(f => {
+  const tagSpec = [
+    { feat: 'roof',     label: `Roof · ${roofLine.label} · ${roofColor.name}`,                    hex: roofColor.hex },
+    { feat: 'siding',   label: `Siding · ${sidingMat.label} · ${sidingStyle.label} · ${sidingColor.name}`, hex: sidingColor.hex },
+    { feat: 'gutters',  label: `Gutters · ${gutterStyle.label} · ${gutterColor.name}`,            hex: gutterColor.hex },
+    { feat: 'windows',  label: `Windows · ${windowColor.name} trim`,                              hex: windowColor.hex },
+    { feat: 'garage',   label: `Garage · ${garageStyle.label} · ${garageColor.name}`,             hex: garageColor.hex },
+    { feat: 'shutters', label: `Shutters · ${shutterColor.name}`,                                 hex: shutterColor.hex },
+    { feat: 'doors',    label: `Front door · ${doorColor.name}`,                                  hex: doorColor.hex },
+  ];
+  tagSpec.forEach(t => {
+    if (!features.includes(t.feat)) return;
     const tag = document.createElement('span');
     tag.className = 'ai-tag';
-    const hex = colorHexMap[colorMap[f]] || '#888';
-    const labels = { roof: `Roof · ${state.roofStyle} · ${roofColorName}`, siding: `Siding · ${state.sidingStyle} · ${sidingColorName}`, gutters: `Gutters · ${state.gutterColor}`, windows:'Windows updated', garage:'Garage door', shutters:'Shutters', doors:'Front door' };
-    tag.innerHTML = `<span class="dot" style="background:${hex}"></span>${labels[f] || f}`;
+    tag.innerHTML = `<span class="dot" style="background:${t.hex}"></span>${t.label}`;
     tagsBox.appendChild(tag);
   });
 }
