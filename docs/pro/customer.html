@@ -4199,6 +4199,11 @@ window.saveTask = async function() {
   try {
     await window.addDoc(window.collection(window.db, 'tasks'), {
       leadId: window._customerId,
+      // userId is REQUIRED — the timeline query (line 2643) filters
+      // by where('userId', '==', auth.currentUser?.uid). Without it,
+      // every task created here was invisible from the same page's
+      // own timeline. Tasks existed in Firestore but UI showed empty.
+      userId: window.auth.currentUser?.uid || null,
       title: title,
       dueDate: dueDate || null,
       priority: priority,
@@ -4207,9 +4212,9 @@ window.saveTask = async function() {
       createdAt: window.serverTimestamp(),
       createdBy: window.auth.currentUser?.email || 'Unknown'
     });
-    
+
     closeTaskModal();
-    
+
     // Reload timeline to show new task
     const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
     if (leadSnap.exists()) {
