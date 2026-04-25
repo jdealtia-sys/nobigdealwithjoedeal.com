@@ -150,7 +150,19 @@ async function _callViaProxy(params) {
  * Call Anthropic API directly from browser (fallback — key in localStorage)
  */
 async function _callDirect(params) {
-  const apiKey = localStorage.getItem(LOCAL_KEY_STORE) || '';
+  // Prefer sessionStorage (xss-narrower); migrate any legacy localStorage value once.
+  let apiKey = '';
+  try {
+    apiKey = sessionStorage.getItem(LOCAL_KEY_STORE) || '';
+    if (!apiKey) {
+      const legacy = localStorage.getItem(LOCAL_KEY_STORE);
+      if (legacy) {
+        sessionStorage.setItem(LOCAL_KEY_STORE, legacy);
+        localStorage.removeItem(LOCAL_KEY_STORE);
+        apiKey = legacy;
+      }
+    }
+  } catch(e) {}
   if (!apiKey || !apiKey.startsWith('sk-ant')) {
     throw new Error('No API key configured. Add your Anthropic key in Settings → Ask Joe AI.');
   }

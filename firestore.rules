@@ -236,12 +236,16 @@ service cloud.firestore {
     }
 
     // ── LEADERBOARD ───────────────────────────────────
-    // Readable only within the same company (or admin). Writable only by the owner.
+    // Readable within the same company (or admin/owner). Writes are
+    // admin-SDK only — counters must come from a Cloud Function that
+    // aggregates authoritative data, never from the client. This
+    // prevents trivial inflation of closedDeals/revenue from the rep's
+    // own session.
     match /leaderboard/{uid} {
       allow read: if isAdmin()
         || isOwner(uid)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
-      allow write: if isOwner(uid);
+      allow write: if false;
     }
 
     // ── API USAGE LOGGING ─────────────────────────────
