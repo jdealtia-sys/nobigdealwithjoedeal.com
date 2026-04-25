@@ -350,10 +350,19 @@ function renderLeads(leads, filtered){
     sampleBtn.style.display = (all.length === 0) ? 'inline-block' : 'none';
   }
 
-  // Show diagnostic panel if zero leads and user is authenticated
+  // Show diagnostic panel ONLY if a successful load returned zero leads.
+  // Previously this fired any time `all.length === 0`, including the
+  // transient empty cache that loadLeads writes when its first Firestore
+  // read fails (common on iOS app-wake — the SDK retries internally and
+  // recovers within seconds). The user got a scary "Your kanban isn't
+  // loading" screen on cold start that vanished on the next refresh.
+  // Now we wait for window._leadsLoaded === true before deciding the
+  // account is genuinely empty. While the load is still pending we
+  // simply hide the diagnostic and let the loader's auto-retry resolve.
   const diagnostic = document.getElementById('crmDiagnostic');
   const diagnosticDetails = document.getElementById('crmDiagnosticDetails');
-  if (all.length === 0 && window._user?.uid && diagnostic && diagnosticDetails) {
+  const loadCompleted = window._leadsLoaded === true;
+  if (loadCompleted && all.length === 0 && window._user?.uid && diagnostic && diagnosticDetails) {
     const details = [
       `✓ User authenticated: ${window._user.email}`,
       `✓ User ID: ${window._user.uid}`,

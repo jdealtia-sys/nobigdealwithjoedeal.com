@@ -1047,6 +1047,31 @@
           : `CRM Error: ${e.message}`;
         healthBadge.title = errorMsg;
       }
+
+      // iOS Safari frequently fails its first Firestore read on cold
+      // start (app coming back from background, network re-handshake).
+      // The user used to fix this by spam open/close. Now we auto-retry
+      // a few times with exponential backoff before giving up — only on
+      // the FIRST cold-start failure (when nothing was ever loaded), and
+      // only for transient error codes. Permission-denied is permanent
+      // and we let the user see it normally.
+      const isTransient = e.code === 'unavailable'
+        || e.code === 'deadline-exceeded'
+        || e.code === 'cancelled'
+        || e.code === 'internal'
+        || /network|offline|timeout|failed to fetch/i.test(e.message || '');
+      if (!window._leadsLoaded && isTransient) {
+        const attempt = (window._loadLeadsRetryAttempt = (window._loadLeadsRetryAttempt || 0) + 1);
+        if (attempt <= 3) {
+          const delay = 600 * attempt; // 600ms, 1.2s, 1.8s
+          console.warn(`loadLeads cold-start retry ${attempt}/3 in ${delay}ms`);
+          setTimeout(() => {
+            // Bail if a successful load happened in the meantime.
+            if (window._leadsLoaded) return;
+            try { loadLeads(); } catch (_) {}
+          }, delay);
+        }
+      }
     }
     // Load photo cache for thumbnails
     try {
@@ -5450,6 +5475,48 @@ body {
 /* Force kanban board layout regardless of .view parent */
 .view#view-crm { overflow: hidden !important; }
 .view#view-crm > .kanban-board { display: flex !important; flex-direction: row !important; overflow-x: auto !important; }
+
+/* ─── Mobile kanban density — tighten cards on small screens ────────
+   Joe reported the kanban felt overcrowded on iPhone. Two cards per
+   column ate the entire viewport. This block trims paddings, font
+   sizes, and gaps WITHOUT touching desktop, so the same cards fit
+   ~30% more efficiently and side-scrolling reveals more of the next
+   column. */
+@media (max-width:900px){
+  .k-card{ padding:9px 11px; border-radius:8px; }
+  .kc-name{ font-size:13px; line-height:1.18; padding-right:48px; margin-bottom:1px; }
+  .kc-addr{ font-size:11px!important; line-height:1.2!important; margin:1px 0 3px!important; }
+  .kc-phone-row{ margin:2px 0!important; }
+  .kc-phone-link, .kc-email-line{ font-size:11px!important; }
+  .kc-email-line{ margin:1px 0 3px!important; }
+  .kc-ins-row{ gap:4px!important; margin:3px 0!important; }
+  .kc-carrier{ font-size:10px!important; padding:1px 6px!important; }
+  .kc-claim-num{ font-size:9px!important; }
+  .kc-tag{ font-size:8.5px!important; padding:1px 6px!important; }
+  .kc-tags{ gap:3px!important; margin:3px 0!important; }
+  .kc-photos{ margin:4px 0!important; gap:3px!important; }
+  .kc-photo-thumb, .kc-photo-more{ width:32px!important; height:32px!important; border-radius:5px!important; font-size:10px!important; }
+  .kc-val-badge{ font-size:13px!important; }
+  .kc-days{ font-size:9px!important; padding:1px 5px!important; }
+  .kc-footer{ margin-top:5px!important; padding-top:4px!important; gap:4px!important; }
+  .kc-task-badge{ font-size:9.5px!important; padding:3px 7px!important; min-height:24px!important; }
+  .kc-actions{ gap:3px!important; }
+  .kc-arrow{ width:22px!important; height:22px!important; font-size:10px!important; }
+  .kc-btn{ padding:3px 6px!important; font-size:9px!important; min-height:24px!important; }
+  /* Tighten column spacing too — gives one more card visible per scroll */
+  .kcol-body{ padding:8px!important; gap:6px!important; }
+  .kanban-col{ min-width:240px!important; max-width:280px!important; }
+  .kcol-header{ padding:8px 10px!important; font-size:11px!important; }
+}
+@media (max-width:480px){
+  /* Even tighter on phones in portrait */
+  .k-card{ padding:8px 10px; }
+  .kanban-col{ min-width:220px!important; max-width:260px!important; }
+  .kc-name{ font-size:12.5px; }
+  /* Hide the email row entirely — phone is the primary contact in field
+     and the icon row was eating an additional line on every card */
+  .kc-email-line{ display:none!important; }
+}
 
 </style>
 <style id="kanban-force-css">
