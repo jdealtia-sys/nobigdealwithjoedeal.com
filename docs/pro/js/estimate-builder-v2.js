@@ -20,26 +20,43 @@
   // ═════════════════════════════════════════════════════════
   // SECTION 1 — Locked Spec Constants (Per-SQ mode)
   // ═════════════════════════════════════════════════════════
+  //
+  // Source of truth: estimate-config.js (Rock 2 PR 3).
+  // Browser path uses window.NBD_ESTIMATE_CONFIG; Node tests
+  // require('./estimate-config') — module.exports is the same
+  // frozen object. Inline fallbacks preserve historical values
+  // if the config module isn't reachable (e.g., a partial
+  // deploy). Engine still prices on stale-but-correct numbers
+  // and surfaces a Sentry breadcrumb so we know.
+
+  let _NBD_CFG = (typeof window !== 'undefined' && window.NBD_ESTIMATE_CONFIG) || null;
+  if (!_NBD_CFG && typeof require === 'function') {
+    try { _NBD_CFG = require('./estimate-config'); } catch (_) { _NBD_CFG = null; }
+  }
+  if (!_NBD_CFG && typeof console !== 'undefined') {
+    try { console.warn('[EstimateBuilderV2] NBD_ESTIMATE_CONFIG missing — using inline fallbacks. Check that estimate-config.js loaded first.'); } catch (_) {}
+  }
 
   // Per-SQ flat rates (Joe's contractor pricing)
-  const TIER_RATES = {
+  const TIER_RATES = (_NBD_CFG && _NBD_CFG.TIER_RATES) || {
     good:   545,   // Standard system + standard accessories
     better: 595,   // Upgraded materials + system warranty
     best:   660    // Impact-rated + 50yr warranty package
   };
 
   // Cost basis per SQ (Internal view margin calc)
+  // Not yet unified — V2-only; classic has no equivalent.
   const DEFAULT_COST_BASIS = {
     good:   340,
     better: 385,
     best:   430
   };
 
-  const MIN_JOB_CHARGE          = 2500;   // Kicks in below ~4.5 SQ
-  const ROUND_TO                = 25;     // Round grand total to nearest $25
-  const TEAR_OFF_EXTRA_PER_SQ   = 50;     // $50/SQ per extra layer
-  const DEFAULT_DUMP_FEE        = 550;    // Flat default
-  const CUT_UP_ROOF_WASTE_BONUS = 0.03;   // +3% waste for cut-up roofs
+  const MIN_JOB_CHARGE          = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_DOLLARS)            || 2500;  // Kicks in below ~4.5 SQ
+  const ROUND_TO                = (_NBD_CFG && _NBD_CFG.ROUND_TO_DOLLARS)               || 25;    // Round grand total to nearest $25
+  const TEAR_OFF_EXTRA_PER_SQ   = (_NBD_CFG && _NBD_CFG.TEAR_OFF_EXTRA_PER_SQ_DOLLARS)  || 50;    // $50/SQ per extra layer
+  const DEFAULT_DUMP_FEE        = (_NBD_CFG && _NBD_CFG.DEFAULT_DUMP_FEE)               || 550;   // Flat default
+  const CUT_UP_ROOF_WASTE_BONUS = (_NBD_CFG && _NBD_CFG.CUT_UP_ROOF_WASTE_BONUS)        || 0.03;  // +3% waste for cut-up roofs
 
   // Permit costs by city/county (7 jurisdictions from the spec)
   const PERMIT_COSTS = {

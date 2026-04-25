@@ -16,9 +16,20 @@
 // but are now the internal cost basis used by the "Internal View"
 // toggle to surface markup + margin; they no longer drive the
 // customer-facing grand total.
-const TIER_RATES = { good: 545, better: 595, best: 660 };
-const JOB_MINIMUM_CENTS = 250000; // $2,500 — covers trip, dump, permit, mobilization
-const ROUND_TO_CENTS = 2500;      // Nearest $25
+//
+// ── Source of truth: estimate-config.js (Rock 2 PR 3) ─────────
+// These constants are now mirrored in window.NBD_ESTIMATE_CONFIG
+// so estimates.js (classic) and estimate-builder-v2.js read from
+// the same place. Inline fallbacks preserve historical values if
+// estimate-config.js fails to load — the page still prices, and
+// the warn surfaces a Sentry breadcrumb.
+const _NBD_CFG = (typeof window !== 'undefined' && window.NBD_ESTIMATE_CONFIG) || null;
+if (!_NBD_CFG && typeof console !== 'undefined') {
+  try { console.warn('[estimates.js] NBD_ESTIMATE_CONFIG missing — using inline fallbacks. Check that estimate-config.js loaded before estimates.js.'); } catch (_) {}
+}
+const TIER_RATES        = (_NBD_CFG && _NBD_CFG.TIER_RATES)         || { good: 545, better: 595, best: 660 };
+const JOB_MINIMUM_CENTS = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_CENTS)  || 250000; // $2,500
+const ROUND_TO_CENTS    = (_NBD_CFG && _NBD_CFG.ROUND_TO_CENTS)     || 2500;   // Nearest $25
 
 // Ohio + Northern Kentucky county sales tax rates (2026-04). Insurance
 // mode hides the line; Cash mode shows it and adds to total.
@@ -36,9 +47,11 @@ const PERMIT_COSTS = {
   'Fort Thomas': 135, Covington: 140, Florence: 140, Newport: 135,
 };
 const DEFAULT_PERMIT_COST = 150;
-const DEFAULT_DUMP_FEE    = 550; // flat, editable per-estimate
-const LAYER_TEAROFF_PER_SQ_CENTS = 5000; // +$50/SQ per extra layer beyond the first
-const CUT_UP_WASTE_BONUS = 0.03; // +3% waste when the "cut-up roof" box is checked
+// Fallbacks below mirror what's in estimate-config.js — if that file
+// fails to load, the inline values preserve historical behavior.
+const DEFAULT_DUMP_FEE             = (_NBD_CFG && _NBD_CFG.DEFAULT_DUMP_FEE)              || 550;  // editable per-estimate
+const LAYER_TEAROFF_PER_SQ_CENTS   = (_NBD_CFG && _NBD_CFG.TEAR_OFF_EXTRA_PER_SQ_CENTS)   || 5000; // +$50/SQ per extra layer
+const CUT_UP_WASTE_BONUS           = (_NBD_CFG && _NBD_CFG.CUT_UP_ROOF_WASTE_BONUS)       || 0.03; // +3% for cut-up roof
 
 // All dollar math stays in cents internally to avoid float drift.
 const _toCents   = (d) => Math.round(d * 100);
