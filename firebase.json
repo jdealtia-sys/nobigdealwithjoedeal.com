@@ -27,7 +27,8 @@
         ]
       },
       {
-        "source": "**/*.html",
+        "_comment": "Source is '**' not '**/*.html' because cleanUrls:true rewrites incoming /pro/foo.html requests to /pro/foo BEFORE header matching runs. With **/*.html only the JS/CSS rule above matched anything; HTML responses got HSTS only. '**' applies these headers to every response. CSP/X-Frame are no-ops on non-HTML responses (browsers ignore), so the over-application is safe; Cache-Control is overridden per-path below for dashboard/customer/etc.",
+        "source": "**",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=300" },
           { "key": "X-Frame-Options", "value": "DENY" },
