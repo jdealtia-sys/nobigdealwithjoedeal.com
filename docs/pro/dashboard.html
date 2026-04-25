@@ -8993,6 +8993,7 @@ function switchScTab(tab, btn) {
         <div class="joe-status-dot"></div>
         ONLINE
       </div>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="if(window.DecisionEngine&&window.DecisionEngine.openPicker)window.DecisionEngine.openPicker();else if(typeof showToast==='function')showToast('Decision Engine still loading…','info');" title="Pick a scenario from the Decision Engine — drops a battle-tested prompt into Ask Joe">⚡ Scenarios</button>
       <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="clearJoeChat()">🗑️ New Chat</button>
     </div>
 

@@ -127,6 +127,33 @@ window.NBDDocGen = {
         title: typeName + (customerName ? ' — ' + customerName : ''),
         filename: 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
         onSave: async () => {
+          // Persist a metadata record so the customer page's
+          // Documents section shows entries instead of being empty
+          // forever. Subcollection rule (PR #38) gates reads/writes
+          // to the lead owner.
+          const _leadId = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
+          if (_leadId && window.db && window.addDoc && window.collection) {
+            try {
+              await window.addDoc(
+                window.collection(window.db, 'leads', _leadId, 'documents'),
+                {
+                  type: type,
+                  typeName: typeName,
+                  customerName: customerName || null,
+                  filename: 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+                  createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                  createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
+                  userId: window.auth?.currentUser?.uid || window._user?.uid || null,
+                  snapshot: {
+                    total: (data.estimate && data.estimate.grandTotal) || data.total || null,
+                    address: (data.customer && data.customer.address) || null
+                  }
+                }
+              );
+            } catch (e) {
+              console.warn('Document persist failed:', e && e.message);
+            }
+          }
           if (typeof showToast === 'function') {
             showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
           }

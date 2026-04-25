@@ -892,6 +892,218 @@
   // Public API
   // ═════════════════════════════════════════════════════════
 
+  // ═════════════════════════════════════════════════════════
+  // UI: scenario picker modal
+  // ═════════════════════════════════════════════════════════
+  // The data + query layer was loaded but never bound to UI — the
+  // entire feature was inert. This minimal renderer surfaces the
+  // 30+ scenarios as a category-tabbed picker, drops the chosen
+  // prompt into Ask Joe (or onto the clipboard as a fallback), and
+  // shows the playbook + code refs alongside.
+
+  const _esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+  let _selectedCategoryKey = CATEGORIES[0].key;
+
+  function _modalShell() {
+    const existing = document.getElementById('nbd-decision-modal');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-decision-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);' +
+      'z-index:var(--z-modal,9000);display:flex;align-items:center;justify-content:center;padding:20px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    return overlay;
+  }
+
+  function _renderPicker() {
+    const overlay = _modalShell();
+    const cat = CATEGORIES.find(c => c.key === _selectedCategoryKey) || CATEGORIES[0];
+    overlay.innerHTML = `
+      <div role="dialog" aria-label="Decision Engine — Pick a scenario"
+           style="background:var(--s,#181C22);border:1px solid var(--br,rgba(255,255,255,.1));
+                  border-radius:14px;max-width:780px;width:100%;max-height:90vh;max-height:90dvh;
+                  overflow:hidden;display:flex;flex-direction:column;color:var(--t,#E8EAF0);
+                  font-family:'Barlow',sans-serif;box-shadow:0 30px 80px rgba(0,0,0,.5);">
+        <div style="padding:18px 20px;border-bottom:1px solid var(--br,rgba(255,255,255,.1));
+                    display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:.04em;">
+            DECISION ENGINE
+          </div>
+          <div style="font-size:11px;color:var(--m,#6B7280);flex:1;">
+            ${getAllScenarios().length} scenarios across ${CATEGORIES.length} categories
+          </div>
+          <button data-action="close" style="background:transparent;border:0;color:var(--m,#6B7280);
+                  font-size:22px;cursor:pointer;padding:4px 10px;">×</button>
+        </div>
+
+        <div style="padding:14px 20px 8px;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+          ${CATEGORIES.map(c => {
+            const active = c.key === _selectedCategoryKey;
+            return `<button data-cat="${_esc(c.key)}"
+              style="padding:8px 14px;border-radius:8px;border:1px solid ${active ? c.color : 'var(--br,rgba(255,255,255,.1))'};
+                     background:${active ? c.color + '22' : 'transparent'};color:${active ? c.color : 'var(--t,#E8EAF0)'};
+                     font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.04em;">
+              ${_esc(c.icon || '')} ${_esc(c.label)} <span style="opacity:.6;">(${c.scenarios.length})</span>
+            </button>`;
+          }).join('')}
+        </div>
+
+        <div style="padding:0 20px 8px;flex-shrink:0;">
+          <input type="search" id="nbd-decision-search" placeholder="Search scenarios…" autocomplete="off"
+                 style="width:100%;padding:10px 12px;background:var(--s2,#1F232A);
+                        border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;
+                        color:var(--t,#E8EAF0);font-size:14px;font-family:inherit;">
+        </div>
+
+        <div style="padding:12px 20px 4px;font-size:11px;color:var(--m,#6B7280);font-style:italic;flex-shrink:0;">
+          ${_esc(cat.description || '')}
+        </div>
+
+        <div id="nbd-decision-list" style="flex:1;overflow-y:auto;padding:8px 14px 16px;-webkit-overflow-scrolling:touch;">
+          ${_renderScenarioList(cat.scenarios)}
+        </div>
+      </div>
+    `;
+    overlay.querySelector('[data-action="close"]').onclick = () => overlay.remove();
+    overlay.querySelectorAll('[data-cat]').forEach(b => {
+      b.onclick = () => {
+        _selectedCategoryKey = b.getAttribute('data-cat');
+        _renderPicker();
+      };
+    });
+    const search = overlay.querySelector('#nbd-decision-search');
+    if (search) {
+      search.addEventListener('input', (e) => {
+        const q = e.target.value.trim();
+        const list = overlay.querySelector('#nbd-decision-list');
+        if (!list) return;
+        const scens = q
+          ? searchScenarios(q)
+          : getCategoryScenarios(_selectedCategoryKey);
+        list.innerHTML = _renderScenarioList(scens);
+        _bindScenarioClicks(overlay);
+      });
+    }
+    _bindScenarioClicks(overlay);
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function _renderScenarioList(scens) {
+    if (!scens || !scens.length) {
+      return '<div style="padding:30px;text-align:center;color:var(--m,#6B7280);font-size:13px;">No scenarios match.</div>';
+    }
+    return scens.map(s => {
+      const priColor = s.priority === 'high' ? '#E05252' : s.priority === 'medium' ? '#D4A017' : '#4A9EFF';
+      return `<button data-scenario="${_esc(s.id)}" style="display:block;width:100%;text-align:left;
+        padding:12px 14px;margin-bottom:8px;border:1px solid var(--br,rgba(255,255,255,.08));
+        background:var(--s2,#1F232A);border-radius:10px;cursor:pointer;font-family:inherit;
+        color:var(--t,#E8EAF0);transition:border-color .15s,transform .1s;"
+        onmouseover="this.style.borderColor='${priColor}'"
+        onmouseout="this.style.borderColor=''">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <strong style="font-size:13px;">${_esc(s.title)}</strong>
+          ${s.priority ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;
+              background:${priColor}22;color:${priColor};font-weight:700;letter-spacing:.05em;
+              text-transform:uppercase;">${_esc(s.priority)}</span>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--m,#6B7280);">${_esc(s.tagline || '')}</div>
+      </button>`;
+    }).join('');
+  }
+
+  function _bindScenarioClicks(overlay) {
+    overlay.querySelectorAll('[data-scenario]').forEach(b => {
+      b.onclick = () => _renderScenarioDetail(b.getAttribute('data-scenario'));
+    });
+  }
+
+  function _renderScenarioDetail(id) {
+    const s = findScenario(id);
+    if (!s) return;
+    const overlay = _modalShell();
+    const playbookHtml = (s.playbook || []).map(p => `<li style="margin-bottom:6px;">${_esc(p)}</li>`).join('');
+    const codesHtml = (s.codeRefs || []).map(c => `<span style="display:inline-block;padding:2px 7px;
+      margin:2px 4px 2px 0;border-radius:6px;font-size:10px;background:var(--s,#181C22);
+      border:1px solid var(--br,rgba(255,255,255,.1));font-family:monospace;color:var(--orange,#e8720c);">
+      ${_esc(c)}</span>`).join('');
+    overlay.innerHTML = `
+      <div role="dialog" aria-label="Scenario detail"
+           style="background:var(--s,#181C22);border:1px solid var(--br,rgba(255,255,255,.1));
+                  border-radius:14px;max-width:780px;width:100%;max-height:90vh;max-height:90dvh;
+                  overflow:hidden;display:flex;flex-direction:column;color:var(--t,#E8EAF0);
+                  font-family:'Barlow',sans-serif;box-shadow:0 30px 80px rgba(0,0,0,.5);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--br,rgba(255,255,255,.1));
+                    display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <button data-action="back" style="background:transparent;border:0;color:var(--m,#6B7280);
+                  font-size:16px;cursor:pointer;padding:4px 8px;">←</button>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;flex:1;">
+            ${_esc(s.title)}
+          </div>
+          <button data-action="close" style="background:transparent;border:0;color:var(--m,#6B7280);
+                  font-size:22px;cursor:pointer;padding:4px 10px;">×</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:18px 22px;-webkit-overflow-scrolling:touch;">
+          <div style="font-size:12px;color:var(--m,#6B7280);margin-bottom:14px;">${_esc(s.situation || s.tagline || '')}</div>
+          ${playbookHtml ? `<h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--orange,#e8720c);margin:14px 0 8px;">Playbook</h3>
+            <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.55;">${playbookHtml}</ol>` : ''}
+          ${codesHtml ? `<div style="margin-top:14px;"><span style="font-size:11px;color:var(--m,#6B7280);text-transform:uppercase;letter-spacing:.06em;margin-right:6px;">Code refs:</span>${codesHtml}</div>` : ''}
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--br,rgba(255,255,255,.1));display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+          <button data-action="ask-joe" style="flex:1;min-width:160px;padding:11px 16px;
+                  background:var(--orange,#e8720c);border:0;color:#fff;border-radius:8px;
+                  font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.04em;">
+            Send to Ask Joe →
+          </button>
+          <button data-action="copy" style="padding:11px 16px;background:transparent;
+                  border:1px solid var(--br,rgba(255,255,255,.1));color:var(--t,#E8EAF0);
+                  border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.04em;">
+            Copy prompt
+          </button>
+        </div>
+      </div>
+    `;
+    overlay.querySelector('[data-action="close"]').onclick = () => overlay.remove();
+    overlay.querySelector('[data-action="back"]').onclick = () => { overlay.remove(); _renderPicker(); };
+    overlay.querySelector('[data-action="ask-joe"]').onclick = () => {
+      overlay.remove();
+      // If joe view exists, navigate, drop the prompt in, and trigger send.
+      const inp = document.getElementById('joeInput');
+      if (typeof window.goTo === 'function' && inp) {
+        window.goTo('joe');
+        setTimeout(() => {
+          const i2 = document.getElementById('joeInput');
+          if (i2) {
+            i2.value = s.prompt || s.tagline || s.title;
+            i2.focus();
+          }
+        }, 120);
+        return;
+      }
+      // Standalone fallback — copy + open ask-joe.html.
+      try {
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(s.prompt || s.title);
+      } catch (_) {}
+      window.location.href = '/pro/ask-joe.html?prompt=' + encodeURIComponent((s.prompt || s.title).slice(0, 1500));
+    };
+    overlay.querySelector('[data-action="copy"]').onclick = () => {
+      try {
+        navigator.clipboard.writeText(s.prompt || s.title).then(() => {
+          if (typeof window.showToast === 'function') window.showToast('Prompt copied to clipboard', 'success');
+        });
+      } catch (e) {
+        console.warn('clipboard write failed:', e && e.message);
+      }
+    };
+    document.body.appendChild(overlay);
+  }
+
+  function openPicker() { _renderPicker(); }
+  function openScenario(id) { _renderScenarioDetail(id); }
+
   window.DecisionEngine = {
     CATEGORIES,
     count: getAllScenarios().length,
@@ -900,6 +1112,8 @@
     findScenario,
     searchScenarios,
     getHighPriority,
+    openPicker,
+    openScenario,
 
     // Stats
     stats: {
