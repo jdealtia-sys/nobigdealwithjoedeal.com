@@ -1287,7 +1287,11 @@ header {
       <button class="modal-close" onclick="closeUploadModal()">×</button>
     </div>
     
-    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple capture="environment" style="display:none;" onchange="handleFileSelect(event)">
+    <!-- No capture="environment": iOS treats it as a mandate and hides
+         the photo library. Multi-photo upload should let the user pick
+         existing shots — D2D's quick-camera flow uses a separate
+         dynamic input for camera-only capture. -->
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple style="display:none;" onchange="handleFileSelect(event)">
     
     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
@@ -3120,7 +3124,31 @@ window.progressStage = async function() {
   };
 
   const label = STAGE_LABELS[nextStage] || nextStage;
-  if (!confirm(`Move customer to "${label}" stage?`)) return;
+
+  // Use nbdConfirm when available — native confirm() is patched by
+  // standalone-compat.js to silently return true in PWA mode, which
+  // means the user never actually sees the prompt. nbdConfirm renders
+  // a real themed modal in both modes.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  const ok = await ask(`Move customer to "${label}" stage?`);
+  if (!ok) return;
+
+  // Pre-flight: surface common failure causes immediately rather than
+  // letting the writer fail silently. The original implementation
+  // swallowed errors via patched alert() (also a 4s toast in PWA),
+  // which is why "the button does nothing" felt accurate.
+  if (!window._customerId) {
+    if (window.showToast) window.showToast('Could not find this customer record (try reloading).', 'error');
+    return;
+  }
+  if (!window.db || !window.updateDoc || !window.doc) {
+    if (window.showToast) window.showToast('Firebase not ready yet — wait a moment and retry.', 'error');
+    return;
+  }
+
+  const btnEl = document.getElementById('stageProgressBtn');
+  const btnText = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '… Saving'; }
 
   try {
     const oldStage = current;
@@ -3134,14 +3162,25 @@ window.progressStage = async function() {
     await window.updateDoc(window.doc(window.db, 'leads', window._customerId), {
       stage: nextStage,
       updatedAt: window.serverTimestamp(),
+      // Keep parity with crm.js moveCard so the days-in-stage badge on
+      // the hero (PR #31) resets correctly when moves happen here too.
+      stageStartedAt: window.serverTimestamp(),
       stageHistory: window.arrayUnion(historyEvent)
     });
 
-    // Reload page to reflect changes
-    window.location.reload();
+    if (window.showToast) window.showToast('✓ Stage moved to ' + (STAGE_LABELS[nextStage] || nextStage), 'success');
+    // Brief delay so the toast is seen before reload.
+    setTimeout(() => window.location.reload(), 600);
   } catch (e) {
     console.error('Error updating stage:', e);
-    alert('Failed to update stage. Please try again.');
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = btnText; }
+    const msg = (e && e.message) ? e.message : 'unknown error';
+    if (window.showToast) {
+      window.showToast('Failed to move stage: ' + msg, 'error');
+    } else {
+      // Last-resort fallback if showToast somehow isn't available.
+      window.alert('Failed to update stage: ' + msg);
+    }
   }
 };
 

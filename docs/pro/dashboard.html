@@ -11050,7 +11050,10 @@ function switchScTab(tab, btn) {
     <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
       <div class="upload-icon">📷</div>
       <div class="upload-text">Click to upload damage photos</div>
-      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" capture="environment" onchange="uploadPhotos(this)">
+      <!-- No capture="environment" here: iOS treats it as a hard mandate
+           and hides the photo library entirely. Multi-photo upload should
+           keep the chooser (Take Photo / Photo Library / Choose File). -->
+      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" onchange="uploadPhotos(this)">
     </div>
     <div class="photo-grid" id="photoGridModal"></div>
   </div>
