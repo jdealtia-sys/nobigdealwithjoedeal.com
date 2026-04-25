@@ -28,6 +28,62 @@
   if (typeof window === 'undefined') return;
 
   // ═════════════════════════════════════════════════════════
+  // Field-name resolvers
+  // ═════════════════════════════════════════════════════════
+  // The proactive scans were written against fields that no save
+  // path actually writes — `lead.lastContactedAt`, `lead.stageUpdatedAt`.
+  // Result: every scan returned zero hits. These helpers pull from
+  // the fields the rest of the codebase actually maintains:
+  //
+  //   _lastTouch(lead)    — most recent contact/activity moment.
+  //                          Tries lastContactedAt → lastActivityAt →
+  //                          updatedAt → createdAt → null.
+  //   _stageStarted(lead) — when the lead entered its current stage.
+  //                          Tries stageStartedAt (PR #31) → updatedAt →
+  //                          createdAt → null.
+  //   _stageKey(lead)     — normalized stage key for comparison.
+  //                          Uses window.normalizeStage when available.
+  //   _isEstimateSent(lead) — covers all four real "estimate sent"
+  //                            stage keys (legacy + insurance + cash + finance).
+  function _toDate(v) {
+    if (!v) return null;
+    if (v.toDate) return v.toDate();
+    if (v instanceof Date) return v;
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  }
+  function _lastTouch(lead) {
+    return _toDate(lead && (lead.lastContactedAt || lead.lastActivityAt || lead.updatedAt || lead.createdAt));
+  }
+  function _stageStarted(lead) {
+    return _toDate(lead && (lead.stageStartedAt || lead.updatedAt || lead.createdAt));
+  }
+  function _stageKey(lead) {
+    if (!lead) return '';
+    if (lead._stageKey) return lead._stageKey;
+    if (typeof window.normalizeStage === 'function') {
+      try { return window.normalizeStage(lead.stage || ''); } catch (_) {}
+    }
+    return String(lead.stage || '').toLowerCase().replace(/\s+/g, '_');
+  }
+  const _ESTIMATE_SENT_KEYS = new Set([
+    'estimate_sent', 'Estimate Sent', 'estimate_submitted', 'estimate_sent_cash'
+  ]);
+  function _isEstimateSent(lead) {
+    if (!lead) return false;
+    if (_ESTIMATE_SENT_KEYS.has(lead.stage)) return true;
+    const k = _stageKey(lead);
+    return k === 'estimate_sent' || k === 'estimate_submitted' || k === 'estimate_sent_cash';
+  }
+  const _TERMINAL_STAGE_KEYS = new Set(['closed', 'lost', 'won', 'complete', 'Complete', 'Lost']);
+  function _isTerminal(lead) {
+    if (!lead) return false;
+    if (_TERMINAL_STAGE_KEYS.has(lead.stage)) return true;
+    const k = _stageKey(lead);
+    return _TERMINAL_STAGE_KEYS.has(k);
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Preferences — user-configurable
   // ═════════════════════════════════════════════════════════
 
@@ -190,19 +246,22 @@
     // Overdue follow-ups (no touch in N days)
     const overdueMs = prefs.triggers.overdueThresholdDays * 24 * 60 * 60 * 1000;
     const overdue = leads.filter(lead => {
-      if (!lead.lastContactedAt) return false;
-      const ageMs = now - new Date(lead.lastContactedAt);
-      return ageMs > overdueMs && !['closed', 'lost', 'won'].includes(lead.stage);
+      const last = _lastTouch(lead);
+      if (!last) return false;
+      const ageMs = now - last;
+      return ageMs > overdueMs && !_isTerminal(lead);
     });
     briefing.stats.overdueFollowUps = overdue.length;
 
     overdue.slice(0, 5).forEach(lead => {
+      const last = _lastTouch(lead);
+      const ageDays = last ? Math.floor((now - last) / (24 * 60 * 60 * 1000)) : '?';
       briefing.actions.push({
         type: 'overdue',
         priority: 'high',
         icon: '⏰',
         title: `Overdue: ${lead.name || lead.firstName || 'Unknown'}`,
-        body: `No touch in ${Math.floor((now - new Date(lead.lastContactedAt)) / (24 * 60 * 60 * 1000))} days · ${lead.stage || 'unknown stage'}`,
+        body: `No touch in ${ageDays} days · ${lead.stage || 'unknown stage'}`,
         leadId: lead.id,
         action: 'call'
       });
@@ -230,40 +289,55 @@
     // Pending estimates (sent, no response)
     const estPendingMs = prefs.triggers.estimatePendingThresholdDays * 24 * 60 * 60 * 1000;
     const pending = leads.filter(lead => {
-      if (lead.stage !== 'estimate_sent') return false;
-      if (!lead.stageUpdatedAt) return false;
-      const ageMs = now - new Date(lead.stageUpdatedAt);
+      if (!_isEstimateSent(lead)) return false;
+      const started = _stageStarted(lead);
+      if (!started) return false;
+      const ageMs = now - started;
       return ageMs > estPendingMs;
     });
     briefing.stats.pendingEstimates = pending.length;
 
     pending.slice(0, 3).forEach(lead => {
+      const started = _stageStarted(lead);
+      const ageDays = started ? Math.floor((now - started) / (24 * 60 * 60 * 1000)) : '?';
       briefing.actions.push({
         type: 'pending_estimate',
         priority: 'medium',
         icon: '📋',
         title: `Estimate pending: ${lead.name || lead.firstName || 'Unknown'}`,
-        body: `Sent ${Math.floor((now - new Date(lead.stageUpdatedAt)) / (24 * 60 * 60 * 1000))} days ago · ${lead.jobValue ? '$' + lead.jobValue.toLocaleString() : ''}`,
+        body: `Sent ${ageDays} days ago · ${lead.jobValue ? '$' + Number(lead.jobValue).toLocaleString() : ''}`,
         leadId: lead.id,
         action: 'follow_up'
       });
     });
 
-    // Open insurance claims
+    // Open insurance claims — match on normalized stage keys so the
+    // canonical insurance pipeline names (claim_filed,
+    // adjuster_meeting_scheduled, scope_received, supplement_requested,
+    // supplement_approved) all count, not just the original four-key list.
+    const _OPEN_CLAIM_KEYS = new Set([
+      'claim_filed', 'adjuster_meeting', 'adjuster_meeting_scheduled',
+      'adjuster_inspection_done', 'scope_approved', 'scope_received',
+      'supplement_pending', 'supplement_requested', 'supplement_approved'
+    ]);
     const openClaims = leads.filter(lead => {
-      return lead.jobType === 'insurance' && ['claim_filed', 'adjuster_meeting', 'scope_approved', 'supplement_pending'].includes(lead.stage);
+      if (lead.jobType !== 'insurance') return false;
+      return _OPEN_CLAIM_KEYS.has(_stageKey(lead));
     });
     briefing.stats.openClaims = openClaims.length;
 
-    // Active jobs
-    const activeJobs = leads.filter(lead => {
-      return ['crew_scheduled', 'install_in_progress', 'install_complete', 'final_photos'].includes(lead.stage);
-    });
+    // Active jobs — same normalization treatment.
+    const _ACTIVE_JOB_KEYS = new Set([
+      'crew_scheduled', 'install_in_progress', 'install_complete',
+      'final_photos', 'job_created', 'permit_pulled',
+      'materials_ordered', 'materials_delivered', 'deductible_collected'
+    ]);
+    const activeJobs = leads.filter(lead => _ACTIVE_JOB_KEYS.has(_stageKey(lead)));
     briefing.stats.activeJobs = activeJobs.length;
 
     // Pipeline value
     briefing.stats.pipelineValue = leads.reduce((sum, lead) => {
-      if (['closed', 'lost'].includes(lead.stage)) return sum;
+      if (_isTerminal(lead)) return sum;
       return sum + (Number(lead.jobValue) || 0);
     }, 0);
 
@@ -415,9 +489,10 @@
     const now = new Date();
     const overdueMs = prefs.triggers.overdueThresholdDays * 24 * 60 * 60 * 1000;
     const overdue = leads.filter(lead => {
-      if (!lead.lastContactedAt) return false;
-      const ageMs = now - new Date(lead.lastContactedAt);
-      return ageMs > overdueMs && !['closed', 'lost', 'won'].includes(lead.stage);
+      const last = _lastTouch(lead);
+      if (!last) return false;
+      const ageMs = now - last;
+      return ageMs > overdueMs && !_isTerminal(lead);
     });
     if (overdue.length === 0) return;
     pushToQueue({
@@ -436,9 +511,10 @@
     const now = new Date();
     const pendingMs = prefs.triggers.estimatePendingThresholdDays * 24 * 60 * 60 * 1000;
     const pending = leads.filter(lead => {
-      if (lead.stage !== 'estimate_sent') return false;
-      if (!lead.stageUpdatedAt) return false;
-      const ageMs = now - new Date(lead.stageUpdatedAt);
+      if (!_isEstimateSent(lead)) return false;
+      const started = _stageStarted(lead);
+      if (!started) return false;
+      const ageMs = now - started;
       return ageMs > pendingMs;
     });
     if (pending.length === 0) return;

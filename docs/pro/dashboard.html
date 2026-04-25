@@ -438,6 +438,11 @@
   window._onAuthStateChanged = onAuthStateChanged;
   window.setDoc = setDoc;
   window.writeBatch = writeBatch;
+  // Expose runTransaction so crm.js can use a stage-compare transaction
+  // to prevent two-tab double-moves from creating duplicate stageHistory
+  // entries (T18). Already used inside this module for the customer-ID
+  // counter; the export just lets it run in a different file.
+  window.runTransaction = runTransaction;
   window.sendPasswordResetEmail = sendPasswordResetEmail;
   // Expose connection cycling so the visibilitychange handler in the
   // outer (non-module) script block at the bottom of this page can
