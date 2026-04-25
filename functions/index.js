@@ -1676,6 +1676,117 @@ exports.backfillCustomerData = onCall(
 );
 
 // ═════════════════════════════════════════════════════════════
+// provisionE2ETestUser (Rock 3 PR 3)
+//
+// One-shot owner-only callable that provisions the Playwright E2E
+// test user. Idempotent: if the user already exists it rotates the
+// password and re-stamps the e2eTestAccount flag. Returns the new
+// password ONCE in the response — caller's responsibility to capture
+// and store it (GitHub Secrets etc.).
+//
+// Owner-only because creating a Firebase Auth account directly via
+// Admin SDK is a privileged op. Mirrors the OWNER_EMAILS allowlist
+// in docs/pro/js/nbd-auth.js so behaviour stays consistent.
+//
+// The created user is tagged so leaderboards and analytics can
+// filter it out:
+//   users/{uid}: { e2eTestAccount: true, companyId: <uid>, plan: 'free' }
+//
+// Returns:
+//   {
+//     email:    'playwright-e2e@nobigdealwithjoedeal.com',
+//     password: <16-char strong random>,
+//     uid:      <firebase auth uid>,
+//     action:   'created' | 'rotated'
+//   }
+// ═════════════════════════════════════════════════════════════
+const E2E_TEST_USER_EMAIL = 'playwright-e2e@nobigdealwithjoedeal.com';
+const PROVISION_OWNER_EMAILS = new Set([
+  'jd@nobigdealwithjoedeal.com',
+  'jonathandeal459@gmail.com'
+]);
+
+function _generateE2EPassword() {
+  // 16 chars, mix of upper/lower/digit/symbol. crypto.randomBytes is
+  // CSPRNG-grade. Avoids ambiguous chars (0/O/1/l) so manual paste
+  // into a secrets dialog isn't error-prone.
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%';
+  const crypto = require('crypto');
+  const bytes = crypto.randomBytes(16);
+  let out = '';
+  for (let i = 0; i < 16; i++) out += ALPHABET[bytes[i] % ALPHABET.length];
+  return out;
+}
+
+exports.provisionE2ETestUser = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 60,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const callerEmail = (request.auth.token && request.auth.token.email || '').toLowerCase();
+    const callerRole  = request.auth.token && request.auth.token.role;
+    const isOwner = PROVISION_OWNER_EMAILS.has(callerEmail);
+    const isPlatformAdmin = callerRole === 'admin';
+    if (!isOwner && !isPlatformAdmin) {
+      logger.warn('provisionE2ETestUser: rejected non-owner', { uid, callerEmail });
+      throw new HttpsError('permission-denied', 'Owner-only');
+    }
+
+    const auth = admin.auth();
+    const db = admin.firestore();
+    const password = _generateE2EPassword();
+
+    let userRecord, action;
+    try {
+      userRecord = await auth.getUserByEmail(E2E_TEST_USER_EMAIL);
+      // Already exists — rotate password.
+      await auth.updateUser(userRecord.uid, { password, emailVerified: true });
+      action = 'rotated';
+    } catch (e) {
+      if (e.code !== 'auth/user-not-found') throw e;
+      // Create from scratch.
+      userRecord = await auth.createUser({
+        email: E2E_TEST_USER_EMAIL,
+        password,
+        emailVerified: true,
+        displayName: 'Playwright E2E Test User'
+      });
+      action = 'created';
+    }
+
+    // Stamp Firestore user doc so leaderboards/analytics can filter
+    // and so the dashboard's plan-tier check doesn't lock us out.
+    await db.collection('users').doc(userRecord.uid).set({
+      email: E2E_TEST_USER_EMAIL,
+      e2eTestAccount: true,
+      companyId: userRecord.uid,                  // solo-op convention
+      plan: 'free',                                // lowest tier; tests should run on the cheapest path
+      provisionedBy: uid,
+      provisionedAt: admin.firestore.FieldValue.serverTimestamp(),
+      provisionAction: action
+    }, { merge: true });
+
+    logger.info('provisionE2ETestUser: ' + action, {
+      provisionerUid: uid, testUid: userRecord.uid, email: E2E_TEST_USER_EMAIL
+    });
+
+    return {
+      email: E2E_TEST_USER_EMAIL,
+      password,
+      uid: userRecord.uid,
+      action
+    };
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
 // onRepSignup — Blocking auth trigger (beforeUserCreated)
 //
 // Fires when ANY user creates an account. Checks if their email
