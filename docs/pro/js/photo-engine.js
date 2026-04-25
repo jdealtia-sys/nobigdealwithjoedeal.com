@@ -800,7 +800,19 @@
         audio: false
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (highRes) {
+        // Older iPhones throw OverconstrainedError on 1920x1440. Retry
+        // without resolution hints before giving up — the device picks
+        // whatever it can deliver.
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+        } catch (anyRes) {
+          throw anyRes;
+        }
+      }
       state.cameraStream = stream;
       video.srcObject = stream;
 
@@ -817,8 +829,26 @@
         flashBtn.disabled = true;
       }
     } catch (err) {
-      showToast('Camera access denied. Please allow camera permissions.', 'error');
+      // getUserMedia denied or unsupported — fall back to the iOS file
+      // chooser with capture=environment so the user still gets a path
+      // to take/select a photo instead of seeing the modal vanish.
       modal.remove();
+      const fallback = document.createElement('input');
+      fallback.type = 'file';
+      fallback.accept = 'image/*,.heic,.heif,.avif';
+      fallback.capture = 'environment';
+      fallback.multiple = true;
+      fallback.onchange = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        if (typeof window.handlePhotoFiles === 'function') {
+          window.handlePhotoFiles(files);
+        } else if (typeof handleFileSelect === 'function') {
+          handleFileSelect({ target: { files } });
+        }
+      };
+      fallback.click();
+      showToast('Camera unavailable — using file picker', 'warning');
       return;
     }
 
@@ -1421,8 +1451,9 @@
     },
     _openLightbox: openLightbox,
     _stagePhoto: stagePhoto,
-    _deletePhoto: (photoId) => {
-      if (confirm('Delete this photo? This cannot be undone.')) {
+    _deletePhoto: async (photoId) => {
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      if (await _ask('Delete this photo? This cannot be undone.')) {
         deletePhotoFromFirebase(photoId).then(() => {
           document.getElementById('photo-lightbox')?.remove();
           showToast('Photo deleted', 'success');

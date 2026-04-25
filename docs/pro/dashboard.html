@@ -106,7 +106,13 @@
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Critical fonts (default theme): Barlow + Barlow Condensed only, render-blocking. -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Optional theme fonts: 14 additional families used by alt themes only. Loaded
+     non-blocking via the media-swap trick — the browser fetches them after first
+     paint instead of stalling render on a 14-family Google Fonts request. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 <!--
   App Check (C-4): the reCAPTCHA v3 site key is origin-bound and
   safe to embed. Set it by editing the content attribute below OR
@@ -125,6 +131,7 @@
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
 <!-- Client error reporter — no-op when __NBD_SENTRY_DSN is empty. -->
+<script src="js/console-quiet.js?v=1"></script>
 <script src="js/sentry-init.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
 <script src="js/script-loader.js?v=1"></script>
@@ -147,9 +154,25 @@
     onReady: (user) => {
       console.log('NBDAuth gate passed — plan:', NBDAuth.userPlan);
       // ── Trial countdown banner ──
+      // Dismissals were permanent (this.parentElement.remove()) which made
+      // the warning vanish for the entire session if Joe accidentally
+      // tapped × on a small screen. We now scope the suppression to the
+      // current calendar day (sessionStorage), so each day's first dashboard
+      // load re-surfaces the banner — and the user can still dismiss it
+      // again until tomorrow.
+      const _trialDismissKey = 'nbd_trial_banner_dismissed_' + new Date().toISOString().slice(0,10);
+      const _trialDismissedToday = (() => { try { return sessionStorage.getItem(_trialDismissKey) === '1'; } catch { return false; } })();
+      const _dismissTrial = (btn) => {
+        try { sessionStorage.setItem(_trialDismissKey, '1'); } catch {}
+        const b = btn?.closest?.('#trial-banner') || document.getElementById('trial-banner');
+        if (b) b.remove();
+      };
+      window._nbdDismissTrial = _dismissTrial;
       if (NBDAuth.isTrialUser && !NBDAuth.isTrialExpired) {
         const days = NBDAuth.trialDaysLeft;
-        if (days <= 7) {
+        // Always show when ≤ 2 days, regardless of dismissal — too critical
+        // to suppress. Otherwise honour the per-day dismissal.
+        if (days <= 7 && (days <= 2 || !_trialDismissedToday)) {
           const urgency = days <= 2 ? 'trial-urgent' : 'trial-warning';
           const msg = days <= 2
             ? `⚠️ Your Pro trial ends in ${days} day${days===1?'':'s'}! Your data is safe — upgrade now to keep all features.`
@@ -157,7 +180,7 @@
           const banner = document.createElement('div');
           banner.id = 'trial-banner';
           banner.className = urgency;
-          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="window._nbdDismissTrial(this)" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
           document.body.prepend(banner);
         }
       } else if (NBDAuth.isTrialExpired) {
@@ -2341,7 +2364,30 @@
   --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017;
   --paper:var(--s3); --ink:var(--t); --rule:rgba(255,255,255,.09);
 }
+/* Z-INDEX TOKENS — single source of truth so modal/toast/banner stacking
+   stays predictable. Replaces the 99999 / 99998 / 9999 sprinkled across
+   ~30 inline styles. Higher number = closer to the user. Leave a 100-step
+   gap between layers so per-component overrides don't collide. */
+:root{
+  --z-base:1;
+  --z-sticky:50;        /* sticky headers, kanban column tops, action bars */
+  --z-dropdown:200;     /* dropdowns, popovers, autocomplete */
+  --z-overlay:1000;     /* drag-shields, scroll-locks */
+  --z-modal:9000;       /* dialogs and bottom sheets */
+  --z-toast:9100;       /* toasts above modals */
+  --z-banner:9500;      /* trial banner, offline banner */
+  --z-loader:9900;      /* full-screen loaders */
+  --z-emergency:9999;   /* truly above everything */
+}
 *{margin:0;padding:0;box-sizing:border-box;}
+/* Global iOS auto-zoom kill: any focused input under 16px triggers Mobile
+   Safari to zoom the viewport in, dismiss the keyboard, then zoom back —
+   dizzying in the field. Forcing the computed font-size to at least 16px
+   on iOS-sized viewports prevents that behaviour and overrides the 24+
+   scoped rules that previously set 11–13px on individual fields. */
+@media (max-width:900px){
+  input,select,textarea{font-size:max(16px,1em)!important;}
+}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;-webkit-tap-highlight-color:transparent;}
 
 /* HEADER */
@@ -5124,7 +5170,7 @@ body {
   .view-scroll { min-height:auto!important; padding-bottom:80px!important; }
 
   /* ══ MODALS: full-width on mobile, bottom-sheet style ══ */
-  .modal { max-width:100vw!important; width:calc(100% - 16px)!important; margin:8px!important; border-radius:16px!important; max-height:calc(100vh - 80px)!important; overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
+  .modal { max-width:100vw!important; width:calc(100% - 16px)!important; margin:8px!important; border-radius:16px!important; max-height:calc(100vh - 80px)!important; max-height:calc(100dvh - 80px)!important; overflow-y:auto!important; -webkit-overflow-scrolling:touch!important; }
 
   /* ══ TOAST: above mobile nav ══ */
   .toast { bottom:calc(72px + env(safe-area-inset-bottom, 0px))!important; right:12px!important; left:12px!important; max-width:none!important; }
@@ -6006,7 +6052,7 @@ body.theme-frosted {
   .d2d-details-summary, .d2d-details > summary { padding:14px 16px; font-size:14px; min-height:48px; }
   .d2d-modal-close { font-size:32px; padding:4px 8px; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
   .d2d-modal-title { font-size:18px; }
-  .d2d-modal-body { max-height:calc(100vh - 100px); padding:16px; }
+  .d2d-modal-body { max-height:calc(100vh - 100px); max-height:calc(100dvh - 100px - env(safe-area-inset-bottom,0px)); padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
   .d2d-route-stop { padding:12px 14px; min-height:48px; }
   .d2d-route-addr { font-size:14px; }
   .d2d-door-chip { width:28px; height:28px; font-size:9px; }
@@ -6057,7 +6103,7 @@ body.theme-frosted {
   .d2d-funnel-count { font-size:14px; }
   .d2d-funnel-label { font-size:9px; }
   .d2d-modal-close { font-size:36px; min-width:48px; min-height:48px; }
-  .d2d-modal-body { max-height:calc(100vh - 80px); padding:14px; padding-bottom:env(safe-area-inset-bottom, 14px); }
+  .d2d-modal-body { max-height:calc(100vh - 80px); max-height:calc(100dvh - 80px - env(safe-area-inset-bottom,0px)); padding:14px; padding-bottom:calc(14px + env(safe-area-inset-bottom,14px)); }
   .d2d-detail-grid { grid-template-columns:1fr; gap:10px; }
   .d2d-detail-value { font-size:16px; }
   .d2d-detail-actions { flex-direction:column; }
@@ -6110,7 +6156,7 @@ body.theme-frosted {
 /* ── D2D shared helpers ───────────────────────── */
 .d2d-section-title { font-weight:700; font-size:13px; color:var(--t); margin-bottom:8px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.03em; text-transform:uppercase; }
 .d2d-field-label { font-size:12px; color:var(--m); margin-bottom:4px; display:block; font-weight:600; }
-.d2d-modal-body { padding:14px; overflow-y:auto; max-height:calc(100vh - 120px); -webkit-overflow-scrolling:touch; }
+.d2d-modal-body { padding:14px; padding-bottom:calc(14px + env(safe-area-inset-bottom,0px)); overflow-y:auto; max-height:calc(100vh - 120px); max-height:calc(100dvh - 120px - env(safe-area-inset-bottom,0px)); -webkit-overflow-scrolling:touch; }
 .d2d-textarea { width:100%; min-height:80px; padding:12px 14px; font-size:14px; border:1px solid var(--br); border-radius:8px; background:var(--s); color:var(--t); font-family:'Barlow',sans-serif; resize:vertical; }
 .d2d-ins-section { display:none; margin-top:12px; padding:12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; }
 .d2d-media-btns { display:flex; gap:8px; margin-top:10px; }
@@ -11004,7 +11050,7 @@ function switchScTab(tab, btn) {
     <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
       <div class="upload-icon">📷</div>
       <div class="upload-text">Click to upload damage photos</div>
-      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" onchange="uploadPhotos(this)">
+      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" capture="environment" onchange="uploadPhotos(this)">
     </div>
     <div class="photo-grid" id="photoGridModal"></div>
   </div>
@@ -13245,10 +13291,14 @@ function dsResetDefaults() {
   showToast('Reset to defaults — click Save to apply');
 }
 
-// Hook into the existing goTo() nav so settings load fresh when the tab opens
+// Hook into the existing goTo() nav so settings load fresh when the tab opens.
+// Forward `arguments` rather than just `view` — the canonical goTo accepts
+// (view, params) and downstream callers (admin-manager.js etc.) rely on
+// the second arg surviving each wrapper layer.
 const _origGoTo = typeof goTo === 'function' ? goTo : null;
-window.goTo = function(view) {
-  if (_origGoTo) _origGoTo(view);
+window.goTo = function() {
+  const view = arguments[0];
+  if (_origGoTo) _origGoTo.apply(this, arguments);
   if (view === 'settings') {
     setTimeout(dsLoadConfig, 80);
     setTimeout(restoreSettingsSections, 100);
@@ -13880,11 +13930,13 @@ function toggleMapSidebar(id) {
 }
 
 // Sync bottom nav active state with goTo() calls from desktop sidebar
-// (wraps the existing goTo — safe because we already wrap it once above for DS settings)
+// (wraps the existing goTo — safe because we already wrap it once above for DS settings).
+// Forward `arguments` so the (view, params) signature is preserved.
 (function() {
   const _prev = window.goTo;
-  window.goTo = function(view) {
-    if (_prev) _prev(view);
+  window.goTo = function() {
+    const view = arguments[0];
+    if (_prev) _prev.apply(this, arguments);
     // Keep bottom nav in sync
     MOBILE_NAV_TABS.forEach(t => {
       const el = document.getElementById('mni-' + t);
