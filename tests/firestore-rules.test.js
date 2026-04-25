@@ -248,6 +248,28 @@ async function run() {
     doc(alice, 'leads/leadA/activity/preexisting'),
     { userId: 'alice', source: 'rep', type: 'note', createdAt: nowTs }));
 
+  // 21. Leads require companyId on create (Rock 3 follow-up).
+  //
+  // ❌ create without companyId → blocked.
+  await assertFails(setDoc(
+    doc(alice, 'leads/no-companyid'),
+    { userId: 'alice', name: 'Lead with no companyId' }));
+
+  // ❌ create with empty-string companyId → blocked (size > 0 guard).
+  await assertFails(setDoc(
+    doc(alice, 'leads/empty-companyid'),
+    { userId: 'alice', name: 'Lead with empty companyId', companyId: '' }));
+
+  // ❌ create with non-string companyId → blocked (`is string` guard).
+  await assertFails(setDoc(
+    doc(alice, 'leads/numeric-companyid'),
+    { userId: 'alice', name: 'Lead with numeric companyId', companyId: 42 }));
+
+  // ✅ create with non-empty string companyId → succeeds.
+  await assertSucceeds(setDoc(
+    doc(alice, 'leads/with-companyid'),
+    { userId: 'alice', name: 'Lead with companyId', companyId: 'co-a' }));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
