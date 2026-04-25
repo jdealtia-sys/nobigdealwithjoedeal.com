@@ -175,8 +175,13 @@ section('C-3: public form gate');
 section('C-4: App Check initialization');
 {
   const src = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  assert('imports initializeAppCheck + ReCaptchaV3Provider',
-    /initializeAppCheck[\s\S]{0,80}ReCaptchaV3Provider/.test(src));
+  // Either provider is acceptable. Joe's prod key is reCAPTCHA Enterprise
+  // (registered in Google Cloud Console, not the classic v3 admin), so the
+  // import + provider must use ReCaptchaEnterpriseProvider, not the v3 one.
+  // Test allows either to keep the suite tolerant if the project ever
+  // switches back to a classic v3 site key.
+  assert('imports initializeAppCheck + reCAPTCHA provider',
+    /initializeAppCheck[\s\S]{0,120}ReCaptcha(V3|Enterprise)Provider/.test(src));
   assert('App Check init runs before getAuth',
     /initializeAppCheck[\s\S]{0,2000}getAuth\(app\)/.test(src));
   assert('Configurable via window.__NBD_APP_CHECK_KEY',
