@@ -205,12 +205,12 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .compare-col-header{padding:20px 24px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.06em;border-bottom:1px solid rgba(255,255,255,.08)}
 .compare-col-header.them{color:rgba(255,255,255,.5);background:rgba(255,255,255,.03)}
 .compare-col-header.us{color:var(--orange);background:rgba(232,114,12,.08)}
-.compare-divider-hdr{padding:20px 16px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:rgba(255,255,255,.2);text-align:center;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2)}
+.compare-divider-hdr{padding:20px 16px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:rgba(255,255,255,.55);text-align:center;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2)}
 .compare-row{display:contents}
 .compare-cell{padding:14px 24px;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:flex-start;gap:10px}
 .compare-cell.them{color:rgba(255,255,255,.45);background:rgba(255,255,255,.02)}
 .compare-cell.us{color:rgba(255,255,255,.82);background:rgba(232,114,12,.05)}
-.compare-cell.divider{padding:14px 16px;text-align:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:.75rem;color:rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.15)}
+.compare-cell.divider{padding:14px 16px;text-align:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:.75rem;color:rgba(255,255,255,.5);border-bottom:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.15)}
 .compare-cta{text-align:center;margin-top:48px;position:relative;z-index:1}
 .compare-cta p{color:rgba(255,255,255,.5);margin-bottom:20px;font-size:.92rem}
 
@@ -322,7 +322,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .footer-links a{color:rgba(255,255,255,.5);text-decoration:none;font-size:.82rem;transition:color .2s}
 .footer-links a:hover{color:var(--orange-light)}
 .footer-bottom{border-top:1px solid rgba(255,255,255,.07);padding:20px 0;display:flex;align-items:center;justify-content:space-between}
-.footer-copy{font-size:.72rem;color:rgba(255,255,255,.3)}
+.footer-copy{font-size:.72rem;color:rgba(255,255,255,.65)}
 /* ← THE SILENT PRO DOOR → */
 .pro-door{font-size:.78rem;color:rgba(255,255,255,.55);text-decoration:none;transition:all .2s;border-bottom:1px solid rgba(232,114,12,.3);padding-bottom:2px;font-weight:600;letter-spacing:.03em}
 .pro-door:hover{color:var(--orange-light);border-bottom-color:var(--orange-light)}
@@ -550,7 +550,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 /* trust-icon fix — explicit child selectors so stroke paints even if SVG inheritance fails in some renderers */
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:#fff}
 .trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 .trust-icon svg.ico path,.trust-icon svg.ico rect,.trust-icon svg.ico line,.trust-icon svg.ico circle,.trust-icon svg.ico polyline,.trust-icon svg.ico polygon,
 .aci-icon svg.ico path,.aci-icon svg.ico rect,.aci-icon svg.ico line,.aci-icon svg.ico circle,.aci-icon svg.ico polyline,.aci-icon svg.ico polygon,
 .cm-icon svg.ico path,.cm-icon svg.ico rect,.cm-icon svg.ico line,.cm-icon svg.ico circle,.cm-icon svg.ico polyline,.cm-icon svg.ico polygon,
@@ -575,7 +575,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 .trust-icon svg.ico,.aci-icon svg.ico,.cm-icon svg.ico{width:24px;height:24px}
 .wc-phone-icon svg.ico{width:26px;height:26px}
 .trust-icon svg.ico{color:#fff}
-.aci-icon svg.ico,.cm-icon svg.ico,.wc-phone-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
+.aci-icon svg.ico,.form-success-icon svg.ico{color:var(--orange,#e8720c)}
 </style>
 <style>
 /* nav base (injected) */
@@ -1125,7 +1125,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="section-header">
       <div class="eyebrow reveal" style="color:rgba(255,255,255,.5)">The Honest Difference</div>
       <h2 class="sec-title white reveal">Half the Price. Twice as Close. <span>Just as Sharp.</span></h2>
-      <p class="sec-desc reveal" style="color:rgba(255,255,255,.45)">Big brand doesn't mean better work. I am just as educated as the project manager or sales rep they'll send to your house — without the TV budget overhead you're paying for.</p>
+      <p class="sec-desc reveal" style="color:rgba(255,255,255,.75)">Big brand doesn't mean better work. I am just as educated as the project manager or sales rep they'll send to your house — without the TV budget overhead you're paying for.</p>
     </div>
 
     <div class="compare-table reveal">
@@ -1456,26 +1456,26 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <div class="form-row">
               <div class="form-group">
                 <label>First Name <span class="req">*</span></label>
-                <input type="text" id="fieldFirst" placeholder="John" required>
+                <input type="text" id="fieldFirst" placeholder="John" autocomplete="given-name" required>
               </div>
               <div class="form-group">
                 <label>Last Name <span class="req">*</span></label>
-                <input type="text" id="fieldLast" placeholder="Smith" required>
+                <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name" required>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label>Phone <span class="req">*</span></label>
-                <input type="tel" id="fieldPhone" placeholder="(859) 420-7382" required>
+                <input type="tel" id="fieldPhone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel" required>
               </div>
               <div class="form-group">
                 <label>Email</label>
-                <input type="email" id="fieldEmail" placeholder="your@email.com">
+                <input type="email" id="fieldEmail" placeholder="your@email.com" autocomplete="email" inputmode="email">
               </div>
             </div>
             <div class="form-group">
               <label>Address / Zip Code <span class="req">*</span></label>
-              <input type="text" id="fieldAddress" placeholder="Your address or zip code" required>
+              <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address" required>
             </div>
             <div class="form-group">
               <label>Service Needed <span class="req">*</span></label>
@@ -1668,8 +1668,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           <li><a href="tel:8594207382">(859) 420-7382</a></li>
           <li><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></li>
           <li><a href="#areas">Goshen / Cincinnati, OH</a></li>
-          <li style="color:rgba(255,255,255,.3);font-size:.78rem;margin-top:8px">Mon–Sat 7AM–6PM</li>
-          <li style="color:rgba(255,255,255,.3);font-size:.78rem">Sunday available</li>
+          <li style="color:rgba(255,255,255,.65);font-size:.78rem;margin-top:8px">Mon–Sat 7AM–6PM</li>
+          <li style="color:rgba(255,255,255,.65);font-size:.78rem">Sunday available</li>
         </ul>
       </div>
     </div>
