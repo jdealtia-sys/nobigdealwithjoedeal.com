@@ -22,8 +22,13 @@
   --orange-light:#f59240;--white:#E8EAF0;--text-muted:#6B7280;
   --dark-bg:#0A0C0F;--dark-card:#181C22;
 }
-html,body{height:100%;font-family:'Barlow',sans-serif;overflow:hidden}
-body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-columns:1fr 500px}
+/* Allow vertical scroll on desktop when the form is taller than the
+   viewport (small laptops, zoomed browsers) — previous overflow:hidden
+   trapped users with no way to reach the password field/submit button.
+   The login panel still self-scrolls (.lp has overflow-y:auto) but body
+   needs the fallback for the brand panel + form together. */
+html,body{min-height:100%;font-family:'Barlow',sans-serif}
+body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-columns:1fr 500px;min-height:100vh;min-height:100dvh}
 
 /* BRAND PANEL */
 .bp{background:var(--navy-dark);position:relative;overflow:hidden;display:flex;flex-direction:column;padding:48px 56px}
