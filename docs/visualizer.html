@@ -692,16 +692,19 @@ const VIZ_OPTIONS = {
     { id: 'doors',    label: '🚪 Front Door' },
   ],
 
-  // GAF residential shingle product lines — Joe is GAF Certified™
+  // GAF residential shingle product lines — the lineup Joe actually installs.
+  // Joe doesn't sell 3-tab (not worth it). UHDZ is his Class 4 impact pick.
+  // Camelot II is the one designer line carried — most widely stocked GAF
+  // designer shingle through Beacon/ABC Supply in the Cincinnati region.
   roofLines: [
-    { id: 'timberline-hdz',  label: 'Timberline HDZ',     desc: 'Architectural · most popular',
+    { id: 'timberline-ns',   label: 'Timberline NS',      desc: 'Natural Shadow · entry architectural',
+      ai: 'GAF Timberline Natural Shadow (NS) architectural laminated asphalt shingles' },
+    { id: 'timberline-hdz',  label: 'Timberline HDZ',     desc: 'Architectural · most chosen',
       ai: 'GAF Timberline HDZ architectural laminated asphalt shingles' },
-    { id: 'timberline-as2',  label: 'Timberline AS II',   desc: 'Impact-Resistant Class 4',
-      ai: 'GAF Timberline AS II Class 4 impact-resistant architectural asphalt shingles' },
-    { id: 'designer',        label: 'Camelot II / Slateline', desc: 'Designer · luxury',
-      ai: 'GAF designer luxury asphalt shingles (Camelot II or Slateline profile)' },
-    { id: 'royal-sovereign', label: 'Royal Sovereign',    desc: '3-Tab · budget',
-      ai: 'GAF Royal Sovereign traditional 3-tab asphalt shingles' },
+    { id: 'timberline-uhdz', label: 'Timberline UHDZ',    desc: 'Premium · Class 4 impact-rated',
+      ai: 'GAF Timberline UHDZ premium architectural shingles with Class 4 impact rating (UL 2218)' },
+    { id: 'camelot-2',       label: 'Camelot II',         desc: 'Designer · slate-look luxury',
+      ai: 'GAF Camelot II designer slate-look dimensional luxury asphalt shingles' },
     { id: 'metal',           label: 'Standing-Seam Metal', desc: 'Premium metal panels',
       ai: 'standing-seam metal roofing panels (NOT metal shingles — these are flat panels with raised seams)' },
   ],
@@ -1152,8 +1155,11 @@ async function runVisualizer() {
       imageBase64: base64,
       mediaType,
       features:    state.features,
-      // Legacy field names retained — map new line/material to old keys
-      roofStyle:   isMetalRoof ? 'metal' : (roofLine.id === 'royal-sovereign' ? '3-tab' : (roofLine.id === 'designer' ? 'luxury' : 'architectural')),
+      // Legacy field names retained — map new line to the cloud function's
+      // existing keys: 'metal' / 'luxury' / 'architectural'. NS, HDZ, UHDZ
+      // all collapse to 'architectural' for legacy compatibility; the new
+      // structured `selections.roof.line` field carries the precise line.
+      roofStyle:   isMetalRoof ? 'metal' : (roofLine.id === 'camelot-2' ? 'luxury' : 'architectural'),
       roofColor:   state.roofColor,
       sidingStyle: state.sidingStyle,
       sidingColor: state.sidingColor,
