@@ -1518,10 +1518,15 @@
                 type: 'customer'
               };
               
-              // Save lead first to get ID
+              // Save lead first to get ID. stageStartedAt is stamped at
+              // create-time so the days-in-stage badge has a real
+              // anchor for brand-new leads (without it, the badge fell
+              // back to updatedAt/createdAt — usable but not the same
+              // semantic).
               const leadRef = await addDoc(collection(db,'leads'), {
                 ...data,
                 createdAt: serverTimestamp(),
+                stageStartedAt: serverTimestamp(),
                 userId: window._user?.uid
               });
 
@@ -1582,6 +1587,7 @@
         const fallbackRef = await addDoc(collection(db,'leads'), {
           ...data,
           createdAt: serverTimestamp(),
+          stageStartedAt: serverTimestamp(),
           userId: window._user?.uid
         });
         // Optimistic insert — show on kanban immediately even if the
@@ -14728,6 +14734,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/demo.js?v=3"></script>
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
+<script defer src="js/nbd-input-guards.js?v=1"></script>
 <script defer src="js/photo-engine.js?v=3"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=3"></script>

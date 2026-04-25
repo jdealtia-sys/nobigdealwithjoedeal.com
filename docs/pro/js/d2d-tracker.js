@@ -1134,11 +1134,13 @@
       if (typeof window._saveLead === 'function') {
         await window._saveLead(leadData);
       } else {
-        // Fallback: direct Firestore write
+        // Fallback: direct Firestore write. stageStartedAt anchors the
+        // days-in-stage badge to actual lead-create time.
         await window.addDoc(window.collection(window._db, 'leads'), {
           ...leadData,
           userId: window._user.uid,
-          createdAt: window.serverTimestamp()
+          createdAt: window.serverTimestamp(),
+          stageStartedAt: window.serverTimestamp()
         });
         if (typeof window._loadLeads === 'function') await window._loadLeads();
       }

@@ -123,6 +123,34 @@
     };
   }
 
+  // ── Hand-off helper ─────────────────────────────────────────────
+  // Triggering a mailto:/sms: handler via window.location.href works
+  // but navigates the current tab away from the dashboard. On iOS PWA
+  // the user gets kicked into Safari + Mail, and coming back the
+  // kanban reloads from scratch. Use a hidden <a> with target="_blank"
+  // and click() — most platforms then hand off to the protocol handler
+  // without navigating, and the PWA stays put.
+  function _openHandoff(href) {
+    if (!href) return;
+    try {
+      const a = document.createElement('a');
+      a.href = href;
+      // target=_blank lets iOS open the protocol handler without
+      // navigating. standalone-compat.js already patches window.open
+      // for same-origin URLs but mailto:/sms: pass through.
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      // Remove on next tick so the click event has fully bubbled.
+      setTimeout(() => { try { a.remove(); } catch(_) {} }, 0);
+    } catch (e) {
+      // Last-resort fallback if DOM access fails — original behaviour.
+      try { window.location.href = href; } catch(_) {}
+    }
+  }
+
   // ── NBDComms ────────────────────────────────────────────────────
   window.NBDComms = {
     /**
@@ -142,17 +170,10 @@
         leadId, to, subject, body: plainBody,
         hasHtml: !!html, context: 'nbd-comms'
       });
-      try {
-        const link = 'mailto:' + encodeURIComponent(to)
-          + '?subject=' + encodeURIComponent(subject || '')
-          + '&body=' + encodeURIComponent(plainBody);
-        // Use location.href so iOS PWA in standalone mode hands off to
-        // the configured mail handler instead of opening a new tab
-        // that gets eaten by Safari's window.open patch.
-        window.location.href = link;
-      } catch (e) {
-        console.warn('mailto open failed:', e && e.message);
-      }
+      const link = 'mailto:' + encodeURIComponent(to)
+        + '?subject=' + encodeURIComponent(subject || '')
+        + '&body=' + encodeURIComponent(plainBody);
+      _openHandoff(link);
       return { success: true, mode: 'mailto' };
     },
 
@@ -171,14 +192,10 @@
       await logAudit('sms_log', {
         leadId, knockId, to, body, context: 'nbd-comms'
       });
-      try {
-        // iOS uses '&' for separator after the first param; Android uses '?'.
-        // The canonical form is `sms:NUMBER?body=TEXT` which both honor.
-        const link = 'sms:' + encodeURIComponent(to) + '?body=' + encodeURIComponent(body || '');
-        window.location.href = link;
-      } catch (e) {
-        console.warn('sms open failed:', e && e.message);
-      }
+      // iOS uses '&' for separator after the first param; Android uses '?'.
+      // The canonical form is `sms:NUMBER?body=TEXT` which both honor.
+      const link = 'sms:' + encodeURIComponent(to) + '?body=' + encodeURIComponent(body || '');
+      _openHandoff(link);
       return { success: true, mode: 'sms' };
     }
   };
