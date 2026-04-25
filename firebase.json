@@ -44,33 +44,47 @@
         ]
       },
       {
-        "source": "/pro/dashboard.html",
+        "_comment": "Sources below use canonical (no-.html) form because cleanUrls:true rewrites incoming /foo.html requests to /foo BEFORE header matching. Sources of the form '/path.html' never match; canonical '/path' matches both forms. Last-match wins for headers (verified prod: /admin/login → no-store from /admin/** rule), so these path-specific rules correctly override the '**' default above.",
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "source": "/pro/dashboard",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
-        "source": "/pro/vault.html",
+        "source": "/pro/vault",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
-        "source": "/pro/customer.html",
+        "source": "/pro/customer",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
-        "source": "/pro/login.html",
+        "source": "/pro/login",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
-        "source": "/pro/register.html",
+        "source": "/pro/register",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "source": "/admin",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
       },
       {
@@ -81,19 +95,19 @@
         ]
       },
       {
+        "source": "/sites/oaks",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "source": "/sites/oaks/**",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
       },
       {
-        "source": "/sites/oaks.html",
-        "headers": [
-          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
-        ]
-      },
-      {
-        "source": "/sites/template.html",
+        "source": "/sites/template",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
