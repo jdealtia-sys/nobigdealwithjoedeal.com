@@ -346,6 +346,30 @@
     return Math.round(value / s) * s;
   }
 
+  // Deposit math per spec (Rock 2 PR 4 — ported from classic estimates.js):
+  //   • Cash mode default = 50% deposit at signing, 50% at completion
+  //   • Insurance mode default = $0 down (ACV check covers the first half)
+  //   • User can override the percent per-estimate (0–100 inclusive)
+  //   • Amount is rounded to the nearest roundTo step ($25 by default) so
+  //     it matches the rounding the customer sees on the grand total
+  //   • Remainder = total − amount (so amount + remainder === total)
+  // Returns the same shape as classic's calcDeposit so callers can swap.
+  function calcDeposit(total, mode, opts) {
+    const o = opts || {};
+    const roundTo = Number(o.roundTo) || ROUND_TO;
+    if (!total || total <= 0) return { pct: 0, amount: 0, remainder: 0 };
+    const defaultPct = mode === 'insurance' ? 0 : 50;
+    const overrideOk = (o.overridePct != null
+                       && Number.isFinite(Number(o.overridePct))
+                       && Number(o.overridePct) >= 0
+                       && Number(o.overridePct) <= 100);
+    const pct = overrideOk ? Number(o.overridePct) : defaultPct;
+    const rawAmount = total * (pct / 100);
+    const amount = roundToNearest(rawAmount, roundTo);
+    const remainder = Math.round((total - amount) * 100) / 100;
+    return { pct, amount, remainder };
+  }
+
   // ═════════════════════════════════════════════════════════
   // SECTION 5 — Settings (localStorage, immutable updates)
   // ═════════════════════════════════════════════════════════
@@ -519,8 +543,12 @@
     const margin = total - totalCost;
     const marginPct = total > 0 ? (margin / total) * 100 : 0;
 
-    // Deposit
-    const deposit = (mode === 'insurance') ? 0 : roundToNearest(total * 0.5, s.roundTo || ROUND_TO);
+    // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
+    const depositInfo = calcDeposit(total, mode, {
+      overridePct: input.depositOverridePct,
+      roundTo: s.roundTo
+    });
+    const deposit = depositInfo.amount;
 
     return {
       method: 'per-sq',
@@ -534,6 +562,8 @@
       addOns,
       addOnsTotal,
       subtotal,
+      depositPct: depositInfo.pct,
+      depositRemainder: depositInfo.remainder,
       taxRate,
       tax,
       total,
@@ -757,8 +787,12 @@
     const margin = total - hardCost;
     const marginPct = total > 0 ? (margin / total) * 100 : 0;
 
-    // Deposit
-    const deposit = (mode === 'insurance') ? 0 : roundToNearest(total * 0.5, s.roundTo || ROUND_TO);
+    // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
+    const depositInfo = calcDeposit(total, mode, {
+      overridePct: input.depositOverridePct,
+      roundTo: s.roundTo
+    });
+    const deposit = depositInfo.amount;
 
     return {
       method: 'line-item',
@@ -783,6 +817,8 @@
       materialMarkupPct,
 
       subtotal,
+      depositPct: depositInfo.pct,
+      depositRemainder: depositInfo.remainder,
       taxRate,
       tax,
       total,
@@ -946,6 +982,7 @@
     updateSettings,
 
     // Calculation
+    calcDeposit,
     calculateEstimate,
     calculateAllTiers,
     calculatePerSq,

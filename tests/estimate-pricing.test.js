@@ -141,6 +141,84 @@ test('Tear-off layers: 3 layers adds (3-1)*sq*$50', () => {
   near(threeLayer.total - oneLayer.total, 1000, 30, 'tear-off premium');
 });
 
+// ── Deposit math (Rock 2 PR 4) ──
+// Spec: cash defaults 50%, insurance defaults 0%, override 0–100,
+// amount rounded to nearest $25, remainder = total − amount.
+test('calcDeposit: cash mode default = 50%', () => {
+  const d = EBv2.calcDeposit(10000, 'cash');
+  eq(d.pct, 50, 'pct');
+  eq(d.amount, 5000, 'amount');
+  eq(d.remainder, 5000, 'remainder');
+});
+test('calcDeposit: insurance mode default = 0%', () => {
+  const d = EBv2.calcDeposit(10000, 'insurance');
+  eq(d.pct, 0, 'pct');
+  eq(d.amount, 0, 'amount');
+  eq(d.remainder, 10000, 'remainder');
+});
+test('calcDeposit: override pct beats default', () => {
+  const d = EBv2.calcDeposit(10000, 'cash', { overridePct: 25 });
+  eq(d.pct, 25, 'pct');
+  eq(d.amount, 2500, 'amount');
+  eq(d.remainder, 7500, 'remainder');
+});
+test('calcDeposit: override 0 on cash collapses to no deposit', () => {
+  const d = EBv2.calcDeposit(10000, 'cash', { overridePct: 0 });
+  eq(d.pct, 0);
+  eq(d.amount, 0);
+  eq(d.remainder, 10000);
+});
+test('calcDeposit: override out-of-range falls back to default', () => {
+  const d = EBv2.calcDeposit(10000, 'cash', { overridePct: 150 });
+  eq(d.pct, 50, 'rejected 150% → defaulted to 50');
+});
+test('calcDeposit: zero/negative total returns all zeros', () => {
+  const a = EBv2.calcDeposit(0, 'cash');
+  eq(a.amount, 0); eq(a.pct, 0); eq(a.remainder, 0);
+  const b = EBv2.calcDeposit(-100, 'cash');
+  eq(b.amount, 0); eq(b.pct, 0); eq(b.remainder, 0);
+});
+test('calcDeposit: amount rounds to nearest $25', () => {
+  // $16,375 × 50% = $8,187.50 → rounds to $8,200 (nearest $25)
+  const d = EBv2.calcDeposit(16375, 'cash');
+  eq(d.amount, 8200, 'rounded to nearest $25');
+  // remainder = total − amount, preserved to cent precision
+  eq(d.remainder, 8175, 'remainder');
+});
+test('calcDeposit: amount + remainder === total (always)', () => {
+  // Property: deposit math must never lose pennies
+  const samples = [
+    [10000, 'cash'], [16375, 'cash'], [9999, 'insurance'],
+    [12345.67, 'cash', { overridePct: 33 }],
+    [8888.88, 'cash', { overridePct: 75 }]
+  ];
+  for (const args of samples) {
+    const d = EBv2.calcDeposit.apply(null, args);
+    near(d.amount + d.remainder, args[0], 0.01,
+         'sum (' + args[0] + ', ' + args[1] + ', override=' + (args[2] && args[2].overridePct) + ')');
+  }
+});
+
+// ── Deposit integration with calculateEstimate ──
+test('calculateEstimate: cash mode includes 50% deposit + remainder', () => {
+  const r = EBv2.calculateEstimate({
+    method: 'per-sq', tier: 'better', mode: 'cash',
+    rawSqft: 3000, pitch: 6, wasteFactorOverride: 1.0
+  });
+  // 30 SQ × $595 = $17,850 base + tax + minor add-ons
+  eq(r.depositPct, 50, 'depositPct');
+  near(r.deposit + r.depositRemainder, r.total, 0.01, 'deposit + remainder == total');
+});
+test('calculateEstimate: insurance mode → 0 deposit, full remainder', () => {
+  const r = EBv2.calculateEstimate({
+    method: 'per-sq', tier: 'better', mode: 'insurance',
+    rawSqft: 3000, pitch: 6, wasteFactorOverride: 1.0
+  });
+  eq(r.deposit, 0, 'deposit');
+  eq(r.depositPct, 0, 'depositPct');
+  eq(r.depositRemainder, r.total, 'remainder = total');
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
