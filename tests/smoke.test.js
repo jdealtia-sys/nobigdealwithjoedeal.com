@@ -2650,6 +2650,27 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
+section('Rock 4 rollback fallback (Phase 3 prep)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const legacyPath = path.join(ROOT, 'docs/pro/dashboard.legacy.html');
+  // 1. dashboard.html ships the ?legacy=1 redirect script.
+  assert('dashboard.html has ?legacy=1 redirect to dashboard.legacy.html',
+    /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)[\s\S]{0,200}location\.replace\(['"]\/pro\/dashboard\.legacy\.html/.test(dash),
+    'expected an inline <script> that redirects when ?legacy=1 is present');
+  // 2. The redirect's pathname guard prevents an infinite loop on the
+  //    legacy snapshot itself. The script must compare against
+  //    '/pro/dashboard' (no .legacy suffix) so that location.pathname
+  //    of '/pro/dashboard.legacy' fails the check and the page renders.
+  assert('dashboard.html redirect guards against /pro/dashboard.legacy loop',
+    /p === ['"]\/pro\/dashboard['"]/.test(dash),
+    'pathname check must be strict equality with /pro/dashboard (not startsWith)');
+  // 3. The legacy snapshot must exist and be non-trivial.
+  assert('dashboard.legacy.html exists and is non-empty',
+    fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 100000,
+    'expected docs/pro/dashboard.legacy.html with >100KB of content');
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);
