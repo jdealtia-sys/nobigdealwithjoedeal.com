@@ -68,10 +68,11 @@
 -->
 <script>window.__NBD_APP_CHECK_KEY = "6LcuaMosAAAAAIaR0UKNVKdg2N_h2zFUj63gQKQE";</script>
 <!--
-  Sentry (client-side): set the DSN below and sentry-init.js loads
-  the browser SDK over CDN. DSN is origin-bound and safe to embed.
+  Sentry (client-side): DSN now lives in js/sentry-config.js so login,
+  register, customer, and any other pro page can share the same
+  configuration. sentry-init.js no-ops until the DSN is non-empty.
 -->
-<script>window.__NBD_SENTRY_DSN = "";</script>
+<script src="js/sentry-config.js?v=1"></script>
 <!-- Safari standalone (Add to Home Screen) compat — must load FIRST -->
 <script src="js/standalone-compat.js"></script>
 <!-- Escape helpers for user-controlled strings: exposes window.nbdEsc -->

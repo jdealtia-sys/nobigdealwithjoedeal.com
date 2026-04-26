@@ -315,7 +315,11 @@ section('Sentry');
   assert('index.js imports withSentry', /require\(['"]\.\/integrations\/sentry['"]\)/.test(idx));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('dashboard loads sentry-init.js', /sentry-init\.js/.test(dash));
-  assert('dashboard exposes __NBD_SENTRY_DSN slot', /window\.__NBD_SENTRY_DSN/.test(dash));
+  // DSN slot moved out of inline <script> and into js/sentry-config.js
+  // (single source of truth across pages — see "Sentry — DSN config
+  // wired across high-value pages" section below).
+  assert('dashboard loads sentry-config.js (DSN slot)',
+    /sentry-config\.js/.test(dash));
 }
 
 section('Slack alerts');
@@ -2666,6 +2670,30 @@ section('Service worker — cross-origin passthrough');
   assert('cross-origin bypass runs before strategies 2-5',
     /url\.origin !== self\.location\.origin\)\s*return;[\s\S]*Strategy 2:/.test(sw),
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
+}
+
+section('Sentry — DSN config wired across high-value pages');
+{
+  const sentryConfig = read(path.join(ROOT, 'docs/pro/js/sentry-config.js'));
+  // Config exposes the two globals sentry-init.js looks for.
+  assert('sentry-config.js exposes window.__NBD_SENTRY_DSN',
+    /window\.__NBD_SENTRY_DSN\s*=\s*NBD_SENTRY_DSN/.test(sentryConfig));
+  assert('sentry-config.js exposes window.__NBD_RELEASE',
+    /window\.__NBD_RELEASE\s*=\s*['"]web@/.test(sentryConfig));
+  // Pages that need error reporting load BOTH the config and the SDK
+  // shim, in that order. Config must come first so the DSN is on the
+  // window before sentry-init reads it.
+  ['dashboard.html', 'customer.html', 'login.html', 'register.html'].forEach(function (page) {
+    var html = read(path.join(ROOT, 'docs/pro', page));
+    assert(page + ' loads sentry-config.js before sentry-init.js',
+      /sentry-config\.js[\s\S]{0,400}sentry-init\.js/.test(html),
+      'sentry-config must come before sentry-init in ' + page);
+  });
+  // dashboard.html no longer hardcodes the DSN inline (it lives in
+  // sentry-config.js now — single source of truth).
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard.html no longer inlines window.__NBD_SENTRY_DSN',
+    !/window\.__NBD_SENTRY_DSN\s*=\s*"[^"]*";/.test(dash));
 }
 
 section('Customer overview photo strip — cap + drag reorder');
