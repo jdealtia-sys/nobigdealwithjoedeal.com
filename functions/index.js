@@ -2846,6 +2846,16 @@ const _migrations = require('./migrations/runner');
 exports.runMigrations  = _migrations.runMigrations;
 exports.migrationsTick = _migrations.migrationsTick;
 
+// ═════════════════════════════════════════════════════════════
+// IMAGE PIPELINE — Storage onObjectFinalized trigger that writes
+// 200 / 600 / 1600 px WebP variants for every photo upload, then
+// stamps the photo doc with `urls: { thumb, med, full }` so the
+// CRM render code can switch on `<img srcset>`.
+// see functions/image-pipeline.js
+// ═════════════════════════════════════════════════════════════
+const _imagePipeline = require('./image-pipeline');
+exports.onPhotoUploaded = _imagePipeline.onPhotoUploaded;
+
 exports.cspReport = onRequest(
   {
     region: 'us-central1',

@@ -2704,6 +2704,98 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('Image pipeline (Storage trigger → WebP variants → srcset)');
+{
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+  const idx      = read(FUNCTIONS + '/index.js');
+  const pkg      = JSON.parse(read(FUNCTIONS + '/package.json'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const types    = read(path.join(ROOT, 'docs/pro/js/types.js'));
+
+  // Public surface: onObjectFinalized export wired into index.js.
+  assert('image-pipeline.js exports onPhotoUploaded onObjectFinalized',
+    /exports\.onPhotoUploaded\s*=\s*onObjectFinalized/.test(pipeline));
+  assert('functions/index.js wires exports.onPhotoUploaded',
+    /exports\.onPhotoUploaded\s*=\s*_imagePipeline\.onPhotoUploaded/.test(idx));
+
+  // sharp is the heavy dep — must be declared so deploys install it.
+  assert('functions/package.json declares sharp dependency',
+    !!(pkg.dependencies && pkg.dependencies.sharp));
+
+  // Recursion guard: variants are written back into Storage at
+  // photos/{uid}/_variants/... and would re-fire the trigger
+  // forever without an early-exit.
+  assert('pipeline skips variant paths to prevent recursion',
+    /_variants\//.test(pipeline)
+    && /includes\(['"]\/?_variants\//.test(pipeline));
+
+  // Three variants — width + quality tuned per use site.
+  // 200px = grid thumb, 600px = inline, 1600px = lightbox/print.
+  assert('three variants generated (200 / 600 / 1600 px)',
+    /name:\s*['"]thumb['"][^}]*width:\s*200/.test(pipeline)
+    && /name:\s*['"]med['"][^}]*width:\s*600/.test(pipeline)
+    && /name:\s*['"]full['"][^}]*width:\s*1600/.test(pipeline));
+
+  // EXIF auto-orient must run BEFORE resize, otherwise sideways
+  // iPhone portraits land cropped wrong in the variant.
+  assert('sharp pipeline calls .rotate() before .resize()',
+    /\.rotate\(\)[\s\S]{0,80}\.resize\(/.test(pipeline));
+
+  // WebP encode is the whole point — JPEG output would defeat
+  // the bandwidth savings.
+  assert('variants are encoded as image/webp',
+    /\.webp\(/.test(pipeline)
+    && /['"]image\/webp['"]/.test(pipeline));
+
+  // Long-lived URL via firebaseStorageDownloadTokens, NOT signed
+  // URLs (which would expire). Cache-Control must mark variants
+  // immutable so CDN keeps them indefinitely.
+  assert('variants get firebaseStorageDownloadTokens + immutable cache',
+    /firebaseStorageDownloadTokens/.test(pipeline)
+    && /immutable/.test(pipeline));
+
+  // Doc lookup uses storagePath — set by the upload code below.
+  // If the trigger didn't query by storagePath, legacy/fresh docs
+  // would never get stamped with `urls`.
+  assert('pipeline finds photo doc via storagePath equality query',
+    /\.where\(['"]storagePath['"],\s*['"]==['"]/.test(pipeline));
+
+  // Doc gets stamped with urls + variantsGeneratedAt.
+  assert('pipeline stamps urls + variantsGeneratedAt on photo doc',
+    /\burls:\s*generated\b/.test(pipeline)
+    && /variantsGeneratedAt:[\s\S]{0,80}serverTimestamp\(\)/.test(pipeline));
+
+  // Upload write path: customer.html must persist storagePath so
+  // the trigger has something to query against.
+  assert('customer.html upload stores storagePath alongside url',
+    /storagePath:\s*storagePath/.test(customer)
+    && /const storagePath\s*=\s*`photos\/\$\{uid\}\/\$\{filename\}`/.test(customer));
+
+  // Render path: <img srcset> helper present + used by both the
+  // overview strip and the phase grid tiles.
+  assert('buildPhotoImgAttrs exposed on window for shared use',
+    /window\.buildPhotoImgAttrs\s*=\s*buildPhotoImgAttrs/.test(customer));
+  assert('buildPhotoImgAttrs emits srcset 200w/600w/1600w',
+    /200w[\s\S]{0,60}600w[\s\S]{0,60}1600w/.test(customer));
+  assert('phase grid tile uses buildPhotoImgAttrs (no raw photo.url src)',
+    /var imgAttrs = buildPhotoImgAttrs\(photo, esc, \{ sizes: '180px' \}\)/.test(customer)
+    && /tile \+= '<img ' \+ imgAttrs/.test(customer));
+  assert('overview strip uses buildPhotoImgAttrs with 160px hint',
+    /window\.buildPhotoImgAttrs[\s\S]{0,200}sizes:\s*'160px'/.test(customer));
+
+  // Backward compat: when photo.urls is missing, helper falls
+  // back to plain photo.url so legacy docs (pre-pipeline) still
+  // render correctly.
+  assert('buildPhotoImgAttrs falls back to photo.url when urls missing',
+    /if \(!hasVariants\)[\s\S]{0,200}src="' \+ esc\(primary\)/.test(customer));
+
+  // Type doc updated — the Photo typedef must mention the new
+  // urls + storagePath fields so JSDoc autocomplete works.
+  assert('types.js Photo typedef documents urls + storagePath',
+    /@property \{string=\} storagePath/.test(types)
+    && /@property \{\{ thumb: string, med: string, full: string \}=\} urls/.test(types));
+}
+
 section('Per-route rate-limit policy');
 {
   const policy = read(path.join(ROOT, 'functions/rate-limit-policy.js'));
