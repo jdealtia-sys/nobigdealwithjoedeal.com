@@ -11,10 +11,24 @@
    ========================================================================== */
 
 /* ─── UNIVERSAL OVERFLOW GUARDS ─────────────────────────────────────────── */
+/*
+  IMPORTANT: do NOT set overflow-x:hidden or max-width on <html>.
+  Chrome Android treats html-level horizontal-overflow restrictions as
+  zoom-disablers and breaks pinch-to-zoom for accessibility users.
+  Restrict overflow on <body> only, with overflow:clip (modern, doesn't
+  break zoom) instead of overflow:hidden.
+*/
 
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden;
+body {
+  overflow-x: clip;
+}
+
+/* Brand background on <html> so Android landscape safe-areas
+   (camera notch / hole-punch) paint navy instead of black. Combined
+   with viewport-fit=cover in the meta tag, this makes the page feel
+   edge-to-edge on devices with display cutouts. */
+html {
+  background-color: #142a52;
 }
 
 /* Any media or wide content that escapes its container = clamp it */
@@ -23,6 +37,32 @@ img, video, iframe, table, pre, svg {
 }
 img, video {
   height: auto;
+}
+
+/* ─── SAFE-AREA INSETS (Android landscape, iOS notch) ──────────────────── */
+/*
+  Pages now paint into device cutouts thanks to viewport-fit=cover, but
+  *content* shouldn't sit under the camera. Add safe-area padding to
+  the major fixed/sticky surfaces and primary section paddings.
+*/
+@supports (padding: env(safe-area-inset-left)) {
+  nav,
+  .ann-bar,
+  .breadcrumb,
+  footer,
+  .stickybar,
+  .mobile-cta-strip,
+  .footer-grid {
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+  /* Sections get their normal padding plus safe-area on whichever side
+     the cutout is. Using max() so the existing padding wins on phones
+     without a cutout, and the inset wins when the cutout is bigger. */
+  section, .section {
+    padding-left: max(5%, env(safe-area-inset-left)) !important;
+    padding-right: max(5%, env(safe-area-inset-right)) !important;
+  }
 }
 
 /* ─── PHONE BREAKPOINT (≤ 480px) ─────────────────────────────────────────── */
