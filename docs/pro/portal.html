@@ -165,6 +165,27 @@
     background: #fff;
   }
   @media (max-width: 600px) { .cal-embed { height: 820px; } }
+  /* Project photo gallery — matches the mid-density tiles on the
+     dashboard but slightly larger to feel intentional on the
+     homeowner-facing surface. Tap a tile to open the full
+     1600px variant in a new tab (no lightbox; keep portal small). */
+  .ph-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .ph-tile {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0,0,0,.04);
+    border: 1px solid var(--border);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .ph-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .error-state, .loading-state {
     text-align: center;
     padding: 56px 20px;
@@ -373,6 +394,42 @@
           '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
           '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
           '<div style="margin-top:10px;"><a class="btn" href="' + esc(view.bookingUrl) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
+        '</div>'
+      );
+    }
+
+    // ── Project photos gallery ──
+    // Only the photos the rep explicitly flipped to
+    // sharedWithHomeowner come through. Renders responsive
+    // variants from PR #75 (image-pipeline) when present —
+    // phone-friendly thumb at grid size, full-res only when the
+    // homeowner taps to enlarge. Pre-pipeline photos (no `urls`)
+    // fall back to the original url.
+    const photos = Array.isArray(view.photos) ? view.photos : [];
+    if (photos.length) {
+      const phaseOrder = { 'Before': 0, 'During': 1, 'After': 2 };
+      const sorted = photos.slice().sort(function (a, b) {
+        const pa = phaseOrder[a.phase] != null ? phaseOrder[a.phase] : 1;
+        const pb = phaseOrder[b.phase] != null ? phaseOrder[b.phase] : 1;
+        return pa - pb;
+      });
+      const tiles = sorted.map(function (p) {
+        const u = (p.urls && p.urls.med)
+          ? esc(p.urls.med)
+          : esc(p.url || '');
+        const srcset = (p.urls && p.urls.thumb && p.urls.med && p.urls.full)
+          ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
+          : '';
+        const fullHref = (p.urls && p.urls.full) ? esc(p.urls.full) : u;
+        return '<a class="ph-tile" href="' + fullHref + '" target="_blank" rel="noopener" aria-label="' + esc(p.caption || p.phase || 'Project photo') + '">' +
+                 '<img loading="lazy" decoding="async" src="' + u + '"' + srcset + ' alt="' + esc(p.caption || p.phase || '') + '">' +
+               '</a>';
+      }).join('');
+      parts.push(
+        '<div class="card">' +
+          '<div class="card-label">Project Photos</div>' +
+          '<div class="card-title">' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + ' from your project</div>' +
+          '<div class="ph-grid">' + tiles + '</div>' +
         '</div>'
       );
     }

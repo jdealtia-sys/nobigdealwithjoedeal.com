@@ -231,13 +231,28 @@ exports.getHomeownerPortalView = onRequest(
       return;
     }
 
-    // Load the lead, rep, and latest estimate in parallel.
-    const [leadSnap, repSnap, estSnap] = await Promise.all([
+    // Load lead, rep, latest estimate, and any photos the rep has
+    // explicitly shared with the homeowner. Photos are gated by
+    // `sharedWithHomeowner: true` — the rep flips the flag from
+    // customer.html. We deliberately don't return EVERY photo
+    // (homeowner doesn't need to see internal damage workups or
+    // photos uploaded for a different lead by mistake).
+    //
+    // limit(50) caps the gallery — generous for a real project,
+    // tight enough that a misclick can't dump 500 photos to the
+    // homeowner page in one fetch.
+    const [leadSnap, repSnap, estSnap, photoSnap] = await Promise.all([
       db.doc(`leads/${tok.leadId}`).get(),
       db.doc(`users/${tok.ownerUid}`).get(),
       db.collection('estimates')
         .where('leadId', '==', tok.leadId)
         .limit(10)
+        .get(),
+      db.collection('photos')
+        .where('leadId', '==', tok.leadId)
+        .where('userId', '==', tok.ownerUid)
+        .where('sharedWithHomeowner', '==', true)
+        .limit(50)
         .get()
     ]);
 
@@ -314,6 +329,26 @@ exports.getHomeownerPortalView = onRequest(
       bookingUrl: rep.calcomUsername
         ? ('https://cal.com/' + rep.calcomUsername + '/' + (rep.calcomEventSlug || 'roof-inspection'))
         : null,
+      // Project photos the rep flipped to sharedWithHomeowner.
+      // We only emit the responsive variant URLs (`urls`) so the
+      // homeowner page renders 200/600/1600 px WebP via <img
+      // srcset> instead of pulling 3-5 MB iPhone originals over
+      // their phone connection. Photos without `urls` (legacy,
+      // pre-image-pipeline) fall back to the original `url`. The
+      // redaction here matches the rest of this view: NO internal
+      // notes, damageType, severity, location, tags — homeowner
+      // only sees the picture, the phase, and an optional
+      // homeowner-facing caption.
+      photos: photoSnap.docs.map(d => {
+        const p = d.data();
+        return {
+          id: d.id,
+          urls: p.urls || null,
+          url:  p.url || null,
+          phase: p.phase || 'During',
+          caption: p.homeownerCaption || ''
+        };
+      }),
       tokenInfo: {
         daysRemaining: tok.expiresAt
           ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))

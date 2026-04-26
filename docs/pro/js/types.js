@@ -195,6 +195,18 @@
  * @property {boolean=} isAnnotated
  *   True when the photo editor has saved a marked-up overlay.
  *
+ * @property {boolean=} sharedWithHomeowner
+ *   When true, the photo is exposed to the homeowner-facing
+ *   `/pro/portal.html?token=...` view via getHomeownerPortalView
+ *   (PR #80). Toggled per-tile from the customer page Share
+ *   badge. Default false — the rep must opt each photo in
+ *   explicitly so internal damage workups can't leak.
+ *
+ * @property {string=} homeownerCaption
+ *   Optional homeowner-facing caption shown beneath the photo on
+ *   the portal gallery. Distinct from `description`, which is
+ *   the rep-facing internal note — homeowners never see that.
+ *
  * @property {number=} order
  *   Drag-arranged display order (PR #68). Integer ascending. Photos
  *   without `.order` fall back to uploadedAt sort.

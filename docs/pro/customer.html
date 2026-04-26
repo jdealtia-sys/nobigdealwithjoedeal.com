@@ -5011,8 +5011,51 @@ function buildPhotoBadges(photo, esc) {
     badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
   }
   if (photo.isAnnotated) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
+  // Homeowner-share badge — clickable. data-action triggers the
+  // delegated handler in attachCustomerPhotoStripHandlers /
+  // wirePhotoGridDelegate to flip sharedWithHomeowner via
+  // updateDoc. Visual states:
+  //   - shared:   solid green pill with "Shared"
+  //   - unshared: ghost pill with "Share" (subtle, doesn't compete
+  //               with damage/severity tags)
+  if (photo.sharedWithHomeowner) {
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,.85);color:#fff;border:0;cursor:pointer;font-weight:600;">✓ Shared</button>';
+  } else {
+    badges += '<button type="button" class="nbd-photo-badge nbd-share-toggle" data-action="toggle-share" data-photo-id="' + esc(photo.id) + '" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer;">Share</button>';
+  }
   return badges;
 }
+
+// Toggle the homeowner-shared flag on a single photo. Optimistic
+// update: flip local state + repaint the badge before the network
+// round-trip; revert if Firestore rejects. The badge sits inside
+// the tile click target, so the delegated photo-grid click handler
+// must let "toggle-share" through without opening the lightbox.
+window.toggleHomeownerShare = async function (photoId) {
+  if (!photoId) return;
+  var byId = window._photoById;
+  var photo = byId && byId.get ? byId.get(photoId) : null;
+  if (!photo) return;
+  var prev = !!photo.sharedWithHomeowner;
+  photo.sharedWithHomeowner = !prev;
+  if (typeof updatePhotoTile === 'function') updatePhotoTile(photoId);
+
+  if (!window.updateDoc || !window.doc || !window.db) return;
+  try {
+    await window.updateDoc(window.doc(window.db, 'photos', photoId), {
+      sharedWithHomeowner: photo.sharedWithHomeowner
+    });
+    if (window.showToast) {
+      window.showToast(photo.sharedWithHomeowner ? '✓ Shared with homeowner' : 'Removed from homeowner share', 'success');
+    }
+  } catch (err) {
+    // Revert on failure so the UI reflects ground truth.
+    photo.sharedWithHomeowner = prev;
+    if (typeof updatePhotoTile === 'function') updatePhotoTile(photoId);
+    console.error('toggleHomeownerShare failed:', err);
+    if (window.showToast) window.showToast('Could not update share state', 'error');
+  }
+};
 
 // Build the responsive image attributes for a photo. When the
 // image-pipeline Cloud Function has stamped `urls: {thumb,med,full}`,
@@ -5271,6 +5314,16 @@ function ensurePhotoGridDelegate() {
   if (!grid || grid.dataset.nbdDelegated === '1') return;
   grid.dataset.nbdDelegated = '1';
   grid.addEventListener('click', function(ev) {
+    // Share-with-homeowner toggle — bubbles up from the badge
+    // button. Must run BEFORE the lightbox/select branches so a
+    // tap on the Share pill doesn't open the editor.
+    var shareBtn = ev.target.closest('[data-action="toggle-share"]');
+    if (shareBtn && shareBtn.dataset.photoId) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.toggleHomeownerShare(shareBtn.dataset.photoId);
+      return;
+    }
     // Show-all toggle inside a phase header.
     var toggleBtn = ev.target.closest('.nbd-show-all-btn');
     if (toggleBtn && toggleBtn.dataset.phase) {
@@ -5377,6 +5430,8 @@ function photoDocToView(id, d) {
     location: d.location || '',
     tags: d.tags || [],
     isAnnotated: d.isAnnotated || false,
+    sharedWithHomeowner: !!d.sharedWithHomeowner,
+    homeownerCaption: d.homeownerCaption || '',
     date: d.date,
     uploadedAt: d.uploadedAt
   };
