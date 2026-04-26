@@ -1,0 +1,318 @@
+/* ==========================================================================
+   nbd-mobile.css — site-wide mobile/narrow-viewport guards
+   --------------------------------------------------------------------------
+   Loaded on every page after inline page styles. Uses !important to
+   override inline page CSS that hardcodes desktop-first sizing.
+
+   The bug this solves: hero H1 clamp() minimums (typically 3rem / 48px)
+   are too large for narrow Android viewports (360-390px), causing
+   "IT'S I[N THE NAME]" cutoff. Inline page CSS only has a 768px
+   breakpoint, so anything < 480px gets desktop-mobile leftover sizing.
+   ========================================================================== */
+
+/* ─── UNIVERSAL OVERFLOW GUARDS ─────────────────────────────────────────── */
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Any media or wide content that escapes its container = clamp it */
+img, video, iframe, table, pre, svg {
+  max-width: 100%;
+}
+img, video {
+  height: auto;
+}
+
+/* ─── PHONE BREAKPOINT (≤ 480px) ─────────────────────────────────────────── */
+/*  Targets common Android viewports: 360, 375, 390, 412, 414, 428, 480     */
+
+@media (max-width: 480px) {
+
+  /* HERO H1 — universal — drop minimum from 3rem to 1.85rem so it fits 360px viewports */
+  .hero h1,
+  .pledge-hero h1,
+  .guarantee-hero h1,
+  .lumanail-hero h1,
+  .service-hero h1,
+  section.hero h1,
+  .nbd-hero h1,
+  .roofivent-hero h1,
+  .build-hero h1,
+  body h1.hero-h1 {
+    font-size: clamp(1.85rem, 8.5vw, 2.7rem) !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+    hyphens: auto;
+  }
+
+  /* Hero secondary tagline (Dancing Script etc.) */
+  .hero-tagline,
+  .pledge-hero h1 .sig {
+    font-size: 1rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Hero lead/sub copy — fit comfortably and don't wrap awkwardly */
+  .hero p,
+  .hero .lead,
+  .pledge-hero .lead,
+  .guarantee-hero .sub,
+  .service-hero .hero-sub,
+  .lumanail-hero .hero-sub,
+  .lumanail-hero .hero-lead,
+  .build-hero .lead,
+  .nbd-hero p {
+    font-size: .92rem !important;
+    line-height: 1.55 !important;
+    max-width: 100% !important;
+  }
+
+  /* Eyebrow / badge pills above the H1 — let them wrap, never overflow */
+  .hero-badge,
+  .hero-eyebrow,
+  .ph-eyebrow,
+  .gh-badge,
+  .ann-bar,
+  .nbd-system-eyebrow,
+  .build-hero .hero-eyebrow {
+    max-width: 100% !important;
+    flex-wrap: wrap !important;
+    word-break: break-word !important;
+    line-height: 1.35 !important;
+    font-size: .65rem !important;
+    padding: 5px 11px !important;
+    letter-spacing: .08em !important;
+  }
+
+  /* Section padding — claw back horizontal space */
+  section,
+  .hero,
+  .pledge-hero,
+  .guarantee-hero,
+  .service-hero,
+  .lumanail-hero,
+  .nbd-hero,
+  .failure-modes,
+  .system-section,
+  .tier-cta-section,
+  .build-matrix-section,
+  .ala-carte-section,
+  .final-cta,
+  .section,
+  .tiers-section,
+  .compare-section,
+  .decide-section,
+  .joe-real-talk,
+  .faq-section,
+  footer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Inner containers — drop their own padding since the section already has it */
+  .hero-inner,
+  .ph-inner,
+  .gh-inner,
+  .system-inner,
+  .ala-carte-inner,
+  .build-matrix-inner,
+  .nbd-system-inner,
+  .section-inner,
+  .final-cta-inner,
+  .footer-inner,
+  .footer-grid,
+  .hero-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Section heading caps — keep readable, never overflow */
+  main h2,
+  section h2,
+  article h2,
+  h2.section-title {
+    font-size: clamp(1.6rem, 6.5vw, 2.2rem) !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  /* Body prose — readable floor, no overflow */
+  main p,
+  section p,
+  article p,
+  .sec-desc,
+  .hiw-body,
+  .prose p {
+    font-size: .95rem !important;
+    line-height: 1.65 !important;
+    max-width: 100% !important;
+  }
+
+  /* Buttons — wrap, fit, don't push viewport wider */
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline,
+  .btn-ghost,
+  .btn-cal,
+  .btn-white,
+  .btn-ghost-white {
+    font-size: .82rem !important;
+    padding: 13px 20px !important;
+    letter-spacing: .04em !important;
+    max-width: 100% !important;
+    word-break: normal !important;
+  }
+
+  /* Hero CTA stack should stack vertically and stretch full width */
+  .hero-btns,
+  .ph-ctas,
+  .cta-row,
+  .final-cta-btns,
+  .build-matrix-cta {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+  .hero-btns > a,
+  .ph-ctas > a,
+  .cta-row > a,
+  .final-cta-btns > a,
+  .build-matrix-cta > a {
+    justify-content: center !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  /* Breadcrumb — smaller and wrap-safe */
+  .breadcrumb {
+    font-size: .7rem !important;
+    padding: 10px 16px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Tier matrix on the Build page — fit width, allow tag pills to wrap */
+  .build-matrix {
+    border-radius: 10px !important;
+  }
+  .build-matrix table,
+  .compare-table {
+    font-size: .66rem !important;
+    table-layout: fixed !important;
+    width: 100% !important;
+  }
+  .build-matrix th,
+  .build-matrix td,
+  .compare-table th,
+  .compare-table td {
+    padding: 8px 4px !important;
+    overflow-wrap: anywhere !important;
+    text-align: center;
+  }
+  .build-matrix thead th {
+    font-size: .68rem !important;
+    letter-spacing: .04em !important;
+    white-space: normal !important;
+    word-break: keep-all !important;
+  }
+  .build-matrix tbody td:first-child,
+  .compare-table tbody td:first-child {
+    text-align: left !important;
+    font-size: .68rem !important;
+    line-height: 1.25 !important;
+    padding-left: 8px !important;
+    padding-right: 6px !important;
+  }
+  .build-matrix tbody td:first-child small,
+  .compare-table tbody td:first-child small {
+    font-size: .56rem !important;
+    line-height: 1.25 !important;
+  }
+  .matrix-tag {
+    font-size: .52rem !important;
+    padding: 3px 5px !important;
+    letter-spacing: .03em !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+    word-break: normal !important;
+  }
+  .matrix-tag.alt {
+    text-transform: none !important;
+  }
+
+  /* Mobile sticky CTA bar — keep but compact */
+  .stickybar a,
+  .mobile-cta-strip a {
+    padding: 11px 8px !important;
+    font-size: .76rem !important;
+    letter-spacing: .04em !important;
+  }
+}
+
+/* ─── EXTRA-NARROW PHONES (≤ 380px) ──────────────────────────────────────── */
+/*  Galaxy S8/S9, older Pixels, iPhone SE in Android Chrome's narrowest mode */
+
+@media (max-width: 380px) {
+  .hero h1,
+  .pledge-hero h1,
+  .guarantee-hero h1,
+  .lumanail-hero h1,
+  .service-hero h1,
+  section.hero h1,
+  body h1.hero-h1 {
+    font-size: clamp(1.65rem, 8vw, 2.3rem) !important;
+  }
+
+  .ann-bar {
+    font-size: .66rem !important;
+    padding: 8px 10px !important;
+    letter-spacing: .02em !important;
+  }
+
+  /* Phone numbers — keep readable but never overflow */
+  a[href^="tel:"] {
+    word-break: keep-all;
+    white-space: nowrap;
+  }
+
+  /* CTA buttons get a touch smaller */
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline,
+  .btn-cal {
+    font-size: .78rem !important;
+    padding: 12px 16px !important;
+  }
+}
+
+/* ─── LANDSCAPE TABLET (≤ 1024px landscape) ──────────────────────────────── */
+/*  Fixes the 3rd screenshot — Android tablet landscape with hero H1
+    eating most of the screen and CTA bar taking 25% of viewport.          */
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+  .hero h1,
+  .pledge-hero h1,
+  .guarantee-hero h1,
+  section.hero h1 {
+    font-size: clamp(2.4rem, 4.5vw, 3.6rem) !important;
+    line-height: 1.05 !important;
+  }
+  /* Mobile sticky CTA — hide in landscape on tablets where there's plenty of room */
+  .mobile-cta-strip,
+  .stickybar {
+    padding: 8px 12px !important;
+  }
+  .mobile-cta-strip a,
+  .stickybar a {
+    padding: 10px 14px !important;
+    font-size: .78rem !important;
+  }
+}
