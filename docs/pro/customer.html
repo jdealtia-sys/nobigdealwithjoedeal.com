@@ -658,6 +658,68 @@ header {
 .nbd-phase-photo { transition: transform .2s; }
 .nbd-phase-photo:hover { transform: scale(1.03); }
 
+/* MULTI-SELECT — checkbox overlay on each tile + bulk action bar.
+   Visible only when selection mode is active (body.nbd-photo-selecting).
+   The checkbox is also shown when a tile is already selected so the
+   user can deselect after exiting selection mode. */
+.nbd-photo-checkbox {
+  position:absolute; top:6px; left:6px; z-index:2;
+  width:22px; height:22px; border-radius:50%;
+  background:rgba(0,0,0,.5); border:2px solid #fff;
+  display:none; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .15s;
+  pointer-events:none; /* clicks bubble to the tile delegate */
+}
+body.nbd-photo-selecting .nbd-photo-checkbox,
+.nbd-phase-photo.is-selected .nbd-photo-checkbox { display:flex; }
+.nbd-phase-photo.is-selected .nbd-photo-checkbox {
+  background:var(--orange); border-color:var(--orange);
+}
+.nbd-phase-photo.is-selected .nbd-photo-checkbox::after {
+  content:"✓"; color:#fff; font-size:13px; font-weight:900;
+}
+.nbd-phase-photo.is-selected {
+  outline:3px solid var(--orange); outline-offset:-3px;
+}
+
+/* Sticky bulk action bar — appears at the top of the photo section
+   when at least one photo is selected. Holds the count, the apply
+   dropdowns, and the cancel button. */
+.nbd-photo-bulk-bar {
+  display:none; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:10px 14px; margin-bottom:12px;
+  background:var(--s2); border:1px solid var(--orange);
+  border-radius:8px; position:sticky; top:0; z-index:5;
+}
+.nbd-photo-bulk-bar.active { display:flex; }
+.nbd-photo-bulk-count {
+  font-weight:700; color:var(--orange); white-space:nowrap;
+}
+.nbd-photo-bulk-bar select {
+  padding:6px 10px; border-radius:6px;
+  background:var(--s3); color:var(--t);
+  border:1px solid var(--br); font-size:12px;
+  min-width:120px;
+}
+.nbd-photo-bulk-bar button {
+  padding:6px 12px; border-radius:6px;
+  border:1px solid var(--br); background:transparent;
+  color:var(--t); font-weight:600; font-size:12px;
+  cursor:pointer;
+}
+.nbd-photo-bulk-bar .nbd-bulk-delete {
+  border-color:#ef4444; color:#ef4444;
+}
+.nbd-photo-bulk-bar .nbd-bulk-cancel {
+  margin-left:auto; color:var(--m);
+}
+.nbd-photo-bulk-toggle {
+  font-size:11px; padding:4px 10px;
+  background:transparent; color:var(--orange);
+  border:1px solid var(--orange); border-radius:5px;
+  cursor:pointer; font-weight:600; margin-left:8px;
+}
+
 /* DOCUMENT & REPORT ITEMS */
 .doc-item {
   display:flex; gap:12px; align-items:center;
@@ -1100,6 +1162,38 @@ header {
           <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:var(--green);color:var(--green);">After</button>
           <span style="width:1px;height:20px;background:var(--br);margin:0 4px;"></span>
           <button class="btn photo-filter-btn" onclick="filterPhotos('annotated',this)" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
+          <button type="button" class="nbd-photo-bulk-toggle" id="nbdPhotoSelectToggle" onclick="window.togglePhotoSelectMode()">Select</button>
+        </div>
+
+        <!-- Bulk action bar — visible only when one or more photos are selected. -->
+        <div class="nbd-photo-bulk-bar" id="nbdPhotoBulkBar">
+          <span class="nbd-photo-bulk-count" id="nbdPhotoBulkCount">0 selected</span>
+          <select id="nbdBulkPhase" onchange="window.applyBulkPhotoUpdate('phase', this.value); this.value='';">
+            <option value="">Set phase…</option>
+            <option value="Before">Before</option>
+            <option value="During">During</option>
+            <option value="After">After</option>
+          </select>
+          <select id="nbdBulkDamage" onchange="window.applyBulkPhotoUpdate('damageType', this.value); this.value='';">
+            <option value="">Set damage…</option>
+            <option value="hail">Hail</option>
+            <option value="wind">Wind</option>
+            <option value="missing-shingles">Missing shingles</option>
+            <option value="leak">Leak</option>
+            <option value="granule-loss">Granule loss</option>
+            <option value="lifted-shingles">Lifted shingles</option>
+            <option value="other">Other</option>
+            <option value="__clear__">— Clear —</option>
+          </select>
+          <select id="nbdBulkSeverity" onchange="window.applyBulkPhotoUpdate('severity', this.value); this.value='';">
+            <option value="">Set severity…</option>
+            <option value="minor">Minor</option>
+            <option value="moderate">Moderate</option>
+            <option value="severe">Severe</option>
+            <option value="__clear__">— Clear —</option>
+          </select>
+          <button type="button" class="nbd-bulk-delete" onclick="window.applyBulkPhotoDelete()">Delete</button>
+          <button type="button" class="nbd-bulk-cancel" onclick="window.exitPhotoSelectMode()">Cancel</button>
         </div>
 
         <div id="photosByPhase">
@@ -2181,7 +2275,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -2211,6 +2305,7 @@ window.orderBy = orderBy;
 window.where = where;
 window.limit = limit;
 window.updateDoc = updateDoc;
+window.writeBatch = writeBatch;
 window.arrayUnion = arrayUnion;
 window.arrayRemove = arrayRemove;
 window.addDoc = addDoc;
@@ -4697,7 +4792,10 @@ function buildPhotoBadges(photo, esc) {
 function buildPhotoTile(photo, esc) {
   var safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
   var badges = buildPhotoBadges(photo, esc);
-  var tile = '<div class="photo-item nbd-phase-photo" data-photo-id="' + esc(photo.id) + '" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);">';
+  var selected = window._photoSelected && window._photoSelected.has(photo.id);
+  var classes = 'photo-item nbd-phase-photo' + (selected ? ' is-selected' : '');
+  var tile = '<div class="' + classes + '" data-photo-id="' + esc(photo.id) + '" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);">';
+  tile += '<span class="nbd-photo-checkbox" aria-hidden="true"></span>';
   tile += '<img src="' + esc(safeUrl) + '" alt="Photo" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">';
   tile += '<div class="nbd-photo-badge-row" style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:' + (badges ? 'flex' : 'none') + ';flex-wrap:wrap;gap:2px;">' + badges + '</div>';
   tile += '</div>';
@@ -4726,6 +4824,146 @@ window.toggleShowAllPhase = function(phase) {
   renderPhotoGrid();
 };
 
+// ── Multi-select state + helpers ──────────────────────────
+// _photoSelected is a Set of selected photo ids. Selection mode is
+// driven by the body.nbd-photo-selecting class so CSS can show the
+// checkbox overlay on every tile. Tiles already in the Set keep
+// their is-selected class even outside selection mode (so the user
+// can deselect after exiting).
+window._photoSelected = window._photoSelected || new Set();
+
+function isPhotoSelectMode() {
+  return document.body.classList.contains('nbd-photo-selecting');
+}
+
+function updateBulkBarUI() {
+  var bar = document.getElementById('nbdPhotoBulkBar');
+  var count = document.getElementById('nbdPhotoBulkCount');
+  var n = window._photoSelected.size;
+  if (bar) bar.classList.toggle('active', n > 0);
+  if (count) count.textContent = n + ' selected';
+  // Reflect select-mode entry/exit on the toggle button label.
+  var toggle = document.getElementById('nbdPhotoSelectToggle');
+  if (toggle) toggle.textContent = isPhotoSelectMode() ? 'Done' : 'Select';
+}
+
+function togglePhotoSelection(photoId) {
+  if (!window._photoSelected) window._photoSelected = new Set();
+  if (window._photoSelected.has(photoId)) {
+    window._photoSelected.delete(photoId);
+  } else {
+    window._photoSelected.add(photoId);
+  }
+  // Surgical: just flip the is-selected class on the tile in place.
+  var tile = document.querySelector('.nbd-phase-photo[data-photo-id="' + (window.CSS && CSS.escape ? CSS.escape(photoId) : photoId) + '"]');
+  if (tile) tile.classList.toggle('is-selected', window._photoSelected.has(photoId));
+  updateBulkBarUI();
+}
+
+window.togglePhotoSelectMode = function() {
+  var entering = !isPhotoSelectMode();
+  document.body.classList.toggle('nbd-photo-selecting', entering);
+  if (!entering) {
+    // Leaving select mode WITHOUT clearing — selected photos stay
+    // selected so a stray tap doesn't lose work. Use the bar's
+    // Cancel button to clear the selection.
+  }
+  updateBulkBarUI();
+};
+
+window.exitPhotoSelectMode = function() {
+  // Clear the entire selection + leave select mode.
+  if (window._photoSelected) {
+    var toClear = Array.from(window._photoSelected);
+    window._photoSelected.clear();
+    toClear.forEach(function(id){
+      var t = document.querySelector('.nbd-phase-photo[data-photo-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (t) t.classList.remove('is-selected');
+    });
+  }
+  document.body.classList.remove('nbd-photo-selecting');
+  updateBulkBarUI();
+};
+
+// Bulk Firestore update via writeBatch — up to 500 ops per round-trip.
+// One network call instead of N. After commit, surgically patches
+// each affected tile (or falls back to a full re-render when the
+// phase changed, since tiles move between phase sections).
+window.applyBulkPhotoUpdate = async function(field, rawValue) {
+  if (!field || !rawValue) return;
+  if (!window._photoSelected || window._photoSelected.size === 0) return;
+  if (!window.writeBatch || !window.db || !window.doc) return;
+  // Sentinel value used by the dropdowns to clear a field.
+  var value = rawValue === '__clear__' ? '' : rawValue;
+  var ids = Array.from(window._photoSelected);
+  var phaseChanged = false;
+
+  try {
+    var batch = window.writeBatch(window.db);
+    var update = {};
+    update[field] = value;
+    for (var i = 0; i < ids.length; i++) {
+      var ref = window.doc(window.db, 'photos', ids[i]);
+      batch.update(ref, update);
+    }
+    await batch.commit();
+
+    // Mirror writes into _allPhotos / _photoById and surgical-update
+    // each tile. Track whether any phase moved — if so we re-render
+    // because tiles live in a different phase section.
+    for (var j = 0; j < ids.length; j++) {
+      var p = window._photoById && window._photoById.get(ids[j]);
+      if (!p) continue;
+      if (field === 'phase' && p.phase !== value) phaseChanged = true;
+      p[field] = value;
+    }
+    updatePhotoStats();
+    if (phaseChanged) {
+      renderPhotoGrid();
+    } else {
+      ids.forEach(function(id){ updatePhotoTile(id); });
+    }
+
+    if (window.showToast) {
+      window.showToast('✓ Updated ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's'), 'success');
+    }
+  } catch (err) {
+    console.error('Bulk photo update failed:', err);
+    if (window.showToast) window.showToast('Bulk update failed: ' + (err && err.message || 'unknown error'), 'error');
+  }
+};
+
+window.applyBulkPhotoDelete = async function() {
+  if (!window._photoSelected || window._photoSelected.size === 0) return;
+  if (!window.writeBatch || !window.db || !window.doc || !window.deleteDoc) return;
+  var ids = Array.from(window._photoSelected);
+  if (!confirm('Delete ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+  try {
+    var batch = window.writeBatch(window.db);
+    for (var i = 0; i < ids.length; i++) {
+      batch.delete(window.doc(window.db, 'photos', ids[i]));
+    }
+    await batch.commit();
+
+    // Drop from local state.
+    var idSet = new Set(ids);
+    window._allPhotos = (window._allPhotos || []).filter(function(p){ return !idSet.has(p.id); });
+    if (window._photoById) ids.forEach(function(id){ window._photoById.delete(id); });
+    window._photoSelected.clear();
+    document.body.classList.remove('nbd-photo-selecting');
+
+    updatePhotoStats();
+    renderPhotoGrid();
+    updateBulkBarUI();
+    try { await loadPhotos(window._customerId); } catch(e) {}
+
+    if (window.showToast) window.showToast('✓ Deleted ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's'), 'success');
+  } catch (err) {
+    console.error('Bulk photo delete failed:', err);
+    if (window.showToast) window.showToast('Bulk delete failed: ' + (err && err.message || 'unknown error'), 'error');
+  }
+};
+
 // Single delegated click listener for the whole photo grid. Attached
 // once and reused — re-renders don't re-bind.
 function ensurePhotoGridDelegate() {
@@ -4740,12 +4978,19 @@ function ensurePhotoGridDelegate() {
       window.toggleShowAllPhase(toggleBtn.dataset.phase);
       return;
     }
-    // Photo tile click → opens quick-edit popup.
+    // Photo tile click.
     var tile = ev.target.closest('.nbd-phase-photo');
     if (!tile) return;
     var photoId = tile.dataset.photoId;
     var photo = window._photoById && window._photoById.get(photoId);
     if (!photo) return;
+    // Selection mode (or already-selected tile) → toggle membership in
+    // the selected set. Otherwise open the per-photo quick-edit popup.
+    if (isPhotoSelectMode() || (window._photoSelected && window._photoSelected.has(photoId))) {
+      ev.preventDefault();
+      togglePhotoSelection(photoId);
+      return;
+    }
     var idx = (window._allPhotos || []).indexOf(photo);
     if (idx >= 0 && typeof showPhotoActions === 'function') showPhotoActions(idx, ev);
   });
