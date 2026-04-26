@@ -80,6 +80,10 @@
 <!-- Client error reporter — no-op when __NBD_SENTRY_DSN is empty. -->
 <script src="js/console-quiet.js?v=1"></script>
 <script src="js/sentry-init.js?v=1"></script>
+<!-- NBDStore — tiny pub/sub state store. Loaded before script-loader
+     and feature modules so subscribers can register on first paint.
+     See docs/pro/js/state-store.js. -->
+<script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
 <script src="js/script-loader.js?v=1"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>

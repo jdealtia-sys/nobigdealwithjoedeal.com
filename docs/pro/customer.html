@@ -18,6 +18,10 @@
      uncaught errors from Firebase init / page boot get captured. -->
 <script src="js/sentry-config.js?v=1"></script>
 <script src="js/sentry-init.js?v=1"></script>
+<!-- NBDStore — tiny pub/sub state store. Loaded early so any
+     downstream script that wants to subscribe can do so on first
+     run. See docs/pro/js/state-store.js. -->
+<script src="js/state-store.js?v=1"></script>
 <script src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5076,16 +5080,52 @@ window.toggleShowAllPhase = function(phase) {
 // checkbox overlay on every tile. Tiles already in the Set keep
 // their is-selected class even outside selection mode (so the user
 // can deselect after exiting).
-window._photoSelected = window._photoSelected || new Set();
+//
+// Migration to NBDStore: this slice is now stored at
+// `photos.selected` in the shared store. window._photoSelected
+// stays mirrored (one-way) via store.bind for legacy reads.
+// Subscribers can listen for selection changes without coupling
+// to updateBulkBarUI directly:
+//
+//     NBDStore.subscribe('photos.selected', set => render(set));
+if (window.NBDStore) {
+  window.NBDStore.set('photos.selected', new Set());
+  window.NBDStore.bind('_photoSelected', 'photos.selected');
+  // Re-emit selection changes onto a UI hook so the bulk bar
+  // re-renders without the call sites needing to know about it.
+  window.NBDStore.subscribe('photos.selected', function () {
+    if (typeof updateBulkBarUI === 'function') updateBulkBarUI();
+  });
+} else {
+  window._photoSelected = window._photoSelected || new Set();
+}
 
 function isPhotoSelectMode() {
   return document.body.classList.contains('nbd-photo-selecting');
 }
 
+// Mutate the selection Set and republish it to the store so
+// subscribers (including the bulk bar) get notified. The store's
+// notify path uses identity equality, so we have to swap the Set
+// reference rather than mutate-in-place — otherwise the listener
+// never fires.
+function updatePhotoSelection(mutate) {
+  var prev = (window.NBDStore && window.NBDStore.get('photos.selected')) || window._photoSelected || new Set();
+  var next = new Set(prev);
+  mutate(next);
+  if (window.NBDStore) {
+    window.NBDStore.set('photos.selected', next);
+  } else {
+    window._photoSelected = next;
+    if (typeof updateBulkBarUI === 'function') updateBulkBarUI();
+  }
+}
+
 function updateBulkBarUI() {
   var bar = document.getElementById('nbdPhotoBulkBar');
   var count = document.getElementById('nbdPhotoBulkCount');
-  var n = window._photoSelected.size;
+  var sel = (window.NBDStore && window.NBDStore.get('photos.selected')) || window._photoSelected;
+  var n = sel ? sel.size : 0;
   if (bar) bar.classList.toggle('active', n > 0);
   if (count) count.textContent = n + ' selected';
   // Reflect select-mode entry/exit on the toggle button label.
@@ -5094,16 +5134,18 @@ function updateBulkBarUI() {
 }
 
 function togglePhotoSelection(photoId) {
-  if (!window._photoSelected) window._photoSelected = new Set();
-  if (window._photoSelected.has(photoId)) {
-    window._photoSelected.delete(photoId);
-  } else {
-    window._photoSelected.add(photoId);
-  }
+  updatePhotoSelection(function (next) {
+    if (next.has(photoId)) next.delete(photoId);
+    else next.add(photoId);
+  });
   // Surgical: just flip the is-selected class on the tile in place.
+  var sel = (window.NBDStore && window.NBDStore.get('photos.selected')) || window._photoSelected;
   var tile = document.querySelector('.nbd-phase-photo[data-photo-id="' + (window.CSS && CSS.escape ? CSS.escape(photoId) : photoId) + '"]');
-  if (tile) tile.classList.toggle('is-selected', window._photoSelected.has(photoId));
-  updateBulkBarUI();
+  if (tile) tile.classList.toggle('is-selected', sel && sel.has(photoId));
+  // updateBulkBarUI runs via the store subscriber when NBDStore is
+  // present — fall back to a manual call only if the store didn't
+  // load (e.g. CSP block, cache miss).
+  if (!window.NBDStore) updateBulkBarUI();
 }
 
 window.togglePhotoSelectMode = function() {
@@ -5119,16 +5161,17 @@ window.togglePhotoSelectMode = function() {
 
 window.exitPhotoSelectMode = function() {
   // Clear the entire selection + leave select mode.
-  if (window._photoSelected) {
-    var toClear = Array.from(window._photoSelected);
-    window._photoSelected.clear();
+  var prev = (window.NBDStore && window.NBDStore.get('photos.selected')) || window._photoSelected;
+  if (prev && prev.size) {
+    var toClear = Array.from(prev);
+    updatePhotoSelection(function (next) { next.clear(); });
     toClear.forEach(function(id){
       var t = document.querySelector('.nbd-phase-photo[data-photo-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
       if (t) t.classList.remove('is-selected');
     });
   }
   document.body.classList.remove('nbd-photo-selecting');
-  updateBulkBarUI();
+  if (!window.NBDStore) updateBulkBarUI();
 };
 
 // Bulk Firestore update via writeBatch — up to 500 ops per round-trip.
@@ -5195,12 +5238,12 @@ window.applyBulkPhotoDelete = async function() {
     var idSet = new Set(ids);
     window._allPhotos = (window._allPhotos || []).filter(function(p){ return !idSet.has(p.id); });
     if (window._photoById) ids.forEach(function(id){ window._photoById.delete(id); });
-    window._photoSelected.clear();
+    updatePhotoSelection(function (next) { next.clear(); });
     document.body.classList.remove('nbd-photo-selecting');
 
     updatePhotoStats();
     renderPhotoGrid();
-    updateBulkBarUI();
+    if (!window.NBDStore) updateBulkBarUI();
     try { await loadPhotos(window._customerId); } catch(e) {}
 
     if (window.showToast) window.showToast('✓ Deleted ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's'), 'success');
