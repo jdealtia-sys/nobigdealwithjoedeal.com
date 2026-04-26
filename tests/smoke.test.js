@@ -2668,6 +2668,37 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('Customer overview photo strip — cap + drag reorder');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  // 25-cap on the overview photo strip (matches the dashboard's
+  // PHOTO_PHASE_CAP pattern from PR #63).
+  assert('overview strip caps at 25 with show-all toggle',
+    /window\.PHOTO_OVERVIEW_CAP\s*=\s*25/.test(customer)
+    && /toggleCustomerPhotosExpanded/.test(customer)
+    && /nbd-photo-show-all-btn/.test(customer));
+  // Comparator that prefers numeric .order, falls back to uploadedAt.
+  assert('photos sort by .order field (drag-rearranged sequence first)',
+    /function nbdComparePhotos\(a, b\)/.test(customer)
+    && /typeof a\.order === 'number'/.test(customer));
+  // Reorder mode is a body-class toggle so CSS shows drag affordance.
+  assert('reorder mode toggle exposes draggable grid via body class',
+    /document\.body\.classList\.toggle\('nbd-photo-reorder'\)/.test(customer)
+    && /body\.nbd-photo-reorder \.nbd-photo-item/.test(customer));
+  // HTML5 drag/drop wiring on the overview strip.
+  assert('overview strip wires dragstart/dragover/drop handlers',
+    /listEl\.addEventListener\('dragstart'/.test(customer)
+    && /listEl\.addEventListener\('dragover'/.test(customer)
+    && /listEl\.addEventListener\('drop'/.test(customer));
+  // writeBatch persists the new order — one round-trip for the whole
+  // sequence (same pattern as the multi-select feature).
+  assert('persistCustomerPhotoOrder uses writeBatch',
+    /async function persistCustomerPhotoOrder\(\)[\s\S]{0,400}window\.writeBatch\(window\.db\)[\s\S]{0,400}batch\.update\(/.test(customer));
+  // Report generator must honour the user's drag-rearranged order.
+  assert('generatePhotoReport iterates photos sorted by nbdComparePhotos',
+    /__reportPhotos[\s\S]{0,200}\.sort\([\s\S]{0,80}nbdComparePhotos/.test(customer));
+}
+
 section('Customer photo multi-select + batched commit');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));

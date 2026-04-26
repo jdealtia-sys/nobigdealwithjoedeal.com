@@ -276,6 +276,52 @@ header {
 .photo-item:hover { transform:scale(1.05); box-shadow:0 4px 12px rgba(0,0,0,.3); }
 .photo-item img {
   width:100%; height:100%; object-fit:cover;
+  pointer-events:none; /* let drag events bubble to the parent tile */
+  -webkit-user-drag:none; user-select:none;
+}
+
+/* Reorder mode — drag handle visible, click-to-edit suppressed */
+body.nbd-photo-reorder .nbd-photo-item {
+  cursor: grab;
+  outline: 2px dashed rgba(232,114,12,.55);
+  outline-offset: -3px;
+}
+body.nbd-photo-reorder .nbd-photo-item.is-dragging {
+  cursor: grabbing;
+  opacity: .55;
+  transform: scale(.95);
+}
+body.nbd-photo-reorder .nbd-photo-item.drop-before {
+  box-shadow: -3px 0 0 var(--orange);
+}
+body.nbd-photo-reorder .nbd-photo-item.drop-after {
+  box-shadow: 3px 0 0 var(--orange);
+}
+
+/* Show-all toggle button under the customer-overview photo strip */
+.nbd-photo-show-all-btn,
+.nbd-photo-reorder-btn {
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  color: var(--orange);
+  border: 1px solid var(--orange);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 10px;
+}
+.nbd-photo-reorder-btn {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 11px;
+  margin-top: 0;
+  margin-left: 8px;
+}
+.nbd-photo-reorder-btn.active {
+  background: var(--orange);
+  color: #fff;
 }
 
 /* UPLOAD ZONE */
@@ -1689,8 +1735,15 @@ window.generatePhotoReport = async function() {
     let yPos = 75;
     let pageCount = 1;
     let photoCount = 0;
-    
-    for (let photo of window._customerPhotos) {
+
+    // Report iterates photos in the user's drag-rearranged order. The
+    // _customerPhotos array is already sorted by nbdComparePhotos in
+    // loadPhotos(), but re-sort here as a defensive belt-and-braces in
+    // case the report is generated from a stale array.
+    var __reportPhotos = (window._customerPhotos || []).slice().sort(
+      typeof nbdComparePhotos === 'function' ? nbdComparePhotos : (function(){ return 0; })
+    );
+    for (let photo of __reportPhotos) {
       photoCount++;
       
       // Check if we need a new page (leave room for photo + caption)
@@ -2962,6 +3015,181 @@ async function loadTimeline(leadId, lead) {
   applyTimelineCollapse();
 }
 
+// Customer-overview photo strip: 25-cap with "Show all" toggle + drag
+// reorder. Photos are sorted by an integer `order` field if present
+// (set by drag-reorder); fall back to uploadedAt for legacy photos.
+window.PHOTO_OVERVIEW_CAP = 25;
+window._customerPhotosExpanded = false;
+
+function nbdComparePhotos(a, b) {
+  // Sort by .order if either side has it; integer ascending puts the
+  // user's drag-rearranged sequence first. Photos without .order fall
+  // back to uploadedAt timestamp (newest first), so legacy photos
+  // still render in a sensible order until the user drags them.
+  var ao = (typeof a.order === 'number') ? a.order : null;
+  var bo = (typeof b.order === 'number') ? b.order : null;
+  if (ao !== null && bo !== null) return ao - bo;
+  if (ao !== null) return -1;
+  if (bo !== null) return 1;
+  // Fallback: newest first (Firestore Timestamp or numeric millis).
+  var at = a.uploadedAt && a.uploadedAt.toMillis ? a.uploadedAt.toMillis() : Number(a.uploadedAt) || 0;
+  var bt = b.uploadedAt && b.uploadedAt.toMillis ? b.uploadedAt.toMillis() : Number(b.uploadedAt) || 0;
+  return bt - at;
+}
+
+window.toggleCustomerPhotosExpanded = function() {
+  window._customerPhotosExpanded = !window._customerPhotosExpanded;
+  renderCustomerPhotoStrip();
+};
+
+window.toggleCustomerPhotoReorder = function() {
+  var on = document.body.classList.toggle('nbd-photo-reorder');
+  var btn = document.getElementById('nbdReorderToggle');
+  if (btn) {
+    btn.classList.toggle('active', on);
+    btn.textContent = on ? 'Done reordering' : 'Reorder';
+  }
+};
+
+// Persists the current order of window._customerPhotos by writing an
+// integer .order field on every photo doc. One writeBatch round-trip
+// for the whole sequence — same pattern as the multi-select feature.
+async function persistCustomerPhotoOrder() {
+  if (!window.writeBatch || !window.db || !window.doc) return;
+  var photos = window._customerPhotos || [];
+  if (!photos.length) return;
+  try {
+    var batch = window.writeBatch(window.db);
+    for (var i = 0; i < photos.length; i++) {
+      var p = photos[i];
+      p.order = i;
+      batch.update(window.doc(window.db, 'photos', p.id), { order: i });
+    }
+    await batch.commit();
+    if (window.showToast) window.showToast('Photo order saved', 'success');
+  } catch (err) {
+    console.error('Photo reorder save failed:', err);
+    if (window.showToast) window.showToast('Couldn\'t save order: ' + (err && err.message || 'unknown'), 'error');
+  }
+}
+
+function renderCustomerPhotoStrip() {
+  var photos = window._customerPhotos || [];
+  var listEl = document.getElementById('photoList');
+  if (!listEl) return;
+
+  if (photos.length === 0) {
+    listEl.innerHTML = '<div class="upload-zone" onclick="openUploadModal()">'
+      + '<div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>'
+      + '<div class="upload-text">No photos yet</div>'
+      + '<div class="upload-hint">Click to upload your first photo</div></div>';
+    return;
+  }
+
+  var esc = window.nbdEsc || (function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});});
+  var cap = window.PHOTO_OVERVIEW_CAP;
+  var expanded = !!window._customerPhotosExpanded;
+  var visible = (expanded || photos.length <= cap) ? photos : photos.slice(0, cap);
+  var hidden = photos.length - visible.length;
+
+  var html = '<div class="photo-grid">';
+  for (var i = 0; i < visible.length; i++) {
+    var photo = visible[i];
+    var safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
+    html += '<div class="photo-item nbd-photo-item" draggable="true" data-photo-id="' + esc(photo.id) + '" data-photo-idx="' + i + '">'
+         + '<img src="' + esc(safeUrl) + '" alt="Property photo" referrerpolicy="no-referrer" loading="lazy" decoding="async">'
+         + '</div>';
+  }
+  html += '</div>';
+
+  if (photos.length > cap) {
+    var label = expanded ? ('Show first ' + cap) : ('Show all ' + photos.length);
+    html += '<button type="button" class="nbd-photo-show-all-btn" onclick="window.toggleCustomerPhotosExpanded()">'
+         + label + ' (' + photos.length + ' total)</button>';
+  }
+
+  html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center;">'
+       + '<button class="btn btn-orange" style="flex:1;" onclick="openUploadModal()">📤 Upload More</button>'
+       + '<button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" onclick="generatePhotoReport(window._customerId)">📋 Generate Report</button>'
+       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle" onclick="window.toggleCustomerPhotoReorder()">Reorder</button>'
+       + '</div>';
+
+  listEl.innerHTML = html;
+  attachCustomerPhotoStripHandlers();
+}
+
+function attachCustomerPhotoStripHandlers() {
+  var listEl = document.getElementById('photoList');
+  if (!listEl || listEl.dataset.nbdDelegated === '1') return;
+  listEl.dataset.nbdDelegated = '1';
+
+  // Click → open editor or lightbox (suppressed in reorder mode).
+  listEl.addEventListener('click', function(ev) {
+    if (document.body.classList.contains('nbd-photo-reorder')) return;
+    var tile = ev.target.closest('.nbd-photo-item');
+    if (!tile) return;
+    var idx = Number(tile.dataset.photoIdx);
+    var photo = (window._customerPhotos || [])[idx];
+    if (!photo) return;
+    if (window.NBDPhotoEditor && /^https?:/i.test(photo.url || '')) {
+      window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId);
+    } else if (typeof openLightbox === 'function') {
+      openLightbox(idx);
+    }
+  });
+
+  // HTML5 drag-and-drop reorder. Persists once on drop. We track the
+  // dragged photo by id so the visible-vs-full slice doesn't matter:
+  // dragging a tile in the first 25 reorders within the first 25;
+  // expanding to all-N enables full reordering.
+  var dragId = null;
+  listEl.addEventListener('dragstart', function(ev) {
+    if (!document.body.classList.contains('nbd-photo-reorder')) { ev.preventDefault(); return; }
+    var tile = ev.target.closest('.nbd-photo-item');
+    if (!tile) return;
+    dragId = tile.dataset.photoId;
+    tile.classList.add('is-dragging');
+    try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', dragId); } catch(_) {}
+  });
+  listEl.addEventListener('dragend', function(ev) {
+    var tile = ev.target.closest('.nbd-photo-item');
+    if (tile) tile.classList.remove('is-dragging');
+    listEl.querySelectorAll('.drop-before, .drop-after').forEach(function(t){ t.classList.remove('drop-before','drop-after'); });
+    dragId = null;
+  });
+  listEl.addEventListener('dragover', function(ev) {
+    if (!document.body.classList.contains('nbd-photo-reorder')) return;
+    var tile = ev.target.closest('.nbd-photo-item');
+    if (!tile || !dragId || tile.dataset.photoId === dragId) return;
+    ev.preventDefault();
+    listEl.querySelectorAll('.drop-before, .drop-after').forEach(function(t){ t.classList.remove('drop-before','drop-after'); });
+    var rect = tile.getBoundingClientRect();
+    var before = (ev.clientX - rect.left) < (rect.width / 2);
+    tile.classList.add(before ? 'drop-before' : 'drop-after');
+  });
+  listEl.addEventListener('drop', function(ev) {
+    if (!document.body.classList.contains('nbd-photo-reorder')) return;
+    var tile = ev.target.closest('.nbd-photo-item');
+    if (!tile || !dragId) return;
+    ev.preventDefault();
+    var targetId = tile.dataset.photoId;
+    if (targetId === dragId) return;
+    var arr = window._customerPhotos || [];
+    var fromIdx = arr.findIndex(function(p){ return p.id === dragId; });
+    var toIdx = arr.findIndex(function(p){ return p.id === targetId; });
+    if (fromIdx < 0 || toIdx < 0) return;
+    var rect = tile.getBoundingClientRect();
+    var before = (ev.clientX - rect.left) < (rect.width / 2);
+    var insertAt = before ? toIdx : toIdx + 1;
+    var moved = arr.splice(fromIdx, 1)[0];
+    if (fromIdx < insertAt) insertAt -= 1;
+    arr.splice(insertAt, 0, moved);
+    listEl.querySelectorAll('.drop-before, .drop-after').forEach(function(t){ t.classList.remove('drop-before','drop-after'); });
+    renderCustomerPhotoStrip();
+    persistCustomerPhotoOrder();
+  });
+}
+
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
@@ -2969,49 +3197,16 @@ async function loadPhotos(leadId) {
     );
 
     if (photoSnap.empty) {
-      document.getElementById('photoList').innerHTML = `
-        <div class="upload-zone" onclick="openUploadModal()">
-          <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
-          <div class="upload-text">No photos yet</div>
-          <div class="upload-hint">Click to upload your first photo</div>
-        </div>`;
+      window._customerPhotos = [];
+      renderCustomerPhotoStrip();
       return;
     }
 
-    window._customerPhotos = photoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window._customerPhotos = photoSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort(nbdComparePhotos);
 
-    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    const html = window._customerPhotos.map((photo, idx) => {
-      // Only accept http(s) and Firebase Storage URLs.
-      const safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
-      return `<div class="photo-item nbd-photo-item" data-photo-idx="${idx}">
-        <img src="${esc(safeUrl)}" alt="Property photo" referrerpolicy="no-referrer" loading="lazy" decoding="async">
-      </div>`;
-    }).join('');
-
-    document.getElementById('photoList').innerHTML = `
-      <div class="photo-grid">${html}</div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button class="btn btn-orange" style="flex:1;" onclick="openUploadModal()">
-          📤 Upload More
-        </button>
-        <button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" onclick="generatePhotoReport(window._customerId)">
-          📋 Generate Report
-        </button>
-      </div>
-    `;
-    document.querySelectorAll('.nbd-photo-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const idx = Number(item.dataset.photoIdx);
-        const photo = (window._customerPhotos || [])[idx];
-        if (!photo) return;
-        if (window.NBDPhotoEditor && /^https?:/i.test(photo.url || '')) {
-          window.NBDPhotoEditor.open(photo.url, photo.id, window._customerId);
-        } else {
-          openLightbox(idx);
-        }
-      });
-    });
+    renderCustomerPhotoStrip();
   } catch (e) {
     console.error('Error loading photos:', e);
     document.getElementById('photoList').innerHTML = `
