@@ -1,5 +1,5 @@
-// NBD Pro Service Worker v2.7 — bump cache for dropdown click-toggle blur fix
-const CACHE_VERSION = 9;
+// NBD Pro Service Worker v2.8 — bump cache for nested-anchor fix in homepage tier card
+const CACHE_VERSION = 10;
 const CACHE_NAME = 'nbd-pro-v' + CACHE_VERSION;
 const STATIC_CACHE = 'nbd-static-v' + CACHE_VERSION;
 const D2D_CACHE = 'nbd-d2d-v' + CACHE_VERSION;
