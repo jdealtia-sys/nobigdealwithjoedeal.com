@@ -1,5 +1,5 @@
-// NBD Pro Service Worker v2.1 — Cross-origin passthrough fix
-const CACHE_VERSION = 3;
+// NBD Pro Service Worker v2.2 — bump cache to invalidate old HTML for nbd-mobile.css rollout
+const CACHE_VERSION = 4;
 const CACHE_NAME = 'nbd-pro-v' + CACHE_VERSION;
 const STATIC_CACHE = 'nbd-static-v' + CACHE_VERSION;
 const D2D_CACHE = 'nbd-d2d-v' + CACHE_VERSION;
