@@ -14,6 +14,10 @@
 <title>Customer Details — NBD Pro</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="js/console-quiet.js?v=1"></script>
+<!-- Sentry must register before any other script that might throw, so
+     uncaught errors from Firebase init / page boot get captured. -->
+<script src="js/sentry-config.js?v=1"></script>
+<script src="js/sentry-init.js?v=1"></script>
 <script src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
