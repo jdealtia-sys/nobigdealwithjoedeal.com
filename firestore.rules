@@ -617,6 +617,18 @@ service cloud.firestore {
     // admin SDK bypasses rules; clients never need to touch this.
     // An explicit rule (vs. falling through to default-deny) makes
     // the intent clear for future readers.
+    // ── MIGRATION FRAMEWORK STATE (admin-SDK only) ──────
+    // /system/migrations holds appliedVersion + lastError for the
+    // versioned runner in functions/migrations/runner.js. Clients
+    // never need to read or write this — admin scripts and the
+    // scheduled tick are the only legitimate writers.
+    match /system/{docId} {
+      allow read, write: if false;
+    }
+    match /system/migrations/history/{historyId} {
+      allow read, write: if false;
+    }
+
     match /stripe_events/{eventId} {
       allow read, write: if false;
     }

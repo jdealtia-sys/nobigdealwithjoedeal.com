@@ -2672,6 +2672,46 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('Migration framework — versioned runner');
+{
+  const runner = read(path.join(ROOT, 'functions/migrations/runner.js'));
+  const idx = read(FUNCTIONS + '/index.js');
+  const m001 = read(path.join(ROOT, 'functions/migrations/scripts/001-noop-init.js'));
+
+  // Public Cloud Function exports — manual + scheduled.
+  assert('runner exposes runMigrations onCall + migrationsTick onSchedule',
+    /exports\.runMigrations\s*=\s*onCall/.test(runner)
+    && /exports\.migrationsTick\s*=\s*onSchedule/.test(runner));
+  // index.js wires them up so they actually deploy.
+  assert('functions/index.js wires runMigrations + migrationsTick',
+    /exports\.runMigrations\s*=\s*_migrations\.runMigrations/.test(idx)
+    && /exports\.migrationsTick\s*=\s*_migrations\.migrationsTick/.test(idx));
+  // The state doc + history collection paths are stable — migrations
+  // depend on them. Pinning here so a typo in runner gets caught.
+  assert('runner uses /system/migrations as the state doc',
+    /STATE_DOC_PATH\s*=\s*['"]system\/migrations['"]/.test(runner));
+  // 001 must be the seed migration so the first deploy doesn't fail
+  // trying to run real-data migrations against an empty state doc.
+  assert('001 noop-init scaffolds the migration framework',
+    /exports\.version\s*=\s*1[\s\S]{0,100}exports\.name\s*=\s*['"]noop-init['"]/.test(m001));
+  // Loader rejects duplicates + bad shape — defensive against a
+  // future migration committed without all three required fields.
+  assert('runner rejects duplicate versions + bad shape',
+    /Duplicate migration version/.test(runner)
+    && /must export \{ version:/.test(runner));
+  // backfillField helper is the canonical "for every doc in coll X,
+  // set Y if missing" pattern (the PR #56 companyId backfill shape).
+  assert('runner exposes idempotent backfillField helper',
+    /async function backfillField\(db, collectionPath, fieldName/.test(runner)
+    && /data\[fieldName\] !== undefined && data\[fieldName\] !== null/.test(runner));
+  // Failure path: stops the chain, persists lastError for ops review,
+  // does NOT advance appliedVersion — next tick retries from the
+  // failed migration.
+  assert('runner stops on first failure + records lastError',
+    /lastFailedVersion:\s*m\.version/.test(runner)
+    && /break;/.test(runner));
+}
+
 section('Firestore repository layer — write convention');
 {
   const repos = read(path.join(ROOT, 'docs/pro/js/repos.js'));

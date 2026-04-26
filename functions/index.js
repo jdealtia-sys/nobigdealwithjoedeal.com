@@ -2837,6 +2837,15 @@ exports.listTeamMembers = onCall(
 // log-flooding. Firestore is intentionally NOT written; logs are
 // enough and cheaper.
 // ═════════════════════════════════════════════════════════════
+
+// ═════════════════════════════════════════════════════════════
+// MIGRATIONS — versioned runner + scheduled tick
+// see functions/migrations/runner.js
+// ═════════════════════════════════════════════════════════════
+const _migrations = require('./migrations/runner');
+exports.runMigrations  = _migrations.runMigrations;
+exports.migrationsTick = _migrations.migrationsTick;
+
 exports.cspReport = onRequest(
   {
     region: 'us-central1',
