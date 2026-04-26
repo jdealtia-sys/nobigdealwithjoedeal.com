@@ -113,10 +113,22 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 
 /* TIER COMPARISON CARDS */
 .tiers-section { padding: 80px 5% 40px; background: var(--off-white); }
-.tiers-intro { max-width: 820px; margin: 0 auto 56px; text-align: center; }
+.tiers-intro { max-width: 820px; margin: 0 auto 36px; text-align: center; }
 .tiers-intro h2 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 4vw, 2.8rem); color: var(--navy-dark); letter-spacing: 1px; margin-bottom: 14px; }
 .tiers-intro h2 span { color: var(--orange); }
 .tiers-intro p { font-size: 1rem; color: var(--gray-sub, #4a4a4a); line-height: 1.7; }
+
+/* SHARED BAND — what every tier includes (lift from tier cards) */
+.shared-band { max-width: 1200px; margin: 0 auto 48px; background: #fff; border: 1px solid var(--light-gray); border-radius: 14px; padding: 28px 32px; box-shadow: 0 6px 22px rgba(20,42,82,.06); display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
+.shared-band .sb-label { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: var(--navy-dark); letter-spacing: 1px; line-height: 1.05; }
+.shared-band .sb-label .sb-eyebrow { display: block; font-size: .65rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; font-family: 'Montserrat', sans-serif; }
+.shared-band .sb-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 26px; }
+.shared-band .sb-list li { font-size: .9rem; line-height: 1.55; color: #2a2a2a; padding-left: 26px; position: relative; }
+.shared-band .sb-list li::before { content: "✓"; position: absolute; left: 0; top: 1px; width: 18px; height: 18px; background: var(--orange); color: #fff; border-radius: 50%; text-align: center; font-size: .7rem; line-height: 18px; font-weight: 800; }
+.shared-band .sb-list li strong { color: var(--navy-dark); }
+.shared-band .sb-list li a { color: var(--navy); font-weight: 700; border-bottom: 1.5px solid var(--orange); }
+.shared-band .sb-list li a:hover { color: var(--orange); }
+@media (max-width: 820px) { .shared-band { grid-template-columns: 1fr; gap: 18px; padding: 24px; } .shared-band .sb-list { grid-template-columns: 1fr; gap: 12px; } }
 
 .tier-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto; align-items: stretch; }
 .tier-card { background:#fff; border-radius: 14px; padding: 36px 28px; box-shadow: 0 8px 24px rgba(20,42,82,.08); border-top: 4px solid var(--tan); position: relative; display:flex; flex-direction:column; }
@@ -330,14 +342,12 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
+    <li><a href="/the-pledge">The Pledge</a></li>
     <li><a href="/services/the-nbd-guarantee" style="color:var(--orange)">The NBD Guarantee</a></li>
+    <li><a href="/services/the-nbd-build">The NBD Build</a></li>
     <li><a href="/#services">Services</a></li>
     <li><a href="/about">About Joe</a></li>
-    <li><a href="/review">Reviews</a></li>
-    <li><a href="/our-work">Our Work</a></li>
-    <li><a href="/areas/">Service Areas</a></li>
     <li><a href="/blog">Blog</a></li>
-    <li><a href="/estimate">Instant Estimate</a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
   <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
@@ -345,13 +355,13 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </button>
 </nav>
 <div class="mobile-nav" id="mobileNav">
-  <div class="mnav-group">Featured</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
+  <div class="mnav-group">The Promise</div>
+  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Pledge</a>
   <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
   <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
-  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail&trade; Upgrade</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a>
+  <a href="/services/lumanail">LumaNail&trade;</a>
+  <a href="/services/roofivent">Roofivent</a>
+  <a href="/services/gaf-pivot-boot">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -384,9 +394,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- HERO -->
 <section class="guarantee-hero">
   <div class="gh-inner">
-    <div class="gh-badge"><span class="dot"></span> The NBD Guarantee · The Tier System</div>
+    <div class="gh-badge"><span class="dot"></span> The NBD Guarantee</div>
     <h1>Three roofs.<br><span>One promise.</span></h1>
-    <p class="sub">Pick the one that fits your house. Every NBD roof — Standard, Preferred, or Elite — comes with the same <a href="/the-pledge" style="color:#fff;font-weight:700;border-bottom:1.5px solid var(--orange);text-decoration:none">Lifetime Pledge</a>: <strong style="color:#fff">I come back personally for the life of the roof.</strong> The tiers just decide how much warranty paperwork rides along with that promise.</p>
+    <p class="sub">Pick the tier that fits your house. Every NBD roof — Standard, Preferred, or Elite — comes with <a href="/the-pledge" style="color:#fff;font-weight:700;border-bottom:1.5px solid var(--orange);text-decoration:none">The Pledge</a>: <strong style="color:#fff">call me anytime, I come look, free.</strong> The tiers decide what shingle, what components, and what warranty paperwork rides along.</p>
     <div style="display:inline-flex;align-items:center;gap:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 16px;margin-top:18px;">
       <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified™ Residential Roofing Contractor" width="56" height="56" loading="lazy" style="display:block;flex-shrink:0">
       <div style="line-height:1.3;text-align:left">
@@ -401,9 +411,23 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <section class="tiers-section">
   <div class="tiers-intro">
     <h2>Standard. Preferred. <span>Elite.</span></h2>
-    <p>Every roof I build uses real GAF Timberline shingles, full system install, and my personal guarantee that I'll be back if anything goes wrong. The tiers below differ in shingle grade, premium components, and the GAF system warranty that gets registered on top of my pledge.</p>
-    <a href="/the-pledge" style="display:inline-flex;align-items:center;gap:12px;margin-top:18px;padding:12px 18px;background:#fff;border:1px solid var(--light-gray);border-left:4px solid var(--orange);border-radius:8px;color:var(--navy-dark);font-size:.88rem;line-height:1.45;text-decoration:none;font-weight:600;max-width:580px;text-align:left;transition:border-color .2s,background .2s;flex-wrap:wrap"><span style="font-size:.65rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);background:rgba(232,114,12,.1);padding:4px 9px;border-radius:5px;flex-shrink:0">First time here?</span><span style="flex:1;min-width:240px">Every tier includes the Lifetime Pledge — read what that actually means <strong style="color:var(--orange)">→</strong></span></a>
+    <p>The tiers differ in shingle grade, premium components, and warranty paperwork. <strong>What's the same on all three?</strong> Read the band below first — that's the foundation under every NBD roof. Then pick the tier that fits your house.</p>
   </div>
+
+  <!-- SHARED BAND — what every NBD roof includes -->
+  <div class="shared-band" aria-label="What every NBD roof includes">
+    <div class="sb-label">
+      <span class="sb-eyebrow">On every tier</span>
+      Same foundation. Same standard.
+    </div>
+    <ul class="sb-list">
+      <li><strong>Real GAF Timberline shingles</strong> — full GAF system install, no off-brand substitutes</li>
+      <li><strong>GAF Certified Contractor</strong> — System Plus Limited Warranty available</li>
+      <li><strong><a href="/the-pledge">The Pledge</a> — reactive, forever:</strong> you call about anything I worked on, I come look, free</li>
+      <li><strong>Honest scope</strong> — written warranty, no fine print, no "ask me later"</li>
+    </ul>
+  </div>
+
   <div class="tier-cards">
 
     <!-- STANDARD -->
@@ -415,12 +439,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <ul class="tc-features">
         <li>GAF Timberline NS architectural shingles</li>
         <li>Standard galvanized roofing nails</li>
-        <li><strong>Roofivent iVent Pipe Flashing</strong> — replaceable EPDM gasket, lifetime functionality warranty, snow-resistant design</li>
+        <li><strong>Roofivent iVent Pipe Flashing</strong> — replaceable EPDM gasket, lifetime functionality warranty</li>
         <li>GAF Cobra ridge ventilation</li>
         <li>Standard install accessories</li>
-        <li><strong><a href="/the-pledge" style="color:var(--orange);text-decoration:none;border-bottom:1.5px solid var(--orange)">NBD Lifetime Pledge</a></strong> — I come back forever</li>
-        <li><strong>GAF System Plus Limited Warranty</strong> on qualifying full-system installs</li>
-        <li class="muted">No LumaNail · no GAF Pivot Boot · no annual inspection</li>
+        <li class="muted">No LumaNail™ · no GAF Pivot Boot · no proactive annual outreach</li>
       </ul>
       <div class="tc-best"><strong>Best for:</strong> rentals, planning to sell in 5 years, tight budget, "I just need a real roof."</div>
       <a href="/#contact" class="tc-cta">Get a Standard Estimate</a>
@@ -439,9 +461,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <li><strong>GAF Master Flow Pivot pipe boots</strong> — no parts to fail, 50-yr warranty</li>
         <li>Full GAF system install (all 5 accessory categories)</li>
         <li>Roofivent iVent ECO upgraded bath/kitchen/dryer exhaust</li>
-        <li><strong><a href="/the-pledge" style="color:var(--orange);text-decoration:none;border-bottom:1.5px solid var(--orange)">NBD Lifetime Pledge</a></strong> — I come back forever</li>
-        <li><strong>GAF System Plus Limited Warranty</strong> — registered at install, transferable to next owner</li>
-        <li class="muted">No LumaNail · no annual inspection contract</li>
+        <li><strong>GAF System Plus Limited Warranty</strong> — transferable to next owner</li>
+        <li class="muted">No LumaNail™ · no proactive annual outreach</li>
       </ul>
       <div class="tc-best"><strong>Best for:</strong> the forever home you might sell once. The honest middle. <em>When in doubt, this is what I'd put on my own house.</em></div>
       <a href="/#contact" class="tc-cta">Get a Preferred Estimate</a>
@@ -450,19 +471,18 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <!-- ELITE -->
     <div class="tier-card elite">
       <h3 class="tc-name">Elite</h3>
-      <div class="tc-shingle">GAF Timberline UHDZ + LumaNail™</div>
-      <p class="tc-tagline">The roof you don't have to think about again. Premium shingle, visible orange fasteners every nail accountable, and the only tier that includes a contractual annual visit from Joe for the life of the roof.</p>
+      <div class="tc-shingle">GAF Timberline UHDZ + The NBD Build</div>
+      <p class="tc-tagline">The roof you don't have to think about again. Premium shingle, the full <a href="/services/the-nbd-build" style="color:var(--orange);font-weight:700;border-bottom:1.5px solid var(--orange)">NBD Build</a> bundle as standard equipment, and the only tier where I proactively reach out every year and send you a written report on your roof.</p>
       <div class="tc-price">≈ <strong>+30% over Standard</strong> on a typical home.</div>
       <ul class="tc-features">
         <li>GAF Timberline UHDZ shingles (Class 4 impact, 30-yr StainGuard PRO)</li>
-        <li><strong>LumaNail™ visible fasteners</strong> — every nail accountable</li>
-        <li><strong>GAF Master Flow Pivot pipe boots</strong></li>
+        <li><strong>The full <a href="/services/the-nbd-build" style="color:var(--navy);font-weight:700;border-bottom:1.5px solid var(--orange);text-decoration:none">NBD Build</a></strong> — LumaNail™ + GAF Pivot Boot + Roofivent ECO, all standard</li>
         <li>Full GAF system install (Golden Pledge ready)</li>
-        <li>Roofivent iVent ECO appliance-duct exhaust</li>
-        <li><strong><a href="/the-pledge" style="color:var(--orange);text-decoration:none;border-bottom:1.5px solid var(--orange)">NBD Lifetime Pledge</a></strong> + <strong>contractual annual inspection</strong> + <strong>signed certificate</strong></li>
-        <li><strong>GAF System Plus Limited Warranty</strong> + <strong>Golden Pledge ready</strong> — full Golden-Pledge-eligible system install means the roof is built to the highest GAF spec from day one</li>
+        <li><strong>GAF System Plus Limited Warranty</strong> + Golden Pledge ready</li>
+        <li><strong style="color:var(--orange-dark)">Proactive annual outreach (Elite-only):</strong> every year I call you, walk the roof, and send a written one-page report — on my calendar, not yours</li>
+        <li><strong>Signed NBD certificate</strong> — your name and roof on a numbered cert</li>
       </ul>
-      <div class="tc-best"><strong>Best for:</strong> "this is the last roof I'll ever buy on this house." Forever home, maximum resale value, no warranty paperwork to chase down 15 years from now.</div>
+      <div class="tc-best"><strong>Best for:</strong> "this is the last roof I'll ever buy on this house." Forever home, maximum resale value, never wants to think about it again.</div>
       <a href="/#contact" class="tc-cta">Get an Elite Estimate</a>
     </div>
   </div>
@@ -544,13 +564,13 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           <td><span class="check">✓ System Plus + Golden Pledge ready</span></td>
         </tr>
         <tr class="pledge-row">
-          <td>NBD Lifetime Pledge<br><span style="font-weight:400;font-size:.74rem;color:#666">(I come back personally)</span></td>
+          <td><a href="/the-pledge" style="color:inherit;border-bottom:1.5px solid var(--orange);font-weight:800">The Pledge</a><br><span style="font-weight:400;font-size:.74rem;color:#666">(reactive — you call, I come)</span></td>
           <td><span class="check">✓ Forever</span></td>
           <td><span class="check">✓ Forever</span></td>
           <td><span class="check">✓ Forever</span></td>
         </tr>
         <tr>
-          <td>Contractual annual inspection</td>
+          <td>Proactive annual outreach<br><span style="font-weight:400;font-size:.74rem;color:#666">(I call you, walk the roof, send a written report)</span></td>
           <td><span class="x">—</span></td>
           <td><span class="x">—</span></td>
           <td><span class="check">✓ Written into Elite contract</span></td>
@@ -620,10 +640,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="jrt-eyebrow">Real Talk From Joe</div>
     <h3>Three tiers because three roofs deserve three answers.</h3>
     <p>I get it — three tiers can feel like a sales gimmick. So here's the actual truth: I built three tiers because three different homeowners walked into my life with three different roofs, and the same answer didn't fit all three.</p>
-    <p>The retired couple selling in two years to downsize doesn't need Elite. It would be wasted money. <strong>I'd put Standard on that roof and sleep fine.</strong> The young family in their forever home with a baby coming? That's where I push Preferred — better warranty, transferable to the eventual buyer, premium pipe boots that won't leak in year 7. The third group — the ones who tell me <em>"this is the last roof I'm ever buying on this house"</em> — that's Elite. Visible LumaNail fasteners so I can prove I did it right, an annual inspection in the contract, my name on a certificate. They want to be done thinking about it.</p>
+    <p>The retired couple selling in two years to downsize doesn't need Elite. It would be wasted money. <strong>I'd put Standard on that roof and sleep fine.</strong> The young family in their forever home with a baby coming? That's where I push Preferred — better warranty, transferable to the eventual buyer, premium pipe boots that won't leak in year 7. The third group — the ones who tell me <em>"this is the last roof I'm ever buying on this house"</em> — that's Elite. Visible LumaNail fasteners so I can prove I did it right, <strong>me reaching out every year on the calendar to walk the roof and send them a report</strong>, my name on a certificate. They want to be done thinking about it.</p>
     <p>None of this is upsell. The tier you should pick is the one that actually fits your situation. If you're getting pressure to go higher than what your honest answer says, that's not me — that's a contractor trying to hit a number.</p>
-    <p class="jrt-sig">— Joe</p>
-    <p class="jrt-sig-sub">Owner &amp; Operator, No Big Deal Home Solutions</p>
   </div>
 </section>
 
@@ -663,8 +681,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
 
     <div class="faq-item">
-      <div class="faq-q">What's the "annual inspection" on Elite — how does that actually work?</div>
-      <div class="faq-a"><p>It's written into the Elite contract. Each year I call you and schedule a 20-minute roof check — I get up there, look for damage, photograph anything notable, and send you a one-page report. No charge, no upsell, for the life of the roof. It's how I keep my name on a roof I built five, ten, fifteen years ago.</p></div>
+      <div class="faq-q">What's the proactive annual outreach on Elite — how does that actually work?</div>
+      <div class="faq-a"><p>It's written into the Elite contract. <strong>The reminder is on my calendar, not yours.</strong> Every year I call you, schedule a 20-minute roof check, get up there, photograph anything notable, and send you a one-page written report. No charge, no upsell, for the life of the roof. That's the difference between Elite and the lower tiers: every NBD roof has <a href="/the-pledge" style="color:var(--orange);font-weight:700;">The Pledge</a> (you can always call me), but only Elite has me reaching out to <em>you</em> on a schedule.</p></div>
     </div>
   </div>
 </section>
@@ -694,20 +712,15 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
     <div class="footer-col">
-      <h4>The Guarantee</h4>
+      <h4>The Promise</h4>
       <ul>
-        <li><a href="/services/the-nbd-guarantee" style="color:var(--orange)">Tier System</a></li>
-        <li><a href="/services/lumanail">LumaNail™ Upgrade</a></li>
-        <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-        <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
-<li><a href="/services/roof-replacement">Roof Replacement</a></li>
-        <li><a href="/services/roof-repair">Roof Repair</a></li>
-        <li><a href="/services/siding-replacement">Siding Replacement</a></li>
-        <li><a href="/services/gutter-replacement">Gutter Replacement</a></li>
+        <li><a href="/the-pledge">The Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee" style="color:var(--orange)">The NBD Guarantee</a></li>
+        <li><a href="/services/the-nbd-build">The NBD Build</a></li>
+        <li><a href="/services/lumanail">LumaNail™</a></li>
+        <li><a href="/services/roofivent">Roofivent</a></li>
+        <li><a href="/services/gaf-pivot-boot">GAF Pivot Boot</a></li>
+        <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         <li><a href="/services/storm-damage">Storm Damage</a></li>
       </ul>
     </div>

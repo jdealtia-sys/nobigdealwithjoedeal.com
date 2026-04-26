@@ -21,7 +21,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Service","name":"The NBD Build System","description":"Premium roof component system bundled into NBD Elite roofs: LumaNail visible fasteners, GAF Master Flow Pivot pipe boots, and Roofivent ventilation upgrades.","provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382","url":"https://nobigdealwithjoedeal.com"},"areaServed":"Greater Cincinnati, OH and Northern Kentucky","url":"https://nobigdealwithjoedeal.com/services/the-nbd-build"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ItemList","name":"The NBD Build","description":"A three-component premium roofing bundle, standard equipment on the Elite tier of The NBD Guarantee: LumaNail visible fasteners, GAF Master Flow Pivot pipe boots, and Roofivent iVent ECO exhaust upgrades.","url":"https://nobigdealwithjoedeal.com/services/the-nbd-build","itemListElement":[
+  {"@type":"ListItem","position":1,"item":{"@type":"Product","name":"LumaNail™","description":"Visible orange roofing fasteners that make every install error verifiable in real time, before the next course covers it.","url":"https://nobigdealwithjoedeal.com/services/lumanail","brand":{"@type":"Brand","name":"LumaNail"}}},
+  {"@type":"ListItem","position":2,"item":{"@type":"Product","name":"GAF Master Flow Pivot Boot","description":"All-metal pivot pipe boot designed to outlast the roof, with no rubber parts to UV-crack at year 7.","url":"https://nobigdealwithjoedeal.com/services/gaf-pivot-boot","brand":{"@type":"Brand","name":"GAF"}}},
+  {"@type":"ListItem","position":3,"item":{"@type":"Product","name":"Roofivent iVent ECO","description":"Polypropylene bath/kitchen/dryer exhaust roof cap with built-in condensation drain and serviceable rubber gasket.","url":"https://nobigdealwithjoedeal.com/services/roofivent","brand":{"@type":"Brand","name":"Roofivent"}}}
+],"isPartOf":{"@type":"Service","name":"The NBD Guarantee","url":"https://nobigdealwithjoedeal.com/services/the-nbd-guarantee"}}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://nobigdealwithjoedeal.com/"},{"@type":"ListItem","position":2,"name":"The NBD Guarantee","item":"https://nobigdealwithjoedeal.com/services/the-nbd-guarantee"},{"@type":"ListItem","position":3,"name":"The NBD Build","item":"https://nobigdealwithjoedeal.com/services/the-nbd-build"}]}</script>
 <style>
 :root{--navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-light:#f08030;--orange-dark:#c45e08;--white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0;--success:#22a06b}
@@ -151,10 +155,9 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
+    <li><a href="/the-pledge">The Pledge</a></li>
     <li><a href="/services/the-nbd-guarantee">The NBD Guarantee</a></li>
-    <li><a href="/services/the-nbd-build" style="color:var(--orange)">NBD Build</a></li>
-    <li><a href="/services/lumanail">LumaNail™</a></li>
-    <li><a href="/services/roofivent">Roofivent</a></li>
+    <li><a href="/services/the-nbd-build" style="color:var(--orange)">The NBD Build</a></li>
     <li><a href="/#services">Services</a></li>
     <li><a href="/about">About Joe</a></li>
     <li><a href="/blog">Blog</a></li>
@@ -165,13 +168,13 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
   </button>
 </nav>
 <div class="mobile-nav" id="mobileNav">
-  <div class="mnav-group">The Guarantee</div>
-  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
-  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee — Tier System</a>
-  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build (Premium System)</a>
-  <a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a>
-  <a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a>
-  <a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Master Flow Pivot Boot</a>
+  <div class="mnav-group">The Promise</div>
+  <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Pledge</a>
+  <a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a>
+  <a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a>
+  <a href="/services/lumanail">LumaNail™</a>
+  <a href="/services/roofivent">Roofivent</a>
+  <a href="/services/gaf-pivot-boot">GAF Pivot Boot</a>
   <div class="mnav-group">Services</div>
   <a href="/services/roof-replacement">Roof Replacement</a>
   <a href="/services/roof-repair">Roof Repair</a>
@@ -189,14 +192,17 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow"><span class="dot"></span> Premium Component System · Bundled Into Every Elite Roof</div>
-    <h1>Three things on a roof <span>fail first.</span></h1>
-    <p class="lead">Most "premium" roofing pitches are about shingles. But shingles aren't usually what fails first. <strong>The fasteners fail. The pipe boots fail. The bath/dryer exhaust caps fail.</strong> The NBD Build is three premium components I bundle into Elite roofs to solve those three failure modes. Not because it makes a glossy brochure — because I've torn off enough roofs to know exactly where they go wrong.</p>
-    <a href="/services/the-nbd-guarantee" class="btn-secondary" style="margin-left:0">See the Tier System</a>
+    <div class="hero-eyebrow"><span class="dot"></span> What makes Elite, Elite · A bundle inside <a href="/services/the-nbd-guarantee" style="color:var(--orange);text-decoration:underline">The NBD Guarantee</a></div>
+    <h1>The standard equipment <span>on Elite.</span></h1>
+    <p class="lead">The NBD Build is <strong>three premium components</strong> bundled standard into every Elite-tier roof — and available à-la-carte on Standard or Preferred. Each one solves a specific failure mode I've watched destroy "good" roofs early: invisible fasteners, cracking pipe boots, plastic exhaust caps. <strong>Not because they look good in a brochure. Because I've torn off enough roofs to know where they go wrong.</strong></p>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:8px">
+      <a href="/services/the-nbd-guarantee" class="btn-primary">Compare All Three Tiers →</a>
+      <a href="#failure-modes" class="btn-secondary" style="margin-left:0">See the three components</a>
+    </div>
   </div>
 </section>
 
-<section class="failure-modes">
+<section class="failure-modes" id="failure-modes">
   <div class="section-head">
     <div class="eyebrow"><span class="dot"></span> The Three Failure Modes</div>
     <h2>What actually <span>kills roofs.</span></h2>
@@ -215,8 +221,8 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       <div class="num">02</div>
       <div class="failure">Failure mode #2 · Cracking pipe boots</div>
       <h3>The neoprene boot dies at year 7-12. Always.</h3>
-      <div class="nbd-answer">NBD answers it with: <strong>GAF Master Flow Pivot</strong> (Preferred &amp; Elite) or <strong>Roofivent iVent Pipe Flashing</strong> (Standard)</div>
-      <p>Standard neoprene pipe boots crack from UV exposure within 7-12 years. When they fail, water runs straight down the plumbing vent stack into your bathroom. <strong>I install boots designed to outlast the roof:</strong> GAF's all-metal Pivot Boot (no parts to fail, ball-and-socket design) on Preferred and Elite, or Roofivent's serviceable EPDM-gasket boot (lifetime functionality warranty) on Standard.</p>
+      <div class="nbd-answer">NBD answers it with: <strong>GAF Master Flow Pivot Boot</strong> on Preferred &amp; Elite</div>
+      <p>Standard neoprene pipe boots crack from UV exposure within 7-12 years. When they fail, water runs straight down the plumbing vent stack into your bathroom. The Pivot Boot is GAF's all-metal solution: ball-and-socket pivot, no rubber to UV-cook, no parts to fail. <strong>It's standard on Preferred and Elite.</strong> Standard tier ships the serviceable Roofivent iVent Pipe Flashing — also a lifetime-functionality unit, just a different design.</p>
       <a href="/services/gaf-pivot-boot" class="read">Read about Pivot Boot →</a>
     </div>
     <div class="fmode">
@@ -233,12 +239,10 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 <section class="system-section">
   <div class="system-inner">
     <div class="system-copy">
-      <h2>This is the system, not the <span>brochure.</span></h2>
-      <p>I've been on enough roofs to know that "premium roof" usually means premium <em>shingle</em>, and nobody talks about the actual stuff that goes wrong first. The NBD Build is my answer to that. <strong>Three components, three failure modes, no marketing fluff.</strong></p>
-      <p>You can buy any of these as an a-la-carte upgrade on a Standard or Preferred build. But on Elite, all three are standard equipment — because if you're paying for the top tier, you should get a roof that doesn't have a 7-year-old plastic vent cap on it.</p>
+      <h2>The bundle, not the <span>brochure.</span></h2>
+      <p>"Premium roof" almost always means premium <em>shingle</em> — and nobody talks about the parts that actually go wrong first. The NBD Build is the bundle that answers that gap. <strong>Three components, three failure modes, no marketing fluff.</strong></p>
+      <p>On <a href="/services/the-nbd-guarantee" style="color:var(--orange);font-weight:700;border-bottom:1.5px solid var(--orange);text-decoration:none">Elite</a>, all three are standard equipment — that's what makes Elite, Elite. On Standard or Preferred, any of the three can be added à-la-carte if it matters to your specific situation; ask Joe at the inspection.</p>
       <p class="pullquote">"The shingle is the part you can see from the street. The fastener, the pipe boot, and the exhaust cap are the parts that decide whether your shingle stays attached."</p>
-      <p class="signature">— Joe</p>
-      <p class="signature-sub">Owner &amp; Operator, No Big Deal Home Solutions</p>
     </div>
     <div class="system-visual">
       <img src="/assets/lumanail/pack-web-1.jpg" alt="LumaNail orange roofing nail in install context" loading="lazy">
@@ -247,8 +251,8 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 </section>
 
 <section class="tier-cta-section">
-  <h2>Where the NBD Build <span>lives.</span></h2>
-  <p>All three components are bundled into the Elite tier as standard equipment. Roofivent iVent Pipe Flashing also ships on Standard. Each component is available a-la-carte on lower tiers — ask Joe at the inspection.</p>
+  <h2>Where each component <span>ships standard.</span></h2>
+  <p style="margin-bottom:18px"><strong style="color:var(--orange-light)">LumaNail™</strong> — Elite only. <strong style="color:var(--orange-light)">GAF Pivot Boot</strong> — Preferred &amp; Elite. <strong style="color:var(--orange-light)">Roofivent iVent ECO</strong> — Preferred &amp; Elite. Standard ships <strong style="color:var(--orange-light)">Roofivent iVent Pipe Flashing</strong> instead of GAF Pivot. Anything missing from your tier can be added à-la-carte — ask Joe.</p>
   <a href="/services/the-nbd-guarantee" class="btn-primary">Compare All Three Tiers →</a>
 </section>
 
@@ -270,14 +274,16 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       <div class="footer-badges"><span class="footer-badge">Licensed</span><span class="footer-badge">Insured</span><span class="footer-badge">Locally Owned</span></div>
     </div>
     <div class="footer-col">
-      <h4>The Guarantee</h4>
+      <h4>The Promise</h4>
       <ul>
-        <li><a href="/services/the-nbd-guarantee">Tier System</a></li>
-        <li><a href="/services/the-nbd-build" style="color:var(--orange)">NBD Build System</a></li>
-        <li><a href="/services/lumanail">LumaNail™ Upgrade</a></li>
-        <li><a href="/services/roofivent">Roofivent Products</a></li>
+        <li><a href="/the-pledge">The Pledge</a></li>
+        <li><a href="/services/the-nbd-guarantee">The NBD Guarantee</a></li>
+        <li><a href="/services/the-nbd-build" style="color:var(--orange)">The NBD Build</a></li>
+        <li><a href="/services/lumanail">LumaNail™</a></li>
+        <li><a href="/services/roofivent">Roofivent</a></li>
         <li><a href="/services/gaf-pivot-boot">GAF Pivot Boot</a></li>
         <li><a href="/services/roof-replacement">Roof Replacement</a></li>
+        <li><a href="/services/storm-damage">Storm Damage</a></li>
       </ul>
     </div>
     <div class="footer-col">
