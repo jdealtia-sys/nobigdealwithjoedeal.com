@@ -2704,6 +2704,80 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('Bulk lead operations — writeBatch + NBDStore + new fields');
+{
+  const crm  = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  // Selection state must live in NBDStore now — direct mutation
+  // of window._bulkSelected would skip subscriber notify.
+  assert('crm.js seeds leads.bulkSelected slice in NBDStore',
+    /NBDStore\.set\(['"]leads\.bulkSelected['"], new Set\(\)\)/.test(crm));
+  assert('crm.js binds _bulkSelected → leads.bulkSelected (one-way)',
+    /NBDStore\.bind\(['"]_bulkSelected['"], ['"]leads\.bulkSelected['"]\)/.test(crm));
+  assert('crm.js subscribes updateBulkToolbar to leads.bulkSelected',
+    /NBDStore\.subscribe\(['"]leads\.bulkSelected['"][\s\S]{0,200}updateBulkToolbar/.test(crm));
+
+  // updateBulkSelection swaps the Set ref every write — required
+  // for the NBDStore identity-equality short-circuit to fire.
+  assert('updateBulkSelection swaps Set ref to trigger notify',
+    /function updateBulkSelection\(mutate\)[\s\S]{0,400}var next = new Set\(prev\);[\s\S]{0,200}NBDStore\.set\(['"]leads\.bulkSelected['"], next\)/.test(crm)
+    || /function updateBulkSelection\(mutate\)[\s\S]{0,400}const next = new Set\(prev\);[\s\S]{0,200}NBDStore\.set\(['"]leads\.bulkSelected['"], next\)/.test(crm));
+
+  // bulkDelete must use writeBatch — the previous serial loop did
+  // N round-trips and was non-atomic. commitBulkLeadOp is the
+  // single place batches are formed.
+  assert('bulkDelete routes through commitBulkLeadOp (writeBatch)',
+    /async function bulkDelete\(\)[\s\S]{0,1500}commitBulkLeadOp/.test(crm));
+  assert('commitBulkLeadOp uses writeBatch + chunk cap < 500',
+    /async function commitBulkLeadOp[\s\S]{0,500}window\.writeBatch\(window\.db\)/.test(crm)
+    && /CHUNK\s*=\s*450/.test(crm));
+
+  // New bulk capabilities — carrier + damage. These are the
+  // direct UX wins; without them Joe was hand-editing 20+ leads
+  // one at a time after a hailstorm sweep.
+  assert('bulkAssignCarrier reads bulkCarrierSelect.value',
+    /async function bulkAssignCarrier\(\)[\s\S]{0,300}bulkCarrierSelect[\s\S]{0,200}bulkAssignField\(['"]carrier['"]/.test(crm));
+  assert('bulkAssignDamage reads bulkDamageSelect.value',
+    /async function bulkAssignDamage\(\)[\s\S]{0,300}bulkDamageSelect[\s\S]{0,200}bulkAssignField\(['"]damageType['"]/.test(crm));
+
+  // Field allowlist — privileged fields (companyId, role, isAdmin)
+  // must NOT be writable through this path, even though
+  // firestore.rules already blocks them. Defense in depth.
+  assert('BULK_LEAD_FIELDS allowlist constrains writable fields',
+    /BULK_LEAD_FIELDS\s*=\s*new Set\(\[['"]carrier['"], ['"]damageType['"], ['"]followUp['"], ['"]tags['"]\]\)/.test(crm));
+  assert('bulkAssignField rejects non-allowlisted fields',
+    /if \(!BULK_LEAD_FIELDS\.has\(field\)\)[\s\S]{0,200}return;/.test(crm));
+
+  // Optimistic local update so the kanban reflects without a
+  // full reload. Must run AFTER batch.commit succeeds.
+  assert('bulkAssignField patches local _leads + re-renders',
+    /\(window\._leads \|\| \[\]\)\.forEach[\s\S]{0,200}l\[field\] = value/.test(crm));
+
+  // Select-all-visible — Joe's #1 ask after hailstorm sweeps.
+  assert('selectAllVisibleLeads gathers visible .k-card data-id',
+    /function selectAllVisibleLeads\(\)/.test(crm)
+    && /\.querySelectorAll\(['"]\.kanban-board \.k-card['"]\)/.test(crm)
+    && /next\.add\(id\)/.test(crm));
+
+  // Toolbar UI — new selects + buttons must be in the DOM.
+  assert('dashboard.html bulk toolbar has bulkCarrierSelect + bulkDamageSelect',
+    /id="bulkCarrierSelect"/.test(dash) && /id="bulkDamageSelect"/.test(dash));
+  assert('dashboard.html toolbar wires bulkAssignCarrier + bulkAssignDamage onclick',
+    /onclick="bulkAssignCarrier\(\)"/.test(dash)
+    && /onclick="bulkAssignDamage\(\)"/.test(dash));
+  assert('dashboard.html toolbar has Select-all-visible button',
+    /onclick="selectAllVisibleLeads\(\)"/.test(dash));
+
+  // Public API — every helper exposed on window so inline
+  // onclick handlers can reach them.
+  assert('crm.js exposes new bulk helpers on window',
+    /window\.bulkAssignCarrier\s*=\s*bulkAssignCarrier/.test(crm)
+    && /window\.bulkAssignDamage\s*=\s*bulkAssignDamage/.test(crm)
+    && /window\.selectAllVisibleLeads\s*=\s*selectAllVisibleLeads/.test(crm)
+    && /window\.updateBulkToolbar\s*=\s*updateBulkToolbar/.test(crm));
+}
+
 section('NBDStore — pub/sub state store + first-slice migration');
 {
   const store    = read(path.join(ROOT, 'docs/pro/js/state-store.js'));
