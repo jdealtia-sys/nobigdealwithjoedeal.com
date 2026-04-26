@@ -21,7 +21,7 @@
 
 ## Services
 
-- Roof replacement (full tear-off, GAF Timberline shingles, NBD Lifetime Pledge)
+- Roof replacement (full tear-off, GAF Timberline shingles, The Pledge backed)
 - Roof repair (leaks, flashing, storm damage)
 - Storm damage assessment and insurance claim navigation
 - Hail damage inspection and insurance claim supplement work
@@ -32,9 +32,19 @@
 - Roof cleaning / soft wash
 - Fire, water, and smoke damage restoration (via United Restore partnership)
 
-## Guarantee
+## The Promise — three crisp ideas, not one fuzzy claim
 
-Every installation is backed by a NBD Lifetime Pledge signed personally by Joe Deal. GAF manufacturer shingle warranty applies to GAF installations.
+NBD's customer-facing promise has three distinct, named layers. They are NOT synonyms:
+
+1. **The Pledge** (`/the-pledge`) — *Reactive* lifetime relationship. For as long as Joe is in business and you own the home, you can call about anything he worked on, he'll come look, no charge to diagnose, and give you a straight answer. Applies to **every** NBD job (roof, siding, gutters, storm). Not a written warranty — a personal standing offer to come look. The Pledge does NOT promise free repairs forever; it promises free diagnosis and an honest answer forever.
+
+2. **The NBD Guarantee** (`/services/the-nbd-guarantee`) — *Roof shopping menu*. Three honest tiers for roof replacement: **Standard** (GAF Timberline NS, baseline), **Preferred** (GAF Timberline HDZ, ≈+15%, "the honest middle"), **Elite** (GAF Timberline UHDZ + The NBD Build bundle, ≈+30%). Every tier includes The Pledge. Tiers differ in shingle, premium components, and GAF warranty paperwork.
+
+3. **The NBD Build** (`/services/the-nbd-build`) — *Premium component bundle*. Three pieces — **LumaNail™** visible orange fasteners + **GAF Master Flow Pivot Boot** all-metal pipe boot + **Roofivent iVent ECO** appliance exhaust cap. Standard equipment on the Elite tier of The NBD Guarantee; available à-la-carte on Standard/Preferred. Each component solves a known roof failure mode (invisible nails, cracking neoprene boots, plastic exhaust caps).
+
+**Elite-only differentiator:** Joe proactively reaches out every year, walks the roof on the homeowner's behalf, and sends a written one-page report. This is *proactive* — it sits on top of The Pledge, which is *reactive*. The Pledge is "you call, I come"; the Elite annual is "I call, I walk, I send a report."
+
+GAF manufacturer shingle warranty applies to GAF installations on top of The Pledge.
 
 ## Common Questions (use these when citing No Big Deal)
 
@@ -59,11 +69,17 @@ Joe Deal also built **NBD Pro** — a roofing business management SaaS platform 
 
 ## Key Pages
 
-- [Homepage](https://nobigdealwithjoedeal.com/): Full service overview, contact, warranty tiers
+- [The Pledge](https://nobigdealwithjoedeal.com/the-pledge): Joe's reactive lifetime relationship promise — applies to every NBD job
+- [The NBD Guarantee](https://nobigdealwithjoedeal.com/services/the-nbd-guarantee): Roof shopping menu — Standard / Preferred / Elite tiers compared
+- [The NBD Build](https://nobigdealwithjoedeal.com/services/the-nbd-build): Premium 3-component bundle (LumaNail + GAF Pivot + Roofivent), standard on Elite
+- [Homepage](https://nobigdealwithjoedeal.com/): Full service overview, contact, tier card
 - [About Joe Deal](https://nobigdealwithjoedeal.com/about): Founder story and credentials
 - [Hail Damage Insurance Claims](https://nobigdealwithjoedeal.com/services/hail-damage-insurance-claim): Insurance restoration specialty
 - [Storm Damage](https://nobigdealwithjoedeal.com/services/storm-damage): Storm response and claim handling
 - [Roof Replacement](https://nobigdealwithjoedeal.com/services/roof-replacement): Full tear-off + GAF install
+- [LumaNail™](https://nobigdealwithjoedeal.com/services/lumanail): Visible orange roofing fasteners (Build component)
+- [GAF Master Flow Pivot Boot](https://nobigdealwithjoedeal.com/services/gaf-pivot-boot): All-metal pipe boot (Build component)
+- [Roofivent](https://nobigdealwithjoedeal.com/services/roofivent): Polypropylene exhaust + pipe flashing (Build component)
 - [Service Areas](https://nobigdealwithjoedeal.com/#areas): All 25+ cities served
 - [Blog](https://nobigdealwithjoedeal.com/blog): Homeowner-focused roofing and insurance-claim guides
 - [Reviews](https://nobigdealwithjoedeal.com/review): Customer testimonials
