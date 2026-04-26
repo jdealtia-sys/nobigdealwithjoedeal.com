@@ -2672,6 +2672,28 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('JSDoc typedefs — Firestore document shapes');
+{
+  const types = read(path.join(ROOT, 'docs/pro/js/types.js'));
+  // The five core typedefs every domain file should reach for.
+  ['Lead', 'Photo', 'Estimate', 'UserProfile', 'Company', 'LeadActivity'].forEach(function (t) {
+    assert('types.js declares @typedef ' + t,
+      new RegExp('@typedef\\s+\\{object\\}\\s+' + t).test(types));
+  });
+  // Photo must include the new `.order` field documented as PR #68's
+  // drag-rearranged sequence — otherwise the comparator will look like
+  // it's reading a phantom field.
+  assert('Photo typedef documents the .order field',
+    /@property\s*\{number=\}\s*order/.test(types));
+  // Lead must include .companyId since PR #60 made it required.
+  assert('Lead typedef documents .companyId as required-on-create',
+    /@property\s*\{string\}\s*companyId/.test(types));
+  // The TimestampLike alias normalizes the three formats Firestore
+  // hands back across server-set, client-set, and unset paths.
+  assert('types.js declares TimestampLike alias for FirestoreTimestamp/string/number/null',
+    /@typedef\s*\{FirestoreTimestamp[\s\S]{0,80}TimestampLike/.test(types));
+}
+
 section('Sentry — DSN config wired across high-value pages');
 {
   const sentryConfig = read(path.join(ROOT, 'docs/pro/js/sentry-config.js'));
