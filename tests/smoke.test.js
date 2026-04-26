@@ -2650,6 +2650,33 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
+section('Customer photo upload — background-safe + global widget');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  // Global floating upload widget DOM exists.
+  assert('customer.html ships the #nbdUploadWidget DOM',
+    /id="nbdUploadWidget"[\s\S]{0,500}id="nbdUploadWidgetBarFill"/.test(customer));
+  // updateGlobalUploadStatus drives the widget visibility + bar fill.
+  assert('customer.html exports updateGlobalUploadStatus',
+    /function updateGlobalUploadStatus\(\)/.test(customer));
+  // Surgical per-tick update — kills the per-byte innerHTML thrash.
+  assert('uploadSinglePhoto state_changed uses updateUploadPreviewItem',
+    /uploadTask\.on\(['"]state_changed['"][\s\S]{0,400}updateUploadPreviewItem\(index\)/.test(customer));
+  // Per-tile % label overlay (the "loading circle on each photo").
+  assert('preview tile shows centered % label',
+    /class="preview-progress-pct"/.test(customer)
+    && /\.preview-progress-pct\s*\{[^}]*transform:\s*translate/.test(customer));
+  // closeUploadModal must NOT clear the queue while uploads are in flight.
+  assert('closeUploadModal preserves queue mid-upload (background-safe)',
+    /hasInflight[\s\S]{0,150}return;/.test(customer));
+  // Success path is a non-blocking toast, not a JS alert. Negative
+  // condition targets the photo path only (_uploadQueue) so the
+  // doc-upload alert at line ~1860 (_docUploadQueue) doesn't trigger.
+  assert('uploadPhotos success path uses showToast (no alert)',
+    /window\.showToast\(['"]✓ Uploaded /.test(customer)
+    && !/alert\(`Successfully uploaded \$\{window\._uploadQueue/.test(customer));
+}
+
 section('Customer photo grid — surgical render path');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));

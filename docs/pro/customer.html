@@ -325,6 +325,62 @@ header {
 .preview-progress-bar {
   height:100%; background:var(--orange); transition:width .3s;
 }
+/* Centered % label over each in-flight upload preview tile.
+   Pure read-only — pointer-events:none so the remove (×) and tile
+   click underneath stay reachable. */
+.preview-progress-pct {
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%, -50%);
+  background:rgba(0,0,0,.65); color:#fff;
+  padding:3px 8px; border-radius:10px;
+  font-size:11px; font-weight:700;
+  pointer-events:none; min-width:34px; text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+/* GLOBAL UPLOAD WIDGET
+   Floating bottom-right indicator that surfaces in-flight uploads
+   when the upload modal is closed (or covered by another modal).
+   Visible whenever window._uploadQueue has any item with a non-null
+   .uploading flag and progress < 100. Auto-hides when queue drains. */
+.nbd-upload-widget {
+  position:fixed; right:16px; bottom:16px;
+  min-width:240px; max-width:300px;
+  background:var(--s2); border:1px solid var(--br);
+  border-radius:10px; padding:12px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  z-index:9998; display:none;
+  font-size:13px; color:var(--t);
+}
+.nbd-upload-widget.active { display:block; }
+.nbd-upload-widget-header {
+  display:flex; align-items:center; gap:8px; margin-bottom:8px;
+}
+.nbd-upload-widget-spinner {
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid var(--orange);
+  border-top-color:transparent;
+  animation:nbd-upload-spin .9s linear infinite;
+}
+@keyframes nbd-upload-spin { to { transform: rotate(360deg); } }
+.nbd-upload-widget-label {
+  font-weight:700; flex:1;
+}
+.nbd-upload-widget-count { color:var(--m); font-size:12px; }
+.nbd-upload-widget-bar {
+  position:relative; height:6px; border-radius:3px;
+  background:var(--s3); overflow:hidden;
+}
+.nbd-upload-widget-bar-fill {
+  height:100%; background:var(--orange); width:0%;
+  transition:width .25s ease-out;
+}
+.nbd-upload-widget-reopen {
+  margin-top:8px; width:100%; padding:6px;
+  background:transparent; color:var(--orange);
+  border:1px solid var(--orange); border-radius:6px;
+  cursor:pointer; font-weight:600; font-size:11px;
+}
 
 /* LIGHTBOX */
 .lightbox {
@@ -1315,6 +1371,20 @@ header {
     </div>
   </div><!-- /modal-content -->
 </div><!-- /uploadModal -->
+
+<!-- GLOBAL UPLOAD WIDGET — surfaces in-flight uploads after the
+     upload modal is closed so the rep can navigate the customer
+     page while uploads continue. Show/hide is driven by
+     updateGlobalUploadStatus() in the upload flow. -->
+<div class="nbd-upload-widget" id="nbdUploadWidget" role="status" aria-live="polite" aria-atomic="true">
+  <div class="nbd-upload-widget-header">
+    <div class="nbd-upload-widget-spinner" aria-hidden="true"></div>
+    <div class="nbd-upload-widget-label" id="nbdUploadWidgetLabel">Uploading photos…</div>
+    <div class="nbd-upload-widget-count" id="nbdUploadWidgetCount"></div>
+  </div>
+  <div class="nbd-upload-widget-bar"><div class="nbd-upload-widget-bar-fill" id="nbdUploadWidgetBarFill"></div></div>
+  <button type="button" class="nbd-upload-widget-reopen" id="nbdUploadWidgetReopen" onclick="openUploadModal()">View details</button>
+</div>
 
 <!-- DOCUMENT UPLOAD MODAL -->
 <div id="docUploadModal" class="modal" style="display:none;">
@@ -3244,12 +3314,24 @@ window.openUploadModal = function() {
 
 window.closeUploadModal = function() {
   document.getElementById('uploadModal').classList.remove('active');
+  // Background-safe close: if any item is mid-upload, hide the modal
+  // but keep the queue + uploads running. The global widget remains
+  // visible so the user can keep working. The queue clears itself in
+  // uploadPhotos()'s post-loop reload.
+  var hasInflight = (window._uploadQueue || []).some(function(it){
+    return it && it.uploading && (it.progress == null || it.progress < 100);
+  });
+  if (hasInflight) {
+    updateGlobalUploadStatus();
+    return;
+  }
   window._uploadQueue = [];
   const preview = document.getElementById('uploadPreview');
   if (preview) preview.innerHTML = '';
   const fileInput = document.getElementById('fileInput');
   if (fileInput) fileInput.value = '';
   updateUploadPreview();
+  updateGlobalUploadStatus();
 };
 
 // Drag and drop handlers - Initialize after DOM loads
@@ -3355,41 +3437,118 @@ function addFilesToQueue(files) {
   });
 }
 
-function updateUploadPreview() {
+// updateUploadPreview() runs on every state_changed tick (potentially
+// multiple times per second per file). The original blew away the
+// container's innerHTML on every call — re-decoding 25 thumbnails and
+// re-creating 25 progress bars per tick. This split keeps the structure
+// stable and only patches the bar/percent text via direct refs.
+function renderUploadPreviewStructure() {
   const container = document.getElementById('uploadPreview');
   const uploadBtn = document.getElementById('uploadBtn');
   const uploadCount = document.getElementById('uploadCount');
-
-  // Guard against null elements (modal might not be open or loaded yet)
-  if (!container || !uploadBtn || !uploadCount) {
-    return;
-  }
+  if (!container || !uploadBtn || !uploadCount) return;
 
   if (window._uploadQueue.length === 0) {
     container.innerHTML = '';
     uploadBtn.style.display = 'none';
+    var _metaSecEmpty = document.getElementById('uploadMetaSection');
+    if (_metaSecEmpty) _metaSecEmpty.style.display = 'none';
     return;
   }
 
-  const html = window._uploadQueue.map((item, idx) => `
-    <div class="preview-item">
-      <img src="${item.preview}" alt="Preview" loading="lazy" decoding="async">
-      ${!item.uploading ? `
-        <button class="preview-remove" onclick="removeFromQueue(${idx})">×</button>
-      ` : ''}
-      ${item.uploading ? `
-        <div class="preview-progress">
-          <div class="preview-progress-bar" style="width:${item.progress}%"></div>
-        </div>
-      ` : ''}
-    </div>
-  `).join('');
-
+  var html = '';
+  for (var i = 0; i < window._uploadQueue.length; i++) {
+    var item = window._uploadQueue[i];
+    html += '<div class="preview-item" data-upload-idx="' + i + '">';
+    html += '<img src="' + item.preview + '" alt="Preview" loading="lazy" decoding="async">';
+    if (!item.uploading) {
+      html += '<button class="preview-remove" onclick="removeFromQueue(' + i + ')">×</button>';
+    }
+    html += '<div class="preview-progress" style="display:' + (item.uploading ? 'block' : 'none') + ';">';
+    html += '<div class="preview-progress-bar" style="width:' + (item.progress || 0) + '%"></div>';
+    html += '</div>';
+    html += '<div class="preview-progress-pct" style="display:' + (item.uploading ? 'block' : 'none') + ';">' + Math.round(item.progress || 0) + '%</div>';
+    html += '</div>';
+  }
   container.innerHTML = html;
   uploadBtn.style.display = 'block';
   uploadCount.textContent = window._uploadQueue.length;
   var _metaSec = document.getElementById('uploadMetaSection');
   if (_metaSec) _metaSec.style.display = window._uploadQueue.length > 0 ? '' : 'none';
+}
+
+// Surgical per-tick update — only touches the bar width + percent text
+// for the one item that just ticked. Falls back to full structure
+// render when the count of items doesn't match (add/remove from queue).
+function updateUploadPreviewItem(idx) {
+  const container = document.getElementById('uploadPreview');
+  if (!container) return;
+  var tile = container.querySelector('.preview-item[data-upload-idx="' + idx + '"]');
+  if (!tile) {
+    renderUploadPreviewStructure();
+    return;
+  }
+  var item = window._uploadQueue[idx];
+  if (!item) {
+    renderUploadPreviewStructure();
+    return;
+  }
+  var bar = tile.querySelector('.preview-progress-bar');
+  var barWrap = tile.querySelector('.preview-progress');
+  var pct = tile.querySelector('.preview-progress-pct');
+  if (bar) bar.style.width = (item.progress || 0) + '%';
+  if (barWrap) barWrap.style.display = item.uploading ? 'block' : 'none';
+  if (pct) {
+    pct.textContent = Math.round(item.progress || 0) + '%';
+    pct.style.display = item.uploading ? 'block' : 'none';
+  }
+  // Hide the remove button once the upload starts.
+  if (item.uploading) {
+    var rm = tile.querySelector('.preview-remove');
+    if (rm) rm.style.display = 'none';
+  }
+}
+
+// Backwards-compatible alias — existing call sites that change the
+// queue length (add/remove) still fire a full structure render.
+function updateUploadPreview() {
+  renderUploadPreviewStructure();
+  updateGlobalUploadStatus();
+}
+
+// Drives the floating upload widget (right-bottom corner). Visible
+// whenever any queue item is mid-upload. Aggregates byte progress
+// across all in-flight uploads for the bar fill.
+function updateGlobalUploadStatus() {
+  var widget = document.getElementById('nbdUploadWidget');
+  if (!widget) return;
+  var queue = window._uploadQueue || [];
+  var inflight = queue.filter(function(it){ return it && it.uploading && (it.progress == null || it.progress < 100); });
+  // Hide widget when nothing is in-flight.
+  if (inflight.length === 0) {
+    widget.classList.remove('active');
+    return;
+  }
+  var done = queue.filter(function(it){ return it && it.uploading && it.progress >= 100; }).length;
+  var total = queue.filter(function(it){ return it && it.uploading; }).length;
+  // Aggregate progress = average of all uploading-or-done items.
+  var sum = 0;
+  for (var i = 0; i < queue.length; i++) {
+    if (queue[i] && queue[i].uploading) sum += Math.min(100, queue[i].progress || 0);
+  }
+  var pct = total ? Math.round(sum / total) : 0;
+  var label = document.getElementById('nbdUploadWidgetLabel');
+  var count = document.getElementById('nbdUploadWidgetCount');
+  var fill = document.getElementById('nbdUploadWidgetBarFill');
+  var reopen = document.getElementById('nbdUploadWidgetReopen');
+  if (label) label.textContent = 'Uploading photos…';
+  if (count) count.textContent = (done + 1 > total ? total : done + 1) + ' / ' + total + ' • ' + pct + '%';
+  if (fill) fill.style.width = pct + '%';
+  // Only show the "View details" button when the modal is closed.
+  var modal = document.getElementById('uploadModal');
+  var modalOpen = modal && modal.classList.contains('active');
+  if (reopen) reopen.style.display = modalOpen ? 'none' : 'block';
+  widget.classList.add('active');
 }
 
 window.removeFromQueue = function(index) {
@@ -3400,25 +3559,40 @@ window.removeFromQueue = function(index) {
 window.uploadPhotos = async function() {
   if (window._uploadQueue.length === 0) return;
   if (!window._customerId) {
-    alert('Customer ID not found');
+    if (window.showToast) window.showToast('Customer ID not found', 'error');
+    else alert('Customer ID not found');
     return;
   }
-  
+
   const uploadBtn = document.getElementById('uploadBtn');
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
-  
+  if (uploadBtn) {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading...';
+  }
+  var queueSnapshot = window._uploadQueue.length;
+
   try {
     for (let i = 0; i < window._uploadQueue.length; i++) {
       const item = window._uploadQueue[i];
       item.uploading = true;
-      updateUploadPreview();
-      
+      // Render the structure once so the DOM has the bar/% nodes;
+      // per-tick updates from uploadSinglePhoto are surgical.
+      renderUploadPreviewStructure();
+      updateGlobalUploadStatus();
+
       await uploadSinglePhoto(item, i);
+      // Mark complete so the global widget stops counting it.
+      item.progress = 100;
+      updateUploadPreviewItem(i);
+      updateGlobalUploadStatus();
     }
-    
-    // Success - reload photos and close modal
-    alert(`Successfully uploaded ${window._uploadQueue.length} photo(s)!`);
+
+    // All uploads finished. Toast + close + reload (no blocking alert).
+    if (window.showToast) {
+      window.showToast('✓ Uploaded ' + queueSnapshot + ' photo' + (queueSnapshot === 1 ? '' : 's'), 'success');
+    }
+    // Force a full close — the queue is done, so the background-safe
+    // guard in closeUploadModal sees no in-flight items and clears.
     closeUploadModal();
     if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
     try { await loadPhotos(window._customerId); } catch(e) {}
@@ -3428,21 +3602,24 @@ window.uploadPhotos = async function() {
     if (leadSnap3.exists()) {
       if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap3.data());
     }
-    
+
   } catch (error) {
     console.error('Upload error:', error);
-    // Mark failed items so the preview shows their error state,
-    // then clear them after a brief display so the user doesn't
-    // have to force-refresh to get rid of stuck uploads.
+    if (window.showToast) {
+      window.showToast('Some uploads failed: ' + (error?.message || 'unknown error'), 'error');
+    }
+    // Mark failed items so the preview can render their state, then
+    // clear the queue so stuck files disappear.
     window._uploadQueue.forEach(item => { item.failed = true; });
-    updateUploadPreview();
-    alert('Some uploads failed. Failed photos have been cleared — you can retry.');
-    // Clear the queue so stuck files disappear
+    renderUploadPreviewStructure();
     window._uploadQueue = [];
-    updateUploadPreview();
+    renderUploadPreviewStructure();
+    updateGlobalUploadStatus();
   } finally {
-    uploadBtn.disabled = false;
-    uploadBtn.textContent = '📤 Upload Photos';
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = '📤 Upload Photos';
+    }
   }
 };
 
@@ -3467,10 +3644,12 @@ async function uploadSinglePhoto(item, index) {
   return new Promise((resolve, reject) => {
     uploadTask.on('state_changed',
       (snapshot) => {
-        // Progress tracking
+        // Progress tracking — surgical update (only the bar + % text
+        // for this one item), plus the global floating widget.
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         window._uploadQueue[index].progress = progress;
-        updateUploadPreview();
+        updateUploadPreviewItem(index);
+        updateGlobalUploadStatus();
       },
       (error) => {
         console.error('Upload error:', error);
