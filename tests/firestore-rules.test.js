@@ -270,6 +270,15 @@ async function run() {
     doc(alice, 'leads/with-companyid'),
     { userId: 'alice', name: 'Lead with companyId', companyId: 'co-a' }));
 
+  // 22. /system/migrations is admin-SDK only — no client read/write.
+  //     The runner in functions/migrations/runner.js owns this doc.
+  await assertFails(getDoc(doc(alice, 'system/migrations')));
+  await assertFails(setDoc(doc(alice, 'system/migrations'), { appliedVersion: 999 }));
+  // Even platform admins can't reach it from the client — only the
+  // server-side runner (admin SDK) bypasses rules.
+  await assertFails(getDoc(doc(admin, 'system/migrations')));
+  await assertFails(setDoc(doc(admin, 'system/migrations'), { appliedVersion: 999 }));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
