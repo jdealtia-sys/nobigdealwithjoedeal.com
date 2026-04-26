@@ -22,6 +22,11 @@
      downstream script that wants to subscribe can do so on first
      run. See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
+<!-- NBDIDBCache — IndexedDB-backed offline cache. Layers
+     stale-while-revalidate semantics on top of NBDStore so the
+     customer page paints from cache in <50ms instead of waiting
+     on a Firestore round-trip. See docs/pro/js/idb-cache.js. -->
+<script src="js/idb-cache.js?v=1"></script>
 <script src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2397,12 +2402,18 @@ window.addEventListener('pageshow', (event) => {
 // Auth guard
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
+    // Flush per-uid IDB cache so a future signin to a different
+    // account doesn't read the previous rep's leftovers. Best-effort.
+    try { window.NBDIDBCache && window.NBDIDBCache.clearAll(); } catch (_) {}
     window.location.href = '/pro/login.html';
     return;
   }
 
   // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
   window._user = user;
+  // Partition the IDB cache by uid so two reps sharing a device
+  // don't bleed cached lead/photo data across accounts.
+  try { window.NBDIDBCache && window.NBDIDBCache.setActiveUid(user.uid); } catch (_) {}
 
   // Get customer ID from URL
   const params = new URLSearchParams(window.location.search);
@@ -5343,47 +5354,107 @@ function renderPhotoGrid() {
   ensurePhotoGridDelegate();
 }
 
+// Map a Firestore photo doc into the in-memory shape the render
+// code expects. Pulled out so the IDB cache + the live Firestore
+// path use the exact same projection — otherwise a cache hit and
+// a fresh fetch would produce subtly different objects and
+// trigger re-renders that look like flicker.
+function photoDocToView(id, d) {
+  return {
+    id: id,
+    url: d.url,
+    // urls + storagePath are written by uploadSinglePhoto + the
+    // image-pipeline trigger (PR #75). Carry them through so the
+    // <img srcset> render path can prefer the cached variants.
+    urls: d.urls || null,
+    storagePath: d.storagePath || '',
+    phase: d.phase || 'During',
+    category: d.category || 'Property',
+    description: d.description || d.notes || '',
+    filename: d.filename || '',
+    damageType: d.damageType || '',
+    severity: d.severity || '',
+    location: d.location || '',
+    tags: d.tags || [],
+    isAnnotated: d.isAnnotated || false,
+    date: d.date,
+    uploadedAt: d.uploadedAt
+  };
+}
+
+// Apply a list of photos to local state + paint. Idempotent —
+// safe to call once with cached data, then again with fresh data.
+function applyPhotosToView(list) {
+  window._allPhotos = list || [];
+  window._photoById = new Map();
+  for (var i = 0; i < window._allPhotos.length; i++) {
+    var p = window._allPhotos[i];
+    if (p && p.id) window._photoById.set(p.id, p);
+  }
+  if (!window._allPhotos.length) {
+    document.getElementById('photosByPhase').innerHTML =
+      '<div class="empty"><div class="empty-icon">&#128248;</div>No photos yet</div>';
+  }
+  updatePhotoStats();
+  renderPhotoGrid();
+}
+
+// Load photos for a lead. Uses NBDIDBCache.revalidate so the page
+// paints from IndexedDB in <50 ms (covering the photos that were
+// on screen last time), then refreshes from Firestore in parallel.
+// On Firestore failure (offline / network blip), the cached data
+// stays on screen so Joe can still review the lead in a driveway.
 window.loadPhotosByPhase = async function(leadId) {
-  try {
+  const uid = window.auth && window.auth.currentUser && window.auth.currentUser.uid;
+  if (!uid) return;
+
+  const fetchFresh = async function () {
     const photosRef = window.collection(window.db, 'photos');
-    const q = window.query(photosRef, window.where('leadId', '==', leadId), window.where('userId', '==', window.auth.currentUser?.uid));
+    const q = window.query(
+      photosRef,
+      window.where('leadId', '==', leadId),
+      window.where('userId', '==', uid)
+    );
     const snap = await window.getDocs(q);
+    const list = [];
+    snap.forEach(function (doc) { list.push(photoDocToView(doc.id, doc.data())); });
+    return list;
+  };
 
-    if (snap.empty) {
-      window._allPhotos = [];
-      document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>No photos yet</div>';
-      updatePhotoStats();
-      return;
+  // Cache layer is opt-in — if NBDIDBCache failed to load (CSP
+  // block, cache miss, very old browser) fall through to a plain
+  // Firestore fetch with the same view code.
+  if (!window.NBDIDBCache) {
+    try {
+      const list = await fetchFresh();
+      applyPhotosToView(list);
+    } catch (error) {
+      console.error('Photos load error:', error);
+      document.getElementById('photosByPhase').innerHTML =
+        '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
     }
+    return;
+  }
 
-    window._allPhotos = [];
-    window._photoById = new Map();
-    snap.forEach(function(doc) {
-      var d = doc.data();
-      var photo = {
-        id: doc.id,
-        url: d.url,
-        phase: d.phase || 'During',
-        category: d.category || 'Property',
-        description: d.description || d.notes || '',
-        filename: d.filename || '',
-        damageType: d.damageType || '',
-        severity: d.severity || '',
-        location: d.location || '',
-        tags: d.tags || [],
-        isAnnotated: d.isAnnotated || false,
-        date: d.date,
-        uploadedAt: d.uploadedAt
-      };
-      window._allPhotos.push(photo);
-      window._photoById.set(photo.id, photo);
-    });
-
-    updatePhotoStats();
-    renderPhotoGrid();
+  try {
+    const fresh = await window.NBDIDBCache.revalidate(
+      'photos:' + uid + ':' + leadId,
+      fetchFresh,
+      {
+        // Don't trust cached photos older than 30 days — sanity
+        // bound so a long-dormant lead doesn't reopen with
+        // year-stale data on screen.
+        maxAgeMs: 30 * 86400000,
+        onCached: function (cached) { applyPhotosToView(cached); }
+      }
+    );
+    applyPhotosToView(fresh);
   } catch (error) {
     console.error('Photos load error:', error);
-    document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
+    if (!(window._allPhotos && window._allPhotos.length)) {
+      document.getElementById('photosByPhase').innerHTML =
+        '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
+    }
   }
 };
 

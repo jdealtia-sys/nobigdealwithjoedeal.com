@@ -2704,6 +2704,92 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('NBDIDBCache — IndexedDB offline-first cache');
+{
+  const idb      = read(path.join(ROOT, 'docs/pro/js/idb-cache.js'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // Public surface — these names are the integration contract.
+  assert('idb-cache exports get/put/clear/clearAll/revalidate/setActiveUid on window.NBDIDBCache',
+    /window\.NBDIDBCache\s*=\s*api/.test(idb)
+    && /get:\s*get/.test(idb)
+    && /put:\s*put/.test(idb)
+    && /clear:\s*clear/.test(idb)
+    && /clearAll:\s*clearAll/.test(idb)
+    && /revalidate:\s*revalidate/.test(idb)
+    && /setActiveUid:\s*setActiveUid/.test(idb));
+
+  // Per-uid partition is non-negotiable — two reps sharing a
+  // device must NOT see each other's cached PII.
+  assert('DB name includes uid to partition cache per account',
+    /nbd-pro-cache-['"]?\s*\+\s*\(uid \|\| ['"]anon['"]\)/.test(idb));
+  assert('setActiveUid resets dbPromise to force re-open with new name',
+    /function setActiveUid\(uid\)[\s\S]{0,400}dbPromise\s*=\s*null/.test(idb));
+
+  // Graceful no-IDB fallback. Critical for Safari private mode +
+  // embedded WebViews where IndexedDB throws synchronously on
+  // open(). Every method must resolve with a sentinel rather
+  // than reject.
+  assert('openDB resolves null when indexedDB is undefined',
+    /typeof indexedDB === ['"]undefined['"][\s\S]{0,200}Promise\.resolve\(null\)/.test(idb));
+  assert('openDB swallows synchronous open() throws',
+    /try \{[\s\S]{0,200}indexedDB\.open\([\s\S]{0,200}catch \(err\)[\s\S]{0,200}resolve\(null\)/.test(idb));
+
+  // Promise wrapper for IDBRequest — single primitive everything
+  // else builds on. Must resolve on success, reject on error.
+  assert('idbReq resolves on success and rejects on error',
+    /function idbReq\(req\)[\s\S]{0,300}req\.onsuccess[\s\S]{0,200}req\.onerror[\s\S]{0,200}reject/.test(idb));
+
+  // revalidate semantics:
+  //  - cache hit fires onCached SYNCHRONOUSLY for instant paint
+  //  - loader runs in parallel; on success, fresh data replaces
+  //    cache + is returned
+  //  - on loader failure, return cached data (offline mode)
+  assert('revalidate fires onCached when cache fresh',
+    /if \(rec && \(Date\.now\(\) - \(rec\.at \|\| 0\)\) <= maxAgeMs\)[\s\S]{0,300}onCached\(rec\.data\)/.test(idb));
+  assert('revalidate falls back to cached data on loader failure',
+    /\.catch\(function \(err\)[\s\S]{0,300}return rec\.data/.test(idb));
+
+  // Cache write is fire-and-forget — must not block the caller
+  // on IDB latency.
+  assert('revalidate does not await put(slice, fresh)',
+    /\.then\(function \(fresh\) \{[\s\S]{0,200}put\(slice, fresh\);[\s\S]{0,80}return fresh/.test(idb));
+
+  // Customer page wiring — script tag, auth hooks, photo loader.
+  assert('customer.html loads idb-cache.js after state-store.js',
+    /state-store\.js[\s\S]{0,400}idb-cache\.js/.test(customer));
+  assert('customer.html calls setActiveUid(user.uid) on signin',
+    /NBDIDBCache\.setActiveUid\(user\.uid\)/.test(customer));
+  assert('customer.html calls clearAll() on signout',
+    /window\.NBDIDBCache && window\.NBDIDBCache\.clearAll\(\)/.test(customer));
+
+  // Single projection function — guarantees cache hit + fresh
+  // fetch produce identical objects (no flicker on revalidate).
+  assert('photoDocToView is the single Firestore→view projection',
+    /function photoDocToView\(id, d\)/.test(customer)
+    && /list\.push\(photoDocToView\(doc\.id, doc\.data\(\)\)\)/.test(customer));
+
+  // urls + storagePath must round-trip through the cache so the
+  // <img srcset> render path keeps working from cached entries.
+  assert('photoDocToView preserves urls + storagePath fields',
+    /urls:\s*d\.urls \|\| null/.test(customer)
+    && /storagePath:\s*d\.storagePath \|\| ['"]/.test(customer));
+
+  // Cache key includes uid so a different rep on the same device
+  // doesn't read the previous account's photo cache.
+  assert('cache key namespaced by uid + leadId',
+    /['"]photos:['"]\s*\+\s*uid\s*\+\s*['"]:[\"']\s*\+\s*leadId/.test(customer));
+
+  // Sanity-bounded freshness — don't show year-stale photos.
+  assert('photos.maxAgeMs ≤ 30 days',
+    /maxAgeMs:\s*30\s*\*\s*86400000/.test(customer));
+
+  // Backward compat: no NBDIDBCache → plain Firestore path with
+  // the same view code.
+  assert('no-IDB fallback runs fetchFresh + applyPhotosToView',
+    /if \(!window\.NBDIDBCache\)[\s\S]{0,300}fetchFresh\(\)[\s\S]{0,200}applyPhotosToView\(list\)/.test(customer));
+}
+
 section('Share SSR — server-rendered /share/:token preview');
 {
   const ssr      = read(path.join(ROOT, 'functions/share-ssr.js'));
