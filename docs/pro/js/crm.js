@@ -1784,16 +1784,54 @@ let _notifInterval = null;
 
 // ═══════════════════════════════════════════════════════════════
 // BULK ACTIONS SYSTEM
+//
+// Selection state lives at `leads.bulkSelected` in NBDStore (see
+// docs/pro/js/state-store.js). The legacy `window._bulkSelected`
+// global is mirrored read-only via store.bind so any older read
+// site keeps working during migration. All writes go through
+// updateBulkSelection() which swaps the Set ref to trigger
+// subscriber notify (mutate-in-place would identity-equal and
+// be silently ignored by the store).
+//
+// Bulk toolbar now refreshes via a store subscriber rather than
+// every call site remembering to call updateBulkToolbar() — the
+// pattern matches the photos.selected migration in PR #76.
 // ═══════════════════════════════════════════════════════════════
 
 window._bulkMode = false;
-window._bulkSelected = new Set();
+if (window.NBDStore) {
+  window.NBDStore.set('leads.bulkSelected', new Set());
+  window.NBDStore.bind('_bulkSelected', 'leads.bulkSelected');
+  window.NBDStore.subscribe('leads.bulkSelected', function () {
+    if (typeof updateBulkToolbar === 'function') updateBulkToolbar();
+  });
+} else {
+  window._bulkSelected = window._bulkSelected || new Set();
+}
+
+function getBulkSelected() {
+  return (window.NBDStore && window.NBDStore.get('leads.bulkSelected'))
+    || window._bulkSelected
+    || new Set();
+}
+
+function updateBulkSelection(mutate) {
+  const prev = getBulkSelected();
+  const next = new Set(prev);
+  mutate(next);
+  if (window.NBDStore) {
+    window.NBDStore.set('leads.bulkSelected', next);
+  } else {
+    window._bulkSelected = next;
+    if (typeof updateBulkToolbar === 'function') updateBulkToolbar();
+  }
+}
 
 function toggleBulkMode() {
   window._bulkMode = !window._bulkMode;
   const btn = document.getElementById('bulkModeBtn');
   const kanbanBoard = document.querySelector('.kanban-board');
-  
+
   if (window._bulkMode) {
     btn.textContent = 'Cancel';
     btn.classList.add('btn-orange');
@@ -1810,28 +1848,51 @@ function toggleBulkMode() {
 
 function toggleCardSelection(leadId) {
   if (!window._bulkMode) return;
-  
+
   const card = document.querySelector(`.k-card[data-id="${leadId}"]`);
   if (!card) return;
-  
-  if (window._bulkSelected.has(leadId)) {
-    window._bulkSelected.delete(leadId);
-    card.classList.remove('bulk-selected');
-  } else {
-    window._bulkSelected.add(leadId);
-    card.classList.add('bulk-selected');
+
+  const sel = getBulkSelected();
+  const isSelectedNow = !sel.has(leadId);
+  updateBulkSelection(function (next) {
+    if (next.has(leadId)) next.delete(leadId);
+    else next.add(leadId);
+  });
+  card.classList.toggle('bulk-selected', isSelectedNow);
+  // updateBulkToolbar runs via store subscriber when NBDStore is
+  // present; manual fallback otherwise.
+  if (!window.NBDStore) updateBulkToolbar();
+}
+
+// Select every currently-rendered (visible) kanban card. Matches
+// the kanban filter — anything filtered out via search/stage isn't
+// in the DOM, so it isn't selected. Joe's most common need is "all
+// cards in this column" or "all visible after filter".
+function selectAllVisibleLeads() {
+  if (!window._bulkMode) return;
+  const cards = document.querySelectorAll('.kanban-board .k-card');
+  if (!cards.length) {
+    if (typeof showToast === 'function') showToast('No leads visible to select', 'info');
+    return;
   }
-  
-  updateBulkToolbar();
+  updateBulkSelection(function (next) {
+    cards.forEach(function (c) {
+      const id = c.dataset.id;
+      if (id) next.add(id);
+    });
+  });
+  cards.forEach(function (c) { c.classList.add('bulk-selected'); });
+  if (!window.NBDStore) updateBulkToolbar();
 }
 
 function updateBulkToolbar() {
-  const count = window._bulkSelected.size;
+  const count = getBulkSelected().size;
   const toolbar = document.getElementById('bulkActionBar');
   const countSpan = document.getElementById('bulkSelectedCount');
-  
+
   if (countSpan) countSpan.textContent = count + ' selected';
-  
+
+  if (!toolbar) return;
   if (count > 0) {
     toolbar.classList.add('active');
     toolbar.style.display = 'flex';
@@ -1842,11 +1903,11 @@ function updateBulkToolbar() {
 }
 
 function clearBulkSelection() {
-  window._bulkSelected.clear();
+  updateBulkSelection(function (next) { next.clear(); });
   document.querySelectorAll('.k-card.bulk-selected').forEach(card => {
     card.classList.remove('bulk-selected');
   });
-  updateBulkToolbar();
+  if (!window.NBDStore) updateBulkToolbar();
 }
 
 async function bulkMoveStage() {
@@ -1889,39 +1950,125 @@ async function bulkMoveStage() {
 }
 
 async function bulkDelete() {
-  if (window._bulkSelected.size === 0) {
+  const selSet = getBulkSelected();
+  if (selSet.size === 0) {
     showToast('No cards selected', 'error');
     return;
   }
 
   const _askDel = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-  if (!(await _askDel(`Delete ${window._bulkSelected.size} lead(s)? They will be moved to the trash.`))) {
+  if (!(await _askDel(`Delete ${selSet.size} lead(s)? They will be moved to the trash.`))) {
     return;
   }
-  
-  const selectedIds = Array.from(window._bulkSelected);
-  
+
+  const selectedIds = Array.from(selSet);
+
+  // writeBatch is atomic + 1 round-trip vs N for a serial loop. Caps
+  // at 500 ops per batch (Firestore hard limit). Joe's biggest manual
+  // selection in practice is ~30, but the chunk loop is here for the
+  // someday-flat-CSV-import case that sweeps a few hundred dupes.
+  if (!window.writeBatch || !window.db || !window.doc) {
+    showToast('Bulk delete unavailable — Firestore not loaded', 'error');
+    return;
+  }
+
   try {
-    for (const leadId of selectedIds) {
-      // Soft delete - mark as deleted
-      await _updateDoc(_doc(window.db, 'leads', leadId), {
-        deleted: true,
-        deletedAt: _serverTimestamp()
-      });
-    }
-    
-    // Reload leads
+    await commitBulkLeadOp(selectedIds, function (batch, ref) {
+      batch.update(ref, { deleted: true, deletedAt: _serverTimestamp() });
+    });
+
     await loadLeads();
-    
-    // Clear selection and exit bulk mode
     clearBulkSelection();
     toggleBulkMode();
-    
     showToast(`Deleted ${selectedIds.length} lead(s)`, 'ok');
-    
   } catch (error) {
     console.error('Bulk delete error:', error);
-    showToast('Some deletions failed. Please try again.', 'error');
+    showToast('Bulk delete failed: ' + (error && error.message || 'unknown error'), 'error');
+  }
+}
+
+// Apply a single field write to every selected lead via writeBatch.
+// Used by bulkAssignCarrier + bulkAssignDamage. Field allowlist is
+// enforced so a future caller can't accidentally bulk-write
+// privileged fields (companyId, role, isAdmin) — those are blocked
+// by firestore.rules anyway, but a client-side allowlist gives a
+// faster failure than a write that the rules silently reject for
+// the entire batch.
+const BULK_LEAD_FIELDS = new Set(['carrier', 'damageType', 'followUp', 'tags']);
+
+async function bulkAssignField(field, value, label) {
+  if (!BULK_LEAD_FIELDS.has(field)) {
+    console.error('Bulk field not allowlisted:', field);
+    showToast('Bulk field not supported', 'error');
+    return;
+  }
+  const selSet = getBulkSelected();
+  if (selSet.size === 0) { showToast('No cards selected', 'error'); return; }
+
+  const _askSet = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _askSet(`Set ${label || field} on ${selSet.size} lead(s) to "${value}"?`))) return;
+
+  if (!window.writeBatch || !window.db || !window.doc) {
+    showToast('Bulk update unavailable — Firestore not loaded', 'error');
+    return;
+  }
+
+  const ids = Array.from(selSet);
+  try {
+    await commitBulkLeadOp(ids, function (batch, ref) {
+      const patch = {};
+      patch[field] = value;
+      patch.updatedAt = _serverTimestamp();
+      batch.update(ref, patch);
+    });
+
+    // Optimistic local state update so the kanban reflects without
+    // a full reload.
+    (window._leads || []).forEach(function (l) {
+      if (selSet.has(l.id)) l[field] = value;
+    });
+    if (typeof renderLeads === 'function') {
+      renderLeads(window._leads, window._filteredLeads);
+    }
+
+    clearBulkSelection();
+    toggleBulkMode();
+    showToast(`Updated ${ids.length} lead(s) → ${label || field}: ${value}`, 'ok');
+  } catch (error) {
+    console.error('Bulk assign error:', error);
+    showToast('Bulk update failed: ' + (error && error.message || 'unknown error'), 'error');
+  }
+}
+
+async function bulkAssignCarrier() {
+  const sel = document.getElementById('bulkCarrierSelect');
+  const value = sel && sel.value;
+  if (!value) { showToast('Pick a carrier first', 'error'); return; }
+  return bulkAssignField('carrier', value, 'Carrier');
+}
+
+async function bulkAssignDamage() {
+  const sel = document.getElementById('bulkDamageSelect');
+  const value = sel && sel.value;
+  if (!value) { showToast('Pick a damage type first', 'error'); return; }
+  return bulkAssignField('damageType', value, 'Damage');
+}
+
+// Chunk a single Firestore writeBatch op across an arbitrary list of
+// lead ids. Each chunk is committed independently — a network blip
+// on chunk 2 leaves chunks 0-1 committed and the toast surfaces a
+// partial-failure error. Joe's manual selections (~30) fit in one
+// chunk; the loop is defense for someday-larger sweeps.
+async function commitBulkLeadOp(ids, applyToBatch) {
+  const CHUNK = 450; // Firestore hard limit is 500; leave headroom.
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const batch = window.writeBatch(window.db);
+    for (const id of slice) {
+      const ref = window.doc(window.db, 'leads', id);
+      applyToBatch(batch, ref);
+    }
+    await batch.commit();
   }
 }
 
@@ -2190,6 +2337,10 @@ window.toggleCardSelection = toggleCardSelection;
 window.clearBulkSelection = clearBulkSelection;
 window.bulkMoveStage = bulkMoveStage;
 window.bulkDelete = bulkDelete;
+window.bulkAssignCarrier = bulkAssignCarrier;
+window.bulkAssignDamage  = bulkAssignDamage;
+window.selectAllVisibleLeads = selectAllVisibleLeads;
+window.updateBulkToolbar = updateBulkToolbar;
 window.refreshTrashBadge = refreshTrashBadge;
 // restoreLead and permanentlyDelete are defined in dashboard.html as _restoreLead and _permanentDeleteLead
 window.restoreLead = (id) => window._restoreLead(id);
