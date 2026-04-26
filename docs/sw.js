@@ -1,5 +1,5 @@
-// NBD Pro Service Worker v2.6 — bump cache for dropdown toggle + blog footer structure fixes
-const CACHE_VERSION = 8;
+// NBD Pro Service Worker v2.7 — bump cache for dropdown click-toggle blur fix
+const CACHE_VERSION = 9;
 const CACHE_NAME = 'nbd-pro-v' + CACHE_VERSION;
 const STATIC_CACHE = 'nbd-static-v' + CACHE_VERSION;
 const D2D_CACHE = 'nbd-d2d-v' + CACHE_VERSION;
