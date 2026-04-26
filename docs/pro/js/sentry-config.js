@@ -30,7 +30,7 @@
   'use strict';
 
   // PASTE YOUR SENTRY DSN BETWEEN THE QUOTES ───────────────────────
-  var NBD_SENTRY_DSN = '';
+  var NBD_SENTRY_DSN = 'https://d0a34c2c137f997d7b65cc25f6500fb2@o4511287861968896.ingest.us.sentry.io/4511287883268096';
   // ─────────────────────────────────────────────────────────────────
 
   window.__NBD_SENTRY_DSN = NBD_SENTRY_DSN;
@@ -40,5 +40,5 @@
   // pipeline yet so the date stamp is a coarse but useful proxy. Bump
   // on every meaningful deploy or wire to the git SHA when esbuild
   // lands.
-  window.__NBD_RELEASE = 'web@2026-04-26';
+  window.__NBD_RELEASE = 'web@2026-04-26-sentry-on';
 })();
