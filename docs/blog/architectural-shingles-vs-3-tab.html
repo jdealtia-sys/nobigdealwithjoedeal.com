@@ -344,7 +344,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900&amp;&amp;!this.parentElement.classList.contains(&apos;open&apos;)){event.preventDefault();document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});this.parentElement.classList.add(&apos;open&apos;)}">Services
+    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;)}">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -566,6 +566,21 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <li><a href="/areas/">Butler County</a></li>
     </ul>
   </div>
+    </aside>
+<!-- IN-ARTICLE CTA -->
+<div style="margin:36px 0;padding:28px 32px;background:linear-gradient(135deg,#1e3a6e,#142a52);border:2px solid #e8720c;border-radius:14px;text-align:center">
+  <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;margin-bottom:8px;letter-spacing:1px">Ready for a Free Estimate?</p>
+  <p style="color:rgba(255,255,255,.7);font-size:.88rem;margin-bottom:20px;line-height:1.6">Get a ballpark roof cost in 30 seconds &mdash; no phone call, no pressure.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <a href="/estimate" style="display:inline-block;background:#e8720c;color:white;padding:14px 28px;border-radius:8px;font-weight:800;font-size:.9rem;text-decoration:none">&#128200; Instant Estimate</a>
+    <a href="tel:8594207382" style="display:inline-block;border:1px solid rgba(255,255,255,.3);color:white;padding:14px 28px;border-radius:8px;font-weight:700;font-size:.9rem;text-decoration:none">&#128222; Call Joe</a>
+  </div>
+  <p style="margin-top:12px;font-size:.7rem;color:rgba(255,255,255,.4)">GAF Certified&trade; Contractor &#8226; Licensed &amp; Insured &#8226; 5-Star Rated</p>
+  <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified&trade; Contractor on GAF.com" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px 12px;text-decoration:none"><img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified&trade; Residential Roofing Contractor" width="32" height="32" loading="lazy" style="display:block"><span style="color:rgba(255,255,255,.7);font-size:.66rem;font-weight:700;letter-spacing:.04em">Verify on GAF.com &rarr;</span></a>
+</div>
+
+<footer>
+  <div class="footer-grid">
     <div class="footer-col"><h4>Services</h4><ul>
       <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
       <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
@@ -608,17 +623,6 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </div>
 </footer>
 <script></script>
-<!-- IN-ARTICLE CTA -->
-<div style="margin:36px 0;padding:28px 32px;background:linear-gradient(135deg,#1e3a6e,#142a52);border:2px solid #e8720c;border-radius:14px;text-align:center">
-  <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;margin-bottom:8px;letter-spacing:1px">Ready for a Free Estimate?</p>
-  <p style="color:rgba(255,255,255,.7);font-size:.88rem;margin-bottom:20px;line-height:1.6">Get a ballpark roof cost in 30 seconds &mdash; no phone call, no pressure.</p>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-    <a href="/estimate" style="display:inline-block;background:#e8720c;color:white;padding:14px 28px;border-radius:8px;font-weight:800;font-size:.9rem;text-decoration:none">&#128200; Instant Estimate</a>
-    <a href="tel:8594207382" style="display:inline-block;border:1px solid rgba(255,255,255,.3);color:white;padding:14px 28px;border-radius:8px;font-weight:700;font-size:.9rem;text-decoration:none">&#128222; Call Joe</a>
-  </div>
-  <p style="margin-top:12px;font-size:.7rem;color:rgba(255,255,255,.4)">GAF Certified&trade; Contractor &#8226; Licensed &amp; Insured &#8226; 5-Star Rated</p>
-  <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified&trade; Contractor on GAF.com" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px 12px;text-decoration:none"><img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified&trade; Residential Roofing Contractor" width="32" height="32" loading="lazy" style="display:block"><span style="color:rgba(255,255,255,.7);font-size:.66rem;font-weight:700;letter-spacing:.04em">Verify on GAF.com &rarr;</span></a>
-</div>
 <script>
 (function(){
   const slides = document.querySelectorAll('.ann-slide');
