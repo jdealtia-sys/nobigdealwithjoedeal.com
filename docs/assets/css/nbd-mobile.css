@@ -297,6 +297,51 @@ img, video {
     font-size: .76rem !important;
     letter-spacing: .04em !important;
   }
+
+  /* SERVICE AREAS contact grid — inline page CSS keeps it at 2 columns
+     down to 768px but each .areas-contact-item is ~257px wide, so two
+     of them blow past a 360px phone viewport by 76px and force the
+     entire <html> to scroll horizontally. Single-column on phones. */
+  .areas-contact {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .areas-contact-item {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* CONTACT / FORM SECTIONS — collapse all multi-column form layouts to
+     single column and force full-width form cards. Inline page CSS has
+     a 768px breakpoint for form-row already, but the contact-grid and
+     contact-form-card sometimes hold a desktop column width at narrow
+     phones. !important guards win regardless. */
+  .contact-grid,
+  .contact-grid > * {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    width: auto !important;
+  }
+  .contact-form-card,
+  .form-success,
+  .estimate-form,
+  form {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+  .contact-form-card {
+    padding: 24px 18px !important;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
 }
 
 /* ─── EXTRA-NARROW PHONES (≤ 380px) ──────────────────────────────────────── */
