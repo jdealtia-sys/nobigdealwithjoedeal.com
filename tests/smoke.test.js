@@ -2650,6 +2650,24 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
+section('Service worker — cross-origin passthrough');
+{
+  const sw = read(path.join(ROOT, 'docs/sw.js'));
+  // Cache version bump invalidates browser caches of the old broken SW.
+  assert('sw.js CACHE_VERSION bumped to 3+ (forces clients to pick up the new SW)',
+    /const CACHE_VERSION\s*=\s*[3-9]\d*/.test(sw),
+    'must be >= 3 so browsers re-register and drop the broken v2 SW');
+  // Cross-origin passthrough — the actual fix.
+  assert('sw.js fetch handler bypasses cross-origin requests',
+    /url\.origin\s*!==\s*self\.location\.origin\s*\)\s*return/.test(sw),
+    'expected an early return for url.origin !== self.location.origin in the fetch listener');
+  // The check must come before the cache-strategy branches, otherwise
+  // it never fires.
+  assert('cross-origin bypass runs before strategies 2-5',
+    /url\.origin !== self\.location\.origin\)\s*return;[\s\S]*Strategy 2:/.test(sw),
+    'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
+}
+
 section('Customer photo multi-select + batched commit');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
