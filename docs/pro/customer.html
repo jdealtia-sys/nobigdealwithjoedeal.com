@@ -597,6 +597,10 @@ header {
   display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
   gap:8px;
 }
+/* JS hover used to add 2 listeners per tile (160 listeners on an 80-photo
+   lead). CSS hover does the same job for free. */
+.nbd-phase-photo { transition: transform .2s; }
+.nbd-phase-photo:hover { transform: scale(1.03); }
 
 /* DOCUMENT & REPORT ITEMS */
 .doc-item {
@@ -4490,19 +4494,98 @@ window.filterPhotos = function(filter, btn) {
   renderPhotoGrid();
 };
 
+// Default cap per phase. Joe's biggest leads (e.g. McCane's 80+ photos)
+// were unscrollable because every phase rendered all photos at once.
+// "Show all" button toggles the per-phase _phaseExpanded flag.
+var PHOTO_PHASE_CAP = 25;
+window._phaseExpanded = window._phaseExpanded || { 'Before': false, 'During': false, 'After': false };
+
+function nbdEscFn() {
+  return window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
+}
+
+function buildPhotoBadges(photo, esc) {
+  var badges = '';
+  if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:var(--orange);">' + esc(photo.damageType) + '</span>';
+  if (photo.severity) {
+    var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
+    badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
+  }
+  if (photo.isAnnotated) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
+  return badges;
+}
+
+function buildPhotoTile(photo, esc) {
+  var safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
+  var badges = buildPhotoBadges(photo, esc);
+  var tile = '<div class="photo-item nbd-phase-photo" data-photo-id="' + esc(photo.id) + '" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);">';
+  tile += '<img src="' + esc(safeUrl) + '" alt="Photo" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">';
+  tile += '<div class="nbd-photo-badge-row" style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:' + (badges ? 'flex' : 'none') + ';flex-wrap:wrap;gap:2px;">' + badges + '</div>';
+  tile += '</div>';
+  return tile;
+}
+
+// Surgically patch a single tile's badges + (optionally) image src in
+// place. No full grid re-render. Phase changes still need a full
+// re-render because the tile lives in a different phase section —
+// quickSaveMeta detects that case.
+function updatePhotoTile(photoId) {
+  var photo = window._photoById && window._photoById.get(photoId);
+  if (!photo) return;
+  var tile = document.querySelector('.nbd-phase-photo[data-photo-id="' + (window.CSS && CSS.escape ? CSS.escape(photoId) : photoId) + '"]');
+  if (!tile) return; // tile not in current view (filtered out or phase collapsed)
+  var badgeRow = tile.querySelector('.nbd-photo-badge-row');
+  if (!badgeRow) return;
+  var esc = nbdEscFn();
+  var badges = buildPhotoBadges(photo, esc);
+  badgeRow.innerHTML = badges;
+  badgeRow.style.display = badges ? 'flex' : 'none';
+}
+
+window.toggleShowAllPhase = function(phase) {
+  window._phaseExpanded[phase] = !window._phaseExpanded[phase];
+  renderPhotoGrid();
+};
+
+// Single delegated click listener for the whole photo grid. Attached
+// once and reused — re-renders don't re-bind.
+function ensurePhotoGridDelegate() {
+  var grid = document.getElementById('photosByPhase');
+  if (!grid || grid.dataset.nbdDelegated === '1') return;
+  grid.dataset.nbdDelegated = '1';
+  grid.addEventListener('click', function(ev) {
+    // Show-all toggle inside a phase header.
+    var toggleBtn = ev.target.closest('.nbd-show-all-btn');
+    if (toggleBtn && toggleBtn.dataset.phase) {
+      ev.preventDefault();
+      window.toggleShowAllPhase(toggleBtn.dataset.phase);
+      return;
+    }
+    // Photo tile click → opens quick-edit popup.
+    var tile = ev.target.closest('.nbd-phase-photo');
+    if (!tile) return;
+    var photoId = tile.dataset.photoId;
+    var photo = window._photoById && window._photoById.get(photoId);
+    if (!photo) return;
+    var idx = (window._allPhotos || []).indexOf(photo);
+    if (idx >= 0 && typeof showPhotoActions === 'function') showPhotoActions(idx, ev);
+  });
+}
+
 function renderPhotoGrid() {
   var photos = window._allPhotos || [];
   var filter = window._photoFilter || 'all';
-  
+
   var filtered = photos;
   if (filter === 'Before' || filter === 'During' || filter === 'After') {
     filtered = photos.filter(function(p){ return p.phase === filter; });
   } else if (filter === 'annotated') {
     filtered = photos.filter(function(p){ return p.isAnnotated; });
   }
-  
+
   if (filtered.length === 0) {
     document.getElementById('photosByPhase').innerHTML = '<div class="empty"><div class="empty-icon">&#128248;</div>' + (photos.length ? 'No photos match this filter' : 'No photos yet') + '</div>';
+    ensurePhotoGridDelegate();
     return;
   }
 
@@ -4513,50 +4596,38 @@ function renderPhotoGrid() {
   });
 
   var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
-  var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
+  var esc = nbdEscFn();
   var html = '';
 
   ['Before', 'During', 'After'].forEach(function(phase) {
-    var list = phases[phase];
-    if (list.length === 0) return;
+    var fullList = phases[phase];
+    if (fullList.length === 0) return;
     var color = phaseColors[phase];
+    var expanded = !!window._phaseExpanded[phase];
+    var visible = (expanded || fullList.length <= PHOTO_PHASE_CAP) ? fullList : fullList.slice(0, PHOTO_PHASE_CAP);
+    var hidden = fullList.length - visible.length;
 
     html += '<div class="photo-phase" style="margin-bottom:20px;">';
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + color + ';">';
     html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';"></div>';
     html += '<div class="photo-phase-title" style="margin:0;font-size:15px;font-weight:700;">' + esc(phase) + ' Phase</div>';
-    html += '<span style="font-size:12px;color:var(--muted);">(' + list.length + ')</span>';
+    html += '<span style="font-size:12px;color:var(--muted);">(' + fullList.length + (hidden ? ' • showing ' + visible.length : '') + ')</span>';
     html += '</div>';
     html += '<div class="photo-grid-phase" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
-
-    list.forEach(function(photo) {
-      var badges = '';
-      if (photo.damageType) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:var(--orange);">' + esc(photo.damageType) + '</span>';
-      if (photo.severity) {
-        var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
-        badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
-      }
-      if (photo.isAnnotated) badges += '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#a855f7;">Annotated</span>';
-
-      var globalIdx = (window._allPhotos || []).indexOf(photo);
-      var safeUrl = /^https?:/i.test(String(photo.url || '')) ? photo.url : '';
-
-      html += '<div class="photo-item nbd-phase-photo" data-photo-global-idx="' + globalIdx + '" style="position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;border:1px solid var(--br);transition:transform .2s;">';
-      html += '<img src="' + esc(safeUrl) + '" alt="Photo" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">';
-      if (badges) html += '<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));display:flex;flex-wrap:wrap;gap:2px;">' + badges + '</div>';
-      html += '</div>';
-    });
-
-    html += '</div></div>';
+    for (var i = 0; i < visible.length; i++) {
+      html += buildPhotoTile(visible[i], esc);
+    }
+    html += '</div>';
+    if (fullList.length > PHOTO_PHASE_CAP) {
+      var label = expanded ? 'Show first ' + PHOTO_PHASE_CAP : 'Show all ' + fullList.length;
+      html += '<button type="button" class="nbd-show-all-btn" data-phase="' + esc(phase) + '" style="margin-top:8px;width:100%;padding:8px;background:transparent;color:' + color + ';border:1px solid ' + color + ';border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">' + label + ' (' + fullList.length + ' total)</button>';
+    }
+    html += '</div>';
   });
 
   var pbpEl = document.getElementById('photosByPhase');
   pbpEl.innerHTML = html;
-  pbpEl.querySelectorAll('.nbd-phase-photo').forEach(function(el){
-    el.addEventListener('click', function(ev){ showPhotoActions(Number(el.dataset.photoGlobalIdx), ev); });
-    el.addEventListener('mouseover', function(){ el.style.transform = 'scale(1.03)'; });
-    el.addEventListener('mouseout', function(){ el.style.transform = ''; });
-  });
+  ensurePhotoGridDelegate();
 }
 
 window.loadPhotosByPhase = async function(leadId) {
@@ -4573,9 +4644,10 @@ window.loadPhotosByPhase = async function(leadId) {
     }
 
     window._allPhotos = [];
+    window._photoById = new Map();
     snap.forEach(function(doc) {
       var d = doc.data();
-      window._allPhotos.push({
+      var photo = {
         id: doc.id,
         url: d.url,
         phase: d.phase || 'During',
@@ -4589,7 +4661,9 @@ window.loadPhotosByPhase = async function(leadId) {
         isAnnotated: d.isAnnotated || false,
         date: d.date,
         uploadedAt: d.uploadedAt
-      });
+      };
+      window._allPhotos.push(photo);
+      window._photoById.set(photo.id, photo);
     });
 
     updatePhotoStats();
@@ -4931,8 +5005,9 @@ window.quickSetSeverity = function(sev, btn) {
 window.quickSaveMeta = async function() {
   var photo = (window._allPhotos || [])[window._quickEditPhotoIdx];
   if (!photo || !photo.id) return;
-  
+
   try {
+    var prevPhase = photo.phase;
     var updates = {
       phase: photo.phase || 'During',
       damageType: document.getElementById('qeDamageType')?.value || '',
@@ -4940,17 +5015,23 @@ window.quickSaveMeta = async function() {
       location: document.getElementById('qeLocation')?.value || '',
       description: document.getElementById('qeDescription')?.value || ''
     };
-    
+
     // Update local data
     Object.assign(photo, updates);
-    
+
     // Save to Firestore
     await window.updateDoc(window.doc(window.db, 'photos', photo.id), updates);
-    
-    // Refresh the grid
+
+    // Surgical update: if phase didn't change, just patch the badges on
+    // this one tile (O(1)). If phase changed, the tile lives in a
+    // different section so a full re-render is needed (rare path).
     updatePhotoStats();
-    renderPhotoGrid();
-    
+    if (updates.phase === prevPhase) {
+      updatePhotoTile(photo.id);
+    } else {
+      renderPhotoGrid();
+    }
+
     if (window.showToast) window.showToast('Photo updated', 'success');
   } catch (error) {
     console.error('Error saving photo metadata:', error);
@@ -4960,24 +5041,27 @@ window.quickSaveMeta = async function() {
 
 window.deletePhoto = async function(photoId) {
   if (!confirm('Delete this photo? This cannot be undone.')) return;
-  
+
   try {
     await window.deleteDoc(window.doc(window.db, 'photos', photoId));
-    
-    // Remove from local array
+
+    // Remove from local array + id Map
     window._allPhotos = (window._allPhotos || []).filter(function(p) { return p.id !== photoId; });
-    
+    if (window._photoById) window._photoById.delete(photoId);
+
     // Close popup
     var popup = document.getElementById('photoActionPopup');
     if (popup) popup.remove();
-    
-    // Refresh
+
+    // Counts always need recompute. The phase header counts depend on
+    // the deleted photo's old phase, so we let renderPhotoGrid() rebuild
+    // — this is a rare event compared to metadata edits.
     updatePhotoStats();
     renderPhotoGrid();
-    
+
     // Also refresh overview photos
     try { await loadPhotos(window._customerId); } catch(e) {}
-    
+
     if (window.showToast) window.showToast('Photo deleted', 'success');
   } catch (error) {
     console.error('Error deleting photo:', error);

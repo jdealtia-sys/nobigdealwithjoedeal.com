@@ -2650,6 +2650,37 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
+section('Customer photo grid — surgical render path');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  // _photoById Map for O(1) lookup (was O(n) indexOf inside the render loop).
+  assert('customer.html populates window._photoById Map in loadPhotosByPhase',
+    /window\._photoById\s*=\s*new Map\(\)/.test(customer));
+  // Surgical update entry point — patches one tile's badges in place.
+  assert('customer.html exports updatePhotoTile helper',
+    /function updatePhotoTile\(photoId\)/.test(customer));
+  // Tiles must carry the stable id so updatePhotoTile can find them.
+  assert('customer.html photo tiles use data-photo-id (not data-photo-global-idx)',
+    /data-photo-id="/.test(customer) && !/data-photo-global-idx/.test(customer));
+  // Single delegated click listener — replaces 80 per-tile listeners.
+  assert('customer.html photo grid uses delegated click listener',
+    /ensurePhotoGridDelegate/.test(customer)
+    && /grid\.addEventListener\(['"]click['"]/.test(customer));
+  // CSS hover replaces the JS mouseover/mouseout pair (160 listeners on 80 photos).
+  assert('customer.html .nbd-phase-photo:hover is CSS, not JS',
+    /\.nbd-phase-photo:hover\s*\{\s*transform:\s*scale/.test(customer)
+    && !/addEventListener\(['"]mouseover['"]/.test(customer));
+  // Per-phase 25-photo cap with show-all toggle.
+  assert('customer.html caps each phase to 25 with show-all toggle',
+    /PHOTO_PHASE_CAP\s*=\s*25/.test(customer)
+    && /toggleShowAllPhase/.test(customer)
+    && /nbd-show-all-btn/.test(customer));
+  // quickSaveMeta must call updatePhotoTile when the phase didn't
+  // change — the whole point of this PR.
+  assert('quickSaveMeta calls updatePhotoTile for same-phase edits',
+    /updates\.phase === prevPhase[\s\S]{0,80}updatePhotoTile\(photo\.id\)/.test(customer));
+}
+
 section('Rock 4 rollback fallback (Phase 3 prep)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
