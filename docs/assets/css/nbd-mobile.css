@@ -23,6 +23,16 @@ body {
   overflow-x: clip;
   min-width: 100%;        /* never narrower than the layout viewport */
   min-height: 100vh;      /* fill viewport vertically so html bg doesn't bleed below the fold */
+  /* Sticky footer pattern — short pages (e.g. some blog posts, 404, offline)
+     used to render footer mid-viewport because content didn't fill the
+     screen. Flexbox + margin-top:auto on the last child pushes the
+     footer to the bottom whenever total content < viewport height. */
+  display: flex;
+  flex-direction: column;
+}
+body > footer:last-child,
+body > footer:last-of-type {
+  margin-top: auto;
 }
 
 /* Brand background on <html> so Android landscape safe-areas
