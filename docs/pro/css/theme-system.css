@@ -1,5 +1,4 @@
-
-:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:#1E2229;--ink:#E8EAF0;--rule:rgba(255,255,255,.09); }
+:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:var(--s3);--ink:var(--t);--rule:rgba(255,255,255,.09); }
 :root[data-theme="midnight"] { --orange:#6366F1;--ob:#818CF8;--og:rgba(99,102,241,.2);--bg:#0F0F1A;--s:#141425;--s2:#1A1A33;--s3:#22223F;--br:rgba(255,255,255,.08);--t:#E2E8F0;--m:#64748B;--blue:#38BDF8;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#1A1A33;--ink:#E2E8F0;--rule:rgba(255,255,255,.1); }
 :root[data-theme="cobalt"] { --orange:#2563EB;--ob:#3B82F6;--og:rgba(37,99,235,.2);--bg:#0A1628;--s:#0F1E3A;--s2:#142348;--s3:#1A2A56;--br:rgba(255,255,255,.08);--t:#EFF6FF;--m:#60A5FA;--blue:#38BDF8;--green:#34D399;--purple:#818CF8;--red:#F87171;--gold:#FBBF24;--paper:#142348;--ink:#EFF6FF;--rule:rgba(255,255,255,.1); }
 :root[data-theme="forest"] { --orange:#16A34A;--ob:#22C55E;--og:rgba(22,163,74,.2);--bg:#0A1A0F;--s:#0F2218;--s2:#142B20;--s3:#1A3428;--br:rgba(255,255,255,.08);--t:#ECFDF5;--m:#6EE7B7;--blue:#38BDF8;--green:#4ADE80;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#142B20;--ink:#ECFDF5;--rule:rgba(255,255,255,.1); }
@@ -70,3 +69,10 @@
 :root[data-theme="copper"] { --orange:#b87333;--ob:#d8934e;--og:rgba(184,115,51,.28);--bg:#0c0800;--s:#1a1200;--s2:#281e00;--s3:#362a00;--br:rgba(184,115,51,.1);--t:#f8ecd8;--m:#a08058;--blue:#b87333;--green:#8bc34a;--purple:#9c8a4a;--red:#c0392b;--gold:#b87333;--paper:#281e00;--ink:#f8ecd8;--rule:rgba(184,115,51,.12); }
 :root[data-theme="sakura"] { --orange:#e8346c;--ob:#ff5080;--og:rgba(232,52,108,.2);--bg:#fff0f4;--s:#ffe8f0;--s2:#ffd8e8;--s3:#ffc8e0;--br:rgba(232,52,108,.08);--t:#2a0818;--m:#a04868;--blue:#e91e63;--green:#4caf50;--purple:#9c27b0;--red:#e8346c;--gold:#ffd600;--paper:#ffd8e8;--ink:#2a0818;--rule:rgba(232,52,108,.1); }
 /* ════ END v5 THEMES ════ */
+
+/* ── Trial Banners ── */
+#trial-banner{display:flex;align-items:center;gap:12px;padding:8px 16px;font-size:12px;font-weight:500;z-index:99998;justify-content:center;flex-wrap:wrap;}
+#trial-banner span{flex:1;min-width:200px;text-align:center;}
+.trial-warning{background:rgba(232,114,12,.12);color:var(--orange);border-bottom:1px solid rgba(232,114,12,.2);}
+.trial-urgent{background:rgba(224,82,82,.15);color:var(--red);border-bottom:1px solid rgba(224,82,82,.25);}
+.trial-expired{background:rgba(224,82,82,.2);color:#fca5a5;border-bottom:1px solid rgba(224,82,82,.3);}
