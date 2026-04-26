@@ -21,6 +21,8 @@
 
 body {
   overflow-x: clip;
+  min-width: 100%;        /* never narrower than the layout viewport */
+  min-height: 100vh;      /* fill viewport vertically so html bg doesn't bleed below the fold */
 }
 
 /* Brand background on <html> so Android landscape safe-areas
