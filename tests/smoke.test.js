@@ -2704,6 +2704,74 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('NBDStore — pub/sub state store + first-slice migration');
+{
+  const store    = read(path.join(ROOT, 'docs/pro/js/state-store.js'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const dash     = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const pkg      = JSON.parse(read(path.join(ROOT, 'tests/package.json')));
+
+  // Public surface — these names are the migration contract; renaming
+  // any of them silently breaks every call site that adopts the store.
+  assert('state-store exports create + get + set + subscribe + bind on window.NBDStore',
+    /window\.NBDStore\s*=\s*api/.test(store)
+    && /create:\s*create/.test(store)
+    && /get:\s*singleton\.get/.test(store)
+    && /set:\s*singleton\.set/.test(store)
+    && /subscribe:\s*singleton\.subscribe/.test(store)
+    && /bind:\s*singleton\.bind/.test(store));
+
+  // Identity-equality short-circuit — if this regresses, every legacy
+  // call site that does `set.add(x); store.set('photos.selected', set)`
+  // would silently fail to notify subscribers and the bulk-bar would
+  // never re-render. Test directly in state-store.test.js; smoke just
+  // pins the comparison line so a refactor can't drop it.
+  assert('set short-circuits when prev === value',
+    /if \(prev === value\) return false;/.test(store));
+
+  // Subscriber-throw isolation — a single buggy listener must not
+  // break every other listener for the same path.
+  assert('notify catches subscriber throws and continues',
+    /try \{[\s\S]{0,80}listeners\[i\]\(value, path\);[\s\S]{0,200}console\.error/.test(store));
+
+  // bind() is one-way (store → window). Two-way would let legacy
+  // direct writes to window._foo bypass subscribers entirely, so the
+  // doc + the impl must both refuse it.
+  assert('state-store documents one-way window mirror',
+    /NOT a two-way sync/.test(store));
+
+  // Both pages load the module BEFORE any feature script that might
+  // want to subscribe (sentry-init seeds error reporting; everything
+  // after that can read the store).
+  assert('customer.html loads state-store.js after sentry-init',
+    /sentry-init\.js[\s\S]{0,400}state-store\.js/.test(customer));
+  assert('dashboard.html loads state-store.js after sentry-init',
+    /sentry-init\.js[\s\S]{0,400}state-store\.js/.test(dash));
+
+  // First slice migrated — photos.selected. The customer page wires
+  // selection state into the store, binds it to the legacy global
+  // for backward compat, and re-emits to updateBulkBarUI via a
+  // subscriber so call sites don't need to know about the bar.
+  assert('customer.html seeds photos.selected slice in NBDStore',
+    /NBDStore\.set\(['"]photos\.selected['"], new Set\(\)\)/.test(customer));
+  assert('customer.html binds _photoSelected → photos.selected (one-way)',
+    /NBDStore\.bind\(['"]_photoSelected['"], ['"]photos\.selected['"]\)/.test(customer));
+  assert('customer.html subscribes bulk-bar render to photos.selected',
+    /NBDStore\.subscribe\(['"]photos\.selected['"][\s\S]{0,200}updateBulkBarUI/.test(customer));
+
+  // Mutations now go through the helper that swaps the Set ref —
+  // mutate-in-place would skip the identity check above and never
+  // notify subscribers.
+  assert('updatePhotoSelection swaps Set ref to trigger notify',
+    /function updatePhotoSelection\(mutate\)[\s\S]{0,400}var next = new Set\(prev\);[\s\S]{0,200}NBDStore\.set\(['"]photos\.selected['"], next\)/.test(customer));
+
+  // Test runner is wired so CI runs the unit suite.
+  assert('test:state npm script runs state-store.test.js',
+    !!(pkg.scripts && pkg.scripts['test:state'] === 'node ./state-store.test.js'));
+  assert('top-level test runs npm run test:state',
+    /npm run test:state/.test(pkg.scripts.test || ''));
+}
+
 section('Image pipeline (Storage trigger → WebP variants → srcset)');
 {
   const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
