@@ -1,5 +1,5 @@
-// NBD Pro Service Worker v2.3 — bump cache for viewport-fit=cover + zoom-fix rollout
-const CACHE_VERSION = 5;
+// NBD Pro Service Worker v2.4 — bump cache for menu rework (Premium Components group + Storm Damage reorder)
+const CACHE_VERSION = 6;
 const CACHE_NAME = 'nbd-pro-v' + CACHE_VERSION;
 const STATIC_CACHE = 'nbd-static-v' + CACHE_VERSION;
 const D2D_CACHE = 'nbd-d2d-v' + CACHE_VERSION;
