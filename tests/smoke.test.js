@@ -2658,9 +2658,15 @@ section('Service worker — cross-origin passthrough');
 {
   const sw = read(path.join(ROOT, 'docs/sw.js'));
   // Cache version bump invalidates browser caches of the old broken SW.
-  assert('sw.js CACHE_VERSION bumped to 3+ (forces clients to pick up the new SW)',
-    /const CACHE_VERSION\s*=\s*[3-9]\d*/.test(sw),
-    'must be >= 3 so browsers re-register and drop the broken v2 SW');
+  // Accept any integer >= 3 (single OR multi-digit; double-digit versions
+  // happen as we bump for repeated cache invalidations).
+  {
+    const m = sw.match(/const CACHE_VERSION\s*=\s*(\d+)/);
+    const version = m ? parseInt(m[1], 10) : 0;
+    assert('sw.js CACHE_VERSION bumped to 3+ (forces clients to pick up the new SW)',
+      version >= 3,
+      `must be >= 3 so browsers re-register and drop the broken v2 SW (got: ${version || 'no match'})`);
+  }
   // Cross-origin passthrough — the actual fix.
   assert('sw.js fetch handler bypasses cross-origin requests',
     /url\.origin\s*!==\s*self\.location\.origin\s*\)\s*return/.test(sw),
