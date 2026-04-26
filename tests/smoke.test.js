@@ -2650,6 +2650,37 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
+section('Customer photo multi-select + batched commit');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  // writeBatch must be imported AND exposed on window so the bulk
+  // handlers can invoke it.
+  assert('customer.html imports writeBatch from firestore SDK',
+    /import \{[^}]*writeBatch[^}]*\}\s*from\s*"https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/firebase-firestore\.js"/.test(customer));
+  assert('customer.html exposes window.writeBatch',
+    /window\.writeBatch\s*=\s*writeBatch/.test(customer));
+  // _photoSelected Set + tile checkbox overlay + bulk action bar DOM.
+  assert('customer.html declares window._photoSelected Set',
+    /window\._photoSelected\s*=\s*window\._photoSelected\s*\|\|\s*new Set/.test(customer));
+  assert('photo tile renders the selection checkbox span',
+    /class="nbd-photo-checkbox"/.test(customer));
+  assert('bulk action bar DOM is in place',
+    /id="nbdPhotoBulkBar"[\s\S]{0,1500}id="nbdPhotoBulkCount"[\s\S]{0,2000}id="nbdBulkPhase"[\s\S]{0,2000}id="nbdBulkSeverity"/.test(customer));
+  // Bulk handlers exist and use writeBatch (one round-trip for the
+  // whole batch — the whole point of this PR).
+  assert('applyBulkPhotoUpdate uses writeBatch',
+    /window\.applyBulkPhotoUpdate\s*=\s*async function[\s\S]{0,500}window\.writeBatch\(window\.db\)/.test(customer));
+  assert('applyBulkPhotoDelete uses writeBatch',
+    /window\.applyBulkPhotoDelete\s*=\s*async function[\s\S]{0,500}window\.writeBatch\(window\.db\)[\s\S]{0,500}batch\.delete\(/.test(customer));
+  // After a same-field bulk update, surgical updates happen — no full
+  // re-render unless the phase changed.
+  assert('bulk update prefers surgical updatePhotoTile over full re-render',
+    /phaseChanged[\s\S]{0,200}updatePhotoTile\(id\)/.test(customer));
+  // Click delegate enters selection mode without opening the quick-edit popup.
+  assert('photo grid delegate routes selection-mode clicks to togglePhotoSelection',
+    /isPhotoSelectMode\(\)[\s\S]{0,150}togglePhotoSelection\(photoId\)/.test(customer));
+}
+
 section('Customer photo upload — background-safe + global widget');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
