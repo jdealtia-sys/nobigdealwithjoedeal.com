@@ -2672,6 +2672,35 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('Firestore repository layer — write convention');
+{
+  const repos = read(path.join(ROOT, 'docs/pro/js/repos.js'));
+  // Public API surface — three repos with matching shapes.
+  assert('repos.js exports window.NBDRepos with leads/photos/estimates',
+    /window\.NBDRepos\s*=\s*\{[\s\S]*leads:\s*leads[\s\S]*photos:\s*photos[\s\S]*estimates:\s*estimates/.test(repos));
+  // stampCreate fills the 4 system fields exactly once. The Object.assign
+  // pattern with caller data SECOND lets backfill scripts override the
+  // stamps when they need to (e.g. preserving createdAt on imports).
+  assert('stampCreate stamps userId + companyId + createdAt + updatedAt',
+    /function stampCreate\([\s\S]{0,500}userId:\s*ctx\.uid[\s\S]{0,200}companyId:\s*ctx\.companyId[\s\S]{0,200}createdAt:\s*st[\s\S]{0,100}updatedAt:\s*st/.test(repos));
+  // stampUpdate forces updatedAt — call sites must not override.
+  assert('stampUpdate forces server updatedAt (caller cannot bump)',
+    /function stampUpdate[\s\S]{0,300}Object\.assign\(\{\},\s*data,\s*\{\s*updatedAt:\s*st\s*\}\)/.test(repos));
+  // context() throws fast when uid or companyId is missing — better
+  // than letting firestore.rules reject the write later.
+  assert('context() throws specific errors when uid/companyId missing',
+    /code\s*=\s*['"]unauthenticated['"]/.test(repos)
+    && /code\s*=\s*['"]no-company['"]/.test(repos));
+  // Bulk write helpers use writeBatch — atomic round-trip.
+  assert('photos.bulkUpdate uses writeBatch',
+    /bulkUpdate:\s*async function[\s\S]{0,300}window\.writeBatch\(window\.db\)/.test(repos));
+  // Soft-delete sets deleted:true rather than calling deleteDoc,
+  // because cross-collection references would orphan otherwise.
+  assert('leads.softDelete sets deleted:true (not deleteDoc)',
+    /softDelete:\s*async function[\s\S]{0,200}deleted:\s*true/.test(repos)
+    && /hardDelete:\s*async function[\s\S]{0,200}window\.deleteDoc/.test(repos));
+}
+
 section('JSDoc typedefs — Firestore document shapes');
 {
   const types = read(path.join(ROOT, 'docs/pro/js/types.js'));
