@@ -2856,6 +2856,17 @@ exports.migrationsTick = _migrations.migrationsTick;
 const _imagePipeline = require('./image-pipeline');
 exports.onPhotoUploaded = _imagePipeline.onPhotoUploaded;
 
+// ═════════════════════════════════════════════════════════════
+// SHARE SSR — server-rendered preview at /share/:token. Renders
+// a static HTML page with og: + twitter: meta so iMessage /
+// Messenger / WhatsApp / Facebook show a real preview card when
+// Joe SMSes the link to a homeowner. Hands off to
+// /pro/portal.html for the rich client-side full view.
+// see functions/share-ssr.js
+// ═════════════════════════════════════════════════════════════
+const _shareSSR = require('./share-ssr');
+exports.shareSSR = _shareSSR.shareSSR;
+
 exports.cspReport = onRequest(
   {
     region: 'us-central1',
