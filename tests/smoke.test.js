@@ -2672,6 +2672,49 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('Per-route rate-limit policy');
+{
+  const policy = read(path.join(ROOT, 'functions/rate-limit-policy.js'));
+  // Public surface: declarative ROUTES table + two wrappers.
+  assert('rate-limit-policy exports ROUTES + guardCallable + guardHttp',
+    /module\.exports\s*=\s*\{[\s\S]*ROUTES,[\s\S]*guardCallable,[\s\S]*guardHttp/.test(policy));
+  // Default policy: when a route name isn't in ROUTES, the wrapper
+  // applies a safe default AND emits a structured warning so the gap
+  // shows up in Cloud Logging instead of going unenforced.
+  assert('policyFor falls back to DEFAULT_POLICY + emits structured warning',
+    /logger\(\)\.warn\(['"]rate_limit_no_policy['"]/.test(policy)
+    && /DEFAULT_POLICY/.test(policy));
+  // Both ceilings are enforced — per-IP first (cheaper denial), then
+  // per-uid. Specifically: the wrapper must NOT skip uid enforcement
+  // when an IP check passes. The :ip enforce call must precede :uid.
+  {
+    const guardBody = (policy.match(/function guardCallable[\s\S]+?\n\}/) || ['',''])[0];
+    const ipPos  = guardBody.indexOf("enforceRateLimit(name + ':ip'");
+    const uidPos = guardBody.indexOf("enforceRateLimit(name + ':uid'");
+    assert('guardCallable enforces per-IP THEN per-uid (both, not either-or)',
+      ipPos > -1 && uidPos > -1 && ipPos < uidPos,
+      'expected ip enforce to appear before uid enforce in guardCallable');
+  }
+  // 429 path on the HTTP wrapper sets Retry-After honestly.
+  assert('guardHttp 429 path sets Retry-After header',
+    /Retry-After[\s\S]{0,200}retryAfterMs/.test(policy));
+  // High-risk routes have explicit ceilings (claudeProxy +
+  // submitPublicLead must never silently fall to the default).
+  assert('high-risk routes have explicit policy entries',
+    /claudeProxy:\s*\{/.test(policy)
+    && /submitPublicLead:\s*\{/.test(policy)
+    && /publicVisualizerAI:\s*\{/.test(policy)
+    && /validateAccessCode:\s*\{/.test(policy));
+  // Anonymous CSP report sink must not be uid-locked (uidLimit:0 →
+  // bypass the uid branch since unauthenticated browsers POST it).
+  assert('cspReport policy is per-IP only (uidLimit:0)',
+    /cspReport:\s*\{[^}]*uidLimit:\s*0/.test(policy));
+  // The matrix accessor returns a frozen snapshot — caller can't
+  // mutate live policy at runtime.
+  assert('getRateLimitMatrix returns Object.freeze snapshot',
+    /function getRateLimitMatrix[\s\S]{0,300}Object\.freeze/.test(policy));
+}
+
 section('Migration framework — versioned runner');
 {
   const runner = read(path.join(ROOT, 'functions/migrations/runner.js'));
