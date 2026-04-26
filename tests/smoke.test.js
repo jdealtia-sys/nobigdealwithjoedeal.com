@@ -2704,6 +2704,91 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('Share SSR — server-rendered /share/:token preview');
+{
+  const ssr      = read(path.join(ROOT, 'functions/share-ssr.js'));
+  const idx      = read(FUNCTIONS + '/index.js');
+  const fbJson   = JSON.parse(read(path.join(ROOT, 'firebase.json')));
+
+  // Public surface — onRequest export wired into index.js.
+  assert('share-ssr exports shareSSR onRequest',
+    /exports\.shareSSR\s*=\s*onRequest/.test(ssr));
+  assert('functions/index.js wires exports.shareSSR',
+    /exports\.shareSSR\s*=\s*_shareSSR\.shareSSR/.test(idx));
+
+  // Hosting rewrite — /share/** must route to the function. The
+  // matcher uses ** (not :token) because Firebase Hosting v1
+  // rewrites accept globs; the function reads the token off
+  // req.path with its own regex.
+  const shareRewrite = (fbJson.hosting && fbJson.hosting.rewrites || [])
+    .find(r => r.source === '/share/**');
+  assert('firebase.json rewrites /share/** → shareSSR cloud function',
+    !!shareRewrite
+    && shareRewrite.function
+    && shareRewrite.function.functionId === 'shareSSR');
+
+  // GET-only — POST/PUT/DELETE on this endpoint should not run
+  // any work. The 405 response also needs the Allow header so a
+  // crawler retrying with GET knows what to do.
+  assert('shareSSR rejects non-GET methods with 405 + Allow header',
+    /req\.method !== ['"]GET['"]/.test(ssr)
+    && /res\.set\(['"]Allow['"], ['"]GET['"]\)\.status\(405\)/.test(ssr));
+
+  // Token regex — must constrain length + alphabet to match the
+  // 24-char no-confusable mintPortalToken format. A liberal regex
+  // would let attackers smuggle path traversal or filesystem-y
+  // characters into the Firestore lookup.
+  assert('TOKEN_RE constrains to alphanumeric, 10-64 chars',
+    /TOKEN_RE\s*=\s*\/\^\[A-Z0-9\]\{10,64\}\$\/i/.test(ssr));
+
+  // Per-IP rate limit — must run BEFORE any Firestore reads, or
+  // a brute-force token sweep would burn read quota.
+  assert('rate limit runs before Firestore lookup',
+    /httpRateLimit\(req, res, ['"]shareSSR:ip['"], 120, 60_000\)/.test(ssr));
+
+  // Locked-down CSP + noindex on every response. Homeowner data
+  // must not leak via injected script and must not get indexed.
+  assert('every response sets tight CSP + X-Robots-Tag noindex',
+    /res\.set\(['"]Content-Security-Policy['"][\s\S]{0,200}default-src ['"]none['"]/.test(ssr)
+    && /res\.set\(['"]X-Robots-Tag['"], ['"]noindex, nofollow['"]\)/.test(ssr));
+
+  // OG + Twitter Card meta — the whole point. Without these the
+  // crawler renders "no preview".
+  assert('renderPage emits og:title + og:description + twitter:card',
+    /og:title/.test(ssr) && /og:description/.test(ssr)
+    && /twitter:card/.test(ssr));
+
+  // HTML escape — lead.firstName / address / rep.displayName are
+  // user-controlled and end up in the body + the og:title attr.
+  assert('escHtml escapes &<>"\\\' ',
+    /escHtml\(s\)[\s\S]{0,400}\.replace\(\/&\/g[\s\S]{0,200}\.replace\(\/'\/g/.test(ssr));
+  assert('every interpolation goes through escHtml',
+    /\$\{safeTitle\}/.test(ssr) && /\$\{safeAddr\}/.test(ssr)
+    && /\$\{safeRepName\}/.test(ssr));
+
+  // Token usage counter MUST NOT increment on preview crawls —
+  // otherwise iMessage previewing the link would count as 4-5
+  // opens before the homeowner ever clicks.
+  assert('shareSSR does NOT increment portal_tokens uses counter',
+    /deliberately NOT incrementing tok\.uses/i.test(ssr)
+    && !/tok\.uses\s*\+\s*1/.test(ssr)
+    && !/uses:\s*FieldValue\.increment/.test(ssr));
+
+  // Expired tokens render a branded 410 page, not a raw 404 —
+  // crawlers ignoring 404s would leave a "broken link" preview.
+  assert('expired token renders 410 with branded HTML',
+    /function expiredPage\(\)[\s\S]{0,500}status:\s*410/.test(ssr));
+
+  // CTA hands off to the existing client-rendered portal.
+  assert('project page CTA links to /pro/portal.html?token=',
+    /\/pro\/portal\.html\?token=\$\{encodeURIComponent\(safeToken\)\}/.test(ssr));
+
+  // Failure isolation — a Firestore exception must not 500.
+  // The crawler still gets a branded preview.
+  assert('catch block falls back to notFoundPage instead of 500',
+    /catch \(err\)[\s\S]{0,400}send\(notFoundPage\(\)\)/.test(ssr));
+}
+
 section('Bulk lead operations — writeBatch + NBDStore + new fields');
 {
   const crm  = read(path.join(ROOT, 'docs/pro/js/crm.js'));
