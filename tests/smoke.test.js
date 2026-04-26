@@ -2704,6 +2704,93 @@ section('Visual regression baseline (Playwright pixel-diff)');
     && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
 }
 
+section('Customer-facing portal gallery — share photos with homeowner');
+{
+  const portal   = read(path.join(ROOT, 'functions/portal.js'));
+  const portalUI = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const types    = read(path.join(ROOT, 'docs/pro/js/types.js'));
+
+  // Backend query — must constrain to the rep's own photos
+  // (userId == ownerUid) AND only photos the rep flipped to
+  // sharedWithHomeowner. Without the second clause, every photo
+  // on the lead would leak to the homeowner page.
+  assert('getHomeownerPortalView queries shared photos with both gates',
+    /\.collection\(['"]photos['"]\)[\s\S]{0,400}\.where\(['"]leadId['"][\s\S]{0,200}\.where\(['"]userId['"][\s\S]{0,200}\.where\(['"]sharedWithHomeowner['"], ['"]==['"], true\)/.test(portal));
+
+  // Hard cap on returned photos so a runaway query can't dump
+  // 500 photos to the homeowner page in one fetch.
+  assert('shared-photos query is .limit(50) capped',
+    /\.where\(['"]sharedWithHomeowner['"][\s\S]{0,200}\.limit\(50\)/.test(portal));
+
+  // Redacted projection — homeowner gets the picture + phase +
+  // optional caption, NOTHING ELSE. No internal notes,
+  // damageType, severity, location, tags.
+  assert('photo projection redacts to id/urls/url/phase/caption only',
+    /photos: photoSnap\.docs\.map\([\s\S]{0,400}id:[\s\S]{0,80}urls:[\s\S]{0,80}url:[\s\S]{0,80}phase:[\s\S]{0,80}caption:/.test(portal));
+  assert('photo projection does NOT include damageType / severity / tags / description',
+    !/photos:[\s\S]{0,800}damageType:/.test(portal)
+    && !/photos:[\s\S]{0,800}severity:/.test(portal)
+    && !/photos:[\s\S]{0,800}tags:/.test(portal));
+
+  // Frontend gallery render — uses the responsive variants from
+  // PR #75 when present, falls back to the original url for
+  // legacy / pre-pipeline photos.
+  assert('portal.html renders Project Photos card when view.photos non-empty',
+    /Project Photos[\s\S]{0,400}ph-grid/.test(portalUI));
+  assert('portal.html emits srcset 200w/600w/1600w for variants',
+    /srcset="[^"]*200w[^"]*600w[^"]*1600w/.test(portalUI));
+  assert('portal.html falls back to p.url when urls missing',
+    /\(p\.urls && p\.urls\.med\)\s*\?\s*esc\(p\.urls\.med\)\s*:\s*esc\(p\.url \|\| ['"]/.test(portalUI));
+
+  // Phase ordering — Before / During / After feels intentional;
+  // a hash-table order would put new photos in random places.
+  assert('portal.html sorts gallery by phase Before → During → After',
+    /phaseOrder\s*=\s*\{[\s\S]{0,80}Before[\s\S]{0,40}During[\s\S]{0,40}After/.test(portalUI));
+
+  // Gallery CSS — purely structural; visual regression covers
+  // anything subtler. Just pin the grid + tile classes so a
+  // refactor can't accidentally drop them.
+  assert('portal.html has .ph-grid + .ph-tile CSS rules',
+    /\.ph-grid\s*\{/.test(portalUI) && /\.ph-tile\s*\{/.test(portalUI));
+
+  // Rep-side toggle — buildPhotoBadges emits the share badge as
+  // a real <button> with data-action so the delegated handler
+  // can route the click without opening the lightbox.
+  assert('customer.html buildPhotoBadges emits share toggle button',
+    /data-action="toggle-share"[\s\S]{0,200}data-photo-id="' \+ esc\(photo\.id\)/.test(customer));
+  assert('customer.html shows different badge for shared vs unshared',
+    /if \(photo\.sharedWithHomeowner\)[\s\S]{0,400}Shared[\s\S]{0,400}else[\s\S]{0,400}Share/.test(customer));
+
+  // toggleHomeownerShare optimistic update + Firestore write +
+  // revert-on-failure path. All three matter — without revert,
+  // a network blip leaves the UI lying about the share state.
+  assert('toggleHomeownerShare flips local + writes Firestore + reverts on failure',
+    /window\.toggleHomeownerShare = async function/.test(customer)
+    && /photo\.sharedWithHomeowner = !prev/.test(customer)
+    && /window\.updateDoc\(window\.doc\(window\.db, ['"]photos['"], photoId\)/.test(customer)
+    && /catch \(err\)[\s\S]{0,400}photo\.sharedWithHomeowner = prev/.test(customer));
+
+  // Delegated click handler must intercept share clicks BEFORE
+  // the lightbox/select branches — otherwise tapping Share also
+  // opens the photo editor.
+  assert('photo grid delegate routes toggle-share before lightbox/select',
+    /var shareBtn = ev\.target\.closest\(['"]\[data-action="toggle-share"\]['"]\)/.test(customer)
+    && /ev\.stopPropagation\(\)[\s\S]{0,200}toggleHomeownerShare/.test(customer));
+
+  // Photo projection round-trips the share + caption fields so
+  // they survive IDB cache hits + the initial Firestore load.
+  assert('photoDocToView preserves sharedWithHomeowner + homeownerCaption',
+    /sharedWithHomeowner:\s*!!d\.sharedWithHomeowner/.test(customer)
+    && /homeownerCaption:\s*d\.homeownerCaption \|\| ['"]['"]/.test(customer));
+
+  // JSDoc — type doc must reflect the new fields so editor
+  // autocomplete picks them up.
+  assert('types.js Photo typedef documents sharedWithHomeowner + homeownerCaption',
+    /@property \{boolean=\} sharedWithHomeowner/.test(types)
+    && /@property \{string=\} homeownerCaption/.test(types));
+}
+
 section('NBDIDBCache — IndexedDB offline-first cache');
 {
   const idb      = read(path.join(ROOT, 'docs/pro/js/idb-cache.js'));
