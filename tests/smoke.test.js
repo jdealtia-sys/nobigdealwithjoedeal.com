@@ -2672,6 +2672,38 @@ section('Service worker — cross-origin passthrough');
     'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
 }
 
+section('Visual regression baseline (Playwright pixel-diff)');
+{
+  const spec = read(path.join(ROOT, 'tests/e2e/visual-regression.spec.js'));
+  const pkg  = JSON.parse(read(path.join(ROOT, 'tests/package.json')));
+  // Suite covers public pages only — auth pages need a session.
+  assert('visual-regression.spec.js covers login/register/pricing/landing',
+    /\/pro\/login/.test(spec)
+    && /\/pro\/register/.test(spec)
+    && /\/pro\/pricing/.test(spec)
+    && /name:\s*['"]landing['"]/.test(spec));
+  // Three viewports — mobile/tablet/desktop. The mobile-375 snapshot
+  // is the one Joe lives in (iPhone in the field).
+  assert('three viewports configured (375 / 768 / 1280)',
+    /width:\s*375/.test(spec)
+    && /width:\s*768/.test(spec)
+    && /width:\s*1280/.test(spec));
+  // Animations must be neutralized before screenshot — fail-loud
+  // if someone removes the disable-transitions style block, because
+  // mid-animation pixels would flake the diff forever.
+  assert('animations + transitions disabled before screenshot',
+    /transition:\s*none\s*!important[\s\S]{0,80}animation:\s*none\s*!important/.test(spec));
+  // Mask hooks for high-entropy regions — keeps live-counter pages
+  // (pricing carousels, "as of" timestamps) from flaking.
+  assert('mask hooks for live-timestamp + data-mask-visual',
+    /mask:\s*\[[\s\S]{0,200}\.live-timestamp/.test(spec)
+    && /\[data-mask-visual\]/.test(spec));
+  // npm scripts wired so CI + local can run + update baselines.
+  assert('test:e2e:visual + test:e2e:visual:update npm scripts',
+    !!(pkg.scripts && pkg.scripts['test:e2e:visual'])
+    && !!(pkg.scripts && pkg.scripts['test:e2e:visual:update']));
+}
+
 section('Per-route rate-limit policy');
 {
   const policy = read(path.join(ROOT, 'functions/rate-limit-policy.js'));
