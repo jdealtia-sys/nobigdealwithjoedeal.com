@@ -4770,10 +4770,11 @@ body {
 .crm-secondary-header {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 10px 18px;
   background: var(--s2, #1a1d23);
   border-bottom: 1px solid var(--br, #2a2d35);
+  margin-bottom: 10px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -4784,17 +4785,29 @@ body {
 }
 .crm-secondary-header::-webkit-scrollbar { display: none; }
 /* Override the vertical icon-above-label layout to horizontal
-   icon-beside-label, cutting the height roughly in half. */
+   icon-beside-label. Buttons get comfortable breathing room — Joe
+   reported the previous 4px/10px header + 6px/10px button packing
+   felt "bold, tight, butted up against everything." */
 .crm-sec-btn {
   flex-direction: row !important;
-  gap: 5px !important;
-  padding: 6px 10px !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
   white-space: nowrap;
-  min-height: 36px;
+  min-height: 38px;
+  letter-spacing: 0 !important;
 }
-.crm-sec-icon { width: 16px !important; height: 16px !important; }
-.crm-sec-icon svg { width: 14px !important; height: 14px !important; }
-.crm-sec-label { font-size: 10px !important; }
+.crm-sec-icon { width: 18px !important; height: 18px !important; }
+.crm-sec-icon svg { width: 15px !important; height: 15px !important; }
+/* Soften the label — was uppercase + 600 weight + tight tracking;
+   becomes mixed-case + medium weight + relaxed tracking. The inline
+   style on each <span class="crm-sec-label"> hardcodes the harsh
+   look, so every property here needs !important to win the cascade. */
+.crm-sec-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: .01em !important;
+}
 .crm-secondary-header.hidden {
   transform: translateY(-100%);
   opacity: 0;
@@ -4821,22 +4834,18 @@ body {
 }
 .crm-sec-btn:hover {
   color: var(--t, #e5e7eb);
-  background: rgba(232,114,12,.08);
+  background: rgba(255,255,255,.05);
 }
 .crm-sec-btn.active {
-  color: var(--orange, var(--orange));
-  background: rgba(232,114,12,.12);
+  color: var(--orange, #e8720c);
+  background: rgba(232,114,12,.10);
+  box-shadow: inset 0 -2px 0 var(--orange, #e8720c);
 }
-.crm-sec-btn::before {
-  content: '';
-  position: absolute;
-  top:0;right:0;bottom:0;left:0;
-  background: radial-gradient(circle at 50% 100%, var(--og, rgba(232,114,12,.3)) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity .3s;
-}
-.crm-sec-btn:hover::before { opacity: 1; }
-.crm-sec-btn.active::before { opacity: 1; }
+/* Drop the radial-gradient ::before overlay. The orange glow on hover
+   read as cheesy and competed visually with the actual button label.
+   Hover/active are now communicated by background tint + (active-only)
+   bottom underline only. */
+.crm-sec-btn::before { display: none !important; }
 .crm-sec-icon {
   width: 20px;
   height: 20px;
