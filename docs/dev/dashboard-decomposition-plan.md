@@ -305,10 +305,19 @@ Rock 1 (DNS swap on Joe).
    already exists (per BIG_ROCKS) — verify what's already there before
    pasting the inline block on top of it.
 
-7. **The `?legacy=1` query-string fallback** mentioned in BIG_ROCKS
-   Phase rollback plan does **not** exist yet. If we want emergency
-   rollback per phase, that needs to be wired in early (probably Phase 2
-   or as a small standalone prep PR).
+7. **The `?legacy=1` query-string fallback** is now wired (Phase 3
+   prep PR). `dashboard.html` includes a top-of-`<head>` inline script
+   that, on `?legacy=1`, redirects to `/pro/dashboard.legacy.html` — a
+   snapshot of the previous phase's `dashboard.html`. **Each Phase 3+
+   PR's first step is to refresh the snapshot:**
+   `cp docs/pro/dashboard.html docs/pro/dashboard.legacy.html` BEFORE
+   applying its extraction. The legacy file then represents pre-current-
+   PR state; users hitting `?legacy=1` get a working dashboard while
+   the phase change is reverted via git revert. The pathname guard in
+   the redirect script (`p === '/pro/dashboard'`) prevents the legacy
+   snapshot from re-redirecting to itself if a bookmarked URL still
+   carries `?legacy=1`. A smoke test in `tests/smoke.test.js`
+   ("Rock 4 rollback fallback") gates the wiring.
 
 ---
 
