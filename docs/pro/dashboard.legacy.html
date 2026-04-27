@@ -409,9 +409,42 @@
     console.warn('Unhandled promise rejection:', e.reason);
   });
 
+  // White-screen failsafe: if neither nbd-auth nor this handler clears
+  // visibility:hidden within 6 seconds, force-paint anyway. iOS Safari's
+  // PWA watchdog kicks in around 30s and shows "server stopped
+  // responding" when the page never finishes initial load.
+  const _visibilityFailsafe = setTimeout(() => {
+    try { document.documentElement.style.visibility = 'visible'; } catch (_) {}
+  }, 6000);
+
+  // Mirror nbd-auth.js's iOS auth-restore grace window (PR #37).
+  let _firstNullSeenAt = 0;
+  const REDIRECT_GRACE_MS = 2500;
+
   onAuthStateChanged(auth, async user => {
-    if (!user) { window.location.replace("/pro/login.html"); return; }
-    
+    if (!user) {
+      const now = Date.now();
+      if (!_firstNullSeenAt) {
+        _firstNullSeenAt = now;
+        setTimeout(() => {
+          if (!auth.currentUser) {
+            window.location.replace("/pro/login.html");
+          }
+        }, REDIRECT_GRACE_MS);
+        return;
+      }
+      if (now - _firstNullSeenAt >= REDIRECT_GRACE_MS) {
+        window.location.replace("/pro/login.html");
+      }
+      return;
+    }
+    _firstNullSeenAt = 0;
+
+    // PAINT IMMEDIATELY. Auth is confirmed; the subscription read below
+    // is best-effort and must not gate visibility.
+    clearTimeout(_visibilityFailsafe);
+    document.documentElement.style.visibility = "visible";
+
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
     // Owner bypass — founder/staff emails always resolve to professional.
     // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
@@ -436,8 +469,14 @@
       // The billing-gate module handles limits via soft gates.
       // Access code users, free tier, and trial users all have no
       // subscription doc — that's normal, not an error.
+      // 5s timeout: iOS Safari can hang on Firestore reads while App
+      // Check renews its token on cellular. Mirrors nbd-auth.js:386-389.
       try {
-        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
+        const subSnap = await Promise.race([
+          getDoc(doc(db, 'subscriptions', user.uid)),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('subscription read timed out')), 5000))
+        ]);
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
@@ -462,8 +501,6 @@
         window._userPlan = 'free';
       }
     }
-    
-    document.documentElement.style.visibility="visible";
     
     // Show upgrade banner for lite users
     if (window._userPlan === 'lite') {

@@ -2400,15 +2400,36 @@ window.addEventListener('pageshow', (event) => {
   }
 });
 
-// Auth guard
+// Auth guard. Mirrors nbd-auth.js's iOS auth-restore grace window
+// (PR #37). The first onAuthStateChanged tick on iOS Safari can fire
+// user=null BEFORE the IndexedDB session restore completes (typically
+// 200–1500 ms). Without a grace window, this handler raced ahead of
+// nbd-auth.js and kicked already-signed-in users to /pro/login.html
+// when they tapped "Back to Dashboard" from a customer page.
+let _firstNullSeenAt = 0;
+const REDIRECT_GRACE_MS = 2500;
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    // Flush per-uid IDB cache so a future signin to a different
-    // account doesn't read the previous rep's leftovers. Best-effort.
-    try { window.NBDIDBCache && window.NBDIDBCache.clearAll(); } catch (_) {}
-    window.location.href = '/pro/login.html';
+    const now = Date.now();
+    if (!_firstNullSeenAt) {
+      _firstNullSeenAt = now;
+      setTimeout(() => {
+        if (!auth.currentUser) {
+          // Flush per-uid IDB cache so a future signin to a different
+          // account doesn't read the previous rep's leftovers. Best-effort.
+          try { window.NBDIDBCache && window.NBDIDBCache.clearAll(); } catch (_) {}
+          window.location.href = '/pro/login.html';
+        }
+      }, REDIRECT_GRACE_MS);
+      return;
+    }
+    if (now - _firstNullSeenAt >= REDIRECT_GRACE_MS) {
+      try { window.NBDIDBCache && window.NBDIDBCache.clearAll(); } catch (_) {}
+      window.location.href = '/pro/login.html';
+    }
     return;
   }
+  _firstNullSeenAt = 0;
 
   // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
   window._user = user;

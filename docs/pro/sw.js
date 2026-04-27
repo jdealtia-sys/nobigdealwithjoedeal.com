@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v15', // v15 — auto-retry loadLeads + visibilitychange Firestore reconnect
-  cdn: 'nbd-cdn-v15',     // v15 — forces re-fetch of all CDN-cached JS/CSS
+  shell: 'nbd-shell-v16', // v16 — iOS PWA white-screen fix (failsafe + auth-restore grace)
+  cdn: 'nbd-cdn-v16',     // v16 — bump bumps cached JS so the inline-module fix takes effect
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

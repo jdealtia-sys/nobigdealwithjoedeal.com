@@ -414,9 +414,53 @@
     console.warn('Unhandled promise rejection:', e.reason);
   });
 
+  // White-screen failsafe: if neither nbd-auth nor this handler clears
+  // visibility:hidden within 6 seconds, force-paint anyway. iOS Safari's
+  // PWA watchdog kicks in around 30s and shows "server stopped
+  // responding" when the page never finishes initial load — the most
+  // common cause was a Firestore call below hanging behind App Check
+  // token mint on cellular. Painting the shell early is harmless: any
+  // module that needs auth state already polls window._user / _userPlan.
+  const _visibilityFailsafe = setTimeout(() => {
+    try { document.documentElement.style.visibility = 'visible'; } catch (_) {}
+  }, 6000);
+
+  // Mirror nbd-auth.js's iOS auth-restore grace window (PR #37). The
+  // first onAuthStateChanged tick on iOS Safari can fire user=null
+  // BEFORE the IndexedDB session restore completes (typically 200–
+  // 1500 ms). Without a grace window, this handler raced ahead of
+  // nbd-auth.js and kicked already-signed-in users to /pro/login.html.
+  let _firstNullSeenAt = 0;
+  const REDIRECT_GRACE_MS = 2500;
+
   onAuthStateChanged(auth, async user => {
-    if (!user) { window.location.replace("/pro/login.html"); return; }
-    
+    if (!user) {
+      const now = Date.now();
+      if (!_firstNullSeenAt) {
+        _firstNullSeenAt = now;
+        setTimeout(() => {
+          if (!auth.currentUser) {
+            window.location.replace("/pro/login.html");
+          }
+        }, REDIRECT_GRACE_MS);
+        return;
+      }
+      if (now - _firstNullSeenAt >= REDIRECT_GRACE_MS) {
+        window.location.replace("/pro/login.html");
+      }
+      return;
+    }
+    _firstNullSeenAt = 0;
+
+    // PAINT IMMEDIATELY. Auth is confirmed; the subscription read below
+    // is best-effort and must not gate visibility. nbd-auth.js learned
+    // this lesson with explicit 5s timeouts on the same call — the
+    // duplicate inline path was missed at the time. Hoisting the
+    // visibility flip ahead of every await closes the gap and renders
+    // the failsafe a defense-in-depth measure rather than the only line.
+    clearTimeout(_visibilityFailsafe);
+    document.documentElement.style.visibility = "visible";
+
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
     // Owner bypass — founder/staff emails always resolve to professional.
     // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
@@ -441,8 +485,15 @@
       // The billing-gate module handles limits via soft gates.
       // Access code users, free tier, and trial users all have no
       // subscription doc — that's normal, not an error.
+      // 5s timeout: iOS Safari can hang on Firestore reads while App
+      // Check renews its token on cellular. Mirrors the same defense
+      // nbd-auth.js applies at js/nbd-auth.js:386-389.
       try {
-        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
+        const subSnap = await Promise.race([
+          getDoc(doc(db, 'subscriptions', user.uid)),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('subscription read timed out')), 5000))
+        ]);
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
@@ -467,8 +518,6 @@
         window._userPlan = 'free';
       }
     }
-    
-    document.documentElement.style.visibility="visible";
     
     // Show upgrade banner for lite users
     if (window._userPlan === 'lite') {
