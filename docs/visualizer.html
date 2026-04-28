@@ -750,74 +750,77 @@ const VIZ_OPTIONS = {
   ],
 
   // ── PER-LINE GAF COLOR PALETTES ───────────────────────────────
-  // Sourced from GAF's published Timberline color charts (Cincinnati /
-  // Greater Ohio region availability). Each line carries the stock colors
-  // the supplier (Beacon, ABC Supply) actually pulls for that line. Hex
-  // values are calibrated against GAF.com swatch imagery so the on-page
-  // chip matches the real shingle blend reasonably closely.
+  // Color names match GAF's official product pages exactly (verified
+  // against gaf.com product listings, Q1 2026). Each line shows ONLY
+  // the colors GAF actually manufactures it in — no cross-line bleeding.
+  // Hex values are calibrated against GAF.com swatch imagery so the
+  // on-page chip approximates the real shingle blend.
 
-  // Timberline NS — entry architectural; smaller core palette.
+  // Timberline NS — 8 colors (full national lineup).
   timberlineNsColors: [
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'arctic-white',       name: 'Arctic White',        hex: '#dad4c6', light: true },
     { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
-    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
     { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
-    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
-    { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030' },
-    { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
   ],
 
-  // Timberline HDZ — the flagship architectural line; full palette.
+  // Timberline HDZ — flagship architectural line.
+  // 23 total colors split across three GAF collections:
+  //   • High Definition (9 nationwide)
+  //   • Regional High Definition (10 — availability varies by region;
+  //     listed because the visualizer renders for users beyond Joe's
+  //     immediate stocking zone, and Beacon/ABC will special-order)
+  //   • Bold Definition (4, launched Jan 2026)
   timberlineHdzColors: [
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e' },
-    { id: 'oyster-gray',        name: 'Oyster Gray',         hex: '#a8a39a', light: true },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
-    { id: 'appalachian-sky',    name: 'Appalachian Sky',     hex: '#4a5868' },
-    { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848' },
-    { id: 'nantucket-morning',  name: 'Nantucket Morning',   hex: '#7a8590' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    // High Definition (nationwide)
     { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
-    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
     { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
-    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
-    { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true },
     { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030' },
+    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    // Regional High Definition
+    { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true },
+    { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848' },
+    { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
+    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
+    { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e' },
+    { id: 'golden-amber',       name: 'Golden Amber',        hex: '#b8924a' },
+    { id: 'oyster-gray',        name: 'Oyster Gray',         hex: '#a8a39a', light: true },
     { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
     { id: 'sunset-brick',       name: 'Sunset Brick',        hex: '#7e3838' },
-    { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
-    { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#b8924a' },
-    { id: 'sedona-sunset',      name: 'Sedona Sunset',       hex: '#a06840' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
+    // Bold Definition (Jan 2026)
+    { id: 'chestnut-valley',    name: 'Chestnut Valley',     hex: '#5e3a25' },
+    { id: 'cliffside',          name: 'Cliffside',           hex: '#8a8680' },
+    { id: 'midnight-mesa',      name: 'Midnight Mesa',       hex: '#252830' },
+    { id: 'sierra-sand',        name: 'Sierra Sand',         hex: '#a89476' },
   ],
 
-  // Timberline UHDZ — premium / Class 4 impact-rated; tighter palette.
+  // Timberline UHDZ — premium / Class 4 impact-rated; 6 colors.
   timberlineUhdzColors: [
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
     { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
     { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
-    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
     { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
-    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
   ],
 
-  // Camelot II — designer slate-look luxury line; designer-only color names.
+  // Camelot II — designer slate-look luxury line; 5 colors.
   camelot2Colors: [
     { id: 'antique-slate',      name: 'Antique Slate',       hex: '#3a3a40' },
     { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
     { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'royal-slate',        name: 'Royal Slate',         hex: '#404654' },
-    { id: 'weathered-timber',   name: 'Weathered Timber',    hex: '#6e5a44' },
-    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
+    { id: 'royal-slate',        name: 'Royal Slate',         hex: '#4a5266' },
+    { id: 'weathered-timber',   name: 'Weathered Timber',    hex: '#7a6750' },
   ],
 
   // Standing-seam metal palette (shown when roofLine === 'metal')

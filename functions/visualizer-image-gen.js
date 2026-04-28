@@ -49,29 +49,38 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
-// Replicate model. Configurable via FLUX_MODEL env var so we can swap
-// between flux-kontext-pro (cheaper, broader account access) and
-// flux-kontext-max (premium tier, best quality, requires active paid
-// billing). Defaults to pro — max is a notch more restrictive on new
-// Replicate accounts and returns 402 before spending limits are set.
+// Replicate model selection.
 //
-// Model            Approx cost per image   Quality
-// flux-kontext-pro ~$0.04                  Strong — matches Gemini Nano Banana
-// flux-kontext-max ~$0.08                  Best in class for typography/complex edits
+// Two-tier strategy (per Joe, 2026-04-28): shingle edits go through
+// flux-kontext-max because granule/shadow texture survives the round-trip
+// noticeably better there; everything else (metal roofs, siding-only,
+// gutter swaps) stays on flux-kontext-pro to control cost.
 //
-// Shingle edits are noticeably better on -max (the granule/shadow detail
-// survives at smaller relative scale). FLUX_SHINGLE_MODEL lets us route
-// shingle requests to -max while keeping metal on -pro to control cost.
+// Model             Approx cost   Notes
+// flux-kontext-pro  ~$0.04/img    Default for non-shingle edits
+// flux-kontext-max  ~$0.08/img    Default for shingle edits (NS/HDZ/UHDZ/Camelot II)
+//
+// Both env vars below override the defaults — useful for cost-tuning
+// without a redeploy.
+//   FLUX_MODEL          → overrides the non-shingle / fallback model
+//   FLUX_SHINGLE_MODEL  → overrides the shingle-specific model
+const DEFAULT_BASE_MODEL    = 'black-forest-labs/flux-kontext-pro';
+const DEFAULT_SHINGLE_MODEL = 'black-forest-labs/flux-kontext-max';
+
 function replicateEndpoint(modelOverride) {
-  const model = modelOverride || process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
+  const model = modelOverride || process.env.FLUX_MODEL || DEFAULT_BASE_MODEL;
   return 'https://api.replicate.com/v1/models/' + model + '/predictions';
 }
 
 function pickModelForSelections(selections) {
-  const isMetal = selections.roofStyle === 'metal';
+  const structuredLine = selections.structured && selections.structured.roof && selections.structured.roof.line;
+  const lineId = structuredLine || (selections.roofStyle === 'metal' ? 'metal' : null);
+  const isMetal = lineId === 'metal' || selections.roofStyle === 'metal';
   const shinglesPicked = !!selections.features && selections.features.includes('roof') && !isMetal;
-  if (shinglesPicked && process.env.FLUX_SHINGLE_MODEL) return process.env.FLUX_SHINGLE_MODEL;
-  return process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
+  if (shinglesPicked) {
+    return process.env.FLUX_SHINGLE_MODEL || DEFAULT_SHINGLE_MODEL;
+  }
+  return process.env.FLUX_MODEL || DEFAULT_BASE_MODEL;
 }
 
 // Max input image — match the text endpoint's cap so the frontend can
