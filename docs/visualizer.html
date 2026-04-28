@@ -166,16 +166,40 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .pill.selected { border-color: var(--orange); background: var(--orange); color: var(--white); }
 .pill .pill-sub { display:block; font-size:0.65rem; font-weight:500; opacity:0.75; margin-top:1px; letter-spacing:0; text-transform:none; }
 .pill.selected .pill-sub { opacity:0.95; }
-.color-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.color-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; row-gap: 14px; }
 .swatch {
   width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
   border: 3px solid transparent; transition: transform 0.15s, border-color 0.15s;
   position: relative;
 }
+.swatch:hover, .swatch.selected { z-index: 6; }
 .swatch:hover { transform: scale(1.12); }
 .swatch.selected { border-color: var(--orange); transform: scale(1.1); }
-.swatch .swatch-name { display: none; position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.65rem; font-weight: 700; color: var(--gray); }
-.swatch:hover .swatch-name { display: block; }
+.swatch .swatch-name {
+  display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%); white-space: nowrap;
+  font-size: 0.72rem; font-weight: 700; color: var(--white);
+  background: var(--navy-dark); padding: 5px 10px; border-radius: 6px;
+  pointer-events: none; z-index: 20;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+}
+.swatch .swatch-name::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); border: 5px solid transparent;
+  border-top-color: var(--navy-dark);
+}
+.swatch:hover .swatch-name, .swatch.selected:hover .swatch-name { display: block; }
+.color-selected-label {
+  display: inline-flex; align-items: center; margin-left: 10px;
+  padding: 3px 10px; background: var(--off-white);
+  border: 1px solid var(--light-gray); border-radius: 12px;
+  font-size: 0.72rem; font-weight: 700; color: var(--navy);
+  letter-spacing: 0; text-transform: none; vertical-align: middle;
+}
+.color-selected-label .csl-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  margin-right: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+}
 .option-select { width: 100%; padding: 11px 14px; border: 2px solid var(--light-gray); border-radius: 8px; font-size: 0.88rem; font-family: inherit; color: var(--gray-sub); background: var(--white); transition: border-color 0.2s; }
 .option-select:focus { outline: none; border-color: var(--orange); }
 .gaf-badge-inline { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 12px; background: rgba(232,114,12,0.06); border: 1px solid rgba(232,114,12,0.18); border-radius: 10px; }
@@ -434,12 +458,14 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div id="uploadZone" class="upload-zone">
         <span class="upload-icon">📸</span>
         <h3>Upload a Photo of Your Home</h3>
-        <p>Best results: take a photo from the street or driveway so the full front of the house is visible. Works with any smartphone photo.</p>
+        <p>For the AI to render shingle detail well, the roof needs to be a clear, large piece of the photo — not just a strip across the top. Stand close enough that the roof fills at least one-third of the frame.</p>
         <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose Photo</button>
         <input type="file" id="fileInput" accept="image/*">
         <div class="upload-tips">
-          <span class="upload-tip">Front-facing photos work best</span>
-          <span class="upload-tip">Good lighting helps accuracy</span>
+          <span class="upload-tip">Stand close — roof should fill 1/3+ of frame</span>
+          <span class="upload-tip">Front-on, eye level (not from below)</span>
+          <span class="upload-tip">Overcast or midday light — no harsh shadows</span>
+          <span class="upload-tip">Trees & cars not blocking the roof</span>
           <span class="upload-tip">JPG, PNG up to 20MB</span>
         </div>
       </div>
@@ -477,7 +503,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 
         <!-- ROOF: COLOR -->
         <div class="option-group" id="roofColorGroup" style="grid-column:1 / -1;">
-          <label class="group-label" id="roofColorLabel">Roof Color · GAF Timberline HDZ Palette</label>
+          <label class="group-label"><span id="roofColorLabel">Roof Color · GAF Timberline HDZ Palette</span><span class="color-selected-label" id="roofColorSelected" hidden></span></label>
           <div class="color-swatches" id="roofColors"></div>
         </div>
 
@@ -495,7 +521,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 
         <!-- SIDING: COLOR -->
         <div class="option-group" id="sidingColorGroup" style="display:none;grid-column:1 / -1;">
-          <label class="group-label">Siding Color</label>
+          <label class="group-label">Siding Color<span class="color-selected-label" id="sidingColorSelected" hidden></span></label>
           <div class="color-swatches" id="sidingColors"></div>
         </div>
 
@@ -507,13 +533,13 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 
         <!-- GUTTERS: COLOR -->
         <div class="option-group" id="gutterColorGroup" style="display:none;">
-          <label class="group-label">Gutter Color</label>
+          <label class="group-label">Gutter Color<span class="color-selected-label" id="gutterColorSelected" hidden></span></label>
           <div class="color-swatches" id="gutterColors"></div>
         </div>
 
         <!-- WINDOWS: COLOR -->
         <div class="option-group" id="windowColorGroup" style="display:none;">
-          <label class="group-label">Window Trim Color</label>
+          <label class="group-label">Window Trim Color<span class="color-selected-label" id="windowColorSelected" hidden></span></label>
           <div class="color-swatches" id="windowColors"></div>
         </div>
 
@@ -523,19 +549,19 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
           <div class="option-pills" id="garageStylePills"></div>
         </div>
         <div class="option-group" id="garageColorGroup" style="display:none;">
-          <label class="group-label">Garage Door Color</label>
+          <label class="group-label">Garage Door Color<span class="color-selected-label" id="garageColorSelected" hidden></span></label>
           <div class="color-swatches" id="garageColors"></div>
         </div>
 
         <!-- SHUTTERS: COLOR -->
         <div class="option-group" id="shutterColorGroup" style="display:none;">
-          <label class="group-label">Shutter Color</label>
+          <label class="group-label">Shutter Color<span class="color-selected-label" id="shutterColorSelected" hidden></span></label>
           <div class="color-swatches" id="shutterColors"></div>
         </div>
 
         <!-- FRONT DOOR: COLOR -->
         <div class="option-group" id="doorColorGroup" style="display:none;">
-          <label class="group-label">Front Door Color</label>
+          <label class="group-label">Front Door Color<span class="color-selected-label" id="doorColorSelected" hidden></span></label>
           <div class="color-swatches" id="doorColors"></div>
         </div>
 
@@ -699,22 +725,55 @@ const VIZ_OPTIONS = {
   // Joe doesn't sell 3-tab (not worth it). UHDZ is his Class 4 impact pick.
   // Camelot II is the one designer line carried — most widely stocked GAF
   // designer shingle through Beacon/ABC Supply in the Cincinnati region.
+  //
+  // Each line carries a `colorsRef` pointing at the per-line color palette
+  // below. The visualizer only shows colors that the selected line is
+  // actually manufactured in — so picking UHDZ no longer surfaces NS-only
+  // colors like "Sunset Brick", and picking Camelot II shows the slate-look
+  // designer palette instead of the architectural lineup.
   roofLines: [
     { id: 'timberline-ns',   label: 'Timberline NS',      desc: 'Natural Shadow · entry architectural',
+      colorsRef: 'timberlineNsColors',
       ai: 'GAF Timberline Natural Shadow (NS) architectural laminated asphalt shingles' },
     { id: 'timberline-hdz',  label: 'Timberline HDZ',     desc: 'Architectural · most chosen',
+      colorsRef: 'timberlineHdzColors',
       ai: 'GAF Timberline HDZ architectural laminated asphalt shingles' },
     { id: 'timberline-uhdz', label: 'Timberline UHDZ',    desc: 'Premium · Class 4 impact-rated',
+      colorsRef: 'timberlineUhdzColors',
       ai: 'GAF Timberline UHDZ premium architectural shingles with Class 4 impact rating (UL 2218)' },
     { id: 'camelot-2',       label: 'Camelot II',         desc: 'Designer · slate-look luxury',
+      colorsRef: 'camelot2Colors',
       ai: 'GAF Camelot II designer slate-look dimensional luxury asphalt shingles' },
     { id: 'metal',           label: 'Standing-Seam Metal', desc: 'Premium metal panels',
+      colorsRef: 'metalColors',
       ai: 'standing-seam metal roofing panels (NOT metal shingles — these are flat panels with raised seams)' },
   ],
 
-  // Full GAF Timberline HDZ palette — actual color names from GAF.com,
-  // hex values are realistic approximations matched against GAF imagery.
-  shingleColors: [
+  // ── PER-LINE GAF COLOR PALETTES ───────────────────────────────
+  // Sourced from GAF's published Timberline color charts (Cincinnati /
+  // Greater Ohio region availability). Each line carries the stock colors
+  // the supplier (Beacon, ABC Supply) actually pulls for that line. Hex
+  // values are calibrated against GAF.com swatch imagery so the on-page
+  // chip matches the real shingle blend reasonably closely.
+
+  // Timberline NS — entry architectural; smaller core palette.
+  timberlineNsColors: [
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
+    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
+    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
+    { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030' },
+    { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
+  ],
+
+  // Timberline HDZ — the flagship architectural line; full palette.
+  timberlineHdzColors: [
     { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
     { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
     { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e' },
@@ -737,6 +796,28 @@ const VIZ_OPTIONS = {
     { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
     { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#b8924a' },
     { id: 'sedona-sunset',      name: 'Sedona Sunset',       hex: '#a06840' },
+  ],
+
+  // Timberline UHDZ — premium / Class 4 impact-rated; tighter palette.
+  timberlineUhdzColors: [
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
+    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
+  ],
+
+  // Camelot II — designer slate-look luxury line; designer-only color names.
+  camelot2Colors: [
+    { id: 'antique-slate',      name: 'Antique Slate',       hex: '#3a3a40' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
+    { id: 'royal-slate',        name: 'Royal Slate',         hex: '#404654' },
+    { id: 'weathered-timber',   name: 'Weathered Timber',    hex: '#6e5a44' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
   ],
 
   // Standing-seam metal palette (shown when roofLine === 'metal')
@@ -955,28 +1036,57 @@ function renderPills(containerId, items, opts) {
   });
 }
 
-// Swatches (single-select color)
+// Swatches (single-select color). Each container is paired with a sibling
+// `<span class="color-selected-label">` that always shows the currently
+// selected color name — the on-swatch tooltip alone gets clipped behind
+// the next row of chips on touch devices, so we mirror it in the header.
+const SWATCH_LABEL_MAP = {
+  roofColors:    'roofColorSelected',
+  sidingColors:  'sidingColorSelected',
+  gutterColors:  'gutterColorSelected',
+  windowColors:  'windowColorSelected',
+  garageColors:  'garageColorSelected',
+  shutterColors: 'shutterColorSelected',
+  doorColors:    'doorColorSelected',
+};
+
+function updateSelectedLabel(containerId, item) {
+  const labelId = SWATCH_LABEL_MAP[containerId];
+  if (!labelId) return;
+  const labelEl = document.getElementById(labelId);
+  if (!labelEl) return;
+  if (!item) { labelEl.hidden = true; labelEl.innerHTML = ''; return; }
+  labelEl.hidden = false;
+  labelEl.innerHTML = `<span class="csl-dot" style="background:${item.hex}"></span>${item.name}`;
+}
+
 function renderSwatches(containerId, items, stateKey) {
   const c = document.getElementById(containerId);
   if (!c) return;
   c.innerHTML = items.map(it => {
     const sel = state[stateKey] === it.id;
     const cls = 'swatch' + (sel ? ' selected' : '') + (it.light ? ' light-bg' : '');
-    return `<div class="${cls}" style="background:${it.hex}" data-val="${it.id}" title="${it.name}"><span class="swatch-name">${it.name}</span></div>`;
+    return `<div class="${cls}" style="background:${it.hex}" data-val="${it.id}" data-name="${it.name}" data-hex="${it.hex}" title="${it.name}" tabindex="0"><span class="swatch-name">${it.name}</span></div>`;
   }).join('');
+  // Initialize the selected-label header from current state
+  const initial = items.find(it => it.id === state[stateKey]) || items[0];
+  if (initial) updateSelectedLabel(containerId, initial);
   c.addEventListener('click', e => {
     const sw = e.target.closest('.swatch');
     if (!sw) return;
     c.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
     sw.classList.add('selected');
     state[stateKey] = sw.dataset.val;
+    updateSelectedLabel(containerId, { id: sw.dataset.val, name: sw.dataset.name, hex: sw.dataset.hex });
   });
 }
 
 // Initial render
 renderPills('featurePills',         VIZ_OPTIONS.features,        { stateKey: 'features',       multi: true,  onChange: updateOptionVisibility });
 renderPills('roofLinePills',        VIZ_OPTIONS.roofLines,       { stateKey: 'roofLine',                     onChange: onRoofLineChange });
-renderSwatches('roofColors',        VIZ_OPTIONS.shingleColors,   'roofColor');
+// Roof colors are line-specific — start with whatever the default roofLine carries.
+renderSwatches('roofColors',        getRoofPaletteForLine(state.roofLine), 'roofColor');
+{ const lbl = document.getElementById('roofColorLabel'); if (lbl) lbl.textContent = paletteHeaderLabel(state.roofLine); }
 renderPills('sidingMaterialPills',  VIZ_OPTIONS.sidingMaterials, { stateKey: 'sidingMaterial' });
 renderPills('sidingStylePills',     VIZ_OPTIONS.sidingStyles,    { stateKey: 'sidingStyle' });
 renderSwatches('sidingColors',      VIZ_OPTIONS.sidingColors,    'sidingColor');
@@ -988,17 +1098,29 @@ renderSwatches('garageColors',      VIZ_OPTIONS.trimColors,      'garageColor');
 renderSwatches('shutterColors',     VIZ_OPTIONS.trimColors,      'shutterColor');
 renderSwatches('doorColors',        VIZ_OPTIONS.trimColors,      'doorColor');
 
-// When the roof line changes, swap palette: metal lines use metalColors, others use shingleColors
+// When the roof line changes, swap to that line's stock color palette and
+// reset the selection if the previously-picked color isn't carried in the
+// new line. Each `roofLines` entry points at its own `colorsRef` so this
+// function never has to special-case product names.
+function getRoofPaletteForLine(lineId) {
+  const line = VIZ_OPTIONS.roofLines.find(l => l.id === lineId) || VIZ_OPTIONS.roofLines[1];
+  return VIZ_OPTIONS[line.colorsRef] || VIZ_OPTIONS.timberlineHdzColors;
+}
+
+function paletteHeaderLabel(lineId) {
+  const line = VIZ_OPTIONS.roofLines.find(l => l.id === lineId);
+  if (!line) return 'Roof Color';
+  if (line.id === 'metal') return 'Roof Color · Standing-Seam Metal Palette';
+  return `Roof Color · GAF ${line.label} Palette`;
+}
+
 function onRoofLineChange() {
-  const isMetal = state.roofLine === 'metal';
-  const palette = isMetal ? VIZ_OPTIONS.metalColors : VIZ_OPTIONS.shingleColors;
+  const palette = getRoofPaletteForLine(state.roofLine);
   // If current roofColor isn't in the new palette, default to first
   if (!palette.find(c => c.id === state.roofColor)) state.roofColor = palette[0].id;
-  // Re-render with new palette and update label
+  // Update the header label to reflect the active line
   const lbl = document.getElementById('roofColorLabel');
-  if (lbl) lbl.textContent = isMetal
-    ? 'Roof Color · Standing-Seam Metal Palette'
-    : 'Roof Color · GAF Timberline HDZ Palette';
+  if (lbl) lbl.textContent = paletteHeaderLabel(state.roofLine);
   // Re-render swatches with new palette (replace listener via fresh render)
   const c = document.getElementById('roofColors');
   if (c) c.replaceWith(c.cloneNode(false)); // strip old listener
@@ -1059,7 +1181,7 @@ async function runVisualizer() {
 
   const roofLine     = findById(VIZ_OPTIONS.roofLines, state.roofLine);
   const isMetalRoof  = roofLine.id === 'metal';
-  const roofPalette  = isMetalRoof ? VIZ_OPTIONS.metalColors : VIZ_OPTIONS.shingleColors;
+  const roofPalette  = getRoofPaletteForLine(state.roofLine);
   const roofColor    = findById(roofPalette, state.roofColor);
   const sidingMat    = findById(VIZ_OPTIONS.sidingMaterials, state.sidingMaterial);
   const sidingStyle  = findById(VIZ_OPTIONS.sidingStyles, state.sidingStyle);

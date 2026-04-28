@@ -58,9 +58,20 @@ const CORS_ORIGINS = [
 // Model            Approx cost per image   Quality
 // flux-kontext-pro ~$0.04                  Strong — matches Gemini Nano Banana
 // flux-kontext-max ~$0.08                  Best in class for typography/complex edits
-function replicateEndpoint() {
-  const model = process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
+//
+// Shingle edits are noticeably better on -max (the granule/shadow detail
+// survives at smaller relative scale). FLUX_SHINGLE_MODEL lets us route
+// shingle requests to -max while keeping metal on -pro to control cost.
+function replicateEndpoint(modelOverride) {
+  const model = modelOverride || process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
   return 'https://api.replicate.com/v1/models/' + model + '/predictions';
+}
+
+function pickModelForSelections(selections) {
+  const isMetal = selections.roofStyle === 'metal';
+  const shinglesPicked = !!selections.features && selections.features.includes('roof') && !isMetal;
+  if (shinglesPicked && process.env.FLUX_SHINGLE_MODEL) return process.env.FLUX_SHINGLE_MODEL;
+  return process.env.FLUX_MODEL || 'black-forest-labs/flux-kontext-pro';
 }
 
 // Max input image — match the text endpoint's cap so the frontend can
@@ -72,17 +83,75 @@ const MAX_B64_BYTES = 1_500_000; // ~1.1 MB raw before base64 inflation
 // into the prompt.
 
 // Each style/color label includes (a) the human-readable material name
-// and (b) an explicit hex color so Gemini can't drift from the target.
+// and (b) an explicit hex color so FLUX can't drift from the target.
 // Hexes are picked to match the swatches shown in the UI.
 
-const ROOF_STYLE_LABELS = {
-  architectural: 'architectural dimensional asphalt shingles',
-  '3-tab': 'traditional 3-tab asphalt shingles',
-  luxury: 'luxury designer asphalt shingles',
-  metal: 'standing-seam metal roofing panels',
-  slate: 'natural slate tile',
+// ── Per-line shingle texture descriptions ─────────────────────────
+// Why per-line: collapsing NS, HDZ, and UHDZ to a single "architectural"
+// prompt was producing weak / under-edited shingle results — FLUX would
+// often just tint the existing roof. Each line below gets its own
+// signature texture cues so the model commits to a believable swap.
+const ROOF_LINE_PROFILES = {
+  'timberline-ns': {
+    label: 'GAF Timberline Natural Shadow (NS) architectural laminated asphalt shingles',
+    texture:
+      'The new surface is laminated architectural asphalt shingles with subtle dimensional ' +
+      'shadow lines between courses, uniform dragon-tooth tabs, and a clean staggered cut ' +
+      'pattern — a clear step up from flat 3-tab but more understated than HDZ. Show ' +
+      'individual granules and crisp horizontal course lines.',
+  },
+  'timberline-hdz': {
+    label: 'GAF Timberline HDZ architectural laminated asphalt shingles',
+    texture:
+      'The new surface is laminated architectural asphalt shingles with deep, well-defined ' +
+      'shadow lines between every course, thick double-laminated tabs, the signature ' +
+      'high-definition dragon-tooth profile, and a distinctly dimensional look. Show ' +
+      'visible granule texture, crisp course lines, ridge cap shingles at the peak, and ' +
+      'clean cuts at hips and valleys.',
+  },
+  'timberline-uhdz': {
+    label: 'GAF Timberline UHDZ premium architectural shingles, Class 4 impact-rated (UL 2218)',
+    texture:
+      'The new surface is premium ultra-dimensional laminated architectural shingles with ' +
+      'extra-thick tabs, an exaggeratedly deep shadow band between courses, a wider exposure ' +
+      'than standard HDZ, and a noticeably heavier, more sculpted profile that reads as ' +
+      'high-end. Show the heavier shadow lines, dense granule texture, and ridge cap detail.',
+  },
+  'camelot-2': {
+    label: 'GAF Camelot II designer slate-look dimensional luxury asphalt shingles',
+    texture:
+      'The new surface is designer slate-look luxury asphalt shingles arranged in a layered, ' +
+      'irregular staggered pattern that mimics natural slate — varying tab widths, scalloped ' +
+      'or saw-tooth bottom edges, deep dimensional shadows, and subtle color variation between ' +
+      'individual tabs. Definitively NOT uniform horizontal courses; this must read as ' +
+      'high-end designer shingle, not standard architectural.',
+  },
+  metal: {
+    label: 'standing-seam metal roofing panels (NOT metal shingles — flat panels with raised seams)',
+    texture:
+      'The new surface is smooth, flat metal panels with visible STANDING SEAMS running ' +
+      'continuously down each slope from ridge to eave, crisp ridge cap trim, and clean drip ' +
+      'edges — NOT asphalt shingle courses. If the input photo shows asphalt shingles, those ' +
+      'must be entirely replaced with flat metal panels. The surface must read as metal, not ' +
+      'as tinted shingles.',
+  },
 };
 
+// Legacy roof-style → line-id mapping for the original (pre-structured)
+// request format. The new request shape sends `selections.roof.line`
+// directly; this fallback only fires when the frontend hasn't been updated.
+const LEGACY_ROOFSTYLE_TO_LINE = {
+  architectural: 'timberline-hdz',
+  '3-tab': 'timberline-ns',
+  luxury: 'camelot-2',
+  metal: 'metal',
+  slate: 'camelot-2',
+};
+
+// Fallback only — used when the frontend doesn't send a hex in the
+// structured `selections.roof` payload. The frontend (visualizer.html)
+// now ships hex straight through, so this table only catches stale
+// clients or non-roof color requests.
 const ROOF_COLOR_LABELS = {
   charcoal:        { name: 'charcoal black-gray',       hex: '#3a3a3a' },
   'weathered-wood':{ name: 'weathered-wood warm brown', hex: '#5c4a3a' },
@@ -130,53 +199,89 @@ function resolveColor(map, key, fallbackKey) {
   return map[key] || (fallbackKey ? map[fallbackKey] : null) || { name: key || 'neutral', hex: null };
 }
 
+// Resolve the roof line + color for the prompt. Prefers the structured
+// `selections.roof` payload (line id + colorName + hex sent straight from
+// the frontend's VIZ_OPTIONS), falls back to legacy roofStyle/roofColor
+// fields for older clients. This is what fixed the "Sedona Sunset becomes
+// charcoal" bug — hex now passes through end-to-end instead of getting
+// looked up against an 8-entry table.
+function resolveRoofLineAndColor(selections) {
+  const structured = selections.structured && selections.structured.roof;
+
+  let lineId = (structured && structured.line) || LEGACY_ROOFSTYLE_TO_LINE[selections.roofStyle] || 'timberline-hdz';
+  if (!ROOF_LINE_PROFILES[lineId]) lineId = 'timberline-hdz';
+  const profile = ROOF_LINE_PROFILES[lineId];
+
+  let colorName, colorHex;
+  if (structured && structured.colorName) {
+    colorName = structured.colorName;
+    colorHex  = structured.hex || null;
+  } else {
+    const fallback = resolveColor(ROOF_COLOR_LABELS, selections.roofColor, 'charcoal');
+    colorName = fallback.name;
+    colorHex  = fallback.hex;
+  }
+
+  return { lineId, profile, colorName, colorHex };
+}
+
 function buildPrompt(selections) {
   const instructions = [];
 
   if (selections.features.includes('roof')) {
-    const styleKey = selections.roofStyle;
-    const style = ROOF_STYLE_LABELS[styleKey] || 'architectural dimensional asphalt shingles';
-    const color = resolveColor(ROOF_COLOR_LABELS, selections.roofColor, 'charcoal');
-    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    const { lineId, profile, colorName, colorHex } = resolveRoofLineAndColor(selections);
+    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
+    const isMetal = lineId === 'metal';
 
-    // Per-material surface descriptions force Gemini to commit to a visibly
-    // different TEXTURE, not just a color tint. Without this, swaps like
-    // asphalt→metal came back as the original asphalt with a color shift.
-    let textureNote = '';
-    if (styleKey === 'metal') {
-      textureNote = ' The new surface is smooth, flat metal panels with visible STANDING SEAMS running down each slope and crisp ridge cap trim — NOT asphalt shingle courses. If the input photo shows asphalt shingles, those must be entirely replaced with flat metal panels. The surface must read as metal, not as tinted shingles.';
-    } else if (styleKey === 'slate') {
-      textureNote = ' The new surface is layered natural slate tiles with clean straight bottom edges and slight color variation between individual tiles — NOT asphalt shingles. Replace any existing shingles entirely with slate tiles.';
-    } else if (styleKey === 'luxury' || styleKey === 'architectural') {
-      textureNote = ' The new surface has deep dimensional shadow lines between every course, thick laminated shingle tabs, and crisp staggered edges — a noticeable upgrade in texture from flat 3-tab shingles.';
-    } else if (styleKey === '3-tab') {
-      textureNote = ' The new surface is flat traditional 3-tab asphalt shingles with clean horizontal cut lines — simple, uniform, no dimensional shadowing.';
-    }
-
+    // For shingle swaps we lead with the texture instructions before color —
+    // FLUX commits harder to substantive material changes when the texture
+    // language comes first and the color is treated as the secondary cue.
     instructions.push(
-      `RE-ROOF THIS HOUSE: Replace every visible section of the existing roof with brand-new ${style} in ${color.name}${hexClause}.` +
-      textureNote +
-      ` The new roof must look installed, not filtered — show the material texture, the courses, the ridge caps, and the cut edges at hips and valleys. ` +
-      `Make the change unmistakably visible. This is the whole point of the image — a ${styleKey || 'new'} roof in ${color.name} where the old roof used to be.`
+      `RE-ROOF THIS HOUSE: Completely replace every visible section of the existing roof with brand-new ${profile.label} in ${colorName}${hexClause}. ` +
+      profile.texture +
+      ` The new roof must look freshly installed, not filtered — show the actual material texture, the courses, the ridge caps, and the cut edges at hips and valleys. ` +
+      (isMetal
+        ? 'The standing-seam panels must be unmistakable: parallel raised seams, smooth painted-metal sheen, and crisp drip edges along the eaves.'
+        : 'Every visible inch of the old roof — including the dormers, porch roof, and any side or rear slopes that show in the photo — must be the new shingle. Do NOT tint or filter the existing shingles; the old material must be entirely replaced.') +
+      ` This is the whole point of the image — a believable ${colorName}${hexClause} ${isMetal ? 'metal roof' : 'shingle roof'} where the old roof used to be.`
     );
   }
 
   if (selections.features.includes('siding')) {
-    const style = SIDING_STYLE_LABELS[selections.sidingStyle] || 'horizontal lap siding';
-    const color = resolveColor(SIDING_COLOR_LABELS, selections.sidingColor, 'cream');
-    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    const structured = selections.structured && selections.structured.siding;
+    const styleKey = (structured && structured.style) || selections.sidingStyle;
+    const style = SIDING_STYLE_LABELS[styleKey] || 'horizontal lap siding';
+    let colorName, colorHex;
+    if (structured && structured.colorName) {
+      colorName = structured.colorName;
+      colorHex  = structured.hex || null;
+    } else {
+      const fallback = resolveColor(SIDING_COLOR_LABELS, selections.sidingColor, 'cream');
+      colorName = fallback.name;
+      colorHex  = fallback.hex;
+    }
+    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
     instructions.push(
-      `RE-SIDE THIS HOUSE: Replace every exterior wall with brand-new ${style} in ${color.name}${hexClause}. ` +
+      `RE-SIDE THIS HOUSE: Replace every exterior wall with brand-new ${style} in ${colorName}${hexClause}. ` +
       `Show the panel lines, the trim transitions, and consistent color saturation across every wall. ` +
       `The siding change must be clearly visible, not a subtle tint.`
     );
   }
 
   if (selections.features.includes('gutters')) {
-    const color = resolveColor(GUTTER_COLOR_LABELS, selections.gutterColor, 'white');
-    const hexClause = color.hex ? ` (exactly color ${color.hex})` : '';
+    const structured = selections.structured && selections.structured.gutters;
+    let colorName, colorHex;
+    if (structured && structured.colorName) {
+      colorName = structured.colorName;
+      colorHex  = structured.hex || null;
+    } else {
+      const fallback = resolveColor(GUTTER_COLOR_LABELS, selections.gutterColor, 'white');
+      colorName = fallback.name;
+      colorHex  = fallback.hex;
+    }
+    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
     instructions.push(
-      `Replace the gutters and downspouts with clean seamless K-style in ${color.name}${hexClause}.`
+      `Replace the gutters and downspouts with clean seamless K-style in ${colorName}${hexClause}.`
     );
   }
 
@@ -288,6 +393,30 @@ exports.visualizerImageGen = onRequest(
       const allowedMedia = new Set(['image/jpeg', 'image/png', 'image/webp']);
       const mediaType = allowedMedia.has(body.mediaType) ? body.mediaType : 'image/jpeg';
 
+      // Sanitize the structured `selections` block the new frontend sends.
+      // Only the fields the prompt builder actually reads are kept. Hex
+      // values are validated against #RRGGBB to keep us from injecting
+      // arbitrary text into the FLUX prompt via the colorHex field.
+      const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+      function sanHex(v) { return typeof v === 'string' && HEX_RE.test(v) ? v : null; }
+      const rawStructured = (body.selections && typeof body.selections === 'object') ? body.selections : {};
+      const structured = {
+        roof: rawStructured.roof ? {
+          line:      sanitizeString(rawStructured.roof.line, 40),
+          colorName: sanitizeString(rawStructured.roof.colorName, 60),
+          hex:       sanHex(rawStructured.roof.hex),
+        } : null,
+        siding: rawStructured.siding ? {
+          style:     sanitizeString(rawStructured.siding.style, 40),
+          colorName: sanitizeString(rawStructured.siding.colorName, 60),
+          hex:       sanHex(rawStructured.siding.hex),
+        } : null,
+        gutters: rawStructured.gutters ? {
+          colorName: sanitizeString(rawStructured.gutters.colorName, 60),
+          hex:       sanHex(rawStructured.gutters.hex),
+        } : null,
+      };
+
       const selections = {
         features: Array.isArray(body.features) ? body.features.slice(0, 10).map((s) => sanitizeString(s, 40)) : ['roof'],
         roofStyle:   sanitizeString(body.roofStyle, 40),
@@ -296,10 +425,12 @@ exports.visualizerImageGen = onRequest(
         sidingColor: sanitizeString(body.sidingColor, 40),
         gutterColor: sanitizeString(body.gutterColor, 40),
         notes:       sanitizeString(body.notes, 300),
+        structured,
       };
 
       const prompt = buildPrompt(selections);
       const inputDataUrl = 'data:' + mediaType + ';base64,' + imageBase64;
+      const modelForRequest = pickModelForSelections(selections);
 
       // FLUX.1 Kontext Max input schema:
       //   prompt            (string, required)   — natural-language edit instruction
@@ -317,7 +448,7 @@ exports.visualizerImageGen = onRequest(
         },
       };
 
-      const response = await fetch(replicateEndpoint(), {
+      const response = await fetch(replicateEndpoint(modelForRequest), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
