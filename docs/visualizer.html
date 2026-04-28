@@ -769,14 +769,17 @@ const VIZ_OPTIONS = {
   ],
 
   // Timberline HDZ — flagship architectural line.
-  // 23 total colors split across three GAF collections:
-  //   • High Definition (9 nationwide)
-  //   • Regional High Definition (10 — availability varies by region;
-  //     listed because the visualizer renders for users beyond Joe's
-  //     immediate stocking zone, and Beacon/ABC will special-order)
-  //   • Bold Definition (4, launched Jan 2026)
+  // 30 total colors across four GAF sub-collections:
+  //   • High Definition       (9 nationwide)
+  //   • Regional HD           (10 — availability varies; included because
+  //     the visualizer is browsable beyond Joe's immediate stocking zone
+  //     and Beacon/ABC will special-order)
+  //   • American Harvest      (7 — being phased out in favor of Bold
+  //     Definition but still stocked at most distributors through 2026)
+  //   • Bold Definition       (4 — launched Jan 2026; GAF's contrast-
+  //     focused replacement for American Harvest)
   timberlineHdzColors: [
-    // High Definition (nationwide)
+    // ── High Definition (nationwide) ──
     { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
     { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
     { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
@@ -786,7 +789,7 @@ const VIZ_OPTIONS = {
     { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
     { id: 'slate',              name: 'Slate',               hex: '#46484e' },
     { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
-    // Regional High Definition
+    // ── Regional High Definition ──
     { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true },
     { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848' },
     { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
@@ -797,7 +800,15 @@ const VIZ_OPTIONS = {
     { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
     { id: 'sunset-brick',       name: 'Sunset Brick',        hex: '#7e3838' },
     { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
-    // Bold Definition (Jan 2026)
+    // ── American Harvest (legacy multi-blend) ──
+    { id: 'adobe-sunset',       name: 'Adobe Sunset',        hex: '#a06840' },
+    { id: 'appalachian-sky',    name: 'Appalachian Sky',     hex: '#4a5868' },
+    { id: 'brandywine-dusk',    name: 'Brandywine Dusk',     hex: '#5e3838' },
+    { id: 'cedar-falls',        name: 'Cedar Falls',         hex: '#6e5235' },
+    { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#a07440' },
+    { id: 'nantucket-morning',  name: 'Nantucket Morning',   hex: '#7a8590' },
+    { id: 'saddlewood-ranch',   name: 'Saddlewood Ranch',    hex: '#6e4530' },
+    // ── Bold Definition (Jan 2026) ──
     { id: 'chestnut-valley',    name: 'Chestnut Valley',     hex: '#5e3a25' },
     { id: 'cliffside',          name: 'Cliffside',           hex: '#8a8680' },
     { id: 'midnight-mesa',      name: 'Midnight Mesa',       hex: '#252830' },
