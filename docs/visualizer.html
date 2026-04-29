@@ -754,22 +754,37 @@ const VIZ_OPTIONS = {
   ],
 
   // ── PER-LINE GAF COLOR PALETTES ───────────────────────────────
-  // Color names match GAF's official product pages exactly (verified
-  // against gaf.com product listings, Q1 2026). Each line shows ONLY
-  // the colors GAF actually manufactures it in — no cross-line bleeding.
-  // Hex values are calibrated against GAF.com swatch imagery so the
-  // on-page chip approximates the real shingle blend.
+  // Each entry carries:
+  //   id    — slug used in URLs / state
+  //   name  — exact GAF product name (verified against gaf.com Q1 2026)
+  //   hex   — dominant tone, calibrated against GAF swatch imagery
+  //   light — chip needs an extra inset border on white background
+  //   blend — multi-tone GRANULE description that gets injected into the
+  //           image-gen prompt. Real GAF shingles are never a flat color;
+  //           every color is a 3–4 granule blend. Without this, FLUX
+  //           Kontext renders shingles as a painted-looking single tone.
+  //           Format: "<dominant tone> with <granule 1>, <granule 2>,
+  //           and <accent>; <mood/character>". Keep it under ~30 words —
+  //           any longer and FLUX over-weights the color over the texture.
 
-  // Timberline NS — 8 colors (full national lineup).
+  // Timberline NS — 8 colors (full national lineup; entry architectural).
   timberlineNsColors: [
-    { id: 'arctic-white',       name: 'Arctic White',        hex: '#dad4c6', light: true },
-    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
-    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'arctic-white',       name: 'Arctic White',        hex: '#dad4c6', light: true,
+      blend: 'pearl-white asphalt blend with subtle warm tan and soft gray granules; reads almost off-white with gentle dimensional shadow' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a',
+      blend: 'deep warm brown with darker chocolate-mahogany granules and lighter reddish-tan flecks; warm wood-grain shadow' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c',
+      blend: 'deep blackish-gray with charcoal granules, slate-gray flecks, and subtle warm-gray accents; classic clean black-roof look' },
+    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530',
+      blend: 'warm reddish-brown with darker chocolate granules and lighter tan-gold flecks; rich nutshell tone' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e',
+      blend: 'medium cool gray with darker slate granules and lighter silver-gray flecks; subtle blue undertone' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048',
+      blend: 'warm tan-brown with golden granules, darker brown flecks, and bleached cedar accents; mimics weathered cedar shake' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e',
+      blend: 'deep cool gray-slate with darker charcoal granules and subtle blue-gray accents; tight tonal range' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'warm gray-brown blend with tan granules, darker brown flecks, and silver-gray accents; reads like aged hardwood' },
   ],
 
   // Timberline HDZ — flagship architectural line.
@@ -784,70 +799,123 @@ const VIZ_OPTIONS = {
   //     focused replacement for American Harvest)
   timberlineHdzColors: [
     // ── High Definition (nationwide) ──
-    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530' },
-    { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030' },
-    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528' },
-    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a',
+      blend: 'deep warm brown with darker chocolate-mahogany granules and lighter reddish-tan flecks; HDZ deep-shadow profile' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c',
+      blend: 'deep blackish-gray with charcoal granules, slate-gray flecks, and subtle warm-gray accents; HDZ deep-shadow profile' },
+    { id: 'hickory',            name: 'Hickory',             hex: '#5e4530',
+      blend: 'warm reddish-brown with darker chocolate granules and lighter tan-gold flecks; rich nutshell tone with HDZ shadow lines' },
+    { id: 'hunter-green',       name: 'Hunter Green',        hex: '#2d4030',
+      blend: 'deep forest green with darker pine granules, subtle olive flecks, and faint warm-brown undertone' },
+    { id: 'mission-brown',      name: 'Mission Brown',       hex: '#4a3528',
+      blend: 'deep dark brown with reddish mahogany granules, near-black flecks, and subtle copper undertone' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e',
+      blend: 'medium cool gray with darker slate granules and lighter silver-gray flecks; HDZ deep-shadow profile' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048',
+      blend: 'warm tan-brown with golden granules, darker brown flecks, and bleached cedar accents; weathered-shake feel' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e',
+      blend: 'deep cool gray-slate with darker charcoal granules and subtle blue-gray accents; tight tonal range' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'warm gray-brown blend with tan granules, darker brown flecks, and silver-gray accents; reads like aged hardwood' },
     // ── Regional High Definition ──
-    { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true },
-    { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848' },
-    { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35' },
-    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860' },
-    { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e' },
-    { id: 'golden-amber',       name: 'Golden Amber',        hex: '#b8924a' },
-    { id: 'oyster-gray',        name: 'Oyster Gray',         hex: '#a8a39a', light: true },
-    { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828' },
-    { id: 'sunset-brick',       name: 'Sunset Brick',        hex: '#7e3838' },
-    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350' },
-    // ── American Harvest (legacy multi-blend) ──
-    { id: 'adobe-sunset',       name: 'Adobe Sunset',        hex: '#a06840' },
-    { id: 'appalachian-sky',    name: 'Appalachian Sky',     hex: '#4a5868' },
-    { id: 'brandywine-dusk',    name: 'Brandywine Dusk',     hex: '#5e3838' },
-    { id: 'cedar-falls',        name: 'Cedar Falls',         hex: '#6e5235' },
-    { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#a07440' },
-    { id: 'nantucket-morning',  name: 'Nantucket Morning',   hex: '#7a8590' },
-    { id: 'saddlewood-ranch',   name: 'Saddlewood Ranch',    hex: '#6e4530' },
-    // ── Bold Definition (Jan 2026) ──
-    { id: 'chestnut-valley',    name: 'Chestnut Valley',     hex: '#5e3a25' },
-    { id: 'cliffside',          name: 'Cliffside',           hex: '#8a8680' },
-    { id: 'midnight-mesa',      name: 'Midnight Mesa',       hex: '#252830' },
-    { id: 'sierra-sand',        name: 'Sierra Sand',         hex: '#a89476' },
+    { id: 'birchwood',          name: 'Birchwood',           hex: '#a89878', light: true,
+      blend: 'light tan-cream with warm beige granules, darker brown flecks, and pale gray accents; soft and airy' },
+    { id: 'biscayne-blue',      name: 'Biscayne Blue',       hex: '#2c3848',
+      blend: 'deep navy-charcoal with dark blue-black granules, subtle slate-gray flecks, and very faint cool highlights; coastal night' },
+    { id: 'copper-canyon',      name: 'Copper Canyon',       hex: '#8c5a35',
+      blend: 'warm copper-orange-brown with darker rust granules, mahogany flecks, and golden highlights' },
+    { id: 'driftwood',          name: 'Driftwood',           hex: '#8b7860',
+      blend: 'bleached gray-brown with weathered tan granules, soft sand flecks, and pale silver-gray accents' },
+    { id: 'fox-hollow-gray',    name: 'Fox Hollow Gray',     hex: '#6e6e6e',
+      blend: 'medium cool-warm gray with darker charcoal granules and lighter taupe flecks; subtle warm undertone' },
+    { id: 'golden-amber',       name: 'Golden Amber',        hex: '#b8924a',
+      blend: 'warm honey-gold with amber granules, darker caramel flecks, and subtle copper highlights' },
+    { id: 'oyster-gray',        name: 'Oyster Gray',         hex: '#a8a39a', light: true,
+      blend: 'pale pearl-gray with subtle warm cream granules and soft taupe accents; light airy gray' },
+    { id: 'patriot-red',        name: 'Patriot Red',         hex: '#6e2828',
+      blend: 'deep brick-red with darker burgundy granules, near-black flecks, and subtle warm red highlights' },
+    { id: 'sunset-brick',       name: 'Sunset Brick',        hex: '#7e3838',
+      blend: 'warm terracotta-orange-red with darker brick granules, deeper red flecks, and amber highlights' },
+    { id: 'williamsburg-slate', name: 'Williamsburg Slate',  hex: '#3d4350',
+      blend: 'deep blue-slate with charcoal granules, navy-blue flecks, and cool gray accents' },
+    // ── American Harvest (legacy multi-blend; richer 4-tone signature) ──
+    { id: 'adobe-sunset',       name: 'Adobe Sunset',        hex: '#a06840',
+      blend: 'warm terracotta-orange with brick-red granules, golden-amber flecks, and darker brown variation; southwestern desert tone' },
+    { id: 'appalachian-sky',    name: 'Appalachian Sky',     hex: '#4a5868',
+      blend: 'storm-gray-blue with charcoal granules, slate-blue flecks, and lighter gray highlights; multi-tone like an overcast Appalachian sky' },
+    { id: 'brandywine-dusk',    name: 'Brandywine Dusk',     hex: '#5e3838',
+      blend: 'deep wine-burgundy with darker charcoal granules, warm brown flecks, and faint plum highlights' },
+    { id: 'cedar-falls',        name: 'Cedar Falls',         hex: '#6e5235',
+      blend: 'warm reddish-brown with chocolate granules, darker charcoal flecks, and amber highlights; autumnal cedar' },
+    { id: 'golden-harvest',     name: 'Golden Harvest',      hex: '#a07440',
+      blend: 'warm gold-brown with amber granules, darker caramel flecks, and lighter wheat-tan highlights' },
+    { id: 'nantucket-morning',  name: 'Nantucket Morning',   hex: '#7a8590',
+      blend: 'soft cool gray-blue with cream granules, lighter tan flecks, and pale silver accents; early morning fog' },
+    { id: 'saddlewood-ranch',   name: 'Saddlewood Ranch',    hex: '#6e4530',
+      blend: 'rich saddle-brown with darker chocolate granules, warm amber flecks, and copper highlights' },
+    // ── Bold Definition (Jan 2026; richer tones, dramatic contrast) ──
+    { id: 'chestnut-valley',    name: 'Chestnut Valley',     hex: '#5e3a25',
+      blend: 'rich warm chestnut brown with deeper mahogany granules, copper-red flecks, and subtle golden highlights; bold contrast' },
+    { id: 'cliffside',          name: 'Cliffside',           hex: '#8a8680',
+      blend: 'sophisticated warm gray with limestone-tan granules, beige flecks, and darker charcoal accents; weathered cliff stone' },
+    { id: 'midnight-mesa',      name: 'Midnight Mesa',       hex: '#252830',
+      blend: 'deep dark blue-charcoal with near-black granules, navy-blue flecks, and faint warm dark-brown undertone; dramatic night sky' },
+    { id: 'sierra-sand',        name: 'Sierra Sand',         hex: '#a89476',
+      blend: 'warm tan-beige with golden-sand granules, lighter cream flecks, and subtle darker tan accents; desert sand' },
   ],
 
   // Timberline UHDZ — premium / Class 4 impact-rated; 6 colors.
+  // Same blend recipes as HDZ but rendered with thicker tab + deeper shadow.
   timberlineUhdzColors: [
-    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e' },
-    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048' },
-    { id: 'slate',              name: 'Slate',               hex: '#46484e' },
-    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a',
+      blend: 'deep warm brown with darker chocolate-mahogany granules and lighter reddish-tan flecks; UHDZ ultra-deep shadow' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c',
+      blend: 'deep blackish-gray with charcoal granules, slate-gray flecks, and subtle warm-gray accents; UHDZ ultra-deep shadow' },
+    { id: 'pewter-gray',        name: 'Pewter Gray',         hex: '#5e5e5e',
+      blend: 'medium cool gray with darker slate granules and lighter silver-gray flecks; UHDZ ultra-deep shadow' },
+    { id: 'shakewood',          name: 'Shakewood',           hex: '#7a6048',
+      blend: 'warm tan-brown with golden granules, darker brown flecks, and bleached cedar accents; weathered-shake with UHDZ depth' },
+    { id: 'slate',              name: 'Slate',               hex: '#46484e',
+      blend: 'deep cool gray-slate with darker charcoal granules and subtle blue-gray accents; UHDZ ultra-deep shadow' },
+    { id: 'weathered-wood',     name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'warm gray-brown with tan granules, darker brown flecks, and silver-gray accents; aged hardwood with UHDZ depth' },
   ],
 
   // Camelot II — designer slate-look luxury line; 5 colors.
+  // Designer profile: scalloped/staggered cuts mimicking natural slate.
   camelot2Colors: [
-    { id: 'antique-slate',      name: 'Antique Slate',       hex: '#3a3a40' },
-    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a' },
-    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c' },
-    { id: 'royal-slate',        name: 'Royal Slate',         hex: '#4a5266' },
-    { id: 'weathered-timber',   name: 'Weathered Timber',    hex: '#7a6750' },
+    { id: 'antique-slate',      name: 'Antique Slate',       hex: '#3a3a40',
+      blend: 'multi-tone aged slate with charcoal granules, blue-gray flecks, warm gray accents, and subtle silver highlights; designer staggered slate look' },
+    { id: 'barkwood',           name: 'Barkwood',            hex: '#4a3a2a',
+      blend: 'deep warm brown with chocolate-mahogany granules, reddish-tan flecks, and bleached cedar accents; designer staggered profile' },
+    { id: 'charcoal',           name: 'Charcoal',            hex: '#2c2c2c',
+      blend: 'deep blackish-gray with charcoal granules, slate-gray flecks, and warm-gray accents; designer staggered profile' },
+    { id: 'royal-slate',        name: 'Royal Slate',         hex: '#4a5266',
+      blend: 'rich blue-slate with navy granules, charcoal flecks, and cool gray-blue highlights; regal stone tone with designer staggered cuts' },
+    { id: 'weathered-timber',   name: 'Weathered Timber',    hex: '#7a6750',
+      blend: 'warm gray-brown blend with bleached cedar granules, darker brown flecks, and weathered tan accents; designer cedar-shake look' },
   ],
 
-  // Standing-seam metal palette (shown when roofLine === 'metal')
+  // Standing-seam metal palette (shown when roofLine === 'metal').
+  // Painted metal panels are SINGLE-TONE — no granule blend. Description
+  // emphasizes finish (matte / satin / mirror) and any reflective quality.
   metalColors: [
-    { id: 'matte-black',     name: 'Matte Black',     hex: '#1a1a1a' },
-    { id: 'charcoal',        name: 'Charcoal',        hex: '#3a3a3a' },
-    { id: 'galvalume',       name: 'Galvalume',       hex: '#a8a8a8', light: true },
-    { id: 'medium-bronze',   name: 'Medium Bronze',   hex: '#5e4530' },
-    { id: 'forest-green',    name: 'Forest Green',    hex: '#1f3528' },
-    { id: 'colonial-red',    name: 'Colonial Red',    hex: '#7a1c1c' },
-    { id: 'almond',          name: 'Almond',          hex: '#d8c8a8', light: true },
-    { id: 'stone-white',     name: 'Stone White',     hex: '#e8e0d0', light: true },
+    { id: 'matte-black',     name: 'Matte Black',     hex: '#1a1a1a',
+      blend: 'matte deep-black painted standing-seam metal — uniform, low-sheen, no reflective hotspots' },
+    { id: 'charcoal',        name: 'Charcoal',        hex: '#3a3a3a',
+      blend: 'matte charcoal-gray painted standing-seam metal — uniform medium-dark gray, low-sheen finish' },
+    { id: 'galvalume',       name: 'Galvalume',       hex: '#a8a8a8', light: true,
+      blend: 'unpainted Galvalume® steel with bright silver-gray reflective metallic finish; visible directional sheen along the seams' },
+    { id: 'medium-bronze',   name: 'Medium Bronze',   hex: '#5e4530',
+      blend: 'rich warm bronze painted metal — deep brown with subtle warm undertones; satin finish' },
+    { id: 'forest-green',    name: 'Forest Green',    hex: '#1f3528',
+      blend: 'deep forest-green painted metal — uniform pine green with low-sheen finish' },
+    { id: 'colonial-red',    name: 'Colonial Red',    hex: '#7a1c1c',
+      blend: 'classic colonial barn-red painted metal — deep brick-red with subtle warm undertone; satin finish' },
+    { id: 'almond',          name: 'Almond',          hex: '#d8c8a8', light: true,
+      blend: 'creamy almond painted metal — warm beige-cream; soft low-sheen finish' },
+    { id: 'stone-white',     name: 'Stone White',     hex: '#e8e0d0', light: true,
+      blend: 'soft stone-white painted metal — gentle off-white with warm undertone; satin finish' },
   ],
 
   sidingMaterials: [
@@ -866,23 +934,42 @@ const VIZ_OPTIONS = {
     { id: 'shake',        label: 'Shake',             ai: 'shake / shingle profile' },
   ],
 
+  // Siding colors — vinyl / fiber-cement palettes are predominantly
+  // SINGLE-TONE painted finishes. Blend description still helps FLUX
+  // by giving exact tonal language ("warm cream" beats "cream").
   sidingColors: [
-    { id: 'arctic-white',   name: 'Arctic White',     hex: '#f0e8d8', light: true },
-    { id: 'cream',          name: 'Cream',            hex: '#e8d8b8', light: true },
-    { id: 'linen',          name: 'Linen',            hex: '#d8c8a8', light: true },
-    { id: 'sandstone',      name: 'Sandstone Beige',  hex: '#c8b898' },
-    { id: 'pebble',         name: 'Pebble Clay',      hex: '#a89888' },
-    { id: 'monterey-taupe', name: 'Monterey Taupe',   hex: '#8a7868' },
-    { id: 'cobblestone',    name: 'Cobblestone',      hex: '#6e6e6e' },
-    { id: 'pearl-gray',     name: 'Pearl Gray',       hex: '#a0a8a8', light: true },
-    { id: 'iron-gray',      name: 'Iron Gray',        hex: '#4a4e54' },
-    { id: 'aged-pewter',    name: 'Aged Pewter',      hex: '#3a3e44' },
-    { id: 'evening-blue',   name: 'Evening Blue',     hex: '#3e4858' },
-    { id: 'deep-ocean',     name: 'Deep Ocean',       hex: '#1e2c3e' },
-    { id: 'cypress',        name: 'Cypress Green',    hex: '#3a4a3e' },
-    { id: 'autumn-red',     name: 'Autumn Red',       hex: '#8e2828' },
-    { id: 'cedar',          name: 'Cedar Brown',      hex: '#6e4a30' },
-    { id: 'matte-black',    name: 'Matte Black',      hex: '#1c1917' },
+    { id: 'arctic-white',   name: 'Arctic White',     hex: '#f0e8d8', light: true,
+      blend: 'crisp warm white siding with very subtle cream undertone; clean architectural look' },
+    { id: 'cream',          name: 'Cream',            hex: '#e8d8b8', light: true,
+      blend: 'soft warm cream — muted ivory with faint yellow undertone, low-sheen finish' },
+    { id: 'linen',          name: 'Linen',            hex: '#d8c8a8', light: true,
+      blend: 'soft linen-tan — warm off-white with subtle beige undertone' },
+    { id: 'sandstone',      name: 'Sandstone Beige',  hex: '#c8b898',
+      blend: 'warm sandstone beige — muted tan with subtle warm-stone undertone' },
+    { id: 'pebble',         name: 'Pebble Clay',      hex: '#a89888',
+      blend: 'medium warm taupe — earthy clay-tan, slightly cooler than sandstone' },
+    { id: 'monterey-taupe', name: 'Monterey Taupe',   hex: '#8a7868',
+      blend: 'rich warm taupe — deeper than pebble, with subtle gray-brown undertone' },
+    { id: 'cobblestone',    name: 'Cobblestone',      hex: '#6e6e6e',
+      blend: 'medium neutral gray — true warm-cool balance, low-sheen finish' },
+    { id: 'pearl-gray',     name: 'Pearl Gray',       hex: '#a0a8a8', light: true,
+      blend: 'pale cool pearl gray with very subtle blue-green undertone; soft modern look' },
+    { id: 'iron-gray',      name: 'Iron Gray',        hex: '#4a4e54',
+      blend: 'deep cool iron gray — strong neutral with subtle blue-charcoal undertone' },
+    { id: 'aged-pewter',    name: 'Aged Pewter',      hex: '#3a3e44',
+      blend: 'deep dark pewter — almost-black gray with faint blue-cool undertone' },
+    { id: 'evening-blue',   name: 'Evening Blue',     hex: '#3e4858',
+      blend: 'deep slate-blue with subtle gray-charcoal undertone; rich coastal evening tone' },
+    { id: 'deep-ocean',     name: 'Deep Ocean',       hex: '#1e2c3e',
+      blend: 'deep midnight navy with subtle blue-charcoal undertone; dramatic dark blue' },
+    { id: 'cypress',        name: 'Cypress Green',    hex: '#3a4a3e',
+      blend: 'deep cypress-pine green with warm earth undertone; muted forest tone' },
+    { id: 'autumn-red',     name: 'Autumn Red',       hex: '#8e2828',
+      blend: 'rich autumn brick-red with darker burgundy undertone; warm classic red' },
+    { id: 'cedar',          name: 'Cedar Brown',      hex: '#6e4a30',
+      blend: 'warm cedar-brown — natural wood-stain look with reddish-amber undertone' },
+    { id: 'matte-black',    name: 'Matte Black',      hex: '#1c1917',
+      blend: 'matte deep black — modern farmhouse look, low-sheen finish' },
   ],
 
   gutterStyles: [
@@ -890,20 +977,33 @@ const VIZ_OPTIONS = {
     { id: 'half-round', label: 'Half-Round',  ai: 'half-round seamless aluminum' },
   ],
 
-  // Trim palette — used for gutters, windows, garage, shutters, doors
+  // Trim palette — used for gutters, windows, garage, shutters, doors.
+  // All single-tone painted finishes (no granule blends apply).
   trimColors: [
-    { id: 'white',         name: 'White',          hex: '#f8f8f8', light: true },
-    { id: 'almond',        name: 'Almond',         hex: '#d1c8b8', light: true },
-    { id: 'sandstone',     name: 'Sandstone',      hex: '#c8b898' },
-    { id: 'gray',          name: 'Gray',           hex: '#6b7280' },
-    { id: 'iron-gray',     name: 'Iron Gray',      hex: '#4a4e54' },
-    { id: 'black',         name: 'Black',          hex: '#1a1a1a' },
-    { id: 'bronze',        name: 'Dark Bronze',    hex: '#3e3024' },
-    { id: 'brown',         name: 'Brown',          hex: '#4a3528' },
-    { id: 'cedar',         name: 'Natural Cedar',  hex: '#a06840' },
-    { id: 'forest-green',  name: 'Forest Green',   hex: '#2d4030' },
-    { id: 'navy',          name: 'Navy',           hex: '#1e3a6e' },
-    { id: 'red',           name: 'Red',            hex: '#7a1c1c' },
+    { id: 'white',         name: 'White',          hex: '#f8f8f8', light: true,
+      blend: 'crisp painted white — bright clean trim color, low-sheen finish' },
+    { id: 'almond',        name: 'Almond',         hex: '#d1c8b8', light: true,
+      blend: 'warm almond-cream painted finish — soft beige with cream undertone' },
+    { id: 'sandstone',     name: 'Sandstone',      hex: '#c8b898',
+      blend: 'warm sandstone-tan painted finish — earthy mid-tan' },
+    { id: 'gray',          name: 'Gray',           hex: '#6b7280',
+      blend: 'medium neutral gray painted finish — clean modern gray' },
+    { id: 'iron-gray',     name: 'Iron Gray',      hex: '#4a4e54',
+      blend: 'deep cool iron-gray painted finish — strong neutral with blue undertone' },
+    { id: 'black',         name: 'Black',          hex: '#1a1a1a',
+      blend: 'matte deep black painted finish — uniform low-sheen black' },
+    { id: 'bronze',        name: 'Dark Bronze',    hex: '#3e3024',
+      blend: 'rich dark bronze painted finish — warm deep brown with subtle copper undertone' },
+    { id: 'brown',         name: 'Brown',          hex: '#4a3528',
+      blend: 'deep chocolate brown painted finish — warm rich brown' },
+    { id: 'cedar',         name: 'Natural Cedar',  hex: '#a06840',
+      blend: 'natural cedar wood stain — warm reddish-tan, slight grain visible' },
+    { id: 'forest-green',  name: 'Forest Green',   hex: '#2d4030',
+      blend: 'deep forest-green painted finish — dark pine with warm earth undertone' },
+    { id: 'navy',          name: 'Navy',           hex: '#1e3a6e',
+      blend: 'deep classic navy blue painted finish — rich saturated marine blue' },
+    { id: 'red',           name: 'Red',            hex: '#7a1c1c',
+      blend: 'deep brick-red painted finish — warm classic red with subtle burgundy undertone' },
   ],
 
   garageStyles: [
@@ -1228,15 +1328,17 @@ async function runVisualizer() {
 
   // Structured payload — sent alongside selectionsText so the image-gen
   // endpoint and any future consumers don't have to re-parse the string.
+  // `blend` is the multi-tone granule description from VIZ_OPTIONS; it
+  // gets injected into the FLUX prompt to anchor the color realistically.
   const selections = {
     features,
-    roof:    features.includes('roof')     ? { line: roofLine.id, lineName: roofLine.label, color: roofColor.id, colorName: roofColor.name, hex: roofColor.hex } : null,
-    siding:  features.includes('siding')   ? { material: sidingMat.id, materialName: sidingMat.label, style: sidingStyle.id, color: sidingColor.id, colorName: sidingColor.name, hex: sidingColor.hex } : null,
-    gutters: features.includes('gutters')  ? { style: gutterStyle.id, color: gutterColor.id, colorName: gutterColor.name, hex: gutterColor.hex } : null,
-    windows: features.includes('windows')  ? { color: windowColor.id, colorName: windowColor.name, hex: windowColor.hex } : null,
-    garage:  features.includes('garage')   ? { style: garageStyle.id, color: garageColor.id, colorName: garageColor.name, hex: garageColor.hex } : null,
-    shutters:features.includes('shutters') ? { color: shutterColor.id, colorName: shutterColor.name, hex: shutterColor.hex } : null,
-    doors:   features.includes('doors')    ? { color: doorColor.id, colorName: doorColor.name, hex: doorColor.hex } : null,
+    roof:    features.includes('roof')     ? { line: roofLine.id, lineName: roofLine.label, color: roofColor.id, colorName: roofColor.name, hex: roofColor.hex, blend: roofColor.blend || '' } : null,
+    siding:  features.includes('siding')   ? { material: sidingMat.id, materialName: sidingMat.label, style: sidingStyle.id, color: sidingColor.id, colorName: sidingColor.name, hex: sidingColor.hex, blend: sidingColor.blend || '' } : null,
+    gutters: features.includes('gutters')  ? { style: gutterStyle.id, color: gutterColor.id, colorName: gutterColor.name, hex: gutterColor.hex, blend: gutterColor.blend || '' } : null,
+    windows: features.includes('windows')  ? { color: windowColor.id, colorName: windowColor.name, hex: windowColor.hex, blend: windowColor.blend || '' } : null,
+    garage:  features.includes('garage')   ? { style: garageStyle.id, color: garageColor.id, colorName: garageColor.name, hex: garageColor.hex, blend: garageColor.blend || '' } : null,
+    shutters:features.includes('shutters') ? { color: shutterColor.id, colorName: shutterColor.name, hex: shutterColor.hex, blend: shutterColor.blend || '' } : null,
+    doors:   features.includes('doors')    ? { color: doorColor.id, colorName: doorColor.name, hex: doorColor.hex, blend: doorColor.blend || '' } : null,
   };
 
   // Call BOTH endpoints in parallel:

@@ -209,11 +209,12 @@ function resolveColor(map, key, fallbackKey) {
 }
 
 // Resolve the roof line + color for the prompt. Prefers the structured
-// `selections.roof` payload (line id + colorName + hex sent straight from
-// the frontend's VIZ_OPTIONS), falls back to legacy roofStyle/roofColor
-// fields for older clients. This is what fixed the "Sedona Sunset becomes
-// charcoal" bug — hex now passes through end-to-end instead of getting
-// looked up against an 8-entry table.
+// `selections.roof` payload (line id + colorName + hex + blend sent
+// straight from the frontend's VIZ_OPTIONS), falls back to legacy
+// roofStyle/roofColor fields for older clients. The `blend` field is
+// the multi-tone granule description the frontend now ships for every
+// color; without it FLUX renders shingles as a flat painted-looking
+// tone instead of the real granule mix.
 function resolveRoofLineAndColor(selections) {
   const structured = selections.structured && selections.structured.roof;
 
@@ -221,76 +222,94 @@ function resolveRoofLineAndColor(selections) {
   if (!ROOF_LINE_PROFILES[lineId]) lineId = 'timberline-hdz';
   const profile = ROOF_LINE_PROFILES[lineId];
 
-  let colorName, colorHex;
+  let colorName, colorHex, blend;
   if (structured && structured.colorName) {
     colorName = structured.colorName;
     colorHex  = structured.hex || null;
+    blend     = structured.blend || '';
   } else {
     const fallback = resolveColor(ROOF_COLOR_LABELS, selections.roofColor, 'charcoal');
     colorName = fallback.name;
     colorHex  = fallback.hex;
+    blend     = '';
   }
 
-  return { lineId, profile, colorName, colorHex };
+  return { lineId, profile, colorName, colorHex, blend };
 }
 
 function buildPrompt(selections) {
   const instructions = [];
 
   if (selections.features.includes('roof')) {
-    const { lineId, profile, colorName, colorHex } = resolveRoofLineAndColor(selections);
-    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
+    const { lineId, profile, colorName, colorHex, blend } = resolveRoofLineAndColor(selections);
+    const hexClause = colorHex ? ` (target color ${colorHex})` : '';
     const isMetal = lineId === 'metal';
 
-    // For shingle swaps we lead with the texture instructions before color —
-    // FLUX commits harder to substantive material changes when the texture
-    // language comes first and the color is treated as the secondary cue.
-    instructions.push(
-      `RE-ROOF THIS HOUSE: Completely replace every visible section of the existing roof with brand-new ${profile.label} in ${colorName}${hexClause}. ` +
-      profile.texture +
-      ` The new roof must look freshly installed, not filtered — show the actual material texture, the courses, the ridge caps, and the cut edges at hips and valleys. ` +
-      (isMetal
-        ? 'The standing-seam panels must be unmistakable: parallel raised seams, smooth painted-metal sheen, and crisp drip edges along the eaves.'
-        : 'Every visible inch of the old roof — including the dormers, porch roof, and any side or rear slopes that show in the photo — must be the new shingle. Do NOT tint or filter the existing shingles; the old material must be entirely replaced.') +
-      ` This is the whole point of the image — a believable ${colorName}${hexClause} ${isMetal ? 'metal roof' : 'shingle roof'} where the old roof used to be.`
-    );
+    // Three-section prompt layout: ACTION, COLOR, TEXTURE. FLUX Kontext
+    // commits harder to material+color edits when the prompt is sectioned
+    // — when a single run-on sentence mixes "in color X with texture Y"
+    // the model averages everything into a flat tinted version of the
+    // input. Sectioning forces it to satisfy each constraint.
+    let block = `RE-ROOF THIS HOUSE: Completely replace every visible section of the existing roof with brand-new ${profile.label} in ${colorName}${hexClause}.\n\n`;
+
+    if (blend) {
+      block += `COLOR DETAIL — ${colorName}: ${blend}. ` +
+               (isMetal
+                 ? 'The painted-metal panels must show this exact tone uniformly across every panel, with realistic painted-metal sheen rather than a flat color filter.'
+                 : 'The shingle granule mix MUST show this multi-tone variation — never a uniform painted look. Preserve the granule blend; do not average it to a single flat tone. Color should match a freshly-installed real shingle photographed in natural daylight.') +
+               '\n\n';
+    }
+
+    block += `TEXTURE — ${profile.texture}\n\n`;
+
+    block += isMetal
+      ? 'INSTALLATION: The standing-seam panels must be unmistakable — parallel raised seams running ridge-to-eave, smooth painted-metal sheen, crisp drip edges along the eaves, and a continuous ridge cap. Replace EVERY visible roof slope (main, dormers, porch, side, rear) with the new metal panels.'
+      : 'INSTALLATION: Replace EVERY visible inch of the old roof — main slopes, dormers, porch roof, any side or rear slopes visible in the photo. Show actual granule grain, course-by-course shingle tabs with deep dimensional shadow lines, ridge cap shingles at every peak, and clean cuts at hips and valleys. Do NOT tint or color-shift the existing shingles; the old material must be entirely replaced with freshly installed new shingle.';
+
+    instructions.push(block);
   }
 
   if (selections.features.includes('siding')) {
     const structured = selections.structured && selections.structured.siding;
     const styleKey = (structured && structured.style) || selections.sidingStyle;
     const style = SIDING_STYLE_LABELS[styleKey] || 'horizontal lap siding';
-    let colorName, colorHex;
+    let colorName, colorHex, blend;
     if (structured && structured.colorName) {
       colorName = structured.colorName;
       colorHex  = structured.hex || null;
+      blend     = structured.blend || '';
     } else {
       const fallback = resolveColor(SIDING_COLOR_LABELS, selections.sidingColor, 'cream');
       colorName = fallback.name;
       colorHex  = fallback.hex;
+      blend     = '';
     }
-    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
-    instructions.push(
-      `RE-SIDE THIS HOUSE: Replace every exterior wall with brand-new ${style} in ${colorName}${hexClause}. ` +
-      `Show the panel lines, the trim transitions, and consistent color saturation across every wall. ` +
-      `The siding change must be clearly visible, not a subtle tint.`
-    );
+    const hexClause = colorHex ? ` (target color ${colorHex})` : '';
+    let block = `RE-SIDE THIS HOUSE: Replace every exterior wall with brand-new ${style} in ${colorName}${hexClause}.\n\n`;
+    if (blend) {
+      block += `COLOR DETAIL — ${colorName}: ${blend}. The painted siding must show this exact tone uniformly across every wall — clean and saturated, not faded or filtered.\n\n`;
+    }
+    block += 'INSTALLATION: Show every panel line, every trim transition, and consistent color saturation across every wall. The siding change must be clearly visible — replace the existing siding entirely, do not tint it.';
+    instructions.push(block);
   }
 
   if (selections.features.includes('gutters')) {
     const structured = selections.structured && selections.structured.gutters;
-    let colorName, colorHex;
+    let colorName, colorHex, blend;
     if (structured && structured.colorName) {
       colorName = structured.colorName;
       colorHex  = structured.hex || null;
+      blend     = structured.blend || '';
     } else {
       const fallback = resolveColor(GUTTER_COLOR_LABELS, selections.gutterColor, 'white');
       colorName = fallback.name;
       colorHex  = fallback.hex;
+      blend     = '';
     }
-    const hexClause = colorHex ? ` (exactly color ${colorHex})` : '';
+    const hexClause = colorHex ? ` (target color ${colorHex})` : '';
     instructions.push(
-      `Replace the gutters and downspouts with clean seamless K-style in ${colorName}${hexClause}.`
+      `Replace the gutters and downspouts with clean seamless K-style in ${colorName}${hexClause}.` +
+      (blend ? ` ${blend}.` : '')
     );
   }
 
@@ -405,24 +424,35 @@ exports.visualizerImageGen = onRequest(
       // Sanitize the structured `selections` block the new frontend sends.
       // Only the fields the prompt builder actually reads are kept. Hex
       // values are validated against #RRGGBB to keep us from injecting
-      // arbitrary text into the FLUX prompt via the colorHex field.
+      // arbitrary text into the FLUX prompt via the colorHex field. Blend
+      // descriptions are length-capped + stripped of newlines so they
+      // can't break out of their prompt section.
       const HEX_RE = /^#[0-9a-fA-F]{6}$/;
       function sanHex(v) { return typeof v === 'string' && HEX_RE.test(v) ? v : null; }
+      function sanBlend(v) {
+        if (typeof v !== 'string') return '';
+        // Strip newlines and clamp length — blends are sentence fragments
+        // describing granule tones; ~240 chars is plenty.
+        return v.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+      }
       const rawStructured = (body.selections && typeof body.selections === 'object') ? body.selections : {};
       const structured = {
         roof: rawStructured.roof ? {
           line:      sanitizeString(rawStructured.roof.line, 40),
           colorName: sanitizeString(rawStructured.roof.colorName, 60),
           hex:       sanHex(rawStructured.roof.hex),
+          blend:     sanBlend(rawStructured.roof.blend),
         } : null,
         siding: rawStructured.siding ? {
           style:     sanitizeString(rawStructured.siding.style, 40),
           colorName: sanitizeString(rawStructured.siding.colorName, 60),
           hex:       sanHex(rawStructured.siding.hex),
+          blend:     sanBlend(rawStructured.siding.blend),
         } : null,
         gutters: rawStructured.gutters ? {
           colorName: sanitizeString(rawStructured.gutters.colorName, 60),
           hex:       sanHex(rawStructured.gutters.hex),
+          blend:     sanBlend(rawStructured.gutters.blend),
         } : null,
       };
 
