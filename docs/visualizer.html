@@ -166,29 +166,32 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .pill.selected { border-color: var(--orange); background: var(--orange); color: var(--white); }
 .pill .pill-sub { display:block; font-size:0.65rem; font-weight:500; opacity:0.75; margin-top:1px; letter-spacing:0; text-transform:none; }
 .pill.selected .pill-sub { opacity:0.95; }
-.color-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; row-gap: 14px; }
+/* Swatches render as vertical tiles: a 36x36 color chip on top, the
+ * color name as an always-visible caption below. Generous row-gap so
+ * two-line names (e.g. "Williamsburg Slate") cannot overflow into the
+ * next row of chips. No floating tooltips, no z-index games — names
+ * stay readable on every device + tap state. */
+.color-swatches { display: flex; flex-wrap: wrap; gap: 18px 14px; margin-top: 8px; }
 .swatch {
-  width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-  border: 3px solid transparent; transition: transform 0.15s, border-color 0.15s;
-  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: 78px; cursor: pointer; padding: 0; background: transparent;
+  border: none; position: relative;
 }
-.swatch:hover, .swatch.selected { z-index: 6; }
-.swatch:hover { transform: scale(1.12); }
-.swatch.selected { border-color: var(--orange); transform: scale(1.1); }
-.swatch .swatch-name {
-  display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
-  transform: translateX(-50%); white-space: nowrap;
-  font-size: 0.72rem; font-weight: 700; color: var(--white);
-  background: var(--navy-dark); padding: 5px 10px; border-radius: 6px;
-  pointer-events: none; z-index: 20;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+.swatch-chip {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 3px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
 }
-.swatch .swatch-name::after {
-  content: ''; position: absolute; top: 100%; left: 50%;
-  transform: translateX(-50%); border: 5px solid transparent;
-  border-top-color: var(--navy-dark);
+.swatch:hover .swatch-chip { transform: scale(1.08); }
+.swatch.selected .swatch-chip { border-color: var(--orange); transform: scale(1.05); }
+.swatch-name {
+  display: block; font-size: 0.66rem; font-weight: 600;
+  color: var(--gray-sub); text-align: center; line-height: 1.2;
+  max-width: 78px; word-break: break-word;
+  pointer-events: none;
 }
-.swatch:hover .swatch-name, .swatch.selected:hover .swatch-name { display: block; }
+.swatch.selected .swatch-name { color: var(--navy); font-weight: 700; }
 .color-selected-label {
   display: inline-flex; align-items: center; margin-left: 10px;
   padding: 3px 10px; background: var(--off-white);
@@ -207,8 +210,9 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .group-sub { font-size: 0.74rem; color: var(--gray); line-height: 1.4; }
 #additionalNotes { width:100%; padding:12px 14px; border:2px solid var(--light-gray); border-radius:8px; font-family:inherit; font-size:0.88rem; color:var(--gray-sub); resize:vertical; min-height:80px; transition:border-color 0.2s; }
 #additionalNotes:focus { outline:none; border-color: var(--orange); }
-.swatch.light-bg { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
-.color-swatches.compact .swatch { width:32px; height:32px; }
+.swatch.light-bg .swatch-chip { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
+.color-swatches.compact .swatch { width: 64px; }
+.color-swatches.compact .swatch-chip { width: 30px; height: 30px; }
 
 /* PANEL 3 — RESULTS */
 .results-loading { text-align: center; padding: 48px 0; }
@@ -1080,7 +1084,7 @@ function renderSwatches(containerId, items, stateKey) {
   c.innerHTML = items.map(it => {
     const sel = state[stateKey] === it.id;
     const cls = 'swatch' + (sel ? ' selected' : '') + (it.light ? ' light-bg' : '');
-    return `<div class="${cls}" style="background:${it.hex}" data-val="${it.id}" data-name="${it.name}" data-hex="${it.hex}" title="${it.name}" tabindex="0"><span class="swatch-name">${it.name}</span></div>`;
+    return `<div class="${cls}" data-val="${it.id}" data-name="${it.name}" data-hex="${it.hex}" title="${it.name}" tabindex="0"><div class="swatch-chip" style="background:${it.hex}"></div><span class="swatch-name">${it.name}</span></div>`;
   }).join('');
   // Initialize the selected-label header from current state
   const initial = items.find(it => it.id === state[stateKey]) || items[0];
