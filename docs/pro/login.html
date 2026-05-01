@@ -4,6 +4,49 @@
 <link rel="stylesheet" href="css/theme-system.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- Recovery escape hatch. Visit /pro/login.html?reset=1 to nuke any stuck
+     service worker / cache / IndexedDB state from a bad deploy. Runs
+     before any other script so a corrupt cached login.js can't block it.
+     Inline + login.html is no-store so this code is guaranteed to reach
+     the browser even when everything else is broken. No-op for normal
+     users (who don't hit ?reset=1). -->
+<script>
+(function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    if (!p.has('reset')) return;
+    var done = function(){
+      try { localStorage.clear(); } catch(_) {}
+      try { sessionStorage.clear(); } catch(_) {}
+      location.replace('/pro/login.html');
+    };
+    var jobs = [];
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){ return r.unregister(); }));
+      }).catch(function(){}));
+    }
+    if (window.caches && caches.keys) {
+      jobs.push(caches.keys().then(function(keys){
+        return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+      }).catch(function(){}));
+    }
+    if (window.indexedDB && indexedDB.databases) {
+      jobs.push(indexedDB.databases().then(function(dbs){
+        return Promise.all((dbs||[]).map(function(d){
+          return new Promise(function(res){
+            try { var req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = res; }
+            catch(_) { res(); }
+          });
+        }));
+      }).catch(function(){}));
+    }
+    document.documentElement.style.background = '#0A0C0F';
+    document.documentElement.style.color = '#fff';
+    Promise.all(jobs).then(done, done);
+  } catch(_) { location.replace('/pro/login.html'); }
+})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
