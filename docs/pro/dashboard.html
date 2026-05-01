@@ -148,7 +148,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, initializeFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -352,11 +352,11 @@
   }
 
   const auth    = getAuth(app);
-  // Safari and some Android networks stall on Firestore's default WebChannel
-  // transport for ~60s before falling back, which previously held the
-  // visibility flip below at the door. Auto-detect probes WebChannel and
-  // falls back to long-polling within seconds.
-  const db      = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+  // NBDAuth (loaded earlier in <head>) already called initializeFirestore
+  // with experimentalAutoDetectLongPolling so the WebChannel→long-poll
+  // fallback kicks in within seconds on Safari/Android instead of a 60s
+  // hang. getFirestore here just retrieves that pre-configured instance.
+  const db      = getFirestore(app);
   const storage = getStorage(app);
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
