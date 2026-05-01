@@ -21,7 +21,7 @@
     "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots"
   },
   "dependencies": {
-    "firebase": "^10.12.2",
+    "firebase": "^12.12.1",
     "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
