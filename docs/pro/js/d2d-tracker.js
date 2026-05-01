@@ -1469,30 +1469,14 @@
 
     if (d2dMap) { d2dMap.invalidateSize(); return; }
 
-    // Leaflet loads asynchronously from unpkg. If it hasn't arrived yet,
-    // show a soft placeholder and poll for it — covers the case where the
-    // CDN is slow (mobile networks / Safari ITP throttling) but not down.
-    // We poll every 500ms for up to ~12s before giving up. Previously we
-    // retried only once at 3s, which mis-classified slow CDN loads as
-    // permanent failures and locked in the "Map unavailable" message even
-    // when Leaflet eventually arrived. If L is genuinely unavailable
-    // (blocked, offline, etc.) the D2D feed/stats still work; only the
-    // map is affected.
+    // Leaflet loads asynchronously from CDN. If it hasn't arrived yet,
+    // show a soft placeholder and retry once — covers the case where the
+    // CDN is slow but not down. If L is genuinely unavailable (blocked,
+    // offline, etc.) the D2D feed/stats still work; only the map is
+    // affected.
     if (typeof L === 'undefined') {
       mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--m,#9ca3af);font-size:13px;gap:8px;">⏳ Loading map…</div>';
-      let attempts = 0;
-      const maxAttempts = 24; // 24 × 500ms = 12s
-      const poll = setInterval(() => {
-        attempts++;
-        if (typeof L !== 'undefined') {
-          clearInterval(poll);
-          mapEl.innerHTML = '';
-          initD2DMap();
-        } else if (attempts >= maxAttempts) {
-          clearInterval(poll);
-          mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--m,#9ca3af);font-size:13px;">🗺️ Map unavailable — check connection</div>';
-        }
-      }, 500);
+      setTimeout(() => { if (typeof L !== 'undefined') { mapEl.innerHTML = ''; initD2DMap(); } else { mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--m,#9ca3af);font-size:13px;">🗺️ Map unavailable — check connection</div>'; } }, 3000);
       return;
     }
 

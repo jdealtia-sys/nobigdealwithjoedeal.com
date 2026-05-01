@@ -19,7 +19,7 @@
 // ── Firebase SDK Imports ──────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // ── Firebase Config (single source of truth) ─────────────
@@ -209,18 +209,7 @@ export const NBDAuth = {
       // Initialize Firebase
       _app = initializeApp(FIREBASE_CONFIG);
       _auth = getAuth(_app);
-      // Safari and some Android networks stall on Firestore's default
-      // WebChannel transport for ~60s before falling back. Auto-detect
-      // probes WebChannel and falls back to long-polling within seconds.
-      // Must be called before any getFirestore() — NBDAuth runs on every
-      // Pro page and is the first Firestore consumer, so this is the
-      // right place. Falls through to a plain getFirestore() if init
-      // throws because the SDK was already started elsewhere on the page.
-      try {
-        _db = initializeFirestore(_app, { experimentalAutoDetectLongPolling: true });
-      } catch (e) {
-        _db = getFirestore(_app);
-      }
+      _db = getFirestore(_app);
 
       // ── App Check (reCAPTCHA v3) ────────────────────────
       // The site key is set by the host page via a top-of-<head>

@@ -352,10 +352,6 @@
   }
 
   const auth    = getAuth(app);
-  // NBDAuth (loaded earlier in <head>) already called initializeFirestore
-  // with experimentalAutoDetectLongPolling so the WebChannel→long-poll
-  // fallback kicks in within seconds on Safari/Android instead of a 60s
-  // hang. getFirestore here just retrieves that pre-configured instance.
   const db      = getFirestore(app);
   const storage = getStorage(app);
 
@@ -436,43 +432,17 @@
     const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
                         || _emailLower === 'jonathandeal459@gmail.com';
 
-    // Show upgrade banner for lite users — invoked once the plan resolves
-    // (synchronously for owners, asynchronously after the Firestore read
-    // for non-owners). Idempotent: re-checks #liteBanner so we never stack
-    // duplicates if the plan flips during the session.
-    const showLiteBannerIfNeeded = () => {
-      if (window._userPlan !== 'lite') return;
-      if (document.getElementById('liteBanner')) return;
-      setTimeout(() => {
-        if (window._userPlan !== 'lite') return;
-        if (document.getElementById('liteBanner')) return;
-        const banner = document.createElement('div');
-        banner.id = 'liteBanner';
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
-        banner.innerHTML = `
-          <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
-          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
-          <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
-        `;
-        document.body.appendChild(banner);
-      }, 2000);
-    };
-
     if (isOwnerAccount) {
       window._userPlan = 'professional';
       window._subscription = { plan: 'professional', status: 'active', _owner: true };
       console.log('✓ Owner account — professional plan granted');
-      showLiteBannerIfNeeded();
     } else {
       // Subscription check — SOFT. Never block the dashboard load.
-      // The billing-gate module handles limits via soft gates, so we
-      // start with a fail-closed default and resolve the real plan
-      // asynchronously. Awaiting the read here previously held the
-      // visibility flip behind a Firestore round-trip that could stall
-      // ~60s on Safari/Android.
-      window._subscription = { plan: 'free', status: 'active', _pending: true };
-      window._userPlan = 'free';
-      getDoc(doc(db, 'subscriptions', user.uid)).then(subSnap => {
+      // The billing-gate module handles limits via soft gates.
+      // Access code users, free tier, and trial users all have no
+      // subscription doc — that's normal, not an error.
+      try {
+        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
@@ -483,19 +453,37 @@
         } else {
           // No subscription doc — normal for access code / free tier users
           window._subscription = { plan: 'free', status: 'active' };
+          window._userPlan = 'free';
           console.log('No subscription doc — defaulting to free tier');
         }
-      }).catch(error => {
+      } catch (error) {
         // Fail CLOSED — on Firestore error, restrict to the most limited
-        // tier. The pending default is already fail-closed; this branch
-        // just records why so future readers (and billing-gate) can tell
-        // a failed read apart from a missing doc.
+        // tier. The old comment here said "Fail open" but the code already
+        // set plan='free' (which IS fail-closed). Renamed the flag and
+        // comment to match intent so this doesn't get "fixed" back to
+        // actually-fail-open by a future reader misled by the label.
         console.warn('Subscription check failed — failing closed to free:', error.message);
         window._subscription = { plan: 'free', status: 'active', _failClosed: true };
-      }).finally(showLiteBannerIfNeeded);
+        window._userPlan = 'free';
+      }
     }
-
+    
     document.documentElement.style.visibility="visible";
+    
+    // Show upgrade banner for lite users
+    if (window._userPlan === 'lite') {
+      setTimeout(() => {
+        const banner = document.createElement('div');
+        banner.id = 'liteBanner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
+        banner.innerHTML = `
+          <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
+          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
+        `;
+        document.body.appendChild(banner);
+      }, 2000);
+    }
     window._user = user;
     // Load custom claims for role-based access (Enterprise)
     // Claims include: companyId, role, plan, subscriptionStatus
