@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v16', // v16 — Safari/Android dashboard paint fix + Leaflet readiness poll
-  cdn: 'nbd-cdn-v16',     // v16 — invalidate stale d2d-tracker.js so new map fallback ships
+  shell: 'nbd-shell-v17', // v17 — hotfix: move initializeFirestore into nbd-auth.js so dashboard.html stops throwing
+  cdn: 'nbd-cdn-v17',     // v17 — purge broken v16 dashboard.html / nbd-auth.js
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
