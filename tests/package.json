@@ -27,6 +27,6 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
     "@playwright/test": "^1.48.0",
-    "firebase-tools": "^13.0.0"
+    "firebase-tools": "^15.16.0"
   }
 }
