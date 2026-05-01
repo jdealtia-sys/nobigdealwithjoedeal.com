@@ -148,7 +148,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, initializeFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
@@ -352,7 +352,11 @@
   }
 
   const auth    = getAuth(app);
-  const db      = getFirestore(app);
+  // Safari and some Android networks stall on Firestore's default WebChannel
+  // transport for ~60s before falling back, which previously held the
+  // visibility flip below at the door. Auto-detect probes WebChannel and
+  // falls back to long-polling within seconds.
+  const db      = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
   const storage = getStorage(app);
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
@@ -432,47 +436,16 @@
     const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
                         || _emailLower === 'jonathandeal459@gmail.com';
 
-    if (isOwnerAccount) {
-      window._userPlan = 'professional';
-      window._subscription = { plan: 'professional', status: 'active', _owner: true };
-      console.log('✓ Owner account — professional plan granted');
-    } else {
-      // Subscription check — SOFT. Never block the dashboard load.
-      // The billing-gate module handles limits via soft gates.
-      // Access code users, free tier, and trial users all have no
-      // subscription doc — that's normal, not an error.
-      try {
-        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
-        if (subSnap.exists()) {
-          const subscription = subSnap.data();
-          window._subscription = subscription;
-          window._userPlan = subscription.plan || 'free';
-          // H-03: do NOT persist plan in localStorage — it reintroduces
-          // the fail-open hole that nbd-auth.js explicitly removed.
-          console.log('✓ Subscription:', subscription.plan, subscription.status);
-        } else {
-          // No subscription doc — normal for access code / free tier users
-          window._subscription = { plan: 'free', status: 'active' };
-          window._userPlan = 'free';
-          console.log('No subscription doc — defaulting to free tier');
-        }
-      } catch (error) {
-        // Fail CLOSED — on Firestore error, restrict to the most limited
-        // tier. The old comment here said "Fail open" but the code already
-        // set plan='free' (which IS fail-closed). Renamed the flag and
-        // comment to match intent so this doesn't get "fixed" back to
-        // actually-fail-open by a future reader misled by the label.
-        console.warn('Subscription check failed — failing closed to free:', error.message);
-        window._subscription = { plan: 'free', status: 'active', _failClosed: true };
-        window._userPlan = 'free';
-      }
-    }
-    
-    document.documentElement.style.visibility="visible";
-    
-    // Show upgrade banner for lite users
-    if (window._userPlan === 'lite') {
+    // Show upgrade banner for lite users — invoked once the plan resolves
+    // (synchronously for owners, asynchronously after the Firestore read
+    // for non-owners). Idempotent: re-checks #liteBanner so we never stack
+    // duplicates if the plan flips during the session.
+    const showLiteBannerIfNeeded = () => {
+      if (window._userPlan !== 'lite') return;
+      if (document.getElementById('liteBanner')) return;
       setTimeout(() => {
+        if (window._userPlan !== 'lite') return;
+        if (document.getElementById('liteBanner')) return;
         const banner = document.createElement('div');
         banner.id = 'liteBanner';
         banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
@@ -483,7 +456,46 @@
         `;
         document.body.appendChild(banner);
       }, 2000);
+    };
+
+    if (isOwnerAccount) {
+      window._userPlan = 'professional';
+      window._subscription = { plan: 'professional', status: 'active', _owner: true };
+      console.log('✓ Owner account — professional plan granted');
+      showLiteBannerIfNeeded();
+    } else {
+      // Subscription check — SOFT. Never block the dashboard load.
+      // The billing-gate module handles limits via soft gates, so we
+      // start with a fail-closed default and resolve the real plan
+      // asynchronously. Awaiting the read here previously held the
+      // visibility flip behind a Firestore round-trip that could stall
+      // ~60s on Safari/Android.
+      window._subscription = { plan: 'free', status: 'active', _pending: true };
+      window._userPlan = 'free';
+      getDoc(doc(db, 'subscriptions', user.uid)).then(subSnap => {
+        if (subSnap.exists()) {
+          const subscription = subSnap.data();
+          window._subscription = subscription;
+          window._userPlan = subscription.plan || 'free';
+          // H-03: do NOT persist plan in localStorage — it reintroduces
+          // the fail-open hole that nbd-auth.js explicitly removed.
+          console.log('✓ Subscription:', subscription.plan, subscription.status);
+        } else {
+          // No subscription doc — normal for access code / free tier users
+          window._subscription = { plan: 'free', status: 'active' };
+          console.log('No subscription doc — defaulting to free tier');
+        }
+      }).catch(error => {
+        // Fail CLOSED — on Firestore error, restrict to the most limited
+        // tier. The pending default is already fail-closed; this branch
+        // just records why so future readers (and billing-gate) can tell
+        // a failed read apart from a missing doc.
+        console.warn('Subscription check failed — failing closed to free:', error.message);
+        window._subscription = { plan: 'free', status: 'active', _failClosed: true };
+      }).finally(showLiteBannerIfNeeded);
     }
+
+    document.documentElement.style.visibility="visible";
     window._user = user;
     // Load custom claims for role-based access (Enterprise)
     // Claims include: companyId, role, plan, subscriptionStatus
