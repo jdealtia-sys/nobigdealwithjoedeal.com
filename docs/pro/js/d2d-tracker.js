@@ -3239,77 +3239,25 @@
     if (d2dInitializing) return;
     d2dInitializing = true;
 
-    // Auth gate — three failure modes folded into one:
-    //   (a) Race: D2D tab tapped before Firebase onAuthStateChanged
-    //       fires. Common in iOS Safari standalone PWA where the
-    //       Firebase Auth IndexedDB cold-start is slow.
-    //   (b) Hung init: PWA storage was wiped (Safari 7-day rule) so
-    //       Firebase Auth can't restore session; promise never settles.
-    //   (c) Stale shell: SW served a cached dashboard.html that runs
-    //       BEFORE the auth bootstrap completes for this session.
+    // No standalone auth gate here. NBDAuth gates dashboard access on
+    // load (dashboard.html runs NBDAuth.init with requiredPlan); if a
+    // user is on this page and tapping the D2D nav button, they've
+    // already passed that gate. The previous double-gate did its own
+    // window._user / _auth.currentUser / authStateReady check and
+    // redirected to /pro/login?from=d2d on failure — which on iOS
+    // Safari was firing for SIGNED-IN users because ITP delays the
+    // IndexedDB session restore past whatever timeout we used. Net
+    // effect: a working app on Brave / desktop, but a permanent
+    // login bounce on iPhone Safari for the same account.
     //
-    // Strategy: await window._nbdAuth (the init promise NBDAuth.init
-    // returns at dashboard.html:145). If it resolves with a user → go.
-    // If it resolves with null → free-tier path that shouldn't reach
-    // here, but tolerate it. If it never resolves within 5s → hard
-    // redirect to login (covers (b) reliably).
-    // Resolve the current user from either window._user (NBDAuth's
-    // canonical snapshot) OR Firebase Auth's currentUser as a fallback.
-    // On iOS Safari the two can race: signed-in users have seen
-    // window._user briefly empty while _auth.currentUser is already
-    // populated, which kicked them back to login on the first D2D tap.
-    // Firebase Auth's currentUser is the source of truth — falling
-    // back to it preserves the security gate (no user → still redirect)
-    // while eliminating the race-window false-positive.
-    const _resolveUser = () =>
-      (window._user && window._user.uid && window._user) ||
-      (window._auth && window._auth.currentUser && window._auth.currentUser.uid && window._auth.currentUser) ||
-      null;
-
-    if (!_resolveUser()) {
-      // Wait for Firebase Auth to definitively determine its state.
-      // authStateReady() (Firebase v9.6+) resolves only once the SDK
-      // has either restored a session from IndexedDB or confirmed
-      // there is none. iOS Safari ITP can stall the IDB read past the
-      // window we'd otherwise wait, so this is more reliable than
-      // polling window._user / window._nbdAuth alone.
-      try {
-        var waiters = [];
-        if (window._auth && typeof window._auth.authStateReady === 'function') {
-          waiters.push(window._auth.authStateReady());
-        }
-        if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
-          waiters.push(window._nbdAuth);
-        }
-        if (waiters.length === 0) {
-          // No auth handles available at all — let the renderer surface
-          // an error rather than redirecting blindly.
-          throw new Error('no-auth-handles');
-        }
-        await Promise.race([
-          Promise.all(waiters).catch(() => {}),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 8000))
-        ]);
-      } catch (e) {
-        d2dInitializing = false;
-        console.warn('initD2D: auth state did not resolve in time — redirecting to login', e.message);
-        try { renderD2D(); } catch (_) {}
-        window.location.replace('/pro/login.html?from=d2d');
-        return;
-      }
-      // After the wait, the user may have been set by NBDAuth or be
-      // available via _auth.currentUser.
-      const u = _resolveUser();
-      if (!u) {
-        d2dInitializing = false;
-        console.warn('initD2D: no user after auth resolved — redirecting to login');
-        try { renderD2D(); } catch (_) {}
-        window.location.replace('/pro/login.html?from=d2d');
-        return;
-      }
-      // Hydrate window._user from the fallback so the rest of d2d-tracker
-      // (which reads window._user.uid directly) keeps working.
-      if (!window._user) window._user = u;
+    // The Firestore reads inside this init still require window._user.uid
+    // and are wrapped in try/catch + a 6s Promise.race below, so an
+    // edge case where the user really isn't signed in degrades to an
+    // empty D2D shell rather than data exposure. Best-effort hydrate
+    // window._user from _auth.currentUser if missing so loadKnocks /
+    // loadRepProfile have what they need.
+    if (!window._user && window._auth && window._auth.currentUser) {
+      window._user = window._auth.currentUser;
     }
 
     try {
