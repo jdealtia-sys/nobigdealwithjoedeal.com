@@ -3253,7 +3253,20 @@
     // If it resolves with null → free-tier path that shouldn't reach
     // here, but tolerate it. If it never resolves within 5s → hard
     // redirect to login (covers (b) reliably).
-    if (!window._user || !window._user.uid) {
+    // Resolve the current user from either window._user (NBDAuth's
+    // canonical snapshot) OR Firebase Auth's currentUser as a fallback.
+    // On iOS Safari the two can race: signed-in users have seen
+    // window._user briefly empty while _auth.currentUser is already
+    // populated, which kicked them back to login on the first D2D tap.
+    // Firebase Auth's currentUser is the source of truth — falling
+    // back to it preserves the security gate (no user → still redirect)
+    // while eliminating the race-window false-positive.
+    const _resolveUser = () =>
+      (window._user && window._user.uid && window._user) ||
+      (window._auth && window._auth.currentUser && window._auth.currentUser.uid && window._auth.currentUser) ||
+      null;
+
+    if (!_resolveUser()) {
       try {
         if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
           await Promise.race([
@@ -3268,14 +3281,19 @@
         window.location.replace('/pro/login.html?from=d2d');
         return;
       }
-      // After the wait, _user may have been set by NBDAuth.
-      if (!window._user || !window._user.uid) {
+      // After the wait, the user may have been set by NBDAuth or be
+      // available via _auth.currentUser.
+      const u = _resolveUser();
+      if (!u) {
         d2dInitializing = false;
-        console.warn('initD2D: still no _user after auth resolved — redirecting to login');
+        console.warn('initD2D: no user after auth resolved — redirecting to login');
         try { renderD2D(); } catch (_) {}
         window.location.replace('/pro/login.html?from=d2d');
         return;
       }
+      // Hydrate window._user from the fallback so the rest of d2d-tracker
+      // (which reads window._user.uid directly) keeps working.
+      if (!window._user) window._user = u;
     }
 
     try {
