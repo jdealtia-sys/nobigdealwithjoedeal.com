@@ -3267,16 +3267,32 @@
       null;
 
     if (!_resolveUser()) {
+      // Wait for Firebase Auth to definitively determine its state.
+      // authStateReady() (Firebase v9.6+) resolves only once the SDK
+      // has either restored a session from IndexedDB or confirmed
+      // there is none. iOS Safari ITP can stall the IDB read past the
+      // window we'd otherwise wait, so this is more reliable than
+      // polling window._user / window._nbdAuth alone.
       try {
-        if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
-          await Promise.race([
-            window._nbdAuth,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 5000))
-          ]);
+        var waiters = [];
+        if (window._auth && typeof window._auth.authStateReady === 'function') {
+          waiters.push(window._auth.authStateReady());
         }
+        if (window._nbdAuth && typeof window._nbdAuth.then === 'function') {
+          waiters.push(window._nbdAuth);
+        }
+        if (waiters.length === 0) {
+          // No auth handles available at all — let the renderer surface
+          // an error rather than redirecting blindly.
+          throw new Error('no-auth-handles');
+        }
+        await Promise.race([
+          Promise.all(waiters).catch(() => {}),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 8000))
+        ]);
       } catch (e) {
         d2dInitializing = false;
-        console.warn('initD2D: auth promise did not resolve within 5s — redirecting to login', e.message);
+        console.warn('initD2D: auth state did not resolve in time — redirecting to login', e.message);
         try { renderD2D(); } catch (_) {}
         window.location.replace('/pro/login.html?from=d2d');
         return;
