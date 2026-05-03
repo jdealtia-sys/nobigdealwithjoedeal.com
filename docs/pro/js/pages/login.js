@@ -67,6 +67,18 @@ togglePw.addEventListener('click', () => {
   el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
 );
 loginBtn.addEventListener('click', doLogin);
+// iOS Safari sometimes drops the synthetic click event after a focus
+// transition from the password input (autofill, keyboard dismiss, etc.),
+// leaving the button visually responsive but not actually triggering its
+// click handler. Pressing the keyboard Enter key still works (that path
+// uses the keydown listener above), but a tap on the button silently
+// does nothing. Mirror with touchend so a tap is always honoured;
+// preventDefault stops the synthetic click that would otherwise
+// double-fire doLogin on browsers where click does work normally.
+loginBtn.addEventListener('touchend', e => {
+  e.preventDefault();
+  doLogin();
+});
 
 async function doLogin() {
   const email = emailInput.value.trim();
