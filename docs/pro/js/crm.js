@@ -309,6 +309,10 @@ function renderLeads(leads, filtered){
     }
   }
 
+  // Notify Prospects page (and any future listener) that the lead set
+  // changed so it can refresh its filtered view + badge count.
+  try { document.dispatchEvent(new CustomEvent('leadsChanged', { detail: { count: all.length, prospects: _prospectCount } })); } catch (e) {}
+
   setEl('crmTotalLeads', _realCount);
   setEl('crmPipeVal',    '$'+pipeVal.toLocaleString());
   setEl('crmApproved',  approvedCount);
