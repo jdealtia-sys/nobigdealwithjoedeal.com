@@ -6073,6 +6073,65 @@ body {
   letter-spacing:.04em;
 }
 
+/* Stale-prospect cleanup banner */
+.prosp-stale {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:11px 14px; margin-bottom:14px;
+  background:color-mix(in srgb, var(--orange) 12%, var(--s2));
+  border:1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+  border-radius:8px;
+}
+.prosp-stale-icon { font-size:18px; flex-shrink:0; }
+.prosp-stale-text { flex:1; min-width:200px; font-size:13px; color:var(--t); }
+.prosp-stale-actions { display:flex; gap:6px; }
+.prosp-stale-btn {
+  background:transparent; border:1px solid var(--br); border-radius:6px;
+  padding:6px 12px; font-size:11px; font-weight:700; color:var(--m);
+  cursor:pointer; font-family:inherit; letter-spacing:.04em;
+}
+.prosp-stale-btn:hover { color:var(--t); border-color:var(--t); }
+.prosp-stale-btn.primary { background:var(--orange); color:#fff; border-color:var(--orange); }
+
+/* Conversion analytics */
+.prosp-analytics-wrap { margin-top:18px; }
+.prosp-analytics {
+  background:var(--s2); border:1px solid var(--br); border-radius:10px;
+  padding:0; overflow:hidden;
+}
+.prosp-analytics > summary {
+  padding:12px 14px; cursor:pointer; user-select:none;
+  font-size:13px; font-weight:700; color:var(--t);
+  display:flex; align-items:center; flex-wrap:wrap;
+  list-style:none;
+}
+.prosp-analytics > summary::-webkit-details-marker { display:none; }
+.prosp-analytics > summary::before {
+  content:'▸'; margin-right:8px; transition:transform .15s;
+  font-size:11px; color:var(--m);
+}
+.prosp-analytics[open] > summary::before { transform:rotate(90deg); }
+.prosp-an-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  padding:6px 14px 14px;
+}
+.prosp-an-block { display:flex; flex-direction:column; gap:6px; }
+.prosp-an-title {
+  font-size:10px; font-weight:700; color:var(--m);
+  letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;
+}
+.prosp-an-row {
+  display:grid; grid-template-columns:90px 1fr 36px 50px;
+  align-items:center; gap:8px; font-size:11px;
+}
+.prosp-an-row-label { font-weight:700; color:var(--t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.prosp-an-bar {
+  height:6px; background:var(--s); border-radius:3px; overflow:hidden;
+}
+.prosp-an-bar-fill { height:100%; transition:width .25s; }
+.prosp-an-row-pct { text-align:right; font-weight:700; color:var(--green); }
+.prosp-an-row-count { text-align:right; color:var(--m); font-family:'DM Mono','Courier New',monospace; font-size:10px; }
+.prosp-an-empty { color:var(--m); font-size:11px; padding:8px 0; }
+
 /* Mobile-tighter */
 @media (max-width: 600px) {
   .prosp-stat { min-width:64px!important; padding:8px 10px!important; }
@@ -6083,6 +6142,10 @@ body {
   .prosp-view-toggle button { flex:1; }
   .prosp-filter-row > .prosp-sel,
   .prosp-filter-row > .prosp-check { flex:1; min-width:130px; }
+  .prosp-an-grid { grid-template-columns:1fr; }
+  .prosp-an-row { grid-template-columns:80px 1fr 30px 44px; font-size:10px; }
+  .prosp-stale-actions { width:100%; }
+  .prosp-stale-btn { flex:1; }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -8859,11 +8922,17 @@ function switchScTab(tab, btn) {
       <!-- Stats strip — clickable to filter by bucket -->
       <div id="prospects-stats" class="prosp-stats"></div>
 
+      <!-- Stale-prospect cleanup nudge (60d+) — auto-shows when relevant -->
+      <div id="prospects-stale-banner"></div>
+
       <!-- Filters + view toggle -->
       <div id="prospects-filters" class="prosp-filters"></div>
 
       <!-- Kanban or list — populated by window.Prospects.render() -->
       <div id="prospects-board" class="prosp-board-wrap"></div>
+
+      <!-- Conversion analytics — collapsible -->
+      <div id="prospects-analytics" class="prosp-analytics-wrap"></div>
     </div>
   </div><!-- /view-prospects -->
 
@@ -15334,7 +15403,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
-<script defer src="js/prospects.js?v=2"></script>
+<script defer src="js/prospects.js?v=3"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>

@@ -1102,6 +1102,66 @@
       // until the user explicitly promotes it via the CRM lead detail
       // modal (Promote to Customer button).
       const isAppointment = knock.disposition === 'appointment';
+      const newKnockNote = `D2D Knock #${knock.attemptNumber || 1}: ${DISPOSITIONS[knock.disposition]?.label || ''}${knock.notes ? '\n' + knock.notes : ''}`;
+      const newKnockPhotos = Array.isArray(knock.photoUrls) ? knock.photoUrls.slice() : [];
+
+      // ─── Re-knock merge guard ───
+      // If a prospect lead already exists at this address (created by an
+      // earlier knock), MERGE this new knock into it instead of creating
+      // a duplicate lead. We append photos + the knock note, bump the
+      // attempt counter, and never overwrite the existing isProspect
+      // flag (so a manually-promoted lead stays a customer even if the
+      // rep re-knocks for a follow-up shot). Address-based match is
+      // intentionally exact — fuzzy matching here would risk merging
+      // two real customers at neighboring units.
+      const existing = (window._leads || []).find(l =>
+        l.source === 'Door-to-Door' &&
+        l.address === knock.address &&
+        l.id  // must have an id we can update
+      );
+      if (existing && knock.address) {
+        try {
+          const ref = window.doc(window._db, 'leads', existing.id);
+          const mergedPhotos = [...(existing.photoUrls || []), ...newKnockPhotos];
+          const mergedNotes = (existing.notes ? existing.notes + '\n\n' : '') + newKnockNote;
+          // Promote stage if the new disposition is more advanced; otherwise
+          // leave the stage where it is. Appointment is the only one that
+          // should auto-promote a prospect to a customer.
+          const patch = {
+            photoUrls: mergedPhotos,
+            notes: mergedNotes,
+            updatedAt: window.serverTimestamp()
+          };
+          if (isAppointment && existing.isProspect) {
+            patch.isProspect = false;
+            patch.promotedAt = window.serverTimestamp();
+            if (!existing.stage || /^prospect$/i.test(existing.stage)) patch.stage = 'inspected';
+          }
+          // Refresh follow-up only if the new knock specified one
+          // (don't overwrite a manually-set follow-up with a default).
+          if (knock.followUpDate) patch.followUp = followUpStr;
+          await window.updateDoc(ref, patch);
+          // Update in-memory cache so kanban + Prospects re-render correctly.
+          Object.assign(existing, {
+            photoUrls: mergedPhotos,
+            notes: mergedNotes,
+            ...(patch.isProspect === false ? { isProspect: false } : {}),
+            ...(patch.stage ? { stage: patch.stage } : {}),
+            ...(patch.followUp ? { followUp: patch.followUp } : {})
+          });
+          await updateKnock(knockId, { convertedToLead: true, mergedIntoLeadId: existing.id });
+          closeKnockDetail();
+          renderD2D();
+          if (typeof window.renderLeads === 'function') window.renderLeads(window._leads);
+          if (window.Prospects && typeof window.Prospects.refresh === 'function') window.Prospects.refresh();
+          window.showToast?.(`📎 Re-knock merged — ${newKnockPhotos.length} new photo${newKnockPhotos.length === 1 ? '' : 's'}`, 'success');
+          return;
+        } catch (mergeErr) {
+          console.warn('Re-knock merge failed, falling through to create new lead:', mergeErr);
+          // Fall through to the create path below.
+        }
+      }
+
       const leadData = {
         firstName,
         lastName,
@@ -1115,7 +1175,7 @@
         insCarrier: knock.insCarrier || '',
         claimNumber: knock.claimNumber || '',
         claimStatus,
-        notes: `D2D Knock #${knock.attemptNumber || 1}: ${DISPOSITIONS[knock.disposition]?.label || ''}${knock.notes ? '\n' + knock.notes : ''}`,
+        notes: newKnockNote,
         d2dKnockId: knockId,
         lat: knock.lat || null,
         lng: knock.lng || null,
@@ -1123,7 +1183,7 @@
         // the rep doesn't lose the property/damage shots when the lead
         // is auto-created. The CRM card render pulls from this same
         // field, so they appear immediately on the kanban tile.
-        photoUrls: Array.isArray(knock.photoUrls) ? knock.photoUrls.slice() : [],
+        photoUrls: newKnockPhotos,
         followUp: followUpStr,
         // Prospect flag: appointments land in the kanban immediately,
         // everything else waits for manual promotion.
