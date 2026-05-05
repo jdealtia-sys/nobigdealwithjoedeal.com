@@ -154,9 +154,17 @@ function updateStatus(newStatus, tooltip) {
 
 
 // ── DETERMINE STATUS ─────────────────────────────────────────
+// Watchdog: when we see `loading` for the first time, stamp the
+// timestamp. If we keep seeing it past STUCK_LOADING_MS without
+// transitioning to healthy/error, force the status to 'offline' so
+// the user gets a tappable retry instead of an indefinite yellow dot.
+let _loadingSince = 0;
+const STUCK_LOADING_MS = 30_000; // 10s timeout + retry + buffer
+
 function checkStatus() {
   // Check browser online status first
   if (!navigator.onLine) {
+    _loadingSince = 0;
     updateStatus('offline', 'Offline — tap to retry');
     return;
   }
@@ -165,14 +173,25 @@ function checkStatus() {
   const healthBadge = document.getElementById('crmHealthBadge');
   if (healthBadge) {
     if (healthBadge.classList.contains('healthy')) {
+      _loadingSince = 0;
       const leadCount = window._leads?.length || 0;
       updateStatus('online', `Connected · ${leadCount} leads`);
     } else if (healthBadge.classList.contains('loading')) {
-      updateStatus('loading', 'Syncing data…');
+      // Watchdog: if we've been "loading" longer than the timeout,
+      // assume the load silently hung and surface a retry affordance.
+      if (!_loadingSince) _loadingSince = Date.now();
+      const stuckFor = Date.now() - _loadingSince;
+      if (stuckFor > STUCK_LOADING_MS) {
+        updateStatus('offline', 'Connection stuck — tap to retry');
+      } else {
+        updateStatus('loading', 'Syncing data…');
+      }
     } else if (healthBadge.classList.contains('error')) {
+      _loadingSince = 0;
       updateStatus('offline', 'Connection error — tap to retry');
     } else {
       // Default: check if we have auth
+      _loadingSince = 0;
       if (window.auth?.currentUser) {
         updateStatus('online', 'Connected');
       } else {
@@ -182,6 +201,7 @@ function checkStatus() {
   } else {
     // No health badge — just use navigator.onLine + auth
     if (window.auth?.currentUser) {
+      _loadingSince = 0;
       updateStatus('online', 'Connected');
     } else {
       updateStatus('loading', 'Connecting…');
@@ -198,23 +218,42 @@ async function handleTap() {
   const btn = document.getElementById('nbd-conn-btn');
   if (btn) btn.classList.add('refreshing');
 
+  // Reset the stuck-loading watchdog clock — the user is explicitly
+  // asking for a fresh attempt; give the new load a clean window
+  // before we start counting against the stuck-loading threshold.
+  _loadingSince = Date.now();
   updateStatus('loading', 'Refreshing…');
 
   try {
     // Try to call loadLeads if exposed (it's inside the module scope,
-    // so we trigger it by re-dispatching the auth state)
+    // so we trigger it by re-dispatching the auth state).
+    //
+    // Bug fix 2026-05-05: dashboard.html exposes these as `window._loadLeads`
+    // and `window._loadEstimates` (with the underscore prefix used elsewhere
+    // in the codebase). The previous version of this handler checked for
+    // the non-underscore names which never existed — so tapping the refresh
+    // dot did nothing, and a stuck loading badge stayed yellow forever.
+    // We try the underscore-prefixed names first (current convention),
+    // then fall through to the non-underscore names for forward-compat.
+    const loadLeadsFn = (typeof window._loadLeads === 'function')
+      ? window._loadLeads
+      : (typeof window.loadLeads === 'function' ? window.loadLeads : null);
+    const loadEstFn = (typeof window._loadEstimates === 'function')
+      ? window._loadEstimates
+      : (typeof window.loadEstimates === 'function' ? window.loadEstimates : null);
+
     if (window.auth?.currentUser && window.db) {
       // Method 1: Direct reload via exposed functions
-      if (typeof window.loadLeads === 'function') {
-        await window.loadLeads();
+      if (loadLeadsFn) {
+        await loadLeadsFn();
       }
-      if (typeof window.loadEstimates === 'function') {
-        await window.loadEstimates();
+      if (loadEstFn) {
+        await loadEstFn();
       }
 
-      // Method 2: If functions aren't exposed, do a quick Firestore ping
-      // to verify connectivity + update health badge
-      if (typeof window.loadLeads !== 'function' && window.getDoc && window.doc) {
+      // Method 2: If neither loader is exposed, do a quick Firestore ping
+      // to verify connectivity + nudge the health badge.
+      if (!loadLeadsFn && window.getDoc && window.doc) {
         try {
           await window.getDoc(window.doc(window.db, 'users', window.auth.currentUser.uid));
         } catch(e) {}

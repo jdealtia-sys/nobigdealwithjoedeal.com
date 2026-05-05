@@ -1077,6 +1077,12 @@
     // the 2026-04-23 dead-code cleanup.
   }
   window._loadLeads = loadLeads;
+  // Alias without the underscore prefix so external callers (refresh
+  // button in connection-status-btn.js, Cypress/Playwright scripts,
+  // browser-console debugging) can use the documented short name too.
+  // The underscore convention is the older internal style; we keep
+  // both pointing at the same function so neither breaks.
+  window.loadLeads = loadLeads;
   // DO NOT call loadLeads() here at module parse time.
   // Auth hasn't fired yet so window._user is null → loadLeads
   // gets no uid → returns empty → kanban shows 0 cards.
@@ -1684,6 +1690,8 @@
     renderEstimatesList(window._estimates);
   }
   window._loadEstimates = loadEstimates;
+  // Alias for consistency with window.loadLeads above.
+  window.loadEstimates = loadEstimates;
 
   // B3: Live Firestore listener for estimates. Wire-once on auth.
   // BoldSign webhooks land on the server, flip
@@ -15643,7 +15651,7 @@ window.nbdDiag = function() {
 window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
-<script defer src="js/connection-status-btn.js?v=1"></script>
+<script defer src="js/connection-status-btn.js?v=2"></script>
 <!-- admin-manager must load eagerly — it gates the #nav-admin visibility
      based on the user's claims. Lazy-loading would hide the nav entry
      until the admin explicitly typed #/admin, defeating the gate UX. -->
