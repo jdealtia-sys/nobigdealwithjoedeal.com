@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=15" as="script">
+<link rel="preload" href="js/crm.js?v=16" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3172,30 +3172,83 @@ body.professional-mode .kcol-header { letter-spacing: 0; }
 body.professional-mode .mm-item { gap: 6px; }
 /* ══ END PROFESSIONAL MODE ══ */
 
-/* ══ SITE-WIDE SIZING SYSTEM ══
-   --nbd-scale is set on :root by the nbdSetSize() JS function.
-   These rules multiply key spacing/font values by the scale so
-   one toggle changes the feel of the entire app.
-   compact=0.85  default=1.0  comfortable=1.12  large=1.25 */
+/* ══ SITE-WIDE SIZING SYSTEM (rev 2026-05-05) ══
+   --nbd-scale is set on :root by nbdSetSize(). It composes WITH the
+   kanban Density tokens (--kcard-pad-*) instead of overriding them
+   with !important — so UI Size and Density are now independent axes:
+     UI Size affects everything (panels, buttons, page titles, sidebar)
+     Density affects only kanban-card chrome
+   Both can be set, both compose. Card padding = density token × scale.
+   compact=0.85  default=1.0  comfortable=1.12  large=1.25                */
 :root { --nbd-scale: 1; }
-body[data-nbd-size="compact"] .panel-body   { padding: calc(14px * var(--nbd-scale)) calc(16px * var(--nbd-scale)) !important; }
+
+/* Panels — explicit rules per preset including default for consistency. */
+body[data-nbd-size="compact"] .panel-body     { padding: calc(14px * var(--nbd-scale)) calc(16px * var(--nbd-scale)) !important; }
+body[data-nbd-size="default"] .panel-body     { padding: 18px 20px !important; }
 body[data-nbd-size="comfortable"] .panel-body { padding: calc(22px * var(--nbd-scale)) calc(24px * var(--nbd-scale)) !important; }
-body[data-nbd-size="large"] .panel-body     { padding: calc(26px * var(--nbd-scale)) calc(28px * var(--nbd-scale)) !important; }
-body[data-nbd-size="compact"] .k-card       { padding: calc(10px * var(--nbd-scale)) calc(12px * var(--nbd-scale)) !important; }
-body[data-nbd-size="comfortable"] .k-card   { padding: calc(18px * var(--nbd-scale)) calc(20px * var(--nbd-scale)) !important; }
-body[data-nbd-size="large"] .k-card         { padding: calc(22px * var(--nbd-scale)) calc(24px * var(--nbd-scale)) !important; }
-body[data-nbd-size="compact"] .btn          { padding: calc(6px * var(--nbd-scale)) calc(12px * var(--nbd-scale)); font-size: calc(12px * var(--nbd-scale)); }
-body[data-nbd-size="comfortable"] .btn      { padding: calc(11px * var(--nbd-scale)) calc(18px * var(--nbd-scale)); font-size: calc(14px * var(--nbd-scale)); }
-body[data-nbd-size="large"] .btn            { padding: calc(14px * var(--nbd-scale)) calc(22px * var(--nbd-scale)); font-size: calc(15px * var(--nbd-scale)); }
-body[data-nbd-size="compact"] .ni           { padding: 4px 8px; font-size: 12px; }
-body[data-nbd-size="comfortable"] .ni       { padding: 10px 16px; font-size: 14px; }
-body[data-nbd-size="large"] .ni             { padding: 12px 18px; font-size: 15px; }
-body[data-nbd-size="compact"] .page-title   { font-size: 18px !important; }
-body[data-nbd-size="comfortable"] .page-title { font-size: 26px !important; }
-body[data-nbd-size="large"] .page-title     { font-size: 30px !important; }
-body[data-nbd-size="compact"] .view-scroll  { padding: 14px 16px !important; }
-body[data-nbd-size="comfortable"] .view-scroll { padding: 26px 28px !important; }
-body[data-nbd-size="large"] .view-scroll    { padding: 30px 32px !important; }
+body[data-nbd-size="large"] .panel-body       { padding: calc(26px * var(--nbd-scale)) calc(28px * var(--nbd-scale)) !important; }
+
+/* Kanban cards — DO NOT override .k-card padding here. The Density
+   system (:root[data-density]) owns card padding via --kcard-pad.
+   Instead we scale the card name + value font sizes per UI size, so
+   bigger UI = bigger text on cards while density still controls the
+   surrounding padding. The font scaling uses calc on density tokens. */
+:root[data-nbd-scale-cards="true"] .kc-name      { font-size: calc(var(--kcard-name-fz) * var(--nbd-scale)); }
+:root[data-nbd-scale-cards="true"] .kc-val-badge { font-size: calc(var(--kcard-val-fz)  * var(--nbd-scale)); }
+:root[data-nbd-scale-cards="true"] .kc-addr,
+:root[data-nbd-scale-cards="true"] .kc-email-line,
+:root[data-nbd-scale-cards="true"] .kc-phone,
+:root[data-nbd-scale-cards="true"] .kc-phone-link { font-size: calc(var(--kcard-meta-fz) * var(--nbd-scale)); }
+:root[data-nbd-scale-cards="true"] .kc-tag,
+:root[data-nbd-scale-cards="true"] .kc-carrier,
+:root[data-nbd-scale-cards="true"] .kc-days       { font-size: calc(var(--kcard-tag-fz) * var(--nbd-scale)); }
+/* Always-on (UI Size = compact OR comfortable OR large). Default has no
+   override so the density tokens apply at 1.0x — clean baseline.        */
+body[data-nbd-size="compact"],
+body[data-nbd-size="comfortable"],
+body[data-nbd-size="large"]                                    { /* marker — see :root rule */ }
+/* Apply the marker via JS-set attribute instead of conditional CSS — see nbdSetSize. */
+
+/* Buttons */
+body[data-nbd-size="compact"] .btn      { padding: calc(6px * var(--nbd-scale)) calc(12px * var(--nbd-scale)); font-size: calc(12px * var(--nbd-scale)); }
+body[data-nbd-size="default"] .btn      { padding: 9px 16px; font-size: 13px; }
+body[data-nbd-size="comfortable"] .btn  { padding: calc(11px * var(--nbd-scale)) calc(18px * var(--nbd-scale)); font-size: calc(14px * var(--nbd-scale)); }
+body[data-nbd-size="large"] .btn        { padding: calc(14px * var(--nbd-scale)) calc(22px * var(--nbd-scale)); font-size: calc(15px * var(--nbd-scale)); }
+
+/* Sidebar nav items */
+body[data-nbd-size="compact"] .ni       { padding: 4px 8px; font-size: 12px; }
+body[data-nbd-size="default"] .ni       { padding: 7px 12px; font-size: 13px; }
+body[data-nbd-size="comfortable"] .ni   { padding: 10px 16px; font-size: 14px; }
+body[data-nbd-size="large"] .ni         { padding: 12px 18px; font-size: 15px; }
+
+/* Page titles — also covers the new compact CRM header title chip. */
+body[data-nbd-size="compact"]     .page-title,
+body[data-nbd-size="compact"]     .crm-hdr-title { font-size: calc(13px * var(--nbd-scale)) !important; }
+body[data-nbd-size="default"]     .page-title    { font-size: 22px !important; }
+body[data-nbd-size="default"]     .crm-hdr-title { font-size: 14px !important; }
+body[data-nbd-size="comfortable"] .page-title    { font-size: calc(24px * var(--nbd-scale)) !important; }
+body[data-nbd-size="comfortable"] .crm-hdr-title { font-size: calc(15px * var(--nbd-scale)) !important; }
+body[data-nbd-size="large"]       .page-title    { font-size: calc(28px * var(--nbd-scale)) !important; }
+body[data-nbd-size="large"]       .crm-hdr-title { font-size: calc(16px * var(--nbd-scale)) !important; }
+
+/* View padding */
+body[data-nbd-size="compact"] .view-scroll      { padding: 14px 16px !important; }
+body[data-nbd-size="default"] .view-scroll      { padding: 22px 24px !important; }
+body[data-nbd-size="comfortable"] .view-scroll  { padding: 26px 28px !important; }
+body[data-nbd-size="large"] .view-scroll        { padding: 30px 32px !important; }
+
+/* Compact CRM header — pad multiplied by --nbd-scale per UI size so
+   "Large" gives the header more breathing room and "Compact" tightens.
+   Also covers the Prospects page header for parity.                     */
+body[data-nbd-size="compact"]     .crm-header  { padding: calc(6px * var(--nbd-scale)) calc(10px * var(--nbd-scale)); }
+body[data-nbd-size="default"]     .crm-header  { padding: 8px 14px; }
+body[data-nbd-size="comfortable"] .crm-header  { padding: calc(10px * var(--nbd-scale)) calc(16px * var(--nbd-scale)); }
+body[data-nbd-size="large"]       .crm-header  { padding: calc(12px * var(--nbd-scale)) calc(20px * var(--nbd-scale)); }
+
+/* Compact icon buttons in the new header — slightly bigger on Large size
+   so the touch target is reasonable. */
+body[data-nbd-size="large"]       .crm-icon-btn { width: calc(34px * var(--nbd-scale)); height: calc(34px * var(--nbd-scale)); }
+body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-scale)); height: calc(32px * var(--nbd-scale)); }
 /* ══ END SIZING SYSTEM ══ */
 
 /* MAP VIEWS */
@@ -7083,17 +7136,25 @@ body.theme-frosted {
 // 4 presets that scale --nbd-scale on :root, which every
 // padding/font/gap rule multiplies against. The CSS uses
 // calc() with the scale variable so one change ripples everywhere.
+//
+// data-nbd-scale-cards="true" tells card-font-size CSS rules to
+// multiply by --nbd-scale. Default size leaves it absent (cards
+// use their density-token sizes verbatim, scale=1.0 is implicit).
 const NBD_SIZE_SCALES = { compact: 0.85, default: 1.0, comfortable: 1.12, large: 1.25 };
+function _nbdApplyScaleAttrs(size, scale) {
+  document.documentElement.style.setProperty('--nbd-scale', scale);
+  document.body.dataset.nbdSize = size;
+  if (size === 'default') document.documentElement.removeAttribute('data-nbd-scale-cards');
+  else document.documentElement.setAttribute('data-nbd-scale-cards', 'true');
+}
 (function() {
   var saved = localStorage.getItem('nbd_ui_size') || 'default';
   var scale = NBD_SIZE_SCALES[saved] || 1.0;
-  document.documentElement.style.setProperty('--nbd-scale', scale);
-  document.body.dataset.nbdSize = saved;
+  _nbdApplyScaleAttrs(saved, scale);
 })();
 function nbdSetSize(size) {
   var scale = NBD_SIZE_SCALES[size] || 1.0;
-  document.documentElement.style.setProperty('--nbd-scale', scale);
-  document.body.dataset.nbdSize = size;
+  _nbdApplyScaleAttrs(size, scale);
   localStorage.setItem('nbd_ui_size', size);
   // Highlight active button
   document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
@@ -15767,7 +15828,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=15"></script>
+<script defer src="js/crm.js?v=16"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
