@@ -830,6 +830,33 @@ async function moveCard(id, newStage){
   // Prevent concurrent moves on the same card
   if(lead._pending){ if(typeof showToast==='function') showToast('Move in progress...','info'); return; }
 
+  // ─── Prospect status-change trap ───
+  // If the user tries to move a prospect (which shouldn't normally
+  // appear on the kanban — they live on the Prospects page now), pop
+  // a confirm dialog: "This is a prospect. Promote first?" so we never
+  // silently graduate a prospect into the customer pipeline. The
+  // exception is moves to 'lost', which we let through so reps can
+  // immediately discard a dead prospect without a promote dance.
+  if (lead.isProspect && !/^lost$/i.test(String(newStage || ''))) {
+    const ok = confirm(`This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`);
+    if (!ok) {
+      if (typeof showToast === 'function') showToast('Move cancelled — still a prospect', 'info');
+      return;
+    }
+    // Promote first; promoteProspect handles the isProspect flip + serverTimestamp.
+    try {
+      if (typeof window.promoteProspect === 'function') {
+        await window.promoteProspect(id);
+      } else {
+        lead.isProspect = false;
+      }
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Promote failed: ' + e.message, 'error');
+      return;
+    }
+    // Fall through to the normal stage-change path below.
+  }
+
   const oldStage = lead.stage || 'New';
   const oldStageKey = lead._stageKey || oldStage;
 

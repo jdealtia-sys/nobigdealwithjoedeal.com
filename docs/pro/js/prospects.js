@@ -411,13 +411,13 @@
     `;
   }
 
-  // ── Card / row click → opens existing lead detail ──────────────────
+  // ── Card / row click → opens lead detail (with prospect actions) ──
   function wireCardClicks(scope) {
     scope.querySelectorAll('[data-lead-id]').forEach(el => {
       el.addEventListener('click', () => {
         const id = el.dataset.leadId;
-        if (typeof window.openLeadDetail === 'function') {
-          window.openLeadDetail(id);
+        if (typeof window.openCardDetailModal === 'function') {
+          window.openCardDetailModal(id);
         } else if (typeof window.showToast === 'function') {
           window.showToast('Lead detail not loaded yet — try again', 'error');
         }

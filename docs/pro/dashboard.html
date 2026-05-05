@@ -14626,14 +14626,16 @@ function openCardDetailModal(leadId) {
   document.getElementById('cardDetailValue').textContent =
     lead.jobValue ? `$${parseFloat(lead.jobValue).toLocaleString()}` : '—';
 
-  // ─── Prospect promote button ───
-  // Show a "Promote to Customer" call-to-action banner at the top of
-  // the detail modal when this lead is still marked as a prospect.
-  // Clicking it flips isProspect:false and re-renders the kanban.
+  // ─── Prospect promote button + quick actions ───
+  // Show a "Promote to Customer" CTA + a row of quick actions
+  // (Call/Text/Email/Re-knock/Map/Hide/Delete) at the top of the detail
+  // modal when this lead is still a prospect. The actions row is built
+  // each time so it reflects the current lead's data (phone, email, lat/lng).
   const promoteBanner = document.getElementById('cardDetailPromoteBanner');
   if (promoteBanner) {
     if (lead.isProspect) {
       promoteBanner.style.display = 'flex';
+      populateProspectQuickActions(lead);
     } else {
       promoteBanner.style.display = 'none';
     }
@@ -14643,6 +14645,150 @@ function openCardDetailModal(leadId) {
   document.getElementById('cardDetailModal').classList.add('open');
 }
 window.openCardDetailModal = openCardDetailModal;
+
+// Populate the row of quick actions inside the prospect banner. Disabled
+// states render for actions whose underlying data isn't on the lead
+// (e.g. no phone → Call/Text disabled). Each action is a small pill button.
+function populateProspectQuickActions(lead) {
+  const wrap = document.getElementById('prospectQuickActions');
+  if (!wrap) return;
+  const phone = (lead.phone || '').replace(/\D/g, '');
+  const email = (lead.email || '').trim();
+  const hasGeo = (lead.lat != null && lead.lng != null);
+  const isHidden = !!lead.prospectHidden;
+
+  const btn = (icon, label, opts = {}) => {
+    const disabled = !!opts.disabled;
+    const onclick = opts.onclick || '';
+    const danger = !!opts.danger;
+    const color = danger ? 'var(--red)' : 'var(--t)';
+    const border = danger ? 'rgba(224,82,82,.35)' : 'var(--br)';
+    return `<button type="button" ${disabled ? 'disabled' : `onclick="${onclick}"`}
+      style="
+        display:inline-flex;align-items:center;gap:5px;
+        padding:6px 11px;border-radius:6px;
+        background:${disabled ? 'transparent' : 'var(--s2)'};
+        border:1px solid ${border};
+        color:${disabled ? 'var(--m)' : color};
+        font-family:inherit;font-size:11px;font-weight:600;
+        cursor:${disabled ? 'not-allowed' : 'pointer'};
+        opacity:${disabled ? '.45' : '1'};
+        transition:all .15s;
+      "
+    >${icon} ${label}</button>`;
+  };
+
+  wrap.innerHTML = [
+    btn('📞', 'Call',     { disabled: !phone, onclick: `window.location.href='tel:${phone}'` }),
+    btn('💬', 'Text',     { disabled: !phone, onclick: `window.location.href='sms:${phone}'` }),
+    btn('✉️', 'Email',    { disabled: !email, onclick: `window.location.href='mailto:${escapeAttrJS(email)}'` }),
+    btn('🚪', 'Re-knock', { onclick: `closeCardDetailModal();if(window.D2D)window.D2D.openQuickKnock({address:${JSON.stringify(lead.address||'')},lat:${lead.lat||'null'},lng:${lead.lng||'null'}});else goTo('d2d');` }),
+    btn('🗺️', 'See on Map', { disabled: !hasGeo, onclick: `closeCardDetailModal();window.viewProspectOnMap('${lead.id}')` }),
+    btn(isHidden ? '👁️' : '🗄️', isHidden ? 'Unhide' : 'Hide', { onclick: `window.toggleProspectHidden('${lead.id}')` }),
+    btn('🗑️', 'Delete', { danger: true, onclick: `window.absoluteDeleteProspect('${lead.id}')` }),
+  ].join('');
+}
+
+// Tiny escaper for inline JS string literals — single quotes only.
+function escapeAttrJS(s) {
+  return String(s == null ? '' : s).replace(/[\\']/g, '\\$&');
+}
+
+// Confirm-then-promote. Single confirm dialog before flipping isProspect.
+window.confirmPromoteProspect = function(leadId) {
+  if (!leadId) return;
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  const name = (lead.firstName || lead.lastName)
+    ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim()
+    : (lead.address || 'this prospect');
+  const ok = confirm(`Promote ${name} to a full customer?\n\nThis adds them to your kanban as a real lead and removes them from the Prospects page.`);
+  if (!ok) return;
+  if (typeof window.promoteProspect === 'function') {
+    window.promoteProspect(leadId).then(() => closeCardDetailModal());
+  }
+};
+
+// Hide / unhide a prospect from the default Prospects view. This is a
+// soft-hide (writes prospectHidden:true) — the lead record stays intact
+// so we don't lose its history. The Prospects page has a "Show hidden"
+// toggle to bring them back.
+window.toggleProspectHidden = async function(leadId) {
+  if (!leadId) return;
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  const next = !lead.prospectHidden;
+  try {
+    const ref = window.doc(window.db || window._db, 'leads', leadId);
+    await window.updateDoc(ref, { prospectHidden: next, updatedAt: window.serverTimestamp() });
+    lead.prospectHidden = next;
+    if (typeof window.showToast === 'function') {
+      window.showToast(next ? 'Prospect hidden' : 'Prospect visible', 'success');
+    }
+    closeCardDetailModal();
+    if (window.Prospects && typeof window.Prospects.refresh === 'function') window.Prospects.refresh();
+  } catch (e) {
+    if (typeof window.showToast === 'function') window.showToast('Failed: ' + e.message, 'error');
+  }
+};
+
+// Jump to D2D map view and center on the prospect's coordinates.
+window.viewProspectOnMap = function(leadId) {
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead || lead.lat == null || lead.lng == null) {
+    if (typeof window.showToast === 'function') window.showToast('No coordinates on this prospect', 'error');
+    return;
+  }
+  goTo('d2d');
+  // After the D2D view inits, ask its map to fly to the lead.
+  setTimeout(() => {
+    if (window.D2D && typeof window.D2D.flyTo === 'function') {
+      window.D2D.flyTo(lead.lat, lead.lng);
+    } else if (window._d2dMap && typeof window._d2dMap.setView === 'function') {
+      window._d2dMap.setView([lead.lat, lead.lng], 17);
+    }
+  }, 600);
+};
+
+// Three-step delete with TYPE 'DELETE' final gate. Permanently removes
+// the lead record. Used ONLY for prospects the user is sure they want
+// to discard — regular customers go through the soft-delete (trash) flow.
+window.absoluteDeleteProspect = async function(leadId) {
+  if (!leadId) return;
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  const name = (lead.firstName || lead.lastName)
+    ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim()
+    : (lead.address || 'this prospect');
+
+  // Step 1
+  const c1 = confirm(`Permanently delete ${name}?\n\nThis is for prospects you've decided will never be customers. The record will be ERASED — no recovery from trash. Use Hide if you just want to clear them from the view.`);
+  if (!c1) return;
+
+  // Step 2
+  const c2 = confirm(`Are you ABSOLUTELY sure?\n\nLast chance to back out before the final confirmation. Click Cancel to keep them as a hidden prospect instead.`);
+  if (!c2) return;
+
+  // Step 3 — typed gate
+  const typed = prompt(`Final confirmation.\n\nType DELETE in all caps to permanently remove ${name}. Anything else cancels.`);
+  if (typed !== 'DELETE') {
+    if (typeof window.showToast === 'function') window.showToast('Delete cancelled', 'info');
+    return;
+  }
+
+  try {
+    const ref = window.doc(window.db || window._db, 'leads', leadId);
+    await window.deleteDoc(ref);
+    // Remove from in-memory cache so kanban + prospects refresh cleanly.
+    window._leads = (window._leads || []).filter(l => l.id !== leadId);
+    if (typeof window.showToast === 'function') window.showToast(`Permanently deleted ${name}`, 'success');
+    closeCardDetailModal();
+    if (window.Prospects && typeof window.Prospects.refresh === 'function') window.Prospects.refresh();
+    if (typeof window.renderLeads === 'function') window.renderLeads(window._leads);
+  } catch (e) {
+    if (typeof window.showToast === 'function') window.showToast('Delete failed: ' + e.message, 'error');
+  }
+};
 
 // ── GDPR Export (Article 20) + Erasure (Article 17) ─
 // D6/D7 from the enterprise-hardening sprint landed the server
@@ -15020,13 +15166,22 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
   <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
 
-    <!-- Prospect banner — only visible when lead.isProspect is true -->
-    <div id="cardDetailPromoteBanner" style="display:none;background:linear-gradient(135deg,rgba(232,114,12,.12),rgba(232,114,12,.04));border:1px solid rgba(232,114,12,.35);border-radius:8px;padding:14px 16px;margin-bottom:16px;align-items:center;gap:12px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:180px;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">👀 PROSPECT</div>
-        <div style="font-size:12px;color:var(--t);line-height:1.4;">This lead was auto-created from a door knock and hasn't been qualified yet. Promote them to your real customer pipeline when you're ready.</div>
+    <!-- Prospect banner — only visible when lead.isProspect is true.
+         Wraps the promote CTA + a row of quick actions (Call/Text/Email/
+         Re-knock/Map/Hide/Delete) so the rep never has to leave the
+         modal to operate on the prospect. -->
+    <div id="cardDetailPromoteBanner" style="display:none;background:linear-gradient(135deg,rgba(232,114,12,.12),rgba(232,114,12,.04));border:1px solid rgba(232,114,12,.35);border-radius:8px;padding:14px 16px;margin-bottom:16px;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">👀 PROSPECT</div>
+          <div style="font-size:12px;color:var(--t);line-height:1.4;">This lead was auto-created from a door knock and hasn't been qualified yet. Promote when you're ready.</div>
+        </div>
+        <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" onclick="window.confirmPromoteProspect(window._cardDetailLeadId)">✓ Promote to Customer</button>
       </div>
-      <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" onclick="window.promoteProspect(window._cardDetailLeadId);closeCardDetailModal();">✓ Promote to Customer</button>
+      <!-- Quick actions row -->
+      <div id="prospectQuickActions" style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(232,114,12,.15);padding-top:10px;">
+        <!-- Populated by populateProspectQuickActions() when modal opens -->
+      </div>
     </div>
 
     <!-- Header -->
@@ -15179,7 +15334,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
-<script defer src="js/prospects.js?v=1"></script>
+<script defer src="js/prospects.js?v=2"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>
