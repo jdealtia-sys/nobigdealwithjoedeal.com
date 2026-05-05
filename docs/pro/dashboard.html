@@ -11707,6 +11707,14 @@ function goTo(name, params = {}) {
     return;
   }
 
+  // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
+  // bulk selection started on the CRM bleeds into the next view's click
+  // handlers (e.g. tapping a prospect card opens a checkbox toggle instead
+  // of the detail modal). Audit fix H4.
+  if (name !== 'crm' && window._bulkMode && typeof window.exitBulkMode === 'function') {
+    window.exitBulkMode();
+  }
+
   // Update URL hash (without triggering hashchange event)
   if (!params.skipHash) {
     const hash = params.id ? `#/${name}/${params.id}` : `#/${name}`;
@@ -14709,6 +14717,10 @@ function openCardDetailModal(leadId) {
       promoteBanner.style.display = 'none';
     }
   }
+  // Sync the kind label so we don't show "CUSTOMER" on a prospect
+  // (and vice versa). Belt-and-suspenders alongside the banner above.
+  const kindLabel = document.getElementById('cardDetailKindLabel');
+  if (kindLabel) kindLabel.textContent = lead.isProspect ? 'PROSPECT' : 'CUSTOMER';
 
   // Show modal
   document.getElementById('cardDetailModal').classList.add('open');
@@ -14717,7 +14729,9 @@ window.openCardDetailModal = openCardDetailModal;
 
 // Populate the row of quick actions inside the prospect banner. Disabled
 // states render for actions whose underlying data isn't on the lead
-// (e.g. no phone → Call/Text disabled). Each action is a small pill button.
+// (e.g. no phone → Call/Text disabled). Uses programmatic event listeners
+// instead of inline onclick attributes so addresses with special chars
+// (double-quotes, ampersands, etc.) can't break the HTML.
 function populateProspectQuickActions(lead) {
   const wrap = document.getElementById('prospectQuickActions');
   if (!wrap) return;
@@ -14726,55 +14740,97 @@ function populateProspectQuickActions(lead) {
   const hasGeo = (lead.lat != null && lead.lng != null);
   const isHidden = !!lead.prospectHidden;
 
-  const btn = (icon, label, opts = {}) => {
-    const disabled = !!opts.disabled;
-    const onclick = opts.onclick || '';
+  // Build buttons with createElement so user-controlled strings (address,
+  // email) never enter the HTML attribute parser.
+  wrap.innerHTML = '';
+  const make = (icon, label, opts) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${icon} ${label}`;
+    b.disabled = !!opts.disabled;
     const danger = !!opts.danger;
     const color = danger ? 'var(--red)' : 'var(--t)';
     const border = danger ? 'rgba(224,82,82,.35)' : 'var(--br)';
-    return `<button type="button" ${disabled ? 'disabled' : `onclick="${onclick}"`}
-      style="
-        display:inline-flex;align-items:center;gap:5px;
-        padding:6px 11px;border-radius:6px;
-        background:${disabled ? 'transparent' : 'var(--s2)'};
-        border:1px solid ${border};
-        color:${disabled ? 'var(--m)' : color};
-        font-family:inherit;font-size:11px;font-weight:600;
-        cursor:${disabled ? 'not-allowed' : 'pointer'};
-        opacity:${disabled ? '.45' : '1'};
-        transition:all .15s;
-      "
-    >${icon} ${label}</button>`;
+    b.style.cssText = `
+      display:inline-flex;align-items:center;gap:5px;
+      padding:6px 11px;border-radius:6px;
+      background:${opts.disabled ? 'transparent' : 'var(--s2)'};
+      border:1px solid ${border};
+      color:${opts.disabled ? 'var(--m)' : color};
+      font-family:inherit;font-size:11px;font-weight:600;
+      cursor:${opts.disabled ? 'not-allowed' : 'pointer'};
+      opacity:${opts.disabled ? '.45' : '1'};
+      transition:all .15s;
+    `;
+    if (!opts.disabled && typeof opts.onClick === 'function') {
+      b.addEventListener('click', opts.onClick);
+    }
+    return b;
   };
 
-  wrap.innerHTML = [
-    btn('📞', 'Call',     { disabled: !phone, onclick: `window.location.href='tel:${phone}'` }),
-    btn('💬', 'Text',     { disabled: !phone, onclick: `window.location.href='sms:${phone}'` }),
-    btn('✉️', 'Email',    { disabled: !email, onclick: `window.location.href='mailto:${escapeAttrJS(email)}'` }),
-    btn('🚪', 'Re-knock', { onclick: `closeCardDetailModal();if(window.D2D)window.D2D.openQuickKnock({address:${JSON.stringify(lead.address||'')},lat:${lead.lat||'null'},lng:${lead.lng||'null'}});else goTo('d2d');` }),
-    btn('🗺️', 'See on Map', { disabled: !hasGeo, onclick: `closeCardDetailModal();window.viewProspectOnMap('${lead.id}')` }),
-    btn(isHidden ? '👁️' : '🗄️', isHidden ? 'Unhide' : 'Hide', { onclick: `window.toggleProspectHidden('${lead.id}')` }),
-    btn('🗑️', 'Delete', { danger: true, onclick: `window.absoluteDeleteProspect('${lead.id}')` }),
-  ].join('');
+  wrap.appendChild(make('📞', 'Call',  { disabled: !phone, onClick: () => { window.location.href = 'tel:' + phone; } }));
+  wrap.appendChild(make('💬', 'Text',  { disabled: !phone, onClick: () => { window.location.href = 'sms:' + phone; } }));
+  wrap.appendChild(make('✉️', 'Email', { disabled: !email, onClick: () => { window.location.href = 'mailto:' + email; } }));
+  wrap.appendChild(make('🚪', 'Re-knock', { onClick: () => {
+    closeCardDetailModal();
+    if (window.D2D) {
+      window.D2D.openQuickKnock({ address: lead.address || '', lat: lead.lat || null, lng: lead.lng || null });
+    } else {
+      goTo('d2d');
+    }
+  }}));
+  wrap.appendChild(make('🗺️', 'See on Map', {
+    disabled: !hasGeo,
+    onClick: () => { closeCardDetailModal(); window.viewProspectOnMap(lead.id); }
+  }));
+  wrap.appendChild(make(isHidden ? '👁️' : '🗄️', isHidden ? 'Unhide' : 'Hide', {
+    onClick: () => { window.toggleProspectHidden(lead.id); }
+  }));
+  wrap.appendChild(make('🗑️', 'Delete', {
+    danger: true, onClick: () => { window.absoluteDeleteProspect(lead.id); }
+  }));
 }
 
-// Tiny escaper for inline JS string literals — single quotes only.
-function escapeAttrJS(s) {
-  return String(s == null ? '' : s).replace(/[\\']/g, '\\$&');
+// Async confirm helper that prefers our themed in-app dialog (works in
+// iOS PWA standalone where native confirm() can silently no-op) and
+// falls back to native confirm only when neither is loaded yet.
+async function _prospectConfirm(message, opts) {
+  if (window.D2D && typeof window.D2D.uiConfirm === 'function') {
+    return await window.D2D.uiConfirm(message, opts || {});
+  }
+  if (typeof window.uiConfirm === 'function') {
+    return await window.uiConfirm(message, opts || {});
+  }
+  // Last-resort fallback. iOS PWA may suppress this — surface a toast so
+  // the user at least knows the action was attempted.
+  return confirm(message);
+}
+async function _prospectPrompt(message) {
+  if (window.D2D && typeof window.D2D.uiPrompt === 'function') {
+    return await window.D2D.uiPrompt(message);
+  }
+  if (typeof window.uiPrompt === 'function') {
+    return await window.uiPrompt(message);
+  }
+  return prompt(message);
 }
 
 // Confirm-then-promote. Single confirm dialog before flipping isProspect.
-window.confirmPromoteProspect = function(leadId) {
+window.confirmPromoteProspect = async function(leadId) {
   if (!leadId) return;
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
   const name = (lead.firstName || lead.lastName)
     ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim()
     : (lead.address || 'this prospect');
-  const ok = confirm(`Promote ${name} to a full customer?\n\nThis adds them to your kanban as a real lead and removes them from the Prospects page.`);
+  const ok = await _prospectConfirm(
+    `Promote ${name} to a full customer?\n\nThis adds them to your kanban as a real lead and removes them from the Prospects page.`,
+    { okLabel: 'Promote', cancelLabel: 'Cancel' }
+  );
   if (!ok) return;
   if (typeof window.promoteProspect === 'function') {
-    window.promoteProspect(leadId).then(() => closeCardDetailModal());
+    await window.promoteProspect(leadId);
+    closeCardDetailModal();
   }
 };
 
@@ -14820,26 +14876,44 @@ window.viewProspectOnMap = function(leadId) {
 };
 
 // Three-step delete with TYPE 'DELETE' final gate. Permanently removes
-// the lead record. Used ONLY for prospects the user is sure they want
-// to discard — regular customers go through the soft-delete (trash) flow.
+// the lead record. Reserved STRICTLY for prospects — regular customers
+// go through the soft-delete (trash) flow with recovery. The function
+// hard-refuses to run on a non-prospect even if invoked directly.
 window.absoluteDeleteProspect = async function(leadId) {
   if (!leadId) return;
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
+
+  // Hard guard — refuse to nuke a real customer record. The button only
+  // appears in the prospect banner, but a stale modal state after promotion
+  // could otherwise let this fire on a now-promoted lead.
+  if (lead.isProspect !== true) {
+    if (typeof window.showToast === 'function') {
+      window.showToast('Cannot permanent-delete a customer — use Trash instead', 'error');
+    }
+    return;
+  }
+
   const name = (lead.firstName || lead.lastName)
     ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim()
     : (lead.address || 'this prospect');
 
   // Step 1
-  const c1 = confirm(`Permanently delete ${name}?\n\nThis is for prospects you've decided will never be customers. The record will be ERASED — no recovery from trash. Use Hide if you just want to clear them from the view.`);
+  const c1 = await _prospectConfirm(
+    `Permanently delete ${name}?\n\nThis is for prospects you've decided will never be customers. The record will be ERASED — no recovery from trash. Use Hide if you just want to clear them from the view.`,
+    { okLabel: 'Continue', cancelLabel: 'Cancel', danger: true }
+  );
   if (!c1) return;
 
   // Step 2
-  const c2 = confirm(`Are you ABSOLUTELY sure?\n\nLast chance to back out before the final confirmation. Click Cancel to keep them as a hidden prospect instead.`);
+  const c2 = await _prospectConfirm(
+    `Are you ABSOLUTELY sure?\n\nLast chance to back out before the final confirmation. Click Cancel to keep them as a hidden prospect instead.`,
+    { okLabel: "I'm sure", cancelLabel: 'Cancel', danger: true }
+  );
   if (!c2) return;
 
   // Step 3 — typed gate
-  const typed = prompt(`Final confirmation.\n\nType DELETE in all caps to permanently remove ${name}. Anything else cancels.`);
+  const typed = await _prospectPrompt(`Final confirmation.\n\nType DELETE in all caps to permanently remove ${name}. Anything else cancels.`);
   if (typed !== 'DELETE') {
     if (typeof window.showToast === 'function') window.showToast('Delete cancelled', 'info');
     return;
@@ -14854,6 +14928,8 @@ window.absoluteDeleteProspect = async function(leadId) {
     closeCardDetailModal();
     if (window.Prospects && typeof window.Prospects.refresh === 'function') window.Prospects.refresh();
     if (typeof window.renderLeads === 'function') window.renderLeads(window._leads);
+    // Notify badges + analytics that lead state changed.
+    try { document.dispatchEvent(new CustomEvent('leadsChanged')); } catch (e) {}
   } catch (e) {
     if (typeof window.showToast === 'function') window.showToast('Delete failed: ' + e.message, 'error');
   }
@@ -15231,7 +15307,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <div class="nbd-toast" id="nbd-toast"></div>
 
 <!-- KANBAN CARD DETAIL MODAL -->
-<div class="modal-bg" id="cardDetailModal">
+<!-- Overlay click-to-close: clicking the dim backdrop (the .modal-bg
+     element itself, NOT a child) dismisses the modal. Audit fix for
+     missing close-on-backdrop behavior. -->
+<div class="modal-bg" id="cardDetailModal" onclick="if(event.target===this)closeCardDetailModal()">
   <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
 
@@ -15253,9 +15332,10 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       </div>
     </div>
 
-    <!-- Header -->
+    <!-- Header — label is set dynamically by openCardDetailModal so it
+         shows PROSPECT vs CUSTOMER (don't double up with the banner above). -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
+      <div id="cardDetailKindLabel" style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
       <div style="flex:1;"></div>
       <div id="cardDetailStage" style="font-size:10px;padding:4px 10px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;"></div>
     </div>
@@ -15403,7 +15483,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
-<script defer src="js/prospects.js?v=3"></script>
+<script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>
