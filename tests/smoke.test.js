@@ -1240,8 +1240,16 @@ section('F8: Voice memo transcription');
   assert('DEEPGRAM_API_KEY in secrets registry',
     /DEEPGRAM_API_KEY:\s*defineSecret\('DEEPGRAM_API_KEY'\)/.test(shared));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  assert('Record Voice Memo button on lead detail',
-    /Record Voice Memo/.test(dash));
+  // Voice memo button on the lead detail modal. The label was
+  // shortened from "Record Voice Memo" to "Voice Memo" in the
+  // 2026-05-05 modal redesign (cd-share-row), so the assertion
+  // checks for the wiring (NBDVoiceMemo.recordForLead) AND the
+  // label text — both must be present for the button to actually
+  // record a memo. If you rename the label, update the regex but
+  // KEEP the recordForLead wiring check.
+  assert('Voice Memo button on lead detail',
+    /(Voice Memo|Record Voice Memo)/.test(dash) &&
+    /NBDVoiceMemo\.recordForLead\(window\._cardDetailLeadId\)/.test(dash));
   const idx = read(path.join(FUNCTIONS, 'index.js'));
   assert('integrationStatus reports deepgram',
     /deepgram:\s*_hasInt\('DEEPGRAM_API_KEY'\)/.test(idx));
