@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=14" as="script">
+<link rel="preload" href="js/crm.js?v=15" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5904,7 +5904,193 @@ body {
   .kc-move{display:flex!important;gap:3px;}
   .kc-arrow{background:transparent;border:none;font-size:14px;cursor:pointer;color:var(--ink-soft);padding:0 3px;line-height:1;transition:color .15s;}
   .kc-arrow:hover{color:var(--orange);}
-  .crm-header{display:flex!important;justify-content:space-between;align-items:center;padding:16px 20px 10px;flex-shrink:0;}
+  /* ════ Compact CRM header (Pipeline page-breathe redesign 2026-05-05) ════
+     Single row with three slots: label · search/filters · actions.
+     Header padding/font scales with the existing data-density attribute
+     (compact / comfortable / spacious) so the same toggle that runs the
+     kanban cards also drives the chrome.                                  */
+  .crm-header{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 14px;
+    flex-shrink:0;
+    flex-wrap:wrap;
+    gap:8px;
+    border-bottom:1px solid var(--br);
+  }
+  :root[data-density="compact"]   .crm-header{ padding:6px 12px; gap:6px; }
+  :root[data-density="spacious"]  .crm-header{ padding:12px 18px; gap:10px; }
+
+  /* LEFT: tiny label + inline stat */
+  .crm-hdr-label{ display:flex; align-items:baseline; gap:10px; flex-shrink:0; }
+  .crm-hdr-title{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:14px; font-weight:800;
+    letter-spacing:.08em; text-transform:uppercase;
+    color:var(--orange);
+  }
+  .crm-hdr-stat{
+    font-size:11px; color:var(--m);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    max-width:280px;
+  }
+
+  /* CENTER: search + type filter + view switcher */
+  .crm-hdr-search{
+    display:flex; align-items:center; gap:8px;
+    flex:1; min-width:240px; flex-wrap:wrap;
+  }
+  .crm-hdr-input{
+    background:var(--s2); border:1px solid var(--br); border-radius:5px;
+    padding:6px 28px 6px 28px; font-size:12px; color:var(--t);
+    width:100%; outline:none; transition:border-color .15s;
+  }
+  .crm-hdr-input:focus{ border-color:var(--orange); }
+  .crm-hdr-search-clear{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--m); cursor:pointer;
+    width:22px; height:22px; display:none; font-size:13px;
+    border-radius:4px; transition:all .15s;
+  }
+  .crm-hdr-search-clear:hover{ color:var(--t); background:var(--s); }
+  .crm-hdr-select{
+    background:var(--s2); border:1px solid var(--br); border-radius:5px;
+    padding:6px 8px; font-size:11px; color:var(--t);
+    cursor:pointer; outline:none;
+    max-width:120px;
+  }
+
+  /* Inline view switcher pills — replaces the old VIEW: row */
+  .crm-hdr-views{
+    display:inline-flex;
+    background:var(--s2); border:1px solid var(--br); border-radius:6px;
+    overflow:hidden;
+  }
+  .crm-hdr-views .kview-btn{
+    border:none!important; border-radius:0;
+    padding:6px 10px; font-size:10px;
+  }
+  .crm-hdr-views .kview-btn + .kview-btn{ border-left:1px solid var(--br)!important; }
+
+  /* RIGHT: action icon row */
+  .crm-hdr-actions{
+    display:flex; align-items:center; gap:4px;
+    margin-left:auto; flex-wrap:wrap;
+  }
+  .crm-icon-btn{
+    background:transparent; border:1px solid var(--br); border-radius:5px;
+    width:30px; height:30px;
+    display:inline-flex; align-items:center; justify-content:center;
+    color:var(--m); cursor:pointer; transition:all .15s;
+    padding:0; font-family:inherit;
+  }
+  .crm-icon-btn:hover{ color:var(--t); border-color:var(--t); }
+  .crm-icon-btn.active{ color:var(--orange); border-color:var(--orange); background:var(--og); }
+
+  /* Compact action buttons in the header — half the size of regular .btn */
+  .crm-hdr-btn{
+    font-size:11px!important;
+    padding:6px 10px!important;
+    min-height:30px!important;
+    line-height:1!important;
+  }
+  /* Compact density: hide button labels, leave just the icon emoji */
+  :root[data-density="compact"] .crm-hdr-btn-label{ display:none; }
+
+  /* Tools dropdown */
+  .crm-tools-wrap{ position:relative; display:inline-block; }
+  .crm-tools-menu{
+    display:none; position:absolute; top:calc(100% + 6px); right:0;
+    min-width:200px; padding:6px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);
+    z-index:200;
+  }
+  .crm-tools-menu.open{ display:block; }
+  .crm-tools-menu button{
+    display:block; width:100%; text-align:left;
+    background:transparent; border:none; border-radius:5px;
+    padding:8px 12px; font-size:12px; color:var(--t);
+    cursor:pointer; font-family:inherit;
+  }
+  .crm-tools-menu button:hover{ background:var(--s3); color:var(--orange); }
+
+  /* Sidebar-collapsed mode — narrows the rail to icons only */
+  body.sidebar-collapsed .sidebar{
+    width:60px!important; min-width:60px!important;
+  }
+  body.sidebar-collapsed .sidebar .ni{
+    padding-left:0!important; padding-right:0!important;
+    justify-content:center;
+  }
+  body.sidebar-collapsed .sidebar .ni > *:not(.ni-icon){ display:none!important; }
+  body.sidebar-collapsed .sidebar .nav-section-header,
+  body.sidebar-collapsed .sidebar .nav-section-content > *:not(.ni){ display:none!important; }
+  body.sidebar-collapsed #sidebarToggleBtn{
+    color:var(--orange); border-color:var(--orange);
+  }
+
+  /* Kanban fullscreen — hide everything chrome and let the board fill */
+  body.kanban-fullscreen header,
+  body.kanban-fullscreen .sidebar,
+  body.kanban-fullscreen #mobile-nav,
+  body.kanban-fullscreen .crm-header,
+  body.kanban-fullscreen .crm-secondary-header{
+    display:none!important;
+  }
+  body.kanban-fullscreen .view#view-crm{ height:100vh!important; height:100dvh!important; }
+  body.kanban-fullscreen #kanbanFullscreenExit{ display:flex!important; }
+
+  /* Floating exit button (only shown in fullscreen mode) */
+  #kanbanFullscreenExit{
+    display:none; position:fixed; top:14px; right:14px; z-index:1000;
+    background:var(--s2); border:1px solid var(--br); border-radius:6px;
+    padding:8px 14px; color:var(--t); cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,.25);
+    align-items:center; gap:6px;
+  }
+  #kanbanFullscreenExit:hover{ border-color:var(--orange); color:var(--orange); }
+
+  /* Floating ADD LEAD FAB */
+  #addLeadFab{
+    position:fixed; bottom:24px; right:24px; z-index:900;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--orange); color:#fff;
+    border:none; cursor:pointer;
+    font-size:26px; font-weight:300; line-height:1;
+    box-shadow:0 6px 20px rgba(232,114,12,.45);
+    display:none; align-items:center; justify-content:center;
+    transition:transform .15s, box-shadow .15s;
+  }
+  #addLeadFab:hover{ transform:scale(1.06); box-shadow:0 8px 28px rgba(232,114,12,.6); }
+  #addLeadFab:active{ transform:scale(.96); }
+  /* FAB is shown only on the CRM page (Prospects has its own + button) */
+  body.show-add-lead-fab #addLeadFab{ display:flex; }
+  /* Keep clear of the mobile bottom nav */
+  @media (max-width:768px){
+    #addLeadFab{ bottom:80px; right:16px; width:52px; height:52px; }
+  }
+
+  /* Scroll-collapse: when the user is actively scrolling/dragging the
+     kanban board, shrink the header further. The .crm-scrolling class
+     is toggled by JS; CSS does the visual transition.                    */
+  body.crm-scrolling .crm-header{ padding-top:4px!important; padding-bottom:4px!important; }
+  body.crm-scrolling .crm-hdr-stat,
+  body.crm-scrolling .crm-hdr-btn-label{ display:none!important; }
+
+  /* Mobile — let the header rows wrap to two lines and tighten everything */
+  @media (max-width:768px){
+    .crm-header{ padding:6px 10px; gap:5px; }
+    .crm-hdr-label{ width:100%; justify-content:space-between; }
+    .crm-hdr-search{ width:100%; min-width:0; }
+    .crm-hdr-actions{ width:100%; justify-content:flex-start; }
+    .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
+  }
+
+  /* ════ END compact CRM header ════ */
+
   .crm-rev-strip{display:flex!important;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;}
   .rev-pill{display:flex!important;flex-direction:column;align-items:center;padding:6px 18px;border-right:1px solid var(--br);}
   .rev-pill:first-child{padding-left:0;}
@@ -8694,54 +8880,88 @@ function switchScTab(tab, btn) {
   <!-- ══ CRM ══ -->
   <div class="view" id="view-crm">
 
-    <!-- HEADER BAR -->
-    <div class="crm-header">
-      <div>
-        <div class="page-title">Pipeline</div>
-        <div class="page-sub" id="crmSubLine">0 leads · $0 pipeline</div>
+    <!-- HEADER BAR — single compact row.
+         Stats inline next to label, view switcher inline, action buttons
+         right-aligned. ADD LEAD also surfaces as a floating action button
+         (FAB) bottom-right; the inline button stays as a fallback for
+         users who prefer keyboard-shortcut hover targets. Density-driven
+         padding via :root[data-density] (Compact / Comfortable / Spacious). -->
+    <div class="crm-header" data-compact="true">
+      <!-- LEFT: tiny page label + inline stat -->
+      <div class="crm-hdr-label">
+        <span class="crm-hdr-title">Pipeline</span>
+        <span class="crm-hdr-stat" id="crmSubLine">0 leads · $0 pipeline</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div style="position:relative;width:240px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);z-index:1;pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
-          <input type="text" id="crmSearch" placeholder="Search leads..."
-            style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                   padding:7px 32px 7px 30px;font-size:12px;color:var(--t);width:100%;"
-            oninput="kanbanFilterDebounced()">
-          <button id="crmSearchClear" 
-            style="position:absolute;right:4px;top:50%;transform:translateY(-50%);
-                   background:none;border:none;color:var(--m);cursor:pointer;
-                   width:24px;height:24px;display:none;font-size:14px;
-                   border-radius:4px;transition:all .2s;"
-            onclick="clearCrmSearch()" title="Clear search">✕</button>
+
+      <!-- CENTER: search + type filter -->
+      <div class="crm-hdr-search">
+        <div style="position:relative;flex:1;min-width:160px;max-width:280px;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);z-index:1;pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
+          <input type="text" id="crmSearch" placeholder="Search leads…"
+            class="crm-hdr-input" oninput="kanbanFilterDebounced()">
+          <button id="crmSearchClear" class="crm-hdr-search-clear" onclick="clearCrmSearch()" title="Clear search">✕</button>
         </div>
         <span id="crmSearchCount" style="font-size:11px;color:var(--m);white-space:nowrap;"></span>
-        <select id="crmDmgFilter"
-          style="background:var(--s2);border:1px solid var(--br);border-radius:5px;
-                 padding:7px 8px;font-size:11px;color:var(--t);"
-          onchange="kanbanFilter()">
+        <select id="crmDmgFilter" class="crm-hdr-select" onchange="kanbanFilter()">
           <option value="">All Types</option>
           <option>Roof - Hail</option><option>Roof - Wind</option>
           <option>Roof - Hail &amp; Wind</option><option>Siding - Hail</option>
           <option>Siding - Wind</option><option>Gutters</option>
           <option>Full Exterior</option><option>Fire</option><option>Water</option>
         </select>
-        <button class="btn btn-ghost btn-trash-toggle" onclick="openDeletedDrawer()" title="Deleted Leads" style="position:relative;">
-          🗑 Deleted
+
+        <!-- VIEW switcher inline (replaces the old VIEW: row) -->
+        <div class="crm-hdr-views" id="kanbanViewSwitcher" role="tablist" aria-label="Pipeline view">
+          <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Ins</button>
+          <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash</button>
+          <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Fin</button>
+          <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Jobs</button>
+          <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">All</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: action icons -->
+      <div class="crm-hdr-actions">
+        <!-- Sidebar collapse — toggles icon-only rail to gain horizontal room -->
+        <button class="crm-icon-btn" id="sidebarToggleBtn" onclick="toggleSidebarCollapse()" title="Toggle sidebar">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M8 3v14"/></svg>
+        </button>
+        <!-- Fullscreen kanban — hides chrome -->
+        <button class="crm-icon-btn" id="kanbanFullscreenBtn" onclick="toggleKanbanFullscreen()" title="Fullscreen kanban (Esc to exit)">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
+        </button>
+
+        <!-- Tools dropdown (was the entire secondary toolbar) -->
+        <div class="crm-tools-wrap">
+          <button class="crm-icon-btn" id="crmToolsBtn" onclick="toggleCrmToolsMenu(event)" title="Tools">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg>
+          </button>
+          <div class="crm-tools-menu" id="crmToolsMenu" role="menu">
+            <button onclick="goTo('est');closeCrmToolsMenu()">📋 Estimates</button>
+            <button onclick="goTo('photos');closeCrmToolsMenu()">📸 Photos</button>
+            <button onclick="goTo('docs');closeCrmToolsMenu()">📁 Documents</button>
+            <button onclick="goTo('map');closeCrmToolsMenu()">🗺️ Map</button>
+            <button onclick="goTo('draw');closeCrmToolsMenu()">✏️ Drawing Tool</button>
+            <button onclick="goTo('schedule');closeCrmToolsMenu()">📅 Schedule</button>
+            <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
+            <button onclick="goTo('dash');closeCrmToolsMenu()">🏠 Dashboard</button>
+          </div>
+        </div>
+
+        <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" onclick="openDeletedDrawer()" title="Deleted Leads">
+          🗑
           <span class="trash-count-badge" id="trashCountBadge"></span>
         </button>
-        <button class="btn btn-ghost" id="loadSampleDataBtn" onclick="loadSampleData()" 
-          style="font-size:11px;padding:6px 12px;display:none;background:var(--purple);color:white;" 
-          title="Add 5 sample leads to test the CRM">
-          🎲 Load Sample Data
+        <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" onclick="loadSampleData()" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
+          🎲 Sample
         </button>
-        <div style="display:flex;gap:8px;margin-left:auto;">
-          <button class="btn btn-ghost" id="prospectsToggleBtn" onclick="goTo('prospects')" style="font-size:11px;padding:6px 12px;position:relative;" title="Open Prospects page (D2D knocks awaiting promotion)">
-            👀 <span id="prospectsBtnLabel">Prospects</span>
-            <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
-          </button>
-          <button class="btn btn-ghost" id="bulkModeBtn" onclick="toggleBulkMode()" style="font-size:11px;padding:6px 12px;" title="Select multiple leads">☑ Bulk</button>
-          <button class="btn btn-ghost" onclick="exportLeadsCSV()" style="font-size:11px;padding:6px 12px;">📤 Export CSV</button>
-          <button class="btn btn-orange" onclick="openLeadModal()" title="Keyboard shortcut: C">＋ Add Lead <span class="kbd-hint">C</span></button>
-        </div>
+        <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" onclick="goTo('prospects')" title="Open Prospects page" style="position:relative;">
+          👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
+          <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+        </button>
+        <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
+        <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
+        <button class="btn btn-orange crm-hdr-btn" onclick="openLeadModal()" title="Add Lead (C)">＋ <span class="crm-hdr-btn-label">Add</span> <span class="kbd-hint">C</span></button>
       </div>
       <!-- Bulk action toolbar (hidden until bulk mode active).
            Stage moves still go through moveCard() to preserve the
@@ -8795,43 +9015,11 @@ function switchScTab(tab, btn) {
       </div>
     </div>
 
-    <!-- SECONDARY TOOLBAR (auto-hides on scroll) -->
-    <div class="crm-secondary-header" id="crmSecondaryHeader" style="display:flex;align-items:center;gap:2px;padding:6px 12px;background:var(--s2,#1a1d23);border-bottom:1px solid var(--br,#2a2d35);position:sticky;top:0;z-index:50;">
-      <button class="crm-sec-btn" onclick="goTo('est')" title="View all estimates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Estimates</span>
-      </button>
-      <button class="crm-sec-btn" onclick="goTo('photos')" title="Photo library" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Photos</span>
-      </button>
-      <button class="crm-sec-btn" onclick="goTo('docs')" title="Documents & templates" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Documents</span>
-      </button>
-      <button class="crm-sec-btn" onclick="goTo('map')" title="Territory map" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Map</span>
-      </button>
-      <button class="crm-sec-btn" onclick="goTo('draw')" title="Roof drawing tool" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Drawing Tool</span>
-      </button>
-      <button class="crm-sec-btn" onclick="goTo('schedule')" title="Schedule appointments" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="4" y="2" width="12" height="16" rx="1"/><path d="M8 6h4M6 10h8M6 14h8"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Schedule</span>
-      </button>
-      <div style="flex:1;"></div>
-      <button class="crm-sec-btn" onclick="goTo('dash')" title="Back to dashboard" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 14px;background:transparent;border:none;border-radius:8px;cursor:pointer;color:var(--m,var(--m));font-family:'Barlow Condensed',sans-serif;font-size:11px;">
-        <span class="crm-sec-icon" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M3 10.5L10 4l7 6.5"/><path d="M5 9v7a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V9"/></svg></span>
-        <span class="crm-sec-label" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Dashboard</span>
-      </button>
-    </div>
-
-    <!-- Secondary header restore button (shows when hidden) -->
-    <div class="crm-sec-restore" id="crmSecRestoreBtn" style="display:none;" onclick="restoreCrmSecondary()">
-      <span>↓</span> Show Toolbar
-    </div>
+    <!-- Secondary toolbar collapsed into the Tools dropdown above.
+         A hidden stub element is kept so any goTo()/script that does
+         document.getElementById('crmSecondaryHeader') still finds something
+         and doesn't throw. The visible toolbar lives in .crm-tools-menu now. -->
+    <div class="crm-secondary-header" id="crmSecondaryHeader" style="display:none;"></div>
 
   <!-- DELETED LEADS DRAWER -->
   <div class="deleted-drawer" id="deletedDrawer">
@@ -8887,15 +9075,11 @@ function switchScTab(tab, btn) {
       </div>
     </div>
 
-    <!-- VIEW SWITCHER -->
-    <div id="kanbanViewSwitcher" style="display:flex;align-items:center;gap:6px;padding:0 16px 8px;flex-shrink:0;">
-      <span style="font-size:10px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;">View:</span>
-      <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Insurance</button>
-      <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash</button>
-      <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Finance</button>
-      <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Job Board</button>
-      <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">Simple</button>
-    </div>
+    <!-- View switcher relocated into .crm-hdr-views inside the compact header.
+         The original DOM ID is preserved up there so existing handlers still
+         find the buttons; this comment marks the spot so future changes
+         don't try to add a duplicate row here. -->
+    <!-- VIEW SWITCHER → crm-header > .crm-hdr-views -->
 
     <!-- DAILY COMMAND CENTER — KPI counters, floors, habits -->
     <div id="dailyCommandCenter" class="dt-widget"></div>
@@ -13711,6 +13895,125 @@ document.addEventListener('DOMContentLoaded', () => {
 window.setKanbanDensity = setKanbanDensity;
 window.setKanbanBoldHierarchy = setKanbanBoldHierarchy;
 
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE PAGE-BREATHE — sidebar collapse, fullscreen, Tools menu,
+// FAB visibility, scroll-collapse, ESC handling.
+// One self-contained block so future changes touch one place.
+// ══════════════════════════════════════════════════════════════════
+const SIDEBAR_COLLAPSED_KEY = 'nbd-sidebar-collapsed';
+
+function toggleSidebarCollapse() {
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  // Sync the button's `active` state
+  const btn = document.getElementById('sidebarToggleBtn');
+  if (btn) btn.classList.toggle('active', collapsed);
+  // Leaflet maps need an invalidate-size after the rail width changes
+  // so they don't render with the old viewport dimensions.
+  setTimeout(() => {
+    if (window.mainMap?.invalidateSize) window.mainMap.invalidateSize();
+    if (window.d2dMap?.invalidateSize)  window.d2dMap.invalidateSize();
+  }, 200);
+}
+window.toggleSidebarCollapse = toggleSidebarCollapse;
+
+function toggleKanbanFullscreen() {
+  const fullscreen = document.body.classList.toggle('kanban-fullscreen');
+  // Sync the icon button's active state when present
+  const btn = document.getElementById('kanbanFullscreenBtn');
+  if (btn) btn.classList.toggle('active', fullscreen);
+}
+window.toggleKanbanFullscreen = toggleKanbanFullscreen;
+
+// Tools dropdown (collapsed secondary toolbar)
+function toggleCrmToolsMenu(ev) {
+  const menu = document.getElementById('crmToolsMenu');
+  if (!menu) return;
+  const isOpen = menu.classList.toggle('open');
+  if (isOpen) {
+    // Close on next click outside
+    setTimeout(() => {
+      const onAway = (e) => {
+        if (!menu.contains(e.target) && e.target.id !== 'crmToolsBtn') {
+          closeCrmToolsMenu();
+          document.removeEventListener('click', onAway, true);
+        }
+      };
+      document.addEventListener('click', onAway, true);
+    }, 0);
+  }
+  if (ev) ev.stopPropagation();
+}
+function closeCrmToolsMenu() {
+  document.getElementById('crmToolsMenu')?.classList.remove('open');
+}
+window.toggleCrmToolsMenu = toggleCrmToolsMenu;
+window.closeCrmToolsMenu = closeCrmToolsMenu;
+
+// FAB visibility — show only on the CRM view. Hooks goTo() so we don't
+// have to touch every nav site.
+(function setupAddLeadFab() {
+  const _origGoTo = window.goTo;
+  if (typeof _origGoTo !== 'function') return; // page boot ordering — should always be defined here, but guard anyway
+  const updateFab = () => {
+    const onCrm = document.getElementById('view-crm')?.classList.contains('active');
+    document.body.classList.toggle('show-add-lead-fab', !!onCrm);
+  };
+  // Initial
+  updateFab();
+  // Re-evaluate after every navigation
+  window.goTo = function() {
+    const r = _origGoTo.apply(this, arguments);
+    setTimeout(updateFab, 50);
+    return r;
+  };
+})();
+
+// Scroll-collapse — when the user actively scrolls inside the kanban
+// columns, briefly tighten the header (kills the inline stat + button
+// labels). Returns to comfortable state ~600ms after scrolling stops.
+(function setupCrmScrollCollapse() {
+  let scrollTimer = null;
+  const onScroll = () => {
+    if (!document.getElementById('view-crm')?.classList.contains('active')) return;
+    document.body.classList.add('crm-scrolling');
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      document.body.classList.remove('crm-scrolling');
+    }, 700);
+  };
+  // Wire to the kanban board + every column body. Use capture so we
+  // catch every nested scroll regardless of which element is scrolling.
+  document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  // Drag also collapses the chrome (rep is operating, not browsing)
+  document.addEventListener('dragstart', (e) => {
+    if (e.target?.closest?.('.kanban-board')) {
+      document.body.classList.add('crm-scrolling');
+    }
+  });
+  document.addEventListener('dragend', () => {
+    setTimeout(() => document.body.classList.remove('crm-scrolling'), 200);
+  });
+})();
+
+// Boot: restore sidebar collapse state + ESC to exit fullscreen
+(function bootPageBreathe() {
+  try {
+    if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') {
+      document.body.classList.add('sidebar-collapsed');
+      const btn = document.getElementById('sidebarToggleBtn');
+      if (btn) btn.classList.add('active');
+    }
+  } catch (e) {}
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('kanban-fullscreen')) {
+      // Don't steal Escape from open modals — they handle it themselves
+      const openModal = document.querySelector('.modal-bg.open, .d2d-modal-overlay.open');
+      if (!openModal) toggleKanbanFullscreen();
+    }
+  });
+})();
+
 // Load saved theme when user auth resolves
 document.addEventListener('DOMContentLoaded', () => {
   loadSavedTheme();
@@ -15314,6 +15617,17 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 
 <div class="nbd-toast" id="nbd-toast"></div>
 
+<!-- ══════════════════════════════════════════════════════════════════
+     PIPELINE PAGE-BREATHE: floating UI bits (FAB + fullscreen exit)
+     Lives outside #view-crm so view switches don't remount them.
+     Visibility is gated by body.show-add-lead-fab and body.kanban-fullscreen.
+     ══════════════════════════════════════════════════════════════════ -->
+<button id="addLeadFab" type="button" onclick="openLeadModal()" aria-label="Add Lead" title="Add Lead (C)">＋</button>
+<button id="kanbanFullscreenExit" type="button" onclick="toggleKanbanFullscreen()" aria-label="Exit fullscreen">
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l5 5M15 15l-5-5M5 15l5-5M15 5l-5 5"/></svg>
+  Exit fullscreen
+</button>
+
 <!-- KANBAN CARD DETAIL MODAL -->
 <!-- Overlay click-to-close: clicking the dim backdrop (the .modal-bg
      element itself, NOT a child) dismisses the modal. Audit fix for
@@ -15453,7 +15767,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=14"></script>
+<script defer src="js/crm.js?v=15"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
