@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=16" as="script">
+<link rel="preload" href="js/crm.js?v=17" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2470,6 +2470,14 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   display:flex;
   align-items:center;
   min-height:36px;
+}
+/* Hide the breadcrumb on dense views where the sidebar already shows
+   the current page — saves ~52px of vertical space for the kanban.
+   Re-enabled on other views (Estimates, Photos, etc.) where the
+   breadcrumb provides sub-route context (e.g. Customer detail). */
+body:has(#view-crm.active) .breadcrumb-container,
+body:has(#view-prospects.active) .breadcrumb-container{
+  display:none!important;
 }
 .breadcrumb-link{
   font-size:12px;
@@ -5757,7 +5765,7 @@ body {
   .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
   .kview-btn.active{background:var(--orange);color:var(--t);border-color:var(--orange);}
-  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 260px);max-height:calc(100dvh - 260px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
+  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
@@ -5968,10 +5976,14 @@ body {
     align-items:center;
     padding:8px 14px;
     flex-shrink:0;
-    flex-wrap:wrap;
+    /* On desktop force one row; mobile media query below allows wrapping. */
+    flex-wrap:nowrap;
     gap:8px;
     border-bottom:1px solid var(--br);
   }
+  /* Allow the search/filter cluster to shrink if buttons need room */
+  .crm-hdr-search{ min-width:180px; }
+  .crm-hdr-actions{ flex-shrink:0; }
   :root[data-density="compact"]   .crm-header{ padding:6px 12px; gap:6px; }
   :root[data-density="spacious"]  .crm-header{ padding:12px 18px; gap:10px; }
 
@@ -6069,17 +6081,44 @@ body {
   }
   .crm-tools-menu button:hover{ background:var(--s3); color:var(--orange); }
 
-  /* Sidebar-collapsed mode — narrows the rail to icons only */
+  /* Sidebar-collapsed mode — narrows the rail to icons only.
+     The sidebar markup ships labels as TEXT NODES inside .ni
+     (e.g. <div class="ni"><span class="ni-icon">🏠</span>Home</div>)
+     which means :not(.ni-icon) never matches them. We hide them via
+     font-size:0 on .ni and restore size only on the icon span. Badges
+     and connection indicators inside .ni also get explicitly restored. */
   body.sidebar-collapsed .sidebar{
     width:60px!important; min-width:60px!important;
+    overflow:hidden;
   }
   body.sidebar-collapsed .sidebar .ni{
-    padding-left:0!important; padding-right:0!important;
-    justify-content:center;
+    padding:8px 0!important;
+    justify-content:center; align-items:center;
+    font-size:0!important;          /* nukes raw text nodes */
+    white-space:nowrap;
+    text-align:center;
+    gap:0!important;
+    line-height:1;
   }
-  body.sidebar-collapsed .sidebar .ni > *:not(.ni-icon){ display:none!important; }
+  body.sidebar-collapsed .sidebar .ni .ni-icon{
+    font-size:18px!important;
+    margin:0!important;
+    line-height:1;
+  }
+  /* Hide nav-section labels + their toggle arrows */
   body.sidebar-collapsed .sidebar .nav-section-header,
-  body.sidebar-collapsed .sidebar .nav-section-content > *:not(.ni){ display:none!important; }
+  body.sidebar-collapsed .sidebar .nav-divider{ display:none!important; }
+  body.sidebar-collapsed .sidebar .nav-section-content{ padding:0!important; }
+  /* Hide all element children except the icon (badges, indicators get tiny floating dots instead) */
+  body.sidebar-collapsed .sidebar .ni > *:not(.ni-icon){ display:none!important; }
+  /* But keep the small connection indicator visible as a colored corner dot */
+  body.sidebar-collapsed .sidebar #nav-crm .health-indicator{
+    display:block!important;
+    position:absolute; top:6px; right:6px;
+    width:6px; height:6px; padding:0!important; margin:0!important;
+  }
+  body.sidebar-collapsed .sidebar #nav-crm{ position:relative; }
+  /* Active state on the toggle button */
   body.sidebar-collapsed #sidebarToggleBtn{
     color:var(--orange); border-color:var(--orange);
   }
@@ -6089,11 +6128,43 @@ body {
   body.kanban-fullscreen .sidebar,
   body.kanban-fullscreen #mobile-nav,
   body.kanban-fullscreen .crm-header,
-  body.kanban-fullscreen .crm-secondary-header{
+  body.kanban-fullscreen .crm-secondary-header,
+  body.kanban-fullscreen #dailyCommandCenter,
+  body.kanban-fullscreen #followUpAlertsWrap,
+  body.kanban-fullscreen #bulkActionBar{
     display:none!important;
   }
-  body.kanban-fullscreen .view#view-crm{ height:100vh!important; height:100dvh!important; }
+  body.kanban-fullscreen .view#view-crm{
+    position:fixed!important; inset:0!important;
+    width:100vw!important; height:100vh!important; height:100dvh!important;
+    margin:0!important; padding:0!important;
+    z-index:990;
+  }
+  /* Pin the kanban board to fill the entire viewport in fullscreen mode.
+     The default .kcol-body max-height is calc(100dvh - 260px) which assumed
+     a header above; without it the columns finished short and left a big
+     dead band at the bottom of the viewport. Override to use full height. */
+  body.kanban-fullscreen #kanbanBoard{
+    height:100vh!important; height:100dvh!important;
+    padding:48px 16px 16px!important;  /* top padding clears the floating Exit button */
+  }
+  body.kanban-fullscreen .kcol-body{
+    max-height:none!important;
+    height:calc(100vh - 110px)!important;
+    height:calc(100dvh - 110px)!important;
+  }
+  /* Add a small floating "Pipeline" label top-left for context */
+  body.kanban-fullscreen #view-crm::before{
+    content:'Pipeline';
+    position:fixed; top:14px; left:18px; z-index:1000;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:14px; font-weight:800; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--orange);
+    pointer-events:none;
+  }
   body.kanban-fullscreen #kanbanFullscreenExit{ display:flex!important; }
+  /* FAB still visible in fullscreen so the rep can still add a lead */
+  body.kanban-fullscreen #addLeadFab{ z-index:1001; }
 
   /* Floating exit button (only shown in fullscreen mode) */
   #kanbanFullscreenExit{
@@ -15828,7 +15899,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=16"></script>
+<script defer src="js/crm.js?v=17"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
