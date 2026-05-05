@@ -425,23 +425,187 @@
     });
   }
 
+  // ── Conversion analytics ───────────────────────────────────────────
+  // Tracks promotion patterns over the last 90 days. Helps the rep
+  // understand which dispositions / attempt counts / age buckets actually
+  // produce real customers vs. dead-end prospects.
+  function computeAnalytics() {
+    const allLeads = window._leads || [];
+    const ninetyAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const d2dRecent = allLeads.filter(l => {
+      const ts = l.createdAt?.toDate ? l.createdAt.toDate() : null;
+      return ts && ts.getTime() > ninetyAgo && l.source === 'Door-to-Door';
+    });
+    const promoted = d2dRecent.filter(l => !l.isProspect);
+    const stillProspect = d2dRecent.filter(l => l.isProspect === true);
+
+    // By disposition
+    const byDisposition = {};
+    DISPOSITIONS.forEach(d => byDisposition[d.key] = { promoted: 0, total: 0, label: d.label, color: d.color });
+    d2dRecent.forEach(l => {
+      const k = dispositionKey(l);
+      if (!byDisposition[k]) byDisposition[k] = { promoted: 0, total: 0, label: k, color: '#888' };
+      byDisposition[k].total++;
+      if (!l.isProspect) byDisposition[k].promoted++;
+    });
+    const dispositionRows = Object.entries(byDisposition)
+      .filter(([, v]) => v.total > 0)
+      .sort((a, b) => b[1].total - a[1].total);
+
+    // By attempt count
+    const byAttempt = { 1: { promoted: 0, total: 0 }, 2: { promoted: 0, total: 0 }, 3: { promoted: 0, total: 0 } };
+    d2dRecent.forEach(l => {
+      const a = Math.min(attemptCount(l), 3);
+      byAttempt[a].total++;
+      if (!l.isProspect) byAttempt[a].promoted++;
+    });
+
+    return {
+      total: d2dRecent.length,
+      promoted: promoted.length,
+      stillProspect: stillProspect.length,
+      dispositionRows,
+      byAttempt
+    };
+  }
+
+  function renderAnalytics() {
+    const wrap = document.getElementById('prospects-analytics');
+    if (!wrap) return;
+    const a = computeAnalytics();
+    if (!a.total) {
+      wrap.innerHTML = '';
+      return;
+    }
+    const rate = (n, d) => d ? Math.round((n / d) * 100) : 0;
+    const overallRate = rate(a.promoted, a.total);
+
+    const dispRows = a.dispositionRows.slice(0, 6).map(([key, v]) => {
+      const r = rate(v.promoted, v.total);
+      return `
+        <div class="prosp-an-row">
+          <span class="prosp-an-row-label" style="color:${v.color};">${v.label}</span>
+          <div class="prosp-an-bar"><div class="prosp-an-bar-fill" style="width:${r}%;background:${v.color};"></div></div>
+          <span class="prosp-an-row-pct">${r}%</span>
+          <span class="prosp-an-row-count">${v.promoted}/${v.total}</span>
+        </div>
+      `;
+    }).join('');
+
+    const attRows = [1,2,3].map(n => {
+      const v = a.byAttempt[n];
+      const r = rate(v.promoted, v.total);
+      const label = n === 3 ? '3+ knocks' : (n === 1 ? '1st knock' : '2nd knock');
+      return `
+        <div class="prosp-an-row">
+          <span class="prosp-an-row-label">${label}</span>
+          <div class="prosp-an-bar"><div class="prosp-an-bar-fill" style="width:${r}%;background:var(--orange);"></div></div>
+          <span class="prosp-an-row-pct">${r}%</span>
+          <span class="prosp-an-row-count">${v.promoted}/${v.total}</span>
+        </div>
+      `;
+    }).join('');
+
+    wrap.innerHTML = `
+      <details class="prosp-analytics" ${a.total >= 5 ? 'open' : ''}>
+        <summary>📊 Conversion Analytics — last 90 days
+          <span style="margin-left:8px;color:var(--green);font-weight:800;">${overallRate}%</span>
+          <span style="font-size:10px;color:var(--m);margin-left:6px;">(${a.promoted}/${a.total} promoted)</span>
+        </summary>
+        <div class="prosp-an-grid">
+          <div class="prosp-an-block">
+            <div class="prosp-an-title">By disposition</div>
+            ${dispRows || '<div class="prosp-an-empty">No data yet</div>'}
+          </div>
+          <div class="prosp-an-block">
+            <div class="prosp-an-title">By knock attempt</div>
+            ${attRows}
+          </div>
+        </div>
+      </details>
+    `;
+  }
+
+  // ── Stale-prospect cleanup banner ──────────────────────────────────
+  // Surfaces a one-time-per-session suggestion when prospects older than
+  // 60 days exist. User can accept (filter the view to ice-cold prospects)
+  // or dismiss for the session. Never auto-archives — only suggests.
+  const STALE_DISMISS_KEY = 'nbd_prospects_stale_dismissed_v1';
+  function staleCount() {
+    return allProspects().filter(p => {
+      const days = ageInDays(p);
+      return days != null && days >= 60 && !p.prospectHidden;
+    }).length;
+  }
+  function isStaleDismissedThisSession() {
+    try {
+      const dismissed = sessionStorage.getItem(STALE_DISMISS_KEY);
+      return dismissed === '1';
+    } catch (e) { return false; }
+  }
+  function dismissStale() {
+    try { sessionStorage.setItem(STALE_DISMISS_KEY, '1'); } catch (e) {}
+    renderStaleBanner();
+  }
+  function reviewStale() {
+    state.age = 'ice';
+    saveState(state);
+    dismissStale();
+    render();
+    if (typeof window.showToast === 'function') {
+      window.showToast('Filtered to 30d+ prospects — Hide or Delete the dead ones', 'info');
+    }
+  }
+  function renderStaleBanner() {
+    const wrap = document.getElementById('prospects-stale-banner');
+    if (!wrap) return;
+    if (isStaleDismissedThisSession()) { wrap.innerHTML = ''; return; }
+    const n = staleCount();
+    if (n < 1) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
+      <div class="prosp-stale">
+        <span class="prosp-stale-icon">🧹</span>
+        <span class="prosp-stale-text">
+          You have <b>${n}</b> prospect${n===1?'':'s'} older than 60 days. Want to review and archive the dead ones?
+        </span>
+        <div class="prosp-stale-actions">
+          <button type="button" class="prosp-stale-btn primary" onclick="window.Prospects.reviewStale()">Review</button>
+          <button type="button" class="prosp-stale-btn" onclick="window.Prospects.dismissStale()">Not now</button>
+        </div>
+      </div>
+    `;
+  }
+
   // ── Top-level render orchestrator ──────────────────────────────────
   function render() {
     const all = allProspects();
     const filtered = applyFilters(all);
     renderStats(computeStats(all));
     renderFilters();
+    renderStaleBanner();
     if (state.view === 'kanban') renderKanban(filtered);
     else renderList(filtered);
+    renderAnalytics();
     updateNavBadge(all.length);
   }
 
   function updateNavBadge(count) {
     const badge = document.getElementById('prospectsNavBadge');
     if (!badge) return;
-    if (count > 0) {
+    // Show count of OVERDUE follow-ups when any exist; otherwise show
+    // total prospects (so the rep always sees a meaningful number).
+    // Overdue badge gets a red tint to mark urgency.
+    const overdue = allProspects().filter(isFollowUpDue).length;
+    if (overdue > 0) {
+      badge.textContent = overdue;
+      badge.style.display = 'inline-block';
+      badge.style.background = 'var(--red)';
+      badge.title = overdue + ' prospect follow-up' + (overdue === 1 ? '' : 's') + ' overdue';
+    } else if (count > 0) {
       badge.textContent = count;
       badge.style.display = 'inline-block';
+      badge.style.background = '';
+      badge.title = count + ' prospect' + (count === 1 ? '' : 's');
     } else {
       badge.style.display = 'none';
     }
@@ -474,6 +638,8 @@
     refresh: render,
     state() { return { ...state }; },
     setBucket(b) { state.bucketFilter = b; saveState(state); render(); },
+    reviewStale,
+    dismissStale,
   };
 
   window.Prospects = Prospects;
