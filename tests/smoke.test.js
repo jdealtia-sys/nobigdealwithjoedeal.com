@@ -2654,28 +2654,26 @@ section('Perf: oversized image regression guard');
     offenders.length ? 'offenders: ' + offenders.join(', ') : '');
 }
 
-section('Service worker — cross-origin passthrough');
+section('Service worker — root /sw.js is a self-unregistering stub');
 {
+  // /sw.js (root scope `/`) is INTENTIONALLY a stub that unregisters
+  // itself on activate. Devices that registered the old broken SW back
+  // when it was a full caching SW are evicted here; the only SW we
+  // maintain now is /pro/sw.js (scope `/pro/`). The previous version of
+  // these tests checked for CACHE_VERSION + a cross-origin fetch bypass,
+  // but those patterns belong to the OLD architecture and were removed
+  // deliberately when /sw.js was stubbed out (see the comment at the
+  // top of the file). These tests now verify the stub is intact.
   const sw = read(path.join(ROOT, 'docs/sw.js'));
-  // Cache version bump invalidates browser caches of the old broken SW.
-  // Accept any integer >= 3 (single OR multi-digit; double-digit versions
-  // happen as we bump for repeated cache invalidations).
-  {
-    const m = sw.match(/const CACHE_VERSION\s*=\s*(\d+)/);
-    const version = m ? parseInt(m[1], 10) : 0;
-    assert('sw.js CACHE_VERSION bumped to 3+ (forces clients to pick up the new SW)',
-      version >= 3,
-      `must be >= 3 so browsers re-register and drop the broken v2 SW (got: ${version || 'no match'})`);
-  }
-  // Cross-origin passthrough — the actual fix.
-  assert('sw.js fetch handler bypasses cross-origin requests',
-    /url\.origin\s*!==\s*self\.location\.origin\s*\)\s*return/.test(sw),
-    'expected an early return for url.origin !== self.location.origin in the fetch listener');
-  // The check must come before the cache-strategy branches, otherwise
-  // it never fires.
-  assert('cross-origin bypass runs before strategies 2-5',
-    /url\.origin !== self\.location\.origin\)\s*return;[\s\S]*Strategy 2:/.test(sw),
-    'the early return must precede "Strategy 2" so CDN URLs never hit the cache-first branches');
+  assert('root /sw.js skipWaiting() on install (so the new stub takes over fast)',
+    /addEventListener\(['"]install['"][\s\S]{0,200}skipWaiting/.test(sw),
+    'install handler must call self.skipWaiting()');
+  assert('root /sw.js clears caches + unregisters on activate',
+    /addEventListener\(['"]activate['"][\s\S]*caches\.delete[\s\S]*registration\.unregister/.test(sw),
+    'activate handler must delete all caches and unregister this SW');
+  assert('root /sw.js has NO fetch handler (passthrough by design)',
+    !/addEventListener\(['"]fetch['"]/.test(sw),
+    'a fetch handler would defeat the purpose of the unregister stub');
 }
 
 section('Visual regression baseline (Playwright pixel-diff)');
