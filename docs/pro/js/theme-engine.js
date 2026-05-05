@@ -81,16 +81,17 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'dark',
       colors: {
-        bg: '#0a0e1a',
-        surface: '#111827',
-        surface2: '#1f2937',
-        text: '#94a3b8',
-        muted: '#64748b',
-        border: 'rgba(148,163,184,.12)',
-        accent: '#94a3b8',
-        accentBg: 'rgba(148,163,184,.12)',
-        green: '#10b981',
+        bg: '#0b1024',
+        surface: '#141a36',
+        surface2: '#1d2548',
+        text: '#e2e8f0',
+        muted: '#7e88a8',
+        border: 'rgba(99,102,241,.14)',
+        accent: '#6366f1',
+        accentBg: 'rgba(99,102,241,.16)',
+        green: '#34d399',
         red: '#f87171',
         gold: '#fbbf24',
         blue: '#60a5fa'
@@ -109,19 +110,20 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'dark',
       colors: {
-        bg: '#0c2461',
-        surface: '#1e3799',
-        surface2: '#2e4a9e',
-        text: '#e2e8f0',
-        muted: '#cbd5e1',
-        border: 'rgba(74,159,245,.12)',
-        accent: '#4a9ff5',
-        accentBg: 'rgba(74,159,245,.15)',
-        green: '#10b981',
-        red: '#fca5a5',
+        bg: '#061230',
+        surface: '#0a1d4d',
+        surface2: '#0f2a6e',
+        text: '#eaf2ff',
+        muted: '#90b3e8',
+        border: 'rgba(0,71,171,.18)',
+        accent: '#0047ab',
+        accentBg: 'rgba(0,71,171,.18)',
+        green: '#34d399',
+        red: '#f87171',
         gold: '#fcd34d',
-        blue: '#4a9ff5'
+        blue: '#3b82f6'
       },
       overlay: { type: 'none' },
       font: { heading: null, body: null },
@@ -137,15 +139,16 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'dark',
       colors: {
-        bg: '#1e293b',
-        surface: '#334155',
-        surface2: '#3f4651',
-        text: '#e2e8f0',
-        muted: '#94a3af',
-        border: 'rgba(203,213,225,.12)',
-        accent: '#94a3b8',
-        accentBg: 'rgba(148,163,184,.12)',
+        bg: '#0f1117',
+        surface: '#161b25',
+        surface2: '#1c2333',
+        text: '#f1f5f9',
+        muted: '#64748b',
+        border: 'rgba(148,163,184,.14)',
+        accent: '#64748b',
+        accentBg: 'rgba(100,116,139,.18)',
         green: '#22c55e',
         red: '#f87171',
         gold: '#fbbf24',
@@ -165,19 +168,20 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'dark',
       colors: {
-        bg: '#2d3436',
-        surface: '#3d4447',
-        surface2: '#4a5055',
-        text: '#ecf0f1',
-        muted: '#95a5a6',
-        border: 'rgba(149,165,166,.12)',
-        accent: '#a0aec0',
-        accentBg: 'rgba(160,174,192,.12)',
+        bg: '#1a1f26',
+        surface: '#252b35',
+        surface2: '#323a47',
+        text: '#e6edf5',
+        muted: '#8a96a6',
+        border: 'rgba(186,196,210,.14)',
+        accent: '#bac4d2',
+        accentBg: 'rgba(186,196,210,.14)',
         green: '#1abc9c',
         red: '#e74c3c',
-        gold: '#f39c12',
-        blue: '#3498db'
+        gold: '#d4a017',
+        blue: '#5a8fc4'
       },
       overlay: { type: 'none' },
       font: { heading: null, body: null },
@@ -193,19 +197,20 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'light',
       colors: {
-        bg: '#f5f0eb',
+        bg: '#fafaf7',
         surface: '#ffffff',
-        surface2: '#faf8f5',
+        surface2: '#f3f1ec',
         text: '#1a1a1a',
-        muted: '#7a7a7a',
-        border: 'rgba(0,0,0,.08)',
-        accent: '#c9a961',
-        accentBg: 'rgba(201,169,97,.12)',
-        green: '#2d5016',
-        red: '#a4001c',
-        gold: '#d4a574',
-        blue: '#0052a3'
+        muted: '#6b6b6b',
+        border: 'rgba(0,0,0,.10)',
+        accent: '#1a1a1a',
+        accentBg: 'rgba(26,26,26,.06)',
+        green: '#16a34a',
+        red: '#dc2626',
+        gold: '#a16207',
+        blue: '#1d4ed8'
       },
       overlay: { type: 'none' },
       font: { heading: null, body: null },
@@ -221,19 +226,20 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'light',
       colors: {
-        bg: '#f8fafc',
+        bg: '#f4f6fa',
         surface: '#ffffff',
-        surface2: '#f1f5f9',
-        text: '#1e293b',
-        muted: '#64748b',
-        border: 'rgba(0,0,0,.06)',
-        accent: '#64748b',
-        accentBg: 'rgba(100,119,139,.08)',
-        green: '#059669',
-        red: '#dc2626',
+        surface2: '#eef1f6',
+        text: '#3b4252',
+        muted: '#8b94a3',
+        border: 'rgba(60,70,90,.10)',
+        accent: '#9aa6b8',
+        accentBg: 'rgba(154,166,184,.16)',
+        green: '#10b981',
+        red: '#ef4444',
         gold: '#d97706',
-        blue: '#0284c7'
+        blue: '#0ea5e9'
       },
       overlay: { type: 'none' },
       font: { heading: null, body: null },
@@ -249,15 +255,16 @@
       category: 'professional',
       locked: false,
       unlockCondition: null,
+      mode: 'dark',
       colors: {
-        bg: '#050505',
-        surface: '#111111',
-        surface2: '#1a1a1a',
-        text: '#f5f5f5',
-        muted: '#aaaaaa',
-        border: 'rgba(255,255,255,.08)',
-        accent: '#7c3aed',
-        accentBg: 'rgba(124,58,237,.12)',
+        bg: '#040406',
+        surface: '#0c0c10',
+        surface2: '#16161c',
+        text: '#f0f0f4',
+        muted: '#7a7a82',
+        border: 'rgba(255,255,255,.06)',
+        accent: '#dadcde',
+        accentBg: 'rgba(218,220,222,.06)',
         green: '#34d399',
         red: '#f87171',
         gold: '#fcd34d',
@@ -4230,28 +4237,115 @@
     return styleElement;
   }
 
-  function generateCSSVariables(theme) {
+  // Parse #rrggbb / #rgb to {r,g,b}; returns null on invalid input.
+  function parseHex(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    const m = hex.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (!m) return null;
+    let h = m[1];
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16)
+    };
+  }
+
+  // Relative luminance per WCAG. Returns 0..1.
+  function luminance(hex) {
+    const c = parseHex(hex);
+    if (!c) return 0;
+    const norm = v => {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * norm(c.r) + 0.7152 * norm(c.g) + 0.0722 * norm(c.b);
+  }
+
+  // Derive 'light' or 'dark' mode from background luminance.
+  // Themes can opt-in explicitly via theme.mode.
+  function getMode(theme) {
+    if (theme.mode === 'light' || theme.mode === 'dark') return theme.mode;
+    if (theme.specialClass === 'light-theme') return 'light';
+    return luminance(theme.colors.bg) > 0.55 ? 'light' : 'dark';
+  }
+
+  // Lighten or darken a hex color by amount (0..1). Positive = lighter.
+  function adjustHex(hex, amount) {
+    const c = parseHex(hex);
+    if (!c) return hex;
+    const adj = v => Math.max(0, Math.min(255, Math.round(
+      amount >= 0 ? v + (255 - v) * amount : v * (1 + amount)
+    )));
+    const toHex = n => n.toString(16).padStart(2, '0');
+    return '#' + toHex(adj(c.r)) + toHex(adj(c.g)) + toHex(adj(c.b));
+  }
+
+  // Convert hex to rgba string with given alpha.
+  function hexToRgba(hex, alpha) {
+    const c = parseHex(hex);
+    if (!c) return `rgba(0,0,0,${alpha})`;
+    return `rgba(${c.r},${c.g},${c.b},${alpha})`;
+  }
+
+  function generateCSSVariables(theme, themeKey) {
     const {
       bg, surface, surface2, text, muted, border, accent, accentBg,
       green, red, gold, blue
     } = theme.colors;
 
+    const mode = getMode(theme);
+    const isLight = mode === 'light';
+
+    // Derived vars so kanban + tags + tag chips have proper foundations.
+    // --bg: outermost page background — slightly darker than --s for dark themes,
+    //       slightly lighter than --s for light themes (so layered surfaces step).
+    const bgDerived = theme.colors.outerBg
+      || (isLight ? adjustHex(bg, 0.02) : adjustHex(bg, -0.18));
+
+    // --ob: accent hover state (slightly brighter)
+    const ob = theme.colors.accentHover || adjustHex(accent, isLight ? -0.12 : 0.15);
+
+    // --rule: subtle divider line — derived from text color at low alpha
+    const rule = theme.colors.rule || hexToRgba(text, isLight ? 0.08 : 0.09);
+
+    // --paper / --ink: card surface + card text. These DRIVE kanban cards.
+    // Light themes: paper = surface, ink = text (dark on light card).
+    // Dark themes: paper = surface2 (a step up), ink = text (light on dark card).
+    const paper = theme.colors.paper || (isLight ? surface : surface2);
+    const ink = theme.colors.ink || text;
+
+    // --purple: semantic purple — used by tag-ng and stage chips.
+    const purple = theme.colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
+
     const fontHeading = theme.font.heading ? `'${theme.font.heading}'` : "'Barlow Condensed', sans-serif";
     const fontBody = theme.font.body ? `'${theme.font.body}'` : "'Inter', sans-serif";
 
-    let css = `:root {
+    // High-specificity selector so we beat the generic [data-theme="X"] rules
+    // in theme-system.css. We target the active theme key explicitly.
+    const sel = themeKey
+      ? `:root[data-theme="${themeKey}"]`
+      : ':root';
+
+    let css = `${sel} {
+  --bg: ${bgDerived};
   --s: ${bg};
   --s2: ${surface};
   --s3: ${surface2};
   --t: ${text};
   --m: ${muted};
   --br: ${border};
+  --rule: ${rule};
   --orange: ${accent};
+  --ob: ${ob};
   --og: ${accentBg};
   --green: ${green};
   --red: ${red};
   --gold: ${gold};
   --blue: ${blue};
+  --purple: ${purple};
+  --paper: ${paper};
+  --ink: ${ink};
   --te-radius: ${theme.borderRadius};
   --te-border: ${theme.borderStyle};
   --te-transition: ${theme.transition};
@@ -4293,24 +4387,47 @@
 
     apply(themeKey, save = true) {
       const theme = THEMES[themeKey];
-      if (!theme) return;
+      if (!theme) {
+        // CSS-only theme (defined in theme-system.css but not registered here).
+        // Set data-theme so the CSS selector matches, and clear our injected
+        // style so the engine doesn't override the CSS file's vars.
+        const html = document.documentElement;
+        html.setAttribute('data-theme', themeKey);
+        const styleEl = ensureStyleElement();
+        styleEl.innerHTML = '';
+        // Best-effort mode hint from the CSS-loaded --bg luminance.
+        try {
+          const bg = getComputedStyle(html).getPropertyValue('--bg').trim();
+          const lum = luminance(bg);
+          html.setAttribute('data-mode', lum > 0.55 ? 'light' : 'dark');
+          if (lum > 0.55) html.setAttribute('data-light', 'true');
+          else html.removeAttribute('data-light');
+        } catch (e) {}
+        if (save) localStorage.setItem(STORAGE_KEY, themeKey);
+        currentTheme = themeKey;
+        dispatchThemeChange(themeKey);
+        return;
+      }
 
       const html = document.documentElement;
 
       // Set data-theme attribute
       html.setAttribute('data-theme', themeKey);
 
-      // Check if light theme
-      const isLight = theme.specialClass === 'light-theme';
-      if (isLight) {
+      // Determine and broadcast light/dark mode so component CSS
+      // (kanban cards, tag chips, etc.) can react via [data-mode="light"|"dark"].
+      const mode = getMode(theme);
+      html.setAttribute('data-mode', mode);
+      if (mode === 'light') {
         html.setAttribute('data-light', 'true');
       } else {
         html.removeAttribute('data-light');
       }
 
-      // Inject CSS variables
+      // Inject CSS variables — keyed by themeKey so we win specificity
+      // ties against theme-system.css [data-theme="X"] rules.
       const styleEl = ensureStyleElement();
-      styleEl.innerHTML = generateCSSVariables(theme);
+      styleEl.innerHTML = generateCSSVariables(theme, themeKey);
 
       // Load Google Fonts
       if (theme.font.heading) loadGoogleFont(theme.font.heading);
@@ -4373,7 +4490,14 @@
     previewCSS(themeKey) {
       const theme = THEMES[themeKey];
       if (!theme) return '';
-      return generateCSSVariables(theme);
+      return generateCSSVariables(theme, themeKey);
+    },
+
+    // Expose mode resolution for picker swatches + component logic.
+    getMode(themeKey) {
+      const theme = THEMES[themeKey];
+      if (!theme) return 'dark';
+      return getMode(theme);
     }
   };
 

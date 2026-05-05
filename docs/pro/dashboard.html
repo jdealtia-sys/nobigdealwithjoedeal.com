@@ -5466,11 +5466,11 @@ body {
 /* ── END ASK JOE ─────────────────────────────── */
 
 /* ── TASK SYSTEM ─────────────────────────────── */
-.kc-task-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--br);background:var(--s3);color:var(--m);transition:all .15s;white-space:nowrap;}
-.kc-task-badge:hover{border-color:var(--orange);color:var(--orange);}
-.kc-task-badge.has-tasks{color:var(--t);border-color:rgba(255,255,255,.15);}
-.kc-task-badge.has-overdue{border-color:var(--red);color:var(--red);background:rgba(224,82,82,.08);}
-.kc-task-badge.all-done{border-color:var(--green);color:var(--green);background:rgba(46,204,138,.08);}
+.kc-task-badge{display:inline-flex;align-items:center;gap:4px;font-size:var(--kcard-tag-fz, 10px);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:3px 8px;border-radius:10px;cursor:pointer;border:1px solid color-mix(in srgb, var(--ink) 14%, transparent);background:color-mix(in srgb, var(--ink) 6%, transparent);color:color-mix(in srgb, var(--ink) 65%, var(--paper));transition:all .15s;white-space:nowrap;font-weight:600;}
+.kc-task-badge:hover{border-color:var(--orange);color:var(--orange);background:color-mix(in srgb, var(--orange) 10%, transparent);}
+.kc-task-badge.has-tasks{color:var(--ink);border-color:color-mix(in srgb, var(--ink) 22%, transparent);}
+.kc-task-badge.has-overdue{border-color:var(--red);color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent);}
+.kc-task-badge.all-done{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent);}
 #taskModal{z-index:2500!important;}
 #taskModal .modal{max-width:480px;}
 .task-modal-header{margin-bottom:16px;}
@@ -5623,38 +5623,75 @@ body {
   #kanbanBoard::-webkit-scrollbar{height:6px;}
   #kanbanBoard::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
   .kanban-col{display:flex!important;flex-direction:column!important;min-width:240px!important;max-width:240px!important;flex-shrink:0!important;background:var(--s2);border:1px solid var(--br);border-radius:10px;overflow:hidden;}
-  .kcol-header{display:flex!important;justify-content:space-between;align-items:center;padding:10px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;}
-  .kcol-count{background:rgba(255,255,255,.12);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;}
-  .kh-new{background:#1e2a3a;color:#9CA3AF;border-bottom:2px solid #374151;}
-  .kh-contacted{background:#1a2440;color:#60a5fa;border-bottom:2px solid #2563eb;}
-  .kh-insp{background:#1a2e4a;color:var(--blue);border-bottom:2px solid #2d5a8e;}
-  .kh-claim{background:#221a3a;color:#a78bfa;border-bottom:2px solid #7c3aed;}
-  .kh-adj{background:#2a1a3a;color:#c084fc;border-bottom:2px solid #a855f7;}
-  .kh-adjdone{background:#251a38;color:#a78bfa;border-bottom:2px solid #8b5cf6;}
-  .kh-scope{background:#2a2010;color:#fbbf24;border-bottom:2px solid #d97706;}
-  .kh-est{background:#2a2414;color:var(--gold);border-bottom:2px solid #6b5010;}
-  .kh-supp{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
-  .kh-suppok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
-  .kh-neg{background:#2a1a10;color:#fb923c;border-bottom:2px solid #ea580c;}
-  .kh-prequal{background:#0a2a2a;color:#22d3ee;border-bottom:2px solid #0891b2;}
-  .kh-loanok{background:#142a22;color:#4ade80;border-bottom:2px solid #16a34a;}
-  .kh-contract{background:#0f2a1a;color:#22C55E;border-bottom:2px solid #16a34a;}
-  .kh-appr{background:#221a3a;color:var(--purple);border-bottom:2px solid #5a3da0;}
-  .kh-prog{background:#142a22;color:#22C55E;border-bottom:2px solid #166534;}
-  .kh-done{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #16a34a;}
-  .kh-lost{background:#2a1414;color:var(--red);border-bottom:2px solid #7f1d1d;}
+  .kcol-header{display:flex!important;justify-content:space-between;align-items:center;padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;border-bottom:2px solid currentColor;}
+  .kcol-count{background:color-mix(in srgb, currentColor 18%, transparent);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--t);}
+  /* Stage header: semantic identity color + tinted bg derived from that color.
+     Works against any themed surface — light or dark — because we mix
+     against the theme's own surface variable.                              */
+  .kcol-header{
+    background: color-mix(in srgb, currentColor 14%, var(--s2));
+  }
+  /* Per-stage hue lives entirely in `color:` — bg + border-bottom auto-adapt. */
+  .kh-new{color:#94a3b8;}
+  .kh-contacted{color:#60a5fa;}
+  .kh-insp{color:#38bdf8;}
+  .kh-claim{color:#a78bfa;}
+  .kh-adj{color:#c084fc;}
+  .kh-adjdone{color:#a78bfa;}
+  .kh-scope{color:#fbbf24;}
+  .kh-est{color:#eab308;}
+  .kh-supp{color:#fb923c;}
+  .kh-suppok{color:#4ade80;}
+  .kh-neg{color:#fb923c;}
+  .kh-prequal{color:#22d3ee;}
+  .kh-loanok{color:#4ade80;}
+  .kh-contract{color:#22c55e;}
+  .kh-appr{color:#a78bfa;}
+  .kh-prog{color:#22c55e;}
+  .kh-done{color:#4ade80;}
+  .kh-lost{color:#f87171;}
   /* Job board header colors */
-  .kh-jobcr{background:#0a1e3a;color:#38bdf8;border-bottom:2px solid #0369a1;}
-  .kh-permit{background:#1a1a3a;color:#818cf8;border-bottom:2px solid #4338ca;}
-  .kh-matord{background:#2a1e10;color:#fbbf24;border-bottom:2px solid #b45309;}
-  .kh-matdel{background:#2a2010;color:#facc15;border-bottom:2px solid #a16207;}
-  .kh-crew{background:#0a2a28;color:#2dd4bf;border-bottom:2px solid #0d9488;}
-  .kh-install{background:#0a2a1a;color:#34d399;border-bottom:2px solid #059669;}
-  .kh-instdone{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #22c55e;}
-  .kh-photos{background:#0a2a20;color:#6ee7b7;border-bottom:2px solid #10b981;}
-  .kh-deduct{background:#0a2a28;color:#5eead4;border-bottom:2px solid #14b8a6;}
-  .kh-finpay{background:#0a2a28;color:#2dd4bf;border-bottom:2px solid #0d9488;}
-  .kh-closed{background:#0f2a1a;color:#4ade80;border-bottom:2px solid #22C55E;}
+  .kh-jobcr{color:#38bdf8;}
+  .kh-permit{color:#818cf8;}
+  .kh-matord{color:#fbbf24;}
+  .kh-matdel{color:#facc15;}
+  .kh-crew{color:#2dd4bf;}
+  .kh-install{color:#34d399;}
+  .kh-instdone{color:#4ade80;}
+  .kh-photos{color:#6ee7b7;}
+  .kh-deduct{color:#5eead4;}
+  .kh-finpay{color:#2dd4bf;}
+  .kh-closed{color:#4ade80;}
+  /* Light-mode: deepen stage colors for legibility on light surfaces. */
+  :root[data-mode="light"] .kh-new      { color:#475569; }
+  :root[data-mode="light"] .kh-contacted{ color:#1d4ed8; }
+  :root[data-mode="light"] .kh-insp     { color:#0369a1; }
+  :root[data-mode="light"] .kh-claim    { color:#6d28d9; }
+  :root[data-mode="light"] .kh-adj      { color:#7e22ce; }
+  :root[data-mode="light"] .kh-adjdone  { color:#6d28d9; }
+  :root[data-mode="light"] .kh-scope    { color:#b45309; }
+  :root[data-mode="light"] .kh-est      { color:#a16207; }
+  :root[data-mode="light"] .kh-supp     { color:#c2410c; }
+  :root[data-mode="light"] .kh-suppok   { color:#15803d; }
+  :root[data-mode="light"] .kh-neg      { color:#c2410c; }
+  :root[data-mode="light"] .kh-prequal  { color:#0e7490; }
+  :root[data-mode="light"] .kh-loanok   { color:#15803d; }
+  :root[data-mode="light"] .kh-contract { color:#15803d; }
+  :root[data-mode="light"] .kh-appr     { color:#6d28d9; }
+  :root[data-mode="light"] .kh-prog     { color:#15803d; }
+  :root[data-mode="light"] .kh-done     { color:#15803d; }
+  :root[data-mode="light"] .kh-lost     { color:#b91c1c; }
+  :root[data-mode="light"] .kh-jobcr    { color:#0369a1; }
+  :root[data-mode="light"] .kh-permit   { color:#4338ca; }
+  :root[data-mode="light"] .kh-matord   { color:#b45309; }
+  :root[data-mode="light"] .kh-matdel   { color:#a16207; }
+  :root[data-mode="light"] .kh-crew     { color:#0f766e; }
+  :root[data-mode="light"] .kh-install  { color:#047857; }
+  :root[data-mode="light"] .kh-instdone { color:#15803d; }
+  :root[data-mode="light"] .kh-photos   { color:#047857; }
+  :root[data-mode="light"] .kh-deduct   { color:#0f766e; }
+  :root[data-mode="light"] .kh-finpay   { color:#0f766e; }
+  :root[data-mode="light"] .kh-closed   { color:#15803d; }
   /* View switcher buttons */
   .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
@@ -5664,15 +5701,57 @@ body {
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
   .k-empty{text-align:center;padding:20px 8px;font-size:11px;color:var(--m);border:1px dashed var(--br);border-radius:6px;}
+  /* Kanban card density tokens — set per data-density on <html>. */
+  :root{
+    --kcard-pad:    var(--kcard-pad-comfy);
+    --kcard-name-fz: var(--kcard-name-fz-comfy);
+    --kcard-meta-fz: var(--kcard-meta-fz-comfy);
+    --kcard-tag-fz:  var(--kcard-tag-fz-comfy);
+    --kcard-val-fz:  var(--kcard-val-fz-comfy);
+    --kcard-gap:     var(--kcard-gap-comfy);
+    /* Compact preset */
+    --kcard-pad-compact: 9px 10px 7px;
+    --kcard-name-fz-compact: 13px;
+    --kcard-meta-fz-compact: 10px;
+    --kcard-tag-fz-compact: 9px;
+    --kcard-val-fz-compact: 14px;
+    --kcard-gap-compact: 3px;
+    /* Comfortable preset (DEFAULT — was current 'compact-feeling' bumped up) */
+    --kcard-pad-comfy: 12px 14px 10px;
+    --kcard-name-fz-comfy: 14px;
+    --kcard-meta-fz-comfy: 11px;
+    --kcard-tag-fz-comfy: 10px;
+    --kcard-val-fz-comfy: 16px;
+    --kcard-gap-comfy: 5px;
+    /* Spacious preset */
+    --kcard-pad-spacious: 14px 16px 12px;
+    --kcard-name-fz-spacious: 15px;
+    --kcard-meta-fz-spacious: 12px;
+    --kcard-tag-fz-spacious: 11px;
+    --kcard-val-fz-spacious: 17px;
+    --kcard-gap-spacious: 7px;
+  }
+  :root[data-density="compact"]  { --kcard-pad: var(--kcard-pad-compact);  --kcard-name-fz: var(--kcard-name-fz-compact);  --kcard-meta-fz: var(--kcard-meta-fz-compact);  --kcard-tag-fz: var(--kcard-tag-fz-compact);  --kcard-val-fz: var(--kcard-val-fz-compact);  --kcard-gap: var(--kcard-gap-compact); }
+  :root[data-density="spacious"] { --kcard-pad: var(--kcard-pad-spacious); --kcard-name-fz: var(--kcard-name-fz-spacious); --kcard-meta-fz: var(--kcard-meta-fz-spacious); --kcard-tag-fz: var(--kcard-tag-fz-spacious); --kcard-val-fz: var(--kcard-val-fz-spacious); --kcard-gap: var(--kcard-gap-spacious); }
+  /* Bold hierarchy: scale up name + value, dim everything else. */
+  :root[data-bold="true"] .kc-name      { font-size: calc(var(--kcard-name-fz) + 2px); font-weight: 900; }
+  :root[data-bold="true"] .kc-val-badge { font-size: calc(var(--kcard-val-fz)  + 2px); font-weight: 900; }
+  :root[data-bold="true"] .kc-addr,
+  :root[data-bold="true"] .kc-email-line,
+  :root[data-bold="true"] .kc-phone,
+  :root[data-bold="true"] .kc-claim-num,
+  :root[data-bold="true"] .kc-carrier   { opacity: .72; }
+  :root[data-bold="true"] .kc-tag       { opacity: .85; }
+
   .k-card{
-    background:#fff;
-    border:1px solid #e5e7eb;
+    background:var(--paper);
+    border:1px solid var(--rule);
     border-radius:9px;
-    padding:11px 12px 9px;
+    padding:var(--kcard-pad);
     cursor:grab;
-    transition:box-shadow .15s,transform .1s;
+    transition:box-shadow .15s,transform .1s,background .15s;
     position:relative;
-    color:#111;
+    color:var(--ink);
     border-left:3px solid transparent;
   }
   /* Stage-colored left border per card */
@@ -5765,52 +5844,57 @@ body {
   #kbody-In\ Progress .k-card{border-left-color:#16a34a;}
   #kbody-Complete .k-card{border-left-color:#22C55E;}
   #kbody-Lost .k-card{border-left-color:var(--m);opacity:.75;}
-  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.13);transform:translateY(-2px);}
+  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.18);transform:translateY(-2px);}
+  :root[data-mode="light"] .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.10);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}
+  /* Ink-soft = muted text on the card surface, derived from theme. */
+  .k-card{ --ink-soft: color-mix(in srgb, var(--ink) 60%, var(--paper)); }
   /* Job value — big and prominent at top right */
   .kc-val-badge{
-    position:absolute;top:10px;right:10px;
+    position:absolute;top:10px;right:12px;
     font-family:'Barlow Condensed',sans-serif;
-    font-size:15px;font-weight:800;
+    font-size:var(--kcard-val-fz);
+    font-weight:800;
     color:var(--orange);
     letter-spacing:.02em;
+    line-height:1;
   }
-  .kc-name{font-weight:800;font-size:13px;margin-bottom:1px;color:#111;line-height:1.2;padding-right:60px;}
-  .kc-addr{font-size:10px;color:var(--m);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kc-name{font-weight:800;font-size:var(--kcard-name-fz);margin-bottom:2px;color:var(--ink);line-height:1.2;padding-right:64px;}
+  .kc-addr{font-size:var(--kcard-meta-fz);color:var(--ink-soft);margin-bottom:var(--kcard-gap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* Phone tap-to-call */
-  .kc-phone-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;}
-  .kc-phone-link{font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;display:flex;align-items:center;gap:3px;}
-  .kc-phone-link:hover{color:#1d4ed8;}
-  .kc-email-line{font-size:10px;color:var(--m);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .kc-phone-row{display:flex;align-items:center;gap:5px;margin-bottom:var(--kcard-gap);}
+  .kc-phone-link{font-size:var(--kcard-meta-fz);color:var(--blue);text-decoration:none;font-weight:600;display:flex;align-items:center;gap:3px;}
+  .kc-phone-link:hover{filter:brightness(1.15);}
+  .kc-email-line{font-size:var(--kcard-meta-fz);color:var(--ink-soft);margin-bottom:var(--kcard-gap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* Carrier + claim row */
-  .kc-ins-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;}
-  .kc-carrier{font-size:10px;font-weight:700;color:#555;background:#f3f4f6;border-radius:4px;padding:2px 7px;}
-  .kc-claim-num{font-size:9px;color:#888;font-family:'DM Mono','Courier New',monospace;}
+  .kc-ins-row{display:flex;align-items:center;gap:5px;margin-bottom:var(--kcard-gap);flex-wrap:wrap;}
+  .kc-carrier{font-size:var(--kcard-tag-fz);font-weight:700;color:var(--ink-soft);background:color-mix(in srgb, var(--ink) 8%, transparent);border-radius:4px;padding:2px 7px;}
+  .kc-claim-num{font-size:9px;color:var(--ink-soft);font-family:'DM Mono','Courier New',monospace;opacity:.7;}
   /* Days since contact */
-  .kc-days{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:3px;display:inline-flex;align-items:center;gap:3px;}
-  .kc-days-fresh{background:#d1fae5;color:#065f46;}
-  .kc-days-warm{background:#fef3c7;color:#92400e;}
-  .kc-days-cold{background:#fee2e2;color:#991b1b;}
+  .kc-days{font-size:var(--kcard-tag-fz);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:3px;display:inline-flex;align-items:center;gap:3px;}
+  .kc-days-fresh{background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
+  .kc-days-warm{background:color-mix(in srgb, var(--gold) 18%, transparent);color:var(--gold);}
+  .kc-days-cold{background:color-mix(in srgb, var(--red) 18%, transparent);color:var(--red);}
   /* Photo thumbnail strip */
-  .kc-photos{display:flex;gap:3px;margin-bottom:5px;}
-  .kc-photo-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;border:1px solid #e5e7eb;cursor:pointer;}
-  .kc-photo-more{width:32px;height:32px;border-radius:4px;background:#f3f4f6;border:1px solid #e5e7eb;
-    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--m);cursor:pointer;}
-  .kc-tags{display:flex!important;gap:3px;flex-wrap:wrap;margin-bottom:5px;}
-  .kc-tag{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
-  .kct-dmg{background:rgba(74,158,255,.15);color:var(--blue);}
-  .kct-claim{background:rgba(34,197,94,.15);color:#16a34a;}
-  .kct-val{background:rgba(232,114,12,.12);color:var(--orange);font-weight:800;}
-  .kct-due{background:rgba(224,82,82,.15);color:var(--red);}
-  .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid var(--rule);margin-top:2px;}
-  .kc-phone{font-size:10px;color:var(--m);}
+  .kc-photos{display:flex;gap:3px;margin-bottom:var(--kcard-gap);}
+  .kc-photo-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;border:1px solid var(--rule);cursor:pointer;}
+  .kc-photo-more{width:32px;height:32px;border-radius:4px;background:color-mix(in srgb, var(--ink) 8%, transparent);border:1px solid var(--rule);
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .kc-tags{display:flex!important;gap:3px;flex-wrap:wrap;margin-bottom:var(--kcard-gap);}
+  .kc-tag{font-size:var(--kcard-tag-fz);font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
+  .kct-dmg{background:color-mix(in srgb, var(--blue) 18%, transparent);color:var(--blue);}
+  .kct-claim{background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
+  .kct-val{background:color-mix(in srgb, var(--orange) 18%, transparent);color:var(--orange);font-weight:800;}
+  .kct-due{background:color-mix(in srgb, var(--red) 18%, transparent);color:var(--red);}
+  .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid color-mix(in srgb, var(--ink) 12%, transparent);margin-top:2px;}
+  .kc-phone{font-size:var(--kcard-meta-fz);color:var(--ink-soft);}
   .kc-actions{display:flex!important;gap:4px;}
-  .kc-btn{background:transparent;border:1px solid var(--rule);border-radius:4px;padding:3px 7px;font-size:10px;cursor:pointer;color:var(--m);font-family:inherit;}
-  .kc-btn:hover{background:var(--rule);color:var(--ink);}
+  .kc-btn{background:transparent;border:1px solid color-mix(in srgb, var(--ink) 14%, transparent);border-radius:4px;padding:3px 7px;font-size:var(--kcard-tag-fz);cursor:pointer;color:var(--ink-soft);font-family:inherit;}
+  .kc-btn:hover{background:color-mix(in srgb, var(--ink) 8%, transparent);color:var(--ink);}
   .kc-btn.edit:hover{border-color:var(--orange);color:var(--orange);}
   .kc-btn.del:hover{border-color:var(--red);color:var(--red);}
   .kc-move{display:flex!important;gap:3px;}
-  .kc-arrow{background:transparent;border:none;font-size:13px;cursor:pointer;color:#9b9b9b;padding:0 2px;line-height:1;transition:color .15s;}
+  .kc-arrow{background:transparent;border:none;font-size:14px;cursor:pointer;color:var(--ink-soft);padding:0 3px;line-height:1;transition:color .15s;}
   .kc-arrow:hover{color:var(--orange);}
   .crm-header{display:flex!important;justify-content:space-between;align-items:center;padding:16px 20px 10px;flex-shrink:0;}
   .crm-rev-strip{display:flex!important;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;}
@@ -5920,7 +6004,14 @@ body {
 
 /* ── BRIDGE: v5 body class → DS CSS variables ───────────────
    Any time body has a theme class, sync DS vars from v5 vars.
-   --orange → --ac, --t → text, --m → --muted, etc.            */
+   --orange → --ac, --t → text, --m → --muted, etc.
+
+   NOTE (2026-05-04): --paper and --ink are NO LONGER fixed at body
+   level. Theme Engine now derives them per-theme at :root level so
+   kanban cards true-theme correctly across light + dark themes.
+   The previous body-level hardcode (#f5f3ef / #1a1a1a) shadowed the
+   per-theme values for every descendant element — a silent override
+   that caused all kanban cards to look identical regardless of theme. */
 body {
   --ac:         var(--orange, var(--orange));
   --gold:       var(--orange-h, #f59e0b);
@@ -5928,22 +6019,20 @@ body {
   --bar:        var(--s, var(--s));
   --tabbar:     var(--s2, var(--s2));
   --taboff:     var(--s, var(--s));
-  --rule:       var(--rule, #2a3040);
   --tt:         var(--m, #7a98c0);
   --tb:         var(--s3, var(--s3));
   --sbg:        var(--s2, var(--s2));
   --stxt:       var(--t, #ccd);
   --mbg:        var(--paper, #f5f3ef);
-  /* paper and ink stay fixed — light card surfaces always readable */
-  --paper:      #f5f3ef;
-  --ink:        #1a1a1a;
   --grn:        #22c55e;
   --blu:        var(--blue);
   --pur:        #5a2a7e;
   --shad:       0 2px 20px rgba(0,0,0,.55);
 }
 
-/* Light themes need inverted paper/ink */
+/* Legacy body.theme-X overrides retained as no-op to avoid breaking any
+   selector that still chains off these — but the actual --paper/--ink
+   values now come from the per-theme :root[data-theme="X"] declaration. */
 body.theme-typewriter,
 body.theme-ink,
 body.theme-brutalist,
@@ -5952,8 +6041,6 @@ body.theme-lofi,
 body.theme-sakura,
 body.theme-easter,
 body.theme-frosted {
-  --paper: var(--s, #f5f3ef);
-  --ink:   var(--t, #1a1a1a);
   --bar:   var(--s2, #e8e0d0);
   --tabbar:var(--s3, #ddd5c0);
   --taboff:var(--s, #e8e0d0);
@@ -9197,13 +9284,40 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">Pipeline Preferences</div></div></div>
           <div class="panel-body">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div>
                 <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Secondary Toolbar</div>
                 <div style="font-size:11px;color:var(--m);">Quick nav to Estimates, Photos, Docs, Map</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- Card Density -->
+            <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Card Density</div>
+                  <div style="font-size:11px;color:var(--m);">How tightly leads pack into the kanban</div>
+                </div>
+              </div>
+              <div id="kanbanDensityGroup" style="display:flex;gap:6px;">
+                <button type="button" class="kdens-btn" data-density="compact"  onclick="setKanbanDensity('compact')"  style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Compact</button>
+                <button type="button" class="kdens-btn" data-density="comfortable" onclick="setKanbanDensity('comfortable')" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Comfortable</button>
+                <button type="button" class="kdens-btn" data-density="spacious" onclick="setKanbanDensity('spacious')" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Spacious</button>
+              </div>
+            </div>
+
+            <!-- Bold-hierarchy toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Bold Name &amp; Value</div>
+                <div style="font-size:11px;color:var(--m);">Promotes the lead name and dollar amount; mutes everything else</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="kanbanBoldToggle" onchange="setKanbanBoldHierarchy(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -13240,6 +13354,54 @@ function loadSavedTheme() {
     document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
   }
 })();
+
+// ── KANBAN DENSITY + HIERARCHY ─────────────────────────────────────────────
+// Sets data-density / data-bold attrs on <html>; CSS reacts via :root[data-density="..."]
+const KANBAN_DENSITY_KEY = 'nbd-kanban-density';
+const KANBAN_BOLD_KEY = 'nbd-kanban-bold';
+
+function setKanbanDensity(d) {
+  if (!['compact', 'comfortable', 'spacious'].includes(d)) d = 'comfortable';
+  // 'comfortable' is the CSS default; clear the attribute so we don't carry stale values.
+  if (d === 'comfortable') document.documentElement.removeAttribute('data-density');
+  else document.documentElement.setAttribute('data-density', d);
+  try { localStorage.setItem(KANBAN_DENSITY_KEY, d); } catch (e) {}
+  // Reflect active state in the picker buttons.
+  document.querySelectorAll('.kdens-btn').forEach(b => {
+    const active = b.dataset.density === d;
+    b.style.background = active ? 'var(--orange)' : 'var(--s)';
+    b.style.color = active ? '#fff' : 'var(--m)';
+    b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
+  });
+}
+
+function setKanbanBoldHierarchy(on) {
+  if (on) document.documentElement.setAttribute('data-bold', 'true');
+  else document.documentElement.removeAttribute('data-bold');
+  try { localStorage.setItem(KANBAN_BOLD_KEY, on ? '1' : '0'); } catch (e) {}
+}
+
+(function bootKanbanPrefs() {
+  try {
+    const d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable';
+    if (d !== 'comfortable') document.documentElement.setAttribute('data-density', d);
+    const bold = localStorage.getItem(KANBAN_BOLD_KEY) === '1';
+    if (bold) document.documentElement.setAttribute('data-bold', 'true');
+  } catch (e) {}
+})();
+
+// Wire up the settings panel state when it opens.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable';
+    setKanbanDensity(d);
+    const bold = localStorage.getItem(KANBAN_BOLD_KEY) === '1';
+    const t = document.getElementById('kanbanBoldToggle');
+    if (t) t.checked = bold;
+  }, 200);
+});
+window.setKanbanDensity = setKanbanDensity;
+window.setKanbanBoldHierarchy = setKanbanBoldHierarchy;
 
 // Load saved theme when user auth resolves
 document.addEventListener('DOMContentLoaded', () => {
