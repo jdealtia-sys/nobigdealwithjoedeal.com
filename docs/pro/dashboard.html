@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=17" as="script">
+<link rel="preload" href="js/crm.js?v=18" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5965,6 +5965,145 @@ body {
   .kc-move{display:flex!important;gap:3px;}
   .kc-arrow{background:transparent;border:none;font-size:14px;cursor:pointer;color:var(--ink-soft);padding:0 3px;line-height:1;transition:color .15s;}
   .kc-arrow:hover{color:var(--orange);}
+
+  /* ══ CARD DETAIL MODAL — cohesive button system ══════════════════
+     Uniform sizing, ghost styling with subtle hover states. The stage
+     chip pulls its color dynamically from stageColor() so it matches
+     the kanban column tint. Eliminates the giant orange + harsh red
+     buttons that were fighting the dark theme.                       */
+  .cd-stage-chip{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:10px; font-weight:700; letter-spacing:.08em;
+    padding:4px 10px; border-radius:12px;
+    text-transform:uppercase; white-space:nowrap;
+    background:var(--s2); color:var(--m); border:1px solid var(--br);
+    transition:all .15s;
+  }
+  /* Info grid — slightly tighter */
+  .cd-info-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    margin-bottom:18px;
+  }
+  .cd-info-cell{
+    background:var(--s2); border:1px solid var(--br);
+    border-radius:8px; padding:10px 12px;
+  }
+  .cd-info-label{
+    font-size:9px; color:var(--m);
+    text-transform:uppercase; letter-spacing:.08em;
+    margin-bottom:4px; font-weight:700;
+  }
+  .cd-info-value{
+    font-size:13px; color:var(--t); line-height:1.3;
+  }
+  .cd-info-value-num{
+    font-family:'Barlow Condensed',sans-serif; font-weight:800;
+    font-size:15px; color:var(--orange);
+  }
+
+  /* Action grid — auto-fill so it adapts: 2 cols on phone, 3 on tablet,
+     6 on wide modal. All buttons identical sizing for symmetry.        */
+  .cd-actions{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(90px, 1fr));
+    gap:8px; margin-bottom:14px;
+  }
+  .cd-action-btn{
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:4px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 6px; min-height:62px;
+    cursor:pointer; transition:all .15s;
+    color:var(--t); font-family:inherit;
+    font-size:11px; font-weight:600; letter-spacing:.02em;
+  }
+  .cd-action-btn:hover{
+    border-color:var(--orange); color:var(--orange);
+    transform:translateY(-1px);
+  }
+  .cd-action-btn:active{ transform:translateY(0); }
+  .cd-action-icon{
+    font-size:20px; line-height:1;
+  }
+
+  /* Sharing row — portal link + voice memo + revoke icon.
+     Subtle accent borders instead of full-bg color so they integrate. */
+  .cd-share-row{
+    display:flex; gap:8px; margin-bottom:18px;
+    align-items:stretch;
+  }
+  .cd-share-btn{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    gap:8px; padding:10px 12px;
+    background:color-mix(in srgb, var(--orange) 10%, transparent);
+    border:1px solid color-mix(in srgb, var(--orange) 35%, var(--br));
+    border-radius:8px; cursor:pointer;
+    color:var(--orange); font-family:inherit;
+    font-size:12px; font-weight:600;
+    transition:all .15s;
+  }
+  .cd-share-btn:hover{
+    background:color-mix(in srgb, var(--orange) 18%, transparent);
+    border-color:var(--orange);
+  }
+  .cd-share-btn.cd-voice-btn{
+    color:var(--blue);
+    background:color-mix(in srgb, var(--blue) 10%, transparent);
+    border-color:color-mix(in srgb, var(--blue) 35%, var(--br));
+  }
+  .cd-share-btn.cd-voice-btn:hover{
+    background:color-mix(in srgb, var(--blue) 18%, transparent);
+    border-color:var(--blue);
+  }
+  .cd-icon-btn{
+    width:42px; height:42px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    cursor:pointer; transition:all .15s;
+    font-size:14px; color:var(--m); font-family:inherit;
+  }
+  .cd-icon-btn:hover{
+    color:var(--t); border-color:var(--t);
+  }
+  .cd-icon-btn-danger:hover{
+    color:var(--red); border-color:var(--red);
+    background:color-mix(in srgb, var(--red) 10%, transparent);
+  }
+
+  /* Primary CTA — full-width orange but compact (was "shouting" before) */
+  .cd-cta-btn{
+    width:100%; display:flex; align-items:center; justify-content:center;
+    padding:11px 14px; border-radius:8px;
+    background:var(--orange); color:#fff; border:none;
+    font-family:inherit; font-size:13px; font-weight:700;
+    letter-spacing:.02em; cursor:pointer;
+    transition:all .15s;
+    box-shadow:0 2px 8px color-mix(in srgb, var(--orange) 30%, transparent);
+  }
+  .cd-cta-btn:hover{
+    filter:brightness(1.08);
+    box-shadow:0 4px 14px color-mix(in srgb, var(--orange) 45%, transparent);
+    transform:translateY(-1px);
+  }
+  .cd-cta-btn:active{ transform:translateY(0); }
+
+  /* Edit link — small, subtle, link-style */
+  .cd-edit-link{
+    background:transparent; border:none;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:600; letter-spacing:.06em;
+    color:var(--m); cursor:pointer;
+    padding:6px 10px; border-radius:4px;
+    transition:color .15s;
+  }
+  .cd-edit-link:hover{ color:var(--orange); }
+
+  /* Mobile — stack the share row vertically so buttons don't squish */
+  @media (max-width:540px){
+    .cd-share-row{ flex-direction:column; }
+    .cd-icon-btn{ width:100%; height:38px; }
+  }
+  /* ══ END CARD DETAIL MODAL ══ */
   /* ════ Compact CRM header (Pipeline page-breathe redesign 2026-05-05) ════
      Single row with three slots: label · search/filters · actions.
      Header padding/font scales with the existing data-density attribute
@@ -15139,7 +15278,23 @@ function openCardDetailModal(leadId) {
   // Populate modal
   document.getElementById('cardDetailName').textContent =
     `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead';
-  document.getElementById('cardDetailStage').textContent = lead.stage || 'New';
+  // Stage chip — use stageLabel() to convert raw keys ("claim_filed")
+  // to display labels ("Claim Filed"), and stageColor() to tint the
+  // chip so it matches the kanban column it came from.
+  const stageEl = document.getElementById('cardDetailStage');
+  if (stageEl) {
+    const rawStage = lead._stageKey || lead.stage || 'new';
+    const label = (typeof window.stageLabel === 'function')
+      ? window.stageLabel(rawStage)
+      : String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const color = (typeof window.stageColor === 'function')
+      ? window.stageColor(rawStage)
+      : 'var(--m)';
+    stageEl.textContent = label;
+    stageEl.style.color = color;
+    stageEl.style.borderColor = `color-mix(in srgb, ${color} 50%, var(--br))`;
+    stageEl.style.background = `color-mix(in srgb, ${color} 14%, var(--s2))`;
+  }
   document.getElementById('cardDetailAddress').textContent = lead.address || '—';
   document.getElementById('cardDetailPhone').textContent = lead.phone || '—';
   document.getElementById('cardDetailDamage').textContent = lead.damageType || '—';
@@ -15786,87 +15941,86 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       </div>
     </div>
 
-    <!-- Header — label is set dynamically by openCardDetailModal so it
-         shows PROSPECT vs CUSTOMER (don't double up with the banner above). -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+    <!-- Header — kind label (CUSTOMER / PROSPECT) + colored stage chip.
+         The chip's background and text color are set dynamically from
+         stageColor() so it matches the kanban column colors visually. -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <div id="cardDetailKindLabel" style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
       <div style="flex:1;"></div>
-      <div id="cardDetailStage" style="font-size:10px;padding:4px 10px;background:var(--s2);border:1px solid var(--br);border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;"></div>
+      <div id="cardDetailStage" class="cd-stage-chip"></div>
     </div>
 
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px;" id="cardDetailName"></div>
-    
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;margin-bottom:18px;line-height:1.1;" id="cardDetailName"></div>
+
     <!-- Quick Info Grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
-        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Address</div>
-        <div id="cardDetailAddress" style="font-size:13px;color:var(--t);"></div>
+    <div class="cd-info-grid">
+      <div class="cd-info-cell">
+        <div class="cd-info-label">Address</div>
+        <div id="cardDetailAddress" class="cd-info-value"></div>
       </div>
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
-        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Phone</div>
-        <div id="cardDetailPhone" style="font-size:13px;color:var(--t);"></div>
+      <div class="cd-info-cell">
+        <div class="cd-info-label">Phone</div>
+        <div id="cardDetailPhone" class="cd-info-value"></div>
       </div>
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
-        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Damage Type</div>
-        <div id="cardDetailDamage" style="font-size:13px;color:var(--t);"></div>
+      <div class="cd-info-cell">
+        <div class="cd-info-label">Damage Type</div>
+        <div id="cardDetailDamage" class="cd-info-value"></div>
       </div>
-      <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:12px;">
-        <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Job Value</div>
-        <div id="cardDetailValue" style="font-size:13px;color:var(--t);font-family:'Barlow Condensed',sans-serif;font-weight:700;"></div>
+      <div class="cd-info-cell">
+        <div class="cd-info-label">Job Value</div>
+        <div id="cardDetailValue" class="cd-info-value cd-info-value-num"></div>
       </div>
     </div>
-    
-    <!-- Action Buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openPhotosForLead()">
-        📸 Photos
+
+    <!-- Single 6-button action grid — uniform sizing, ghost styling.
+         Three rows of 2 on mobile, two rows of 3 on tablet+, one row of 6
+         on wide screens. Driven by .cd-actions auto-fill. -->
+    <div class="cd-actions">
+      <button class="cd-action-btn" onclick="openPhotosForLead()">
+        <span class="cd-action-icon">📸</span><span>Photos</span>
       </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openDocsForLead()">
-        📄 Documents
+      <button class="cd-action-btn" onclick="openDocsForLead()">
+        <span class="cd-action-icon">📄</span><span>Documents</span>
       </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="openTaskModal(window._cardDetailLeadId,null)">
-        ✓ Tasks
+      <button class="cd-action-btn" onclick="openTaskModal(window._cardDetailLeadId,null)">
+        <span class="cd-action-icon">✓</span><span>Tasks</span>
+      </button>
+      <button class="cd-action-btn" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading…','error')}">
+        <span class="cd-action-icon">📷</span><span>Camera</span>
+      </button>
+      <button class="cd-action-btn" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading…','error')}">
+        <span class="cd-action-icon">💰</span><span>Invoice</span>
+      </button>
+      <button class="cd-action-btn" onclick="if(window.InspectionReportEngine){const _lid=window._cardDetailLeadId;closeCardDetailModal();setTimeout(()=>{document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',_lid)},200)}else{showToast('Report engine loading…','error')}">
+        <span class="cd-action-icon">📋</span><span>Report</span>
       </button>
     </div>
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:12px;">
-      <button class="btn btn-orange" style="justify-content:center;font-size:12px;padding:10px 12px;"
-              onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
-        🔗 Share Homeowner Portal Link
+
+    <!-- Sharing & voice — tighter; revoke is a small icon button instead of
+         a full red bar. The portal share is a subtle accent button that
+         doesn't dominate the modal. -->
+    <div class="cd-share-row">
+      <button class="cd-share-btn" onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
+        <span style="font-size:14px;">🔗</span> Share Homeowner Portal
       </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:11px;padding:10px 8px;border-color:#ff6b6b;color:#ff6b6b;"
-              title="Revoke all active portal links for this lead and mint a new one"
-              onclick="window._revokePortalLink && window._revokePortalLink(window._cardDetailLeadId)">
-        🚫 Revoke &amp; Regenerate
-      </button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;"
-              title="Record a voice memo — Deepgram transcribes + attaches to lead activity"
+      <button class="cd-share-btn cd-voice-btn" title="Record a voice memo — auto-transcribed + attached to this lead"
               onclick="window.NBDVoiceMemo && window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId)">
-        🎙 Record Voice Memo
+        <span style="font-size:14px;">🎙</span> Voice Memo
+      </button>
+      <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
+              onclick="window._revokePortalLink && window._revokePortalLink(window._cardDetailLeadId)">
+        🚫
       </button>
     </div>
-    <!-- New Module Actions -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;">
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading...','error')}">
-        📷 Camera
-      </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading...','error')}">
-        💰 Invoice
-      </button>
-      <button class="btn btn-ghost" style="justify-content:center;font-size:12px;padding:10px 12px;" onclick="if(window.InspectionReportEngine){const _lid=window._cardDetailLeadId;closeCardDetailModal();setTimeout(()=>{document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',_lid)},200)}else{showToast('Report engine loading...','error')}">
-        📋 Report
-      </button>
-    </div>
-    
-    <!-- Full Customer Details Link -->
-    <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="openFullCustomerDetails()">
-      View Full Customer Details →
+
+    <!-- Primary CTA — full-width but a tier below "shouting orange". -->
+    <button class="cd-cta-btn" onclick="openFullCustomerDetails()">
+      View Full Customer Details
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px;"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
     </button>
-    
-    <!-- Edit Link -->
-    <div style="text-align:center;margin-top:14px;">
-      <span style="font-size:11px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;" onclick="editCardDetails()">✎ Edit Details</span>
+
+    <div style="text-align:center;margin-top:12px;">
+      <button class="cd-edit-link" onclick="editCardDetails()">✎ Edit Details</button>
     </div>
   </div>
 </div>
@@ -15899,7 +16053,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=17"></script>
+<script defer src="js/crm.js?v=18"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
