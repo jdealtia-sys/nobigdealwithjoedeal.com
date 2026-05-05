@@ -124,6 +124,39 @@ async function saveLead(){
   const fname=fnameEl.value.trim();
   const addr=addrEl.value.trim();
   if(!fname||!addr){mErr.textContent='Name and address required.';mErr.style.display='block';return;}
+
+  // Email + phone validation. The native <input type="email"> validation
+  // is bypassed when this function is called via the Save button's
+  // onclick handler (no form submit), so we have to validate explicitly
+  // before passing the data to _saveLead. Failing here means the rep
+  // sees a clear inline error instead of the data silently writing
+  // through and breaking the SMS/email-prefill flows downstream.
+  const phoneEl = document.getElementById('lPhone');
+  const emailEl = document.getElementById('lEmail');
+  const phoneRaw = (phoneEl?.value || '').trim();
+  const emailRaw = (emailEl?.value || '').trim();
+  if (emailRaw) {
+    // RFC-5322-lite — good enough to catch typos without rejecting valid edge cases.
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw);
+    if (!emailOk) {
+      mErr.textContent = 'Email looks invalid (e.g. name@example.com).';
+      mErr.style.display = 'block';
+      emailEl?.focus();
+      return;
+    }
+  }
+  if (phoneRaw) {
+    // Accept any input with at least 10 digits. The display normalization
+    // happens downstream — we just want to reject obvious junk.
+    const digits = phoneRaw.replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 15) {
+      mErr.textContent = 'Phone needs at least 10 digits.';
+      mErr.style.display = 'block';
+      phoneEl?.focus();
+      return;
+    }
+  }
+
   // Prevent double-submit
   if(saveBtn.disabled) return;
   saveBtn.disabled=true;

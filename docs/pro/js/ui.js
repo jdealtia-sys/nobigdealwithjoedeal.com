@@ -35,6 +35,9 @@ function getCmdActions() {
   return [
     { type: 'action', icon: '➕', title: 'New Lead', meta: 'Create a new customer lead', action: () => { closeCmdPalette(); openLeadModal(); } },
     { type: 'action', icon: '📋', title: 'New Estimate', meta: 'Build a new estimate', action: () => { closeCmdPalette(); goTo('est'); if(typeof startNewEstimate==='function')startNewEstimate(); } },
+    { type: 'action', icon: '👥', title: 'Pipeline', meta: 'Open the kanban board', action: () => { closeCmdPalette(); goTo('crm'); } },
+    { type: 'action', icon: '👀', title: 'Prospects', meta: 'D2D knocks awaiting promotion', action: () => { closeCmdPalette(); goTo('prospects'); } },
+    { type: 'action', icon: '🚪', title: 'Door-to-Door', meta: 'Knock tracker + map', action: () => { closeCmdPalette(); goTo('d2d'); } },
     { type: 'action', icon: '🗺️', title: 'Go to Map', meta: 'View leads on map', action: () => { closeCmdPalette(); goTo('map'); } },
     { type: 'action', icon: '📸', title: 'Go to Photos', meta: 'Manage project photos', action: () => { closeCmdPalette(); goTo('photos'); } },
     { type: 'action', icon: '📊', title: 'Go to Dashboard', meta: 'View overview stats', action: () => { closeCmdPalette(); goTo('dash'); } },
@@ -44,35 +47,48 @@ function getCmdActions() {
   ];
 }
 
-// Fuzzy search
+// Fuzzy search.
+// The lead store is `window._leads` (set by crm.js loadLeads). The previous
+// `window.allLeads` reference was always undefined → cmd-K lead search has
+// silently returned zero hits since the cmd palette shipped. Lead records
+// also don't have `.name` — they have firstName/lastName/address.
 function cmdFuzzySearch(query) {
   const results = [];
   const q = query.toLowerCase();
-  
+
   // Search actions
   getCmdActions().forEach(action => {
     if (action.title.toLowerCase().includes(q) || action.meta.toLowerCase().includes(q)) {
       results.push({ ...action, score: cmdScoreMatch(q, action.title.toLowerCase()) });
     }
   });
-  
+
   // Search leads
-  if (window.allLeads && window.allLeads.length > 0) {
-    window.allLeads.forEach(lead => {
-      const searchText = `${lead.name} ${lead.address || ''} ${lead.phone || ''}`.toLowerCase();
+  const leads = window._leads || [];
+  if (leads.length > 0) {
+    leads.forEach(lead => {
+      const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+      const display = fullName || lead.address || 'Untitled lead';
+      const searchText = `${fullName} ${lead.address || ''} ${lead.phone || ''} ${lead.email || ''}`.toLowerCase();
       if (searchText.includes(q)) {
         results.push({
           type: 'lead',
-          icon: '👤',
-          title: lead.name,
-          meta: lead.address || lead.phone || 'No details',
-          action: () => { closeCmdPalette(); openCardDetailModal(lead); },
-          score: cmdScoreMatch(q, lead.name.toLowerCase())
+          icon: lead.isProspect ? '👀' : '👤',
+          title: display,
+          meta: [lead.address, lead.phone].filter(Boolean).join(' · ') || (lead.isProspect ? 'Prospect' : 'Customer'),
+          action: () => {
+            closeCmdPalette();
+            // openCardDetailModal takes a leadId, NOT a lead object —
+            // previous code passed the object and the modal silently
+            // failed to populate.
+            if (typeof openCardDetailModal === 'function') openCardDetailModal(lead.id);
+          },
+          score: cmdScoreMatch(q, display.toLowerCase())
         });
       }
     });
   }
-  
+
   results.sort((a, b) => b.score - a.score);
   return results.slice(0, 10);
 }
@@ -470,7 +486,23 @@ function showToast(msgOrOptions, typeArg) {
   
   const container = document.getElementById('toastContainer');
   if (!container) return;
-  
+
+  // Cap concurrent toasts. Bulk operations (move/delete on 50+ leads) can
+  // call showToast hundreds of times; without a cap the toasts pile off
+  // screen and 9-second error toasts stack into a wall the user can't read.
+  // When over the cap, pop the oldest BEFORE adding the new one.
+  const MAX_VISIBLE_TOASTS = 5;
+  const existing = container.querySelectorAll('.toast');
+  if (existing.length >= MAX_VISIBLE_TOASTS) {
+    // Remove oldest (first child) so the most recent toast is always visible.
+    const oldest = existing[0];
+    if (oldest && typeof window._closeToast === 'function') {
+      window._closeToast(oldest.id);
+    } else if (oldest) {
+      oldest.remove();
+    }
+  }
+
   const toastId = `toast-${toastIdCounter++}`;
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;

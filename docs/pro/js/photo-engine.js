@@ -1112,6 +1112,11 @@
         leadId,
         userId: uid,
         url: photoUrl,
+        // Storage path for future-proof deletion. Without this, the
+        // delete path has to parse the download URL — fragile and prone
+        // to orphaning Storage objects when URLs include encoded paths.
+        storagePath: photoPath,
+        thumbStoragePath: thumbPath,
         thumbUrl,
         tags,
         phase,
@@ -1344,21 +1349,37 @@
 
       if (photoSnap.exists()) {
         const photo = photoSnap.data();
-        const uid = window._user.uid;
-        const photoPath = `photos/${uid}/${photo.leadId}/${photo.url.split('/').pop()}`;
-        const thumbPath = `photos/${uid}/${photo.leadId}/thumbs/${photoSnap.id}_thumb.jpg`;
 
-        // Delete from storage
-        try {
-          await deleteObject(ref(window._storage, photoPath));
-        } catch (e) {
-          console.warn('Storage deletion failed:', e);
+        // Delete from storage. The Firebase Storage SDK can construct a
+        // Reference directly from a download URL via `ref(storage, url)`,
+        // which correctly handles the URL-encoded path segments. The
+        // previous `url.split('/').pop()` approach extracted only the
+        // filename plus query string and produced an INVALID path —
+        // deletion silently 404'd inside the catch and the storage
+        // object was orphaned. Prefer photo.storagePath when present
+        // (set on newer uploads); fall back to the URL parser.
+        const tryDelete = async (ref1, label) => {
+          try { await deleteObject(ref1); }
+          catch (e) { console.warn(label + ' deletion failed:', e?.message || e); }
+        };
+
+        if (photo.storagePath) {
+          await tryDelete(ref(window._storage, photo.storagePath), 'Storage');
+        } else if (photo.url) {
+          // SDK accepts gs:// and https://firebasestorage.googleapis.com URLs.
+          await tryDelete(ref(window._storage, photo.url), 'Storage');
         }
 
-        try {
-          await deleteObject(ref(window._storage, thumbPath));
-        } catch (e) {
-          console.warn('Thumbnail deletion failed:', e);
+        // Thumb deletion: prefer the explicit path stored on newer uploads;
+        // fall back to the documented path scheme for legacy records.
+        const uid = window._user.uid;
+        if (photo.thumbStoragePath) {
+          await tryDelete(ref(window._storage, photo.thumbStoragePath), 'Thumbnail');
+        } else if (photo.thumbUrl) {
+          await tryDelete(ref(window._storage, photo.thumbUrl), 'Thumbnail');
+        } else if (photo.leadId) {
+          const thumbPath = `photos/${uid}/${photo.leadId}/thumbs/${photoSnap.id}_thumb.jpg`;
+          await tryDelete(ref(window._storage, thumbPath), 'Thumbnail');
         }
 
         // Delete from Firestore
