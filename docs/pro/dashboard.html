@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=18" as="script">
+<link rel="preload" href="js/crm.js?v=19" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10053,13 +10053,28 @@ function switchScTab(tab, btn) {
             </div>
 
             <!-- Bold-hierarchy toggle -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;">
               <div>
                 <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Bold Name &amp; Value</div>
                 <div style="font-size:11px;color:var(--m);">Promotes the lead name and dollar amount; mutes everything else</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="kanbanBoldToggle" onchange="setKanbanBoldHierarchy(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- Auto-collapse header on scroll/drag (opt-in).
+                 Off by default — feedback was that the auto-shrink during
+                 column scroll felt twitchy. Available for users who want
+                 the extra column height when actively browsing. -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Auto-collapse header on scroll</div>
+                <div style="font-size:11px;color:var(--m);">Tightens the header while you're actively scrolling or dragging cards. Off by default.</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="crmAutoCollapseToggle" onchange="setCrmAutoCollapse(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -14161,6 +14176,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bold = localStorage.getItem(KANBAN_BOLD_KEY) === '1';
     const t = document.getElementById('kanbanBoldToggle');
     if (t) t.checked = bold;
+    // Sync auto-collapse toggle from localStorage (default off).
+    const ac = localStorage.getItem('nbd-crm-autocollapse') === '1';
+    const acT = document.getElementById('crmAutoCollapseToggle');
+    if (acT) acT.checked = ac;
   }, 200);
 });
 window.setKanbanDensity = setKanbanDensity;
@@ -14240,12 +14259,27 @@ window.closeCrmToolsMenu = closeCrmToolsMenu;
   };
 })();
 
-// Scroll-collapse — when the user actively scrolls inside the kanban
-// columns, briefly tighten the header (kills the inline stat + button
-// labels). Returns to comfortable state ~600ms after scrolling stops.
+// Scroll-collapse — OPT-IN behavior (was on by default; users found the
+// header twitching during scroll/drag distracting). Now gated on the
+// `nbd-crm-autocollapse` localStorage flag, which the toggle in
+// Settings → CRM Pipeline Preferences flips. Default OFF.
+const CRM_AUTOCOLLAPSE_KEY = 'nbd-crm-autocollapse';
+function setCrmAutoCollapse(on) {
+  try { localStorage.setItem(CRM_AUTOCOLLAPSE_KEY, on ? '1' : '0'); } catch (e) {}
+  // If turning OFF, immediately drop any active collapse state so the
+  // header pops back to full size without waiting for the next scroll.
+  if (!on) document.body.classList.remove('crm-scrolling');
+}
+window.setCrmAutoCollapse = setCrmAutoCollapse;
+function _isCrmAutoCollapseOn() {
+  try { return localStorage.getItem(CRM_AUTOCOLLAPSE_KEY) === '1'; }
+  catch (e) { return false; }
+}
+
 (function setupCrmScrollCollapse() {
   let scrollTimer = null;
   const onScroll = () => {
+    if (!_isCrmAutoCollapseOn()) return;
     if (!document.getElementById('view-crm')?.classList.contains('active')) return;
     document.body.classList.add('crm-scrolling');
     if (scrollTimer) clearTimeout(scrollTimer);
@@ -14253,16 +14287,15 @@ window.closeCrmToolsMenu = closeCrmToolsMenu;
       document.body.classList.remove('crm-scrolling');
     }, 700);
   };
-  // Wire to the kanban board + every column body. Use capture so we
-  // catch every nested scroll regardless of which element is scrolling.
   document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-  // Drag also collapses the chrome (rep is operating, not browsing)
   document.addEventListener('dragstart', (e) => {
+    if (!_isCrmAutoCollapseOn()) return;
     if (e.target?.closest?.('.kanban-board')) {
       document.body.classList.add('crm-scrolling');
     }
   });
   document.addEventListener('dragend', () => {
+    if (!_isCrmAutoCollapseOn()) return;
     setTimeout(() => document.body.classList.remove('crm-scrolling'), 200);
   });
 })();
@@ -16053,7 +16086,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=18"></script>
+<script defer src="js/crm.js?v=19"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
