@@ -16,22 +16,32 @@
   'use strict';
 
   // ── Disposition taxonomy ───────────────────────────────────────────
-  // Mirrors the DISPOSITIONS map in d2d-tracker.js but adds the bucketing
-  // we use for column grouping + filter chips on the prospects board.
+  // MUST mirror the DISPOSITIONS map in d2d-tracker.js exactly — keys are
+  // what we read off lead.disposition AND substring-match against notes
+  // ("D2D Knock #N: <Label>"). Adding a key here without adding it in
+  // d2d-tracker has no effect; missing keys here cause those prospects to
+  // fall into the 'other' column with broken bucketing. The label strings
+  // below match d2d-tracker.js lines 7–24 verbatim.
   // Appointments NEVER show here — they auto-promote to customers.
   const DISPOSITIONS = [
-    { key: 'interested',     label: 'Interested',     bucket: 'hot',  color: '#22c55e' },
-    { key: 'storm_damage',   label: 'Storm Damage',   bucket: 'hot',  color: '#f97316' },
-    { key: 'ins_filed',      label: 'Insurance Filed',bucket: 'warm', color: '#3b82f6' },
-    { key: 'ins_pending',    label: 'Ins. Pending',   bucket: 'warm', color: '#0ea5e9' },
-    { key: 'ins_approved',   label: 'Ins. Approved',  bucket: 'warm', color: '#10b981' },
-    { key: 'ins_denied',     label: 'Ins. Denied',    bucket: 'warm', color: '#ef4444' },
-    { key: 'callback',       label: 'Callback',       bucket: 'warm', color: '#a855f7' },
-    { key: 'not_home',       label: 'Not Home',       bucket: 'cold', color: '#94a3b8' },
-    { key: 'not_interested', label: 'Not Interested', bucket: 'cold', color: '#64748b' },
-    { key: 'do_not_knock',   label: 'Do Not Knock',   bucket: 'cold', color: '#7f1d1d' },
-    { key: 'future',         label: 'Future',         bucket: 'cold', color: '#0d9488' },
-    { key: 'other',          label: 'Other',          bucket: 'cold', color: '#6b7280' }
+    // Hot — high intent
+    { key: 'interested',     label: 'Interested',                bucket: 'hot',  color: '#EAB308' },
+    { key: 'storm_damage',   label: 'Storm Damage Noted',        bucket: 'hot',  color: '#e8720c' },
+    { key: 'callback',       label: 'Callback Requested',        bucket: 'hot',  color: '#14B8A6' },
+    // Warm — insurance pipeline + come-back-later
+    { key: 'ins_has_claim',  label: 'Insurance - Has Claim',     bucket: 'warm', color: '#9B6DFF' },
+    { key: 'ins_needs_file', label: 'Insurance - Needs Filing',  bucket: 'warm', color: '#D946EF' },
+    { key: 'ins_denied',     label: 'Insurance - Denied',        bucket: 'warm', color: '#78350F' },
+    { key: 'come_back',      label: 'Come Back Later',           bucket: 'warm', color: '#4A9EFF' },
+    { key: 'left_material',  label: 'Left Material',             bucket: 'warm', color: '#0EA5E9' },
+    // Cold — low intent / unreachable
+    { key: 'not_home',       label: 'Not Home',                  bucket: 'cold', color: '#6B7280' },
+    { key: 'not_interested', label: 'Not Interested',            bucket: 'cold', color: '#E05252' },
+    { key: 'tenant',         label: 'Tenant (Not Owner)',        bucket: 'cold', color: '#94A3B8' },
+    { key: 'vacant',         label: 'Vacant Property',           bucket: 'cold', color: '#475569' },
+    { key: 'cold_dead',      label: 'Cold / Dead Lead',          bucket: 'cold', color: '#374151' },
+    { key: 'do_not_knock',   label: 'Do Not Knock',              bucket: 'cold', color: '#1F2937' },
+    { key: 'other',          label: 'Other',                     bucket: 'cold', color: '#6b7280' }
   ];
   const DISP_BY_KEY = Object.fromEntries(DISPOSITIONS.map(d => [d.key, d]));
 

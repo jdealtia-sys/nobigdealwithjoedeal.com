@@ -55,6 +55,8 @@
       overlay.style.zIndex = '10005';
       overlay.setAttribute('role', 'dialog');
       overlay.setAttribute('aria-modal', 'true');
+      // Make focusable so keydown listeners attached to it actually fire.
+      overlay.tabIndex = -1;
       const okColor = danger ? '#E05252' : 'var(--accent, #2ECC8A)';
       overlay.innerHTML = `
         <div class="d2d-modal" style="padding:20px;max-width:360px;width:92%;">
@@ -66,6 +68,7 @@
         </div>`;
       function close(result) {
         overlay.removeEventListener('click', onOverlay);
+        document.removeEventListener('keydown', onKey, true);
         overlay.remove();
         resolve(result);
       }
@@ -75,8 +78,18 @@
         if (!btn) return;
         close(btn.dataset.act === 'ok');
       }
+      function onKey(ev) {
+        if (ev.key === 'Escape') { ev.preventDefault(); close(false); }
+        else if (ev.key === 'Enter') { ev.preventDefault(); close(true); }
+      }
       overlay.addEventListener('click', onOverlay);
+      // Capture phase + document-level so the handler fires even when the
+      // overlay isn't focused. Required because newly-injected overlays
+      // don't grab focus by default and key events bubble from <body>.
+      document.addEventListener('keydown', onKey, true);
       document.body.appendChild(overlay);
+      // Focus the OK button so Enter works without a prior tab.
+      setTimeout(() => overlay.querySelector('button[data-act="ok"]')?.focus(), 20);
     });
   }
 
@@ -1106,30 +1119,45 @@
       const newKnockPhotos = Array.isArray(knock.photoUrls) ? knock.photoUrls.slice() : [];
 
       // ─── Re-knock merge guard ───
-      // If a prospect lead already exists at this address (created by an
+      // If a PROSPECT lead already exists at this address (created by an
       // earlier knock), MERGE this new knock into it instead of creating
-      // a duplicate lead. We append photos + the knock note, bump the
-      // attempt counter, and never overwrite the existing isProspect
-      // flag (so a manually-promoted lead stays a customer even if the
-      // rep re-knocks for a follow-up shot). Address-based match is
-      // intentionally exact — fuzzy matching here would risk merging
-      // two real customers at neighboring units.
+      // a duplicate prospect. Critical guard: ONLY merge into prospects,
+      // never into a real customer record — a re-knock on a promoted
+      // customer's address is a follow-up visit and should not silently
+      // mutate the customer's photo set, notes, or stage. (Bug C1 from
+      // the 2026-05-04 audit.) Cross-rep also requires same userId so
+      // two reps in the same company don't merge into each other's leads.
       const existing = (window._leads || []).find(l =>
         l.source === 'Door-to-Door' &&
         l.address === knock.address &&
+        l.isProspect === true &&
+        (!l.userId || !window._user?.uid || l.userId === window._user.uid) &&
         l.id  // must have an id we can update
       );
       if (existing && knock.address) {
         try {
           const ref = window.doc(window._db, 'leads', existing.id);
-          const mergedPhotos = [...(existing.photoUrls || []), ...newKnockPhotos];
+          // De-dupe photos and put NEW photos FIRST so the kanban thumbnail
+          // strip (which slices [0..3]) shows the most recent damage shots.
+          const photoSet = new Set();
+          const mergedPhotos = [];
+          const pushUnique = (urls) => {
+            for (const url of (urls || [])) {
+              if (url && !photoSet.has(url)) { photoSet.add(url); mergedPhotos.push(url); }
+            }
+          };
+          pushUnique(newKnockPhotos);
+          pushUnique(existing.photoUrls);
           const mergedNotes = (existing.notes ? existing.notes + '\n\n' : '') + newKnockNote;
-          // Promote stage if the new disposition is more advanced; otherwise
-          // leave the stage where it is. Appointment is the only one that
-          // should auto-promote a prospect to a customer.
           const patch = {
             photoUrls: mergedPhotos,
             notes: mergedNotes,
+            // Update disposition + damageType on every re-knock so the
+            // Prospects page re-buckets the lead to its newest disposition
+            // column (Bug M1 from audit).
+            disposition: knock.disposition,
+            damageType: knock.disposition === 'storm_damage' ? 'Storm Damage' : (existing.damageType || ''),
+            attemptNumber: knock.attemptNumber || ((existing.attemptNumber || 1) + 1),
             updatedAt: window.serverTimestamp()
           };
           if (isAppointment && existing.isProspect) {
@@ -1145,6 +1173,9 @@
           Object.assign(existing, {
             photoUrls: mergedPhotos,
             notes: mergedNotes,
+            disposition: patch.disposition,
+            damageType: patch.damageType,
+            attemptNumber: patch.attemptNumber,
             ...(patch.isProspect === false ? { isProspect: false } : {}),
             ...(patch.stage ? { stage: patch.stage } : {}),
             ...(patch.followUp ? { followUp: patch.followUp } : {})
@@ -1154,6 +1185,8 @@
           renderD2D();
           if (typeof window.renderLeads === 'function') window.renderLeads(window._leads);
           if (window.Prospects && typeof window.Prospects.refresh === 'function') window.Prospects.refresh();
+          // Notify any listeners (badge, analytics) that lead state changed.
+          try { document.dispatchEvent(new CustomEvent('leadsChanged')); } catch (e) {}
           window.showToast?.(`📎 Re-knock merged — ${newKnockPhotos.length} new photo${newKnockPhotos.length === 1 ? '' : 's'}`, 'success');
           return;
         } catch (mergeErr) {
@@ -2522,6 +2555,20 @@
     overlay.className = 'd2d-modal-overlay open';
     overlay.id = 'd2d-quick-knock-overlay';
     overlay.onclick = (e) => { if (e.target === overlay) closeQuickKnock(); };
+    // ESC closes the quick-knock just like the knock-detail modal does.
+    // Prevents accidental data loss when the rep wants out fast — they
+    // were stuck before because no key handler existed for this overlay.
+    const _qkEscHandler = (e) => {
+      if (e.key === 'Escape') {
+        // Don't trigger when typing into a field — preserve native
+        // input behavior (e.g. clearing a date picker).
+        const tag = (document.activeElement?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        closeQuickKnock();
+        document.removeEventListener('keydown', _qkEscHandler);
+      }
+    };
+    document.addEventListener('keydown', _qkEscHandler);
 
     const modal = document.createElement('div');
     modal.className = 'd2d-modal';
@@ -3360,6 +3407,19 @@
     init: initD2D,
     renderD2D,
     loadKnocks,
+    // In-app dialog helpers — exposed so other modules (Prospects page,
+    // CRM moveCard prospect trap) can use the same iOS-PWA-safe modals
+    // instead of native confirm/prompt which can silently no-op in
+    // standalone WKWebView contexts.
+    uiConfirm,
+    uiPrompt,
+    // Map fly-to so the Prospects page's "See on Map" can deep-link into
+    // a knock's coordinates without touching d2dMap directly.
+    flyTo: (lat, lng, zoom = 17) => {
+      if (typeof d2dMap !== 'undefined' && d2dMap && typeof d2dMap.setView === 'function') {
+        d2dMap.setView([Number(lat), Number(lng)], zoom);
+      }
+    },
     openQuickKnock,
     closeQuickKnock,
     selectDispo,

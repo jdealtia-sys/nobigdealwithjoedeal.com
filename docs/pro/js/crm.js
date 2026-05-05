@@ -838,7 +838,18 @@ async function moveCard(id, newStage){
   // exception is moves to 'lost', which we let through so reps can
   // immediately discard a dead prospect without a promote dance.
   if (lead.isProspect && !/^lost$/i.test(String(newStage || ''))) {
-    const ok = confirm(`This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`);
+    // Prefer the in-app uiConfirm (works in iOS PWA standalone where
+    // native confirm() can silently no-op). Fall back to native only
+    // if D2D hasn't loaded yet — that's a vanishingly small window.
+    let ok;
+    if (window.D2D && typeof window.D2D.uiConfirm === 'function') {
+      ok = await window.D2D.uiConfirm(
+        `This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`,
+        { okLabel: 'Promote & Move', cancelLabel: 'Cancel' }
+      );
+    } else {
+      ok = confirm(`This is a prospect that hasn't been promoted yet.\n\nPromote them to a customer and move to "${newStage}"?\n\nClick Cancel to leave them as a prospect.`);
+    }
     if (!ok) {
       if (typeof showToast === 'function') showToast('Move cancelled — still a prospect', 'info');
       return;
@@ -1864,18 +1875,28 @@ function toggleBulkMode() {
   const kanbanBoard = document.querySelector('.kanban-board');
 
   if (window._bulkMode) {
-    btn.textContent = 'Cancel';
-    btn.classList.add('btn-orange');
-    btn.classList.remove('btn-ghost');
-    kanbanBoard.classList.add('bulk-mode-active');
+    if (btn) { btn.textContent = 'Cancel'; btn.classList.add('btn-orange'); btn.classList.remove('btn-ghost'); }
+    if (kanbanBoard) kanbanBoard.classList.add('bulk-mode-active');
   } else {
-    btn.textContent = 'Select';
-    btn.classList.remove('btn-orange');
-    btn.classList.add('btn-ghost');
-    kanbanBoard.classList.remove('bulk-mode-active');
+    if (btn) { btn.textContent = 'Select'; btn.classList.remove('btn-orange'); btn.classList.add('btn-ghost'); }
+    if (kanbanBoard) kanbanBoard.classList.remove('bulk-mode-active');
     clearBulkSelection();
   }
 }
+
+// Force-exit bulk mode regardless of current state. Called on view changes
+// so a bulk selection started on the kanban can't bleed into another view's
+// click handlers.
+function exitBulkMode() {
+  if (!window._bulkMode) return;
+  window._bulkMode = false;
+  const btn = document.getElementById('bulkModeBtn');
+  const kanbanBoard = document.querySelector('.kanban-board');
+  if (btn) { btn.textContent = 'Select'; btn.classList.remove('btn-orange'); btn.classList.add('btn-ghost'); }
+  if (kanbanBoard) kanbanBoard.classList.remove('bulk-mode-active');
+  clearBulkSelection();
+}
+window.exitBulkMode = exitBulkMode;
 
 function toggleCardSelection(leadId) {
   if (!window._bulkMode) return;
