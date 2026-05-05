@@ -2884,6 +2884,7 @@
         <!-- Action Bar -->
         <div class="d2d-action-bar">
           <button onclick="window.D2D.openQuickKnock()" class="d2d-big-btn">🚪 Knock</button>
+          <button onclick="if(typeof goTo==='function')goTo('prospects')" class="d2d-big-btn d2d-big-btn-sec" title="Open Prospects page">👀 Prospects</button>
           <button onclick="window.D2D.toggleHeatMap()" class="d2d-big-btn d2d-big-btn-sec">${showHeat ? '🔥' : '❄️'} Heat</button>
           <button onclick="window._d2dHailLayer ? window.D2D.hideHail() : window.D2D.showHail({ radiusMi: 5, daysBack: 365 })" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
           <button onclick="window.D2D.centerOnMe()" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
