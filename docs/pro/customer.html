@@ -6565,36 +6565,25 @@ function copyPortalUrl(inputId) {
   });
 }
 
-// Wave 40 + 41: portal link helpers.
+// Wave 40 + 41 + 42: portal link helpers.
 //
-// Wave 40 — one-click copy of the Full Project Portal link.
-// Replaces the 3-4-step flow (open share panel → wait for url
-// load → click 📋 → close panel) with a single click that:
-//   1. Reads the existing lead.portalUrl from Firestore.
-//   2. If absent or stale, calls CustomerPortal.generate to mint
-//      one (this is the same path the share panel's Generate
-//      button uses).
-//   3. Copies to clipboard.
-//   4. Toasts the result, including the URL itself for visual
-//      confirmation in case the clipboard write was blocked.
+// Wave 42 extracted the resolve / copy / SMS logic into a shared
+// portal-link-helpers.js module so the same flow works from any
+// surface (kanban context menu, recent dropdown, etc.) — not just
+// the customer.html buttons. The Wave 40 + 41 button handlers below
+// now delegate to that shared API; the button-specific UI bits
+// (label restoration, "⏳ Preparing…" state) stay here.
 //
-// Falls back to opening the share panel on hard failure so the
-// rep can manually inspect what went wrong.
-//
-// Wave 41 — same generate-or-fetch flow but instead of clipboard,
-// builds an sms: URL with a friendly prefilled message and hands
-// off to the device's native SMS composer. The rep taps the
-// button mid-call, the SMS app opens with the customer's phone
-// + body already populated, they just hit Send.
-
-// Shared helper used by both Wave 40 + Wave 41 — guarantees we
-// only resolve the URL once per click, with the same Firestore-
-// first / generate-on-demand logic.
+// _resolvePortalUrl is kept as a thin local wrapper for any inline
+// usage that still references it directly.
 async function _resolvePortalUrl() {
   if (!window._customerId) throw new Error('No customer selected');
+  if (window.PortalLinkHelpers) {
+    return window.PortalLinkHelpers.resolveUrl(window._customerId);
+  }
+  // Defensive fallback if the shared module hasn't loaded yet —
+  // matches the original Wave 40 implementation.
   if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
-  // Try existing URL first — saves the round-trip + Firestore
-  // write when one's already minted.
   let url = null;
   try {
     const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
@@ -6602,7 +6591,7 @@ async function _resolvePortalUrl() {
     if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
       url = data.portalUrl;
     }
-  } catch (_) { /* fall through to generate */ }
+  } catch (_) {}
   if (!url) url = await CustomerPortal.generate(window._customerId);
   if (!url) throw new Error('Generation failed');
   return url;
@@ -6846,6 +6835,11 @@ document.addEventListener('DOMContentLoaded', function() {
      banner reads window.LeadSnooze on init. -->
 <script defer src="js/lead-snooze.js?v=1"></script>
 <script defer src="js/customer-snooze-banner.js?v=1"></script>
+<!-- Wave 42: shared portal-link helpers — used by the W40 + W41
+     buttons on this page and by the kanban context menu on the
+     dashboard. Loading on customer.html so _resolvePortalUrl can
+     delegate to the shared module without a fallback. -->
+<script defer src="js/portal-link-helpers.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas

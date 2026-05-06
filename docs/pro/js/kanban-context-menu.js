@@ -138,6 +138,27 @@
         onSelect: () => window.open(mapsUrl(lead.address), '_blank', 'noopener'),
       });
     }
+    // Wave 42: portal link actions. Reuses the W40 + W41 logic
+    // via PortalLinkHelpers so the right-click flow gets the
+    // same Firestore-first / generate-on-demand resolution +
+    // clipboard fallbacks + SMS body template as the buttons on
+    // customer.html. Available whenever the helpers module is
+    // loaded (which is always, on the dashboard).
+    if (window.PortalLinkHelpers) {
+      items.push({ divider: true });
+      items.push({
+        icon: '🔗',
+        label: 'Copy portal link',
+        onSelect: () => window.PortalLinkHelpers.copyForLead(lead),
+      });
+      if (lead.phone) {
+        items.push({
+          icon: '💬',
+          label: 'Text portal link',
+          onSelect: () => window.PortalLinkHelpers.smsForLead(lead),
+        });
+      }
+    }
     // Wave 35: Snooze. Available when LeadSnooze module is loaded.
     // Toggles between "Snooze" (when not snoozed) and "Unsnooze"
     // (when currently snoozed) so the menu reflects state.
