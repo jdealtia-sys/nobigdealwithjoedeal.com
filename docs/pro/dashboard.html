@@ -8831,6 +8831,24 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 55: STALE SHARES WIDGET ──────────────────────────────
+           Companion to Almost There — the recovery sibling.
+             Almost There = "customer VIEWED, didn't respond"
+             Stale Shares = "customer NEVER OPENED what we sent"
+           Top 5 oldest stale-share leads with inline reshare
+           buttons. Compounds W44 lastSharedAt + W54 filter logic
+           — both surfaces (kanban filter + dashboard widget) use
+           the same StaleShares.compute() match criteria. ────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Today</div><div class="panel-title">📤 Stale Shares</div></div>
+          <span style="font-size:11px;color:var(--m);">Sent · ghosted</span>
+        </div>
+        <div class="panel-body" id="stale-shares-body">
+          <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
       <div class="two-col">
         <div class="panel">
           <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
@@ -16782,6 +16800,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/kanban-context-menu.js?v=1"></script>
 <script defer src="js/hot-leads-widget.js?v=1"></script>
 <script defer src="js/almost-there-widget.js?v=1"></script>
+<script defer src="js/stale-shares-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
