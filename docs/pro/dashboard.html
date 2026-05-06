@@ -9680,6 +9680,18 @@ function switchScTab(tab, btn) {
           <span id="needsAttentionCountBadge"
             style="display:none;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
+        <!-- Wave 54: Stale Shares filter — customers shared 5+ days
+             ago with no customer-side response. Different recovery
+             flavor than Needs Attention (which surfaces stage/task/
+             estimate signals). Compounds W44 lastSharedAt tracking. -->
+        <button class="btn btn-ghost crm-hdr-btn" id="staleSharesBtn"
+          onclick="window.toggleStaleShares && window.toggleStaleShares()"
+          title="Show only customers you shared the link with 5+ days ago who haven't responded"
+          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+          📤 <span class="crm-hdr-btn-label">Stale Shares</span>
+          <span id="staleSharesCountBadge"
+            style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+        </button>
         <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" onclick="goTo('prospects')" title="Open Prospects page" style="position:relative;">
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
           <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
@@ -16761,6 +16773,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/data-import.js?v=1"></script>
 <script defer src="js/activity-feed.js?v=1"></script>
 <script defer src="js/needs-attention-filter.js?v=1"></script>
+<script defer src="js/stale-shares-filter.js?v=1"></script>
 <script defer src="js/lead-snooze.js?v=1"></script>
 <script defer src="js/prefs-sync.js?v=1"></script>
 <!-- Wave 42: portal-link helpers must load BEFORE kanban-context-menu
