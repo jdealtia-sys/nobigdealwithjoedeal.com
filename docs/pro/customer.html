@@ -6656,6 +6656,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/offline-manager.js?v=5"></script>
 <script defer src="js/customer-dnd-upload.js?v=1"></script>
 <script defer src="js/customer-quick-action-bar.js?v=1"></script>
+<!-- Wave 35/36: lead-snooze must load before the banner since the
+     banner reads window.LeadSnooze on init. -->
+<script defer src="js/lead-snooze.js?v=1"></script>
+<script defer src="js/customer-snooze-banner.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
