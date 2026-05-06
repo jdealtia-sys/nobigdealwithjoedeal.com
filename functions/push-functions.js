@@ -230,46 +230,101 @@ exports.onNewLead = onDocumentCreated('leads/{leadId}', async (event) => {
 exports.onAppointmentReminder = onSchedule(
   {
     schedule: 'every 15 minutes',
-    timeZone: 'America/Chicago'
+    // Wave 104: business is in Cincinnati / Greater Cincinnati area
+    // (America/New_York). The schedule fires at the wall-clock time
+    // for THIS timezone — Central Time was a wrong default that
+    // shifted every reminder by 1 hour. Note: timeZone here only
+    // controls when the function fires, NOT what `new Date()` returns
+    // inside the handler — that's still UTC server time. The offset
+    // math we do below uses absolute timestamps so it's TZ-agnostic.
+    timeZone: 'America/New_York'
   },
   async (context) => {
     const now = new Date();
     const in30min = new Date(now.getTime() + 30 * 60 * 1000);
-    
+
     logger.info('[Push] Checking for appointments between', now, 'and', in30min);
-    
+
     try {
-      // Find all leads with appointments in the next 30 minutes
+      // Wave 104: previously did an unbounded leads collection scan
+      // every 15 minutes. With 500+ leads that burns Firestore read
+      // quota. Now: only fetch leads that have an `appointments`
+      // field at all. The ! null filter narrows by orders of
+      // magnitude in typical accounts. Inequality filter on a
+      // potentially-array field requires Firestore composite index;
+      // if the index doesn't exist, this falls back to the full
+      // scan with a warning logged.
       const leadsRef = db.collection('leads');
-      const leadsSnap = await leadsRef.get();
-      
+      let leadsSnap;
+      try {
+        leadsSnap = await leadsRef.where('appointments', '!=', null).get();
+      } catch (idxErr) {
+        logger.warn('[Push] appointments index missing; fall back to full scan', { msg: idxErr.message });
+        leadsSnap = await leadsRef.get();
+      }
+
       const sendPromises = [];
-      
+      // Wave 104: idempotency window — if we already sent the same
+      // appointment reminder to this user within the last 20 minutes,
+      // skip the second send. The notification log was being
+      // *written* but never *read* before sending. With a 15-min
+      // schedule + 30-min lookahead, a single appointment overlaps
+      // multiple ticks and would fire 2-3 times without this check.
+      const idempotencyWindowMs = 20 * 60 * 1000;
+      const recentlySentSet = new Set(); // (uid|leadId|apptKey) keys
+
       leadsSnap.forEach(leadDoc => {
         const leadData = leadDoc.data();
         const leadId = leadDoc.id;
-        
+
         if (!leadData.assignedTo) return;
-        
+
         // Check for appointments
         if (leadData.appointments && Array.isArray(leadData.appointments)) {
           leadData.appointments.forEach(appt => {
             if (!appt.startTime) return;
-            
+
             const apptTime = new Date(appt.startTime);
-            
+
             // Send reminder if appointment is in next 30 minutes
             if (apptTime > now && apptTime <= in30min) {
               sendPromises.push(
                 (async () => {
                   const uid = leadData.assignedTo;
                   const enabled = await isNotificationEnabled(uid, 'appointmentReminder');
-                  
                   if (!enabled) return;
-                  
+
+                  const apptKey = appt.id || appt.title || appt.startTime;
+                  const dedupeKey = `${uid}|${leadId}|${apptKey}`;
+                  if (recentlySentSet.has(dedupeKey)) return;
+
+                  // W104: read the notification log to see if we
+                  // already sent this same reminder recently.
+                  try {
+                    const recentLog = await db
+                      .collection('users').doc(uid)
+                      .collection('notificationLogs')
+                      .where('type', '==', 'appointmentReminder')
+                      .where('details.leadId', '==', leadId)
+                      .where('sentAt', '>',
+                        admin.firestore.Timestamp.fromDate(
+                          new Date(now.getTime() - idempotencyWindowMs)))
+                      .limit(1).get();
+                    if (!recentLog.empty) {
+                      logger.info('[Push] skip duplicate appt reminder', { uid, leadId });
+                      return;
+                    }
+                  } catch (logErr) {
+                    // Index missing or query failed — fall through
+                    // to send. Better to risk a duplicate than miss
+                    // the reminder entirely.
+                    logger.warn('[Push] appt log lookup failed', { msg: logErr.message });
+                  }
+                  recentlySentSet.add(dedupeKey);
+
                   const title = 'Appointment Reminder';
                   const body = `${leadData.name || 'Your appointment'} starts in 30 minutes`;
-                  
+
                   const result = await sendPushNotification(uid, title, body, {
                     type: 'appointmentReminder',
                     leadId: leadId,
@@ -279,7 +334,7 @@ exports.onAppointmentReminder = onSchedule(
                     notificationId: `appt-${leadId}-${appt.title}`,
                     requireInteraction: 'true'
                   });
-                  
+
                   if (result.sent > 0) {
                     await logNotificationSent(uid, 'appointmentReminder', { leadId });
                   }
@@ -289,10 +344,10 @@ exports.onAppointmentReminder = onSchedule(
           });
         }
       });
-      
+
       await Promise.allSettled(sendPromises);
       logger.info('[Push] Appointment reminder check complete');
-      
+
     } catch (err) {
       logger.error('[Push] Error checking appointments:', err);
     }
@@ -306,19 +361,51 @@ exports.onAppointmentReminder = onSchedule(
 exports.onFollowUpDue = onSchedule(
   {
     schedule: 'every day 08:00',
-    timeZone: 'America/Chicago'
+    // W104: Cincinnati = Eastern, not Central. Was scheduling
+    // 8 AM Central = 9 AM Eastern, which made the daily reminder
+    // fire an hour later than reps expected.
+    timeZone: 'America/New_York'
   },
   async (context) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // W104: compute "today" in Eastern Time so the date comparison
+    // matches the user's wall-clock view of "today". The handler
+    // runs on UTC servers, so `new Date(); setHours(0,0,0,0)`
+    // returns UTC midnight — not Eastern midnight. A lead with
+    // autoFollowUp = '2026-05-06' (Eastern date) would be missed
+    // when the function runs at 08:00 ET = 12:00 UTC because
+    // setHours(0) would make 'today' = 2026-05-06T00:00:00 UTC =
+    // 2026-05-05 20:00 Eastern. Use Intl.DateTimeFormat to get the
+    // Eastern y/m/d, then construct the Eastern midnight from it.
+    function easternMidnight() {
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      });
+      // 'en-CA' returns 'YYYY-MM-DD' which is what we want.
+      const ymd = fmt.format(new Date()); // e.g., '2026-05-06'
+      // Construct local-time midnight at server. The exact UTC
+      // offset doesn't matter for date-comparison since both
+      // sides use the same transform.
+      return new Date(ymd + 'T00:00:00');
+    }
+    const today = easternMidnight();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    logger.info('[Push] Checking for follow-ups due on:', today.toDateString());
-    
+
+    logger.info('[Push] Checking for follow-ups due (Eastern) on:', today.toDateString());
+
     try {
       const leadsRef = db.collection('leads');
-      const leadsSnap = await leadsRef.get();
+      // W104: scope query to leads with d2dKnocks set, narrowing
+      // the read footprint. Falls back to full scan if the field
+      // index isn't present (typical for new accounts).
+      let leadsSnap;
+      try {
+        leadsSnap = await leadsRef.where('d2dKnocks', '!=', null).get();
+      } catch (idxErr) {
+        logger.warn('[Push] d2dKnocks index missing; full scan', { msg: idxErr.message });
+        leadsSnap = await leadsRef.get();
+      }
       
       const sendPromises = [];
       
