@@ -270,6 +270,11 @@
     closeSnoozeModal();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-snooze-overlay';
+    // W85: accessibility — proper dialog semantics so screen readers
+    // announce the modal as a dialog + describe it via the heading.
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'nbd-snooze-title');
     overlay.style.cssText = `
       position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
       display:flex; align-items:center; justify-content:center; padding:20px;
@@ -283,8 +288,8 @@
         padding:22px; max-width:380px; width:100%;
         box-shadow:0 12px 40px rgba(0,0,0,0.5);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-          <span style="font-size:24px;">💤</span>
-          <h2 style="font-size:17px; margin:0;">Snooze lead</h2>
+          <span style="font-size:24px;" aria-hidden="true">💤</span>
+          <h2 id="nbd-snooze-title" style="font-size:17px; margin:0;">Snooze lead</h2>
         </div>
         <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
           ${leadNameHint ? escapeHtml(leadNameHint) + ' ' : ''}will hide from the kanban + Hot Leads + Needs Attention until the snooze expires.
@@ -333,6 +338,8 @@
               </button>
               <button data-snooze-pin="${escapeHtml(p.label)}" type="button"
                 title="${isDefault ? 'Unpin default' : 'Pin as default'}"
+                aria-label="${isDefault ? `Unpin ${escapeHtml(p.label)} as default` : `Pin ${escapeHtml(p.label)} as default preset`}"
+                aria-pressed="${isDefault ? 'true' : 'false'}"
                 style="
                   width:36px; flex-shrink:0;
                   background:transparent; color:${starColor};
@@ -341,7 +348,7 @@
                   -webkit-tap-highlight-color:transparent;
                   display:flex; align-items:center; justify-content:center;
                   transition:color .12s, border-color .12s;">
-                ${star}
+                <span aria-hidden="true">${star}</span>
               </button>
             </div>`;
           }).join('')}
@@ -450,6 +457,20 @@
     });
     overlay.querySelector('#nbd-snooze-cancel').addEventListener('click', closeSnoozeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeSnoozeModal(); });
+    // W85: keyboard accessibility — Esc closes the modal. Listener
+    // attached to overlay so it auto-removes on close (no leak).
+    // Initial focus on the first preset so keyboard users can hit
+    // Tab to navigate or Enter on the focused element to fire it.
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeSnoozeModal();
+      }
+    });
+    setTimeout(() => {
+      const firstPreset = overlay.querySelector('[data-snooze-i]');
+      if (firstPreset) firstPreset.focus();
+    }, 0);
   }
 
   function closeSnoozeModal() {
@@ -493,6 +514,10 @@
     }
     const overlay = document.createElement('div');
     overlay.id = 'nbd-snooze-overlay';
+    // W85: matching dialog semantics for the bulk modal.
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'nbd-bulk-snooze-title');
     overlay.style.cssText = `
       position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
       display:flex; align-items:center; justify-content:center; padding:20px;
@@ -506,8 +531,8 @@
         padding:22px; max-width:380px; width:100%;
         box-shadow:0 12px 40px rgba(0,0,0,0.5);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-          <span style="font-size:24px;">💤</span>
-          <h2 style="font-size:17px; margin:0;">Snooze ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'}</h2>
+          <span style="font-size:24px;" aria-hidden="true">💤</span>
+          <h2 id="nbd-bulk-snooze-title" style="font-size:17px; margin:0;">Snooze ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'}</h2>
         </div>
         <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
           All selected leads will hide from the kanban + Hot Leads + Needs Attention until the snooze date.
@@ -557,6 +582,8 @@
               </button>
               <button data-bsnooze-pin="${escapeHtml(p.label)}" type="button"
                 title="${isDefault ? 'Unpin default' : 'Pin as default'}"
+                aria-label="${isDefault ? `Unpin ${escapeHtml(p.label)} as default` : `Pin ${escapeHtml(p.label)} as default preset`}"
+                aria-pressed="${isDefault ? 'true' : 'false'}"
                 style="
                   width:36px; flex-shrink:0;
                   background:transparent; color:${starColor};
@@ -565,7 +592,7 @@
                   -webkit-tap-highlight-color:transparent;
                   display:flex; align-items:center; justify-content:center;
                   transition:color .12s, border-color .12s;">
-                ${star}
+                <span aria-hidden="true">${star}</span>
               </button>
             </div>`;
           }).join('')}
@@ -664,6 +691,18 @@
     });
     overlay.querySelector('#nbd-bulk-snooze-cancel').addEventListener('click', closeSnoozeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeSnoozeModal(); });
+    // W85: keyboard accessibility for the bulk modal — same shape
+    // as the per-lead modal above.
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeSnoozeModal();
+      }
+    });
+    setTimeout(() => {
+      const firstPreset = overlay.querySelector('[data-bsnooze-i]');
+      if (firstPreset) firstPreset.focus();
+    }, 0);
   }
 
   async function _doBulkSnooze(leadIds, date, label, reason) {
