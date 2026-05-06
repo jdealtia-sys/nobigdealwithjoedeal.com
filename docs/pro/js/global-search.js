@@ -210,6 +210,34 @@
             onmouseout="this.style.transform=''"
           >📧</button>`);
       }
+      // Wave 63: portal preview action. Sits between the share
+      // trio and the snooze button so the visual rhythm reads as
+      // "talk to them / look at what they see / set them aside."
+      // Always available — every lead can be previewed regardless
+      // of contact info. Mirrors W56 kanban-context-menu and
+      // customer.html "🔍 Preview Portal" button.
+      //
+      // Preview opens an iframe modal at z-index 99997, which
+      // overlays the palette (z-index 10000) — palette stays open
+      // underneath so when the rep dismisses the preview they
+      // pick up where they left off in their search.
+      if (window.PortalLinkHelpers
+          && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+        buttons.push(`
+          <button class="cmd-action" type="button"
+            data-action="preview" data-lead-id="${escapeHtml(l.id)}"
+            title="Preview the portal — see what the customer will see"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:24px; height:24px; border-radius:5px;
+              background:rgba(245,158,11,0.14); color:#f59e0b;
+              border:none; font-size:11px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.10)'"
+            onmouseout="this.style.transform=''"
+          >🔍</button>`);
+      }
       // Wave 61: Cmd+K direct snooze action. Sits next to the
       // share trio. State-aware label like the W26 kanban context
       // menu — snoozed leads get an "Unsnooze" affordance, fresh
@@ -319,6 +347,13 @@
         } else if (action === 'email' && window.PortalLinkHelpers) {
           window.PortalLinkHelpers.emailForLead(lead);
           closePalette();
+        } else if (action === 'preview' && window.PortalLinkHelpers) {
+          // Wave 63: preview opens iframe modal on top of the
+          // palette (modal z-index 99997 > palette 10000). Don't
+          // close the palette — when the rep dismisses the
+          // preview they keep their search context for chaining
+          // multiple previews.
+          window.PortalLinkHelpers.previewForLead(lead);
         } else if (action === 'snooze' && window.LeadSnooze) {
           // Wave 61: snooze action opens the existing W35 preset
           // modal on top of the palette (modal z-index > palette
