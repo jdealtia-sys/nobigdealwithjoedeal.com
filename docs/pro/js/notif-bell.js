@@ -191,6 +191,50 @@
       });
     });
 
+    // ── Wave 76: snooze-expired signal ──
+    // Closes the W35 snooze lifecycle loop. When a snooze expires,
+    // the W35 filter starts treating the lead as "active" again
+    // but no proactive signal fires — the rep has to remember to
+    // check the kanban. This signal raises a "Lead came back from
+    // snooze" notification within the SNOOZE_EXPIRY_WINDOW (3
+    // days post-expiry) so the rep gets a passive heads-up.
+    //
+    // After 3 days the signal self-clears; if the rep takes no
+    // action by then it'll show up via the existing stale-lead
+    // signal instead.
+    const SNOOZE_EXPIRY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+    leads.forEach(lead => {
+      if (!lead || !lead.snoozedUntil) return;
+      // Skip leads still snoozed (W35 isSnoozed handles the cutoff).
+      if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return;
+      const expired = toDate(lead.snoozedUntil);
+      if (!expired) return;
+      const sinceExpiryMs = now.getTime() - expired.getTime();
+      // Only signal during the post-expiry window. After that
+      // the stale-lead signal takes over.
+      if (sinceExpiryMs <= 0 || sinceExpiryMs > SNOOZE_EXPIRY_WINDOW_MS) return;
+      // Skip terminal stages — already done, no action needed.
+      const stage = (lead.stage || '').toLowerCase();
+      if (stage === 'closed' || stage === 'lost' || stage === 'complete') return;
+
+      const reason = (typeof lead.snoozedReason === 'string' && lead.snoozedReason.trim())
+        ? lead.snoozedReason.trim()
+        : '';
+      const id = `snooze-expired:${lead.id}`;
+      items.push({
+        id,
+        type:     'snooze-expired',
+        severity: 'medium',
+        icon:     '⏰',
+        title:    'Snooze expired — lead is back',
+        text:     leadName(lead),
+        // Subtitle: either "Was: Insurance · 2d ago" or just "2d ago"
+        sub:      (reason ? `Was: ${reason} · ` : '') + relativeTime(expired),
+        ts:       expired,
+        href:     `/pro/customer.html?id=${encodeURIComponent(lead.id)}`,
+      });
+    });
+
     // Sort: severity first (high → medium → low), then most recent ts first.
     const sevOrder = { high: 0, medium: 1, low: 2 };
     items.sort((a, b) => {
