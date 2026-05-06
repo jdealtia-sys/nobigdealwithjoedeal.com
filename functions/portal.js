@@ -188,7 +188,16 @@ exports.revokePortalToken = onCall(
 exports.getHomeownerPortalView = onRequest(
   {
     region: 'us-central1',
-    cors: true, // intentionally open — this is the homeowner-facing endpoint
+    // Wave 87: CORS lockdown. Was `cors: true` (any origin), which
+    // let any page on the web POST to this endpoint and harvest the
+    // redacted portal view if they could guess/intercept a token.
+    // The actual call site is portal.html on our own domain — the
+    // statically-generated portal HTML in Firebase Storage doesn't
+    // hit this endpoint (its data is baked in at generation time).
+    // So the allowlist is exactly the same as the rep-facing
+    // endpoints above. If/when we serve portal HTML from a custom
+    // sub-domain, add it here explicitly.
+    cors: CORS_ORIGINS,
     // R-05 sizing: homeowner-facing (not a rep path), so volume is
     // bounded by "number of active portal links × opens". At 10k
     // signed homeowners with an avg 3 opens/week during a storm
@@ -292,7 +301,20 @@ exports.getHomeownerPortalView = onRequest(
         );
         if (embedRes.ok) {
           const d = await embedRes.json();
-          signEmbedUrl = d.signLink || d.signUrl || null;
+          // Wave 87: validate the URL points at app.boldsign.com
+          // BEFORE we hand it to portal.html for iframe embedding.
+          // BoldSign's API normally returns a https://app.boldsign.com/...
+          // URL, but a future API change or a redirect-style response
+          // could return an attacker-controlled origin. The portal
+          // page iframes whatever URL we hand back — if that's
+          // anywhere other than BoldSign, we just embedded a third
+          // party site for the homeowner.
+          const candidate = d.signLink || d.signUrl || null;
+          if (candidate && /^https:\/\/app\.boldsign\.com\//i.test(candidate)) {
+            signEmbedUrl = candidate;
+          } else if (candidate) {
+            logger.warn('portal embed url rejected — wrong origin', { candidate });
+          }
         }
       } catch (e) {
         logger.warn('portal embed link fetch failed', { err: e.message });
