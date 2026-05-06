@@ -16448,6 +16448,18 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       setTimeout(() => window.location.reload(), 500);
     }
   });
+  // Bug fix 2026-05-05: backup auto-reload path. iOS Safari sometimes
+  // drops the SW postMessage when the page is mid-navigation. The
+  // `controllerchange` event still fires when the new SW takes over —
+  // we treat that as a definitive "new code is live, reload now" signal.
+  // In-memory flag prevents loops; the flag resets on every fresh load.
+  let _swCtrlReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swCtrlReloaded) return;
+    _swCtrlReloaded = true;
+    console.log('🔄 SW controller changed — reloading');
+    setTimeout(() => window.location.reload(), 0);
+  });
 })();
 
 // ── iOS bfcache reload guard ──
