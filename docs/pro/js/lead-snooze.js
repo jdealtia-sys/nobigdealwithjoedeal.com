@@ -202,13 +202,42 @@
   }
 
   function buildPresets() {
-    return [
+    const presets = [
       { label: 'Tomorrow morning',  date: _addDays(1) },
       { label: 'Next Monday',       date: _nextMonday() },
       { label: '1 week from now',   date: _addDays(7) },
       { label: '2 weeks from now',  date: _addDays(14) },
       { label: '1 month from now',  date: _addDays(30) },
     ];
+    // Wave 78: reorder so the rep's pinned default preset (if any)
+    // sits at the top of the list. The default preset is saved to
+    // localStorage by the ⭐ pin button in the modal — read it back
+    // here so the snooze modal opens with the most-used choice
+    // ready to click first.
+    const def = getDefaultPresetLabel();
+    if (def) {
+      const idx = presets.findIndex(p => p.label === def);
+      if (idx > 0) {
+        const [pinned] = presets.splice(idx, 1);
+        presets.unshift(pinned);
+      }
+    }
+    return presets;
+  }
+
+  // Wave 78: default-preset persistence. localStorage-backed so
+  // the rep's choice survives across sessions but isn't synced
+  // across devices (per-device preference, like the W37 show-
+  // snoozed toggle).
+  const DEFAULT_PRESET_KEY = 'nbd_snooze_default_preset';
+  function getDefaultPresetLabel() {
+    try { return localStorage.getItem(DEFAULT_PRESET_KEY) || null; } catch (_) { return null; }
+  }
+  function setDefaultPresetLabel(label) {
+    try {
+      if (label) localStorage.setItem(DEFAULT_PRESET_KEY, label);
+      else       localStorage.removeItem(DEFAULT_PRESET_KEY);
+    } catch (_) {}
   }
 
   // Wave 73: snooze reason presets. Quick-pick chips so the rep
@@ -265,20 +294,43 @@
           </div>
         </div>
         <div id="nbd-snooze-presets" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
-          ${presets.map((p, i) => `
-            <button data-snooze-i="${i}" type="button" style="
-              text-align:left; padding:10px 13px; border-radius:8px;
-              background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
-              border:1px solid var(--br,#2a3344);
-              font: inherit; font-size:13px; font-weight:600;
-              cursor:pointer; -webkit-tap-highlight-color:transparent;
-              display:flex; justify-content:space-between; align-items:center;">
-              <span>${escapeHtml(p.label)}</span>
-              <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
-                ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
-              </span>
-            </button>
-          `).join('')}
+          ${presets.map((p, i) => {
+            // W78: ⭐ pin button on each preset. Pinned preset
+            // gets a subtle purple-tinted border + reorders to
+            // top via buildPresets(). Click ⭐ to pin; click
+            // pinned preset's ⭐ again to unpin.
+            const isDefault = p.label === getDefaultPresetLabel();
+            const presetBorder = isDefault ? '#9b6dff' : 'var(--br,#2a3344)';
+            const star = isDefault ? '⭐' : '☆';
+            const starColor = isDefault ? '#cab8ff' : 'var(--m,#9aa3b2)';
+            return `
+            <div style="display:flex; gap:6px; align-items:stretch;">
+              <button data-snooze-i="${i}" type="button" style="
+                flex:1; text-align:left; padding:10px 13px; border-radius:8px;
+                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                border:1px solid ${presetBorder};
+                font: inherit; font-size:13px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;
+                display:flex; justify-content:space-between; align-items:center;">
+                <span>${escapeHtml(p.label)}</span>
+                <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
+                  ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
+                </span>
+              </button>
+              <button data-snooze-pin="${escapeHtml(p.label)}" type="button"
+                title="${isDefault ? 'Unpin default' : 'Pin as default'}"
+                style="
+                  width:36px; flex-shrink:0;
+                  background:transparent; color:${starColor};
+                  border:1px solid var(--br,#2a3344); border-radius:8px;
+                  font: inherit; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  display:flex; align-items:center; justify-content:center;
+                  transition:color .12s, border-color .12s;">
+                ${star}
+              </button>
+            </div>`;
+          }).join('')}
         </div>
         <div style="border-top:1px solid var(--br,#2a3344); padding-top:12px; margin-bottom:14px;">
           <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
@@ -343,6 +395,24 @@
       });
       btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
       btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
+    });
+    // W78: ⭐ pin handlers. Click toggles default state + re-renders
+    // the modal so the pinned preset moves to the top + visual
+    // updates immediately. Re-render is cheaper than partial-DOM
+    // updates and keeps the modal markup as the single source.
+    overlay.querySelectorAll('[data-snooze-pin]').forEach(starBtn => {
+      starBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const label = starBtn.getAttribute('data-snooze-pin');
+        const cur = getDefaultPresetLabel();
+        setDefaultPresetLabel(cur === label ? null : label);
+        _toast(cur === label ? 'Default cleared' : `Default: ${label}`, 'info');
+        // Re-open the modal to refresh state — preserves leadId +
+        // hint, drops any unsaved reason selection (acceptable
+        // tradeoff for the simpler implementation).
+        closeSnoozeModal();
+        openSnoozeModal(leadId, leadNameHint);
+      });
     });
     overlay.querySelector('#nbd-snooze-custom-go').addEventListener('click', async () => {
       const v = customEl ? customEl.value : '';
@@ -669,6 +739,11 @@
     closeModal: closeSnoozeModal,
     toggleShowSnoozed,
     updateSnoozedToggle,
+    // W78: default-preset accessors so other surfaces (settings
+    // panel, future quick-action buttons) can read/write the
+    // pinned default without re-implementing the localStorage key.
+    getDefaultPresetLabel,
+    setDefaultPresetLabel,
   };
   window.toggleShowSnoozed = toggleShowSnoozed;
 })();
