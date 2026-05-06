@@ -81,15 +81,25 @@
   }
 
   // ─── Init ────────────────────────────────────────────────────────
+  // W109: track interval + auto-teardown on pagehide so SPA
+  // navigation + module re-run doesn't leak.
+  let _intervalId = null;
   function init() {
     setTimeout(update, 1500);
     window.addEventListener('nbd:data-refreshed', update);
-    setInterval(update, 60_000);
+    if (_intervalId) clearInterval(_intervalId);
+    _intervalId = setInterval(update, 60_000);
   }
+  function destroy() {
+    if (_intervalId) { clearInterval(_intervalId); _intervalId = null; }
+    window.removeEventListener('nbd:data-refreshed', update);
+  }
+  window.addEventListener('pagehide', destroy);
 
   window.CustomerLastSharedChip = {
     __sentinel: 'nbd-customer-last-shared-chip-v1',
     update,
+    destroy,
   };
 
   if (document.readyState === 'loading') {

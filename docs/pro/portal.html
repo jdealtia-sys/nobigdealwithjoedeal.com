@@ -185,7 +185,14 @@
     transition: transform .12s ease, box-shadow .12s ease;
   }
   .ph-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
-  .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* W109: ensure the <a> wrapping the <img> gets the tap on
+     Safari. The combination of overflow:hidden + border-radius on
+     the anchor causes WebKit to register the tap on the inner
+     <img> in some versions. pointer-events:none on the img makes
+     the anchor the sole tap target. display:block on the anchor
+     reinforces the full-area hit zone. */
+  .ph-tile { display: block; }
+  .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .error-state, .loading-state {
     text-align: center;
     padding: 56px 20px;

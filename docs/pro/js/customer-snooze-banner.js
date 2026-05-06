@@ -210,6 +210,13 @@
   }
 
   // ─── Init ────────────────────────────────────────────────────────
+  // Wave 109: track interval handle so we can clear it on
+  // pagehide / beforeunload / explicit destroy. Without this, SPA
+  // navigation + script re-run would accumulate intervals (the
+  // module guard returns early for the second run, so the FIRST
+  // module's interval keeps firing forever with a stale closure).
+  let _intervalId = null;
+
   function init() {
     // Defer initial check so loadCustomerData has set _currentLead.
     setTimeout(update, 1500);
@@ -217,12 +224,25 @@
     // Backstop: poll every 60s so an in-page snooze expiry while
     // the rep is staring at the page auto-removes the banner
     // without needing a data-refresh event.
-    setInterval(update, 60_000);
+    if (_intervalId) clearInterval(_intervalId);
+    _intervalId = setInterval(update, 60_000);
   }
+
+  function destroy() {
+    if (_intervalId) { clearInterval(_intervalId); _intervalId = null; }
+    window.removeEventListener('nbd:data-refreshed', update);
+  }
+
+  // Auto-teardown on page hide so a long-lived browser tab + SPA
+  // routes don't leak intervals. pagehide fires reliably across
+  // navigations + tab close on every modern browser (where
+  // beforeunload sometimes doesn't on mobile).
+  window.addEventListener('pagehide', destroy);
 
   window.CustomerSnoozeBanner = {
     __sentinel: 'nbd-customer-snooze-banner-v1',
     update,
+    destroy,
   };
 
   if (document.readyState === 'loading') {
