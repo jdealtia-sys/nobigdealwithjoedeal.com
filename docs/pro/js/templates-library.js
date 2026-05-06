@@ -176,6 +176,36 @@ Bookmark it; the link stays live as we work through the project.
     return next.length !== all.length;
   }
 
+  // Wave 99: ⭐ default-template per channel. setDefault(id) flags
+  // a template as default and clears the flag on every other
+  // template of the same channel — single-default-per-channel
+  // invariant. setDefault(null, channel) clears any default for
+  // that channel.
+  function setDefault(id, channelHint) {
+    const all = _read();
+    const target = id ? all.find(t => t && t.id === id) : null;
+    const channel = (target && target.channel) || channelHint;
+    if (!channel) return false;
+    const now = Date.now();
+    let changed = false;
+    for (let i = 0; i < all.length; i++) {
+      const t = all[i];
+      if (!t || t.channel !== channel) continue;
+      const wasDefault = !!t.isDefault;
+      const shouldBeDefault = !!target && t.id === target.id;
+      if (wasDefault !== shouldBeDefault) {
+        all[i] = { ...t, isDefault: shouldBeDefault, updatedAt: now };
+        changed = true;
+      }
+    }
+    if (changed) _write(all);
+    return changed;
+  }
+  function getDefault(channel) {
+    if (!channel) return null;
+    return _read().find(t => t && t.channel === channel && t.isDefault) || null;
+  }
+
   // ─── Apply (placeholder substitution) ────────────────────────────
   function apply(template, ctx) {
     if (!template) return '';
@@ -232,12 +262,27 @@ Bookmark it; the link stays live as we work through the project.
 
     function renderList() {
       const all = list(channel);
-      const items = all.map(t => `
-        <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--br,#2a3344); border-radius:8px; margin-bottom:6px; background:var(--s2,#0f1419);">
+      const items = all.map(t => {
+        // W99: ⭐ default per-channel marker. Pinned templates get
+        // a filled star + a pinned border-tint so they read as
+        // distinct in the list.
+        const isDef = !!t.isDefault;
+        const star = isDef ? '⭐' : '☆';
+        const starColor = isDef ? '#fbbf24' : 'var(--m,#9aa3b2)';
+        const rowBorder = isDef ? '#fbbf24' : 'var(--br,#2a3344)';
+        return `
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid ${rowBorder}; border-radius:8px; margin-bottom:6px; background:var(--s2,#0f1419);">
+          <button data-template-pin="${escapeHtml(t.id)}" type="button"
+            aria-label="${isDef ? 'Unpin default' : 'Pin as default for ' + escapeHtml(t.channel.toUpperCase())}"
+            aria-pressed="${isDef ? 'true' : 'false'}"
+            title="${isDef ? 'Unpin default' : 'Pin as default for ' + t.channel.toUpperCase()}"
+            style="background:transparent; color:${starColor}; border:none; font-size:16px; line-height:1; cursor:pointer; padding:4px 6px; -webkit-tap-highlight-color:transparent;">
+            <span aria-hidden="true">${star}</span>
+          </button>
           <div style="flex:1; min-width:0;">
             <div style="font-size:13px; font-weight:600; color:var(--t,#e8eaf0);">
               <span style="display:inline-block; padding:1px 6px; border-radius:8px; font-size:9px; margin-right:6px; ${t.channel === 'sms' ? 'background:rgba(59,130,246,0.18); color:#3b82f6;' : 'background:rgba(139,92,246,0.18); color:#8b5cf6;'}">${t.channel.toUpperCase()}</span>
-              ${escapeHtml(t.name)}${t._seeded ? ' <span style="font-size:9px; color:var(--m,#9aa3b2);">· default</span>' : ''}
+              ${escapeHtml(t.name)}${t._seeded ? ' <span style="font-size:9px; color:var(--m,#9aa3b2);">· seed</span>' : ''}${isDef ? ' <span style="font-size:9px; color:#fbbf24; font-weight:700;">· DEFAULT</span>' : ''}
             </div>
             <div style="font-size:11px; color:var(--m,#9aa3b2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml((t.body || '').slice(0, 90))}${(t.body || '').length > 90 ? '…' : ''}</div>
           </div>
@@ -245,7 +290,8 @@ Bookmark it; the link stays live as we work through the project.
             style="background:transparent; color:var(--t,#e8eaf0); border:1px solid var(--br,#2a3344); padding:6px 10px; border-radius:6px; font: inherit; font-size:11px; font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent;">Edit</button>
           <button data-template-delete="${escapeHtml(t.id)}" type="button" aria-label="Delete ${escapeHtml(t.name)}" title="Delete"
             style="background:transparent; color:#fb7185; border:1px solid var(--br,#2a3344); padding:6px 10px; border-radius:6px; font: inherit; font-size:11px; font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent;">Delete</button>
-        </div>`).join('');
+        </div>`;
+      }).join('');
       const empty = `<div style="padding:22px; text-align:center; color:var(--m,#9aa3b2); font-size:12px;">No templates yet${channel ? ` for ${channel.toUpperCase()}` : ''}. Click + Add below.</div>`;
       return all.length ? items : empty;
     }
@@ -344,6 +390,23 @@ Bookmark it; the link stays live as we work through the project.
           rerender();
         });
       });
+      // W99: pin/unpin default per channel. Click the ⭐ to toggle.
+      overlay.querySelectorAll('[data-template-pin]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-template-pin');
+          const tpl = get(id);
+          if (!tpl) return;
+          if (tpl.isDefault) {
+            // Unpin — clear default for this channel.
+            setDefault(null, tpl.channel);
+            _toast('Default cleared', 'info');
+          } else {
+            setDefault(id);
+            _toast(`Default ${tpl.channel.toUpperCase()}: ${tpl.name}`, 'success');
+          }
+          rerender();
+        });
+      });
       const add = overlay.querySelector('#nbd-tpl-add');
       if (add) add.addEventListener('click', () => {
         editingTemplate = null;
@@ -423,6 +486,18 @@ Bookmark it; the link stays live as we work through the project.
       if (templates.length === 1) {
         const rendered = apply(templates[0], ctx);
         resolve(rendered);
+        return;
+      }
+
+      // W99: ⭐ default skips the picker. When the rep has flagged
+      // one template as default for this channel, use it directly
+      // — same zero-friction shape as the single-template path.
+      // To force-open the picker for a one-off variation the rep
+      // can pass `ctx.forceModal = true` (e.g. via shift-click on
+      // the share button — wired in a future wave).
+      const def = (ctx && ctx.forceModal) ? null : getDefault(channel);
+      if (def) {
+        resolve(apply(def, ctx));
         return;
       }
 
@@ -512,6 +587,8 @@ Bookmark it; the link stays live as we work through the project.
     get,
     save,
     remove,
+    setDefault,    // W99
+    getDefault,    // W99
     apply,
     pickAndRender,
     openManager,
