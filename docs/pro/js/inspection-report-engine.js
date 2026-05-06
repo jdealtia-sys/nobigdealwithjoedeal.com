@@ -381,6 +381,7 @@
                   <div class="photo-item">
                     <img src="${this._escapeHtml(photo.url)}" alt="Inspection photo">
                     ${photo.description ? `<p class="photo-caption">${this._escapeHtml(photo.description)}</p>` : ''}
+                    ${this._renderPhotoAIAnalysis(photo)}
                   </div>
                 `).join('')}
               </div>
@@ -633,6 +634,7 @@
                   <div class="photo-item">
                     <img src="${this._escapeHtml(photo.url)}" alt="Damage photo">
                     ${photo.description ? `<p class="photo-caption">${this._escapeHtml(photo.description)}</p>` : ''}
+                    ${this._renderPhotoAIAnalysis(photo)}
                   </div>
                 `).join('')}
               </div>
@@ -2277,6 +2279,38 @@
         "'": '&#039;'
       };
       return String(text).replace(/[&<>"']/g, m => map[m]);
+    },
+
+    /**
+     * Wave 12: Render the AI damage analysis as a caption block
+     * beneath each photo in the report. Only emits markup when the
+     * photo has aiAnalysis stamped — silent fallback to nothing
+     * otherwise. Also skips low-confidence "notRoof" results so
+     * mis-tagged photos don't pollute the report.
+     */
+    _renderPhotoAIAnalysis(photo) {
+      const a = photo && photo.aiAnalysis;
+      if (!a || a.notRoof) return '';
+      const sevColors = {
+        none:     { bg: '#dcfce7', fg: '#166534', label: 'No damage' },
+        minor:    { bg: '#fef9c3', fg: '#854d0e', label: 'Minor damage' },
+        moderate: { bg: '#ffedd5', fg: '#9a3412', label: 'Moderate damage' },
+        severe:   { bg: '#fee2e2', fg: '#991b1b', label: 'Severe damage' },
+      };
+      const sev = sevColors[a.severity] || sevColors.none;
+      const obs = Array.isArray(a.observations)
+        ? a.observations.slice(0, 3).map(o => `<li>${this._escapeHtml(o)}</li>`).join('')
+        : '';
+      return `
+        <div class="ai-analysis-block" style="
+          margin-top:6px; padding:8px 10px; border-radius:6px;
+          background:${sev.bg}; color:${sev.fg};
+          font-size:11px; line-height:1.4;">
+          <div style="font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;">
+            AI Assessment — ${this._escapeHtml(sev.label)}
+          </div>
+          ${obs ? `<ul style="margin:0; padding-left:16px;">${obs}</ul>` : ''}
+        </div>`;
     }
   };
 

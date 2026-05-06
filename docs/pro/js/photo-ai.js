@@ -197,10 +197,95 @@
     });
   }
 
+  // ─── Bulk analysis ───────────────────────────────────────────────
+  // Analyze every photo that doesn't already have an aiAnalysis stamped.
+  // Runs sequentially (not parallel) to respect the 100/day per-uid cap
+  // and stay polite to the upstream model. Reports progress via the
+  // optional onProgress callback: ({ index, total, photoId, status,
+  // analysis?, error? }).
+  //
+  // Returns a summary: { total, analyzed, skipped, failed,
+  //                      severityCounts: { none, minor, moderate, severe } }.
+  async function bulkAnalyze(photos, onProgress) {
+    if (!Array.isArray(photos)) throw new Error('photos array required');
+    const todo = photos.filter(p => p && p.id && !p.aiAnalysis);
+    const summary = {
+      total: photos.length,
+      analyzed: 0,
+      skipped: photos.length - todo.length,
+      failed: 0,
+      severityCounts: { none: 0, minor: 0, moderate: 0, severe: 0 },
+    };
+
+    // Pre-count severities from already-analyzed photos so the summary
+    // reflects the full set, not just what we touched this run.
+    photos.forEach(p => {
+      const sev = p && p.aiAnalysis && p.aiAnalysis.severity;
+      if (sev && summary.severityCounts[sev] !== undefined) {
+        summary.severityCounts[sev]++;
+      }
+    });
+
+    for (let i = 0; i < todo.length; i++) {
+      const photo = todo[i];
+      if (typeof onProgress === 'function') {
+        try { onProgress({ index: i, total: todo.length, photoId: photo.id, status: 'start' }); } catch (e) {}
+      }
+      try {
+        const analysis = await analyze(photo.id);
+        summary.analyzed++;
+        if (analysis && summary.severityCounts[analysis.severity] !== undefined) {
+          summary.severityCounts[analysis.severity]++;
+        }
+        // Patch in-memory cache so subsequent UI sees the analysis.
+        if (window.PhotoEngine && typeof window.PhotoEngine.__updatePhotoCache === 'function') {
+          try { window.PhotoEngine.__updatePhotoCache(photo.leadId, photo.id, { aiAnalysis: analysis }); } catch (e) {}
+        }
+        if (typeof onProgress === 'function') {
+          try { onProgress({ index: i, total: todo.length, photoId: photo.id, status: 'done', analysis }); } catch (e) {}
+        }
+      } catch (err) {
+        summary.failed++;
+        if (typeof onProgress === 'function') {
+          try { onProgress({ index: i, total: todo.length, photoId: photo.id, status: 'error', error: err.message }); } catch (e) {}
+        }
+        // If we hit the daily cap, stop — there's no value in burning
+        // through the rest knowing they'll all 429.
+        if (err.message && /limit reached/i.test(err.message)) {
+          summary.failed += (todo.length - i - 1);
+          break;
+        }
+      }
+    }
+    return summary;
+  }
+
+  // Render a one-line summary banner suitable for a gallery header.
+  function renderSummaryBanner(summary) {
+    if (!summary || summary.total === 0) return '';
+    const sc = summary.severityCounts;
+    const totalDamaged = sc.minor + sc.moderate + sc.severe;
+    const dot = (color) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:4px;"></span>`;
+    return `
+      <div style="
+        background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;
+        padding:10px 14px; margin-bottom:12px;
+        font-size:13px; color:#374151; display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+        <strong style="color:#111827;">AI Damage Summary</strong>
+        <span>${summary.total} photo${summary.total === 1 ? '' : 's'}</span>
+        ${totalDamaged > 0 ? `<span style="color:#991b1b;">${totalDamaged} with damage</span>` : '<span style="color:#166534;">No damage detected</span>'}
+        ${sc.severe   > 0 ? `<span>${dot('#ef4444')}${sc.severe} severe</span>`     : ''}
+        ${sc.moderate > 0 ? `<span>${dot('#f97316')}${sc.moderate} moderate</span>` : ''}
+        ${sc.minor    > 0 ? `<span>${dot('#fbbf24')}${sc.minor} minor</span>`       : ''}
+      </div>`;
+  }
+
   window.PhotoAI = {
     __sentinel: 'nbd-photo-ai-v1',
     analyze,
+    bulkAnalyze,
     renderAnalysisCard,
+    renderSummaryBanner,
     severityBadge,
     injectInLightbox,
   };

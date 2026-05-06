@@ -1180,7 +1180,18 @@
               <option value="grid">Grid View</option>
               <option value="list">List View</option>
             </select>
+            <button id="pe-bulk-ai-btn" type="button"
+              onclick="window.PhotoEngine._bulkAnalyze('${leadId}')"
+              style="
+                margin-left:auto;
+                padding:8px 14px; border-radius:6px; border:1px solid #c8541a;
+                background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+                color:#fff; font-weight:600; font-size:12px;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;">
+              ✨ Analyze All with AI
+            </button>
           </div>
+          <div id="pe-ai-summary"></div>
           <div id="gallery-content"></div>
         </div>
       `;
@@ -1505,6 +1516,67 @@
       if (!Array.isArray(list)) return;
       const i = list.findIndex(p => p.id === photoId);
       if (i >= 0) list[i] = { ...list[i], ...patch };
+    },
+    // Wave 12: bulk AI analysis. Iterates the currently visible gallery
+    // photos, calls PhotoAI.analyze on each, updates the in-memory cache
+    // as results come in, and renders a severity-summary banner above
+    // the gallery when finished.
+    _bulkAnalyze: async (leadId) => {
+      if (!window.PhotoAI || typeof window.PhotoAI.bulkAnalyze !== 'function') {
+        showToast('AI module not loaded', 'error');
+        return;
+      }
+      const btn = document.getElementById('pe-bulk-ai-btn');
+      const summarySlot = document.getElementById('pe-ai-summary');
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'wait';
+        btn.textContent = '⏳ Starting…';
+      }
+      try {
+        // Filter to roof + damage photos by default — those are what
+        // the model is trained on. If the user has filtered by tag,
+        // honor that; otherwise analyze everything.
+        let photos = await getPhotosForLead(leadId);
+        const filterTag = document.getElementById('filter-tag')?.value || '';
+        if (filterTag) {
+          photos = photos.filter(p => p.tags && p.tags.includes(filterTag));
+        }
+        if (photos.length === 0) {
+          showToast('No photos to analyze', 'info');
+          return;
+        }
+        const todoCount = photos.filter(p => !p.aiAnalysis).length;
+        if (todoCount === 0) {
+          showToast('All photos already analyzed', 'info');
+          if (summarySlot && window.PhotoAI.renderSummaryBanner) {
+            const summary = await window.PhotoAI.bulkAnalyze(photos); // counts only
+            summarySlot.innerHTML = window.PhotoAI.renderSummaryBanner(summary);
+          }
+          return;
+        }
+        const summary = await window.PhotoAI.bulkAnalyze(photos, ({ index, total }) => {
+          if (btn) btn.textContent = `⏳ Analyzing ${index + 1} of ${total}…`;
+        });
+        if (summarySlot && window.PhotoAI.renderSummaryBanner) {
+          summarySlot.innerHTML = window.PhotoAI.renderSummaryBanner(summary);
+        }
+        const msg = summary.failed > 0
+          ? `Analyzed ${summary.analyzed} of ${summary.total - summary.skipped} (${summary.failed} failed)`
+          : `Analyzed ${summary.analyzed} photo${summary.analyzed === 1 ? '' : 's'}`;
+        showToast(msg, summary.failed > 0 ? 'error' : 'success');
+      } catch (err) {
+        console.error('[PhotoEngine] bulk analyze failed', err);
+        showToast('Bulk analysis failed: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.style.opacity = '';
+          btn.style.cursor = '';
+          btn.textContent = '✨ Analyze All with AI';
+        }
+      }
     },
     _deletePhoto: async (photoId) => {
       const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
