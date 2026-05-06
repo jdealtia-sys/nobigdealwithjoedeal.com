@@ -8719,6 +8719,24 @@ function switchScTab(tab, btn) {
         <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
         <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
       </div>
+
+      <!-- WAVE 29: HOT LEADS WIDGET ─────────────────────────────────
+           Top 5 highest-scoring uncontacted leads (still in
+           prospecting stages: new / contacted / inspected) that
+           haven't been touched in the last 3 days. Reps come in,
+           see the list, that's their first hour planned. Click a
+           row to open the customer page (instant via Wave 11
+           handoff). Uses window.LeadScoring.scoreAll(). ─────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Today</div><div class="panel-title">🔥 Hot Leads</div></div>
+          <span style="font-size:11px;color:var(--m);">Top 5 to call first</span>
+        </div>
+        <div class="panel-body" id="hot-leads-body">
+          <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
       <div class="two-col">
         <div class="panel">
           <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
@@ -16607,6 +16625,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/activity-feed.js?v=1"></script>
 <script defer src="js/needs-attention-filter.js?v=1"></script>
 <script defer src="js/kanban-context-menu.js?v=1"></script>
+<script defer src="js/hot-leads-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
