@@ -526,7 +526,22 @@ function renderLeads(leads, filtered){
       }
       const overHandler = e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); };
       const leaveHandler = e=>{ if(e.target===body) body.classList.remove('drag-over'); };
-      const dropHandler = e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stageKey); _dragId=null; };
+      // Wave 103: race-safe drop. Read the dragged ID from
+      // dataTransfer (event-scoped) rather than the module-global
+      // _dragId. On rapid re-drag or multi-touch hybrid input the
+      // module global gets overwritten by the second dragstart
+      // before the first drop reads it — wrong card moves to the
+      // target column with no error surfaced. dataTransfer is per
+      // event so it's race-safe by construction. Fall back to
+      // _dragId if dataTransfer is empty (some legacy browsers).
+      const dropHandler = e => {
+        e.preventDefault();
+        body.classList.remove('drag-over');
+        const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _dragId;
+        if (!draggedId) return;
+        moveCard(draggedId, stageKey);
+        _dragId = null;
+      };
       body.addEventListener('dragover', overHandler);
       body.addEventListener('dragleave', leaveHandler);
       body.addEventListener('drop', dropHandler);
@@ -577,7 +592,15 @@ function renderLeads(leads, filtered){
       }
       const overH = e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; body.classList.add('drag-over'); };
       const leaveH = e=>{ if(e.target===body) body.classList.remove('drag-over'); };
-      const dropH = e=>{ e.preventDefault(); body.classList.remove('drag-over'); if(!_dragId) return; moveCard(_dragId, stage); _dragId=null; };
+      // W103: same race-safe drop as the new-system path above.
+      const dropH = e => {
+        e.preventDefault();
+        body.classList.remove('drag-over');
+        const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _dragId;
+        if (!draggedId) return;
+        moveCard(draggedId, stage);
+        _dragId = null;
+      };
       body.addEventListener('dragover', overH);
       body.addEventListener('dragleave', leaveH);
       body.addEventListener('drop', dropH);
@@ -1261,14 +1284,20 @@ async function moveCard(id, newStage){
     lead._syncing = false;
     lead._syncSuccess = true;
     delete lead._pending;
-    
-    // Show success briefly
+
+    // Render once now to reflect the success state. Wave 103: the
+    // t+1s "clear success" callback used to call renderLeads again
+    // — full re-serialize of every card on every move just to drop
+    // a class on one element. Replaced with a targeted DOM update
+    // so the success badge fades on its own card without re-render.
+    renderLeads(window._leads, window._filteredLeads);
     setTimeout(() => {
       delete lead._syncSuccess;
-      renderLeads(window._leads, window._filteredLeads);
+      try {
+        const card = document.querySelector(`.k-card[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`);
+        if (card) card.classList.remove('k-card-sync-success');
+      } catch (_) { /* fall back to next nbd:data-refreshed cycle */ }
     }, 1000);
-    
-    renderLeads(window._leads, window._filteredLeads);
     
   } catch(e){
     console.error('moveCard error',e);
@@ -2088,6 +2117,25 @@ let _notifInterval = null;
   }
 })();
 
+// Wave 103: tear down the notification poll on sign-out + on
+// pagehide so a re-auth as a different user doesn't leak the
+// previous user's interval. Without this, every sign-out left the
+// 2-min poll running with a now-stale auth context — calls would
+// briefly hit `window._user` from the previous session before the
+// auth state propagation cleared it. The onSnapshot listener was
+// already torn down via window._notifUnsub; the polling fallback
+// was the asymmetric leak.
+window.addEventListener('nbd:auth-signed-out', () => {
+  if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
+  if (typeof window._notifUnsub === 'function') {
+    try { window._notifUnsub(); } catch(_) {}
+    window._notifUnsub = null;
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
+});
+
 
 // ═══════════════════════════════════════════════════════════════
 // BULK ACTIONS SYSTEM
@@ -2230,35 +2278,61 @@ function clearBulkSelection() {
 async function bulkMoveStage() {
   const stageSelect = document.getElementById('bulkStageSelect');
   const newStage = stageSelect.value;
-  
+
   if (!newStage) {
     showToast('Please select a stage', 'error');
     return;
   }
-  
-  if (window._bulkSelected.size === 0) {
+
+  // Wave 103: read selection through getBulkSelected() so the
+  // NBDStore-backed selection is honored. Previously this read
+  // `window._bulkSelected` directly, which becomes stale when the
+  // store replaces the reference on every mutation. The guard
+  // could pass with stale `.size === 0` while the store held a
+  // real selection — bulk-move on zero cards or wrong cards.
+  const sel = getBulkSelected();
+  if (sel.size === 0) {
     showToast('No cards selected', 'error');
     return;
   }
 
   const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-  if (!(await _ask(`Move ${window._bulkSelected.size} lead(s) to "${newStage}"?`))) {
+  if (!(await _ask(`Move ${sel.size} lead(s) to "${newStage}"?`))) {
     return;
   }
-  
-  const selectedIds = Array.from(window._bulkSelected);
-  
+
+  const selectedIds = Array.from(sel);
+
   try {
-    // Move each card
+    // Wave 103: collect failures separately so we can report
+    // partial success accurately. Previously a mid-loop failure
+    // jumped straight to the catch and the toast claimed all
+    // moves succeeded — but the first N had committed and N+1
+    // through M had not. Cards 1-N were silently in the new
+    // stage, cards N+1 to M still in the old. No way for the
+    // rep to know which.
+    const failures = [];
     for (const leadId of selectedIds) {
-      await moveCard(leadId, newStage);
+      try { await moveCard(leadId, newStage); }
+      catch (err) {
+        console.warn('[bulkMoveStage] failed for', leadId, err);
+        failures.push(leadId);
+      }
     }
-    
-    // Clear selection and exit bulk mode
+
+    // Clear selection and exit bulk mode regardless — partial
+    // success still moved at least some cards, and re-trying the
+    // failed ones via individual drag is the cleaner UX.
     clearBulkSelection();
     toggleBulkMode();
-    
-    showToast(`Moved ${selectedIds.length} lead(s) to ${newStage}`, 'ok');
+
+    const movedCount = selectedIds.length - failures.length;
+    if (failures.length > 0) {
+      showToast(`Moved ${movedCount}/${selectedIds.length}. ${failures.length} failed — try again.`, 'error');
+    } else {
+      showToast(`Moved ${movedCount} lead(s) to ${newStage}`, 'ok');
+    }
+    return; // skip the outer catch — we handled failures explicitly
     
   } catch (error) {
     console.error('Bulk move error:', error);
