@@ -136,11 +136,29 @@
   }
 
   // ─── Compute ─────────────────────────────────────────────────────
+  // Public function wraps the inner compute + applies a personal
+  // confidence adjustment from W116 stats. Skip-cases (terminal /
+  // snoozed) bypass the adjustment since they have hard-coded
+  // confidence 100.
+  function computeSuggestion(lead, ctx) {
+    const sug = _computeRaw(lead, ctx);
+    if (!sug || sug.priority === 'wait' || sug.priority === 'monitor') return sug;
+    // W116: personal adjustment based on rep's historical action
+    // rate for this exact signal set. -15..+15 range, capped to
+    // 0..100 final.
+    const delta = getPersonalAdjustment(sug.signals);
+    if (delta !== 0) {
+      sug.confidence = Math.max(0, Math.min(100, (sug.confidence || 0) + delta));
+      sug._personalAdjusted = delta;
+    }
+    return sug;
+  }
+
   // Pure function. Takes a lead + optional context (estimates,
   // taskCache) and returns a suggestion object. Defaults to reading
   // window._estimates / window._taskCache so most callers don't pass
   // a context.
-  function computeSuggestion(lead, ctx) {
+  function _computeRaw(lead, ctx) {
     if (!lead || !lead.id) return null;
     ctx = ctx || {};
     const estimates = ctx.estimates
@@ -512,11 +530,105 @@ Rules:
     }
   }
 
+  // ─── Wave 116: pattern learning from rep behavior ────────────────
+  // Track which suggestions reps ACT on vs DISMISS vs IGNORE.
+  // Build a per-rep stats map indexed by sorted signal-set key:
+  //   "fresh-share|fresh-view|rep-cold" → { acted: 8, dismissed: 1 }
+  // Then nudge future suggestion confidence ± based on the rep's
+  // own track record:
+  //   - 80% acted → +10 confidence (this rep listens to this signal)
+  //   - 20% acted → -10 confidence (rep ignores this — turn down)
+  //
+  // Stored in localStorage as `nbd_smart_followup_stats`. Per-device
+  // matches the W37/W78 preference pattern. Future wave can sync
+  // cross-device via Firestore but localStorage is enough for V1.
+  //
+  // Outcome enum:
+  //   'acted'     — rep clicked a primary action button (call/SMS/email)
+  //   'dismissed' — rep clicked the ✕ Dismiss button
+  //   'ignored'   — suggestion was shown but rep navigated away
+  //                 without acting (tracked passively via cleanup)
+  //
+  // The customer panel (W113) and briefing widget (W115) wire into
+  // recordOutcome on their action / dismiss handlers.
+
+  const STATS_KEY = 'nbd_smart_followup_stats';
+  const STATS_VERSION = 1;
+  const SIGNAL_KEY_DELIM = '|';
+
+  function _signalKey(signals) {
+    if (!Array.isArray(signals) || signals.length === 0) return '';
+    return signals.slice().sort().join(SIGNAL_KEY_DELIM);
+  }
+
+  function _readStats() {
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      if (!raw) return { v: STATS_VERSION, byKey: {}, totals: { acted: 0, dismissed: 0, ignored: 0 } };
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.v !== STATS_VERSION) {
+        return { v: STATS_VERSION, byKey: {}, totals: { acted: 0, dismissed: 0, ignored: 0 } };
+      }
+      return parsed;
+    } catch (_) {
+      return { v: STATS_VERSION, byKey: {}, totals: { acted: 0, dismissed: 0, ignored: 0 } };
+    }
+  }
+  function _writeStats(stats) {
+    try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch (_) {}
+  }
+
+  function recordOutcome(leadId, outcome, sug) {
+    if (!leadId || !outcome) return;
+    if (outcome !== 'acted' && outcome !== 'dismissed' && outcome !== 'ignored') return;
+    const stats = _readStats();
+    stats.totals[outcome] = (stats.totals[outcome] || 0) + 1;
+    if (sug && sug.signals) {
+      const key = _signalKey(sug.signals);
+      if (key) {
+        if (!stats.byKey[key]) stats.byKey[key] = { acted: 0, dismissed: 0, ignored: 0 };
+        stats.byKey[key][outcome] = (stats.byKey[key][outcome] || 0) + 1;
+      }
+    }
+    _writeStats(stats);
+  }
+
+  // Returns a confidence adjustment (-15..+15) for the given
+  // signal-set, based on the rep's historical action rate. Conservative
+  // by design — needs at least 5 prior occurrences before nudging,
+  // and capped at ±15 so a single bad week doesn't permanently bury
+  // a signal.
+  function getPersonalAdjustment(signals) {
+    const key = _signalKey(signals);
+    if (!key) return 0;
+    const stats = _readStats();
+    const row = stats.byKey[key];
+    if (!row) return 0;
+    const total = (row.acted || 0) + (row.dismissed || 0) + (row.ignored || 0);
+    if (total < 5) return 0; // not enough data
+    const actedRate = (row.acted || 0) / total;
+    // 0.5 = neutral. Each 0.1 deviation = ±3 conf. Cap at ±15.
+    const delta = Math.round((actedRate - 0.5) * 30);
+    return Math.max(-15, Math.min(15, delta));
+  }
+
+  function getRepStats() {
+    return _readStats();
+  }
+
+  function clearRepStats() {
+    try { localStorage.removeItem(STATS_KEY); } catch (_) {}
+  }
+
   // ─── Public API ──────────────────────────────────────────────────
   window.SmartFollowup = {
     __sentinel: 'nbd-smart-followup-v1',
     computeSuggestion,
-    enrichSuggestionAI,    // W114
+    enrichSuggestionAI,         // W114
+    recordOutcome,              // W116
+    getPersonalAdjustment,      // W116
+    getRepStats,                // W116
+    clearRepStats,              // W116
     priorityRank,
     score,
     PRIORITY_ORDER,
