@@ -1166,14 +1166,42 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Notes</div>
-          <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:11px;padding:6px 12px;">
-            ✏️ Add Note
+          <button onclick="openNotesModal()" title="Open larger editor"
+            style="background:transparent;border:none;color:var(--m);font-size:11px;cursor:pointer;padding:4px 6px;text-decoration:underline;">
+            Open larger editor
           </button>
         </div>
+
+        <!-- Wave 33: inline quick-add. Replaces the modal-only flow.
+             Type → Cmd/Ctrl+Enter or click Send → note posts.
+             Optimistic insert puts a temp card on top immediately so
+             the rep sees it land. Modal still available via the
+             "Open larger editor" link above for multi-paragraph
+             entries. -->
+        <div id="quickNoteWrap" style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:8px 10px;margin-bottom:12px;">
+          <textarea id="quickNoteInput" rows="2" maxlength="2000" placeholder="Quick note — what just happened on the call?"
+            style="
+              width:100%;background:transparent;border:none;outline:none;
+              color:var(--t);font-family:inherit;font-size:13px;line-height:1.5;
+              resize:none;padding:4px 0;min-height:38px;"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:6px;">
+            <span id="quickNoteStatus" style="font-size:10px;color:var(--m);"></span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:10px;color:var(--m);">Cmd/Ctrl+Enter</span>
+              <button id="quickNoteSend" type="button" onclick="window.quickAddNote && window.quickAddNote()"
+                style="
+                  background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+                  color:#fff;border:none;padding:6px 14px;border-radius:6px;
+                  font-size:11px;font-weight:700;cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;">Send</button>
+            </div>
+          </div>
+        </div>
+
         <div id="notesList" style="display:flex;flex-direction:column;gap:8px;">
           <div class="empty">
             <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
-            No notes yet
+            No notes yet — type one above and hit Send.
           </div>
         </div>
       </div>
@@ -2179,17 +2207,17 @@ window.closeNotesModal = function() {
 
 window.saveNote = async function() {
   const noteText = document.getElementById('noteText').value.trim();
-  
+
   if (!noteText) {
     alert('Please enter a note');
     return;
   }
-  
+
   if (!window._customerId) {
     alert('Customer ID not found');
     return;
   }
-  
+
   try {
     await window.addDoc(window.collection(window.db, 'notes'), {
       leadId: window._customerId,
@@ -2198,21 +2226,124 @@ window.saveNote = async function() {
       createdAt: window.serverTimestamp(),
       createdBy: auth.currentUser?.email || 'Unknown'
     });
-    
+
     closeNotesModal();
     await loadNotes(window._customerId);
-    
+
     // Reload timeline to show new note
     const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
     if (leadSnap.exists()) {
       await loadTimeline(window._customerId, leadSnap.data());
     }
-    
+
   } catch (error) {
     console.error('Error saving note:', error);
     alert('Failed to save note. Please try again.');
   }
 };
+
+// Wave 33: inline quick-add note. Optimistic prepend to the visible
+// notesList so the rep sees the note land immediately, then writes
+// to Firestore in the background. On success, reload notes from
+// source. On failure, remove the optimistic card + restore the
+// textarea content + toast.
+window.quickAddNote = async function () {
+  const input  = document.getElementById('quickNoteInput');
+  const send   = document.getElementById('quickNoteSend');
+  const status = document.getElementById('quickNoteStatus');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) {
+    input.focus();
+    return;
+  }
+  if (!window._customerId) {
+    if (typeof window.showToast === 'function') window.showToast('No customer selected', 'error');
+    return;
+  }
+
+  // Lock the form while we save.
+  input.disabled = true;
+  if (send) { send.disabled = true; send.style.opacity = '0.6'; send.style.cursor = 'wait'; }
+  if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--m)'; }
+
+  // Optimistic prepend — temporary card with a pending marker.
+  const list = document.getElementById('notesList');
+  const tmpId = 'tmp-note-' + Date.now();
+  const wasEmpty = list && /class="empty"/.test(list.innerHTML);
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+  const bodyHtml = esc(text).replace(/\n/g, '<br>');
+  const tmpCard = `
+    <div id="${tmpId}" data-tmp="1"
+      style="padding:12px;background:var(--s2);border-left:3px solid var(--orange);border-radius:4px;opacity:0.7;">
+      <div style="font-size:13px;line-height:1.6;margin-bottom:6px;">${bodyHtml}</div>
+      <div style="font-size:10px;color:var(--m);font-style:italic;">Saving…</div>
+    </div>`;
+  if (list) {
+    if (wasEmpty) list.innerHTML = tmpCard;
+    else list.insertAdjacentHTML('afterbegin', tmpCard);
+  }
+
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: window._customerId,
+      userId: window.auth.currentUser.uid,
+      text,
+      createdAt: window.serverTimestamp(),
+      createdBy: window.auth.currentUser?.email || 'Unknown'
+    });
+
+    // Success: clear the input, flash "Saved", reload from source.
+    input.value = '';
+    if (status) {
+      status.textContent = 'Saved ✓';
+      status.style.color = '#10b981';
+      setTimeout(() => { if (status.textContent === 'Saved ✓') status.textContent = ''; }, 1800);
+    }
+
+    if (typeof loadNotes === 'function') {
+      try { await loadNotes(window._customerId); } catch (_) {}
+    }
+    // Refresh the timeline panel so the new note shows up there too,
+    // matching the modal's existing behavior.
+    try {
+      if (typeof getDoc === 'function' && typeof doc === 'function' && typeof db !== 'undefined') {
+        const leadSnap = await getDoc(doc(db, 'leads', window._customerId));
+        if (leadSnap.exists() && typeof loadTimeline === 'function') {
+          await loadTimeline(window._customerId, leadSnap.data());
+        }
+      }
+    } catch (_) {}
+  } catch (e) {
+    console.error('[quickAddNote] save failed', e);
+    // Roll back: remove the optimistic card, put the text back so
+    // the rep doesn't lose what they typed.
+    const tmp = document.getElementById(tmpId);
+    if (tmp) tmp.remove();
+    input.value = text;
+    if (status) {
+      status.textContent = 'Save failed — try again';
+      status.style.color = '#ef4444';
+    }
+    if (typeof window.showToast === 'function') {
+      window.showToast('Note save failed: ' + (e.message || 'unknown'), 'error');
+    }
+  } finally {
+    input.disabled = false;
+    if (send) { send.disabled = false; send.style.opacity = ''; send.style.cursor = ''; }
+    input.focus();
+  }
+};
+
+// Wire Cmd/Ctrl+Enter on the quick-note input. Listens lazily so it
+// works even if the textarea wasn't in the DOM at parse time.
+document.addEventListener('keydown', function (ev) {
+  if (ev.target && ev.target.id === 'quickNoteInput'
+      && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+    ev.preventDefault();
+    if (typeof window.quickAddNote === 'function') window.quickAddNote();
+  }
+});
 
 async function loadNotes(leadId) {
   try {
@@ -2224,8 +2355,7 @@ async function loadNotes(leadId) {
       document.getElementById('notesList').innerHTML = `
       <div class="empty">
         <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h12a1 1 0 011 1v10l-4 4H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M13 14v4"/><path d="M7 7h6M7 10h3"/></svg></div>
-        <div style="margin-bottom:10px;">No notes yet</div>
-        <button class="btn btn-orange" onclick="openNotesModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg> Add First Note</button>
+        <div>No notes yet — type one in the box above and hit Send.</div>
       </div>
     `;
       return;
