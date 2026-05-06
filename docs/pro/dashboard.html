@@ -887,6 +887,31 @@
                onmouseout="this.style.transform=''"
              >📧</button>`);
         }
+        // Wave 62: state-aware snooze/unsnooze button on the recent
+        // dropdown. Mirrors W61 cmd+K — power-user workflow where
+        // the rep just looked at a customer and wants to push it
+        // out for follow-up without opening the detail page.
+        // Always available (snoozing doesn't need contact info),
+        // so it shows even when phone/email are missing.
+        if (window.LeadSnooze) {
+          const isSnoozed = window.LeadSnooze.isSnoozed(lead);
+          if (isSnoozed) {
+            const untilLabel = window.LeadSnooze.formatSnoozeLabel(window.LeadSnooze.snoozedUntilDate(lead));
+            buttons.push(
+              `<button class="rc-action" type="button" data-action="unsnooze" data-lead-id="${e(lead.id)}" title="Unsnooze (was until ${e(untilLabel)})"
+                 style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(155,109,255,0.14);color:#cab8ff;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+                 onmouseover="this.style.transform='scale(1.1)'"
+                 onmouseout="this.style.transform=''"
+               >⏰</button>`);
+          } else {
+            buttons.push(
+              `<button class="rc-action" type="button" data-action="snooze" data-lead-id="${e(lead.id)}" title="Snooze this lead"
+                 style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(155,109,255,0.10);color:#a890e8;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+                 onmouseover="this.style.transform='scale(1.1)'"
+                 onmouseout="this.style.transform=''"
+               >💤</button>`);
+          }
+        }
         if (buttons.length === 0) return '';
         return `<div style="display:flex;gap:3px;flex-shrink:0;">${buttons.join('')}</div>`;
       }
@@ -921,15 +946,37 @@
           if (!id) return;
           const lead = (window._leads || []).find(l => l && l.id === id);
           if (!lead) return;
+          let closeDropdown = true;
           if (action === 'sms' && window.PortalLinkHelpers) {
             window.PortalLinkHelpers.smsForLead(lead);
           } else if (action === 'email' && window.PortalLinkHelpers) {
             window.PortalLinkHelpers.emailForLead(lead);
+          } else if (action === 'snooze' && window.LeadSnooze) {
+            // Wave 62: opens the W35 preset modal on top of the
+            // dropdown. Modal z-index (99996) > dropdown z-index
+            // (9999) so it stacks correctly. Don't close the
+            // dropdown — when the rep dismisses the modal they
+            // can keep glancing at recent customers.
+            const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+            window.LeadSnooze.prompt(lead.id, fullName);
+            closeDropdown = false;
+          } else if (action === 'unsnooze' && window.LeadSnooze) {
+            // Wave 62: unsnooze fires immediately + re-renders the
+            // dropdown so the button flips 💤/⏰ in place. Keep
+            // the dropdown open so the rep can verify + keep
+            // working.
+            window.LeadSnooze.promptUnsnooze(lead.id).then(() => {
+              renderRecentCustomers();
+            });
+            closeDropdown = false;
           }
-          // Close the dropdown after firing so the rep sees the SMS
-          // composer / mail client without the dropdown obscuring.
-          const dd = document.getElementById('recentDropdown');
-          if (dd) dd.style.display = 'none';
+          // Close the dropdown only on share actions so the rep
+          // sees the SMS composer / mail client without the
+          // dropdown obscuring. Snooze/unsnooze stay open.
+          if (closeDropdown) {
+            const dd = document.getElementById('recentDropdown');
+            if (dd) dd.style.display = 'none';
+          }
         });
       });
 
