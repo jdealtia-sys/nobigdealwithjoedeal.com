@@ -247,10 +247,73 @@
       return;
     }
 
+    // Wave 49: build a per-event reshare button block. Mirrors the
+    // W46/W47/W48 pattern from Almost There + Hot Leads + Bell. An
+    // event tied to a lead with phone/email picks up Call/Text/Email
+    // affordances inline with the row, so the rep can spot a recent
+    // event AND act on it without opening the customer page.
+    function _resharBtnsForEvent(ev) {
+      if (!ev || !ev.leadId) return '';
+      const leads = Array.isArray(window._leads) ? window._leads : [];
+      const lead = leads.find(l => l && l.id === ev.leadId);
+      if (!lead) return '';
+      const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
+      const email = String(lead.email || '').trim();
+      const buttons = [];
+      if (phoneDigits) {
+        buttons.push(`
+          <a class="af-action" href="tel:${escapeHtml(phoneDigits)}"
+            title="Call ${escapeHtml(lead.phone)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:26px; height:26px; border-radius:5px;
+              background:rgba(16,185,129,0.14); color:#10b981;
+              text-decoration:none; font-size:12px;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onclick="event.stopPropagation();"
+            onmouseover="this.style.transform='scale(1.08)'"
+            onmouseout="this.style.transform=''"
+          >📞</a>`);
+        buttons.push(`
+          <button class="af-action" type="button"
+            data-action="sms" data-lead-id="${escapeHtml(lead.id)}"
+            title="Text portal link to ${escapeHtml(lead.phone)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:26px; height:26px; border-radius:5px;
+              background:rgba(59,130,246,0.14); color:#3b82f6;
+              border:none; font-size:12px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.08)'"
+            onmouseout="this.style.transform=''"
+          >💬</button>`);
+      }
+      if (email) {
+        buttons.push(`
+          <button class="af-action" type="button"
+            data-action="email" data-lead-id="${escapeHtml(lead.id)}"
+            title="Email portal link to ${escapeHtml(email)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:26px; height:26px; border-radius:5px;
+              background:rgba(139,92,246,0.14); color:#8b5cf6;
+              border:none; font-size:12px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.08)'"
+            onmouseout="this.style.transform=''"
+          >📧</button>`);
+      }
+      if (buttons.length === 0) return '';
+      return `<div style="display:flex; gap:3px; flex-shrink:0; align-items:center;">${buttons.join('')}</div>`;
+    }
+
     container.innerHTML = events.map(ev => `
       <div class="activity-row" data-lead-id="${escapeHtml(ev.leadId || '')}" data-est-id="${escapeHtml(ev.estId || '')}"
         style="
-          display:flex; align-items:center; gap:12px;
+          display:flex; align-items:center; gap:10px;
           padding:10px 12px; border-bottom:1px solid var(--br,#1e2530);
           cursor:pointer; transition:background .15s;
           -webkit-tap-highlight-color:transparent;">
@@ -263,9 +326,30 @@
             ${escapeHtml(ev.sub)}
           </div>
         </div>
+        ${_resharBtnsForEvent(ev)}
         <div style="font-size:10px; color:var(--m,#9aa3b2); flex-shrink:0; white-space:nowrap;">${escapeHtml(relativeTime(ev.ts))}</div>
       </div>
     `).join('');
+
+    // Wave 49: wire the action button click handlers. Sms + email
+    // delegate to PortalLinkHelpers (W42) for the prefilled-body
+    // flow + W44 lastSharedAt tracking. Call uses tel: directly.
+    container.querySelectorAll('.af-action[data-action]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-lead-id');
+        if (!id) return;
+        const lead = (Array.isArray(window._leads) ? window._leads : [])
+          .find(l => l && l.id === id);
+        if (!lead) return;
+        if (action === 'sms' && window.PortalLinkHelpers) {
+          window.PortalLinkHelpers.smsForLead(lead);
+        } else if (action === 'email' && window.PortalLinkHelpers) {
+          window.PortalLinkHelpers.emailForLead(lead);
+        }
+      });
+    });
 
     // Click → navigate. Lead events open the customer page (with
     // Wave 11 handoff for instant render); estimate events open the
