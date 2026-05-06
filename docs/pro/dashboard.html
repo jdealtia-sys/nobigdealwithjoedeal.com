@@ -9546,6 +9546,18 @@ function switchScTab(tab, btn) {
         <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" onclick="loadSampleData()" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
           🎲 Sample
         </button>
+        <!-- Wave 25: Needs Attention filter — composes Wave 13 + 17 +
+             19 signals into a single click. Toggling it filters the
+             kanban to leads with stale-stage (≥7d), overdue tasks,
+             or stale estimates. -->
+        <button class="btn btn-ghost crm-hdr-btn" id="needsAttentionBtn"
+          onclick="window.toggleNeedsAttention && window.toggleNeedsAttention()"
+          title="Show only leads that need follow-up: stale stage, overdue task, or stale estimate"
+          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+          🚨 <span class="crm-hdr-btn-label">Needs Attention</span>
+          <span id="needsAttentionCountBadge"
+            style="display:none;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+        </button>
         <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" onclick="goTo('prospects')" title="Open Prospects page" style="position:relative;">
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
           <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
@@ -16565,6 +16577,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
 <script defer src="js/activity-feed.js?v=1"></script>
+<script defer src="js/needs-attention-filter.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
