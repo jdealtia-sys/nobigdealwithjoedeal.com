@@ -837,6 +837,7 @@ exports.invoiceWebhook = onRequest(
               actualCreatedBy: invSnap.data().createdBy,
             });
           } else {
+            const inv = invSnap.data();
             await invRef.update({
               status: 'paid',
               paidAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -844,6 +845,46 @@ exports.invoiceWebhook = onRequest(
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             logger.info('invoice_paid', { invoiceId });
+
+            // ── Auto-advance kanban stage on payment ──────────────────
+            // Close the loop: when the homeowner pays via Stripe, the
+            // rep shouldn't have to manually drag the card — bump it
+            // to 'final_payment' (or 'closed' if it's already there).
+            // The CRM's `STAGE_META` treats both as won-revenue stages.
+            //
+            // Idempotency: only auto-advance if the lead is currently
+            // pre-final-payment AND not already lost. Never overwrite
+            // a manually-set 'closed' or 'lost' state.
+            if (inv.leadId) {
+              try {
+                const leadRef = db.collection('leads').doc(inv.leadId);
+                const leadSnap = await leadRef.get();
+                if (leadSnap.exists) {
+                  const lead = leadSnap.data();
+                  const curStage = (lead.stage || '').toLowerCase();
+                  // Stages we won't override (already at-or-past final payment, or lost).
+                  const PROTECTED = new Set(['final_payment', 'closed', 'lost']);
+                  if (!PROTECTED.has(curStage)) {
+                    await leadRef.update({
+                      stage: 'final_payment',
+                      _stageKey: 'final_payment',
+                      stageStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      autoAdvancedFromInvoiceId: invoiceId,
+                      autoAdvancedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    logger.info('lead_auto_advanced_on_payment', {
+                      invoiceId, leadId: inv.leadId, fromStage: curStage
+                    });
+                  }
+                }
+              } catch (advanceErr) {
+                // Non-fatal — invoice is already marked paid, just log.
+                logger.warn('lead_auto_advance_failed', {
+                  invoiceId, leadId: inv.leadId, err: advanceErr.message
+                });
+              }
+            }
           }
         }
       }
