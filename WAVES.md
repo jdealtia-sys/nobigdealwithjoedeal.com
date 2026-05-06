@@ -597,3 +597,149 @@ corresponding action is reachable inline (button or menu item).
   snoozed leads in `compute()` should render the 💤 variant
   only; future surfaces that always show all leads should go
   state-aware.
+
+---
+
+# Fifth push — Waves 71-80
+
+The fourth push made snooze + preview universal across 9 list-of-
+leads and alert surfaces. The fifth push went deeper into
+**snoozed-lead lifecycle management**: surface the snooze
+backlog, categorize each one, detect indecision, alert on
+return, filter, and customize the rep's default preset. The
+snooze system that started as a tiny "snoozedUntil" field in
+W35 became a full lifecycle workflow.
+
+The big arcs:
+
+1. **Surface coverage** (W71-W72) — cmd+K now shows the snooze
+   backlog when query is empty, customer page surfaces a
+   "Snooze N other leads" chip for siblings on the same
+   customer.
+2. **Categorization + tracking** (W73-W76) — optional reasons
+   tag (Insurance / Materials / etc.), `snoozeCount` field
+   tracks indecision, kanban cards display reason + stale
+   pills, bell fires "lead came back from snooze" alerts.
+3. **Polish** (W77-W79) — reason filter chip row in cmd+K
+   Snoozed section, ⭐ pin a preset as the rep's default.
+
+The unifying outcome: a snoozed lead now has rich metadata
+(when it returns, why it's deferred, how many times it's been
+bumped) and the rep has dedicated tools for triaging the
+backlog (cmd+K filter, ⭐ pin, expiry alerts).
+
+---
+
+## Surface coverage
+
+The first two waves of the fifth push extended the snooze
+backlog into surfaces that previously had no view of it.
+
+| Wave | Surface | What landed | PR |
+|---|---|---|---|
+| **71** | Cmd+K palette | "Snoozed (N)" section when query is empty, sorted by returning-soonest first, top 10 | [#198](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/198) |
+| **72** | Customer detail header | "💤 Snooze N other leads" chip when current customer has multiple open leads — uses W35 LeadSnooze.bulkPrompt | [#199](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/199) |
+
+Together they close the "where's my snooze backlog?" question
+from two angles: cmd+K when the rep is searching anyway, and
+the customer page when the rep is mid-customer triage.
+
+---
+
+## Categorization + tracking
+
+The next four waves added metadata to each snooze and surfaced
+it across the existing snooze view surfaces.
+
+| Wave | What | PR |
+|---|---|---|
+| **73** | Optional reason tag (Insurance / Not ready / Out of town / Materials / Other) — chip row in both modals, persists as `snoozedReason` field, surfaces in W36 banner + W71 cmd+K + W74 toast | [#200](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/200) |
+| **74** | `snoozeCount` field bumped on each snooze (cumulative — not reset on unsnooze). When ≥3, surface as amber `⚠️ Snoozed 3×` indicator. New API `LeadSnooze.isStaleSnooze(lead)` | [#201](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/201) |
+| **75** | Kanban card snoozed pills — purple "💤 Sep 9 · Insurance" + amber "⚠️ Snoozed 3×" pills in the kc-tags row when show-snoozed toggle is on | [#202](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/202) |
+| **76** | Snooze-expired alert in notification bell. Fires when `snoozedUntil` is in the past, within 3-day SNOOZE_EXPIRY_WINDOW. Subtitle shows reason: "Was: Insurance · 2d ago" | [#203](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/203) |
+
+Three-surface coverage of snooze metadata after W75:
+
+| Surface | Snooze pill | Stale pill |
+|---|---|---|
+| Customer-snooze-banner (W36) | Title row | Title row |
+| Cmd+K Snoozed section (W71) | Subtitle | Subtitle prefix |
+| Kanban card (W75) | Tag row | Tag row |
+
+W76 closes the lifecycle loop — the snooze system is now
+proactive end-to-end: snooze → park → expiry alert → rep
+acts (or re-snoozes, which W74 counts toward indecision).
+
+---
+
+## Polish
+
+The last three waves of the fifth push focused on power-user
+controls.
+
+| Wave | What | PR |
+|---|---|---|
+| **77** | Reason filter chip row in W71 cmd+K Snoozed section. "All / ⚠️ Stale / Insurance / Materials / etc." Per-session state (clears on palette close), counts reflect full backlog (built before top-10 slice) | [#204](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/204) |
+| **78** | ⭐ pin a default preset in the per-lead snooze modal. Pinned preset reorders to top + gets purple-tinted border. localStorage-backed | [#205](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/205) |
+| **79** | ⭐ pin in bulk snooze modal — coverage parity with W78. Shared `DEFAULT_PRESET_KEY` so pinning in either modal reflects in the other | [#206](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/206) |
+| **80** | (this milestone bookend) | this PR |
+
+---
+
+## Architecture notes for the fifth push
+
+- **localStorage for per-device preferences, Firestore for
+  per-lead state** — W37's show-snoozed toggle, W77's per-session
+  reason filter, and W78/W79's pinned preset are all per-device
+  preferences that don't need to sync across devices. They live
+  in localStorage. By contrast `snoozedReason`, `snoozeCount`,
+  and `snoozedUntil` are per-lead state that everyone touching
+  the lead needs to see → Firestore. The split kept the schema
+  changes minimal and the latency low.
+
+- **Cumulative counts that resist gaming** — W74's `snoozeCount`
+  does NOT reset on unsnooze. Resetting would let a rep "wash"
+  the indecision signal by toggling the snooze. Keeping it
+  cumulative made the signal honest.
+
+- **Read-modify-write vs Firestore `increment` sentinel** —
+  W74's snooze() bumps `snoozeCount` from the in-memory cache
+  (`(existing.snoozeCount || 0) + 1`) rather than importing
+  Firestore's `increment` sentinel. Reps don't snooze
+  concurrently from multiple devices on the same lead, so
+  non-atomic is safe. Avoiding the sentinel kept the import
+  surface unchanged.
+
+- **Self-clearing alerts** — W76's snooze-expired signal has a
+  3-day window after which it self-clears. Without that, the
+  bell would accumulate every expired snooze the rep hadn't
+  acted on, drowning the actually-fresh alerts. After the
+  window, the existing W48 stale-lead signal takes over.
+
+- **Modal-reopen as the simplest re-render** — W78's pin click
+  closes + reopens the modal rather than partial-DOM patching.
+  Three reasons: (1) the modal HTML is the single source of
+  truth so re-rendering removes the chance of state drift, (2)
+  the implementation is shorter, (3) the visual flicker is
+  imperceptible because both close + open run synchronously.
+  The same pattern landed in W79.
+
+- **Filter state local to a session, not persisted** — W77's
+  reason filter clears on palette close. The reason filter is
+  a triage tool for one-time backlog cleanup, not a saved
+  preference. Persisting it would mean the rep opens cmd+K
+  next morning and sees only "Insurance" with no obvious why.
+
+- **Coverage waves carry the polish theme** — W79 shipped right
+  after W78 to keep the "⭐ default pin" feature consistent
+  across both modals. Single-modal features that ship
+  partially erode trust ("does this work everywhere?"). When
+  a feature lands in one modal, the polish wave to extend it
+  to the other should follow within 1-2 waves.
+
+- **Stale-snooze threshold = 3** — W74's `STALE_SNOOZE_THRESHOLD`
+  is intentionally lenient. Two snoozes is "I deferred and
+  re-deferred" — could be legitimate. Three is the inflection:
+  the rep keeps not acting. Raising the threshold to 5 would
+  make the signal too rare; lowering to 2 would fire on
+  legitimate two-step deferrals. 3 feels right for this domain.
