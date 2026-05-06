@@ -939,6 +939,14 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         title="Open SMS composer with the portal link pre-filled to the customer">
         💬 Text Portal Link
       </button>
+      <!-- Wave 43: email variant — opens the default mail client
+           with subject + body pre-filled to the customer's email
+           address. Completes the trio of share methods alongside
+           Copy (W40) and Text (W41). -->
+      <button class="btn" id="quickEmailPortalBtn" onclick="window.quickEmailPortalLink && window.quickEmailPortalLink()"
+        title="Open email composer with the portal link pre-filled to the customer">
+        📧 Email Portal Link
+      </button>
       <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
@@ -6657,6 +6665,36 @@ window.quickCopyPortalLink = async function () {
     if (typeof openGallerySharePanel === 'function') {
       try { openGallerySharePanel(); } catch (_) {}
     }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.style.opacity = '';
+      button.style.cursor = '';
+      if (restoreLabel != null) button.innerHTML = restoreLabel;
+    }
+  }
+};
+
+// Wave 43: same flow on the email channel. Delegates to
+// PortalLinkHelpers.emailForLead for the resolve + mailto: build.
+// The button-specific UI bits (label restoration, "⏳ Preparing…"
+// state) stay here so the click still feels responsive even when
+// the Firestore round-trip takes a beat.
+window.quickEmailPortalLink = async function () {
+  const button = document.getElementById('quickEmailPortalBtn');
+  const restoreLabel = button ? button.innerHTML : null;
+  if (button) {
+    button.disabled = true;
+    button.style.opacity = '0.7';
+    button.style.cursor = 'wait';
+    button.innerHTML = '⏳ Preparing…';
+  }
+  try {
+    if (!window.PortalLinkHelpers) {
+      if (typeof showToast === 'function') showToast('Portal helpers not loaded', 'error');
+      return;
+    }
+    await window.PortalLinkHelpers.emailForLead(window._currentLead || { id: window._customerId });
   } finally {
     if (button) {
       button.disabled = false;
