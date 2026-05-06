@@ -2485,6 +2485,35 @@ function hideSlowLoadHint() {
   if (el) el.remove();
 }
 
+// Wave 11 (2026-05-05): consume the handoff stashed by dashboard.html
+// before navigation. If we have it, we can skip the initial Firestore
+// getDoc entirely and render the page from already-loaded data —
+// eliminating the iOS Safari cold-start hang. The handoff is age-
+// limited (5 minutes) so a stale tab doesn't render ancient data.
+function _readLeadHandoff(id) {
+  try {
+    const raw = sessionStorage.getItem('nbd_lead_handoff_' + id);
+    if (!raw) return null;
+    sessionStorage.removeItem('nbd_lead_handoff_' + id); // one-shot
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.lead) return null;
+    if (typeof parsed.stashedAt === 'number' && Date.now() - parsed.stashedAt > 5 * 60 * 1000) {
+      return null; // too old; fall back to Firestore
+    }
+    // Rehydrate Timestamp markers we serialized as { __ts: ms }.
+    const out = { id };
+    for (const k of Object.keys(parsed.lead)) {
+      const v = parsed.lead[k];
+      if (v && typeof v === 'object' && typeof v.__ts === 'number') {
+        out[k] = { toMillis: () => v.__ts, seconds: Math.floor(v.__ts / 1000) };
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  } catch (e) { return null; }
+}
+
 async function loadCustomerData(id) {
   try {
     // CRITICAL: Set global customerId FIRST so all sub-loaders have it
@@ -2493,14 +2522,26 @@ async function loadCustomerData(id) {
     // Track recently viewed
     trackRecentlyViewed(id);
 
-    // Load customer (lead) data
-    const leadSnap = await getDoc(doc(db, 'leads', id));
-    if (!leadSnap.exists()) {
-      showError('Customer not found', 'The customer you\'re looking for doesn\'t exist or has been deleted.');
-      return;
+    // Wave 11: try the in-memory handoff first. If present, skip the
+    // initial Firestore round-trip — the page renders instantly from
+    // dashboard's already-loaded copy. We still kick a background
+    // revalidate after the rest of the page is wired up so any stale
+    // fields catch up.
+    const handoff = _readLeadHandoff(id);
+    let lead;
+    if (handoff) {
+      console.log('[customer] hydrating from handoff cache (instant render)');
+      lead = handoff;
+    } else {
+      // Cold path: fetch from Firestore.
+      const leadSnap = await getDoc(doc(db, 'leads', id));
+      if (!leadSnap.exists()) {
+        showError('Customer not found', 'The customer you\'re looking for doesn\'t exist or has been deleted.');
+        return;
+      }
+      lead = { id: leadSnap.id, ...leadSnap.data() };
     }
 
-    const lead = { id: leadSnap.id, ...leadSnap.data() };
 
     // CRITICAL: Populate window._leads so external modules can find this lead
     window._leads = [lead];

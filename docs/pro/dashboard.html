@@ -15942,22 +15942,52 @@ function closeCardDetailModal() {
 }
 window.closeCardDetailModal = closeCardDetailModal;
 
+// Wave 11 (2026-05-05): hand off the in-memory lead to customer.html
+// via sessionStorage so the customer page can render instantly from the
+// already-loaded data instead of doing a cold Firestore round-trip.
+// This eliminates the "data doesn't load even when leads loaded in
+// kanban" failure mode on iOS Safari, where the second page load's
+// Firestore connection sometimes hangs.
+function _stashLeadForCustomerPage(leadId) {
+  try {
+    if (!leadId || !Array.isArray(window._leads)) return;
+    const lead = window._leads.find(l => l && l.id === leadId);
+    if (!lead) return;
+    // Strip non-serializable Firestore Timestamp objects — convert to
+    // plain millis so JSON.stringify doesn't choke.
+    const safe = {};
+    for (const k of Object.keys(lead)) {
+      const v = lead[k];
+      if (v && typeof v === 'object' && typeof v.toMillis === 'function') {
+        safe[k] = { __ts: v.toMillis() };
+      } else {
+        safe[k] = v;
+      }
+    }
+    sessionStorage.setItem('nbd_lead_handoff_' + leadId, JSON.stringify({
+      lead: safe,
+      stashedAt: Date.now()
+    }));
+  } catch (e) { /* sessionStorage unavailable — no-op */ }
+}
+
 function openPhotosForLead() {
   if (!window._cardDetailLeadId) return;
-  // Navigate to customer detail page which shows photos
+  _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#photos`;
 }
 window.openPhotosForLead = openPhotosForLead;
 
 function openDocsForLead() {
   if (!window._cardDetailLeadId) return;
-  // Navigate to customer detail page which shows documents
+  _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#documents`;
 }
 window.openDocsForLead = openDocsForLead;
 
 function openFullCustomerDetails() {
   if (!window._cardDetailLeadId) return;
+  _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
 }
 window.openFullCustomerDetails = openFullCustomerDetails;
