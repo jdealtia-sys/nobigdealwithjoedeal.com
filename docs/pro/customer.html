@@ -893,6 +893,11 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="meta-item">
         <span class="stage-badge" id="customerStage">New</span>
         <span id="daysInStageBadge" style="display:none;font-size:11px;color:var(--m);font-weight:600;background:var(--s);border:1px solid var(--br);padding:3px 9px;border-radius:12px;letter-spacing:.02em;" title="How long this lead has been at the current stage"></span>
+        <!-- Wave 52: last-shared chip mirrors the W44 kanban badge
+             so the rep sees the same "📤 SMS 3d ago" cue on
+             both surfaces. Hidden until lastSharedAt is set; the
+             module updates it on data refresh + after each share. -->
+        <span id="lastSharedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(155,109,255,0.14);color:#cab8ff;border:1px solid rgba(155,109,255,0.45);"></span>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
@@ -6878,6 +6883,9 @@ document.addEventListener('DOMContentLoaded', function() {
      dashboard. Loading on customer.html so _resolvePortalUrl can
      delegate to the shared module without a fallback. -->
 <script defer src="js/portal-link-helpers.js?v=1"></script>
+<!-- Wave 52: last-shared chip in the customer header. Mirrors the
+     W44 kanban badge so both surfaces show the same cue. -->
+<script defer src="js/customer-last-shared-chip.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
