@@ -277,7 +277,7 @@
                 padding:3px 10px; font: inherit; font-size:11px; font-weight:600;
                 cursor:pointer; -webkit-tap-highlight-color:transparent;
                 transition:background .12s, color .12s, border-color .12s;">
-                ${escapeHtml(c.label)} <span style="opacity:0.6; margin-left:2px;">${c.count}</span>
+                ${escapeHtml(c.label)} <span style="opacity:0.6; margin-left:2px;">${escapeHtml(String(c.count))}</span>
               </button>`;
             }).join('')}
           </div>`;
