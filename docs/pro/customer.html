@@ -871,6 +871,25 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 }
 .quick-contact-btn:hover { background:var(--ob); }
 
+/* Wave 81: touch target audit. Customer page hosts the W72
+   sibling-snooze chip (small inline button) plus header chips
+   that are non-interactive. On touch devices the W72 chip needs
+   a minimum 36x36 hit area so reps don't fat-finger it. Also
+   neutralize any transform-on-hover ghosting that lingers after
+   tap on iOS. */
+@media (hover: none) {
+  *:hover { transform: none !important; }
+  /* W72 sibling-snooze chip lives in #customerIdBadge — bump its
+     hit area without changing its visual weight (the chip stays
+     visually compact via the natural padding from its inline
+     style; min-height grows the touch zone). */
+  #siblingSnoozeChip {
+    min-height: 32px !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
 </style>
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/customer">
 <link rel="stylesheet" href="css/photo-editor.css?v=3">

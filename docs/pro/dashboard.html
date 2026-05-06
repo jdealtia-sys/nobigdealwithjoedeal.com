@@ -3349,6 +3349,34 @@ body:has(#view-prospects.active) .breadcrumb-container{
      scale() for their hover lift \u2014 those all get neutralized by
      the rule above. Color / border / shadow changes are left
      alone because they're cheap and don't create stuck ghosts. */
+
+  /* Wave 81: touch target audit. Inline action buttons added in
+     W46-W79 (the 📞/💬/📧/🔍/💤/⏰ vocabulary) sized themselves
+     at 22-30px which works on desktop but is below the iOS HIG
+     and WCAG 2.5.5 minimum (44x44 recommended, 32x32 floor). On
+     touch devices we bump them all to 36x36 minimum so reps
+     hitting them on a phone don't fat-finger an adjacent row.
+     Inline-style width/height get overridden via attribute
+     selectors so we don't have to edit each button site. */
+  .cmd-action,
+  .hl-action,
+  .at-action,
+  .ss-action,
+  .rc-action,
+  .notif-action,
+  .af-action {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    /* Bump font-size proportionally so the icon doesn't look
+       lost in the larger box. */
+    font-size: 14px !important;
+  }
+  /* The 22px rc-action buttons in the recent dropdown (W53/W62/W67)
+     started smallest — round them slightly more so the bigger
+     touch target still looks deliberate. */
+  .rc-action {
+    border-radius: 6px !important;
+  }
 }
 /* ══ END HOVER NEUTRALIZATION ══ */
 
