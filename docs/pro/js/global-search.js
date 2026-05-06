@@ -210,6 +210,45 @@
             onmouseout="this.style.transform=''"
           >📧</button>`);
       }
+      // Wave 61: Cmd+K direct snooze action. Sits next to the
+      // share trio. State-aware label like the W26 kanban context
+      // menu — snoozed leads get an "Unsnooze" affordance, fresh
+      // leads get the snooze prompt. Available even when the
+      // lead has no contact info (snoozing doesn't need it).
+      if (window.LeadSnooze) {
+        const isSnoozed = window.LeadSnooze.isSnoozed(l);
+        if (isSnoozed) {
+          buttons.push(`
+            <button class="cmd-action" type="button"
+              data-action="unsnooze" data-lead-id="${escapeHtml(l.id)}"
+              title="Unsnooze (was until ${escapeHtml(window.LeadSnooze.formatSnoozeLabel(window.LeadSnooze.snoozedUntilDate(l)))})"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:24px; height:24px; border-radius:5px;
+                background:rgba(155,109,255,0.14); color:#cab8ff;
+                border:none; font-size:11px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onmouseover="this.style.transform='scale(1.10)'"
+              onmouseout="this.style.transform=''"
+            >⏰</button>`);
+        } else {
+          buttons.push(`
+            <button class="cmd-action" type="button"
+              data-action="snooze" data-lead-id="${escapeHtml(l.id)}"
+              title="Snooze this lead"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:24px; height:24px; border-radius:5px;
+                background:rgba(155,109,255,0.10); color:#a890e8;
+                border:none; font-size:11px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onmouseover="this.style.transform='scale(1.10)'"
+              onmouseout="this.style.transform=''"
+            >💤</button>`);
+        }
+      }
       if (buttons.length === 0) return '';
       return `<div style="display:flex; gap:3px; flex-shrink:0; align-items:center; margin-right:6px;">${buttons.join('')}</div>`;
     };
@@ -276,12 +315,34 @@
         if (!lead) return;
         if (action === 'sms' && window.PortalLinkHelpers) {
           window.PortalLinkHelpers.smsForLead(lead);
+          closePalette();
         } else if (action === 'email' && window.PortalLinkHelpers) {
           window.PortalLinkHelpers.emailForLead(lead);
+          closePalette();
+        } else if (action === 'snooze' && window.LeadSnooze) {
+          // Wave 61: snooze action opens the existing W35 preset
+          // modal on top of the palette (modal z-index > palette
+          // z-index). Leave the palette open underneath so when
+          // the rep dismisses the snooze modal they can keep
+          // searching where they left off.
+          const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+          window.LeadSnooze.prompt(lead.id, fullName);
+        } else if (action === 'unsnooze' && window.LeadSnooze) {
+          // Wave 61: unsnooze fires immediately + re-renders the
+          // palette so the button flips back to 💤 in place. No
+          // need to close the palette — rep can verify the
+          // unsnooze + keep working.
+          window.LeadSnooze.promptUnsnooze(lead.id).then(() => {
+            // Re-render so the button toggles state.
+            const inputEl = document.getElementById('cmdInput');
+            if (inputEl) renderResults(inputEl.value || '');
+          });
         }
-        // Close the palette so the rep can see whatever surface
-        // the action handed off to (SMS composer, mail client).
-        closePalette();
+        // For 'call' (native tel: anchor) the click handler isn't
+        // hit since the <a> handles default. closePalette is
+        // suppressed for snooze/unsnooze paths above so we don't
+        // disrupt the rep's flow with a snooze modal sitting on
+        // top of a closing palette.
       });
     });
 
