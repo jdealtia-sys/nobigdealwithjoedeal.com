@@ -683,6 +683,52 @@ function buildCard(l){
     lastSharedBadge = `<span class="kc-tag${freshClass}" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
   })();
 
+  // ── Wave 58: customer-engagement indicator ──
+  // Companion to the W44 share badge. Where W44 says "I sent it",
+  // this badge says "they OPENED it" — by far the strongest buying
+  // signal short of a signature. Pulls from window._estimates:
+  // surfaces the latest viewedAt across the lead's estimates that
+  // haven't been responded to.
+  //
+  // Skipped when: any estimate already responded to (signed /
+  // declined / replied — the customer's already past the
+  // viewing-but-uncommitted state); lead is in a terminal stage;
+  // no viewed estimate exists.
+  let viewedBadge = '';
+  (function buildViewedBadge() {
+    const estimates = Array.isArray(window._estimates) ? window._estimates : [];
+    if (estimates.length === 0) return;
+    const sk = (l._stageKey || l.stage || 'new').toString();
+    if (sk === 'closed' || sk === 'lost' || sk === 'Lost' || sk === 'Complete') return;
+
+    let latestViewMs = 0;
+    let anyResponded = false;
+    for (const e of estimates) {
+      if (!e || e.leadId !== l.id) continue;
+      if (e.respondedAt) { anyResponded = true; break; }
+      let ms2 = 0;
+      const v = e.viewedAt;
+      if (v && typeof v.toMillis === 'function')      ms2 = v.toMillis();
+      else if (v && typeof v.toDate === 'function')   ms2 = v.toDate().getTime();
+      else if (v instanceof Date)                     ms2 = v.getTime();
+      else if (typeof v === 'number')                 ms2 = v;
+      if (ms2 > latestViewMs) latestViewMs = ms2;
+    }
+    if (anyResponded || latestViewMs === 0) return;
+
+    const days = Math.floor((Date.now() - latestViewMs) / 86400000);
+    let label;
+    if (days <= 0)      label = 'today';
+    else if (days === 1) label = 'yesterday';
+    else if (days < 7)   label = `${days}d ago`;
+    else if (days < 30)  label = `${Math.floor(days / 7)}w ago`;
+    else                 label = `${Math.floor(days / 30)}mo ago`;
+    const ageMs2 = Date.now() - latestViewMs;
+    const isFreshView = ageMs2 >= 0 && ageMs2 < 24 * 60 * 60 * 1000;
+    const freshClass2 = isFreshView ? ' kc-viewed-fresh' : '';
+    viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:#5eead4;border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
+  })();
+
   // Photo thumbnails (from cache). Click behavior is wired via data-* +
   // delegated event listener in wireKanbanCardListeners(), so attacker-
   // controlled fields like `l.address` can never break out of an onclick
@@ -758,6 +804,7 @@ function buildCard(l){
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
       ${lastSharedBadge}
+      ${viewedBadge}
     </div>
     <div class="kc-footer">
       <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>
