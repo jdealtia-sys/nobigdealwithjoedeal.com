@@ -586,6 +586,11 @@
             calPrev.style.display = 'none';
           }
         }
+        // Wave 16: prime the digest opt-in checkbox from the user
+        // doc. Default ON when the field is missing or true; only OFF
+        // when explicitly false.
+        const digestEl = document.getElementById('settingsWeeklyDigest');
+        if (digestEl) digestEl.checked = d.weeklyDigestEnabled !== false;
       }
     } catch (e) { /* silent — rules may deny during bootstrap */ }
     // Seed demo data first if this is the demo account, then load normally
@@ -1980,6 +1985,11 @@
     const rawCal = (document.getElementById('settingsCalcom')?.value || '').trim();
     const calcomUsername = rawCal.replace(/^@+/, '').replace(/\/+$/,'')
                                  .toLowerCase().slice(0, 60) || null;
+    // Wave 16: weekly digest opt-in/out. Stored as a boolean so the
+    // weeklyDigest cron's `=== false` check works as expected (default
+    // is "send" if the field is missing or true).
+    const digestEl = document.getElementById('settingsWeeklyDigest');
+    const weeklyDigestEnabled = digestEl ? !!digestEl.checked : true;
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
@@ -1987,7 +1997,8 @@
       if (window.db && window.doc && window.setDoc) {
         await window.setDoc(window.doc(window.db, 'users', window._user.uid), {
           displayName: name,
-          calcomUsername
+          calcomUsername,
+          weeklyDigestEnabled
         }, { merge: true });
       }
       // Refresh the in-memory rep shadow so the next booking SMS
@@ -10286,6 +10297,22 @@ function switchScTab(tab, btn) {
                   oninput="(function(el){var v=(el.value||'').trim().replace(/^@+/,'').replace(/\/+$/,'').toLowerCase();var p=document.getElementById('settingsCalcomPreview');if(p){p.textContent=v?('https://cal.com/'+v):'';p.style.display=v?'':'none';}})(this)">
                 <a id="settingsCalcomPreview" target="_blank" rel="noopener"
                    style="display:none;font-size:11px;color:var(--orange);margin-top:4px;word-break:break-all;text-decoration:none;"></a>
+              </div>
+            </div>
+            <!-- Wave 16: weekly digest opt-in/out. Default ON for new
+                 users; this toggle just persists the override. -->
+            <div class="sf-row" style="margin-top:6px;">
+              <div class="sf" style="flex:1;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
+                  <input type="checkbox" id="settingsWeeklyDigest" checked
+                    style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
+                  <span>
+                    Send me the weekly digest
+                    <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
+                      Monday morning recap of new leads, wins, and pipeline value
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
             <button class="btn btn-orange" onclick="window._saveSettings()" style="margin-top:4px;">💾 Save Profile</button>

@@ -3157,6 +3157,19 @@ exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
 exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
 
 // ═══════════════════════════════════════════════════════════════
+// WEEKLY DIGEST EMAIL — Wave 16
+// ═══════════════════════════════════════════════════════════════
+// Scheduled Mon 7am ET. Sends each rep a recap of the previous 7
+// days (new leads, won deals + revenue, lost deals, active pipeline,
+// top 5 new leads). Per-user opt-out via users/{uid}.
+// weeklyDigestEnabled === false. E2E test accounts always skipped.
+//
+// Ships DRY-RUN by default. Set WEEKLY_DIGEST_ENABLED=true on the
+// weeklyDigest Cloud Run revision to go live.
+const weeklyDigest = require('./weekly-digest');
+exports.weeklyDigest = weeklyDigest.weeklyDigest;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //
