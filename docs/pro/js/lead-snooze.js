@@ -266,7 +266,7 @@
     'Other',
   ];
 
-  function openSnoozeModal(leadId, leadNameHint) {
+  function openSnoozeModal(leadId, leadNameHint, preselectedReason) {
     closeSnoozeModal();
     const overlay = document.createElement('div');
     overlay.id = 'nbd-snooze-overlay';
@@ -383,7 +383,12 @@
 
     // W73: reason chip selection state. Single-select; clicking a
     // selected chip toggles it off so the rep can clear the reason.
-    let selectedReason = null;
+    // W84: preselectedReason support — when the modal is reopened
+    // by a ⭐ pin click (W78), thread the previously-selected reason
+    // back in so the rep doesn't lose their categorization choice.
+    let selectedReason = (typeof preselectedReason === 'string' && preselectedReason)
+      ? preselectedReason
+      : null;
     function refreshReasonChips() {
       overlay.querySelectorAll('[data-reason]').forEach(c => {
         const isSel = c.getAttribute('data-reason') === selectedReason;
@@ -392,6 +397,8 @@
         c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
       });
     }
+    // Apply initial styling so a preselected reason starts highlighted.
+    if (selectedReason) refreshReasonChips();
     overlay.querySelectorAll('[data-reason]').forEach(c => {
       c.addEventListener('click', () => {
         const r = c.getAttribute('data-reason');
@@ -421,11 +428,14 @@
         const cur = getDefaultPresetLabel();
         setDefaultPresetLabel(cur === label ? null : label);
         _toast(cur === label ? 'Default cleared' : `Default: ${label}`, 'info');
-        // Re-open the modal to refresh state — preserves leadId +
-        // hint, drops any unsaved reason selection (acceptable
-        // tradeoff for the simpler implementation).
+        // W84: re-open the modal to refresh state, threading
+        // selectedReason through so the rep doesn't lose their
+        // categorization choice on pin click. Previously the
+        // reopen lost the selection — real friction for reps
+        // who picked "Insurance", changed mind on the preset,
+        // pinned, then had to re-pick "Insurance".
         closeSnoozeModal();
-        openSnoozeModal(leadId, leadNameHint);
+        openSnoozeModal(leadId, leadNameHint, selectedReason);
       });
     });
     overlay.querySelector('#nbd-snooze-custom-go').addEventListener('click', async () => {
@@ -475,7 +485,7 @@
   // Wave 37: lets the rep select N kanban cards via the existing
   // bulk toolbar and snooze them all to the same date in one batch
   // commit. Real "snooze all my fall leads till spring" workflow.
-  function openBulkSnoozeModal(leadIds) {
+  function openBulkSnoozeModal(leadIds, preselectedReason) {
     closeSnoozeModal();
     if (!Array.isArray(leadIds) || leadIds.length === 0) {
       _toast('No leads selected', 'error');
@@ -595,7 +605,10 @@
 
     // W73: reason chip selection state for the bulk modal. Same
     // single-select pattern as the per-lead modal above.
-    let bulkSelectedReason = null;
+    // W84: preselectedReason support for pin-click reopens.
+    let bulkSelectedReason = (typeof preselectedReason === 'string' && preselectedReason)
+      ? preselectedReason
+      : null;
     function refreshBulkReasonChips() {
       overlay.querySelectorAll('[data-reason]').forEach(c => {
         const isSel = c.getAttribute('data-reason') === bulkSelectedReason;
@@ -604,6 +617,7 @@
         c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
       });
     }
+    if (bulkSelectedReason) refreshBulkReasonChips();
     overlay.querySelectorAll('[data-reason]').forEach(c => {
       c.addEventListener('click', () => {
         const r = c.getAttribute('data-reason');
@@ -632,10 +646,10 @@
         const cur = getDefaultPresetLabel();
         setDefaultPresetLabel(cur === label ? null : label);
         _toast(cur === label ? 'Default cleared' : `Default: ${label}`, 'info');
-        // Re-open the bulk modal so the reorder + ⭐/☆ swap is
-        // single-source from the rendered HTML. Preserves leadIds.
+        // W84: preserve bulkSelectedReason on reopen so the rep
+        // doesn't re-pick after pinning.
         closeSnoozeModal();
-        openBulkSnoozeModal(leadIds);
+        openBulkSnoozeModal(leadIds, bulkSelectedReason);
       });
     });
     overlay.querySelector('#nbd-bulk-snooze-custom-go').addEventListener('click', async () => {
