@@ -6,6 +6,25 @@
 (function(){
 'use strict';
 
+// Wave 102: HIGH XSS fix. Every widget that renders lead names /
+// addresses / stages was interpolating Firestore strings directly
+// into innerHTML with NO escaping. crm.js had its own escHtml from
+// day one; widgets.js was the asymmetric oversight (same shape as
+// the W86 portal XSS — a sister surface that DID escape, vs one
+// that didn't). A lead with name = '<img src=x onerror="...">'
+// would execute on every dashboard render of every rep in the
+// company. Threat model: any company-internal authenticated user
+// can inject persistent XSS into every coworker's dashboard.
+//
+// Fix: define esc() at module scope and wrap every user-controlled
+// field interpolation. Caught by code-reviewer agent run after the
+// W100 milestone.
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 // ── WIDGET REGISTRY ─────────────────────────────────────────────
 const WIDGETS = [
 
@@ -47,8 +66,8 @@ const WIDGETS = [
       if(!leads.length) { el.innerHTML = '<div class="w-empty">No hot leads right now</div>'; return; }
       el.innerHTML = leads.map(l => `
         <div class="w-lead-row" onclick="if(window.goTo){goTo('crm')}">
-          <div class="w-lead-name">${l.name || l.address || 'Unknown'}</div>
-          <div class="w-lead-stage" style="color:${l.stage==='Contacted'?'#A855F7':l.stage==='Est. Sent'?'#F97316':'var(--m)'}">${l.stage}</div>
+          <div class="w-lead-name">${esc(l.name || l.address || 'Unknown')}</div>
+          <div class="w-lead-stage" style="color:${l.stage==='Contacted'?'#A855F7':l.stage==='Est. Sent'?'#F97316':'var(--m)'}">${esc(l.stage)}</div>
         </div>`).join('');
     }},
 
@@ -119,8 +138,8 @@ const WIDGETS = [
         return `<div class="w-activity-row">
           <div class="w-activity-dot" style="background:${l.stage==='Won'?'var(--green)':l.stage==='Lost'?'#EF4444':'var(--orange)'}"></div>
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:11px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name||l.address||'Lead'}</div>
-            <div style="font-size:10px;color:var(--m);">${l.stage} • ${ago}</div>
+            <div style="font-weight:600;font-size:11px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name||l.address||'Lead')}</div>
+            <div style="font-size:10px;color:var(--m);">${esc(l.stage)} • ${esc(ago)}</div>
           </div>
         </div>`;
       }).join('');
@@ -138,7 +157,7 @@ const WIDGETS = [
       el.innerHTML = `<div style="font-size:10px;color:var(--red);margin-bottom:6px;font-weight:700;">${stale.length} leads need attention</div>` +
         stale.map(l => {
           const days = Math.floor((now - _toMs(l.updatedAt||l.createdAt)) / 86400000);
-          return `<div class="w-lead-row"><div class="w-lead-name">${l.name||l.address||'Lead'}</div><div style="color:var(--red);font-size:10px;">${days > 0 ? days+'d ago' : 'today'}</div></div>`;
+          return `<div class="w-lead-row"><div class="w-lead-name">${esc(l.name||l.address||'Lead')}</div><div style="color:var(--red);font-size:10px;">${days > 0 ? days+'d ago' : 'today'}</div></div>`;
         }).join('');
     }},
 
@@ -152,7 +171,7 @@ const WIDGETS = [
           <span style="font-size:11px;color:var(--green);font-weight:700;">$${total>=1000?(total/1000).toFixed(1)+'k':total.toFixed(0)} closeable</span>
         </div>` +
         leads.slice(0,4).map(l => `<div class="w-lead-row">
-          <div class="w-lead-name">${l.name||l.address||'Lead'}</div>
+          <div class="w-lead-name">${esc(l.name||l.address||'Lead')}</div>
           <div style="color:var(--orange);font-size:10px;font-weight:700;">$${parseFloat(l.estValue||l.value||0).toLocaleString()}</div>
         </div>`).join('');
     }},
@@ -310,7 +329,7 @@ const WIDGETS = [
       if(!ests.length) { el.innerHTML = '<div class="w-empty">No estimates yet</div>'; return; }
       el.innerHTML = ests.map(e => `
         <div class="w-lead-row" onclick="goTo('est')">
-          <div class="w-lead-name">${e.address || e.addr || 'Estimate'}</div>
+          <div class="w-lead-name">${esc(e.address || e.addr || 'Estimate')}</div>
           <div style="font-size:10px;color:var(--orange);font-weight:700;">${e.total ? '$'+parseFloat(e.total).toLocaleString() : '—'}</div>
         </div>`).join('');
     }},
