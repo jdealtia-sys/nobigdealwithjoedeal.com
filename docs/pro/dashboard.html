@@ -16069,6 +16069,8 @@ function _stashLeadForCustomerPage(leadId) {
     }));
   } catch (e) { /* sessionStorage unavailable — no-op */ }
 }
+// Wave 18: expose so global-search.js can stash before navigating.
+window._stashLeadForCustomerPage = _stashLeadForCustomerPage;
 
 function openPhotosForLead() {
   if (!window._cardDetailLeadId) return;
@@ -16487,6 +16489,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
+<script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
