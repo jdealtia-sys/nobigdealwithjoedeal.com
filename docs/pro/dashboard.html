@@ -10380,6 +10380,33 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
+        <!-- Wave 21: data export. Lets reps grab their leads + estimates
+             as CSV at any time — escape hatch + spreadsheet bridge.
+             Operates against in-memory caches so it's instant + offline-
+             tolerant. -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr">
+            <div><div class="panel-label">Data</div><div class="panel-title">Export &amp; Backup</div></div>
+          </div>
+          <div class="panel-body">
+            <div style="font-size:12px; color:var(--m); line-height:1.5; margin-bottom:14px;">
+              Download a copy of your CRM data as CSV. Open in Excel, Numbers, or Google Sheets. Exports use the data currently loaded in this tab.
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-orange" onclick="window.exportLeadsCsv && window.exportLeadsCsv()"
+                style="display:inline-flex; align-items:center; gap:8px;">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="15" width="14" height="2.5" rx="1"/></svg>
+                Export Leads (CSV)
+              </button>
+              <button type="button" class="btn btn-ghost" onclick="window.exportEstimatesCsv && window.exportEstimatesCsv()"
+                style="display:inline-flex; align-items:center; gap:8px;">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="15" width="14" height="2.5" rx="1"/></svg>
+                Export Estimates (CSV)
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">Pipeline Preferences</div></div></div>
           <div class="panel-body">
@@ -16510,6 +16537,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/bottleneck-widget.js?v=1"></script>
 <script defer src="js/pwa-install-nudge.js?v=1"></script>
+<script defer src="js/data-export.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
