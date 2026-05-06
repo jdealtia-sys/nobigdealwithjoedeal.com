@@ -294,3 +294,151 @@ A few patterns that recurred:
   on success, which patches `window._leads` + `window._currentLead`
   in memory and fires a fire-and-forget Firestore `updateDoc`. No
   caller has to remember to track; it just happens.
+
+---
+
+# Third push — Waves 51-60
+
+The first 30 waves built the foundation. The second 20 went deeper
+through three arcs (share trio, snooze system, see-+-act pattern).
+The third 10 finished what the second push started + opened a new
+front on customer engagement signals.
+
+The big arcs:
+
+1. **Share-trio universality completion** (W51, W53) — every
+   priority-ish surface in the app now offers inline 📞/💬/📧.
+2. **Recovery sibling for Almost There** (W54, W55) — Stale
+   Shares as both a kanban filter and a dashboard widget,
+   covering the no-engagement-yet recovery posture.
+3. **Engagement signal pattern** (W56-W59) — portal preview
+   iframe, fresh-share + fresh-view pulses, viewed-chip mirroring
+   on both kanban + customer page.
+
+---
+
+## Share-trio universality completion
+
+After Waves 46-49 introduced inline reshare buttons on the four
+dashboard-home priority surfaces (Hot Leads, Almost There, Bell,
+Activity feed), two more priority-ish surfaces remained without
+the share trio. This push closed both gaps. The 📞/💬/📧
+vocabulary is now everywhere a rep encounters a lead in the app.
+
+| Wave | Surface | PR |
+|---|---|---|
+| **51** | Cmd+K search results — fifth and final priority surface | [#178](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/178) |
+| **53** | Recent-customers dropdown (header 🕒 button) — last priority-ish surface | [#180](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/180) |
+
+The full surface map after W53:
+
+| Surface | Wave introduced |
+|---|---|
+| Customer detail buttons | W40, W41, W43 |
+| Kanban context menu | W42, W43, W56 |
+| Hot Leads widget | W47 |
+| Almost There widget | W46 |
+| Notification bell | W48 |
+| Activity feed | W49 |
+| Cmd+K search | W51 |
+| Recent dropdown | W53 |
+| Stale Shares widget | W55 |
+
+---
+
+## Recovery sibling for Almost There
+
+The dashboard home now has matching recovery widgets covering
+both ends of the customer-engagement spectrum:
+
+| Surface | Wave | Signal | Posture |
+|---|---|---|---|
+| Almost There | W45 | Customer VIEWED, didn't respond | Close-call |
+| **Stale Shares** | **W54-W55** | Customer SENT 5+ days ago, never responded | Re-nudge |
+
+Same `compute()` logic backs both the kanban filter and the home
+widget so they stay in lockstep on match criteria.
+
+| Wave | What | PR |
+|---|---|---|
+| **54** | Stale Shares kanban filter button — header toggle with count badge, mirrors W25 Needs Attention pattern | [#181](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/181) |
+| **55** | Stale Shares dashboard widget — mirrors W45 Almost There shape, top 5 oldest stale shares with inline reshare buttons | [#182](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/182) |
+
+---
+
+## Engagement signal pattern
+
+The W44 share badge says "I sent it." This push added the
+matching customer-side signal — "they OPENED it" — across both
+kanban + customer page, plus a 4th shape to PortalLinkHelpers
+(preview) and pulse animations for fresh activity in the last
+24 hours.
+
+| Wave | What | PR |
+|---|---|---|
+| **56** | Portal preview iframe modal — 4th `PortalLinkHelpers` shape (copy / sms / email / preview), surfaceable from customer page + kanban context menu | [#183](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/183) |
+| **57** | Kanban fresh-share pulse animation — purple `box-shadow` halo on share badges <24h old, respects `prefers-reduced-motion` | [#184](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/184) |
+| **58** | Kanban "👁 viewed today" indicator — green pill on cards when any non-responded estimate has `viewedAt`, with matching fresh-view pulse | [#185](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/185) |
+| **59** | Viewed chip on customer detail header — mirrors W58 → customer page, completes the visual symmetry W52 set up for shares | [#186](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/186) |
+
+Visual symmetry across both surfaces:
+
+| Signal | Kanban card | Customer header |
+|---|---|---|
+| Share | W44 (purple) | W52 (purple) |
+| View | W58 (green) | W59 (green) |
+
+The kanban now tells a complete activity story per lead at a
+glance:
+
+| Combo | Meaning |
+|---|---|
+| No badges | Stagnant |
+| 📤 share only | Waiting on customer |
+| 📤 + 👁 | Engaged, closeable |
+| 📤 old + 👁 fresh | Customer came back |
+
+---
+
+## Architecture notes for the third push
+
+- **Mirroring as a feature design pattern** — kanban surfaces and
+  customer-detail surfaces should show the same signals with the
+  same colors and the same time bucketing. W52 + W59 are the
+  customer-detail counterparts to W44 + W58. Reps switching
+  between surfaces never see different shapes for the same data.
+
+- **Same `compute()` powering multiple surfaces** — W54 + W55
+  share `StaleShares.compute()` so the kanban filter and the
+  dashboard widget can never drift on match criteria. Future
+  recovery filters should follow this pattern rather than
+  re-implementing the predicate per surface.
+
+- **Pulse animations as fading signals, pills as lasting records**
+  — W57 + W58 introduced 24h pulse animations. The pulse decays
+  on its own as time passes; the underlying pill persists. Pulses
+  surface fresh activity passively without requiring the rep to
+  scan timestamps.
+
+- **`prefers-reduced-motion` respected on every animation** —
+  every pulse keyframe in the W57/W58 batch has a corresponding
+  `@media (prefers-reduced-motion: reduce) { animation: none }`
+  override. Animation is signal but never essential.
+
+- **Iframe preview at phone-width (500px max-width)** — W56's
+  modal is intentionally narrow. Most homeowners view the portal
+  on mobile, so the preview should match the actual customer
+  view. Reps catch missing photos / wrong status more reliably
+  in the same proportions the customer sees them.
+
+- **Dashboard-home visual rhythm holds** — six dashboard-home
+  panels (Hot Leads, Almost There, Stale Shares, Bottlenecks,
+  Activity feed, Today's Tasks) each follow the same 3-column
+  row pattern + same panel header style. Adding new widgets
+  (W55) doesn't break the visual cadence.
+
+- **All four `PortalLinkHelpers` shapes share `resolveUrl`** —
+  copy / sms / email / preview each call the same Firestore-
+  first / generate-on-demand resolution path. A change to URL
+  resolution semantics propagates to all four with no separate
+  patches per shape.
