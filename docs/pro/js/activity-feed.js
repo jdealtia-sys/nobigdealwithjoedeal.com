@@ -252,10 +252,19 @@
     // event tied to a lead with phone/email picks up Call/Text/Email
     // affordances inline with the row, so the rep can spot a recent
     // event AND act on it without opening the customer page.
+    // Wave 108: build a leadById Map once per render so the
+    // per-event lookup below is O(1) instead of O(N). Previously
+    // each event called leads.find() — N events × M leads =
+    // O(N×M) per render. With 20 events and 200 leads that's 4000
+    // comparisons per 60-second poll tick. The Map drops it to
+    // O(N + M) which is the input size, not the input × output.
+    const _leadsArr = Array.isArray(window._leads) ? window._leads : [];
+    const _leadById = new Map();
+    for (const l of _leadsArr) { if (l && l.id) _leadById.set(l.id, l); }
+
     function _resharBtnsForEvent(ev) {
       if (!ev || !ev.leadId) return '';
-      const leads = Array.isArray(window._leads) ? window._leads : [];
-      const lead = leads.find(l => l && l.id === ev.leadId);
+      const lead = _leadById.get(ev.leadId);
       if (!lead) return '';
       const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
       const email = String(lead.email || '').trim();
