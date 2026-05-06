@@ -134,11 +134,58 @@
           if (value) subParts.push(value);
           if (lead.damageType) subParts.push(escapeHtml(lead.damageType));
           const sub = subParts.join(' · ');
+
+          // Wave 47: inline reshare buttons (mirrors W46's pattern
+          // on Almost There). Hot Leads stays informational +
+          // actionable in one glance: see who's hot AND tap to call
+          // / text / email without opening detail. Only renders the
+          // buttons that make sense for the lead's contact info.
+          const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
+          const email = String(lead.email || '').trim();
+          const actionButtons = [];
+          if (phoneDigits) {
+            actionButtons.push(`
+              <a class="hl-action" data-action="call" data-lead-id="${escapeHtml(lead.id)}" href="tel:${escapeHtml(phoneDigits)}"
+                title="Call ${escapeHtml(lead.phone)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:28px; height:28px; border-radius:6px;
+                  background:rgba(16,185,129,0.14); color:#10b981;
+                  text-decoration:none; font-size:13px;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">📞</a>`);
+            actionButtons.push(`
+              <button class="hl-action" data-action="sms" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Text portal link to ${escapeHtml(lead.phone)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:28px; height:28px; border-radius:6px;
+                  background:rgba(59,130,246,0.14); color:#3b82f6;
+                  border:none; font-size:13px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">💬</button>`);
+          }
+          if (email) {
+            actionButtons.push(`
+              <button class="hl-action" data-action="email" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Email portal link to ${escapeHtml(email)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:28px; height:28px; border-radius:6px;
+                  background:rgba(139,92,246,0.14); color:#8b5cf6;
+                  border:none; font-size:13px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">📧</button>`);
+          }
+          const actionsHTML = actionButtons.length
+            ? `<div class="hl-actions" style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${actionButtons.join('')}</div>`
+            : '<div style="flex-shrink:0;"></div>';
+
           return `
             <div class="hot-lead-row" data-lead-id="${escapeHtml(lead.id)}"
               style="
-                display:grid; grid-template-columns:auto 1fr auto;
-                gap:12px; align-items:center;
+                display:grid; grid-template-columns:auto 1fr auto auto;
+                gap:10px; align-items:center;
                 padding:10px 12px; border-radius:8px;
                 background:var(--s2,#0f1419); border:1px solid var(--br,#1e2530);
                 cursor:pointer; transition:background .15s;
@@ -164,15 +211,45 @@
                 </div>
               </div>
               <div style="font-size:11px; color:var(--m,#9aa3b2); text-align:right; flex-shrink:0;">
-                <div style="font-size:18px; font-weight:800; color:${color}; line-height:1;">${score}</div>
+                <div style="font-size:16px; font-weight:800; color:${color}; line-height:1;">${score}</div>
                 <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.5px;">score</div>
               </div>
+              ${actionsHTML}
             </div>`;
         }).join('')}
       </div>
       <div style="margin-top:10px; font-size:11px; color:var(--m,#9aa3b2); text-align:center; line-height:1.5;">
-        Scored on damage, value, recency, claim status. Refreshes every 5 min.
+        Scored on damage, value, recency, claim status. Tap the actions to reach out.
       </div>`;
+
+    // Wave 47: inline reshare button handlers. stopPropagation so a
+    // tapped action doesn't ALSO navigate to the customer page.
+    container.querySelectorAll('.hl-action').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-lead-id');
+        if (!id) return;
+        const lead = (Array.isArray(window._leads) ? window._leads : [])
+          .find(l => l && l.id === id);
+        if (!lead) return;
+        if (action === 'sms' && window.PortalLinkHelpers) {
+          ev.preventDefault();
+          window.PortalLinkHelpers.smsForLead(lead);
+        } else if (action === 'email' && window.PortalLinkHelpers) {
+          ev.preventDefault();
+          window.PortalLinkHelpers.emailForLead(lead);
+        }
+        // 'call' is a native tel: link; let the browser default fire.
+      });
+      btn.addEventListener('mouseover', (ev) => {
+        ev.stopPropagation();
+        btn.style.transform = 'scale(1.06)';
+      });
+      btn.addEventListener('mouseout', () => {
+        btn.style.transform = '';
+      });
+    });
 
     // Click → navigate via Wave 11 handoff for instant render.
     container.querySelectorAll('.hot-lead-row').forEach(row => {
