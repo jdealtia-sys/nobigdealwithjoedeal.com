@@ -9870,6 +9870,16 @@ function switchScTab(tab, btn) {
           <span id="snoozedCountBadge"
             style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
+        <!-- Wave 93: sort kanban by engagement tier toggle. When ON,
+             cards within each stage column reorder descending by
+             W91/W92 tier (✅→🔥→👀→📨→🌱). Lets reps see Hot leads
+             at the top of every column for prioritization. -->
+        <button class="btn btn-ghost crm-hdr-btn" id="engagementSortBtn"
+          onclick="window.toggleEngagementSort && window.toggleEngagementSort()"
+          title="Sort each column by engagement tier (Hot first)"
+          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+          🔥 <span class="crm-hdr-btn-label">Hot first</span>
+        </button>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
         <button class="btn btn-orange crm-hdr-btn" onclick="openLeadModal()" title="Add Lead (C)">＋ <span class="crm-hdr-btn-label">Add</span> <span class="kbd-hint">C</span></button>

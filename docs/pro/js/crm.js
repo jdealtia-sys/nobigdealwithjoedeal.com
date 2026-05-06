@@ -481,6 +481,29 @@ function renderLeads(leads, filtered){
       else if (byStage[stageKeys[0]]) byStage[stageKeys[0]].push(l);
     });
 
+    // W93: optional sort within each column by engagement tier
+    // descending. Toggled via the kanban header "🔥 Hot first"
+    // button. Stable sort — leads with the same tier preserve
+    // their original order so the rep sees a consistent shuffle
+    // (Hot leads bubble up, everything else stays put).
+    const _engSort = (typeof localStorage !== 'undefined') &&
+                     (localStorage.getItem('nbd_crm_sort_engagement') === '1');
+    if (_engSort && window.CustomerEngagementScore
+        && typeof window.CustomerEngagementScore.computeTier === 'function') {
+      const allEsts = Array.isArray(window._estimates) ? window._estimates : [];
+      const tierFor = (l) => {
+        const t = window.CustomerEngagementScore.computeTier(l, allEsts);
+        return t ? t.tier : 0;
+      };
+      stageKeys.forEach(k => {
+        // Decorate-sort-undecorate so we don't recompute tier per
+        // comparison (N×log(N) computeTier calls becomes N).
+        const decorated = byStage[k].map((l, i) => ({ l, i, t: tierFor(l) }));
+        decorated.sort((a, b) => (b.t - a.t) || (a.i - b.i));
+        byStage[k] = decorated.map(d => d.l);
+      });
+    }
+
     stageKeys.forEach(stageKey => {
       const body  = document.getElementById('kbody-'+stageKey);
       const count = document.getElementById('kcount-'+stageKey);
@@ -514,6 +537,25 @@ function renderLeads(leads, filtered){
     const STAGES = window.STAGES || ['New','Inspected','Estimate Sent','Approved','In Progress','Complete','Lost'];
     STAGES.forEach(s=>byStage[s]=[]);
     list.forEach(l=>{ const s=l.stage||'New'; if(byStage[s]) byStage[s].push(l); else byStage['New'].push(l); });
+
+    // W93: same engagement-tier sort applied to the legacy path
+    // for full coverage. Same compute + decorate-sort-undecorate
+    // shape as the new-system branch above.
+    const _engSortLegacy = (typeof localStorage !== 'undefined') &&
+                           (localStorage.getItem('nbd_crm_sort_engagement') === '1');
+    if (_engSortLegacy && window.CustomerEngagementScore
+        && typeof window.CustomerEngagementScore.computeTier === 'function') {
+      const allEsts = Array.isArray(window._estimates) ? window._estimates : [];
+      const tierFor = (l) => {
+        const t = window.CustomerEngagementScore.computeTier(l, allEsts);
+        return t ? t.tier : 0;
+      };
+      STAGES.forEach(s => {
+        const decorated = byStage[s].map((l, i) => ({ l, i, t: tierFor(l) }));
+        decorated.sort((a, b) => (b.t - a.t) || (a.i - b.i));
+        byStage[s] = decorated.map(d => d.l);
+      });
+    }
 
     STAGES.forEach(stage=>{
       const body  = document.getElementById('kbody-'+stage);
@@ -2672,6 +2714,43 @@ window.permanentlyDelete = (id) => window._permanentDeleteLead(id);
 // Aliases for dashboard.html references
 window.restoreDeletedLead = (id) => window._restoreLead(id);
 window.permanentDeleteLead = (id) => window._permanentDeleteLead(id);
+
+// Wave 93: sort kanban by engagement tier toggle. localStorage-
+// backed (per-device, like the W37 show-snoozed toggle). When
+// flipped on, renderLeads sorts each stage column descending by
+// W91/W92 engagement tier so Hot leads bubble to the top.
+function toggleEngagementSort() {
+  const cur = localStorage.getItem('nbd_crm_sort_engagement') === '1';
+  const next = !cur;
+  if (next) localStorage.setItem('nbd_crm_sort_engagement', '1');
+  else      localStorage.removeItem('nbd_crm_sort_engagement');
+  updateEngagementSortToggle();
+  if (typeof window.renderLeads === 'function') {
+    try { window.renderLeads(window._leads, window._filteredLeads); } catch (_) {}
+  }
+}
+function updateEngagementSortToggle() {
+  const btn = document.getElementById('engagementSortBtn');
+  if (!btn) return;
+  const on = localStorage.getItem('nbd_crm_sort_engagement') === '1';
+  if (on) {
+    btn.style.background  = 'rgba(251,146,60,0.18)';
+    btn.style.borderColor = '#fb923c';
+    btn.style.color       = '#fb923c';
+  } else {
+    btn.style.background  = '';
+    btn.style.borderColor = '';
+    btn.style.color       = '';
+  }
+}
+window.toggleEngagementSort = toggleEngagementSort;
+window.updateEngagementSortToggle = updateEngagementSortToggle;
+// Initial styling on load.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(updateEngagementSortToggle, 1500));
+} else {
+  setTimeout(updateEngagementSortToggle, 1500);
+}
 
 // ── Booking SMS from Kanban Card ─────────────────────
 // ── Rep booking URL helper ─────────────────────
