@@ -442,3 +442,158 @@ glance:
   first / generate-on-demand resolution path. A change to URL
   resolution semantics propagates to all four with no separate
   patches per shape.
+
+---
+
+# Fourth push — Waves 61-70
+
+The third push shipped the W56 portal preview iframe + W35 lead
+snooze, but only on a couple of surfaces each. The fourth push
+made both **universal**: every list-of-leads or alert surface in
+the rep workflow now exposes the same five-button action row.
+
+The big arcs:
+
+1. **Direct actions in cmd+K + recent dropdown** (W61-W63, W67)
+   — power-user keyboard surfaces get inline snooze + preview so
+   a rep can search, peek, snooze, or send a portal link in two
+   keystrokes without ever leaving the palette.
+2. **Home widget trifecta** (W64-W66) — Hot Leads, Almost There,
+   and Stale Shares all reach feature parity with cmd+K. The
+   home dashboard reads as one consistent triage surface.
+3. **Alert surfaces** (W68-W69) — Notification Bell + Activity
+   Feed gain 🔍 + state-aware 💤/⏰. The rep can preview before
+   responding to a customer-side event and snooze rep-side
+   noise without leaving the alert list.
+
+The unifying outcome: **9 surfaces × 5 buttons** in the same
+order with the same colors and the same modal behaviors.
+
+---
+
+## Universal action row
+
+After Waves 46-49 + 51 + 53 made the share trio (📞 💬 📧)
+universal, the third push (W56) added portal preview but only
+on customer.html + kanban context menu. The W35 snooze system
+similarly covered only the kanban context menu + customer
+detail page. Wave 61-69 finished both at once.
+
+The rule: **every place a rep encounters a lead, the action row
+reads `📞 💬 📧 🔍 💤/⏰`.** Same colors, same positions, same
+modal stacking. Muscle memory transfers across all 9 surfaces.
+
+| Wave | Surface | What landed | PR |
+|---|---|---|---|
+| **61** | Cmd+K palette | State-aware 💤/⏰ snooze button | [#188](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/188) |
+| **62** | Recent-customers dropdown | Mirrors W61 — same snooze button | [#189](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/189) |
+| **63** | Cmd+K palette | 🔍 preview button — chain previews while keeping search context | [#190](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/190) |
+| **64** | Hot Leads widget | 🔍 + 💤 added to W47 share trio — first home widget at parity | [#191](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/191) |
+| **65** | Almost There widget | 🔍 + 💤 — direct mirror of W64 | [#192](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/192) |
+| **66** | Stale Shares widget | 🔍 + 💤 — completes the home dashboard trifecta | [#193](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/193) |
+| **67** | Recent-customers dropdown | 🔍 preview to mirror W63 like W62 mirrored W61 | [#194](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/194) |
+| **68** | Notification Bell | 🔍 + state-aware 💤/⏰ on W48 share rows | [#195](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/195) |
+| **69** | Activity Feed | 🔍 + state-aware 💤/⏰ on W49 share rows | [#196](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/196) |
+| **70** | (this milestone bookend) | WAVES.md update documenting the W61-70 arc | this PR |
+
+Final cross-surface action-row coverage:
+
+| Surface | Action row |
+|---|---|
+| Customer detail buttons | 📞 💬 📧 🔍 (full action bar) |
+| Kanban context menu | 📞 💬 📧 🔍 💤/⏰ |
+| Cmd+K palette | 📞 💬 📧 🔍 💤/⏰ |
+| Recent-customers dropdown | 📞 💬 📧 🔍 💤/⏰ |
+| Hot Leads widget | 📞 💬 📧 🔍 💤 |
+| Almost There widget | 📞 💬 📧 🔍 💤 |
+| Stale Shares widget | 📞 💬 📧 🔍 💤 |
+| Notification Bell | 📞 💬 📧 🔍 💤/⏰ |
+| Activity Feed | 📞 💬 📧 🔍 💤/⏰ |
+
+---
+
+## State-aware vs render-only snooze
+
+The fourth push used two different snooze button policies
+depending on the surface's filtering behavior:
+
+| Surface | Snooze policy | Why |
+|---|---|---|
+| Cmd+K, recent dropdown, kanban context, customer detail | **State-aware** (💤 fresh, ⏰ snoozed) | Always shows lead regardless of snooze state |
+| Hot Leads, Almost There, Stale Shares | **Render-only** (💤 only) | `compute()` filters snoozed leads — the lead never appears in the widget if snoozed |
+| Notification Bell, Activity Feed | **State-aware** | Customer-side alerts/events fire even on snoozed leads (rep-side noise gets suppressed by W39, but customer-side stays) |
+
+This split keeps the policy honest: state-aware where the
+surface might genuinely show a snoozed lead, render-only where
+the snooze itself causes the lead to drop off.
+
+---
+
+## Surface coverage scoreboard at W70
+
+The first ten waves of the fourth push produced these
+counts. Each entry below is a unique surface where the
+corresponding action is reachable inline (button or menu item).
+
+| Action | Surface count | Surfaces |
+|---|---|---|
+| 📞 Call | 9 | All except customer detail (which uses the action bar) |
+| 💬 SMS portal link | 9 | All same as Call |
+| 📧 Email portal link | 9 | All same as Call |
+| 🔍 Portal preview | 9 | customer.html · kanban context · cmd+K · hot-leads · almost-there · stale-shares · recent-dropdown · notif-bell · activity-feed |
+| 💤/⏰ Snooze | 9 | kanban-context · customer-detail · cmd+K · recent-dropdown · hot-leads · almost-there · stale-shares · notif-bell · activity-feed |
+
+---
+
+## Architecture notes for the fourth push
+
+- **Mirroring continues to scale** — W62 mirrored W61 and W67
+  mirrored W63 the way W52 mirrored W44 and W59 mirrored W58.
+  The "every cmd+K change should also land on the recent
+  dropdown" rule held cleanly. Future cmd+K-shaped surfaces
+  should plan for the recent dropdown to follow.
+
+- **Inline onclick vs delegated `addEventListener`** — the
+  fourth push used both depending on what the existing surface
+  already did. Bell rows (W68) used inline `onclick` calling
+  `window.NotifBell._actionPreview('${id}')` because the
+  surrounding W48 code was already inline. Cmd+K (W63) used
+  delegated handlers because W51 already delegated. The lesson:
+  match the surrounding pattern rather than imposing a uniform
+  one — consistency *within* a file is more readable than
+  consistency *across* files.
+
+- **Modal z-index stacking holds at 99997 vs 9999/10000** — the
+  W56 preview modal at z-index 99997 cleanly overlays every
+  surface (cmd+K palette at 10000, dropdowns at 9999, kanban
+  itself at base). The pattern: any new modal sits above 99996;
+  any new dropdown sits at 9999. Don't introduce a third tier.
+
+- **`closeDropdown` flag pattern** — the recent-customers
+  dropdown click handler (W62, W67) added a `closeDropdown`
+  flag that defaults to true but flips to false for snooze /
+  unsnooze / preview. Share actions still close the dropdown
+  (rep wants the SMS composer unobstructed); modal-opening
+  actions keep it open (rep wants context underneath). New
+  inline-action surfaces should adopt this pattern.
+
+- **`render()` after unsnooze for in-place flip** — every
+  state-aware snooze surface (W61, W62, W68, W69) calls a
+  surface-local `render()` (or `renderRecentCustomers()`) after
+  `LeadSnooze.promptUnsnooze()` resolves so the ⏰ → 💤 button
+  flip happens immediately. Waiting for `nbd:data-refreshed`
+  works but feels laggy on touch.
+
+- **Color register held across all surfaces** — share trio uses
+  green/blue/violet (#10b981 / #3b82f6 / #8b5cf6); preview uses
+  amber (#f59e0b); snooze uses purple (#a890e8 fresh, #cab8ff
+  active). These five colors map 1:1 to the five action verbs
+  everywhere they appear. New action verbs should claim a sixth
+  color rather than reusing one of the five.
+
+- **Snooze policy stayed deliberate** — the "state-aware vs
+  render-only" split (table above) made the policy explicit per
+  surface rather than uniform. Future widgets that filter
+  snoozed leads in `compute()` should render the 💤 variant
+  only; future surfaces that always show all leads should go
+  state-aware.
