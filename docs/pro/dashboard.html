@@ -887,6 +887,21 @@
                onmouseout="this.style.transform=''"
              >📧</button>`);
         }
+        // Wave 67: portal preview action — finishes the recent-
+        // dropdown action row to match cmd+K (W63) and the home
+        // widgets (W64/W65/W66). Mirrors W63 like W62 mirrored
+        // W61. Always available, no contact gate. Sits between
+        // share trio and snooze so the row reads "talk / look /
+        // set aside" everywhere it appears.
+        if (window.PortalLinkHelpers
+            && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+          buttons.push(
+            `<button class="rc-action" type="button" data-action="preview" data-lead-id="${e(lead.id)}" title="Preview the portal — see what the customer will see"
+               style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.14);color:#f59e0b;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+               onmouseover="this.style.transform='scale(1.1)'"
+               onmouseout="this.style.transform=''"
+             >🔍</button>`);
+        }
         // Wave 62: state-aware snooze/unsnooze button on the recent
         // dropdown. Mirrors W61 cmd+K — power-user workflow where
         // the rep just looked at a customer and wants to push it
@@ -951,6 +966,15 @@
             window.PortalLinkHelpers.smsForLead(lead);
           } else if (action === 'email' && window.PortalLinkHelpers) {
             window.PortalLinkHelpers.emailForLead(lead);
+          } else if (action === 'preview' && window.PortalLinkHelpers) {
+            // Wave 67: preview opens the W56 iframe modal on top
+            // of the dropdown. Modal z-index 99997 > dropdown
+            // 9999. Don't close the dropdown — when the rep
+            // dismisses the preview they keep their recent-
+            // customers context, useful for chaining previews
+            // across the four most-recent leads.
+            window.PortalLinkHelpers.previewForLead(lead);
+            closeDropdown = false;
           } else if (action === 'snooze' && window.LeadSnooze) {
             // Wave 62: opens the W35 preset modal on top of the
             // dropdown. Modal z-index (99996) > dropdown z-index
