@@ -8737,6 +8737,23 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 45: ALMOST-THERE WIDGET ──────────────────────────────
+           Top 5 leads where the customer viewed an estimate but
+           hasn't responded — highest-intent recoverable signal in
+           the pipeline. Companion to Hot Leads (Wave 29):
+             Hot Leads = "who do I call FIRST?"
+             Almost There = "who almost said YES?"
+           Excludes snoozed leads (Wave 35). ──────────────────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Today</div><div class="panel-title">🎯 Almost There</div></div>
+          <span style="font-size:11px;color:var(--m);">Engaged · uncommitted</span>
+        </div>
+        <div class="panel-body" id="almost-there-body">
+          <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
       <div class="two-col">
         <div class="panel">
           <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
@@ -16674,6 +16691,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/portal-link-helpers.js?v=1"></script>
 <script defer src="js/kanban-context-menu.js?v=1"></script>
 <script defer src="js/hot-leads-widget.js?v=1"></script>
+<script defer src="js/almost-there-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
