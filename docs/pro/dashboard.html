@@ -9018,6 +9018,23 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 115: SMART-FOLLOWUP BRIEFING ─────────────────────────
+           Top 5 next-best-actions for the rep today. Pulls from
+           SmartFollowup.computeSuggestion across the active pipeline,
+           filters to urgent/today + ≥50% confidence, sorts by score.
+           AI-enriches the top 5 in the background (bounded API spend
+           — exactly 5 calls per render, not N).
+           ──────────────────────────────────────────────────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Today</div><div class="panel-title">🎯 Next Best Actions</div></div>
+          <span style="font-size:11px;color:var(--m);">AI-prioritized · top 5</span>
+        </div>
+        <div class="panel-body" id="smart-followup-briefing-body">
+          <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
       <!-- WAVE 45: ALMOST-THERE WIDGET ──────────────────────────────
            Top 5 leads where the customer viewed an estimate but
            hasn't responded — highest-intent recoverable signal in
@@ -17321,6 +17338,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/engagement-cohort-widget.js?v=1"></script>
 <script defer src="js/templates-library.js?v=1"></script>
 <script defer src="js/smart-followup.js?v=1"></script>
+<script defer src="js/smart-followup-briefing.js?v=1"></script>
 <script defer src="js/hot-leads-widget.js?v=1"></script>
 <script defer src="js/almost-there-widget.js?v=1"></script>
 <script defer src="js/stale-shares-widget.js?v=1"></script>
