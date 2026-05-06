@@ -177,6 +177,42 @@
                   -webkit-tap-highlight-color:transparent;
                   transition:background .12s, transform .12s;">📧</button>`);
           }
+          // Wave 64: preview action — always available, no contact
+          // gate. Mirrors W63 cmd+K position (between share trio
+          // and snooze) so the action row reads "talk / look / set
+          // aside" everywhere it appears.
+          if (window.PortalLinkHelpers
+              && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+            actionButtons.push(`
+              <button class="hl-action" data-action="preview" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Preview the portal — see what the customer will see"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:28px; height:28px; border-radius:6px;
+                  background:rgba(245,158,11,0.14); color:#f59e0b;
+                  border:none; font-size:13px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">🔍</button>`);
+          }
+          // Wave 64: snooze action. compute() already filters out
+          // snoozed leads, so this widget only ever shows fresh
+          // ones — render snooze variant only (no unsnooze branch
+          // needed here). Snooze prompts the W35 modal; the widget
+          // re-renders via nbd:data-refreshed after the lead's
+          // snoozedUntil is written, so the snoozed lead disappears
+          // from the list immediately.
+          if (window.LeadSnooze) {
+            actionButtons.push(`
+              <button class="hl-action" data-action="snooze" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Snooze this lead"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:28px; height:28px; border-radius:6px;
+                  background:rgba(155,109,255,0.10); color:#a890e8;
+                  border:none; font-size:13px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">💤</button>`);
+          }
           const actionsHTML = actionButtons.length
             ? `<div class="hl-actions" style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${actionButtons.join('')}</div>`
             : '<div style="flex-shrink:0;"></div>';
@@ -239,6 +275,19 @@
         } else if (action === 'email' && window.PortalLinkHelpers) {
           ev.preventDefault();
           window.PortalLinkHelpers.emailForLead(lead);
+        } else if (action === 'preview' && window.PortalLinkHelpers) {
+          // Wave 64: preview opens the W56 iframe modal. Don't
+          // navigate to the customer page — peek + dismiss should
+          // leave the rep on the dashboard with the widget intact.
+          ev.preventDefault();
+          window.PortalLinkHelpers.previewForLead(lead);
+        } else if (action === 'snooze' && window.LeadSnooze) {
+          // Wave 64: snooze opens the W35 preset modal on top.
+          // After dismiss, nbd:data-refreshed re-renders the widget
+          // and the snoozed lead drops out of compute() naturally.
+          ev.preventDefault();
+          const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+          window.LeadSnooze.prompt(lead.id, fullName);
         }
         // 'call' is a native tel: link; let the browser default fire.
       });
