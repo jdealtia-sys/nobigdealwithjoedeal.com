@@ -254,6 +254,76 @@
                    : n.severity === 'medium' ? '#f59e0b'
                                              : '#9ca3af';
     const opacity = (isDismissedView || isRead(n.id)) ? '0.55' : '1';
+
+    // Wave 48: inline reshare buttons. Mirrors the W46/W47 pattern
+    // from Almost There + Hot Leads: a notification about a lead
+    // with phone/email gets one-tap Call/Text/Email actions next
+    // to the dismiss button. Only renders for leads that exist in
+    // the in-memory cache (otherwise we can't resolve the contact
+    // info). stopPropagation on each so an action click doesn't
+    // ALSO fire the row's _handleClick navigation.
+    let actionButtonsHTML = '';
+    if (n.leadId && Array.isArray(window._leads)) {
+      const lead = window._leads.find(l => l && l.id === n.leadId);
+      if (lead) {
+        const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
+        const email = String(lead.email || '').trim();
+        const buttons = [];
+        if (phoneDigits) {
+          buttons.push(`
+            <a class="notif-action" href="tel:${escapeHtml(phoneDigits)}"
+              title="Call ${escapeHtml(lead.phone)}"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(16,185,129,0.14); color:#10b981;
+                text-decoration:none; font-size:12px;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onclick="event.stopPropagation();"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >📞</a>`);
+          buttons.push(`
+            <button class="notif-action" type="button"
+              title="Text portal link to ${escapeHtml(lead.phone)}"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(59,130,246,0.14); color:#3b82f6;
+                border:none; font-size:12px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onclick="event.stopPropagation(); window.NotifBell._actionSms('${escapeHtml(lead.id)}')"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >💬</button>`);
+        }
+        if (email) {
+          buttons.push(`
+            <button class="notif-action" type="button"
+              title="Email portal link to ${escapeHtml(email)}"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(139,92,246,0.14); color:#8b5cf6;
+                border:none; font-size:12px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onclick="event.stopPropagation(); window.NotifBell._actionEmail('${escapeHtml(lead.id)}')"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >📧</button>`);
+        }
+        if (buttons.length > 0) {
+          actionButtonsHTML = `
+            <div style="display:flex; gap:3px; align-self:center; flex-shrink:0;">
+              ${buttons.join('')}
+            </div>`;
+        }
+      }
+    }
+
     return `
       <div class="notif-item" data-notif-id="${escapeHtml(n.id)}"
         style="
@@ -276,6 +346,7 @@
             ${escapeHtml(n.sub)}
           </div>
         </div>
+        ${actionButtonsHTML}
         <button title="Dismiss"
           style="
             background:transparent; border:none; color:var(--m,#9aa3b2);
@@ -379,6 +450,27 @@
     window.addEventListener('focus', render);
   }
 
+  // Wave 48: bell-row reshare action helpers. Mirrors the W42
+  // PortalLinkHelpers entry points but resolves the lead by id from
+  // the in-memory cache so the inline onclick handlers on the
+  // rendered HTML can fire by id alone.
+  function _actionSms(leadId) {
+    const lead = (Array.isArray(window._leads) ? window._leads : [])
+      .find(l => l && l.id === leadId);
+    if (!lead) return;
+    if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.smsForLead === 'function') {
+      window.PortalLinkHelpers.smsForLead(lead);
+    }
+  }
+  function _actionEmail(leadId) {
+    const lead = (Array.isArray(window._leads) ? window._leads : [])
+      .find(l => l && l.id === leadId);
+    if (!lead) return;
+    if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.emailForLead === 'function') {
+      window.PortalLinkHelpers.emailForLead(lead);
+    }
+  }
+
   // Expose API
   window.NotifBell = {
     __sentinel: 'nbd-notif-bell-v1',
@@ -386,6 +478,8 @@
     getCount: () => buildNotifications().filter(n => !isDismissed(n.id) && !isRead(n.id)).length,
     _handleClick: handleClick,
     _dismiss: dismissOne,
+    _actionSms,
+    _actionEmail,
   };
 
   // Wire the legacy onclick handlers expected by dashboard.html
