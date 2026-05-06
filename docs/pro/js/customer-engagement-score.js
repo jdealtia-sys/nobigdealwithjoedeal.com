@@ -36,8 +36,11 @@
   if (window.CustomerEngagementScore
       && window.CustomerEngagementScore.__sentinel === 'nbd-customer-engagement-score-v1') return;
 
+  // W92: path-gate only the UI render path. computeTier() needs to
+  // be available everywhere so the kanban (W92) and other surfaces
+  // can call it without re-implementing the tier logic.
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  const IS_CUSTOMER_PAGE = /\/pro\/customer\.html$/.test(PATH);
 
   const FRESH_SHARE_MS = 24 * 60 * 60 * 1000; // W57 freshness window
 
@@ -152,9 +155,12 @@
     computeTier,
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  // Only wire the UI render path on the customer page.
+  if (IS_CUSTOMER_PAGE) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
   }
 })();
