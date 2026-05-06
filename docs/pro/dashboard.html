@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=22" as="script">
+<link rel="preload" href="js/crm.js?v=23" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4209,6 +4209,49 @@ input:focus, select:focus, textarea:focus {
   0%, 100% { opacity: .4; }
   50% { opacity: .7; }
 }
+
+/* ── Wave 17: stage-aging visual cues ──
+   The card's left border subtly tints when a lead has been sitting
+   in its current stage for too long. The threshold reflects what
+   field reps actually feel: ≥3 days = warming, ≥7 days = stale,
+   ≥14 days = critical. Terminal stages (closed/lost) skip the
+   treatment in JS so this CSS only activates on still-actionable
+   leads. The aging badge on the right of the card title row gives
+   the rep an exact day count without ambiguity. */
+.k-card-aging-warming  { border-left-color: #fbbf24 !important; }
+.k-card-aging-stale    { border-left-color: #f97316 !important; }
+.k-card-aging-critical {
+  border-left-color: #ef4444 !important;
+  border-left-width: 4px !important;
+}
+.k-card-aging-critical::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: 0; bottom: 0;
+  width: 4px;
+  background: #ef4444;
+  border-radius: 4px 0 0 4px;
+  animation: kCardCriticalPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes kCardCriticalPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.kc-stage-age {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+.kc-stage-age-warming  { background: rgba(251,191,36,0.18); color: #d97706; border: 1px solid rgba(251,191,36,0.45); }
+.kc-stage-age-stale    { background: rgba(249,115,22,0.20); color: #ea580c; border: 1px solid rgba(249,115,22,0.50); }
+.kc-stage-age-critical { background: rgba(239,68,68,0.22);  color: #dc2626; border: 1px solid rgba(239,68,68,0.55); }
 
 /* Card name with gradient underline on hover */
 .kc-name {
@@ -16440,7 +16483,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=22"></script>
+<script defer src="js/crm.js?v=23"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
