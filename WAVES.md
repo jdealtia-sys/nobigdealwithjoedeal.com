@@ -897,3 +897,168 @@ see — every bug there is a real customer experience bug.
   third-party API and gets embedded in an iframe should be
   regex-validated against the expected domain before it
   reaches the client.
+
+---
+
+# Seventh push — Waves 91-100
+
+The sixth push was quality-driven: bug fixes and security
+hardening triggered by code-reviewer audits. The seventh push
+returned to feature work but kept the rigor — small, focused
+waves with strong cross-surface coverage, single sources of
+truth, and graceful upgrade paths from the existing UX.
+
+Two parallel arcs:
+
+1. **Engagement scoring** (W91-W96) — productize the existing
+   W44/W57/W58 share + view + respondedAt signals into a single
+   tier (✅ → 🔥 → 👀 → 📨 → 🌱) and surface it on every
+   list-of-leads + alert + filter surface.
+2. **Message templates library** (W97-W99) — saved canned
+   SMS / email messages with placeholder tokens, picker flow
+   in the send path, and ⭐ default-pin to skip the picker for
+   power users.
+
+Both arcs share a single-source pattern: one compute function
+(`CustomerEngagementScore.computeTier`, `TemplatesLibrary.apply`)
+backs every consumer surface. The waves themselves are mostly
+about wiring — the hard work is making the data flow deterministic
+across N surfaces, not the per-surface UX.
+
+---
+
+## Engagement scoring
+
+The CRM already collected three signals (W44 share, W57/W58
+freshness, W58 viewed, respondedAt) but didn't aggregate them.
+Reps had to mentally combine three separate badges. This arc
+reduces that to a single tier the rep glances at to know whether
+to call THIS lead right now.
+
+The tier ladder (highest signal wins):
+
+| Tier | Label | Trigger | Color |
+|---|---|---|---|
+| 4 | ✅ Responded | Any estimate has `respondedAt` | Gold |
+| 3 | 🔥 Hot | Viewed + (fresh share <24h OR multi-view) | Orange |
+| 2 | 👀 Viewed | Any estimate viewed | Green |
+| 1 | 📨 Sent | Share sent, not yet viewed | Violet |
+| 0 | 🌱 New | No signals | (hidden) |
+
+| Wave | Surface | What landed | PR |
+|---|---|---|---|
+| **91** | Customer detail header | `CustomerEngagementScore.computeTier()` + chip in meta-row next to W52/W59 chips | [#218](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/218) |
+| **92** | Kanban card | Tier badge as kc-tag pill alongside W44 share + W58 viewed pills | [#219](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/219) |
+| **93** | Kanban header | "🔥 Hot first" sort toggle. Each column reorders descending by tier; stable secondary sort by original index | [#220](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/220) |
+| **94** | Dashboard home | Cohort widget — five horizontal bars proportional to tier counts. Excludes terminal stages | [#221](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/221) |
+| **95** | Notification bell | Fresh-view alert (6h window) when a customer opens an estimate. Self-clearing, severity high | [#222](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/222) |
+| **96** | Needs Attention filter | "hot-but-cold" reason — tier ≥ 3 + no rep activity 24h+. Highest-priority signal | [#223](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/223) |
+
+Final cross-surface coverage at W96:
+
+| Surface | What the rep sees |
+|---|---|
+| Customer page | 🔥 Hot chip in header meta-row |
+| Kanban card | 🔥 Hot pill in tag row |
+| Kanban (sort on) | Hot leads at top of every column |
+| Dashboard cohort | Tier distribution at a glance |
+| Notification bell | "🔥 Customer viewing your estimate" within 6h |
+| Needs Attention | Hot-but-cold leads counted in the badge |
+
+---
+
+## Message templates library
+
+Reps were retyping the same follow-up text dozens of times per
+week. The W41/W43 PortalLinkHelpers prefilled bodies were
+fixed strings — no per-rep customization, no variants for
+different stages, no follow-up text patterns. This arc adds
+a per-device template library with a picker flow.
+
+| Wave | What | PR |
+|---|---|---|
+| **97** | `TemplatesLibrary` data layer + management modal — list/get/save/remove/apply/openManager. Seeds 3 defaults (mirrors W41/W43 bodies) so reps get a no-change baseline. Token substitution: `{firstName}`, `{portalUrl}`, `{repName}`, etc. | [#224](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/224) |
+| **98** | `pickAndRender(channel, ctx)` picker integrated into `smsForLead` + `emailForLead`. 0 templates → fallback. 1 template → apply directly (zero friction). 2+ → picker. Cancel aborts send, "Use default" falls through to W41/W43 | [#225](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/225) |
+| **99** | ⭐ default-template pin per channel. Pinned templates skip the picker even with 2+ saved. Single-default-per-channel invariant enforced by `setDefault`. Mirrors the W78 snooze preset pin shape | [#226](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/226) |
+| **100** | (this milestone bookend) | this PR |
+
+The seeded templates reproduce the W41/W43 prefilled bodies
+exactly. Reps with the seeds-only baseline see no behavioral
+change — same text, same composer. Reps who add 2+ templates
+trigger the picker; reps who pin a default skip the picker
+again. **The UX scales with rep usage**: zero waves of
+breaking change for non-adopters, three levels of
+sophistication for power users.
+
+---
+
+## Architecture notes for the seventh push
+
+- **Single compute function = single source of truth across N
+  surfaces** — `CustomerEngagementScore.computeTier` is called
+  from 6 surfaces in the W91-W96 arc and `TemplatesLibrary.apply`
+  is called from 2 entry points in W97-W99. When tier-scoring
+  rules change (e.g., the Hot threshold becomes "viewed within
+  48h" instead of 24h), one edit propagates to every surface.
+  Avoid duplicating compute logic at the consumer layer.
+
+- **Path-gated UI render, ungated compute** — `customer-engagement-score.js`
+  uses `IS_CUSTOMER_PAGE` to gate the chip rendering, but the
+  `computeTier` function is exported regardless of path so other
+  surfaces (kanban, cohort widget, bell, Needs Attention) can
+  call it. Pattern: gate the side effects (DOM render, event
+  listeners) at module init, not the pure functions.
+
+- **Stable secondary sort by original index** — W93's "Hot first"
+  toggle uses decorate-sort-undecorate where the secondary sort
+  key is the lead's pre-sort index. Same-tier leads preserve
+  their input order. The result reads as "Hot leads bubble up;
+  everything else stays put" — much less jarring than a full
+  re-shuffle that disturbs same-tier ordering.
+
+- **Self-clearing time-windowed alerts** — W76 (snooze-expired)
+  and W95 (fresh-view) both use a fixed-duration window (3 days
+  / 6 hours) after which the signal disappears even if the rep
+  doesn't dismiss it. Without the window, the bell would
+  accumulate every alert in history. After the window, longer-
+  lived signals (stale-lead, stale-share) take over so the rep
+  still sees the lead — just at lower priority.
+
+- **Highest-priority "needs attention" reason wins** — W96's
+  `hot-but-cold` check runs BEFORE the existing stale-stage /
+  overdue-task / stale-estimate reasons. A hot-but-cold lead
+  would eventually fire stale-stage too, but the more actionable
+  reason ("this customer just engaged") supersedes the symptomatic
+  one ("this stage is dragging"). Pattern: when a filter has
+  multiple match reasons, name the root cause, not the downstream
+  symptom.
+
+- **Seed defaults that match existing behavior preserve trust** —
+  W97's three seeded templates reproduce the W41/W43 prefilled
+  bodies exactly. Reps who never touch the management UI see
+  zero behavioral change — same SMS body, same email subject.
+  The library is opt-in for variety. New features that add a
+  layer between the user and a familiar flow should default to
+  "no observable difference" until the user explicitly invests.
+
+- **Picker friction scales with collection size** — W98 picks
+  the right behavior based on count: 0 → fallback, 1 → direct,
+  2+ → picker. W99 adds a fourth axis: pinned default → direct
+  even with 2+. Reps with 1 template per channel never see the
+  picker; reps with 5 templates see the picker every time
+  unless they pin a default. The friction grows linearly with
+  the rep's investment in the feature.
+
+- **Single-invariant CRUD methods** — `TemplatesLibrary.setDefault`
+  enforces the single-default-per-channel rule by clearing the
+  flag on every other template of the same channel during the
+  same write. Callers can't accidentally end up with two
+  defaults. Pattern: invariants belong in the API method that
+  could violate them, not in the UI that calls the method.
+
+- **Seven milestones, one consistent shape** — W30, W50, W60,
+  W70, W80, W90, W100. Each milestone has a 3-arc summary, per-
+  wave PR-linked tables, and ~6-8 architecture notes. The shape
+  is now the codebase's standard documentation rhythm — every
+  10 waves of focused work get the same treatment. Repeatable
+  format makes it easier to write and easier to scan later.
