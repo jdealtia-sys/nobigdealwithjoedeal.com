@@ -156,6 +156,15 @@
         if (!id) return;
         const lead = (Array.isArray(window._leads) ? window._leads : []).find(l => l && l.id === id);
         if (!lead) return;
+        // W116: record the action as a positive outcome so the
+        // confidence-adjustment loop learns this rep listens to
+        // this signal pattern.
+        const sug = (window.SmartFollowup && typeof window.SmartFollowup.computeSuggestion === 'function')
+          ? window.SmartFollowup.computeSuggestion(lead) : null;
+        if (window.SmartFollowup && window.SmartFollowup.recordOutcome
+            && (action === 'sms' || action === 'email' || action === 'call')) {
+          window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
+        }
         if (action === 'sms' && window.PortalLinkHelpers) {
           ev.preventDefault();
           window.PortalLinkHelpers.smsForLead(lead);

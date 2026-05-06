@@ -214,16 +214,41 @@
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         const action = btn.getAttribute('data-csf-action');
+        // W116: track outcome before firing so we capture even if
+        // the action navigates away. Use the live suggestion (not
+        // cached) so the signals match what the rep actually saw.
+        const sug = (window.SmartFollowup && typeof window.SmartFollowup.computeSuggestion === 'function')
+          ? window.SmartFollowup.computeSuggestion(lead) : null;
         if (action === 'sms' && window.PortalLinkHelpers
             && typeof window.PortalLinkHelpers.smsForLead === 'function') {
+          if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
+            window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
+          }
           window.PortalLinkHelpers.smsForLead(lead);
         } else if (action === 'email' && window.PortalLinkHelpers
             && typeof window.PortalLinkHelpers.emailForLead === 'function') {
+          if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
+            window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
+          }
           window.PortalLinkHelpers.emailForLead(lead);
         } else if (action === 'dismiss') {
+          if (window.SmartFollowup && window.SmartFollowup.recordOutcome) {
+            window.SmartFollowup.recordOutcome(lead.id, 'dismissed', sug);
+          }
           _dismissedThisSession.add(lead.id);
           update();
         }
+      });
+    });
+    // W116: also record the call action when the rep clicks the
+    // tel: anchor — captures the most-frequent action type in
+    // the field.
+    host.querySelectorAll('a[href^="tel:"]').forEach(a => {
+      a.addEventListener('click', () => {
+        if (!window.SmartFollowup || !window.SmartFollowup.recordOutcome) return;
+        const sug = (typeof window.SmartFollowup.computeSuggestion === 'function')
+          ? window.SmartFollowup.computeSuggestion(lead) : null;
+        window.SmartFollowup.recordOutcome(lead.id, 'acted', sug);
       });
     });
   }
