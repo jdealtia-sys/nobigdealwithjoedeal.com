@@ -36,6 +36,14 @@
   let lastResults = []; // flat list, in render order
   let inputDebounceTimer = null;
 
+  // Wave 77: snoozed-section reason filter. Persists across the
+  // empty-cmd+K renders within one session so the rep can chip
+  // through their snooze backlog without re-clicking each time.
+  // Cleared when the palette closes (see closePalette).
+  // Values: null = "All", a reason string ("Insurance" etc.), or
+  // the sentinel '__stale__' for "Stale only".
+  let snoozeFilter = null;
+
   // ─── Helpers ─────────────────────────────────────────────────────
   function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -118,6 +126,22 @@
   }
 
   // ─── Render ──────────────────────────────────────────────────────
+  // Wave 77: chip click wiring. Toggles snoozeFilter and re-renders.
+  // Clicking the active chip clears the filter (back to "All").
+  function _wireSnoozeFilterChips(container) {
+    container.querySelectorAll('[data-snooze-filter]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const raw = chip.getAttribute('data-snooze-filter');
+        const next = raw === '__all__' ? null : raw;
+        // Toggle off if clicking the active chip — same UX as the
+        // W73 reason chips in the snooze modal.
+        snoozeFilter = (snoozeFilter === next) ? null : next;
+        const inputEl = document.getElementById('cmdInput');
+        renderResults(inputEl ? (inputEl.value || '') : '');
+      });
+    });
+  }
+
   function renderResults(query) {
     const container = document.getElementById('cmdResults');
     if (!container) return;
@@ -151,9 +175,49 @@
         </div>`;
 
       const snoozedHits = [];
+      // W77: reason-filter chip set built BEFORE slicing so chips
+      // reflect the full backlog count, not the post-slice top-10.
+      const filterChips = []; // [{key, label, count}]
       if (window.LeadSnooze && typeof window.LeadSnooze.isSnoozed === 'function') {
-        const snoozed = leads
-          .filter(l => l && !l.deleted && window.LeadSnooze.isSnoozed(l))
+        const allSnoozed = leads
+          .filter(l => l && !l.deleted && window.LeadSnooze.isSnoozed(l));
+
+        // Build chip counts from the full set (pre-filter).
+        const reasonCounts = new Map();
+        let staleCount = 0;
+        for (const l of allSnoozed) {
+          const r = (typeof l.snoozedReason === 'string' && l.snoozedReason.trim())
+            ? l.snoozedReason.trim()
+            : '';
+          if (r) reasonCounts.set(r, (reasonCounts.get(r) || 0) + 1);
+          if (typeof window.LeadSnooze.isStaleSnooze === 'function'
+              && window.LeadSnooze.isStaleSnooze(l)) {
+            staleCount++;
+          }
+        }
+        if (allSnoozed.length > 0) {
+          filterChips.push({ key: null, label: 'All', count: allSnoozed.length });
+          if (staleCount > 0) {
+            filterChips.push({ key: '__stale__', label: '⚠️ Stale', count: staleCount });
+          }
+          for (const [reason, count] of reasonCounts.entries()) {
+            filterChips.push({ key: reason, label: reason, count });
+          }
+        }
+
+        // Apply active filter before sort + slice.
+        let filtered = allSnoozed;
+        if (snoozeFilter === '__stale__') {
+          filtered = allSnoozed.filter(l =>
+            typeof window.LeadSnooze.isStaleSnooze === 'function'
+            && window.LeadSnooze.isStaleSnooze(l));
+        } else if (typeof snoozeFilter === 'string' && snoozeFilter) {
+          filtered = allSnoozed.filter(l =>
+            typeof l.snoozedReason === 'string'
+            && l.snoozedReason.trim() === snoozeFilter);
+        }
+
+        const snoozed = filtered
           .map(l => {
             const d = window.LeadSnooze.snoozedUntilDate(l);
             return { lead: l, untilMs: d ? d.getTime() : Number.MAX_SAFE_INTEGER };
@@ -184,15 +248,47 @@
       }
       leadHits = snoozedHits;
       estHits = [];
-      leadSectionLabel = snoozedHits.length > 0
-        ? `Snoozed (${snoozedHits.length})`
-        : 'Leads';
+      // W77: section label reflects the filter — "Snoozed · Insurance (3)"
+      // or "Snoozed · ⚠️ Stale (2)" or just "Snoozed (5)" when All.
+      if (snoozedHits.length > 0) {
+        let activeLabel = '';
+        if (snoozeFilter === '__stale__') activeLabel = ' · ⚠️ Stale';
+        else if (typeof snoozeFilter === 'string' && snoozeFilter) activeLabel = ` · ${snoozeFilter}`;
+        leadSectionLabel = `Snoozed${activeLabel} (${snoozedHits.length})`;
+      } else {
+        leadSectionLabel = 'Leads';
+      }
 
-      // No snoozed leads → just render the hero, skip empty-result
-      // path so we don't show a "no matches" message for what is
-      // legitimately an empty query.
+      // W77: render filter chip row above the section if there's
+      // any snoozed lead at all (even if filter narrows it to 0,
+      // the chips need to stay visible so the rep can switch back).
+      if (filterChips.length > 0) {
+        preHTML += `
+          <div id="cmd-snooze-filter" style="display:flex; flex-wrap:wrap; gap:5px; padding:4px 12px 8px; border-bottom:1px solid var(--br,#1e2530);">
+            ${filterChips.map(c => {
+              const isActive = c.key === snoozeFilter;
+              const bg = isActive ? 'rgba(155,109,255,0.18)' : 'var(--s2,#0f1419)';
+              const color = isActive ? '#cab8ff' : 'var(--m,#9aa3b2)';
+              const border = isActive ? '#9b6dff' : 'var(--br,#2a3344)';
+              const keyAttr = c.key === null ? '__all__' : escapeHtml(c.key);
+              return `<button data-snooze-filter="${keyAttr}" type="button" style="
+                background:${bg}; color:${color};
+                border:1px solid ${border}; border-radius:14px;
+                padding:3px 10px; font: inherit; font-size:11px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;
+                transition:background .12s, color .12s, border-color .12s;">
+                ${escapeHtml(c.label)} <span style="opacity:0.6; margin-left:2px;">${c.count}</span>
+              </button>`;
+            }).join('')}
+          </div>`;
+      }
+
+      // No snoozed leads (after applying filter) → still show hero
+      // + chip row so the rep can clear the filter to see the rest.
       if (snoozedHits.length === 0) {
         container.innerHTML = preHTML;
+        // Wire chip handlers even though there are no rows.
+        _wireSnoozeFilterChips(container);
         return;
       }
     } else {
@@ -389,6 +485,11 @@
     }
     container.innerHTML = html;
 
+    // W77: wire the snooze-filter chip handlers if the chip row
+    // was rendered. No-op when no chips are present (search-result
+    // path renders no chips).
+    _wireSnoozeFilterChips(container);
+
     // Wave 51: inline action button handlers. Wired BEFORE the row
     // click handlers so stopPropagation on the buttons takes effect
     // before the parent .cmd-item click would otherwise activate
@@ -513,6 +614,10 @@
       clearTimeout(inputDebounceTimer);
       inputDebounceTimer = null;
     }
+    // W77: reset snooze filter on close so the next palette open
+    // starts fresh on "All". Filter is a per-session triage tool,
+    // not a persisted preference.
+    snoozeFilter = null;
   }
 
   function isPaletteOpen() {
