@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=20" as="script">
+<link rel="preload" href="js/crm.js?v=21" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -8636,7 +8636,11 @@ function switchScTab(tab, btn) {
           <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="goTo('crm')">All Leads →</button>
         </div>
         <div class="panel-body" id="todayTasksList">
-          <div class="empty"><div class="empty-icon">✅</div>No tasks due today.</div>
+          <div class="empty">
+            <div class="empty-icon">✅</div>
+            <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:4px;">All caught up</div>
+            <div style="font-size:11px;color:var(--m);max-width:280px;margin:0 auto;">No tasks due today. Open any lead and click ✓ Tasks to add follow-ups.</div>
+          </div>
         </div>
       </div>
 
@@ -9059,7 +9063,12 @@ function switchScTab(tab, btn) {
           </button>
         </div>
       </div>
-      <div id="estListWrap"><div class="empty"><div class="empty-icon">📋</div>No estimates yet.</div></div>
+      <div id="estListWrap"><div class="empty">
+        <div class="empty-icon">📋</div>
+        <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">No estimates yet</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Build your first estimate to send a homeowner. The builder steps you through scope, materials, labor, and supplements automatically.</div>
+        <button class="btn btn-orange" onclick="if(typeof startNewEstimate==='function')startNewEstimate();" style="font-size:12px;padding:8px 14px;">＋ Build your first estimate</button>
+      </div></div>
     </div>
     <!-- Step builder (hidden until new) -->
     <div id="est-builder" style="display:none;flex:1;overflow-y:auto;" class="view-scroll">
@@ -9990,7 +9999,12 @@ function switchScTab(tab, btn) {
       <div class="panel" style="margin-top:20px;">
         <div class="panel-hdr"><div><div class="panel-label">Your Files</div><div class="panel-title">Uploaded Documents</div></div></div>
         <div class="panel-body" id="uploadedDocsWrap">
-          <div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>
+          <div class="empty">
+            <div class="empty-icon">📁</div>
+            <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">No uploaded documents yet</div>
+            <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Upload contracts, scopes, photos of damage, or signed paperwork. Documents attached to a lead also surface in the homeowner's portal.</div>
+            <button class="btn btn-orange" onclick="if(typeof openUploadDocModal==='function')openUploadDocModal();else showToast('Click ＋ Upload above','info')" style="font-size:12px;padding:8px 14px;">＋ Upload a document</button>
+          </div>
         </div>
       </div>
 
@@ -11455,6 +11469,19 @@ function switchScTab(tab, btn) {
 
       <!-- ══ TAB: HELP ══ -->
       <div class="stab-panel" id="stab-panel-help" style="display:none;">
+
+        <!-- Onboarding tour restart — re-runs the first-time 5-step tour for
+             reps who skipped it or want a refresher. -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-hdr"><div><div class="panel-label">Tour</div><div class="panel-title">Welcome Tour</div></div></div>
+          <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-size:13px;color:var(--t);margin-bottom:4px;font-weight:600;">5-step product tour</div>
+              <div style="font-size:11px;color:var(--m);">Quick walkthrough of the kanban, prospects, D2D tracker, and settings. Useful for new reps or as a refresher.</div>
+            </div>
+            <button class="btn btn-orange" onclick="if(window.OnboardingTour)window.OnboardingTour.forceRestart();else showToast('Tour module not loaded','error')" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
+          </div>
+        </div>
 
         <!-- Hotkey Toggles -->
         <div class="panel" style="margin-bottom:16px;">
@@ -16310,7 +16337,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=20"></script>
+<script defer src="js/crm.js?v=21"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
@@ -16351,6 +16378,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/lead-source-roi.js?v=1"></script>
 <script defer src="js/forecasting.js?v=1"></script>
+<script defer src="js/onboarding-tour.js?v=1"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>
