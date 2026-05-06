@@ -191,7 +191,28 @@
       const url = await resolveUrl(lead.id);
       const firstName = String(lead.firstName || '').trim();
       const greeting = firstName ? `Hi ${firstName}, ` : 'Hi, ';
-      const body = `${greeting}here's your project portal — photos, status updates, and what's coming next: ${url}`;
+
+      // Wave 98: template picker integration. When the rep has 2+
+      // SMS templates saved, open the picker. With 1 template,
+      // apply it directly. With 0 templates or "Use built-in
+      // default" pick, fall through to the W41 hardcoded body.
+      // Cancelled picker (Esc / × / outside click) returns
+      // undefined and aborts the send.
+      let body;
+      if (window.TemplatesLibrary && typeof window.TemplatesLibrary.pickAndRender === 'function') {
+        const picked = await window.TemplatesLibrary.pickAndRender('sms', { lead, url });
+        if (picked === undefined) {
+          // Rep cancelled — abort silently.
+          return;
+        }
+        if (picked && picked.body) {
+          body = picked.body;
+        }
+      }
+      if (!body) {
+        body = `${greeting}here's your project portal — photos, status updates, and what's coming next: ${url}`;
+      }
+
       const smsUrl = `sms:${phone}?body=${encodeURIComponent(body)}`;
       window.location.href = smsUrl;
       _toast(firstName ? `Opening SMS to ${firstName}…` : 'Opening SMS…', 'success');
@@ -226,8 +247,22 @@
       const url = await resolveUrl(lead.id);
       const firstName = String(lead.firstName || '').trim();
       const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
-      const subject = 'Your project portal — photos, status, and next steps';
-      const body =
+
+      // Wave 98: same template picker integration as smsForLead.
+      // Returns { body, subject } when picked, null on "Use
+      // default", undefined on cancel.
+      let subject;
+      let body;
+      if (window.TemplatesLibrary && typeof window.TemplatesLibrary.pickAndRender === 'function') {
+        const picked = await window.TemplatesLibrary.pickAndRender('email', { lead, url });
+        if (picked === undefined) return; // cancelled
+        if (picked) {
+          if (picked.subject) subject = picked.subject;
+          if (picked.body)    body    = picked.body;
+        }
+      }
+      if (!subject) subject = 'Your project portal — photos, status, and next steps';
+      if (!body) body =
 `${greeting}
 
 Here's your project portal — photos from your inspection / install, status updates, and what's coming next:
