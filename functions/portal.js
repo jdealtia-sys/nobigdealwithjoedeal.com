@@ -299,6 +299,56 @@ exports.getHomeownerPortalView = onRequest(
       }
     }
 
+    // ── Project progress (homeowner-facing milestones) ────────────────
+    // Map the rep-side stage key to one of 5 user-friendly milestones
+    // homeowners actually understand. Internal stages like
+    // "supplement_requested" or "adjuster_inspection_done" don't matter
+    // to them — they want to know "are we still inspecting" vs "is
+    // someone coming to install."
+    const HOMEOWNER_PROGRESS = [
+      { key: 'inspected',        label: 'Inspection',     blurb: 'We\'ve looked at your property.' },
+      { key: 'estimate_sent',    label: 'Estimate',       blurb: 'You have a written quote.' },
+      { key: 'contract_signed',  label: 'Contract',       blurb: 'Signed and ready to schedule.' },
+      { key: 'install',          label: 'Installation',   blurb: 'The crew is on the job.' },
+      { key: 'complete',         label: 'Complete',       blurb: 'Project finished — final walkthrough done.' }
+    ];
+    const STAGE_TO_PROGRESS = {
+      // Pre-inspection / contact-only — show "Inspection" as upcoming
+      'new': 'inspected', 'contacted': 'inspected',
+      // Inspection done
+      'inspected': 'inspected',
+      // Insurance pipeline — collapse to "Estimate" once a number is on the table
+      'claim_filed': 'inspected', 'adjuster_meeting_scheduled': 'inspected',
+      'adjuster_inspection_done': 'estimate_sent', 'scope_received': 'estimate_sent',
+      'estimate_submitted': 'estimate_sent', 'supplement_requested': 'estimate_sent',
+      'supplement_approved': 'estimate_sent',
+      // Cash / finance — same idea
+      'estimate_sent_cash': 'estimate_sent', 'negotiating': 'estimate_sent',
+      'prequal_sent': 'estimate_sent', 'loan_approved': 'estimate_sent',
+      // Contract signed
+      'contract_signed': 'contract_signed',
+      // Job phase
+      'job_created': 'contract_signed', 'permit_pulled': 'contract_signed',
+      'materials_ordered': 'contract_signed', 'materials_delivered': 'install',
+      'crew_scheduled': 'install', 'install_in_progress': 'install',
+      'install_complete': 'install',
+      'final_photos': 'complete', 'deductible_collected': 'complete',
+      'final_payment': 'complete', 'closed': 'complete'
+    };
+    const stageKey = lead._stageKey || lead.stage || 'new';
+    const progressKey = STAGE_TO_PROGRESS[stageKey] || 'inspected';
+    const currentIdx = HOMEOWNER_PROGRESS.findIndex(p => p.key === progressKey);
+    const nextStep = currentIdx >= 0 && currentIdx < HOMEOWNER_PROGRESS.length - 1
+      ? HOMEOWNER_PROGRESS[currentIdx + 1] : null;
+    const progress = {
+      milestones: HOMEOWNER_PROGRESS,
+      currentKey:    progressKey,
+      currentIndex:  currentIdx,
+      currentLabel:  HOMEOWNER_PROGRESS[currentIdx]?.label || 'In Progress',
+      nextLabel:     nextStep?.label || null,
+      nextBlurb:     nextStep?.blurb || null,
+    };
+
     const view = {
       homeowner: {
         firstName: lead.firstName || '',
@@ -314,6 +364,7 @@ exports.getHomeownerPortalView = onRequest(
       company: {
         name: rep.companyName || 'No Big Deal Home Solutions'
       },
+      progress,
       estimate: latest ? {
         id:              latest.id,
         builder:         latest.builder || 'classic',
