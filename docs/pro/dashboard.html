@@ -1111,9 +1111,24 @@
         console.log('✅ loadLeads recovered on retry');
       }
 
+      // Wave 110: when the rep has the 'sales_rep' role claim,
+      // narrow the in-memory cache to ONLY leads they own. Was
+      // previously a render-time filter in crm.js — meaning all
+      // leads still lived in window._leads and any rep with
+      // DevTools could read teammates' data. Firestore rules
+      // already restrict writes (a rep can't mutate someone else's
+      // lead), but the client-side cache leaked the read shape.
+      // Sourcing the filter at hydration so the data isn't in the
+      // browser at all.
+      const _userRole = (window._userClaims && window._userClaims.role) || null;
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .filter(l => !l.deleted)
+        .filter(l => {
+          if (_userRole !== 'sales_rep') return true;
+          // sales_rep: keep only own leads
+          return l.userId === (window._user && window._user.uid);
+        })
         .sort((a,b) => {
           const ta = a.createdAt?.toDate?.()?.getTime() || 0;
           const tb = b.createdAt?.toDate?.()?.getTime() || 0;

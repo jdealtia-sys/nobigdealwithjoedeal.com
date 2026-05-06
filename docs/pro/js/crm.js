@@ -1927,38 +1927,65 @@ async function checkAndCreateFollowUpNotifications(leads) {
       .map(n => n.leadId)
   );
 
+  // Wave 110: sanitize user-controlled fields BEFORE writing to
+  // Firestore. The render path uses escHtml at display time so the
+  // notification dropdown is XSS-safe today, but writing
+  // unsanitized data into Firestore is a latent issue for any
+  // future consumer that doesn't escape (admin panel, email
+  // template, audit log, third-party integration). Sanitize at
+  // write time so the data is clean at rest. Strips control
+  // characters + caps length to avoid pathological inputs.
+  const _sanitize = (s, max) => {
+    if (typeof s !== 'string') return s;
+    // Drop control characters + zero-width chars; keep newlines/tabs.
+    const cleaned = s.replace(/[ --​-‏﻿]/g, '');
+    return cleaned.length > max ? cleaned.slice(0, max) : cleaned;
+  };
+  const _safeName = (l) =>
+    _sanitize(`${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead', 80);
+  const _safeAddr = (l) => _sanitize((l.address||'').split(',')[0] || '', 80);
+  const _safeStage = (l) => _sanitize(l.stage || '', 40);
+  const _safeCarrier = (l) => _sanitize(l.insCarrier || '', 40);
+
   const toCreate = [];
 
   overdue.forEach(l => {
     if (existingKeys.has(l.id)) return;
-    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    const name = _safeName(l);
+    const addr = _safeAddr(l);
+    const stage = _safeStage(l);
     const daysLate = Math.round((today - new Date(l.followUp)) / 86400000);
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
       title: `Overdue Follow-Up — ${name}`,
-      message: `${daysLate} day${daysLate!==1?'s':''} overdue${l.address ? ' · ' + l.address.split(',')[0] : ''}. ${l.stage ? 'Stage: ' + l.stage : ''}`,
+      message: `${daysLate} day${daysLate!==1?'s':''} overdue${addr ? ' · ' + addr : ''}. ${stage ? 'Stage: ' + stage : ''}`,
       priority: 'high', read: false
     });
   });
 
   dueToday.forEach(l => {
     if (existingKeys.has(l.id)) return;
-    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    const name = _safeName(l);
+    const addr = _safeAddr(l);
+    const stage = _safeStage(l);
+    const carrier = _safeCarrier(l);
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
       title: `Follow-Up Today — ${name}`,
-      message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}${l.insCarrier ? ' · ' + l.insCarrier : ''}`,
+      message: `${addr ? addr + ' · ' : ''}${stage ? 'Stage: ' + stage : ''}${carrier ? ' · ' + carrier : ''}`,
       priority: 'normal', read: false
     });
   });
 
   dueTomorrow.forEach(l => {
     if (existingKeys.has(l.id)) return;
-    const name = `${l.firstName||''} ${l.lastName||''}`.trim() || (l.address||'').split(',')[0] || 'Lead';
+    const name = _safeName(l);
+    const addr = _safeAddr(l);
+    const stage = _safeStage(l);
     toCreate.push({
       userId, type: 'follow_up', leadId: l.id, dateKey: todayKey,
       title: `Follow-Up Tomorrow — ${name}`,
-      message: `${l.address ? l.address.split(',')[0] + ' · ' : ''}${l.stage ? 'Stage: ' + l.stage : ''}`,
+      message: `${addr ? addr + ' · ' : ''}${stage ? 'Stage: ' + stage : ''}`,
       priority: 'low', read: false
     });
   });
