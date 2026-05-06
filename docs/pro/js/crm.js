@@ -2119,7 +2119,11 @@ async function bulkDelete() {
 // by firestore.rules anyway, but a client-side allowlist gives a
 // faster failure than a write that the rules silently reject for
 // the entire batch.
-const BULK_LEAD_FIELDS = new Set(['carrier', 'damageType', 'followUp', 'tags']);
+// Wave 32: extended allowlist — source + jobType are common
+// post-import cleanup ops, e.g. fixing 50 imported leads' source
+// to "Spring Hailstorm" or routing all cash deals to the cash
+// pipeline at once.
+const BULK_LEAD_FIELDS = new Set(['carrier', 'damageType', 'followUp', 'tags', 'source', 'jobType']);
 
 async function bulkAssignField(field, value, label) {
   if (!BULK_LEAD_FIELDS.has(field)) {
@@ -2177,6 +2181,33 @@ async function bulkAssignDamage() {
   const value = sel && sel.value;
   if (!value) { showToast('Pick a damage type first', 'error'); return; }
   return bulkAssignField('damageType', value, 'Damage');
+}
+
+// Wave 32: bulk-set source — useful after a CSV import where the
+// source column was missing or mis-labeled (e.g. all imports come
+// in tagged 'Unknown' and need to be re-classified to 'Spring
+// Hailstorm Campaign' or similar).
+async function bulkAssignSource() {
+  const sel = document.getElementById('bulkSourceSelect');
+  const customEl = document.getElementById('bulkSourceCustom');
+  // Prefer an explicit free-text entry if the rep typed one. Lets
+  // them tag a custom campaign without needing to add it to the
+  // dropdown first.
+  const custom = customEl && customEl.value.trim();
+  const value = custom || (sel && sel.value);
+  if (!value) { showToast('Pick or type a source first', 'error'); return; }
+  return bulkAssignField('source', value, 'Source');
+}
+
+// Wave 32: bulk-set jobType — primary use is post-import routing
+// (e.g. an export from a finance CRM comes in flat, all rows need
+// to be flagged jobType:'finance' so the kanban view filter picks
+// them up correctly).
+async function bulkAssignJobType() {
+  const sel = document.getElementById('bulkJobTypeSelect');
+  const value = sel && sel.value;
+  if (!value) { showToast('Pick a job type first', 'error'); return; }
+  return bulkAssignField('jobType', value, 'Job Type');
 }
 
 // Chunk a single Firestore writeBatch op across an arbitrary list of
@@ -2464,6 +2495,9 @@ window.bulkMoveStage = bulkMoveStage;
 window.bulkDelete = bulkDelete;
 window.bulkAssignCarrier = bulkAssignCarrier;
 window.bulkAssignDamage  = bulkAssignDamage;
+// Wave 32: extended bulk-edit fields.
+window.bulkAssignSource  = bulkAssignSource;
+window.bulkAssignJobType = bulkAssignJobType;
 window.selectAllVisibleLeads = selectAllVisibleLeads;
 window.updateBulkToolbar = updateBulkToolbar;
 window.refreshTrashBadge = refreshTrashBadge;
