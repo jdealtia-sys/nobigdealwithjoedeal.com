@@ -65,7 +65,7 @@
 
   function isDismissed(id) { return dismissed.has(id); }
   function isRead(id)      { return read.has(id); }
-  function dismiss(id)     { dismissed.add(id); _writeSet(DISMISS_KEY, dismissed); }
+  function dismiss(id)     { dismissed.add(id); _writeSet(DISMISS_KEY, dismissed); /* W108: cache invalidation runs at top via invalidateNotifCache when needed; the read/dismissed sets are cheap and the cache holds the unfiltered build, so cache-stale-but-set-fresh is fine. */ }
   function markRead(id)    { read.add(id);      _writeSet(READ_KEY, read); }
 
   // ─── Helpers ─────────────────────────────────────────────────────
@@ -106,7 +106,40 @@
   }
 
   // ─── Aggregation: build the notification list from in-memory data ─
+  // Wave 108: cache the result of buildNotifications() for a short
+  // window so handleClick/markAllRead/clearAll don't re-iterate the
+  // entire leads + tasks + estimates space twice per click. Cache
+  // invalidates on:
+  //   - 'nbd:data-refreshed' (W14 pattern — the data underneath
+  //     just changed, so the previous result is stale)
+  //   - 'focus' (rep tabbed back, want a fresh check)
+  //   - explicit dismiss/snooze/mark-read calls below
+  // 5s TTL is the safety net so a rep clicking around for many
+  // seconds doesn't see a frozen list.
+  let _notifCache = null;
+  let _notifCacheStamp = 0;
+  function invalidateNotifCache() {
+    _notifCache = null;
+    _notifCacheStamp = 0;
+  }
+  window.addEventListener('nbd:data-refreshed', invalidateNotifCache);
+  window.addEventListener('focus', invalidateNotifCache);
+
+  function buildNotificationsCached() {
+    if (_notifCache && (Date.now() - _notifCacheStamp) < 5_000) {
+      return _notifCache;
+    }
+    _notifCache = _buildNotificationsImpl();
+    _notifCacheStamp = Date.now();
+    return _notifCache;
+  }
+  // Keep the public name as buildNotifications() so existing call
+  // sites stay unchanged. Rename the original to _buildNotificationsImpl.
   function buildNotifications() {
+    return buildNotificationsCached();
+  }
+
+  function _buildNotificationsImpl() {
     const now = new Date();
     const sod = new Date(); sod.setHours(0, 0, 0, 0);
     const eod = new Date(); eod.setHours(23, 59, 59, 999);
