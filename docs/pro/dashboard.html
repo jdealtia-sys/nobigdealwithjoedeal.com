@@ -8993,6 +8993,25 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 94: ENGAGEMENT COHORT WIDGET ────────────────────────
+           Aggregate view of the W91/W92 engagement tier across
+           the rep's entire pipeline. Five horizontal bars with
+           counts:
+             ✅ Responded · 🔥 Hot · 👀 Viewed · 📨 Sent · 🌱 New
+           Helps the rep / manager understand pipeline health at
+           a glance: "lots of Hot but no Responded → conversion
+           gap" or "everyone's still New → no shares going out."
+           ────────────────────────────────────────────────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Pipeline</div><div class="panel-title">📊 Engagement Cohort</div></div>
+          <span style="font-size:11px;color:var(--m);" id="engagement-cohort-total">—</span>
+        </div>
+        <div class="panel-body" id="engagement-cohort-body">
+          <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
       <div class="two-col">
         <div class="panel">
           <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
@@ -16953,6 +16972,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/portal-link-helpers.js?v=1"></script>
 <script defer src="js/kanban-context-menu.js?v=1"></script>
 <script defer src="js/customer-engagement-score.js?v=1"></script>
+<script defer src="js/engagement-cohort-widget.js?v=1"></script>
 <script defer src="js/hot-leads-widget.js?v=1"></script>
 <script defer src="js/almost-there-widget.js?v=1"></script>
 <script defer src="js/stale-shares-widget.js?v=1"></script>
