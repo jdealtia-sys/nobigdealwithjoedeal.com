@@ -89,9 +89,27 @@
     const estimates = Array.isArray(window._estimates) ? window._estimates : [];
     const tasks = window._taskCache || {};
 
+    // Wave 39: snooze-aware. Build a Set of snoozed lead IDs once
+    // so the per-event filter calls are O(1). The rule mirrors the
+    // notification bell from Wave 35: suppress REP-side events
+    // (lead created, stage moved, estimate created/sent, task done)
+    // on snoozed leads — those are noise the rep deferred. KEEP
+    // CUSTOMER-side events (estimate viewed, estimate responded)
+    // because the customer didn't know about the snooze and that
+    // signal is still valuable for the rep to see.
+    const snoozedLeadIds = new Set();
+    if (window.LeadSnooze && typeof window.LeadSnooze.isSnoozed === 'function') {
+      for (const l of leads) {
+        if (l && window.LeadSnooze.isSnoozed(l)) snoozedLeadIds.add(l.id);
+      }
+    }
+    const isSnoozed = (id) => snoozedLeadIds.has(id);
+
     // Lead-level events: created + stage moved.
     for (const l of leads) {
       if (!l || l.deleted) continue;
+      // Snoozed → skip rep-side lead-level events.
+      if (isSnoozed(l.id)) continue;
       const created = toMillis(l.createdAt);
       if (created) {
         events.push({
@@ -129,8 +147,13 @@
       const subBase = lead ? leadName(lead) : 'Estimate';
       const total = Number(e.total || e.amount || 0);
       const totalLabel = total > 0 ? ` · $${total.toLocaleString()}` : '';
+      // Wave 39: customer-side events (viewed/responded) still fire
+      // on snoozed leads because the customer doesn't know the rep
+      // snoozed them and the signal is still valuable. Rep-side
+      // events (created/sent) are suppressed.
+      const leadIsSnoozed = isSnoozed(e.leadId);
       const created = toMillis(e.createdAt);
-      if (created) {
+      if (created && !leadIsSnoozed) {
         events.push({
           type: 'estimate-created',
           ts: created,
@@ -142,7 +165,7 @@
         });
       }
       const sent = toMillis(e.sentAt);
-      if (sent && sent !== created) {
+      if (sent && sent !== created && !leadIsSnoozed) {
         events.push({
           type: 'estimate-sent',
           ts: sent,
@@ -184,6 +207,8 @@
 
     // Task completed events. Keys of _taskCache are leadIds.
     for (const leadId of Object.keys(tasks)) {
+      // Wave 39: task-done is rep-side; suppress on snoozed leads.
+      if (isSnoozed(leadId)) continue;
       const list = tasks[leadId] || [];
       const lead = leadById[leadId];
       for (const t of list) {
