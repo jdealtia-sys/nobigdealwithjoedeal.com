@@ -65,6 +65,11 @@
   }
 
   // ─── Render ──────────────────────────────────────────────────────
+  // W114: render-once-then-enrich pattern. The heuristic suggestion
+  // appears instantly (no waiting on the network), then we kick off
+  // an AI enrichment in the background and re-render with the
+  // improved headline/reasoning/draft when it returns. Failures
+  // degrade silently — the heuristic version stays visible.
   function update() {
     const host = ensureHost();
     if (!host) return;
@@ -85,6 +90,23 @@
       host.innerHTML = '';
       return;
     }
+    // Render the heuristic version immediately, then enrich.
+    _renderSuggestion(host, lead, sug);
+    if (typeof window.SmartFollowup.enrichSuggestionAI === 'function') {
+      window.SmartFollowup.enrichSuggestionAI(lead).then(enriched => {
+        // Defensive: skip if rep navigated to a different lead or
+        // dismissed during the API call.
+        if (!enriched || _dismissedThisSession.has(lead.id)) return;
+        if (!window._currentLead || window._currentLead.id !== lead.id) return;
+        // Skip the re-render if AI returned the same heuristic
+        // (no enrichment happened — failure or API unavailable).
+        if (!enriched._aiEnriched) return;
+        _renderSuggestion(host, lead, enriched);
+      }).catch(() => { /* silent — heuristic stays visible */ });
+    }
+  }
+
+  function _renderSuggestion(host, lead, sug) {
 
     // Color register matches W112 kanban pill so cross-surface
     // priorities read identically.
@@ -168,6 +190,7 @@
           <span aria-hidden="true" style="font-size:18px;">${icon}</span>
           <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:${color};">${escapeHtml(label)}</span>
           <span style="font-size:11px; color:var(--m,#9aa3b2); font-weight:500;">· ${escapeHtml(String(sug.confidence))}% confident</span>
+          ${sug._aiEnriched ? '<span title="AI-enriched suggestion" style="font-size:10px; color:#a78bfa; font-weight:600; padding:2px 7px; border-radius:9px; background:rgba(167,139,250,0.14); border:1px solid rgba(167,139,250,0.35); margin-left:4px;">✨ AI</span>' : ''}
         </div>
         <div style="font-size:14px; font-weight:700; color:var(--t,#e8eaf0); margin-bottom:4px;">
           ${escapeHtml(sug.headline)}
