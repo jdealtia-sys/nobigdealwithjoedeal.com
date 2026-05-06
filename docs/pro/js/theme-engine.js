@@ -336,6 +336,177 @@
       specialClass: null
     },
 
+    // ─── WAVE 105: PROFESSIONAL EXPANSION (5 new) ───
+    // Round out the catalog with one accessibility-grade theme +
+    // four modern dark variants chosen to fill gaps that the
+    // existing 10 professional themes don't cover.
+
+    // High-contrast a11y. Pure black bg + near-white text +
+    // bright orange accent. Targets WCAG AAA contrast for users
+    // with low vision. Distinct from the other dark themes
+    // because it intentionally pushes to the contrast extreme.
+    'high-contrast': {
+      name: 'High Contrast',
+      category: 'professional',
+      locked: false,
+      unlockCondition: null,
+      mode: 'dark',
+      colors: {
+        bg: '#000000',
+        surface: '#0a0a0a',
+        surface2: '#181818',
+        text: '#ffffff',
+        muted: '#cccccc',
+        border: '#ffffff',
+        accent: '#ff8800',
+        accentBg: 'rgba(255,136,0,0.20)',
+        green: '#00ff88',
+        red: '#ff3838',
+        gold: '#ffdd00',
+        blue: '#00bfff'
+      },
+      overlay: { type: 'none' },
+      font: { heading: null, body: null },
+      cursor: null,
+      borderRadius: '8px',
+      borderStyle: 'solid',
+      transition: '0.15s ease',
+      cardEffect: null,
+      specialClass: 'high-contrast-theme'
+    },
+
+    // Sage — modern earthy dark green. Calmer than 'forest',
+    // workday-friendly, complements warm orange accent badges.
+    'sage': {
+      name: 'Sage',
+      category: 'professional',
+      locked: false,
+      unlockCondition: null,
+      mode: 'dark',
+      colors: {
+        bg: '#0e1a16',
+        surface: '#162822',
+        surface2: '#1f372f',
+        text: '#e8efea',
+        muted: '#8fa89d',
+        border: 'rgba(159,194,168,.16)',
+        accent: '#7bb89b',
+        accentBg: 'rgba(123,184,155,.16)',
+        green: '#4ade80',
+        red: '#f87171',
+        gold: '#fbbf24',
+        blue: '#60a5fa'
+      },
+      overlay: { type: 'none' },
+      font: { heading: null, body: null },
+      cursor: null,
+      borderRadius: '12px',
+      borderStyle: 'solid',
+      transition: '0.2s ease',
+      cardEffect: null,
+      specialClass: null
+    },
+
+    // Amber — warm dark theme. For reps who don't like the cool
+    // blue cast of midnight/cobalt/slate. Reminiscent of
+    // candlelight or workshop lighting.
+    'amber-dark': {
+      name: 'Amber',
+      category: 'professional',
+      locked: false,
+      unlockCondition: null,
+      mode: 'dark',
+      colors: {
+        bg: '#1a140d',
+        surface: '#241b12',
+        surface2: '#322618',
+        text: '#f5ead6',
+        muted: '#a89478',
+        border: 'rgba(217,166,98,.14)',
+        accent: '#d9a662',
+        accentBg: 'rgba(217,166,98,.16)',
+        green: '#65d39a',
+        red: '#f87171',
+        gold: '#fbbf24',
+        blue: '#7dd3fc'
+      },
+      overlay: { type: 'none' },
+      font: { heading: null, body: null },
+      cursor: null,
+      borderRadius: '12px',
+      borderStyle: 'solid',
+      transition: '0.2s ease',
+      cardEffect: null,
+      specialClass: null
+    },
+
+    // Plum — deep purple, modern, distinct from 'midnight' (more
+    // saturated, less indigo). Pairs well with the W91/W92
+    // engagement orange + violet share accents.
+    'plum': {
+      name: 'Plum',
+      category: 'professional',
+      locked: false,
+      unlockCondition: null,
+      mode: 'dark',
+      colors: {
+        bg: '#150a1f',
+        surface: '#1f1330',
+        surface2: '#2c1c45',
+        text: '#ece4f5',
+        muted: '#a292b8',
+        border: 'rgba(167,139,250,.16)',
+        accent: '#a78bfa',
+        accentBg: 'rgba(167,139,250,.18)',
+        green: '#34d399',
+        red: '#fb7185',
+        gold: '#fbbf24',
+        blue: '#60a5fa'
+      },
+      overlay: { type: 'none' },
+      font: { heading: null, body: null },
+      cursor: null,
+      borderRadius: '12px',
+      borderStyle: 'solid',
+      transition: '0.2s ease',
+      cardEffect: null,
+      specialClass: null
+    },
+
+    // Mono — pure grayscale with a single chromatic accent. For
+    // reps who want minimal color noise and a "design tool"
+    // aesthetic. Different from 'slate' which has subtle blue
+    // undertones; mono is strictly neutral.
+    'mono': {
+      name: 'Mono',
+      category: 'professional',
+      locked: false,
+      unlockCondition: null,
+      mode: 'dark',
+      colors: {
+        bg: '#101010',
+        surface: '#181818',
+        surface2: '#222222',
+        text: '#f5f5f5',
+        muted: '#888888',
+        border: 'rgba(255,255,255,.10)',
+        accent: '#e8720c',
+        accentBg: 'rgba(232,114,12,.14)',
+        green: '#22c55e',
+        red: '#ef4444',
+        gold: '#eab308',
+        blue: '#3b82f6'
+      },
+      overlay: { type: 'none' },
+      font: { heading: null, body: null },
+      cursor: null,
+      borderRadius: '8px',
+      borderStyle: 'solid',
+      transition: '0.2s ease',
+      cardEffect: null,
+      specialClass: null
+    },
+
     // NATURE & ELEMENTS (12)
     'forest': {
       name: 'Forest',
