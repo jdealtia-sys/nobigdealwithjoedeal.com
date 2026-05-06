@@ -1062,3 +1062,164 @@ sophistication for power users.
   is now the codebase's standard documentation rhythm — every
   10 waves of focused work get the same treatment. Repeatable
   format makes it easier to write and easier to scan later.
+
+---
+
+# Eighth push — Waves 101-117 (appearance + audit + AI copilot)
+
+The seventh push closed at W100 with the engagement scoring + templates
+arcs. The eighth push went broad: appearance customization expansion,
+a third deep code review on previously-unaudited surfaces, and a full
+AI sales-copilot arc that turned NBD Pro from a CRM into a
+**sales-augmenting copilot**.
+
+Three threads ran in parallel:
+
+1. **Appearance & comfort** (W101, W105, W106-107) — the user asked
+   for more theme diversity + size/density/motion controls closer to
+   surface. Comfort tab in the 🎨 picker now has 6 toggles. Theme
+   catalog grew 148 → 153 with the first WCAG-AAA accessibility theme.
+   Color-blind-safe palette + time-of-day auto-switching shipped as
+   part of the same picker.
+
+2. **Quality + audit closeout** (W102-W104, W108-W110) — a third
+   code-reviewer pass surfaced another CRITICAL XSS (widgets.js,
+   same shape as the W86 portal XSS) plus 4 HIGH bugs (drag race,
+   bulkMoveStage atomicity, Cincinnati-vs-Central timezone error,
+   appointment duplicate sends). Closed every MEDIUM and LOW finding
+   from the three review passes (snooze, portal, kanban). Audit
+   ended at zero open findings.
+
+3. **AI sales-copilot arc** (W111-W117) — the biggest leverage move
+   of the session. Reads each lead's full context and proposes the
+   next-best-action (when, what to say, which channel) with a
+   confidence score. Heuristic foundation + Claude AI enrichment +
+   pattern learning from rep behavior. Surfaces on three places —
+   kanban pill, customer panel, dashboard briefing.
+
+The unifying outcome: **the system now thinks alongside the rep.**
+Engagement signals already collected (W44 share / W58 view /
+respondedAt) become a single actionable score. The AI lifts where
+it matters; the heuristic stays the floor. Reps' own behavior
+(act vs dismiss) feeds back into future suggestions.
+
+---
+
+## Appearance + comfort
+
+| Wave | What | PR |
+|---|---|---|
+| **101** | Comfort tab in 🎨 picker — density / text size / reduce motion / pro mode toggles surfaced from deep Settings | [#228](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/228) |
+| **105** | 5 new pro themes — high-contrast (WCAG AAA), sage, amber, plum, mono. Catalog 148 → 153 | [#232](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/232) |
+| **106** | Color-blind-safe palette toggle. Single CSS rule overrides --green/--red/--gold/--blue/--purple to IBM accessible colors. Propagates to every status-color surface | [#233](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/233) |
+| **107** | Time-of-day auto-theme. 7AM-7PM → light, rest → dark. Per-side preference learning when rep manually picks | [#233](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/233) |
+
+Comfort tab final: 📐 Density · 🔠 Text size · ⚙️ Reduce motion ·
+⚙️ Pro mode · ⚙️ Color-blind safe · ⚙️ Auto theme by time.
+
+---
+
+## Quality + audit closeout
+
+The third code-reviewer pass on kanban core + scheduled functions
++ widgets surface caught one more CRITICAL XSS plus 4 HIGH bugs.
+
+| Wave | Severity | What | PR |
+|---|---|---|---|
+| **102** | 🚨 HIGH XSS | Widgets.js — every lead-name / address / stage interpolated unescaped into innerHTML. Same shape as W86 portal XSS but on rep dashboard. Persistent stored XSS scoped to the company | [#229](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/229) |
+| **103** | HIGH bundle | bulkMoveStage stale Set + non-atomic loop · drag-drop race via module-global _dragId · moveCard double renderLeads · notification setInterval leak on sign-out | [#230](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/230) |
+| **104** | HIGH | Cincinnati timezone wrong (Central → Eastern) · appointment reminder duplicate sends · unbounded leads collection scans | [#231](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/231) |
+| **108** | MEDIUM | Bell buildNotifications cached (5s TTL) · activity feed leadById Map (O(N+M) replaces O(N×M)) | [#234](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/234) |
+| **109** | MEDIUM | setInterval teardown on customer-* path-gated modules · portal photo Safari pointer-events fix | [#235](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/235) |
+| **110** | MEDIUM + LOW | Sanitize notification doc fields at write-time · sales_rep cache scoped at hydration so DevTools can't reveal teammates' leads | [#236](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/236) |
+
+Audit closeout at W110:
+
+| Severity | Count | Status |
+|---|---|---|
+| CRITICAL | 0 | — |
+| HIGH | 0 | all fixed |
+| MEDIUM | 0 | all fixed |
+| LOW | 0 | all fixed |
+
+---
+
+## AI sales-copilot arc
+
+| Wave | What | PR |
+|---|---|---|
+| **111** | SmartFollowup compute foundation. Heuristic decision tree maps 7 signal patterns → priority + action + channel + draft + confidence. Pure helper, no UI. Compounds W17/W26/W35/W44/W54/W58/W74/W92/W97 | [#237](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/237) |
+| **112** | Kanban suggestion pill. Compact priority chip (⚡/💡/👁) in card tag row. Tooltip carries the why. Renders FIRST in tag row as the recommended next step | [#238](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/238) |
+| **113** | Customer-page suggestion panel. Full UI: priority + headline + reasoning + draft preview + 4-button action row (📞/💬/📧/✕). Auto-injected above quick-actions bar | [#239](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/239) |
+| **114** | Claude AI enrichment via render-once-then-enrich. Heuristic instant; AI refines headline + reasoning + draft in background. ✨ AI badge. 10-min per-leadId cache | [#240](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/240) |
+| **115** | Dashboard briefing widget — top 5 next-best-actions. Heuristic compute across pipeline, AI-enriches top 5 only (bounded API spend). Inline action row + click-to-customer-page | [#241](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/241) |
+| **116** | Pattern learning. Track act/dismiss outcomes per signal-set. Personal confidence adjustment ±15 based on the rep's own track record. localStorage-backed, ≥5 occurrence threshold | [#242](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/242) |
+| **117** | (this milestone bookend) | this PR |
+
+Arc surface coverage:
+
+| Surface | Heuristic | AI | Tracking |
+|---|---|---|---|
+| Kanban pill (W112) | ✅ | ❌ (would burn budget) | ❌ (glance signal) |
+| Customer panel (W113-114) | ✅ | ✅ | ✅ |
+| Dashboard briefing (W115) | ✅ | ✅ (top 5 only) | ✅ |
+
+---
+
+## Architecture notes for the eighth push
+
+- **Heuristic floor + AI lift** — W111's deterministic compute is
+  the floor: instant, sync, sufficient for kanban pills (N cards
+  shouldn't pay N API calls). W114 layers Claude on top via the
+  enrichSuggestionAI helper — same interface, richer brain. W116
+  adds personal pattern adjustment on top of both. Each layer is
+  optional, fails gracefully, and shares one signal vocabulary.
+
+- **Render-once-then-enrich** — W113 customer panel + W115 briefing
+  paint the heuristic suggestion instantly, then re-render in
+  place when the AI returns. No spinner, no jank, no error toast on
+  failure. The heuristic is good enough that AI feels like polish,
+  not a dependency.
+
+- **Bounded API spend pattern** — W115 briefing only enriches the
+  top 5 suggestions, not every active lead. Pattern: when AI is
+  expensive, rank with a cheap heuristic first, enrich the top
+  K only. Caps cost without sacrificing perceived quality.
+
+- **Stable signal vocabulary across waves** — the same tags
+  (`fresh-view`, `rep-cold`, `multi-view`, `stale-share`) drive
+  W112 pill colors, W113 panel reasoning, W116 pattern-learning
+  keys. Adding a new signal is one place; every consumer
+  benefits.
+
+- **Cross-surface color register** — priority colors are
+  identical on W112 kanban pill + W113 customer panel + W115
+  briefing rows. Urgent = red, today = orange, this-week = blue.
+  Reps' eyes track urgency the same way regardless of surface.
+
+- **Personal adjustment is conservative** — W116 ±15 cap and ≥5
+  occurrences threshold mean a single bad week or sample-size-of-1
+  bias can't permanently bury a signal. We nudge, never silence.
+
+- **Asymmetric escape was the recurring vulnerability** — W82
+  bell regression (data shape), W86 portal XSS, W102 widgets XSS
+  all had the same root cause: a sister surface that DID the right
+  thing while the audited surface didn't. Code review on data
+  flow + per-template comparison catches these where smoke tests
+  miss them. Three reviews in this push, three CRITICAL/HIGH
+  caught. The pattern works.
+
+- **localStorage as the per-device preference layer** — W37 show-
+  snoozed toggle, W77 reason filter, W78 default preset, W101
+  Comfort tab, W107 auto-theme, W116 rep stats. Same pattern:
+  instant write, no Firestore round-trip, per-device intentional.
+  When something needs cross-device sync (rare), promote to
+  Firestore explicitly.
+
+- **Audit closeout matters** — finishing the MEDIUM/LOW pile
+  after the CRITICAL/HIGH was tempting to skip ("nothing's broken,
+  ship features"). The cleanup waves (W108 perf cache, W109
+  setInterval teardown, W110 sanitize-at-write) each took a
+  small fraction of session time but removed entire classes of
+  future regression. Closing the audit is the discipline that
+  makes the next round of reviews shorter + sharper.
