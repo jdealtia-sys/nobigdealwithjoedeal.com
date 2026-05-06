@@ -3340,6 +3340,31 @@ body:has(#view-prospects.active) .breadcrumb-container{
    iPhone, Android. Desktop with mouse stays unaffected. iPad with
    Apple Pencil reports hover:hover so it still gets hover styles
    when the pencil hovers \u2014 that's the right behavior. */
+/* ══ WAVE 101: TEXT SIZE SCALE ══
+   Three-step text scale via root font-size override. Affects every
+   `rem`-sized element automatically (most of the app). 'medium' is
+   the default — no rule needed since 100% is the browser default.
+   Ranges chosen for legibility without breaking layout: small
+   shrinks ~8%, large grows ~8%. Bigger jumps would force kanban
+   columns to overflow. */
+:root[data-text-size="small"]  { font-size: 92%; }
+:root[data-text-size="large"]  { font-size: 108%; }
+
+/* ══ WAVE 101: REDUCE MOTION (USER PREFERENCE) ══
+   Force-disable all animations + transitions when the rep flips the
+   "Reduce motion" toggle in the Comfort tab. Browsers already
+   respect prefers-reduced-motion at the OS level; this gives the
+   rep a manual override regardless of OS setting. Same selector
+   shape as the W57/W58 prefers-reduced-motion blocks. */
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
 @media (hover: none) {
   /* Disable transforms on :hover (scale / translate / lift) */
   *:hover {
@@ -15020,6 +15045,97 @@ window.setKanbanDensity = setKanbanDensity;
 window.setKanbanBoldHierarchy = setKanbanBoldHierarchy;
 
 // ══════════════════════════════════════════════════════════════════
+// Wave 101: Comfort tab handlers — quick-access density / text size /
+// motion / professional-mode controls in the 🎨 picker. Each setting
+// persists to localStorage and applies to <html>/<body> attributes
+// that CSS reads to drive the actual look.
+// ══════════════════════════════════════════════════════════════════
+function nbdComfortSet(kind, value) {
+  const html = document.documentElement;
+  const body = document.body;
+  try {
+    if (kind === 'density') {
+      // Reuse the existing setKanbanDensity machinery so the deep-
+      // settings density toggle stays in sync.
+      if (typeof setKanbanDensity === 'function') setKanbanDensity(value);
+    } else if (kind === 'size') {
+      // 'medium' is the default — clear the attribute so we don't
+      // carry stale values through theme changes.
+      if (value === 'medium') html.removeAttribute('data-text-size');
+      else html.setAttribute('data-text-size', value);
+      try { localStorage.setItem('nbd_text_size', value); } catch (_) {}
+    } else if (kind === 'motion') {
+      if (value === 'reduce') html.setAttribute('data-motion', 'reduce');
+      else html.removeAttribute('data-motion');
+      try {
+        if (value === 'reduce') localStorage.setItem('nbd_motion', 'reduce');
+        else localStorage.removeItem('nbd_motion');
+      } catch (_) {}
+    } else if (kind === 'proMode') {
+      if (value === '1') body.classList.add('professional-mode');
+      else body.classList.remove('professional-mode');
+      try {
+        if (value === '1') localStorage.setItem('nbd_professional_mode', '1');
+        else localStorage.removeItem('nbd_professional_mode');
+      } catch (_) {}
+    }
+  } catch (_) { /* best effort */ }
+  nbdComfortRefresh();
+}
+window.nbdComfortSet = nbdComfortSet;
+
+// Reflect current state in the comfort tab's buttons + toggles
+// so opening the picker shows the right active item.
+function nbdComfortRefresh() {
+  const html = document.documentElement;
+  const body = document.body;
+  const density = html.getAttribute('data-density') || 'comfortable';
+  const size = html.getAttribute('data-text-size') || 'medium';
+  const motion = html.getAttribute('data-motion') === 'reduce';
+  const proMode = body.classList.contains('professional-mode');
+
+  document.querySelectorAll('.npm-comfort-btn').forEach(b => {
+    const kind = b.getAttribute('data-comfort');
+    const val = b.getAttribute('data-value');
+    let active = false;
+    if (kind === 'density') active = (val === density);
+    else if (kind === 'size') active = (val === size);
+    if (active) {
+      b.style.background = 'var(--orange)';
+      b.style.color = '#fff';
+      b.style.borderColor = 'var(--orange)';
+    } else {
+      b.style.background = 'var(--s)';
+      b.style.color = 'var(--m)';
+      b.style.borderColor = 'var(--br)';
+    }
+  });
+
+  const motionEl = document.getElementById('npm-reduce-motion');
+  if (motionEl) motionEl.checked = motion;
+  const proEl = document.getElementById('npm-pro-mode');
+  if (proEl) proEl.checked = proMode;
+}
+window.nbdComfortRefresh = nbdComfortRefresh;
+
+// Boot persisted comfort prefs on first load (alongside density
+// which already gets applied in bootKanbanPrefs above).
+(function bootComfortPrefs() {
+  try {
+    const size = localStorage.getItem('nbd_text_size');
+    if (size && size !== 'medium') document.documentElement.setAttribute('data-text-size', size);
+    const motion = localStorage.getItem('nbd_motion');
+    if (motion === 'reduce') document.documentElement.setAttribute('data-motion', 'reduce');
+    const pro = localStorage.getItem('nbd_professional_mode');
+    if (pro === '1') document.body.classList.add('professional-mode');
+  } catch (_) {}
+})();
+// Sync the comfort tab when the picker opens.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(nbdComfortRefresh, 250);
+});
+
+// ══════════════════════════════════════════════════════════════════
 // PIPELINE PAGE-BREATHE — sidebar collapse, fullscreen, Tools menu,
 // FAB visibility, scroll-collapse, ESC handling.
 // One self-contained block so future changes touch one place.
@@ -16729,6 +16845,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
     <div class="npm-tabs">
       <button class="npm-tab on" onclick="nbdPickerTab('themes',this)">Themes</button>
       <button class="npm-tab" onclick="nbdPickerTab('fonts',this)">Fonts</button>
+      <button class="npm-tab" onclick="nbdPickerTab('comfort',this)">Comfort</button>
       <button class="npm-tab" onclick="nbdPickerTab('custom',this)">Custom Builder</button>
     </div>
     <div class="npm-body">
@@ -16742,6 +16859,65 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       </div>
       <div class="npm-panel" id="npm-panel-fonts">
         <div class="npm-fonts" id="npm-fonts"></div>
+      </div>
+      <!-- Wave 101: Comfort tab — quick-access density, text size,
+           motion, and professional-mode toggles so users don't have
+           to dig into Settings every time they want to adjust the
+           feel. All persist to localStorage and apply immediately. -->
+      <div class="npm-panel" id="npm-panel-comfort">
+        <div style="padding:12px 14px; display:flex; flex-direction:column; gap:18px;">
+
+          <!-- Density -->
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:14px;" aria-hidden="true">📐</span>
+              <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Density</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="compact" onclick="nbdComfortSet('density','compact')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Compact</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="comfortable" onclick="nbdComfortSet('density','comfortable')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Default</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="spacious" onclick="nbdComfortSet('density','spacious')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Spacious</button>
+            </div>
+            <div style="font-size:10px; color:var(--m); margin-top:6px; line-height:1.4;">Card padding + gaps. Affects kanban + dashboard widgets.</div>
+          </div>
+
+          <!-- Text size -->
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:14px;" aria-hidden="true">🔠</span>
+              <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Text size</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="small" onclick="nbdComfortSet('size','small')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Small</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="medium" onclick="nbdComfortSet('size','medium')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Default</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="large" onclick="nbdComfortSet('size','large')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Large</button>
+            </div>
+            <div style="font-size:10px; color:var(--m); margin-top:6px; line-height:1.4;">Scales every text element via root font-size. Easier on the eyes during long sessions.</div>
+          </div>
+
+          <!-- Motion + Professional Mode toggles -->
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:14px;" aria-hidden="true">⚙️</span>
+              <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Preferences</span>
+            </div>
+            <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
+              <div>
+                <div style="font-weight:600; color:var(--t);">Reduce motion</div>
+                <div style="font-size:10px; color:var(--m); margin-top:2px;">Disable pulse + slide animations.</div>
+              </div>
+              <input type="checkbox" id="npm-reduce-motion" onchange="nbdComfortSet('motion', this.checked ? 'reduce' : 'normal')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+            </label>
+            <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
+              <div>
+                <div style="font-weight:600; color:var(--t);">Professional mode</div>
+                <div style="font-size:10px; color:var(--m); margin-top:2px;">Hide decorative emojis. Clean text-only look.</div>
+              </div>
+              <input type="checkbox" id="npm-pro-mode" onchange="nbdComfortSet('proMode', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+            </label>
+          </div>
+
+        </div>
       </div>
       <div class="npm-panel" id="npm-panel-custom">
         <div class="npm-custom">
