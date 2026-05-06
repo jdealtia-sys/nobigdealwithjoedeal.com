@@ -334,10 +334,189 @@
     return priorityRank(s) * 100 + (s.confidence || 0);
   }
 
+  // ─── Wave 114: AI-enriched suggestions ───────────────────────────
+  // The heuristic above is the floor — sync, instant, deterministic,
+  // good enough to render kanban pills (W112) without API calls per
+  // card. enrichSuggestionAI() takes a heuristic result and asks
+  // Claude (via window.callClaude) to refine the headline +
+  // reasoning + draft based on richer context. Keeps the priority
+  // and signals from the heuristic so the cross-surface color
+  // register stays stable.
+  //
+  // Surfaces that benefit:
+  //   - W113 customer panel (one suggestion → one API call → richer
+  //     personalized draft + reasoning)
+  //   - W115 morning briefing (top 5 only — bounded API spend)
+  //
+  // Surfaces that DO NOT call this:
+  //   - W112 kanban pill (would be N API calls per render)
+  //
+  // Cache: per-leadId, 10-minute TTL. Invalidates on
+  // 'nbd:data-refreshed'. AI failures fall back silently to the
+  // heuristic so the UI degrades gracefully when:
+  //   - Subscription gate is hit (free plan)
+  //   - Rate limit hit
+  //   - Network blip
+  //   - claudeProxy itself returns 5xx
+
+  const _aiCache = new Map(); // leadId → { result, stamp }
+  const AI_CACHE_TTL_MS = 10 * 60 * 1000;
+
+  // Invalidate the AI cache on data refresh — engagement signals
+  // changed underneath, the previous AI take is stale.
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('nbd:data-refreshed', () => _aiCache.clear());
+  }
+
+  // Build a compact context payload for the AI. Strip Firestore
+  // Timestamp objects (not JSON-serializable) and limit field
+  // sizes so we stay well under CLAUDE_MAX_PAYLOAD_BYTES.
+  function _buildAIContext(lead, ctx) {
+    if (!lead) return null;
+    const estimates = (ctx && ctx.estimates)
+      || (Array.isArray(window._estimates) ? window._estimates : []);
+    const leadEsts = estimates
+      .filter(e => e && e.leadId === lead.id)
+      .slice(0, 5) // most recent 5 is enough for context
+      .map(e => ({
+        id: e.id,
+        amount: Number(e.total || e.amount || e.grandTotal || 0),
+        sentAt: toMillis(e.sentAt),
+        viewedAt: toMillis(e.viewedAt),
+        respondedAt: toMillis(e.respondedAt),
+        status: e.status,
+      }));
+    return {
+      lead: {
+        id: lead.id,
+        firstName: (lead.firstName || '').slice(0, 40),
+        lastName:  (lead.lastName  || '').slice(0, 40),
+        address:   (lead.address   || '').slice(0, 120),
+        phone:     lead.phone ? '***-***-' + String(lead.phone).slice(-4) : null,
+        email:     !!lead.email,
+        stage:     lead.stage,
+        damageType: (lead.damageType || '').slice(0, 60),
+        insCarrier: (lead.insCarrier || '').slice(0, 60),
+        jobValue:  Number(lead.jobValue || 0),
+        lastSharedAt: toMillis(lead.lastSharedAt),
+        lastSharedVia: lead.lastSharedVia,
+        snoozedUntil: toMillis(lead.snoozedUntil),
+        snoozedReason: lead.snoozedReason,
+        snoozeCount: lead.snoozeCount,
+        createdAt: toMillis(lead.createdAt),
+        updatedAt: toMillis(lead.updatedAt),
+      },
+      estimates: leadEsts,
+      now: Date.now(),
+    };
+  }
+
+  const AI_SYSTEM_PROMPT =
+`You are a sales coach embedded in a CRM for a residential roofing/exterior contractor (No Big Deal Home Solutions). You read a lead's full context and write the next-best-action recommendation a sales rep should take.
+
+Output STRICT JSON only — no prose, no markdown, no code fences. Schema:
+{
+  "headline": "ONE short imperative sentence (max 90 chars). Example: 'Call Sarah today — she opened the estimate twice yesterday.'",
+  "reasoning": "ONE specific sentence explaining WHY this action wins (max 220 chars). Cite the actual signal — view count, time since share, etc.",
+  "draft": "Personalized message body, plain text. 2-4 sentences for SMS, 4-7 for email. Use the customer's first name. End with a soft ask. Match the channel."
+}
+
+Rules:
+- Be concrete. "Call Sarah today" beats "follow up soon".
+- Personalize from the actual context. If they viewed 3x, say so. If insurance carrier is State Farm, mention it if relevant.
+- Match the rep's voice: friendly, direct, no salesy fluff, no exclamation marks unless natural.
+- The "draft" must be ready-to-send. The rep will copy and send it as-is.
+- Never invent details not in the context. If you don't know, leave it generic.`;
+
+  function _buildAIUserPrompt(lead, sug, ctxPayload) {
+    const sugForAI = {
+      priority: sug.priority,
+      action: sug.action,
+      channel: sug.channel,
+      heuristicHeadline: sug.headline,
+      heuristicReasoning: sug.reasoning,
+      signals: sug.signals,
+      confidence: sug.confidence,
+    };
+    return [
+      'CONTEXT:',
+      JSON.stringify(ctxPayload, null, 2),
+      '',
+      'HEURISTIC SUGGESTION (your job is to refine this):',
+      JSON.stringify(sugForAI, null, 2),
+      '',
+      'Channel for the draft: ' + (sug.channel || 'sms'),
+      '',
+      'Return JSON only.',
+    ].join('\n');
+  }
+
+  async function enrichSuggestionAI(lead, ctx) {
+    if (!lead || !lead.id) return null;
+    const heuristic = computeSuggestion(lead, ctx);
+    if (!heuristic) return null;
+    // Don't burn API calls on no-action states.
+    if (heuristic.priority === 'wait' || heuristic.priority === 'monitor') {
+      return heuristic;
+    }
+    // Cache hit?
+    const cached = _aiCache.get(lead.id);
+    if (cached && (Date.now() - cached.stamp) < AI_CACHE_TTL_MS) {
+      return cached.result;
+    }
+    if (typeof window.callClaude !== 'function') return heuristic;
+
+    try {
+      const ctxPayload = _buildAIContext(lead, ctx);
+      const userPrompt = _buildAIUserPrompt(lead, heuristic, ctxPayload);
+      const resp = await window.callClaude({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: AI_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
+        temperature: 0.4,
+        feature: 'smart-followup',
+        leadId: lead.id,
+      });
+      // Parse the JSON response. Claude typically returns valid
+      // JSON when system prompt is strict, but be defensive.
+      const text = (resp && resp.content && resp.content[0] && resp.content[0].text) || '';
+      let parsed = null;
+      try {
+        // Trim any accidental code fences.
+        const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        parsed = JSON.parse(cleaned);
+      } catch (_) {
+        // Bad JSON → silent fallback to heuristic.
+        return heuristic;
+      }
+      if (!parsed || typeof parsed !== 'object') return heuristic;
+
+      // Merge AI refinements onto the heuristic result. Keep
+      // priority/action/channel/signals/confidence from the
+      // heuristic (cross-surface stability) and overlay the
+      // AI-improved text fields.
+      const enriched = {
+        ...heuristic,
+        headline:  (typeof parsed.headline  === 'string' && parsed.headline)  ? parsed.headline.slice(0, 200)  : heuristic.headline,
+        reasoning: (typeof parsed.reasoning === 'string' && parsed.reasoning) ? parsed.reasoning.slice(0, 500) : heuristic.reasoning,
+        draft:     (typeof parsed.draft     === 'string' && parsed.draft)     ? parsed.draft.slice(0, 1200)    : heuristic.draft,
+        _aiEnriched: true,
+        computedAt: Date.now(),
+      };
+      _aiCache.set(lead.id, { result: enriched, stamp: Date.now() });
+      return enriched;
+    } catch (_) {
+      // AI call failed for any reason — gracefully degrade.
+      return heuristic;
+    }
+  }
+
   // ─── Public API ──────────────────────────────────────────────────
   window.SmartFollowup = {
     __sentinel: 'nbd-smart-followup-v1',
     computeSuggestion,
+    enrichSuggestionAI,    // W114
     priorityRank,
     score,
     PRIORITY_ORDER,
