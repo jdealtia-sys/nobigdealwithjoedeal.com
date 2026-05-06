@@ -57,6 +57,17 @@
   }
 
   // ─── Snooze status ──────────────────────────────────────────────
+  // W74: stale-snooze threshold. 3+ deferrals on the same lead is
+  // a signal of indecision/inaction — the rep keeps pushing it
+  // out without making progress. Surface as a small warning pill
+  // on the customer banner + cmd+K snoozed section subtitle.
+  const STALE_SNOOZE_THRESHOLD = 3;
+  function isStaleSnooze(lead) {
+    if (!lead) return false;
+    return typeof lead.snoozeCount === 'number'
+      && lead.snoozeCount >= STALE_SNOOZE_THRESHOLD;
+  }
+
   function isSnoozed(lead) {
     if (!lead) return false;
     const until = toMillis(lead.snoozedUntil);
@@ -87,11 +98,12 @@
 
   // ─── Firestore writes ────────────────────────────────────────────
   // Wave 73: snooze reasons. Optional categorization tag persisted
-  // as `snoozedReason` alongside `snoozedUntil`. Surfaces in the
-  // W71 cmd+K snoozed section subtitle and the W36 customer banner
-  // so the rep can scan their backlog and remember WHY each lead
-  // was deferred — "Insurance" vs "Not ready" leads to different
-  // follow-up behavior.
+  // as `snoozedReason` alongside `snoozedUntil`.
+  // Wave 74: snoozeCount — bumps each time a lead is snoozed.
+  // Cumulative across unsnooze/re-snooze cycles so we can surface
+  // an "indecision" indicator on leads that keep getting bumped
+  // (3+ deferrals = stale-snooze). The W74 banner pill + cmd+K
+  // subtitle tag tell the rep "different action needed here."
   async function snooze(leadId, untilDate, reason) {
     if (!leadId) throw new Error('leadId required');
     if (!(untilDate instanceof Date) || isNaN(untilDate)) throw new Error('untilDate required');
@@ -100,21 +112,32 @@
     }
     const ref = window.doc(window.db, 'leads', leadId);
     const reasonValue = (typeof reason === 'string' && reason.trim()) ? reason.trim() : null;
+    // W74: compute next count from the in-memory cache. Reps don't
+    // snooze concurrently from multiple devices on the same lead so
+    // we don't need atomic increment — read-modify-write is fine.
+    let nextCount = 1;
+    if (Array.isArray(window._leads)) {
+      const existing = window._leads.find(l => l && l.id === leadId);
+      if (existing && typeof existing.snoozeCount === 'number') {
+        nextCount = existing.snoozeCount + 1;
+      }
+    }
     await window.updateDoc(ref, {
       snoozedUntil: untilDate,
       snoozedReason: reasonValue,
+      snoozeCount: nextCount,
       updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
     });
     // Patch in-memory cache so the kanban + filters update immediately.
     if (Array.isArray(window._leads)) {
       const i = window._leads.findIndex(l => l && l.id === leadId);
-      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: untilDate, snoozedReason: reasonValue };
+      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: untilDate, snoozedReason: reasonValue, snoozeCount: nextCount };
     }
     // Customer detail page also reads window._currentLead (set by
     // loadCustomerData). Patch that mirror so the customer-page
     // banner picks up the new state without a Firestore re-read.
     if (window._currentLead && window._currentLead.id === leadId) {
-      window._currentLead = { ...window._currentLead, snoozedUntil: untilDate, snoozedReason: reasonValue };
+      window._currentLead = { ...window._currentLead, snoozedUntil: untilDate, snoozedReason: reasonValue, snoozeCount: nextCount };
     }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'snooze' } })); } catch (_) {}
     if (typeof window.renderLeads === 'function') {
@@ -518,6 +541,20 @@
       // W73: persist snoozedReason alongside snoozedUntil so the
       // bulk batch matches the per-lead snooze() shape.
       const reasonValue = (typeof reason === 'string' && reason.trim()) ? reason.trim() : null;
+      // W74: compute next snoozeCount per-lead from the in-memory
+      // cache so the bulk path mirrors the per-lead snooze() shape.
+      // Build a map keyed by leadId so we can pull each one's prior
+      // count without re-iterating window._leads inside the inner
+      // batch loop.
+      const priorCounts = new Map();
+      if (Array.isArray(window._leads)) {
+        for (const l of window._leads) {
+          if (!l || !l.id) continue;
+          if (typeof l.snoozeCount === 'number') priorCounts.set(l.id, l.snoozeCount);
+        }
+      }
+      const newCountFor = id => (priorCounts.get(id) || 0) + 1;
+
       const CHUNK = 450;
       const updatedAt = window.serverTimestamp ? window.serverTimestamp() : new Date();
       for (let i = 0; i < leadIds.length; i += CHUNK) {
@@ -527,6 +564,7 @@
           batch.update(window.doc(window.db, 'leads', id), {
             snoozedUntil: date,
             snoozedReason: reasonValue,
+            snoozeCount: newCountFor(id),
             updatedAt,
           });
         }
@@ -539,10 +577,17 @@
       const idSet = new Set(leadIds);
       if (Array.isArray(window._leads)) {
         window._leads = window._leads.map(l =>
-          (l && idSet.has(l.id)) ? { ...l, snoozedUntil: date, snoozedReason: reasonValue } : l);
+          (l && idSet.has(l.id))
+            ? { ...l, snoozedUntil: date, snoozedReason: reasonValue, snoozeCount: newCountFor(l.id) }
+            : l);
       }
       if (window._currentLead && idSet.has(window._currentLead.id)) {
-        window._currentLead = { ...window._currentLead, snoozedUntil: date, snoozedReason: reasonValue };
+        window._currentLead = {
+          ...window._currentLead,
+          snoozedUntil: date,
+          snoozedReason: reasonValue,
+          snoozeCount: newCountFor(window._currentLead.id),
+        };
       }
       try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'bulk-snooze' } })); } catch (_) {}
       if (typeof window.renderLeads === 'function') {
@@ -612,6 +657,8 @@
   window.LeadSnooze = {
     __sentinel: 'nbd-lead-snooze-v1',
     isSnoozed,
+    isStaleSnooze,
+    STALE_SNOOZE_THRESHOLD,
     snoozedUntilDate,
     formatSnoozeLabel,
     snooze,

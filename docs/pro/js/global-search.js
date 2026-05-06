@@ -161,16 +161,23 @@
           .sort((a, b) => a.untilMs - b.untilMs)
           .slice(0, 10);
         for (const s of snoozed) {
-          // W73: append snooze reason if the rep tagged one. Reads
-          // as "⏰ Until Tue Sep 9 · Insurance" — much more
-          // scannable than just the date.
+          // W73: append snooze reason if the rep tagged one.
+          // W74: prepend a stale-snooze warning if this lead has
+          // been snoozed 3+ times. Reads as
+          //   "⚠️ 3× · ⏰ Until Tue Sep 9 · Insurance"
+          // so the rep can spot the indecision pattern at a glance
+          // in the same scan they use to find returning leads.
           const tag = (s.lead && typeof s.lead.snoozedReason === 'string' && s.lead.snoozedReason.trim())
             ? ` · ${s.lead.snoozedReason.trim()}`
+            : '';
+          const staleTag = (window.LeadSnooze && typeof window.LeadSnooze.isStaleSnooze === 'function'
+                            && window.LeadSnooze.isStaleSnooze(s.lead))
+            ? `⚠️ ${s.lead.snoozeCount}× · `
             : '';
           snoozedHits.push({
             type: 'lead',
             lead: s.lead,
-            reason: `⏰ Until ${window.LeadSnooze.formatSnoozeLabel(new Date(s.untilMs))}${tag}`,
+            reason: `${staleTag}⏰ Until ${window.LeadSnooze.formatSnoozeLabel(new Date(s.untilMs))}${tag}`,
             icon: '💤',
           });
         }
