@@ -794,6 +794,42 @@ function buildCard(l){
     viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:#5eead4;border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
   })();
 
+  // ── Wave 112: smart-follow-up suggestion pill ──
+  // Shows the next-best-action priority + channel as a compact pill
+  // in the kc-tags row. Clicking the pill is a no-op for now (the
+  // W113 customer page panel hosts the full action UI). Skipped
+  // when SmartFollowup isn't loaded or returns 'wait' / 'monitor'
+  // — those are explicitly "no action" states and the pill would
+  // just be visual noise.
+  let smartFollowupBadge = '';
+  (function buildSmartFollowupBadge() {
+    if (!window.SmartFollowup
+        || typeof window.SmartFollowup.computeSuggestion !== 'function') return;
+    const sug = window.SmartFollowup.computeSuggestion(l);
+    if (!sug) return;
+    if (sug.priority === 'wait' || sug.priority === 'monitor') return;
+    // Color register matches the priority severity:
+    //   urgent    → red    (act now)
+    //   today     → orange (do today)
+    //   this-week → blue   (sometime soon)
+    let bg, color, border, icon, label;
+    if (sug.priority === 'urgent') {
+      bg = 'rgba(239,68,68,0.16)'; color = '#fca5a5'; border = 'rgba(239,68,68,0.45)';
+      icon = '⚡'; label = 'Urgent';
+    } else if (sug.priority === 'today') {
+      bg = 'rgba(245,158,11,0.16)'; color = '#fcd34d'; border = 'rgba(245,158,11,0.45)';
+      icon = '💡'; label = 'Today';
+    } else { // this-week
+      bg = 'rgba(96,165,250,0.16)'; color = '#93c5fd'; border = 'rgba(96,165,250,0.45)';
+      icon = '👁'; label = 'Watch';
+    }
+    // Title attribute carries the headline + reasoning so reps can
+    // hover to see WHY the suggestion fires without leaving the
+    // kanban. The W113 panel will give the full UI.
+    const tooltip = `${sug.headline}\n\n${sug.reasoning}`;
+    smartFollowupBadge = `<span class="kc-tag" style="background:${bg};color:${color};border-color:${border};" title="${escHtml(tooltip)}">${icon} ${escHtml(label)}</span>`;
+  })();
+
   // ── Wave 92: engagement tier badge ──
   // Compact aggregate of W44 share + W58 viewed + respondedAt
   // signals into a single chip on the kanban card. The customer
@@ -923,6 +959,7 @@ function buildCard(l){
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
+      ${smartFollowupBadge}
       ${lastSharedBadge}
       ${viewedBadge}
       ${engagementBadge}
