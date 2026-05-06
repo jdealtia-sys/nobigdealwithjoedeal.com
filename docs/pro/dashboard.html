@@ -8729,6 +8729,24 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 19: PIPELINE BOTTLENECK WIDGET ───────────────────────
+           Shows avg days-in-stage per kanban stage with the slowest
+           flagged red. Click a row to jump into the CRM filtered to
+           that stage. Renders on init + on 'nbd:data-refreshed' +
+           every 5 minutes so day-counts tick over even if the rep
+           leaves the dashboard open all day. ─────────────────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Operational</div><div class="panel-title">Pipeline Bottlenecks</div></div>
+          <span style="font-size:11px;color:var(--m);">Avg days in stage</span>
+        </div>
+        <div class="panel-body" id="pipeline-bottleneck-body">
+          <div style="padding:24px;text-align:center;color:var(--m);font-size:12px;">
+            Computing…
+          </div>
+        </div>
+      </div>
+
       <!-- TODAY'S TASKS PANEL -->
       <div class="panel" style="margin-top:14px;">
         <div class="panel-hdr">
@@ -16490,6 +16508,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
 <script defer src="js/global-search.js?v=1"></script>
+<script defer src="js/bottleneck-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
