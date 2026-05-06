@@ -258,6 +258,15 @@ function renderLeads(leads, filtered){
     list = list.filter(l => !l.isProspect);
   }
 
+  // Wave 35: hide snoozed leads from the kanban by default. The rep
+  // can flip "Show snoozed" in the CRM header to bring them back.
+  // We keep snoozed leads in `all` so the stat row totals are
+  // unaffected — the filter only narrows what renders as cards.
+  const _showSnoozed = (localStorage.getItem('nbd_crm_show_snoozed') === '1');
+  if (!_showSnoozed && window.LeadSnooze) {
+    list = list.filter(l => !window.LeadSnooze.isSnoozed(l));
+  }
+
   // ─── Rep scoping (Enterprise) ─────────────────
   // When a user has a 'role' custom claim that is NOT 'admin' or
   // 'owner', they only see their own leads. Managers see all leads

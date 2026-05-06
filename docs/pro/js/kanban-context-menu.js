@@ -138,6 +138,32 @@
         onSelect: () => window.open(mapsUrl(lead.address), '_blank', 'noopener'),
       });
     }
+    // Wave 35: Snooze. Available when LeadSnooze module is loaded.
+    // Toggles between "Snooze" (when not snoozed) and "Unsnooze"
+    // (when currently snoozed) so the menu reflects state.
+    if (window.LeadSnooze) {
+      items.push({ divider: true });
+      if (window.LeadSnooze.isSnoozed(lead)) {
+        const until = window.LeadSnooze.snoozedUntilDate(lead);
+        const label = until
+          ? `Unsnooze (was until ${window.LeadSnooze.formatSnoozeLabel(until)})`
+          : 'Unsnooze';
+        items.push({
+          icon: '⏰',
+          label,
+          onSelect: () => window.LeadSnooze.promptUnsnooze(lead.id),
+        });
+      } else {
+        items.push({
+          icon: '💤',
+          label: 'Snooze lead…',
+          onSelect: () => {
+            const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+            window.LeadSnooze.prompt(lead.id, name);
+          },
+        });
+      }
+    }
     items.push({ divider: true });
     items.push({
       icon: '🗑',

@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=24" as="script">
+<link rel="preload" href="js/crm.js?v=25" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -9590,6 +9590,18 @@ function switchScTab(tab, btn) {
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
           <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
+        <!-- Wave 35: snoozed-leads toggle. Hidden by default (snoozed
+             leads are deferred-by-design); flips on to surface them
+             when the rep wants to triage their snooze backlog. Count
+             badge shows how many are currently snoozed. -->
+        <button class="btn btn-ghost crm-hdr-btn" id="snoozedToggleBtn"
+          onclick="window.toggleShowSnoozed && window.toggleShowSnoozed()"
+          title="Show snoozed leads (hidden by default)"
+          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+          💤 <span id="snoozedBtnLabel" class="crm-hdr-btn-label">Snoozed</span>
+          <span id="snoozedCountBadge"
+            style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+        </button>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
         <button class="btn btn-orange crm-hdr-btn" onclick="openLeadModal()" title="Add Lead (C)">＋ <span class="crm-hdr-btn-label">Add</span> <span class="kbd-hint">C</span></button>
@@ -16639,7 +16651,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=24"></script>
+<script defer src="js/crm.js?v=25"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
@@ -16651,6 +16663,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/data-import.js?v=1"></script>
 <script defer src="js/activity-feed.js?v=1"></script>
 <script defer src="js/needs-attention-filter.js?v=1"></script>
+<script defer src="js/lead-snooze.js?v=1"></script>
 <script defer src="js/kanban-context-menu.js?v=1"></script>
 <script defer src="js/hot-leads-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
