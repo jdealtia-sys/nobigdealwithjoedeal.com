@@ -237,16 +237,23 @@
     const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // Build photo gallery
-    // W86: photo url + name escaped. The lightbox onclick
-    // hardcodes its toggle logic and doesn't interpolate user
-    // data, so it's safe as-is — the prior risk was the unescaped
-    // `alt` (could break attribute boundary) and `src` (could
-    // contain javascript: scheme).
-    const photoHTML = photos.length > 0 ? photos.map(p => `
+    // W86: photo url + name escaped against XSS (alt/src boundary
+    // escape prevention).
+    // W88: replaced the per-img inline-style toggle hack with a
+    // proper overlay lightbox at the bottom of the body. The
+    // previous approach had three real bugs reported on mobile:
+    //   - no way to dismiss the lightbox without re-tapping the
+    //     photo (homeowners got stuck on the image)
+    //   - image clipped under the iOS notch (no safe-area padding)
+    //   - state drift: tapping a 2nd photo while the 1st was
+    //     still expanded left both partially toggled
+    // The new lightbox is a single shared overlay with a close
+    // button + backdrop dismiss + Esc key + safe-area padding.
+    const photoHTML = photos.length > 0 ? photos.map((p) => `
       <div style="border-radius:8px;overflow:hidden;aspect-ratio:1;background:#f0f0f0;">
         <img src="${esc(p.url)}" alt="${esc(p.name || 'Project photo')}"
-             style="width:100%;height:100%;object-fit:cover;cursor:pointer;"
-             onclick="this.style.position=this.style.position==='fixed'?'':'fixed';this.style.top='0';this.style.left='0';this.style.width=this.style.width==='100vw'?'100%':'100vw';this.style.height=this.style.height==='100vh'?'100%':'100vh';this.style.zIndex=this.style.zIndex==='9999'?'':'9999';this.style.objectFit='contain';this.style.background='rgba(0,0,0,0.9)';">
+             data-lb-src="${esc(p.url)}"
+             style="width:100%;height:100%;object-fit:cover;cursor:pointer;">
       </div>
     `).join('') : '<div style="text-align:center;padding:30px;color:#888;">Photos will appear here as your project progresses</div>';
 
@@ -394,6 +401,34 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
   <p style="margin-top:8px;"><a href="https://${BRAND.website}">${BRAND.website}</a></p>
   <p style="margin-top:4px;">${BRAND.tagline}</p>
 </div>
+
+<!-- W88: shared photo lightbox overlay. Hidden by default; opened
+     by clicking any photo with a data-lb-src. Tap backdrop, the
+     × button, or Esc to close. Padding uses env(safe-area-inset-*)
+     so the image doesn't clip under the iOS notch / home indicator. -->
+<div id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;padding:env(safe-area-inset-top,16px) env(safe-area-inset-right,16px) env(safe-area-inset-bottom,16px) env(safe-area-inset-left,16px);">
+  <button id="lb-close" type="button" aria-label="Close photo"
+    style="position:absolute;top:calc(env(safe-area-inset-top,16px) + 8px);right:calc(env(safe-area-inset-right,16px) + 8px);width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.18);color:#fff;border:none;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">×</button>
+  <img id="lb-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;">
+</div>
+
+<script>
+(function(){
+  var lb = document.getElementById('lb');
+  var lbImg = document.getElementById('lb-img');
+  var lbClose = document.getElementById('lb-close');
+  function open(src){ lbImg.src = src; lb.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+  function close(){ lb.style.display = 'none'; lbImg.src = ''; document.body.style.overflow = ''; }
+  document.querySelectorAll('img[data-lb-src]').forEach(function(img){
+    img.addEventListener('click', function(){ open(img.getAttribute('data-lb-src')); });
+  });
+  lbClose.addEventListener('click', close);
+  lb.addEventListener('click', function(e){ if (e.target === lb) close(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && lb.style.display === 'flex') close();
+  });
+})();
+</script>
 </body>
 </html>`;
   }
