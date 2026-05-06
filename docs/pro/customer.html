@@ -932,6 +932,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         title="Generate (if needed) and copy the customer portal link in one click">
         📋 Copy Portal Link
       </button>
+      <!-- Wave 41: SMS variant — opens the device's native SMS
+           composer with the portal link + a friendly greeting
+           pre-filled, addressed to the customer's phone. -->
+      <button class="btn" id="quickSmsPortalBtn" onclick="window.quickSmsPortalLink && window.quickSmsPortalLink()"
+        title="Open SMS composer with the portal link pre-filled to the customer">
+        💬 Text Portal Link
+      </button>
       <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
@@ -6558,7 +6565,9 @@ function copyPortalUrl(inputId) {
   });
 }
 
-// Wave 40: one-click copy of the Full Project Portal link.
+// Wave 40 + 41: portal link helpers.
+//
+// Wave 40 — one-click copy of the Full Project Portal link.
 // Replaces the 3-4-step flow (open share panel → wait for url
 // load → click 📋 → close panel) with a single click that:
 //   1. Reads the existing lead.portalUrl from Firestore.
@@ -6571,6 +6580,33 @@ function copyPortalUrl(inputId) {
 //
 // Falls back to opening the share panel on hard failure so the
 // rep can manually inspect what went wrong.
+//
+// Wave 41 — same generate-or-fetch flow but instead of clipboard,
+// builds an sms: URL with a friendly prefilled message and hands
+// off to the device's native SMS composer. The rep taps the
+// button mid-call, the SMS app opens with the customer's phone
+// + body already populated, they just hit Send.
+
+// Shared helper used by both Wave 40 + Wave 41 — guarantees we
+// only resolve the URL once per click, with the same Firestore-
+// first / generate-on-demand logic.
+async function _resolvePortalUrl() {
+  if (!window._customerId) throw new Error('No customer selected');
+  if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
+  // Try existing URL first — saves the round-trip + Firestore
+  // write when one's already minted.
+  let url = null;
+  try {
+    const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+    const data = leadSnap.exists() ? leadSnap.data() : {};
+    if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
+      url = data.portalUrl;
+    }
+  } catch (_) { /* fall through to generate */ }
+  if (!url) url = await CustomerPortal.generate(window._customerId);
+  if (!url) throw new Error('Generation failed');
+  return url;
+}
 window.quickCopyPortalLink = async function () {
   const button = document.getElementById('quickCopyPortalBtn');
   const restoreLabel = button ? button.innerHTML : null;
@@ -6581,25 +6617,7 @@ window.quickCopyPortalLink = async function () {
     button.innerHTML = '⏳ Copying…';
   }
   try {
-    if (!window._customerId) throw new Error('No customer selected');
-    if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
-
-    // Try existing URL first — saves the round-trip + Firestore
-    // write when one's already minted.
-    let url = null;
-    try {
-      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
-      const data = leadSnap.exists() ? leadSnap.data() : {};
-      if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
-        url = data.portalUrl;
-      }
-    } catch (_) { /* fall through to generate */ }
-
-    // Mint a new one if needed.
-    if (!url) {
-      url = await CustomerPortal.generate(window._customerId);
-    }
-    if (!url) throw new Error('Generation failed');
+    const url = await _resolvePortalUrl();
 
     // Copy. The async clipboard API requires a user-gesture
     // origin; this function IS called from a click handler so it
@@ -6650,6 +6668,65 @@ window.quickCopyPortalLink = async function () {
     if (typeof openGallerySharePanel === 'function') {
       try { openGallerySharePanel(); } catch (_) {}
     }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.style.opacity = '';
+      button.style.cursor = '';
+      if (restoreLabel != null) button.innerHTML = restoreLabel;
+    }
+  }
+};
+
+// Wave 41: same generate-or-fetch flow but hand off to the device
+// SMS composer with prefilled body. Mid-customer-call use case:
+// rep wants to text the portal link to the homeowner with one tap.
+window.quickSmsPortalLink = async function () {
+  const button = document.getElementById('quickSmsPortalBtn');
+  const restoreLabel = button ? button.innerHTML : null;
+  if (button) {
+    button.disabled = true;
+    button.style.opacity = '0.7';
+    button.style.cursor = 'wait';
+    button.innerHTML = '⏳ Preparing…';
+  }
+  try {
+    const lead = window._currentLead || {};
+    const phone = String(lead.phone || '').replace(/\D+/g, '');
+    if (!phone) {
+      if (typeof showToast === 'function') showToast('No phone number on this customer', 'error');
+      return;
+    }
+
+    const url = await _resolvePortalUrl();
+
+    // Friendly prefilled body — uses the customer's first name
+    // when available so the SMS feels personal. Encoded for the
+    // sms: URI scheme. Both ?body= and &body= work depending on
+    // platform; we use the more universal ?body= format.
+    const firstName = String(lead.firstName || '').trim();
+    const greeting = firstName ? `Hi ${firstName}, ` : 'Hi, ';
+    const body = `${greeting}here's your project portal — photos, status updates, and what's coming next: ${url}`;
+
+    // Build the sms: URL. Per spec the body parameter goes after
+    // the phone, separated by ?body= on iOS and &body= on Android.
+    // The platforms tolerate both reasonably; ?body= is the safer
+    // default. encodeURIComponent handles spaces + special chars.
+    const smsUrl = `sms:${phone}?body=${encodeURIComponent(body)}`;
+
+    // Hand off to the OS. On desktop browsers without an SMS
+    // handler this no-ops or prompts the user — the toast
+    // confirms what we tried so the rep isn't confused by silent
+    // failure.
+    window.location.href = smsUrl;
+    if (typeof showToast === 'function') {
+      showToast(firstName
+        ? `Opening SMS to ${firstName}…`
+        : 'Opening SMS…', 'success');
+    }
+  } catch (e) {
+    console.warn('[quickSmsPortalLink] failed', e);
+    if (typeof showToast === 'function') showToast('Couldn\'t prepare SMS: ' + (e.message || 'unknown'), 'error');
   } finally {
     if (button) {
       button.disabled = false;
