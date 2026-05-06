@@ -2514,6 +2514,101 @@ function _readLeadHandoff(id) {
   } catch (e) { return null; }
 }
 
+// Wave 14: background revalidate for the handoff path. Fetches the
+// canonical lead from Firestore and, if it's newer than what we
+// rendered, updates window._currentLead + shows a small "Refreshed"
+// indicator so the rep knows fresh data has arrived. Soft-fails on
+// network errors — the page already has handoff data showing and we
+// don't want to surface noise when the connection flakes briefly.
+//
+// Defers 1.5 seconds so the initial render completes first; we don't
+// want the revalidate competing with sub-loaders for the iOS
+// connection.
+function _revalidateLeadInBackground(id, hydratedLead) {
+  const REVALIDATE_DELAY_MS = 1500;
+  const REVALIDATE_TIMEOUT_MS = 12_000;
+  setTimeout(async () => {
+    try {
+      const fetched = await Promise.race([
+        getDoc(doc(db, 'leads', id)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('revalidate-timeout')), REVALIDATE_TIMEOUT_MS))
+      ]);
+      if (!fetched || !fetched.exists?.()) return;
+      const fresh = { id: fetched.id, ...fetched.data() };
+      const _toMs = (v) => {
+        if (!v) return 0;
+        if (typeof v.toMillis === 'function') return v.toMillis();
+        if (typeof v === 'object' && typeof v.__ts === 'number') return v.__ts;
+        return 0;
+      };
+      const handoffTs = _toMs(hydratedLead.updatedAt) || _toMs(hydratedLead.createdAt);
+      const freshTs   = _toMs(fresh.updatedAt)        || _toMs(fresh.createdAt);
+      // Only show the indicator + swap state if the server doc is
+      // demonstrably newer. If they're identical, the handoff was
+      // already current; quietly noop.
+      if (freshTs > 0 && handoffTs > 0 && freshTs <= handoffTs) {
+        console.log('[customer] background revalidate: handoff was current');
+        return;
+      }
+      console.log('[customer] background revalidate: fresh data found, updating');
+      window._leads = [fresh];
+      window._currentLead = fresh;
+      window._leadDoc = fresh;
+      _showRefreshedIndicator();
+      // Let any module that cares re-render off the new data. Sub-
+      // pages (photos, documents, estimates) have their own loaders
+      // and don't need to know; we just refresh the header bits we
+      // know about.
+      try {
+        const nameEl  = document.getElementById('customerName');
+        if (nameEl) {
+          const n = `${fresh.firstName || ''} ${fresh.lastName || ''}`.trim();
+          if (n) nameEl.textContent = n;
+        }
+        const stageEl = document.getElementById('customerStage');
+        if (stageEl && fresh.stage) {
+          // Best-effort label refresh; falls back to raw key if we
+          // don't have the STAGE_LABELS map in scope here.
+          stageEl.textContent = (window.__STAGE_LABELS && window.__STAGE_LABELS[fresh.stage]) || fresh.stage;
+        }
+      } catch (e) { /* non-fatal */ }
+    } catch (e) {
+      console.warn('[customer] background revalidate failed:', e.message);
+    }
+  }, REVALIDATE_DELAY_MS);
+}
+
+// Small "↻ Refreshed" indicator that fades in then out. Called when
+// background revalidate finds newer data than what handoff rendered.
+function _showRefreshedIndicator() {
+  let pill = document.getElementById('nbd-refreshed-pill');
+  if (pill) {
+    // Already showing — re-trigger the fade.
+    pill.style.opacity = '1';
+    return;
+  }
+  pill = document.createElement('div');
+  pill.id = 'nbd-refreshed-pill';
+  pill.textContent = '↻ Refreshed with latest data';
+  pill.style.cssText = `
+    position:fixed; top:12px; left:50%; transform:translateX(-50%);
+    background:#1f2937; color:#fff; font-family:'Barlow',-apple-system,system-ui,sans-serif;
+    font-size:12px; font-weight:600; padding:8px 14px; border-radius:999px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.25);
+    z-index:99998; opacity:0; transition:opacity .3s ease;
+    pointer-events:none;`;
+  document.body.appendChild(pill);
+  // Trigger fade-in on next frame.
+  requestAnimationFrame(() => {
+    pill.style.opacity = '1';
+    // Auto-fade after 3.2s.
+    setTimeout(() => {
+      pill.style.opacity = '0';
+      setTimeout(() => pill.remove(), 350);
+    }, 3200);
+  });
+}
+
 async function loadCustomerData(id) {
   try {
     // CRITICAL: Set global customerId FIRST so all sub-loaders have it
@@ -2532,6 +2627,12 @@ async function loadCustomerData(id) {
     if (handoff) {
       console.log('[customer] hydrating from handoff cache (instant render)');
       lead = handoff;
+      // Wave 14: fire a background revalidate so the page self-heals
+      // if the cached lead is stale (e.g. another rep updated it
+      // since the dashboard's last load). Don't await — the page is
+      // already showing handoff data and we don't want to gate that
+      // on a network round-trip that might hang on iOS Safari.
+      _revalidateLeadInBackground(id, handoff);
     } else {
       // Cold path: fetch from Firestore.
       const leadSnap = await getDoc(doc(db, 'leads', id));
@@ -2596,6 +2697,9 @@ async function loadCustomerData(id) {
       'final_photos': 'Final Photos', 'deductible_collected': 'Deductible',
       'final_payment': 'Final Payment', 'closed': 'Closed', 'lost': 'Lost'
     };
+    // Wave 14: expose globally so the background-revalidate label
+    // refresher can resolve stage keys without redefining the map.
+    window.__STAGE_LABELS = STAGE_LABELS;
     stageBadge.textContent = STAGE_LABELS[stage] || stage;
     stageBadge.className = 'stage-badge stage-' + stage.toLowerCase().replace(/[_\s]+/g, '-');
 
