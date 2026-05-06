@@ -648,6 +648,33 @@ function buildCard(l){
     }
   }
 
+  // ── Wave 44: last-shared badge ──
+  // Surfaces a small "📤 shared 3d via SMS" pill when the rep has
+  // shared the portal link with this customer. Helps reps remember
+  // who they've reached out to and through which channel without
+  // opening the customer detail page. Skipped when not yet shared.
+  let lastSharedBadge = '';
+  (function buildLastSharedBadge() {
+    const sharedAt = l.lastSharedAt;
+    if (!sharedAt) return;
+    let ms = 0;
+    if (typeof sharedAt.toMillis === 'function')      ms = sharedAt.toMillis();
+    else if (typeof sharedAt.toDate === 'function')   ms = sharedAt.toDate().getTime();
+    else if (sharedAt instanceof Date)                ms = sharedAt.getTime();
+    else if (typeof sharedAt === 'number')            ms = sharedAt;
+    if (!ms) return;
+    const days = Math.floor((Date.now() - ms) / 86400000);
+    let label;
+    if (days <= 0)      label = 'today';
+    else if (days === 1) label = 'yesterday';
+    else if (days < 7)   label = `${days}d ago`;
+    else if (days < 30)  label = `${Math.floor(days / 7)}w ago`;
+    else                 label = `${Math.floor(days / 30)}mo ago`;
+    const viaMap = { copy: 'copied', sms: 'SMS', email: 'email' };
+    const via = viaMap[l.lastSharedVia] || 'shared';
+    lastSharedBadge = `<span class="kc-tag" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
+  })();
+
   // Photo thumbnails (from cache). Click behavior is wired via data-* +
   // delegated event listener in wireKanbanCardListeners(), so attacker-
   // controlled fields like `l.address` can never break out of an onclick
@@ -722,6 +749,7 @@ function buildCard(l){
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
+      ${lastSharedBadge}
     </div>
     <div class="kc-footer">
       <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>

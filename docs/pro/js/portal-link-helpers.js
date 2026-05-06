@@ -39,6 +39,50 @@
     return leadOrId;
   }
 
+  // ─── Share tracking ──────────────────────────────────────────────
+  // Wave 44: stamp lead.lastSharedAt + lastSharedVia after each
+  // share. Best-effort — fires AFTER the share itself succeeds so a
+  // tracking failure can't block the rep from sharing. The in-memory
+  // cache is patched first (immediate visual feedback on the kanban
+  // + customer page) and the Firestore write is fire-and-forget.
+  function _recordShare(leadId, via) {
+    if (!leadId || !via) return;
+    const now = new Date();
+
+    // Patch in-memory caches so widgets see fresh state without
+    // waiting on the Firestore round-trip.
+    if (Array.isArray(window._leads)) {
+      const i = window._leads.findIndex(l => l && l.id === leadId);
+      if (i >= 0) {
+        window._leads[i] = {
+          ...window._leads[i],
+          lastSharedAt: now,
+          lastSharedVia: via,
+        };
+      }
+    }
+    if (window._currentLead && window._currentLead.id === leadId) {
+      window._currentLead = {
+        ...window._currentLead,
+        lastSharedAt: now,
+        lastSharedVia: via,
+      };
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
+        detail: { source: 'share-recorded', leadId, via },
+      }));
+    } catch (_) {}
+
+    // Best-effort Firestore write. Failures are logged but never
+    // surface to the user — the share itself already succeeded.
+    if (!window.db || !window.doc || !window.updateDoc) return;
+    const ref = window.doc(window.db, 'leads', leadId);
+    const ts = window.serverTimestamp ? window.serverTimestamp() : now;
+    window.updateDoc(ref, { lastSharedAt: ts, lastSharedVia: via })
+      .catch(e => console.warn('[PortalLinkHelpers._recordShare] write failed', e.message));
+  }
+
   // ─── Resolve URL ────────────────────────────────────────────────
   // Firestore-first / generate-on-demand. Same flow Waves 40 + 41
   // already implemented inline in customer.html — extracted here so
@@ -104,6 +148,7 @@
 
       if (copied) {
         _toast('Portal link copied — paste anywhere', 'success');
+        _recordShare(lead.id, 'copy');
       } else {
         // On the customer page we can fall back to opening the
         // share panel + selecting the URL. From the kanban context
@@ -150,6 +195,7 @@
       const smsUrl = `sms:${phone}?body=${encodeURIComponent(body)}`;
       window.location.href = smsUrl;
       _toast(firstName ? `Opening SMS to ${firstName}…` : 'Opening SMS…', 'success');
+      _recordShare(lead.id, 'sms');
     } catch (e) {
       console.warn('[PortalLinkHelpers.smsForLead] failed', e);
       _toast('Couldn\'t prepare SMS: ' + (e.message || 'unknown'), 'error');
@@ -197,6 +243,7 @@ Bookmark it; the link stays live as we work through the project.
         '&body=' + encodeURIComponent(body);
       window.location.href = mailUrl;
       _toast(firstName ? `Opening email to ${firstName}…` : 'Opening email…', 'success');
+      _recordShare(lead.id, 'email');
     } catch (e) {
       console.warn('[PortalLinkHelpers.emailForLead] failed', e);
       _toast('Couldn\'t prepare email: ' + (e.message || 'unknown'), 'error');
