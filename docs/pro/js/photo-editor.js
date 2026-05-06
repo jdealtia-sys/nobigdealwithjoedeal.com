@@ -1631,7 +1631,15 @@
      ========================================== */
   async function switchPhoto(idx) {
     if (idx === S.currentPhotoIndex || idx < 0 || idx >= S.allPhotos.length) return;
-    // TODO: prompt save if unsaved
+    // Guard against silent loss of annotations when the user clicks
+    // a different photo without saving. If anything's been drawn /
+    // marked / typed, confirm before discarding.
+    if (annotations.length > 0) {
+      const proceed = confirm(
+        `You have ${annotations.length} unsaved annotation${annotations.length === 1 ? '' : 's'} on this photo.\n\nSwitching photos will discard them. Continue?`
+      );
+      if (!proceed) return;
+    }
     S.currentPhotoIndex = idx;
     const photo = S.allPhotos[idx];
     const url = typeof photo === 'string' ? photo : (photo.url || '');
