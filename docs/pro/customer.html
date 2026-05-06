@@ -922,6 +922,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
              cue on both kanban + customer page. Hidden until any
              non-responded estimate has viewedAt set. -->
         <span id="viewedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(46,204,138,0.14);color:#5eead4;border:1px solid rgba(46,204,138,0.45);"></span>
+        <!-- Wave 91: engagement score chip. Productizes the W44
+             share, W58 viewed, and respondedAt signals into a
+             single tier so the rep can prioritize at a glance.
+             Color shifts with tier: 🌱 New (gray) / 📨 Sent (blue)
+             / 👀 Viewed (green) / 🔥 Hot (orange) / ✅ Responded
+             (gold). Hidden when score is 0 (no signals). -->
+        <span id="engagementChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;"></span>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
@@ -6948,6 +6955,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script defer src="js/customer-last-shared-chip.js?v=1"></script>
 <script defer src="js/customer-viewed-chip.js?v=1"></script>
 <script defer src="js/customer-sibling-snooze.js?v=1"></script>
+<script defer src="js/customer-engagement-score.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
