@@ -3014,8 +3014,15 @@ section('Bulk lead operations — writeBatch + NBDStore + new fields');
   // Field allowlist — privileged fields (companyId, role, isAdmin)
   // must NOT be writable through this path, even though
   // firestore.rules already blocks them. Defense in depth.
+  // Wave 32 extended the set with source + jobType for bulk
+  // post-import cleanup; the test rewrites against the same shape
+  // and explicitly asserts the privileged-field guard separately.
   assert('BULK_LEAD_FIELDS allowlist constrains writable fields',
-    /BULK_LEAD_FIELDS\s*=\s*new Set\(\[['"]carrier['"], ['"]damageType['"], ['"]followUp['"], ['"]tags['"]\]\)/.test(crm));
+    /BULK_LEAD_FIELDS\s*=\s*new Set\(\[['"]carrier['"], ['"]damageType['"], ['"]followUp['"], ['"]tags['"], ['"]source['"], ['"]jobType['"]\]\)/.test(crm));
+  // Privileged-field exclusion sanity check — these must NEVER
+  // appear in the allowlist no matter how it's expanded.
+  assert('BULK_LEAD_FIELDS does not allow privileged fields',
+    !/BULK_LEAD_FIELDS\s*=\s*new Set\(\[[^\]]*['"](?:companyId|role|isAdmin|userId|deleted)['"][^\]]*\]\)/.test(crm));
   assert('bulkAssignField rejects non-allowlisted fields',
     /if \(!BULK_LEAD_FIELDS\.has\(field\)\)[\s\S]{0,200}return;/.test(crm));
 
