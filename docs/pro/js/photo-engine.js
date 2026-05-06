@@ -1285,6 +1285,7 @@
                 Delete
               </button>
             </div>
+            <div class="pe-ai-slot" data-photo-id="${photoId}"></div>
           </div>
         </div>
         <div class="pe-lightbox-nav">
@@ -1297,6 +1298,17 @@
       lightbox.onclick = (e) => {
         if (e.target === lightbox) lightbox.remove();
       };
+
+      // Wave 10: AI damage analysis. Injects an "Analyze with AI" button
+      // (or renders an existing aiAnalysis) into the metadata pane.
+      try {
+        if (window.PhotoAI && typeof window.PhotoAI.injectInLightbox === 'function') {
+          const slot = lightbox.querySelector('.pe-ai-slot[data-photo-id="' + photoId + '"]');
+          if (slot) window.PhotoAI.injectInLightbox({ id: photoId, leadId, ...photo }, slot);
+        }
+      } catch (e) {
+        console.warn('[PhotoEngine] AI inject failed', e);
+      }
     } catch (err) {
       showToast('Failed to load photo', 'error');
       console.error(err);
@@ -1486,6 +1498,14 @@
     },
     _openLightbox: openLightbox,
     _stagePhoto: stagePhoto,
+    // Internal: patch a photo in the per-lead cache so the next gallery
+    // open / lightbox open sees freshly-stamped fields (e.g. aiAnalysis).
+    __updatePhotoCache: (leadId, photoId, patch) => {
+      const list = state.photoCache[leadId];
+      if (!Array.isArray(list)) return;
+      const i = list.findIndex(p => p.id === photoId);
+      if (i >= 0) list[i] = { ...list[i], ...patch };
+    },
     _deletePhoto: async (photoId) => {
       const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
       if (await _ask('Delete this photo? This cannot be undone.')) {

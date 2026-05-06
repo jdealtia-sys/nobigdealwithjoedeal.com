@@ -434,6 +434,29 @@ exports.sendEstimateEmail = onRequest(
       }
 
       const lead = leadSnap.data();
+
+      // ── Multi-tenant isolation guard ─────────────────────────────
+      // Without this check, an authenticated user could supply any
+      // leadId and trigger an email to that lead's address — turning
+      // sendEstimateEmail into an arbitrary cross-tenant email relay.
+      // Allow when the caller is the lead's owner OR the caller is a
+      // manager/company_admin in the lead's company. Reject otherwise.
+      const callerUid       = decoded.uid;
+      const callerCompanyId = decoded.companyId || null;
+      const callerRole      = decoded.role || null;
+      const ownsLead        = lead.userId === callerUid;
+      const sameCompanyMgr  = (callerRole === 'manager' || callerRole === 'company_admin' || callerRole === 'admin')
+                              && lead.companyId
+                              && callerCompanyId
+                              && lead.companyId === callerCompanyId;
+      if (!ownsLead && !sameCompanyMgr) {
+        logger.warn('sendEstimateEmail unauthorized cross-tenant attempt', {
+          callerUid, leadId, leadOwner: lead.userId, leadCompany: lead.companyId
+        });
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+
       const to = lead.email;
       const customerName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Customer';
 
@@ -590,6 +613,36 @@ exports.sendTeamInviteEmail = onRequest(
       return;
     }
 
+    // ── Multi-tenant guard (Wave 9) ────────────────────────────────────
+    // Only admin/manager/owner of a company can mint invites, and the
+    // invite must carry the inviter's companyId so the accept flow can
+    // place the invitee in the correct tenant.
+    const callerCompanyId = decoded.companyId || null;
+    const callerRole      = decoded.role || null;
+    const ALLOWED_INVITERS = ['admin', 'company_admin', 'manager', 'owner'];
+
+    if (!callerCompanyId || !ALLOWED_INVITERS.includes(callerRole)) {
+      logger.warn('sendTeamInviteEmail unauthorized invite attempt', {
+        callerUid: decoded.uid,
+        callerRole,
+        hasCompany: !!callerCompanyId
+      });
+      res.status(403).json({ error: 'Forbidden — only company admins/managers can invite teammates' });
+      return;
+    }
+
+    // Role escalation guard: only admin/owner can mint admin invites.
+    // Managers can invite reps/crew but not other admins.
+    if (role === 'admin' && !['admin', 'company_admin', 'owner'].includes(callerRole)) {
+      logger.warn('sendTeamInviteEmail role escalation attempt', {
+        callerUid: decoded.uid,
+        callerRole,
+        attemptedRole: role
+      });
+      res.status(403).json({ error: 'Only admins/owners can invite other admins' });
+      return;
+    }
+
     try {
       const db = admin.firestore();
 
@@ -600,7 +653,9 @@ exports.sendTeamInviteEmail = onRequest(
       await inviteRef.set({
         email,
         role,
+        companyId: callerCompanyId,    // tie invite to inviter's tenant
         inviterUid: decoded.uid,
+        inviterRole: callerRole,
         inviterName,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         expiresAt: admin.firestore.Timestamp.fromDate(

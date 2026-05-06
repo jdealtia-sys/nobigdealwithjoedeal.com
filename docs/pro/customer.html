@@ -2422,24 +2422,77 @@ onAuthStateChanged(auth, async (user) => {
 
   if (!customerId) return;
 
+  // Bug fix 2026-05-05: on iOS Safari (especially as a PWA), the first
+  // getDoc after a fresh navigation occasionally hangs forever instead of
+  // rejecting — the page just sits behind opacity:0 with no error. We
+  // surface a "Connection is slow — Tap to retry" overlay after 8s so
+  // the user has a visible escape hatch. Tapping it forces a hard reload,
+  // which renegotiates the Firestore long-poll.
+  const slowLoadWatchdog = setTimeout(() => {
+    if (document.documentElement.style.opacity !== '1') {
+      try { showSlowLoadHint(); } catch (e) { console.warn(e); }
+    }
+  }, 8000);
+
   try {
     await loadCustomerData(customerId);
+    clearTimeout(slowLoadWatchdog);
+    hideSlowLoadHint();
     document.documentElement.style.opacity = '1';
   } catch (error) {
+    clearTimeout(slowLoadWatchdog);
+    hideSlowLoadHint();
     console.error('Critical error:', error);
     document.documentElement.style.opacity = '1';
     showError('Something went wrong', 'Unable to load customer data. Please try again.');
   }
 });
 
+// ── Slow-load hint UI (escape hatch for hung iOS connections) ──
+function showSlowLoadHint() {
+  if (document.getElementById('slow-load-hint')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'slow-load-hint';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,18,25,0.94);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;opacity:1;';
+  overlay.innerHTML = `
+    <div style="max-width:380px;text-align:center;color:#e8eaf0;font-family:'Barlow',-apple-system,system-ui,sans-serif;">
+      <div style="font-size:32px;margin-bottom:12px;">⏳</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Loading is taking a while</div>
+      <div style="font-size:14px;color:#9aa3b2;line-height:1.5;margin-bottom:20px;">
+        This usually means the connection went stale (common on iOS after switching apps). Tap below to refresh — your data is safe.
+      </div>
+      <button id="slow-load-retry" style="
+        background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+        color:#fff;border:none;padding:14px 28px;border-radius:8px;
+        font-size:15px;font-weight:600;cursor:pointer;
+        box-shadow:0 4px 12px rgba(200,84,26,0.3);
+        -webkit-tap-highlight-color:transparent;">Refresh now</button>
+      <div style="margin-top:14px;">
+        <button id="slow-load-back" style="
+          background:transparent;color:#9aa3b2;border:1px solid #2a3344;
+          padding:10px 22px;border-radius:8px;font-size:13px;cursor:pointer;
+          -webkit-tap-highlight-color:transparent;">← Back to dashboard</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const retry = document.getElementById('slow-load-retry');
+  if (retry) retry.addEventListener('click', () => window.location.reload(), { once: true });
+  const back = document.getElementById('slow-load-back');
+  if (back) back.addEventListener('click', () => { window.location.href = '/pro/dashboard.html'; }, { once: true });
+}
+function hideSlowLoadHint() {
+  const el = document.getElementById('slow-load-hint');
+  if (el) el.remove();
+}
+
 async function loadCustomerData(id) {
   try {
     // CRITICAL: Set global customerId FIRST so all sub-loaders have it
     window._customerId = id;
-    
+
     // Track recently viewed
     trackRecentlyViewed(id);
-    
+
     // Load customer (lead) data
     const leadSnap = await getDoc(doc(db, 'leads', id));
     if (!leadSnap.exists()) {
@@ -6325,7 +6378,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/profit-tracker.js?v=2"></script>
 <script src="js/lead-scoring.js?v=2"></script>
 <script src="js/insurance-claim.js?v=2"></script>
-<script src="js/offline-manager.js?v=4"></script>
+<script src="js/offline-manager.js?v=5"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas

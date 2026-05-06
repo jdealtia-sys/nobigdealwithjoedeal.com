@@ -66,7 +66,20 @@
         console.log('✓ Service Worker registered');
 
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          showUpdateNotification();
+          // Bug fix 2026-05-05: previously this only showed a passive
+          // toast and the actual reload was driven by a postMessage
+          // from the SW's activate handler — keyed by SW shell version
+          // in sessionStorage. Because the version string didn't bump
+          // each deploy, the once-per-tab flag stayed set forever and
+          // every subsequent deploy left users with a dead toast and
+          // stale code. We now reload directly on controllerchange for
+          // auth-gated pages, gated by a per-page-load in-memory flag
+          // so we don't loop. Non-auth pages still get a tappable toast.
+          if (isOnAuthGatedPath()) {
+            forceReloadOnce('controllerchange');
+          } else {
+            showUpdateNotification();
+          }
         });
 
         navigator.serviceWorker.addEventListener('message', handleSWMessage);
@@ -459,13 +472,7 @@
       // a hard reload so the user picks up the new shell. Non-auth pages
       // (marketing, public forms) get a soft toast instead.
       if (isOnAuthGatedPath()) {
-        // Avoid an infinite reload loop: only force-reload once per SW
-        // activation. The flag is scoped to the tab via sessionStorage.
-        const flag = 'nbd_sw_reload_' + (msg.version || 'unknown');
-        if (!sessionStorage.getItem(flag)) {
-          sessionStorage.setItem(flag, '1');
-          window.location.reload();
-        }
+        forceReloadOnce('sw-message');
       } else {
         showUpdateNotification();
       }
@@ -479,10 +486,47 @@
     }
   }
 
+  // Bug fix 2026-05-05: per-page-load reload guard, replaces the
+  // old sessionStorage version-keyed flag (which got stuck because
+  // CACHE_VERSIONS.shell rarely changes — once a tab reloaded once,
+  // the flag stayed set and every subsequent SW activation just
+  // showed a dead toast). This flag is in-memory only, so a fresh
+  // page load always re-arms it.
+  let _reloadedThisLoad = false;
+  function forceReloadOnce(reason) {
+    if (_reloadedThisLoad) return;
+    _reloadedThisLoad = true;
+    console.log('[offline-manager] force reload (' + reason + ')');
+    // Defer so the SW's activate event finishes claiming clients
+    // before we navigate. iOS Safari is finicky about reload during
+    // controllerchange; a 0ms task break avoids the freeze.
+    setTimeout(() => { window.location.reload(); }, 0);
+  }
+
   function showUpdateNotification() {
+    // Show the toast AND make it actually clickable. The previous
+    // version told the user "tap to refresh" but the toast had no
+    // click handler — pure UX bug. Now tapping the toast (or even
+    // anywhere on the document while it's visible) triggers the
+    // reload. Belt-and-suspenders for iOS PWAs where the SW
+    // postMessage path is unreliable.
     if (typeof window.showToast === 'function') {
       window.showToast('Update available — tap to refresh', 'info');
     }
+    // Wait one frame so the toast element is in the DOM, then attach
+    // a one-shot click handler.
+    requestAnimationFrame(() => {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.style.cursor = 'pointer';
+      const onTap = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        forceReloadOnce('toast-tap');
+      };
+      t.addEventListener('click', onTap, { once: true });
+      t.addEventListener('touchend', onTap, { once: true, passive: false });
+    });
   }
 
   // ─────────────────────────────────────────────────────────

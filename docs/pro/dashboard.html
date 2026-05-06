@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=21" as="script">
+<link rel="preload" href="js/crm.js?v=22" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6098,10 +6098,17 @@ body {
   }
   .cd-edit-link:hover{ color:var(--orange); }
 
-  /* Mobile — stack the share row vertically so buttons don't squish */
+  /* Mobile — stack the share row vertically so buttons don't squish.
+     Also collapse the 2-col info grid to 1-col so address/phone/damage/
+     value rows are full-width and readable, and keep the action grid
+     at a reasonable density. */
   @media (max-width:540px){
     .cd-share-row{ flex-direction:column; }
     .cd-icon-btn{ width:100%; height:38px; }
+    .cd-info-grid{ grid-template-columns:1fr; gap:8px; }
+    .cd-actions{ grid-template-columns:repeat(3, 1fr); }
+    .cd-action-btn{ min-height:56px; padding:8px 4px; font-size:10px; }
+    .cd-action-icon{ font-size:18px; }
   }
   /* ══ END CARD DETAIL MODAL ══ */
 
@@ -6173,6 +6180,16 @@ body {
     font-size:14px; font-weight:700; color:var(--t); margin-bottom:4px;
   }
   .lsroi-empty-sub{ font-size:12px; color:var(--m); max-width:380px; margin:0 auto; }
+  /* Mobile: hide low-priority columns (Lost, Avg Deal) so the
+     remaining 6 fit without forcing a horizontal scroll. */
+  @media (max-width:600px) {
+    .lsroi-table th:nth-child(4), .lsroi-table td:nth-child(4),  /* Lost */
+    .lsroi-table th:nth-child(8), .lsroi-table td:nth-child(8) { /* Avg Deal */
+      display:none;
+    }
+    .lsroi-table th, .lsroi-table td { padding:8px 7px; font-size:11px; }
+    .lsroi-bar{ display:none; }
+  }
   /* ══ END LEAD SOURCE ROI ══ */
 
   /* ══ PIPELINE FORECAST ════════════════════════════════════════════ */
@@ -16337,7 +16354,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=21"></script>
+<script defer src="js/crm.js?v=22"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
@@ -16345,7 +16362,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
-<script defer src="js/photo-engine.js?v=4"></script>
+<script defer src="js/photo-engine.js?v=5"></script>
+<script defer src="js/photo-ai.js?v=1"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=3"></script>
 <script defer src="js/maps.js?v=9"></script>
@@ -16429,6 +16447,18 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
       console.log('🔄 New version available:', e.data.version);
       setTimeout(() => window.location.reload(), 500);
     }
+  });
+  // Bug fix 2026-05-05: backup auto-reload path. iOS Safari sometimes
+  // drops the SW postMessage when the page is mid-navigation. The
+  // `controllerchange` event still fires when the new SW takes over —
+  // we treat that as a definitive "new code is live, reload now" signal.
+  // In-memory flag prevents loops; the flag resets on every fresh load.
+  let _swCtrlReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swCtrlReloaded) return;
+    _swCtrlReloaded = true;
+    console.log('🔄 SW controller changed — reloading');
+    setTimeout(() => window.location.reload(), 0);
   });
 })();
 

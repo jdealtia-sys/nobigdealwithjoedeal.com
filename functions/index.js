@@ -1042,6 +1042,229 @@ exports.publicVisualizerAI = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════════
+// analyzeRoofPhoto — Wave 10 (AI photo analysis MVP)
+//
+// Reads a photo doc by ID, fetches the image bytes from Storage, and
+// asks Claude Sonnet (vision) to identify visible roof damage. Returns
+// a structured JSON result and stamps it on the photo doc as
+// `aiAnalysis` for later display in the inspection report.
+//
+// Security:
+//  - App Check + Firebase auth required.
+//  - Caller must own the photo (photo.userId === caller.uid). No
+//    cross-tenant lookups allowed.
+//  - Per-uid daily cap of 100 analyses (≈$0.50/day worst case).
+//  - Image fetch fails closed if Storage URL doesn't return a real
+//    image content-type — prevents server fetching arbitrary URLs.
+//  - System prompt is server-owned; client cannot inject one.
+//  - Response is JSON-validated server-side; if model produces invalid
+//    JSON we return 502 rather than persisting garbage.
+// ═══════════════════════════════════════════════════════════════════
+const ROOF_ANALYSIS_SYSTEM_PROMPT = `You are a senior roofing inspector with 20 years of field experience for No Big Deal Home Solutions in Greater Cincinnati. You are looking at a single photo from a roof inspection. Your job is to give the contractor a quick, accurate read on what you see.
+
+Return ONLY valid JSON in this exact shape — no prose, no markdown, no code fences:
+{
+  "damageDetected": true | false,
+  "severity": "none" | "minor" | "moderate" | "severe",
+  "materials": ["asphalt-shingle" | "metal" | "tile" | "slate" | "tpo" | "epdm" | "wood-shake" | "unknown"],
+  "observations": ["short factual observation", "another observation"],
+  "recommendations": ["short next-step recommendation", "another recommendation"],
+  "confidence": "low" | "medium" | "high",
+  "notRoof": true | false
+}
+
+Rules:
+- "notRoof" is true when the photo clearly is not a roof (set damageDetected to false, severity "none", materials [], observations ["Photo does not appear to be a roof."], recommendations ["Re-take photo of the actual roof surface."], confidence "high").
+- Each observation must be a single concrete fact you can see — e.g. "Granule loss across south slope", "Cracked shingle near ridge", "Damaged flashing at chimney base". No vague filler.
+- Each recommendation must be actionable — e.g. "Replace 2-3 damaged shingles", "Full replacement recommended", "Document for insurance claim".
+- Cap at 5 observations and 5 recommendations.
+- "severity": none = no damage, minor = isolated repair, moderate = section repair or active issue, severe = full replacement candidate.
+- "confidence" reflects how sure you are based on photo angle/lighting — be honest if it's a partial view.
+- DO NOT include any explanation outside the JSON. The response is machine-parsed.`;
+
+// Per-uid daily counter for AI photo analysis. Tracked separately from
+// claudeProxy budget because vision calls cost more.
+const PHOTO_AI_DAILY_CAP = 100;
+
+exports.analyzeRoofPhoto = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 10,
+    concurrency: 10,
+    timeoutSeconds: 60,
+    memory: '512MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Per-IP cap as a first line of defense.
+    if (!(await httpRateLimit(req, res, 'analyzeRoofPhoto:ip', 30, 3_600_000))) return;
+
+    // Auth
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+      logger.warn('analyzeRoofPhoto auth failed', { err: e.message });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Per-uid daily cap
+    try {
+      await enforceRateLimit('analyzeRoofPhoto:uid', decoded.uid, PHOTO_AI_DAILY_CAP, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) {
+        res.status(429).json({ error: 'Daily photo analysis limit reached' });
+        return;
+      }
+      throw e;
+    }
+
+    const { photoId } = req.body || {};
+    if (!photoId || typeof photoId !== 'string') {
+      res.status(400).json({ error: 'photoId required' });
+      return;
+    }
+
+    try {
+      const db = admin.firestore();
+      const photoRef = db.collection('photos').doc(photoId);
+      const photoSnap = await photoRef.get();
+      if (!photoSnap.exists) {
+        res.status(404).json({ error: 'Photo not found' });
+        return;
+      }
+      const photo = photoSnap.data();
+
+      // Ownership check — photos are user-scoped, not company-scoped.
+      if (photo.userId !== decoded.uid) {
+        logger.warn('analyzeRoofPhoto cross-tenant attempt', {
+          callerUid: decoded.uid, photoOwner: photo.userId, photoId
+        });
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+
+      if (!photo.url || typeof photo.url !== 'string') {
+        res.status(400).json({ error: 'Photo has no URL' });
+        return;
+      }
+      // Only allow Firebase Storage URLs to prevent SSRF.
+      if (!/^https:\/\/firebasestorage\.googleapis\.com\//.test(photo.url) &&
+          !/^https:\/\/storage\.googleapis\.com\//.test(photo.url)) {
+        logger.warn('analyzeRoofPhoto suspicious url', { photoId, host: photo.url.slice(0, 60) });
+        res.status(400).json({ error: 'Photo URL not allowed' });
+        return;
+      }
+
+      // Fetch image bytes
+      const imgRes = await fetch(photo.url);
+      if (!imgRes.ok) {
+        res.status(502).json({ error: 'Could not fetch photo' });
+        return;
+      }
+      const contentType = imgRes.headers.get('content-type') || '';
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      const safeMediaType = allowed.find(t => contentType.startsWith(t)) || null;
+      if (!safeMediaType) {
+        res.status(400).json({ error: 'Unsupported image type' });
+        return;
+      }
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      // Cap at 4 MB raw / ~5.5 MB base64 — Anthropic vision limit guard.
+      if (buf.length > 4 * 1024 * 1024) {
+        res.status(413).json({ error: 'Image too large (max 4 MB)' });
+        return;
+      }
+      const imageBase64 = buf.toString('base64');
+
+      // Call Claude (Sonnet for better vision accuracy on small details)
+      const anthropicBody = {
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: ROOF_ANALYSIS_SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: safeMediaType, data: imageBase64 } },
+            { type: 'text', text: 'Analyze this roof photo and return the JSON described in the system prompt.' },
+          ],
+        }],
+      };
+
+      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+      const aiData = await aiRes.json();
+      if (!aiRes.ok) {
+        logger.warn('analyzeRoofPhoto upstream error', { status: aiRes.status });
+        res.status(502).json({ error: 'AI upstream error' });
+        return;
+      }
+
+      const text = Array.isArray(aiData.content)
+        ? aiData.content.map(c => (c && c.type === 'text' ? c.text : '')).join('').trim()
+        : '';
+
+      // Strip code fences if model accidentally wraps JSON.
+      const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+
+      let analysis;
+      try {
+        analysis = JSON.parse(cleaned);
+      } catch (e) {
+        logger.warn('analyzeRoofPhoto invalid JSON', { snippet: cleaned.slice(0, 200) });
+        res.status(502).json({ error: 'AI returned invalid JSON' });
+        return;
+      }
+
+      // Validate shape — fail closed if model drifts.
+      const validSeverity   = ['none', 'minor', 'moderate', 'severe'];
+      const validConfidence = ['low', 'medium', 'high'];
+      const result = {
+        damageDetected: !!analysis.damageDetected,
+        severity: validSeverity.includes(analysis.severity) ? analysis.severity : 'none',
+        materials: Array.isArray(analysis.materials) ? analysis.materials.slice(0, 5).map(String) : [],
+        observations: Array.isArray(analysis.observations) ? analysis.observations.slice(0, 5).map(String) : [],
+        recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations.slice(0, 5).map(String) : [],
+        confidence: validConfidence.includes(analysis.confidence) ? analysis.confidence : 'low',
+        notRoof: !!analysis.notRoof,
+        analyzedAt: admin.firestore.FieldValue.serverTimestamp(),
+        modelVersion: anthropicBody.model,
+      };
+
+      // Stamp on photo doc for later report use.
+      await photoRef.update({ aiAnalysis: result });
+
+      // Return without the serverTimestamp sentinel (clients can't read it).
+      const { analyzedAt, ...clientView } = result;
+      res.json({ success: true, analysis: { ...clientView, analyzedAt: new Date().toISOString() } });
+    } catch (e) {
+      logger.error('analyzeRoofPhoto error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
+// ═══════════════════════════════════════════════════════════════════
 // seedDemoData — REMOVED.
 // Previously this was an unauthenticated POST that ran the full demo
 // seeder. It's a destructive cost-DoS vector. Demo data is now seeded

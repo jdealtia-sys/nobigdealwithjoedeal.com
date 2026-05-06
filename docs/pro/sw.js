@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v15', // v15 — auto-retry loadLeads + visibilitychange Firestore reconnect
-  cdn: 'nbd-cdn-v15',     // v15 — forces re-fetch of all CDN-cached JS/CSS
+  shell: 'nbd-shell-v16', // v16 — controllerchange-based auto-reload + tappable toast (fixes iOS PWA stuck-yellow)
+  cdn: 'nbd-cdn-v16',     // v16 — forces re-fetch of all CDN-cached JS/CSS
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
