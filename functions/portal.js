@@ -438,3 +438,158 @@ exports.getHomeownerPortalView = onRequest(
     res.status(200).json(view);
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// Wave 118: uploadHomeownerPhoto — homeowner uploads photos via portal
+// ═══════════════════════════════════════════════════════════════
+//
+// The portal's biggest close-the-loop opportunity: let the homeowner
+// upload photos of damage they spotted (storm, mid-job concerns,
+// finished work) without waiting for an inspection.
+//
+// Auth: portal token only (no Firebase user — this is the
+// homeowner-facing path). Validated via the same portal_tokens
+// collection as getHomeownerPortalView.
+//
+// Storage: data URL → Firebase Storage at
+//   homeowner-uploads/{ownerUid}/{leadId}/{timestamp}.jpg
+//
+// Firestore: photo doc in `photos` collection with:
+//   leadId, userId (rep — for visibility), source: 'homeowner',
+//   uploadedAt, url, caption, sharedWithHomeowner: true
+//
+// Limits:
+//   - 10 photos per lead per day (per-token rate limit)
+//   - 8 MB per photo (resized client-side; this is the hard server cap)
+//   - jpeg/png/webp data URLs only
+//
+// Notifies the rep via the existing notifications collection so
+// the homeowner upload appears in the W48 bell with the W92 high-
+// engagement signal it deserves.
+exports.uploadHomeownerPhoto = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 40,
+    timeoutSeconds: 30,
+    memory: '512MiB', // base64-decode + storage upload
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+
+    // Rate limit per IP — defends against bots churning uploads.
+    if (!(await httpRateLimit(req, res, 'portal-upload:ip', 20, 60_000))) return;
+
+    const { token, dataUrl, caption } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    if (typeof dataUrl !== 'string') {
+      res.status(400).json({ error: 'dataUrl required' });
+      return;
+    }
+    // Parse the data URL: expect data:image/jpeg;base64,XXXX
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+    if (!m) {
+      res.status(400).json({ error: 'Invalid image format. Use JPEG/PNG/WebP.' });
+      return;
+    }
+    const mimeType = m[1];
+    const b64 = m[2];
+    // 8MB hard cap on the encoded payload (~6MB binary).
+    if (b64.length > 8 * 1024 * 1024) {
+      res.status(413).json({ error: 'Photo too large. Max 8MB.' });
+      return;
+    }
+    const safeCaption = (typeof caption === 'string') ? caption.slice(0, 280) : '';
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    // Per-token daily quota (10 photos / 24h). Stored on the token
+    // doc itself as a small counter — no extra collection needed.
+    const todayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+    const uploadsField = `uploadsByDay.${todayKey}`;
+    const todayUploads = (tok.uploadsByDay && tok.uploadsByDay[todayKey]) || 0;
+    if (todayUploads >= 10) {
+      res.status(429).json({ error: 'Daily upload limit reached (10). Try again tomorrow.' });
+      return;
+    }
+
+    try {
+      // Storage upload
+      const buffer = Buffer.from(b64, 'base64');
+      const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const ts = Date.now();
+      const path = `homeowner-uploads/${tok.ownerUid}/${tok.leadId}/${ts}.${ext}`;
+      const file = admin.storage().bucket().file(path);
+      await file.save(buffer, { contentType: mimeType, resumable: false });
+      // Make the file readable by the rep via signed URL or via
+      // Storage rules (rep reads their own homeowner-uploads). For
+      // simplicity here we use a long-lived signed URL — the rep's
+      // dashboard fetches it directly without auth handshake.
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491', // far future — practically permanent
+      });
+
+      // Photo doc — rep owns it (userId = ownerUid) so the existing
+      // photo queries on the rep dashboard surface it.
+      const photoRef = await db.collection('photos').add({
+        leadId: tok.leadId,
+        userId: tok.ownerUid,
+        source: 'homeowner',
+        url,
+        path,
+        mimeType,
+        caption: safeCaption,
+        phase: 'During', // homeowner uploads typically mid-project
+        uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+        sharedWithHomeowner: true, // visible back to them in the gallery
+      });
+
+      // Bump token counter atomically.
+      await tokRef.update({
+        [uploadsField]: admin.firestore.FieldValue.increment(1),
+        lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Notification to the rep — surfaces in the W48 bell as a
+      // high-priority "homeowner uploaded a photo" signal.
+      try {
+        await db.collection('notifications').add({
+          userId: tok.ownerUid,
+          type: 'homeowner_upload',
+          leadId: tok.leadId,
+          photoId: photoRef.id,
+          title: 'Homeowner uploaded a photo',
+          message: safeCaption ? `"${safeCaption.slice(0, 60)}"` : 'New photo from the homeowner — review on the customer page.',
+          priority: 'high',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        logger.warn('[uploadHomeownerPhoto] notification create failed', { msg: notifErr.message });
+      }
+
+      res.status(200).json({
+        ok: true,
+        photoId: photoRef.id,
+        url,
+        remainingToday: 10 - (todayUploads + 1),
+      });
+    } catch (err) {
+      logger.error('[uploadHomeownerPhoto] failed', { msg: err.message });
+      res.status(500).json({ error: 'Upload failed. Try again.' });
+    }
+  }
+);
