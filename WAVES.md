@@ -743,3 +743,157 @@ controls.
   the rep keeps not acting. Raising the threshold to 5 would
   make the signal too rare; lowering to 2 would fire on
   legitimate two-step deferrals. 3 feels right for this domain.
+
+---
+
+# Sixth push — Waves 81-90
+
+The first five pushes were feature-driven: build the share trio,
+build the snooze system, make actions universal, etc. The sixth
+push pivoted to **quality**. Two parallel code reviews surfaced
+real bugs hiding in the codebase — including a CRITICAL XSS in
+the homeowner-facing portal generator and a HIGH regression
+that had silently broken every notification bell action button
+since W48.
+
+The trigger: a single message from the user — "do anything and
+everything necessary to get everything working as well as
+possible across every access platform and system." The waves
+that followed weren't feature work, they were the kind of fixes
+real users notice but no one had filed because the failure
+modes were silent.
+
+The big arcs:
+
+1. **Mobile + a11y polish** (W81, W84, W85) — touch targets,
+   escapeHtml consistency, ARIA + Esc + initial focus on snooze
+   modals.
+2. **HIGH/CRITICAL bug fixes from internal review** (W82, W83) —
+   bell action buttons restored after silent regression,
+   snooze-system edge cases (unsnooze guard, Sunday off-by-one
+   in nextMonday, lowercase terminal-stage matching).
+3. **Portal hardening** (W86, W87, W88, W89) — CRITICAL XSS in
+   buildPortalHTML, CORS lockdown, BoldSign URL validation,
+   iframe sandbox, photo lightbox rebuild for mobile, user-
+   scoped notes/tasks queries.
+
+The unifying outcome: the system that already worked on paper
+now works **for real**, on mobile, behind iOS notches, with
+screen readers, with hostile data, and across every customer-
+facing surface.
+
+---
+
+## Mobile + a11y polish
+
+Quality work that compounds the W61-W70 universal-action-row arc.
+
+| Wave | What | PR |
+|---|---|---|
+| **81** | Touch target audit — bumps W46-W79 inline action buttons (📞 💬 📧 🔍 💤 ⏰) to 36×36 minimum on touch devices via `@media (hover: none)` override. Desktop sizing unchanged. CSS-only — no JS source edits across 7+ surfaces | [#208](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/208) |
+| **84** | Preserve `selectedReason` across W78/W79 ⭐ pin-click reopens — UX friction fix from review. + defensive `escapeHtml(String(c.count))` on the W77 filter chip count for consistency | [#211](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/211) |
+| **85** | ARIA + Esc + initial focus on the W35/W37/W73/W78/W79 snooze modals. `role="dialog"`, `aria-modal`, `aria-labelledby`, `aria-pressed` on pin buttons, `aria-hidden` on decorative emoji, Esc closes, first preset auto-focuses | [#212](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/212) |
+
+---
+
+## HIGH + CRITICAL bug fixes from internal review
+
+A code-reviewer agent run on the W71-W79 snooze-lifecycle
+changes surfaced 3 HIGH issues plus a CRITICAL regression in
+the notification bell.
+
+| Wave | What | PR |
+|---|---|---|
+| **82** | 🚨 CRITICAL: bell action buttons (W48 share trio + W68 preview/snooze + W76 expiry) had been silently invisible since W48. `renderItem` gated the action row on `n.leadId`, but `buildNotifications` never set leadId on any push. Every rep had been seeing bell rows without inline action affordances since W48 shipped | [#209](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/209) |
+| **83** | HIGH bundle: (1) `unsnooze()` dead Firestore guard would TypeError instead of throwing a clean message, (2) `_nextMonday()` returned tomorrow on Sundays — Sunday-working reps lost a week of intended deferral on every "Next Monday" click, (3) `customer-sibling-snooze` TERMINAL set missed lowercase `complete` so done deals could appear in the sibling-snooze count | [#210](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/210) |
+
+The bell regression is the kind of bug that would never show
+up in smoke tests — the buttons just don't appear. There's no
+error, no warning, no broken state. Reps and managers had been
+seeing partial-functionality bell rows for dozens of waves and
+no one knew. This is exactly why structured code review on data
+flow shape (not just style) matters.
+
+---
+
+## Portal hardening
+
+A second code-reviewer pass on the customer-facing portal
+flows surfaced TWO CRITICAL XSS vulnerabilities plus a stack
+of HIGH issues. The portal is what end customers (homeowners)
+see — every bug there is a real customer experience bug.
+
+| Wave | What | PR |
+|---|---|---|
+| **86** | 🚨 CRITICAL: XSS in `buildPortalHTML`. Every interpolated rep-controlled lead field (name, address, damageType, insCarrier, scheduledDate, crew, photo URLs/names, task titles) was unescaped. Sister function `generatePhotoPortal` correctly used `esc()` — `buildPortalHTML` was the asymmetric oversight. A malicious or compromised rep, or injection from data-import / OCR / direct Firestore write, could ship arbitrary `<script>`/`<img onerror=...>` to homeowners. Fixed by lifting `esc()` to the top of `buildPortalHTML` and wrapping every interpolation site | [#213](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/213) |
+| **87** | Portal hardening: (1) `getHomeownerPortalView` CORS lockdown — was `cors: true`, now uses the same allowlist as rep endpoints, (2) BoldSign `signEmbedUrl` regex-validated to start with `https://app.boldsign.com/` before iframe embed, (3) preview iframe sandbox attribute prevents `window.parent` access from the embedded portal HTML | [#214](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/214) |
+| **88** | Photo lightbox rebuild. Old lightbox used per-img inline-style toggles — three real mobile bugs: no dismiss without re-tapping (homeowners got stuck), image clipped under iOS notch, state drift across multiple photos. New shared overlay with × close button + safe-area padding + Esc + backdrop dismiss | [#215](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/215) |
+| **89** | `generatePortal` notes/tasks subcollection queries now scope to current user via `where('userId', '==', window._user.uid)` — matches the pattern already used for photos + estimates. Defense-in-depth: in a multi-rep company a single lead can have notes/tasks from manager handoffs / adjuster strategy / cross-rep collaboration. Tasks already render to homeowners; narrow the fetch | [#216](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/216) |
+| **90** | (this milestone bookend) | this PR |
+
+---
+
+## Architecture notes for the sixth push
+
+- **Code review on data flow shape catches what tests don't** —
+  the W82 bell regression had been live for ~30 waves without
+  detection. Smoke tests verify per-function behavior; the bug
+  was at the integration shape (push without leadId → render
+  gate fails). A code-reviewer pass focused on "does the data
+  reach the renderer in the form the renderer expects?" found
+  it in 30 seconds.
+
+- **Asymmetric escape is the most common XSS pattern** — W86's
+  `buildPortalHTML` had a sister function (`generatePhotoPortal`)
+  that DID escape correctly. The bug wasn't "didn't know to
+  escape" — it was "missed the escape on this branch but not
+  the other." Patterns that exist in only one of two parallel
+  surfaces are the highest-risk audit targets.
+
+- **Mobile-first means safe-area-inset-first** — W88's lightbox
+  rebuild explicitly used `env(safe-area-inset-*)` for the
+  close-button position and overlay padding. iOS notches and
+  home indicators silently break "just works on a phone"
+  layouts unless the CSS opts in. The pattern: any
+  `position:fixed` overlay should use safe-area padding by
+  default.
+
+- **Defense-in-depth queries even when rules cover you** —
+  W89's `userId` scope on notes/tasks doesn't add security
+  beyond what Firestore subcollection rules already enforce,
+  but it does reduce the fetched data to only what the current
+  rep wrote. If a future render path surfaces aggregated notes,
+  the data has already been narrowed at the fetch layer.
+
+- **Modal a11y is a first-class concern, not a polish item** —
+  W85 added ARIA + Esc + initial focus to the snooze modals
+  AFTER they shipped (W35, W73, W78). New modals from now on
+  should land with `role="dialog"`, `aria-modal`, `aria-labelledby`,
+  Esc handler, and initial focus from day one. The deferred
+  add was the easy path; baseline a11y on first ship is the
+  right path.
+
+- **CSS overrides via `@media (hover: none)` scale to all
+  surfaces at once** — W81 fixed touch targets across 7+ JS
+  source files without editing any of them. The override
+  approach + class-attribute selectors meant one change,
+  zero risk of regressions in desktop sizing. New action-row
+  classes added in future waves automatically inherit the
+  touch-target floor as long as they match the established
+  selector pattern.
+
+- **`cors: true` is almost never the right default** — W87's
+  CORS lockdown was a one-character fix (`cors: true` →
+  `cors: CORS_ORIGINS`) that closed an information-disclosure
+  vector. The "intentionally open — homeowner-facing" comment
+  in the original code was the rationalization, not the
+  requirement. Audit every Cloud Function with `cors: true`
+  and ask whether the actual call site needs the openness.
+
+- **External URLs in iframes need allowlist validation** —
+  W87's `signEmbedUrl` validation prevents a future BoldSign
+  API change from accidentally giving us an attacker-controlled
+  iframe origin. Pattern: any URL that comes back from a
+  third-party API and gets embedded in an iframe should be
+  regex-validated against the expected domain before it
+  reaches the client.
