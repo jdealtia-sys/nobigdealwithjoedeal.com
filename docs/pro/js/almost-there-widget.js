@@ -137,11 +137,56 @@
         ${rows.map(({ lead, viewedAt, total, estCount }) => {
           const name = leadName(lead);
           const value = total > 0 ? `$${Number(total).toLocaleString()}` : '';
+          // Wave 46: inline reshare buttons. Closes the loop from
+          // "spotted the opportunity" → "took action" in one tap
+          // without leaving the dashboard. Each button only renders
+          // when the lead has the relevant contact info.
+          const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
+          const email = String(lead.email || '').trim();
+          const reshareButtons = [];
+          if (phoneDigits) {
+            reshareButtons.push(`
+              <a class="at-action" data-action="call" data-lead-id="${escapeHtml(lead.id)}" href="tel:${escapeHtml(phoneDigits)}"
+                title="Call ${escapeHtml(lead.phone)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:30px; height:30px; border-radius:6px;
+                  background:rgba(16,185,129,0.14); color:#10b981;
+                  text-decoration:none; font-size:14px;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">📞</a>`);
+            reshareButtons.push(`
+              <button class="at-action" data-action="sms" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Text portal link to ${escapeHtml(lead.phone)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:30px; height:30px; border-radius:6px;
+                  background:rgba(59,130,246,0.14); color:#3b82f6;
+                  border:none; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">💬</button>`);
+          }
+          if (email) {
+            reshareButtons.push(`
+              <button class="at-action" data-action="email" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Email portal link to ${escapeHtml(email)}"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:30px; height:30px; border-radius:6px;
+                  background:rgba(139,92,246,0.14); color:#8b5cf6;
+                  border:none; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:background .12s, transform .12s;">📧</button>`);
+          }
+          const reshareHTML = reshareButtons.length
+            ? `<div class="at-actions" style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${reshareButtons.join('')}</div>`
+            : '<div style="flex-shrink:0;"></div>';
+
           return `
             <div class="at-row" data-lead-id="${escapeHtml(lead.id)}"
               style="
                 display:grid; grid-template-columns:auto 1fr auto;
-                gap:12px; align-items:center;
+                gap:10px; align-items:center;
                 padding:10px 12px; border-radius:8px;
                 background:var(--s2,#0f1419); border:1px solid var(--br,#1e2530);
                 cursor:pointer; transition:background .15s;
@@ -165,18 +210,48 @@
                   Viewed ${escapeHtml(relativeTime(viewedAt))}${value ? ' · ' + value : ''}${estCount > 1 ? ' · ' + estCount + ' estimates' : ''}
                 </div>
               </div>
-              <div style="font-size:11px; color:#a855f7; text-align:right; flex-shrink:0; font-weight:700; letter-spacing:0.4px; text-transform:uppercase;">
-                Almost there
-              </div>
+              ${reshareHTML}
             </div>`;
         }).join('')}
       </div>
       <div style="margin-top:10px; font-size:11px; color:var(--m,#9aa3b2); text-align:center; line-height:1.5;">
-        Customer viewed an estimate but hasn't responded. A 30-second follow-up wins these.
+        Customer viewed an estimate but hasn't responded. Tap the actions on the right for a 30-second follow-up.
       </div>`;
 
-    // Click a row → open the customer page via Wave 11 handoff for
-    // instant render.
+    // Wave 46: inline reshare buttons. Each fires its action then
+    // stops propagation so the row click doesn't ALSO navigate to
+    // the customer page. Call uses tel:, SMS + email delegate to
+    // PortalLinkHelpers (W42) for the prefilled-body flow.
+    container.querySelectorAll('.at-action').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-lead-id');
+        if (!id) return;
+        const lead = (Array.isArray(window._leads) ? window._leads : [])
+          .find(l => l && l.id === id);
+        if (!lead) return;
+        if (action === 'sms' && window.PortalLinkHelpers) {
+          ev.preventDefault();
+          window.PortalLinkHelpers.smsForLead(lead);
+        } else if (action === 'email' && window.PortalLinkHelpers) {
+          ev.preventDefault();
+          window.PortalLinkHelpers.emailForLead(lead);
+        }
+        // 'call' is an <a href="tel:..."> — let the default fire so
+        // the browser hands off to the phone app naturally.
+      });
+      btn.addEventListener('mouseover', (ev) => {
+        ev.stopPropagation();
+        btn.style.transform = 'scale(1.06)';
+      });
+      btn.addEventListener('mouseout', () => {
+        btn.style.transform = '';
+      });
+    });
+
+    // Click a row (anywhere outside the action buttons) → open the
+    // customer page via Wave 11 handoff for instant render.
     container.querySelectorAll('.at-row').forEach(row => {
       row.addEventListener('click', () => {
         const id = row.getAttribute('data-lead-id');
