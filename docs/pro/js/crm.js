@@ -672,7 +672,15 @@ function buildCard(l){
     else                 label = `${Math.floor(days / 30)}mo ago`;
     const viaMap = { copy: 'copied', sms: 'SMS', email: 'email' };
     const via = viaMap[l.lastSharedVia] || 'shared';
-    lastSharedBadge = `<span class="kc-tag" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
+    // Wave 57: fresh-share pulse. Shares within the last 24 hours
+    // get a subtle 2.4s pulse animation so reps get a passive
+    // visual cue when scrolling the kanban: "this just went out
+    // a few hours ago." Older shares stay calm — pulsing every
+    // single share badge would defeat the purpose.
+    const ageMs = Date.now() - ms;
+    const isFresh = ageMs >= 0 && ageMs < 24 * 60 * 60 * 1000;
+    const freshClass = isFresh ? ' kc-shared-fresh' : '';
+    lastSharedBadge = `<span class="kc-tag${freshClass}" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Portal link last shared via ${escHtml(via)} — ${escHtml(label)}">📤 ${escHtml(via)} ${escHtml(label)}</span>`;
   })();
 
   // Photo thumbnails (from cache). Click behavior is wired via data-* +

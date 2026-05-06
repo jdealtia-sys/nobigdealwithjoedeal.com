@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=27" as="script">
+<link rel="preload" href="js/crm.js?v=28" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4339,6 +4339,30 @@ input:focus, select:focus, textarea:focus {
 .kc-stage-age-warming  { background: rgba(251,191,36,0.18); color: #d97706; border: 1px solid rgba(251,191,36,0.45); }
 .kc-stage-age-stale    { background: rgba(249,115,22,0.20); color: #ea580c; border: 1px solid rgba(249,115,22,0.50); }
 .kc-stage-age-critical { background: rgba(239,68,68,0.22);  color: #dc2626; border: 1px solid rgba(239,68,68,0.55); }
+
+/* Wave 57: fresh-share pulse. The W44 share-tracking pill (e.g.
+   "📤 SMS today") gets a subtle 2.4s pulse animation when the
+   share is less than 24 hours old. Helps reps spot recent shares
+   while scrolling the kanban without needing to click in. The
+   crm.js renderCard adds the kc-shared-fresh class for shares
+   under 24h; older shares keep the calm purple pill. */
+.kc-shared-fresh {
+  animation: kCardSharedFreshPulse 2.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(155, 109, 255, 0.55);
+}
+@keyframes kCardSharedFreshPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(155, 109, 255, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(155, 109, 255, 0.05);
+  }
+}
+/* Respect prefers-reduced-motion — pulse is non-essential signal
+   so we drop it for users who'd find it distracting. */
+@media (prefers-reduced-motion: reduce) {
+  .kc-shared-fresh { animation: none; }
+}
 
 /* Card name with gradient underline on hover */
 .kc-name {
@@ -16779,7 +16803,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=27"></script>
+<script defer src="js/crm.js?v=28"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
