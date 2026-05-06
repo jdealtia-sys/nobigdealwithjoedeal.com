@@ -168,6 +168,15 @@
           onSelect: () => window.PortalLinkHelpers.emailForLead(lead),
         });
       }
+      // Wave 56: portal preview. Always available — every lead can
+      // be previewed regardless of contact info.
+      if (typeof window.PortalLinkHelpers.previewForLead === 'function') {
+        items.push({
+          icon: '🔍',
+          label: 'Preview portal',
+          onSelect: () => window.PortalLinkHelpers.previewForLead(lead),
+        });
+      }
     }
     // Wave 35: Snooze. Available when LeadSnooze module is loaded.
     // Toggles between "Snooze" (when not snoozed) and "Unsnooze"

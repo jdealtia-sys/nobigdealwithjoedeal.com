@@ -250,11 +250,130 @@ Bookmark it; the link stays live as we work through the project.
     }
   }
 
+  // ─── Preview ────────────────────────────────────────────────────
+  // Wave 56: open the portal in an iframe modal so the rep sees
+  // exactly what the homeowner will see before sharing the link.
+  // Real concern from the field: reps wonder "did I update that
+  // photo gallery yet?" or "does the timeline show the right
+  // status?" before they fire off an SMS. Preview gives them a
+  // quick visual check.
+  //
+  // Modal pattern matches the W36 customer-snooze-banner overlay
+  // and W23 data-import dialog — fixed inset overlay with one
+  // dismissable backdrop click + Esc key + X button.
+  async function previewForLead(leadOrId) {
+    const lead = leadFromIdOrObj(leadOrId);
+    if (!lead || !lead.id) {
+      _toast('No customer selected', 'error');
+      return;
+    }
+    let url;
+    try {
+      url = await resolveUrl(lead.id);
+    } catch (e) {
+      _toast('Couldn\'t prepare preview: ' + (e.message || 'unknown'), 'error');
+      return;
+    }
+    _openPreviewModal(url, lead);
+  }
+
+  function _openPreviewModal(url, lead) {
+    _closePreviewModal(); // be defensive about double-opens
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-portal-preview-overlay';
+    overlay.style.cssText = `
+      position:fixed; inset:0; z-index:99997;
+      background:rgba(0,0,0,0.65);
+      display:flex; align-items:center; justify-content:center;
+      padding:20px;
+      font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
+    const name = leadFromIdOrObj(lead) ?
+      (`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'customer') : 'customer';
+    overlay.innerHTML = `
+      <div style="
+        background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
+        border:1px solid var(--br,#2a3344); border-radius:14px;
+        width:100%; max-width:500px; height:min(85vh, 800px);
+        display:flex; flex-direction:column;
+        box-shadow:0 12px 40px rgba(0,0,0,0.5);
+        overflow:hidden;">
+        <div style="
+          display:flex; align-items:center; justify-content:space-between;
+          gap:8px; padding:14px 18px;
+          border-bottom:1px solid var(--br,#2a3344);">
+          <div style="min-width:0;">
+            <div style="font-size:14px; font-weight:700; color:var(--t,#e8eaf0); line-height:1.2;">
+              🔍 Portal preview
+            </div>
+            <div style="font-size:11px; color:var(--m,#9aa3b2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              What ${escapeText(name)} will see
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            <a href="${escapeAttr(url)}" target="_blank" rel="noopener"
+              title="Open in a new tab"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:32px; height:32px; border-radius:7px;
+                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                text-decoration:none; font-size:14px;
+                border:1px solid var(--br,#2a3344);
+                -webkit-tap-highlight-color:transparent;">↗</a>
+            <button id="nbd-portal-preview-close" type="button" aria-label="Close"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:32px; height:32px; border-radius:7px;
+                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                border:1px solid var(--br,#2a3344); cursor:pointer;
+                font-size:16px; line-height:1;
+                -webkit-tap-highlight-color:transparent;">×</button>
+          </div>
+        </div>
+        <iframe src="${escapeAttr(url)}"
+          style="flex:1; width:100%; border:none; background:#fff;"
+          referrerpolicy="no-referrer"
+          loading="lazy"
+        ></iframe>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Backdrop click dismisses (but not clicks inside the modal).
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) _closePreviewModal();
+    });
+    overlay.querySelector('#nbd-portal-preview-close')
+      .addEventListener('click', _closePreviewModal);
+
+    // Esc key dismisses. Single-use listener removed on close.
+    document.addEventListener('keydown', _onPreviewKeydown);
+  }
+
+  function _onPreviewKeydown(ev) {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      _closePreviewModal();
+    }
+  }
+
+  function _closePreviewModal() {
+    const el = document.getElementById('nbd-portal-preview-overlay');
+    if (el) el.remove();
+    document.removeEventListener('keydown', _onPreviewKeydown);
+  }
+
+  function escapeText(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+  function escapeAttr(s) { return escapeText(s); }
+
   window.PortalLinkHelpers = {
     __sentinel: 'nbd-portal-link-helpers-v1',
     resolveUrl,
     copyForLead,
     smsForLead,
     emailForLead,
+    previewForLead,
   };
 })();
