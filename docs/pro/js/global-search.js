@@ -124,8 +124,23 @@
     selectedIndex = 0;
     lastResults = [];
 
+    const leads = Array.isArray(window._leads) ? window._leads : [];
+    const estimates = Array.isArray(window._estimates) ? window._estimates : [];
+
+    let leadHits, estHits, leadSectionLabel = 'Leads', preHTML = '';
+
     if (!query || query.length < MIN_QUERY) {
-      container.innerHTML = `
+      // Wave 71: empty-cmd+K Snoozed section. When the rep opens
+      // cmd+K with no query, the hero text still appears AND the
+      // currently-snoozed leads surface as a "Snoozed (N)" section
+      // sorted by snoozed-until ascending (returning-soonest first).
+      // Lets reps recover/triage their snooze backlog via search
+      // without flipping the W37 "show snoozed" kanban toggle.
+      //
+      // Compounds W18 (cmd+K) + W35 (snooze) + W61 (cmd+K snooze
+      // button). Once you can snooze a lead from cmd+K, you should
+      // also be able to find them again from cmd+K.
+      preHTML = `
         <div class="cmd-empty">
           <div style="font-size:32px;margin-bottom:8px;opacity:0.4;">🔍</div>
           <div style="margin-bottom:6px;color:var(--t,#e8eaf0);font-weight:600;">Find anything in your CRM</div>
@@ -134,25 +149,54 @@
             Use <span class="cmd-kbd">↑</span> <span class="cmd-kbd">↓</span> to navigate, <span class="cmd-kbd">↵</span> to open.
           </div>
         </div>`;
-      return;
+
+      const snoozedHits = [];
+      if (window.LeadSnooze && typeof window.LeadSnooze.isSnoozed === 'function') {
+        const snoozed = leads
+          .filter(l => l && !l.deleted && window.LeadSnooze.isSnoozed(l))
+          .map(l => {
+            const d = window.LeadSnooze.snoozedUntilDate(l);
+            return { lead: l, untilMs: d ? d.getTime() : Number.MAX_SAFE_INTEGER };
+          })
+          .sort((a, b) => a.untilMs - b.untilMs)
+          .slice(0, 10);
+        for (const s of snoozed) {
+          snoozedHits.push({
+            type: 'lead',
+            lead: s.lead,
+            reason: `⏰ Until ${window.LeadSnooze.formatSnoozeLabel(new Date(s.untilMs))}`,
+            icon: '💤',
+          });
+        }
+      }
+      leadHits = snoozedHits;
+      estHits = [];
+      leadSectionLabel = snoozedHits.length > 0
+        ? `Snoozed (${snoozedHits.length})`
+        : 'Leads';
+
+      // No snoozed leads → just render the hero, skip empty-result
+      // path so we don't show a "no matches" message for what is
+      // legitimately an empty query.
+      if (snoozedHits.length === 0) {
+        container.innerHTML = preHTML;
+        return;
+      }
+    } else {
+      leadHits = searchLeads(query, leads);
+      estHits  = searchEstimates(query, estimates, leads);
+
+      if (leadHits.length === 0 && estHits.length === 0) {
+        container.innerHTML = `
+          <div class="cmd-empty">
+            <div style="font-size:24px;margin-bottom:8px;opacity:0.4;">🔍</div>
+            <div>No matches for "${escapeHtml(query)}".</div>
+            <div style="font-size:11px;margin-top:6px;opacity:0.7;">Try a name, partial phone, or street.</div>
+          </div>`;
+        return;
+      }
     }
-
-    const leads = Array.isArray(window._leads) ? window._leads : [];
-    const estimates = Array.isArray(window._estimates) ? window._estimates : [];
-
-    const leadHits = searchLeads(query, leads);
-    const estHits  = searchEstimates(query, estimates, leads);
     lastResults = [...leadHits, ...estHits];
-
-    if (lastResults.length === 0) {
-      container.innerHTML = `
-        <div class="cmd-empty">
-          <div style="font-size:24px;margin-bottom:8px;opacity:0.4;">🔍</div>
-          <div>No matches for "${escapeHtml(query)}".</div>
-          <div style="font-size:11px;margin-top:6px;opacity:0.7;">Try a name, partial phone, or street.</div>
-        </div>`;
-      return;
-    }
 
     // Wave 51: inline reshare buttons on lead search results.
     // Same color-coded 📞/💬/📧 trio used by Hot Leads (W47),
@@ -285,9 +329,12 @@
       const l = hit.lead;
       const name = leadName(l);
       const sub = hit.reason || [l.address, l.phone].filter(Boolean).join(' · ');
+      // W71: hit.icon lets the empty-query "Snoozed" section use 💤
+      // for its rows. Search hits keep the default 👤.
+      const icon = hit.icon || '👤';
       return `
         <div class="cmd-item ${idx === selectedIndex ? 'selected' : ''}" data-cmd-index="${idx}">
-          <div class="cmd-icon">👤</div>
+          <div class="cmd-icon">${icon}</div>
           <div class="cmd-content">
             <div class="cmd-title">${highlight(name, query)}</div>
             <div class="cmd-subtitle">${highlight(sub || '', query)}</div>
@@ -313,10 +360,12 @@
         </div>`;
     };
 
-    let html = '';
+    // W71: preHTML carries the empty-state hero when query is
+    // empty + there are snoozed leads. Otherwise empty.
+    let html = preHTML;
     let runningIdx = 0;
     if (leadHits.length > 0) {
-      html += '<div class="cmd-section"><div class="cmd-section-label">Leads</div>';
+      html += `<div class="cmd-section"><div class="cmd-section-label">${escapeHtml(leadSectionLabel)}</div>`;
       for (const hit of leadHits) html += renderLeadRow(hit, runningIdx++);
       html += '</div>';
     }
