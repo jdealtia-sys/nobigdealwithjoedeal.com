@@ -140,6 +140,43 @@
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;">📧</button>`);
           }
+          // Wave 66: preview action — always available, no contact
+          // gate. Mirrors W64/W65 home-widget pattern. Especially
+          // valuable on this widget — a stale share means the
+          // customer was sent a link but never responded. Before
+          // re-nudging, the rep peeks at the portal to verify the
+          // link is still valid + see what the customer would have
+          // seen 5+ days ago.
+          if (window.PortalLinkHelpers
+              && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+            buttons.push(`
+              <button class="ss-action" data-action="preview" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Preview the portal — verify the link the customer received"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:30px; height:30px; border-radius:6px;
+                  background:rgba(245,158,11,0.14); color:#f59e0b;
+                  border:none; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:transform .12s;">🔍</button>`);
+          }
+          // Wave 66: snooze action. StaleShares.compute() (W54)
+          // already filters snoozed leads at stale-shares-filter.js
+          // line 67, so this widget only shows fresh stale shares
+          // — render snooze variant only. After snooze, the lead
+          // drops out of compute() on nbd:data-refreshed.
+          if (window.LeadSnooze) {
+            buttons.push(`
+              <button class="ss-action" data-action="snooze" data-lead-id="${escapeHtml(lead.id)}" type="button"
+                title="Snooze this lead"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:30px; height:30px; border-radius:6px;
+                  background:rgba(155,109,255,0.10); color:#a890e8;
+                  border:none; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:transform .12s;">💤</button>`);
+          }
           const reshareHTML = buttons.length
             ? `<div class="ss-actions" style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${buttons.join('')}</div>`
             : '<div style="flex-shrink:0;"></div>';
@@ -199,6 +236,19 @@
         } else if (action === 'email' && window.PortalLinkHelpers) {
           ev.preventDefault();
           window.PortalLinkHelpers.emailForLead(lead);
+        } else if (action === 'preview' && window.PortalLinkHelpers) {
+          // Wave 66: preview opens W56 iframe modal on top.
+          // preventDefault keeps the widget from also navigating
+          // to customer.html on the same click.
+          ev.preventDefault();
+          window.PortalLinkHelpers.previewForLead(lead);
+        } else if (action === 'snooze' && window.LeadSnooze) {
+          // Wave 66: snooze opens the W35 preset modal. After
+          // dismiss, nbd:data-refreshed re-renders the widget and
+          // the lead drops out via the StaleShares.compute() filter.
+          ev.preventDefault();
+          const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+          window.LeadSnooze.prompt(lead.id, fullName);
         }
       });
       btn.addEventListener('mouseover', (ev) => {
