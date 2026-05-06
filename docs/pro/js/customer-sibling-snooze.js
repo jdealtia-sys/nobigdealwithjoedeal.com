@@ -42,7 +42,13 @@
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer\.html$/.test(PATH)) return;
 
-  const TERMINAL = new Set(['closed', 'lost', 'Lost', 'Complete']);
+  // W83: lowercase-only set + normalize the stage key before
+  // checking. Previous shape `Set(['closed', 'lost', 'Lost', 'Complete'])`
+  // missed lowercase 'complete' — leads at install_complete or
+  // any 'complete'-keyed terminal stage would slip through and
+  // appear in the sibling-snooze count, offering to snooze a
+  // done deal.
+  const TERMINAL = new Set(['closed', 'lost', 'complete']);
 
   // ─── Compute ─────────────────────────────────────────────────────
   function computeSiblings() {
@@ -54,7 +60,7 @@
       if (!l || l.id === lead.id) continue;
       if (l.deleted) continue;
       if (l.customerId !== lead.customerId) continue;
-      const sk = (l._stageKey || l.stage || 'new').toString();
+      const sk = (l._stageKey || l.stage || 'new').toString().toLowerCase();
       if (TERMINAL.has(sk)) continue;
       if (window.LeadSnooze && window.LeadSnooze.isSnoozed(l)) continue;
       siblings.push(l);

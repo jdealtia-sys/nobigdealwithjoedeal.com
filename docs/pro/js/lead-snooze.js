@@ -148,10 +148,14 @@
 
   async function unsnooze(leadId) {
     if (!leadId) throw new Error('leadId required');
-    if (!window.db || !window.doc || !window.updateDoc || !window.deleteField) {
-      // deleteField is the Firestore sentinel we'd want, but we can
-      // just set null which is equally well-handled by toMillis() → 0.
-      // Falls through to plain updateDoc below.
+    // W83: previously this guard was a no-op (just a comment about
+    // deleteField), so when Firestore wasn't loaded the call to
+    // window.doc(...) below would TypeError. The "Wake up now"
+    // banner button would disable, error-toast, and re-enable —
+    // confusing flash on a real failure mode. Match snooze()'s
+    // guard shape so we throw a clean message.
+    if (!window.db || !window.doc || !window.updateDoc) {
+      throw new Error('Firestore not loaded');
     }
     const ref = window.doc(window.db, 'leads', leadId);
     await window.updateDoc(ref, {
@@ -188,8 +192,18 @@
 
   function _nextMonday() {
     const now = new Date();
-    const dow = now.getDay();          // 0 Sun, 1 Mon, ...
-    const daysUntilMon = (8 - dow) % 7 || 7;
+    const dow = now.getDay();          // 0 Sun, 1 Mon, ..., 6 Sat
+    // W83: Sunday case fix. The previous formula `(8 - 0) % 7 = 1`
+    // returned tomorrow on Sundays — so a rep clicking "Next
+    // Monday" on Sunday got snoozed to MONDAY MORNING, not the
+    // Monday a week away. That's a real off-by-one for Sunday-
+    // working reps. We now return 8 days on Sunday and 7 on
+    // Monday, matching the natural-language sense of "next
+    // Monday" for someone planning more than a day ahead.
+    let daysUntilMon;
+    if (dow === 0)      daysUntilMon = 8;            // Sun → next-next Mon
+    else if (dow === 1) daysUntilMon = 7;            // Mon → 1 week
+    else                daysUntilMon = (8 - dow);    // Tue=6 ... Sat=2
     const next = new Date(now);
     next.setDate(now.getDate() + daysUntilMon);
     return _morningOfDay(next);
