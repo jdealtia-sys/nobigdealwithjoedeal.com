@@ -86,27 +86,35 @@
   }
 
   // ─── Firestore writes ────────────────────────────────────────────
-  async function snooze(leadId, untilDate) {
+  // Wave 73: snooze reasons. Optional categorization tag persisted
+  // as `snoozedReason` alongside `snoozedUntil`. Surfaces in the
+  // W71 cmd+K snoozed section subtitle and the W36 customer banner
+  // so the rep can scan their backlog and remember WHY each lead
+  // was deferred — "Insurance" vs "Not ready" leads to different
+  // follow-up behavior.
+  async function snooze(leadId, untilDate, reason) {
     if (!leadId) throw new Error('leadId required');
     if (!(untilDate instanceof Date) || isNaN(untilDate)) throw new Error('untilDate required');
     if (!window.db || !window.doc || !window.updateDoc) {
       throw new Error('Firestore not loaded');
     }
     const ref = window.doc(window.db, 'leads', leadId);
+    const reasonValue = (typeof reason === 'string' && reason.trim()) ? reason.trim() : null;
     await window.updateDoc(ref, {
       snoozedUntil: untilDate,
+      snoozedReason: reasonValue,
       updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
     });
     // Patch in-memory cache so the kanban + filters update immediately.
     if (Array.isArray(window._leads)) {
       const i = window._leads.findIndex(l => l && l.id === leadId);
-      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: untilDate };
+      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: untilDate, snoozedReason: reasonValue };
     }
     // Customer detail page also reads window._currentLead (set by
     // loadCustomerData). Patch that mirror so the customer-page
     // banner picks up the new state without a Firestore re-read.
     if (window._currentLead && window._currentLead.id === leadId) {
-      window._currentLead = { ...window._currentLead, snoozedUntil: untilDate };
+      window._currentLead = { ...window._currentLead, snoozedUntil: untilDate, snoozedReason: reasonValue };
     }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'snooze' } })); } catch (_) {}
     if (typeof window.renderLeads === 'function') {
@@ -125,16 +133,17 @@
     const ref = window.doc(window.db, 'leads', leadId);
     await window.updateDoc(ref, {
       snoozedUntil: null,
+      snoozedReason: null,
       updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
     });
     if (Array.isArray(window._leads)) {
       const i = window._leads.findIndex(l => l && l.id === leadId);
-      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: null };
+      if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: null, snoozedReason: null };
     }
     // Same _currentLead mirror update as snooze() — keeps the
     // customer-page banner in sync without a Firestore re-read.
     if (window._currentLead && window._currentLead.id === leadId) {
-      window._currentLead = { ...window._currentLead, snoozedUntil: null };
+      window._currentLead = { ...window._currentLead, snoozedUntil: null, snoozedReason: null };
     }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'unsnooze' } })); } catch (_) {}
     if (typeof window.renderLeads === 'function') {
@@ -179,6 +188,18 @@
     ];
   }
 
+  // Wave 73: snooze reason presets. Quick-pick chips so the rep
+  // doesn't type. None is selected by default; reason is optional.
+  // Order is by approximate frequency in the field — Insurance and
+  // "Not ready" cover most cases; the others are tail.
+  const SNOOZE_REASONS = [
+    'Insurance',
+    'Not ready',
+    'Out of town',
+    'Materials',
+    'Other',
+  ];
+
   function openSnoozeModal(leadId, leadNameHint) {
     closeSnoozeModal();
     const overlay = document.createElement('div');
@@ -202,6 +223,24 @@
         <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
           ${leadNameHint ? escapeHtml(leadNameHint) + ' ' : ''}will hide from the kanban + Hot Leads + Needs Attention until the snooze expires.
         </p>
+        <!-- W73: reason picker. Optional. Single-select chips. -->
+        <div style="margin-bottom:14px;">
+          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+            Why? <span style="text-transform:none; font-weight:500; opacity:0.7;">(optional)</span>
+          </label>
+          <div id="nbd-snooze-reasons" style="display:flex; flex-wrap:wrap; gap:5px;">
+            ${SNOOZE_REASONS.map((r) => `
+              <button data-reason="${escapeHtml(r)}" type="button" style="
+                background:var(--s2,#0f1419); color:var(--m,#9aa3b2);
+                border:1px solid var(--br,#2a3344); border-radius:14px;
+                padding:4px 11px; font: inherit; font-size:11px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;
+                transition:background .12s, color .12s, border-color .12s;">
+                ${escapeHtml(r)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
         <div id="nbd-snooze-presets" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
           ${presets.map((p, i) => `
             <button data-snooze-i="${i}" type="button" style="
@@ -253,12 +292,31 @@
       customEl.value = `${oneWeek.getFullYear()}-${String(oneWeek.getMonth() + 1).padStart(2, '0')}-${String(oneWeek.getDate()).padStart(2, '0')}`;
     }
 
+    // W73: reason chip selection state. Single-select; clicking a
+    // selected chip toggles it off so the rep can clear the reason.
+    let selectedReason = null;
+    function refreshReasonChips() {
+      overlay.querySelectorAll('[data-reason]').forEach(c => {
+        const isSel = c.getAttribute('data-reason') === selectedReason;
+        c.style.background = isSel ? 'rgba(155,109,255,0.18)' : 'var(--s2,#0f1419)';
+        c.style.color = isSel ? '#cab8ff' : 'var(--m,#9aa3b2)';
+        c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
+      });
+    }
+    overlay.querySelectorAll('[data-reason]').forEach(c => {
+      c.addEventListener('click', () => {
+        const r = c.getAttribute('data-reason');
+        selectedReason = (selectedReason === r) ? null : r;
+        refreshReasonChips();
+      });
+    });
+
     overlay.querySelectorAll('[data-snooze-i]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const i = parseInt(btn.getAttribute('data-snooze-i'), 10);
         const p = presets[i];
         if (!p) return;
-        await _doSnooze(leadId, p.date, p.label);
+        await _doSnooze(leadId, p.date, p.label, selectedReason);
       });
       btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
       btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
@@ -271,7 +329,7 @@
         _toast('Pick a future date', 'error');
         return;
       }
-      await _doSnooze(leadId, d, formatSnoozeLabel(d));
+      await _doSnooze(leadId, d, formatSnoozeLabel(d), selectedReason);
     });
     overlay.querySelector('#nbd-snooze-cancel').addEventListener('click', closeSnoozeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeSnoozeModal(); });
@@ -282,11 +340,14 @@
     if (el) el.remove();
   }
 
-  async function _doSnooze(leadId, date, label) {
+  async function _doSnooze(leadId, date, label, reason) {
     closeSnoozeModal();
     try {
-      await snooze(leadId, date);
-      _toast(`Snoozed until ${label}`, 'success');
+      await snooze(leadId, date, reason);
+      // W73: include reason in toast so the rep gets confirmation
+      // their categorization landed.
+      const tail = (typeof reason === 'string' && reason.trim()) ? ` · ${reason}` : '';
+      _toast(`Snoozed until ${label}${tail}`, 'success');
     } catch (e) {
       console.error('[snooze] failed', e);
       _toast('Snooze failed: ' + (e.message || 'unknown'), 'error');
@@ -334,6 +395,25 @@
         <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
           All selected leads will hide from the kanban + Hot Leads + Needs Attention until the snooze date.
         </p>
+        <!-- W73: reason picker for bulk snooze. Same chips as the
+             single-lead modal — applies to ALL selected leads. -->
+        <div style="margin-bottom:14px;">
+          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+            Why? <span style="text-transform:none; font-weight:500; opacity:0.7;">(optional · applies to all)</span>
+          </label>
+          <div id="nbd-bulk-snooze-reasons" style="display:flex; flex-wrap:wrap; gap:5px;">
+            ${SNOOZE_REASONS.map((r) => `
+              <button data-reason="${escapeHtml(r)}" type="button" style="
+                background:var(--s2,#0f1419); color:var(--m,#9aa3b2);
+                border:1px solid var(--br,#2a3344); border-radius:14px;
+                padding:4px 11px; font: inherit; font-size:11px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;
+                transition:background .12s, color .12s, border-color .12s;">
+                ${escapeHtml(r)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
         <div id="nbd-bulk-snooze-presets" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
           ${presets.map((p, i) => `
             <button data-bsnooze-i="${i}" type="button" style="
@@ -383,12 +463,31 @@
       customEl.value = `${oneWeek.getFullYear()}-${String(oneWeek.getMonth() + 1).padStart(2, '0')}-${String(oneWeek.getDate()).padStart(2, '0')}`;
     }
 
+    // W73: reason chip selection state for the bulk modal. Same
+    // single-select pattern as the per-lead modal above.
+    let bulkSelectedReason = null;
+    function refreshBulkReasonChips() {
+      overlay.querySelectorAll('[data-reason]').forEach(c => {
+        const isSel = c.getAttribute('data-reason') === bulkSelectedReason;
+        c.style.background = isSel ? 'rgba(155,109,255,0.18)' : 'var(--s2,#0f1419)';
+        c.style.color = isSel ? '#cab8ff' : 'var(--m,#9aa3b2)';
+        c.style.borderColor = isSel ? '#9b6dff' : 'var(--br,#2a3344)';
+      });
+    }
+    overlay.querySelectorAll('[data-reason]').forEach(c => {
+      c.addEventListener('click', () => {
+        const r = c.getAttribute('data-reason');
+        bulkSelectedReason = (bulkSelectedReason === r) ? null : r;
+        refreshBulkReasonChips();
+      });
+    });
+
     overlay.querySelectorAll('[data-bsnooze-i]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const i = parseInt(btn.getAttribute('data-bsnooze-i'), 10);
         const p = presets[i];
         if (!p) return;
-        await _doBulkSnooze(leadIds, p.date, p.label);
+        await _doBulkSnooze(leadIds, p.date, p.label, bulkSelectedReason);
       });
       btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
       btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
@@ -401,13 +500,13 @@
         _toast('Pick a future date', 'error');
         return;
       }
-      await _doBulkSnooze(leadIds, d, formatSnoozeLabel(d));
+      await _doBulkSnooze(leadIds, d, formatSnoozeLabel(d), bulkSelectedReason);
     });
     overlay.querySelector('#nbd-bulk-snooze-cancel').addEventListener('click', closeSnoozeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeSnoozeModal(); });
   }
 
-  async function _doBulkSnooze(leadIds, date, label) {
+  async function _doBulkSnooze(leadIds, date, label, reason) {
     closeSnoozeModal();
     if (!window.writeBatch || !window.db || !window.doc) {
       _toast('Bulk snooze unavailable — Firestore not loaded', 'error');
@@ -416,6 +515,9 @@
     try {
       // Chunk for the 500-op writeBatch limit; same shape as
       // commitBulkLeadOp in crm.js.
+      // W73: persist snoozedReason alongside snoozedUntil so the
+      // bulk batch matches the per-lead snooze() shape.
+      const reasonValue = (typeof reason === 'string' && reason.trim()) ? reason.trim() : null;
       const CHUNK = 450;
       const updatedAt = window.serverTimestamp ? window.serverTimestamp() : new Date();
       for (let i = 0; i < leadIds.length; i += CHUNK) {
@@ -424,6 +526,7 @@
         for (const id of slice) {
           batch.update(window.doc(window.db, 'leads', id), {
             snoozedUntil: date,
+            snoozedReason: reasonValue,
             updatedAt,
           });
         }
@@ -436,10 +539,10 @@
       const idSet = new Set(leadIds);
       if (Array.isArray(window._leads)) {
         window._leads = window._leads.map(l =>
-          (l && idSet.has(l.id)) ? { ...l, snoozedUntil: date } : l);
+          (l && idSet.has(l.id)) ? { ...l, snoozedUntil: date, snoozedReason: reasonValue } : l);
       }
       if (window._currentLead && idSet.has(window._currentLead.id)) {
-        window._currentLead = { ...window._currentLead, snoozedUntil: date };
+        window._currentLead = { ...window._currentLead, snoozedUntil: date, snoozedReason: reasonValue };
       }
       try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'bulk-snooze' } })); } catch (_) {}
       if (typeof window.renderLeads === 'function') {
@@ -449,7 +552,10 @@
       if (typeof window.clearBulkSelection === 'function') window.clearBulkSelection();
       if (typeof window.toggleBulkMode === 'function' && window._bulkMode) window.toggleBulkMode();
 
-      _toast(`Snoozed ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'} until ${label}`, 'success');
+      // W73: include reason in toast so the rep gets confirmation
+      // their categorization landed.
+      const tail = reasonValue ? ` · ${reasonValue}` : '';
+      _toast(`Snoozed ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'} until ${label}${tail}`, 'success');
     } catch (e) {
       console.error('[bulk snooze] failed', e);
       _toast('Bulk snooze failed: ' + (e.message || 'unknown'), 'error');

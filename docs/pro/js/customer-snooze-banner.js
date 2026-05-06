@@ -68,6 +68,15 @@
   function buildBanner(lead) {
     const date = window.LeadSnooze.snoozedUntilDate(lead);
     const label = fullSnoozeLabel(date);
+    // W73: surface the snooze reason next to the title pill if the
+    // rep tagged one when snoozing. Helps reps remember why each
+    // lead is parked when they revisit it later.
+    const reason = (lead && typeof lead.snoozedReason === 'string' && lead.snoozedReason.trim())
+      ? lead.snoozedReason.trim()
+      : '';
+    const reasonPill = reason
+      ? `<span style="display:inline-flex; align-items:center; gap:3px; margin-left:8px; padding:1px 8px; background:rgba(155,109,255,0.18); color:#cab8ff; border:1px solid rgba(155,109,255,0.45); border-radius:10px; font-size:10px; font-weight:600; letter-spacing:0.02em;">${escapeHtml(reason)}</span>`
+      : '';
     const banner = document.createElement('div');
     banner.id = 'nbd-snooze-banner';
     banner.setAttribute('role', 'status');
@@ -84,7 +93,7 @@
     banner.innerHTML = `
       <span style="font-size:18px; line-height:1;">💤</span>
       <div style="flex:1; min-width:0;">
-        <div style="font-weight:700; color:#cab8ff; margin-bottom:1px;">Snoozed lead</div>
+        <div style="font-weight:700; color:#cab8ff; margin-bottom:1px; display:flex; align-items:center;">Snoozed lead${reasonPill}</div>
         <div style="font-size:11px; color:var(--m,#9aa3b2);">
           Hidden from the kanban + Hot Leads + Needs Attention until
           <strong style="color:var(--t,#e8eaf0); font-weight:600;">${escapeHtml(label)}</strong>.
