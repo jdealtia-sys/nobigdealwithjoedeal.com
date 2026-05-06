@@ -86,6 +86,8 @@ async function loadAllTasks() {
   await Promise.allSettled((window._leads||[]).map(l=>_loadTasks(l.id)));
   renderTodayTasks();
   renderLeads(window._leads, window._filteredLeads);
+  // Wave 13: tell the notification bell tasks just refreshed.
+  try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'tasks' } })); } catch (_) {}
 }
 function renderTodayTasks() {
   const el = document.getElementById('todayTasksList');

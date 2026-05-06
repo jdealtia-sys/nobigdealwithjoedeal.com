@@ -971,6 +971,9 @@
       // widgets, etc.) know the lead cache is hydrated vs still pending.
       window._leadsLoaded = true;
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
+      // Wave 13: tell the notification bell + any other listeners that
+      // the lead cache just refreshed so they can recompute counts.
+      try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'leads' } })); } catch (_) {}
       
       // Update health indicator to healthy
       if (healthBadge) {
@@ -1688,6 +1691,8 @@
         });
     } catch(e) { window._estimates = []; }
     renderEstimatesList(window._estimates);
+    // Wave 13: notify the bell so stale-estimate counts update.
+    try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'estimates' } })); } catch (_) {}
   }
   window._loadEstimates = loadEstimates;
   // Alias for consistency with window.loadLeads above.
@@ -16385,7 +16390,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
 <script defer src="js/crm.js?v=22"></script>
-<script defer src="js/tasks.js?v=3"></script>
+<script defer src="js/tasks.js?v=4"></script>
+<script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
