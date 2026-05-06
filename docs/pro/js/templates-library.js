@@ -403,6 +403,109 @@ Bookmark it; the link stays live as we work through the project.
   // ─── Init ────────────────────────────────────────────────────────
   seedDefaults();
 
+  // ─── Pick + render (W98) ─────────────────────────────────────────
+  // Quick picker modal for use from the send flow. Returns:
+  //   { body, subject } if rep picked a template
+  //   null              if rep clicked "Use default" (caller falls back)
+  //   undefined         if rep cancelled (caller aborts send)
+  //
+  // Picker is skipped automatically when there's exactly 1 template
+  // for the channel — that template is applied directly. When 0
+  // templates exist, returns null immediately so the caller falls
+  // back to its hardcoded body.
+  function pickAndRender(channel, ctx) {
+    return new Promise((resolve) => {
+      const templates = list(channel);
+      if (templates.length === 0) {
+        resolve(null);
+        return;
+      }
+      if (templates.length === 1) {
+        const rendered = apply(templates[0], ctx);
+        resolve(rendered);
+        return;
+      }
+
+      // Multiple templates — open picker.
+      if (_modalOpen) {
+        // Defensive: if the manager modal is already open, fall
+        // through to the most recently used template (or the first).
+        resolve(apply(templates[0], ctx));
+        return;
+      }
+      _modalOpen = true;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'nbd-templates-picker-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'nbd-templates-picker-title');
+      overlay.style.cssText = `
+        position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
+        display:flex; align-items:center; justify-content:center; padding:20px;
+        font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
+
+      const channelLabel = channel === 'email' ? 'Email' : 'SMS';
+      overlay.innerHTML = `
+        <div style="background:var(--s,#1a1f2a); color:var(--t,#e8eaf0); border:1px solid var(--br,#2a3344); border-radius:12px; padding:20px; max-width:440px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,0.5); max-height:80vh; overflow-y:auto;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:22px;" aria-hidden="true">${channel === 'email' ? '📧' : '💬'}</span>
+            <h2 id="nbd-templates-picker-title" style="font-size:16px; margin:0;">Pick ${escapeHtml(channelLabel)} template</h2>
+            <button id="nbd-tpl-pick-close" type="button" aria-label="Cancel"
+              style="margin-left:auto; background:transparent; color:var(--m,#9aa3b2); border:none; font-size:22px; line-height:1; cursor:pointer; padding:4px 8px;">×</button>
+          </div>
+          <p style="font-size:11px; color:var(--m,#9aa3b2); margin:0 0 12px; line-height:1.4;">Tokens like {firstName} get filled in before the message opens.</p>
+          <div id="nbd-tpl-pick-list" style="display:flex; flex-direction:column; gap:6px;">
+            ${templates.map((t, i) => `
+              <button data-tpl-pick="${escapeHtml(t.id)}" type="button" style="
+                text-align:left; padding:10px 12px; border-radius:8px;
+                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                border:1px solid var(--br,#2a3344);
+                font:inherit; font-size:13px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;">
+                <div style="margin-bottom:4px;">${escapeHtml(t.name)}${t._seeded ? ' <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">· default</span>' : ''}</div>
+                <div style="font-size:11px; color:var(--m,#9aa3b2); font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml((t.body || '').slice(0, 80))}${(t.body || '').length > 80 ? '…' : ''}</div>
+              </button>
+            `).join('')}
+          </div>
+          <div style="display:flex; gap:6px; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--br,#2a3344);">
+            <button id="nbd-tpl-pick-default" type="button" style="background:transparent; color:var(--m,#9aa3b2); border:1px solid var(--br,#2a3344); padding:7px 12px; border-radius:6px; font:inherit; font-size:11px; font-weight:600; cursor:pointer;">Use built-in default</button>
+            <button id="nbd-tpl-pick-cancel" type="button" style="background:transparent; color:var(--m,#9aa3b2); border:1px solid var(--br,#2a3344); padding:7px 12px; border-radius:6px; font:inherit; font-size:11px; font-weight:600; cursor:pointer;">Cancel</button>
+          </div>
+        </div>`;
+
+      function close(result) {
+        _modalOpen = false;
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') close(undefined);
+      }
+
+      overlay.querySelectorAll('[data-tpl-pick]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = get(btn.getAttribute('data-tpl-pick'));
+          if (!t) { close(undefined); return; }
+          close(apply(t, ctx));
+        });
+      });
+      overlay.querySelector('#nbd-tpl-pick-default').addEventListener('click', () => close(null));
+      overlay.querySelector('#nbd-tpl-pick-cancel').addEventListener('click', () => close(undefined));
+      overlay.querySelector('#nbd-tpl-pick-close').addEventListener('click', () => close(undefined));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(undefined); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+
+      // Initial focus on first template option.
+      setTimeout(() => {
+        const first = overlay.querySelector('[data-tpl-pick]');
+        if (first) first.focus();
+      }, 0);
+    });
+  }
+
   window.TemplatesLibrary = {
     __sentinel: 'nbd-templates-library-v1',
     list,
@@ -410,6 +513,7 @@ Bookmark it; the link stays live as we work through the project.
     save,
     remove,
     apply,
+    pickAndRender,
     openManager,
   };
 })();
