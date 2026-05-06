@@ -729,6 +729,28 @@ function buildCard(l){
     viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:#5eead4;border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
   })();
 
+  // ── Wave 92: engagement tier badge ──
+  // Compact aggregate of W44 share + W58 viewed + respondedAt
+  // signals into a single chip on the kanban card. The customer
+  // page got the same tier in W91; this brings it to the kanban
+  // so reps can prioritize their column at a glance without
+  // having to read three separate badges.
+  //
+  // Skipped on tier 0 (no signals) so non-engaged cards stay
+  // clean. Also skipped on terminal stages — a "Responded"
+  // badge on a closed deal is just visual noise.
+  let engagementBadge = '';
+  (function buildEngagementBadge() {
+    if (!window.CustomerEngagementScore
+        || typeof window.CustomerEngagementScore.computeTier !== 'function') return;
+    const sk = (l._stageKey || l.stage || 'new').toString().toLowerCase();
+    if (sk === 'closed' || sk === 'lost' || sk === 'complete') return;
+    const allEsts = Array.isArray(window._estimates) ? window._estimates : [];
+    const tier = window.CustomerEngagementScore.computeTier(l, allEsts);
+    if (!tier || tier.tier === 0) return;
+    engagementBadge = `<span class="kc-tag" style="background:${tier.bg};color:${tier.color};border-color:${tier.border};" title="${escHtml(tier.title || tier.label)}">${tier.icon} ${escHtml(tier.label)}</span>`;
+  })();
+
   // ── Wave 75: snoozed-card pills ──
   // Only renders when this lead is snoozed AND the W37 show-snoozed
   // toggle is on (otherwise the lead is filtered out at line 267
@@ -838,6 +860,7 @@ function buildCard(l){
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
       ${lastSharedBadge}
       ${viewedBadge}
+      ${engagementBadge}
       ${snoozeBadge}
       ${staleSnoozeBadge}
     </div>
