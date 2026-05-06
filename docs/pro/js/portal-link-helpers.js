@@ -333,6 +333,7 @@ Bookmark it; the link stays live as we work through the project.
           style="flex:1; width:100%; border:none; background:#fff;"
           referrerpolicy="no-referrer"
           loading="lazy"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         ></iframe>
       </div>`;
     document.body.appendChild(overlay);
