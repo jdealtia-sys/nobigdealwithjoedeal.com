@@ -8747,6 +8747,23 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- WAVE 24: RECENT ACTIVITY FEED ──────────────────────────────
+           Last 20 events across leads/estimates/tasks pulled from
+           in-memory caches. Click a row to jump to the related lead
+           or estimate (lead navigation reuses Wave 11 handoff so the
+           customer page renders instantly). ────────────────────── -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-hdr">
+          <div><div class="panel-label">Activity</div><div class="panel-title">Recent Activity</div></div>
+          <span style="font-size:11px;color:var(--m);">Latest 20 events</span>
+        </div>
+        <div class="panel-body" id="activity-feed-body" style="padding:0;">
+          <div style="padding:24px;text-align:center;color:var(--m);font-size:12px;">
+            Loading…
+          </div>
+        </div>
+      </div>
+
       <!-- TODAY'S TASKS PANEL -->
       <div class="panel" style="margin-top:14px;">
         <div class="panel-hdr">
@@ -16547,6 +16564,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/data-export.js?v=1"></script>
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
+<script defer src="js/activity-feed.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
