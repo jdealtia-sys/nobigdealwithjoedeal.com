@@ -729,6 +729,39 @@ function buildCard(l){
     viewedBadge = `<span class="kc-tag${freshClass2}" style="background:rgba(46,204,138,0.14);color:#5eead4;border-color:rgba(46,204,138,0.45);" title="Customer opened the portal — ${escHtml(label)}">👁 viewed ${escHtml(label)}</span>`;
   })();
 
+  // ── Wave 75: snoozed-card pills ──
+  // Only renders when this lead is snoozed AND the W37 show-snoozed
+  // toggle is on (otherwise the lead is filtered out at line 267
+  // and we never reach this branch). Two separate pills so reps
+  // can scan their snoozed kanban for category + indecision pattern
+  // at the same time:
+  //
+  //   - Snooze pill (purple)  → "💤 <date> · <reason>"
+  //   - Stale pill  (amber)   → "⚠️ Snoozed 3×"  (only when count ≥ 3)
+  //
+  // Mirrors the W36 customer-banner pill row + the W71 cmd+K
+  // subtitle so the snooze metadata reads identically across all
+  // three surfaces.
+  let snoozeBadge = '';
+  let staleSnoozeBadge = '';
+  (function buildSnoozePills() {
+    if (!window.LeadSnooze || !window.LeadSnooze.isSnoozed(l)) return;
+    const d = window.LeadSnooze.snoozedUntilDate(l);
+    if (!d) return;
+    const dateLabel = window.LeadSnooze.formatSnoozeLabel(d);
+    const reason = (typeof l.snoozedReason === 'string' && l.snoozedReason.trim())
+      ? l.snoozedReason.trim()
+      : '';
+    const reasonTail = reason ? ` · ${reason}` : '';
+    snoozeBadge = `<span class="kc-tag" style="background:rgba(155,109,255,0.14);color:#cab8ff;border-color:rgba(155,109,255,0.45);" title="Snoozed until ${escHtml(dateLabel)}${reasonTail ? ' — ' + escHtml(reason) : ''}">💤 ${escHtml(dateLabel)}${escHtml(reasonTail)}</span>`;
+
+    if (typeof window.LeadSnooze.isStaleSnooze === 'function'
+        && window.LeadSnooze.isStaleSnooze(l)) {
+      const n = l.snoozeCount || 0;
+      staleSnoozeBadge = `<span class="kc-tag" style="background:rgba(245,158,11,0.18);color:#fcd34d;border-color:rgba(245,158,11,0.45);" title="This lead has been snoozed ${n}+ times — consider a different action.">⚠️ Snoozed ${escHtml(String(n))}×</span>`;
+    }
+  })();
+
   // Photo thumbnails (from cache). Click behavior is wired via data-* +
   // delegated event listener in wireKanbanCardListeners(), so attacker-
   // controlled fields like `l.address` can never break out of an onclick
@@ -805,6 +838,8 @@ function buildCard(l){
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
       ${lastSharedBadge}
       ${viewedBadge}
+      ${snoozeBadge}
+      ${staleSnoozeBadge}
     </div>
     <div class="kc-footer">
       <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>
