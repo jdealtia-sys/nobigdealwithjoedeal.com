@@ -853,28 +853,105 @@
       }
       const leads = window._leads || [];
       const e = window.nbdEsc || (s => String(s == null ? '' : s));
+
+      // Wave 53: inline reshare buttons. Last priority-ish surface
+      // to get the share trio. Recent dropdown rows already navigate
+      // to the customer page on click; this just adds 📞/💬/📧
+      // affordances next to the name so the rep can re-text/recall
+      // a customer they were just looking at without opening the
+      // detail page first.
+      function _recentActions(lead) {
+        const phoneDigits = String(lead.phone || '').replace(/\D+/g, '');
+        const email = String(lead.email || '').trim();
+        const buttons = [];
+        if (phoneDigits) {
+          buttons.push(
+            `<a class="rc-action" href="tel:${e(phoneDigits)}" title="Call ${e(lead.phone)}"
+               style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(16,185,129,0.14);color:#10b981;text-decoration:none;font-size:11px;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+               onclick="event.stopPropagation();"
+               onmouseover="this.style.transform='scale(1.1)'"
+               onmouseout="this.style.transform=''"
+             >📞</a>`);
+          buttons.push(
+            `<button class="rc-action" type="button" data-action="sms" data-lead-id="${e(lead.id)}" title="Text portal link to ${e(lead.phone)}"
+               style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(59,130,246,0.14);color:#3b82f6;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+               onmouseover="this.style.transform='scale(1.1)'"
+               onmouseout="this.style.transform=''"
+             >💬</button>`);
+        }
+        if (email) {
+          buttons.push(
+            `<button class="rc-action" type="button" data-action="email" data-lead-id="${e(lead.id)}" title="Email portal link to ${e(email)}"
+               style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(139,92,246,0.14);color:#8b5cf6;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
+               onmouseover="this.style.transform='scale(1.1)'"
+               onmouseout="this.style.transform=''"
+             >📧</button>`);
+        }
+        if (buttons.length === 0) return '';
+        return `<div style="display:flex;gap:3px;flex-shrink:0;">${buttons.join('')}</div>`;
+      }
+
       list.innerHTML = recent.map(r => {
         const lead = leads.find(l => l.id === r.id);
         if (!lead) return '';
         const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown';
         const shortAddr = (lead.address || '').split(',')[0];
         return `
-          <div class="nbd-recent-row" data-id="${e(r.id)}" style="padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;font-size:12px;"
+          <div class="nbd-recent-row" data-id="${e(r.id)}" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;font-size:12px;"
                onmouseover="this.style.background='var(--s2)'"
                onmouseout="this.style.background='transparent'">
-            <div style="font-weight:600;margin-bottom:2px;">${e(name)}</div>
-            <div style="font-size:10px;color:var(--m);">${e(shortAddr)}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e(name)}</div>
+              <div style="font-size:10px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e(shortAddr)}</div>
+            </div>
+            ${_recentActions(lead)}
           </div>
         `;
       }).filter(Boolean).join('');
-      list.querySelectorAll('.nbd-recent-row').forEach(row => {
-        row.addEventListener('click', () => {
-          const id = row.dataset.id;
-          if (id) window.location.href = '/pro/customer.html?id=' + encodeURIComponent(id);
+
+      // Wave 53: action button handlers fire BEFORE row click so
+      // stopPropagation takes effect. SMS + Email delegate to
+      // PortalLinkHelpers (W42) for the prefilled-body flow + W44
+      // lastSharedAt tracking. Call uses native <a href="tel:...">.
+      list.querySelectorAll('.rc-action[data-action]').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const action = btn.getAttribute('data-action');
+          const id = btn.getAttribute('data-lead-id');
+          if (!id) return;
+          const lead = (window._leads || []).find(l => l && l.id === id);
+          if (!lead) return;
+          if (action === 'sms' && window.PortalLinkHelpers) {
+            window.PortalLinkHelpers.smsForLead(lead);
+          } else if (action === 'email' && window.PortalLinkHelpers) {
+            window.PortalLinkHelpers.emailForLead(lead);
+          }
+          // Close the dropdown after firing so the rep sees the SMS
+          // composer / mail client without the dropdown obscuring.
+          const dd = document.getElementById('recentDropdown');
+          if (dd) dd.style.display = 'none';
         });
       });
-    } catch (e) {
-      console.error('Failed to render recent:', e);
+
+      list.querySelectorAll('.nbd-recent-row').forEach(row => {
+        row.addEventListener('click', (ev) => {
+          // Defensive: a click on a child element of an action
+          // button should already have been stopped by the action
+          // handler, but guard anyway.
+          if (ev.target && ev.target.closest && ev.target.closest('.rc-action')) return;
+          const id = row.dataset.id;
+          if (!id) return;
+          // Reuse Wave 11 handoff for instant render.
+          try {
+            if (typeof window._stashLeadForCustomerPage === 'function') {
+              window._stashLeadForCustomerPage(id);
+            }
+          } catch (_) {}
+          window.location.href = '/pro/customer.html?id=' + encodeURIComponent(id);
+        });
+      });
+    } catch (err) {
+      console.error('Failed to render recent:', err);
     }
   }
   
