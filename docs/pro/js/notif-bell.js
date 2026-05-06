@@ -315,6 +315,70 @@
               onmouseout="this.style.transform=''"
             >📧</button>`);
         }
+        // Wave 68: portal preview action — always available, no
+        // contact gate. Brings the bell to feature parity with the
+        // home widgets (W64/W65/W66) and cmd+K (W63). Especially
+        // valuable here: a bell alert means "the customer just did
+        // X" — before responding, the rep peeks at the portal to
+        // see exactly what state the customer is looking at.
+        if (window.PortalLinkHelpers
+            && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+          buttons.push(`
+            <button class="notif-action" type="button"
+              title="Preview the portal — see what the customer just saw"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(245,158,11,0.14); color:#f59e0b;
+                border:none; font-size:12px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onclick="event.stopPropagation(); window.NotifBell._actionPreview('${escapeHtml(lead.id)}')"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >🔍</button>`);
+        }
+        // Wave 68: state-aware snooze/unsnooze. Bell rows can
+        // show customer-side alerts even on snoozed leads (the
+        // line-123 / line-175 filters apply only to rep-side task/
+        // stale signals), so we honor the actual lead state.
+        // Snoozed → ⏰ unsnooze; fresh → 💤 snooze.
+        if (window.LeadSnooze) {
+          const isSnoozed = window.LeadSnooze.isSnoozed(lead);
+          if (isSnoozed) {
+            const untilLabel = window.LeadSnooze.formatSnoozeLabel(
+              window.LeadSnooze.snoozedUntilDate(lead));
+            buttons.push(`
+              <button class="notif-action" type="button"
+                title="Unsnooze (was until ${escapeHtml(untilLabel)})"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:26px; height:26px; border-radius:5px;
+                  background:rgba(155,109,255,0.14); color:#cab8ff;
+                  border:none; font-size:12px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:transform .12s;"
+                onclick="event.stopPropagation(); window.NotifBell._actionUnsnooze('${escapeHtml(lead.id)}')"
+                onmouseover="this.style.transform='scale(1.08)'"
+                onmouseout="this.style.transform=''"
+              >⏰</button>`);
+          } else {
+            buttons.push(`
+              <button class="notif-action" type="button"
+                title="Snooze this lead"
+                style="
+                  display:flex; align-items:center; justify-content:center;
+                  width:26px; height:26px; border-radius:5px;
+                  background:rgba(155,109,255,0.10); color:#a890e8;
+                  border:none; font-size:12px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  transition:transform .12s;"
+                onclick="event.stopPropagation(); window.NotifBell._actionSnooze('${escapeHtml(lead.id)}')"
+                onmouseover="this.style.transform='scale(1.08)'"
+                onmouseout="this.style.transform=''"
+              >💤</button>`);
+          }
+        }
         if (buttons.length > 0) {
           actionButtonsHTML = `
             <div style="display:flex; gap:3px; align-self:center; flex-shrink:0;">
@@ -470,6 +534,37 @@
       window.PortalLinkHelpers.emailForLead(lead);
     }
   }
+  // Wave 68: bell-row preview + snooze/unsnooze helpers. Same
+  // resolve-by-id pattern as W48 share helpers above so the
+  // inline onclick handlers can fire by lead id alone.
+  function _actionPreview(leadId) {
+    const lead = (Array.isArray(window._leads) ? window._leads : [])
+      .find(l => l && l.id === leadId);
+    if (!lead) return;
+    if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+      // Don't close the bell dropdown — preview opens at z-index
+      // 99997 over the dropdown so the rep can dismiss preview
+      // and keep triaging the alert list.
+      window.PortalLinkHelpers.previewForLead(lead);
+    }
+  }
+  function _actionSnooze(leadId) {
+    const lead = (Array.isArray(window._leads) ? window._leads : [])
+      .find(l => l && l.id === leadId);
+    if (!lead) return;
+    if (window.LeadSnooze && typeof window.LeadSnooze.prompt === 'function') {
+      const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+      window.LeadSnooze.prompt(leadId, fullName);
+    }
+  }
+  function _actionUnsnooze(leadId) {
+    if (window.LeadSnooze && typeof window.LeadSnooze.promptUnsnooze === 'function') {
+      // Re-render after unsnooze so the button flips ⏰ → 💤 in
+      // place. nbd:data-refreshed already triggers re-render but
+      // call render() directly so the flip happens immediately.
+      window.LeadSnooze.promptUnsnooze(leadId).then(() => render());
+    }
+  }
 
   // Expose API
   window.NotifBell = {
@@ -480,6 +575,9 @@
     _dismiss: dismissOne,
     _actionSms,
     _actionEmail,
+    _actionPreview,
+    _actionSnooze,
+    _actionUnsnooze,
   };
 
   // Wire the legacy onclick handlers expected by dashboard.html
