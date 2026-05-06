@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=23" as="script">
+<link rel="preload" href="js/crm.js?v=24" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -9641,6 +9641,33 @@ function switchScTab(tab, btn) {
           <option value="Other">Other</option>
         </select>
         <button class="btn btn-ghost" onclick="bulkAssignDamage()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <!-- Wave 32: source bulk-edit. Common post-import cleanup —
+             "all 50 imported leads should be tagged 'Spring Hailstorm'".
+             The custom text input lets reps tag a campaign that's not
+             in the preset list without first adding it. -->
+        <select id="bulkSourceSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
+          <option value="">Set source...</option>
+          <option value="Door Knock">Door Knock</option>
+          <option value="Door-to-Door">Door-to-Door</option>
+          <option value="Referral">Referral</option>
+          <option value="Web Lead">Web Lead</option>
+          <option value="Phone Call">Phone Call</option>
+          <option value="Walk-in">Walk-in</option>
+          <option value="Storm Chase">Storm Chase</option>
+          <option value="Past Customer">Past Customer</option>
+          <option value="Other">Other</option>
+        </select>
+        <input id="bulkSourceCustom" type="text" placeholder="…or type custom" maxlength="60" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);width:130px;" />
+        <button class="btn btn-ghost" onclick="bulkAssignSource()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <!-- Wave 32: jobType bulk-edit. Routes leads into the
+             insurance / cash / finance pipeline view filters. -->
+        <select id="bulkJobTypeSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
+          <option value="">Set job type...</option>
+          <option value="insurance">Insurance</option>
+          <option value="cash">Cash</option>
+          <option value="finance">Finance</option>
+        </select>
+        <button class="btn btn-ghost" onclick="bulkAssignJobType()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
         <button class="btn btn-ghost" onclick="bulkDelete()" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
         <button class="btn btn-ghost" onclick="clearBulkSelection()" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
       </div>
@@ -16612,7 +16639,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=23"></script>
+<script defer src="js/crm.js?v=24"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
