@@ -591,6 +591,10 @@
         // when explicitly false.
         const digestEl = document.getElementById('settingsWeeklyDigest');
         if (digestEl) digestEl.checked = d.weeklyDigestEnabled !== false;
+        // Wave 28: prime the dormant-nudge opt-in checkbox using the
+        // same default-ON semantics.
+        const dormantEl = document.getElementById('settingsDormantNudge');
+        if (dormantEl) dormantEl.checked = d.dormantNudgeEnabled !== false;
       }
     } catch (e) { /* silent — rules may deny during bootstrap */ }
     // Seed demo data first if this is the demo account, then load normally
@@ -1990,6 +1994,11 @@
     // is "send" if the field is missing or true).
     const digestEl = document.getElementById('settingsWeeklyDigest');
     const weeklyDigestEnabled = digestEl ? !!digestEl.checked : true;
+    // Wave 28: dormant-nudge opt-in/out. Same default-ON semantics as
+    // weeklyDigestEnabled; the dormantLeadNudge cron does an explicit
+    // `=== false` skip check.
+    const dormantEl = document.getElementById('settingsDormantNudge');
+    const dormantNudgeEnabled = dormantEl ? !!dormantEl.checked : true;
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
@@ -1998,7 +2007,8 @@
         await window.setDoc(window.doc(window.db, 'users', window._user.uid), {
           displayName: name,
           calcomUsername,
-          weeklyDigestEnabled
+          weeklyDigestEnabled,
+          dormantNudgeEnabled
         }, { merge: true });
       }
       // Refresh the in-memory rep shadow so the next booking SMS
@@ -10400,6 +10410,24 @@ function switchScTab(tab, btn) {
                     Send me the weekly digest
                     <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
                       Monday morning recap of new leads, wins, and pipeline value
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <!-- Wave 28: dormant-nudge opt-in/out. Default ON; only
+                 sent when the rep actually has stuck leads. Separate
+                 toggle from the digest because the two emails serve
+                 different intents (informational vs operational). -->
+            <div class="sf-row" style="margin-top:6px;">
+              <div class="sf" style="flex:1;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
+                  <input type="checkbox" id="settingsDormantNudge" checked
+                    style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
+                  <span>
+                    Send me dormant-lead reminders
+                    <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
+                      Wednesday email when leads have been stuck >30 days at the same stage
                     </span>
                   </span>
                 </label>
