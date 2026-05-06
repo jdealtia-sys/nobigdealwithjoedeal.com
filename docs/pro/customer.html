@@ -898,6 +898,11 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
              both surfaces. Hidden until lastSharedAt is set; the
              module updates it on data refresh + after each share. -->
         <span id="lastSharedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(155,109,255,0.14);color:#cab8ff;border:1px solid rgba(155,109,255,0.45);"></span>
+        <!-- Wave 59: viewed chip mirrors the W58 kanban "👁 viewed
+             today" pill so reps see the same customer-engagement
+             cue on both kanban + customer page. Hidden until any
+             non-responded estimate has viewedAt set. -->
+        <span id="viewedChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;background:rgba(46,204,138,0.14);color:#5eead4;border:1px solid rgba(46,204,138,0.45);"></span>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
@@ -6922,6 +6927,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Wave 52: last-shared chip in the customer header. Mirrors the
      W44 kanban badge so both surfaces show the same cue. -->
 <script defer src="js/customer-last-shared-chip.js?v=1"></script>
+<script defer src="js/customer-viewed-chip.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
