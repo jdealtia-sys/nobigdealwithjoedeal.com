@@ -102,6 +102,12 @@
       const i = window._leads.findIndex(l => l && l.id === leadId);
       if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: untilDate };
     }
+    // Customer detail page also reads window._currentLead (set by
+    // loadCustomerData). Patch that mirror so the customer-page
+    // banner picks up the new state without a Firestore re-read.
+    if (window._currentLead && window._currentLead.id === leadId) {
+      window._currentLead = { ...window._currentLead, snoozedUntil: untilDate };
+    }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'snooze' } })); } catch (_) {}
     if (typeof window.renderLeads === 'function') {
       try { window.renderLeads(window._leads, window._filteredLeads); } catch (_) {}
@@ -124,6 +130,11 @@
     if (Array.isArray(window._leads)) {
       const i = window._leads.findIndex(l => l && l.id === leadId);
       if (i >= 0) window._leads[i] = { ...window._leads[i], snoozedUntil: null };
+    }
+    // Same _currentLead mirror update as snooze() — keeps the
+    // customer-page banner in sync without a Firestore re-read.
+    if (window._currentLead && window._currentLead.id === leadId) {
+      window._currentLead = { ...window._currentLead, snoozedUntil: null };
     }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'unsnooze' } })); } catch (_) {}
     if (typeof window.renderLeads === 'function') {
