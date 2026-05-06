@@ -3340,6 +3340,26 @@ body:has(#view-prospects.active) .breadcrumb-container{
    iPhone, Android. Desktop with mouse stays unaffected. iPad with
    Apple Pencil reports hover:hover so it still gets hover styles
    when the pencil hovers \u2014 that's the right behavior. */
+/* ══ WAVE 106: COLOR-BLIND-SAFE PALETTE OVERRIDE ══
+   Single toggle swaps the 5 status colors to a deuteranopia/
+   protanopia-safe palette. The default red/green pair is the
+   most common color-blindness collision; the swap moves to a
+   blue/orange pair using the IBM-recommended accessible palette.
+
+   Engagement tier colors (W91/W92) and snooze pills inherit from
+   the same vars, so this single override propagates to every
+   surface that uses status color. Activated via:
+     :root[data-cb-safe="1"]   (toggled by Comfort tab in W107)
+*/
+:root[data-cb-safe="1"] {
+  --green: #648fff;  /* IBM Accessible Blue (replaces green) */
+  --red:   #fe6100;  /* IBM Accessible Orange (replaces red) */
+  --gold:  #ffb000;  /* IBM Accessible Yellow (replaces gold) */
+  --blue:  #785ef0;  /* IBM Accessible Purple (shift) */
+  --purple:#dc267f;  /* IBM Accessible Magenta (shift) */
+  --orange:#fe6100;  /* match red so accent stays consistent */
+}
+
 /* ══ WAVE 101: TEXT SIZE SCALE ══
    Three-step text scale via root font-size override. Affects every
    `rem`-sized element automatically (most of the app). 'medium' is
@@ -15078,6 +15098,28 @@ function nbdComfortSet(kind, value) {
         if (value === '1') localStorage.setItem('nbd_professional_mode', '1');
         else localStorage.removeItem('nbd_professional_mode');
       } catch (_) {}
+    } else if (kind === 'cbSafe') {
+      // W106: color-blind-safe palette
+      if (value === '1') html.setAttribute('data-cb-safe', '1');
+      else html.removeAttribute('data-cb-safe');
+      try {
+        if (value === '1') localStorage.setItem('nbd_cb_safe', '1');
+        else localStorage.removeItem('nbd_cb_safe');
+      } catch (_) {}
+    } else if (kind === 'autoTheme') {
+      // W107: auto theme switching. When ON, schedules a check
+      // every minute that switches the active theme based on
+      // local hour. Daytime (7am–7pm) uses 'paper' (light); rest
+      // uses the rep's preferred dark theme (defaults to
+      // 'nbd-original'). Rep can still pick a different theme
+      // manually mid-day; auto only kicks in on the next
+      // boundary.
+      try {
+        if (value === '1') localStorage.setItem('nbd_auto_theme', '1');
+        else localStorage.removeItem('nbd_auto_theme');
+      } catch (_) {}
+      if (value === '1') nbdAutoThemeStart();
+      else nbdAutoThemeStop();
     }
   } catch (_) { /* best effort */ }
   nbdComfortRefresh();
@@ -15115,7 +15157,91 @@ function nbdComfortRefresh() {
   if (motionEl) motionEl.checked = motion;
   const proEl = document.getElementById('npm-pro-mode');
   if (proEl) proEl.checked = proMode;
+  // W106: reflect color-blind-safe state
+  const cbSafe = html.getAttribute('data-cb-safe') === '1';
+  const cbEl = document.getElementById('npm-cb-safe');
+  if (cbEl) cbEl.checked = cbSafe;
+  // W107: reflect auto-theme state
+  const autoTheme = (function(){ try { return localStorage.getItem('nbd_auto_theme') === '1'; } catch (_) { return false; } })();
+  const autoEl = document.getElementById('npm-auto-theme');
+  if (autoEl) autoEl.checked = autoTheme;
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Wave 107: time-of-day auto-theme switching.
+// 7 AM – 7 PM local → light theme (paper); rest → dark theme
+// (rep's last manually-chosen dark theme, or 'nbd-original'). The
+// switch fires on enable + every minute. When the rep picks a
+// theme manually, we remember which "side" of the day it falls on
+// so future auto-switches respect their preference per side.
+// ══════════════════════════════════════════════════════════════════
+let _nbdAutoThemeInterval = null;
+
+function nbdAutoThemeIsDay() {
+  const h = new Date().getHours();
+  return h >= 7 && h < 19;
+}
+
+function nbdAutoThemePreferredFor(side) {
+  // side = 'day' or 'night'
+  try {
+    const saved = localStorage.getItem('nbd_auto_theme_' + side);
+    if (saved) return saved;
+  } catch (_) {}
+  return side === 'day' ? 'paper' : 'nbd-original';
+}
+
+function nbdAutoThemeApplyForNow() {
+  if (!window.ThemeEngine) return;
+  const isDay = nbdAutoThemeIsDay();
+  const want = nbdAutoThemePreferredFor(isDay ? 'day' : 'night');
+  const cur = window.ThemeEngine.getCurrent && window.ThemeEngine.getCurrent();
+  if (cur === want) return;
+  try { window.ThemeEngine.apply(want, true); } catch (_) {}
+}
+
+function nbdAutoThemeStart() {
+  nbdAutoThemeStop();
+  nbdAutoThemeApplyForNow();
+  _nbdAutoThemeInterval = setInterval(nbdAutoThemeApplyForNow, 60_000);
+}
+function nbdAutoThemeStop() {
+  if (_nbdAutoThemeInterval) {
+    clearInterval(_nbdAutoThemeInterval);
+    _nbdAutoThemeInterval = null;
+  }
+}
+
+// Listen for manual theme changes — when rep picks a theme by
+// hand, remember it for the current side of the day so future
+// auto-switches honor their dark / light preference.
+window.addEventListener('nbd:theme-change', (ev) => {
+  try {
+    const themeKey = ev.detail || (window.ThemeEngine && window.ThemeEngine.getCurrent());
+    if (!themeKey) return;
+    if (localStorage.getItem('nbd_auto_theme') !== '1') return;
+    const side = nbdAutoThemeIsDay() ? 'day' : 'night';
+    localStorage.setItem('nbd_auto_theme_' + side, themeKey);
+  } catch (_) {}
+});
+
+window.nbdAutoThemeStart = nbdAutoThemeStart;
+window.nbdAutoThemeStop = nbdAutoThemeStop;
+window.nbdAutoThemeApplyForNow = nbdAutoThemeApplyForNow;
+
+// Boot auto-theme on page load if user enabled it.
+(function bootAutoTheme() {
+  try {
+    if (localStorage.getItem('nbd_auto_theme') === '1') {
+      // Wait for ThemeEngine to be ready.
+      const tryStart = () => {
+        if (window.ThemeEngine) nbdAutoThemeStart();
+        else setTimeout(tryStart, 200);
+      };
+      setTimeout(tryStart, 500);
+    }
+  } catch (_) {}
+})();
 window.nbdComfortRefresh = nbdComfortRefresh;
 
 // Boot persisted comfort prefs on first load (alongside density
@@ -15128,6 +15254,9 @@ window.nbdComfortRefresh = nbdComfortRefresh;
     if (motion === 'reduce') document.documentElement.setAttribute('data-motion', 'reduce');
     const pro = localStorage.getItem('nbd_professional_mode');
     if (pro === '1') document.body.classList.add('professional-mode');
+    // W106: restore color-blind-safe pref on load
+    const cbSafe = localStorage.getItem('nbd_cb_safe');
+    if (cbSafe === '1') document.documentElement.setAttribute('data-cb-safe', '1');
   } catch (_) {}
 })();
 // Sync the comfort tab when the picker opens.
@@ -16914,6 +17043,32 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
                 <div style="font-size:10px; color:var(--m); margin-top:2px;">Hide decorative emojis. Clean text-only look.</div>
               </div>
               <input type="checkbox" id="npm-pro-mode" onchange="nbdComfortSet('proMode', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+            </label>
+            <!-- Wave 106: color-blind-safe palette toggle. Swaps the
+                 default red/green pair (most common color-blindness
+                 collision) to the IBM accessible blue/orange palette.
+                 Single CSS variable override propagates to every
+                 surface that uses status color (engagement tier,
+                 stale-share alerts, snooze pills, etc.) -->
+            <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
+              <div>
+                <div style="font-weight:600; color:var(--t);">Color-blind safe</div>
+                <div style="font-size:10px; color:var(--m); margin-top:2px;">Swap red/green to blue/orange for deuteranopia + protanopia.</div>
+              </div>
+              <input type="checkbox" id="npm-cb-safe" onchange="nbdComfortSet('cbSafe', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+            </label>
+            <!-- Wave 107: auto-theme switching by time of day. When
+                 enabled, switch to the rep's preferred dark theme
+                 at sunset and back to a light theme at sunrise.
+                 Uses simple 7am/7pm thresholds — no geolocation
+                 needed; sunset varies but the time bucket roughly
+                 tracks "office light" / "ambient dark". -->
+            <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
+              <div>
+                <div style="font-weight:600; color:var(--t);">Auto theme by time</div>
+                <div style="font-size:10px; color:var(--m); margin-top:2px;">Light theme during the day, dark after 7 PM.</div>
+              </div>
+              <input type="checkbox" id="npm-auto-theme" onchange="nbdComfortSet('autoTheme', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
           </div>
 
