@@ -3170,6 +3170,24 @@ const weeklyDigest = require('./weekly-digest');
 exports.weeklyDigest = weeklyDigest.weeklyDigest;
 
 // ═══════════════════════════════════════════════════════════════
+// DORMANT LEAD NUDGE — Wave 27
+// ═══════════════════════════════════════════════════════════════
+// Scheduled Wednesday 8am ET. Companion to weeklyDigest. Finds
+// leads stuck >30 days at non-terminal stages and emails the rep
+// a focused list with click-through links to each customer's page.
+// Wednesday timing gives the rep two business days to act before
+// the week's gone.
+//
+// Per-user opt-out via users/{uid}.dormantNudgeEnabled === false.
+// E2E test accounts always skipped. Skipped when user has nothing
+// dormant — empty inbox is not the goal.
+//
+// Ships DRY-RUN by default. Set DORMANT_NUDGE_ENABLED=true on the
+// dormantLeadNudge Cloud Run revision to go live.
+const dormantLeads = require('./dormant-leads');
+exports.dormantLeadNudge = dormantLeads.dormantLeadNudge;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //
