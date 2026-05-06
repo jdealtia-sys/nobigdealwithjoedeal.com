@@ -925,6 +925,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
         → Move to Next Stage
       </button>
+      <!-- Wave 40: one-click copy of the Full Project Portal link.
+           Auto-generates if missing, copies to clipboard, toasts.
+           Falls back to opening the share panel on hard failure. -->
+      <button class="btn btn-orange" id="quickCopyPortalBtn" onclick="window.quickCopyPortalLink && window.quickCopyPortalLink()"
+        title="Generate (if needed) and copy the customer portal link in one click">
+        📋 Copy Portal Link
+      </button>
       <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
@@ -6550,6 +6557,108 @@ function copyPortalUrl(inputId) {
     if (typeof showToast === 'function') showToast('Press Ctrl+C to copy', 'info');
   });
 }
+
+// Wave 40: one-click copy of the Full Project Portal link.
+// Replaces the 3-4-step flow (open share panel → wait for url
+// load → click 📋 → close panel) with a single click that:
+//   1. Reads the existing lead.portalUrl from Firestore.
+//   2. If absent or stale, calls CustomerPortal.generate to mint
+//      one (this is the same path the share panel's Generate
+//      button uses).
+//   3. Copies to clipboard.
+//   4. Toasts the result, including the URL itself for visual
+//      confirmation in case the clipboard write was blocked.
+//
+// Falls back to opening the share panel on hard failure so the
+// rep can manually inspect what went wrong.
+window.quickCopyPortalLink = async function () {
+  const button = document.getElementById('quickCopyPortalBtn');
+  const restoreLabel = button ? button.innerHTML : null;
+  if (button) {
+    button.disabled = true;
+    button.style.opacity = '0.7';
+    button.style.cursor = 'wait';
+    button.innerHTML = '⏳ Copying…';
+  }
+  try {
+    if (!window._customerId) throw new Error('No customer selected');
+    if (typeof CustomerPortal === 'undefined') throw new Error('Portal module not loaded');
+
+    // Try existing URL first — saves the round-trip + Firestore
+    // write when one's already minted.
+    let url = null;
+    try {
+      const leadSnap = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+      const data = leadSnap.exists() ? leadSnap.data() : {};
+      if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
+        url = data.portalUrl;
+      }
+    } catch (_) { /* fall through to generate */ }
+
+    // Mint a new one if needed.
+    if (!url) {
+      url = await CustomerPortal.generate(window._customerId);
+    }
+    if (!url) throw new Error('Generation failed');
+
+    // Copy. The async clipboard API requires a user-gesture
+    // origin; this function IS called from a click handler so it
+    // qualifies. On failure (Safari permission, etc.) we fall back
+    // to the share panel so the rep has a visible URL to copy
+    // manually.
+    let copied = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch (_) { /* fall through */ }
+    }
+    if (!copied) {
+      // execCommand fallback for older WebKit / non-secure contexts.
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (_) {}
+    }
+
+    if (copied) {
+      if (typeof showToast === 'function') showToast('Portal link copied — paste anywhere', 'success');
+    } else {
+      // Last resort: open the share panel so the rep can copy
+      // manually + see exactly what was generated.
+      if (typeof openGallerySharePanel === 'function') {
+        await openGallerySharePanel();
+        const input = document.getElementById('fullPortalUrl');
+        if (input) {
+          input.value = url;
+          input.select();
+        }
+      }
+      if (typeof showToast === 'function') showToast('Couldn\'t auto-copy — link is selected, press Ctrl/Cmd+C', 'info');
+    }
+  } catch (e) {
+    console.warn('[quickCopyPortalLink] failed', e);
+    if (typeof showToast === 'function') showToast('Couldn\'t copy link: ' + (e.message || 'unknown'), 'error');
+    // Open the share panel so the rep can troubleshoot manually.
+    if (typeof openGallerySharePanel === 'function') {
+      try { openGallerySharePanel(); } catch (_) {}
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.style.opacity = '';
+      button.style.cursor = '';
+      if (restoreLabel != null) button.innerHTML = restoreLabel;
+    }
+  }
+};
 </script>
 <script>
 // ── Signed Document Upload (Sprint 6) ──
