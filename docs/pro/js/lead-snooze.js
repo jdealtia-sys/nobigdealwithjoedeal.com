@@ -508,20 +508,43 @@
           </div>
         </div>
         <div id="nbd-bulk-snooze-presets" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
-          ${presets.map((p, i) => `
-            <button data-bsnooze-i="${i}" type="button" style="
-              text-align:left; padding:10px 13px; border-radius:8px;
-              background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
-              border:1px solid var(--br,#2a3344);
-              font: inherit; font-size:13px; font-weight:600;
-              cursor:pointer; -webkit-tap-highlight-color:transparent;
-              display:flex; justify-content:space-between; align-items:center;">
-              <span>${escapeHtml(p.label)}</span>
-              <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
-                ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
-              </span>
-            </button>
-          `).join('')}
+          ${presets.map((p, i) => {
+            // W79: ⭐ pin button on each bulk preset, same shape
+            // as the W78 per-lead modal. Shared DEFAULT_PRESET_KEY
+            // so pinning in either modal reflects in the other.
+            // Reorder to top is automatic via buildPresets().
+            const isDefault = p.label === getDefaultPresetLabel();
+            const presetBorder = isDefault ? '#9b6dff' : 'var(--br,#2a3344)';
+            const star = isDefault ? '⭐' : '☆';
+            const starColor = isDefault ? '#cab8ff' : 'var(--m,#9aa3b2)';
+            return `
+            <div style="display:flex; gap:6px; align-items:stretch;">
+              <button data-bsnooze-i="${i}" type="button" style="
+                flex:1; text-align:left; padding:10px 13px; border-radius:8px;
+                background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+                border:1px solid ${presetBorder};
+                font: inherit; font-size:13px; font-weight:600;
+                cursor:pointer; -webkit-tap-highlight-color:transparent;
+                display:flex; justify-content:space-between; align-items:center;">
+                <span>${escapeHtml(p.label)}</span>
+                <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
+                  ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
+                </span>
+              </button>
+              <button data-bsnooze-pin="${escapeHtml(p.label)}" type="button"
+                title="${isDefault ? 'Unpin default' : 'Pin as default'}"
+                style="
+                  width:36px; flex-shrink:0;
+                  background:transparent; color:${starColor};
+                  border:1px solid var(--br,#2a3344); border-radius:8px;
+                  font: inherit; font-size:14px; cursor:pointer;
+                  -webkit-tap-highlight-color:transparent;
+                  display:flex; align-items:center; justify-content:center;
+                  transition:color .12s, border-color .12s;">
+                ${star}
+              </button>
+            </div>`;
+          }).join('')}
         </div>
         <div style="border-top:1px solid var(--br,#2a3344); padding-top:12px; margin-bottom:14px;">
           <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
@@ -584,6 +607,22 @@
       });
       btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
       btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
+    });
+    // W79: ⭐ pin handlers for the bulk modal. Mirror of the W78
+    // per-lead handler — shared DEFAULT_PRESET_KEY so pinning in
+    // either modal updates the other on next open.
+    overlay.querySelectorAll('[data-bsnooze-pin]').forEach(starBtn => {
+      starBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const label = starBtn.getAttribute('data-bsnooze-pin');
+        const cur = getDefaultPresetLabel();
+        setDefaultPresetLabel(cur === label ? null : label);
+        _toast(cur === label ? 'Default cleared' : `Default: ${label}`, 'info');
+        // Re-open the bulk modal so the reorder + ⭐/☆ swap is
+        // single-source from the rendered HTML. Preserves leadIds.
+        closeSnoozeModal();
+        openBulkSnoozeModal(leadIds);
+      });
     });
     overlay.querySelector('#nbd-bulk-snooze-custom-go').addEventListener('click', async () => {
       const v = customEl ? customEl.value : '';
