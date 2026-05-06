@@ -160,3 +160,137 @@ A few patterns that recur:
   rep clicks a lead, they get the customer page rendered
   instantly from sessionStorage + a background revalidate for
   fresh data.
+
+---
+
+# Second push — Waves 31-50
+
+The first 30 waves built the foundation: the dashboard home command
+center, multi-tenant security, AI photo analysis, scheduled emails,
+kanban UX, search and ergonomics. The second 20 went deeper — three
+focused initiatives plus a handful of daily-friction polish ships.
+
+The big arcs:
+
+1. **The share trio** (W40-W43) — Copy / Text / Email portal link
+   helpers, all built on a shared `PortalLinkHelpers` module.
+2. **The snooze system** (W35-W37, W39) — defer leads to a date,
+   filter everywhere, bulk-snooze via toolbar, snooze-aware feed.
+3. **The "see + act" pattern** (W46-W49) — inline reshare buttons
+   on every priority surface so the rep can glance + tap from the
+   four dashboard-home widgets without ever leaving the page.
+
+---
+
+## The share trio (Copy / Text / Email portal link)
+
+| Wave | What | PR |
+|---|---|---|
+| **40** | One-click copy portal link from customer detail. Three-tier clipboard fallback (modern API → execCommand → share-panel fallback) so reps never hit a dead end | [#167](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/167) |
+| **41** | One-tap SMS portal link — `sms:<phone>?body=...` with friendly prefilled greeting | [#168](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/168) |
+| **42** | Extracted `PortalLinkHelpers` shared module + added Copy/Text items to the kanban context menu | [#169](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/169) |
+| **43** | Email portal link variant — `mailto:` with subject + multi-line body. Completes the trio | [#170](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/170) |
+| **44** | Tracks `lastSharedAt` + `lastSharedVia` on every share. Kanban cards show "📤 SMS 3d ago" pill | [#171](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/171) |
+
+---
+
+## The snooze system
+
+| Wave | What | PR |
+|---|---|---|
+| **35** | Snooze a lead to a future date (preset modal: tomorrow / next Monday / 1w / 2w / 1mo + custom). Filter integration across kanban, Hot Leads, Needs Attention, bell. Per-page reload guard via `nbd_crm_show_snoozed` localStorage flag | [#162](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/162) |
+| **36** | Snoozed-lead banner on customer detail with one-tap wake/reschedule | [#163](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/163) |
+| **37** | Bulk-snooze via the existing bulk action toolbar — chunked writeBatch | [#164](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/164) |
+| **39** | Snooze-aware activity feed — suppresses rep-side events on snoozed leads, keeps customer-side ones (estimate viewed, signed) | [#166](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/166) |
+
+---
+
+## "See + act" pattern — inline reshare buttons
+
+After Wave 45 introduced Almost There as the fourth dashboard-home
+priority widget, the next four waves locked in the inline-action
+pattern across every priority surface. Same color palette, same
+`stopPropagation` handling, same `PortalLinkHelpers` delegation —
+the rep doesn't have to learn three different patterns.
+
+| Wave | Surface | PR |
+|---|---|---|
+| **45** | New "Almost There" widget — viewed-but-uncommitted leads (W44 lastSharedAt + estimate.viewedAt without respondedAt) | [#172](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/172) |
+| **46** | Inline 📞/💬/📧 buttons on Almost There rows | [#173](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/173) |
+| **47** | Same buttons on Hot Leads (W29) | [#174](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/174) |
+| **48** | Same buttons on bell rows (W13) | [#175](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/175) |
+| **49** | Same buttons on activity-feed rows (W24) | [#176](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/176) |
+
+The dashboard home now answers four questions, each with one-tap
+follow-up:
+
+| Question | Surface | Action |
+|---|---|---|
+| Where do I start? | Hot Leads | 📞 💬 📧 |
+| Who almost said yes? | Almost There | 📞 💬 📧 |
+| What's urgent? | Bell | 📞 💬 📧 |
+| What just happened? | Activity feed | 📞 💬 📧 |
+
+---
+
+## Polish + cross-device
+
+| Wave | What | PR |
+|---|---|---|
+| **31** | First milestone changelog (this file's first 30-wave bookend) | [#158](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/158) |
+| **32** | Bulk-edit lead source + jobType via existing toolbar — common post-import cleanup ops | [#159](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/159) |
+| **33** | Lead notes inline quick-add — replaces the modal flow with a textarea + Send button on customer detail. Optimistic prepend, Cmd/Ctrl+Enter shortcut | [#160](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/160) |
+| **34** | Mobile quick-action bar on customer detail (≤640px) — sticky bottom Call/Text/Email/Task with iOS safe-area handling | [#161](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/161) |
+| **38** | Cross-device prefs sync — kanban view, Show Prospects, Show Snoozed mirror to `users/{uid}.uiPrefs`. 10s polling diff, debounced writes, conflict resolution favors local | [#165](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/165) |
+
+---
+
+## Architecture notes for the second push
+
+A few patterns that recurred:
+
+- **Shared helper modules over duplication** — `PortalLinkHelpers`
+  (W42) is the cleanest example. Three customer-detail buttons
+  (W40/W41/W43), four dashboard-widget action sets (W46/W47/W48/W49),
+  and the kanban context-menu items (W42) all delegate to the same
+  `resolveUrl` / `copyForLead` / `smsForLead` / `emailForLead`
+  surface. Single source of truth for clipboard fallbacks, SMS
+  body template, mailto: encoding, and the W44 share-tracking
+  side effect.
+
+- **`stopPropagation` discipline on inline action buttons** — every
+  dashboard-home row has a primary click (open the lead/customer)
+  and one or more secondary actions (call/text/email). Without
+  `stopPropagation`, a button click would fire BOTH the action AND
+  the row navigation. The four widgets all follow the same
+  pattern: `addEventListener('click', (ev) => { ev.stopPropagation();
+  ... })` for SMS/Email; native `<a href="tel:...">` for Call so
+  the browser's tel: handoff is the default.
+
+- **Filter-on-read for snooze** (W35) — no cron, no scheduler.
+  `snoozedUntil < now` means every filter (Hot Leads, Almost
+  There, Needs Attention, bell, kanban, activity feed) just passes
+  the lead through. Auto-unsnooze is implicit; the only writes are
+  the user-initiated snooze/unsnooze actions.
+
+- **Default-ON opt-outs continue** — W28's `dormantNudgeEnabled`
+  check pattern (`=== false` to skip) extended to W38's
+  `uiPrefs` reads where missing fields fall through to local
+  defaults, not zeros.
+
+- **Per-page-load reload guards over sessionStorage version flags**
+  — pattern from the first push held up. Show-snoozed toggle (W35),
+  prefs-sync (W38), and the snooze banner (W36) all use in-memory
+  flags or live data instead of versioned sessionStorage.
+
+- **Path-gated modules** — customer-page-only behaviors
+  (snooze banner W36, mobile quick-action bar W34, drag-drop
+  upload W30) check `window.location.pathname` and bail out
+  silently on unrelated pages. Lets the same script tags ship
+  everywhere without affecting non-customer surfaces.
+
+- **W44 share tracking is a side effect** — not a separate API.
+  Every share path through `PortalLinkHelpers` calls `_recordShare`
+  on success, which patches `window._leads` + `window._currentLead`
+  in memory and fires a fire-and-forget Firestore `updateDoc`. No
+  caller has to remember to track; it just happens.
