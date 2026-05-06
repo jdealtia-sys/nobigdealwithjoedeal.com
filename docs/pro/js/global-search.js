@@ -161,10 +161,16 @@
           .sort((a, b) => a.untilMs - b.untilMs)
           .slice(0, 10);
         for (const s of snoozed) {
+          // W73: append snooze reason if the rep tagged one. Reads
+          // as "⏰ Until Tue Sep 9 · Insurance" — much more
+          // scannable than just the date.
+          const tag = (s.lead && typeof s.lead.snoozedReason === 'string' && s.lead.snoozedReason.trim())
+            ? ` · ${s.lead.snoozedReason.trim()}`
+            : '';
           snoozedHits.push({
             type: 'lead',
             lead: s.lead,
-            reason: `⏰ Until ${window.LeadSnooze.formatSnoozeLabel(new Date(s.untilMs))}`,
+            reason: `⏰ Until ${window.LeadSnooze.formatSnoozeLabel(new Date(s.untilMs))}${tag}`,
             icon: '💤',
           });
         }
