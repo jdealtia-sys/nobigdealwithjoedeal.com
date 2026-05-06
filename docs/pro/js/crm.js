@@ -584,18 +584,58 @@ function buildCard(l){
     else if(l.createdAt?.toDate) ref = l.createdAt.toDate();
     else if(l.createdAt instanceof Date) ref = l.createdAt;
     else if(l.createdAt) ref = new Date(l.createdAt);
-    
+
     if(ref && ref instanceof Date && !isNaN(ref)) {
       // Normalize ref to midnight for accurate day comparison
       const refNorm = new Date(ref);
       refNorm.setHours(0,0,0,0);
       const days = Math.floor((today - refNorm) / 86400000);
-      
+
       if(days < 0)        { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; } // Future date edge case
       else if(days === 0) { daysLabel = 'Today';        daysClass = 'kc-days-fresh'; }
       else if(days === 1) { daysLabel = '1d ago';       daysClass = 'kc-days-fresh'; }
       else if(days <= 5)  { daysLabel = `${days}d ago`; daysClass = 'kc-days-warm'; }
       else                { daysLabel = `${days}d ago`; daysClass = 'kc-days-cold'; }
+    }
+  }
+
+  // ── Wave 17: stage-aging cue ──
+  // Distinct from the "days since last contact" badge above — this
+  // measures how long the lead has sat AT THE CURRENT STAGE. A lead
+  // that was contacted yesterday but stuck at "estimate sent" for 21
+  // days is a different problem than a lead that's only 1 day old.
+  // Skipped on terminal stages (closed/lost/Complete) since those
+  // don't need attention. The visual cue is two parts: a left-border
+  // tint via k-card-aging-* classes, and a compact "Nd in stage" pill
+  // next to the customer name.
+  let stageAgingClass = '';   // applied to .k-card root
+  let stageAgeBadge   = '';   // injected next to the name
+  const _terminal = ['closed','lost','Complete','Lost','final_payment'];
+  if(!_terminal.includes(l.stage||'') && !_terminal.includes(_sk||'')) {
+    let stageRef = null;
+    const stageStart = l.stageStartedAt;
+    if(stageStart?.toDate)        stageRef = stageStart.toDate();
+    else if(stageStart instanceof Date) stageRef = stageStart;
+    else if(stageStart)           stageRef = new Date(stageStart);
+    // Fall back to updatedAt → createdAt so cards predating the
+    // stageStartedAt rollout still get an aging signal.
+    else if(l.updatedAt?.toDate)  stageRef = l.updatedAt.toDate();
+    else if(l.createdAt?.toDate)  stageRef = l.createdAt.toDate();
+
+    if(stageRef && !isNaN(stageRef)) {
+      const stageNorm = new Date(stageRef);
+      stageNorm.setHours(0,0,0,0);
+      const stageDays = Math.floor((today - stageNorm) / 86400000);
+      if(stageDays >= 14) {
+        stageAgingClass = 'k-card-aging-critical';
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-critical" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+      } else if(stageDays >= 7) {
+        stageAgingClass = 'k-card-aging-stale';
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-stale" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+      } else if(stageDays >= 3) {
+        stageAgingClass = 'k-card-aging-warming';
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-warming" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+      }
     }
   }
 
@@ -643,12 +683,12 @@ function buildCard(l){
   const safeId = escHtml(l.id);
   const firstName = escHtml(nameRaw.split(' ')[0] || '');
   const showSmsBtn = ['new','contacted','inspected'].includes(_sk) && phone;
-  let html = `<div class="k-card nbd-kc-main" draggable="true" data-id="${safeId}" data-action="card-click">
+  let html = `<div class="k-card nbd-kc-main ${stageAgingClass}" draggable="true" data-id="${safeId}" data-action="card-click">
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${window.LeadScoring?.badge ? window.LeadScoring.badge(l) : ''}</div>
+      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${window.LeadScoring?.badge ? window.LeadScoring.badge(l) : ''}${stageAgeBadge}</div>
       <div style="display:flex;gap:4px;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
