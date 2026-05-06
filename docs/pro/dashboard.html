@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=19" as="script">
+<link rel="preload" href="js/crm.js?v=20" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6104,6 +6104,182 @@ body {
     .cd-icon-btn{ width:100%; height:38px; }
   }
   /* ══ END CARD DETAIL MODAL ══ */
+
+  /* ══ LEAD SOURCE ROI PANEL ═══════════════════════════════════════
+     Source breakdown table + KPI strip. Theme-aware via var(--*).      */
+  .lsroi-totals{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+    gap:10px; margin-bottom:14px;
+  }
+  .lsroi-tot{
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 12px;
+  }
+  .lsroi-tot-label{
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:4px;
+  }
+  .lsroi-tot-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:22px; font-weight:800; line-height:1; color:var(--t);
+  }
+  .lsroi-callouts{
+    display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+  }
+  .lsroi-callout{
+    flex:1; min-width:200px;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; border-radius:8px;
+    background:color-mix(in srgb, var(--orange) 10%, var(--s2));
+    border:1px solid color-mix(in srgb, var(--orange) 30%, var(--br));
+  }
+  .lsroi-callout-icon{ font-size:20px; flex-shrink:0; }
+  .lsroi-callout-label{
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:2px;
+  }
+  .lsroi-callout-value{ font-size:13px; font-weight:700; color:var(--t); }
+  .lsroi-table-wrap{ overflow-x:auto; }
+  .lsroi-table{
+    width:100%; border-collapse:collapse; font-size:12px;
+  }
+  .lsroi-table th{
+    text-align:left; padding:10px 12px;
+    font-size:9px; font-weight:700; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--m);
+    border-bottom:1px solid var(--br);
+  }
+  .lsroi-table td{
+    padding:10px 12px; border-bottom:1px solid color-mix(in srgb, var(--br) 50%, transparent);
+    color:var(--t);
+  }
+  .lsroi-table tr:last-child td{ border-bottom:none; }
+  .lsroi-source{ font-weight:700; }
+  .lsroi-num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .lsroi-rate{ color:var(--green); font-weight:700; }
+  .lsroi-rev{ font-weight:700; }
+  .lsroi-bar{
+    margin-top:4px; height:3px; background:var(--s); border-radius:2px;
+    overflow:hidden;
+  }
+  .lsroi-bar-fill{
+    height:100%; background:var(--green); transition:width .25s;
+  }
+  .lsroi-empty{
+    text-align:center; padding:32px 16px;
+  }
+  .lsroi-empty-icon{ font-size:32px; margin-bottom:8px; }
+  .lsroi-empty-title{
+    font-size:14px; font-weight:700; color:var(--t); margin-bottom:4px;
+  }
+  .lsroi-empty-sub{ font-size:12px; color:var(--m); max-width:380px; margin:0 auto; }
+  /* ══ END LEAD SOURCE ROI ══ */
+
+  /* ══ PIPELINE FORECAST ════════════════════════════════════════════ */
+  .fc-scenarios{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+    gap:10px; margin-bottom:14px;
+  }
+  .fc-scenario{
+    padding:14px 16px; border-radius:8px;
+    background:var(--s2); border:1px solid var(--br);
+    text-align:center;
+  }
+  .fc-scenario-likely{
+    background:color-mix(in srgb, var(--orange) 12%, var(--s2));
+    border-color:color-mix(in srgb, var(--orange) 40%, var(--br));
+  }
+  .fc-scenario-best{
+    background:color-mix(in srgb, var(--green) 10%, var(--s2));
+    border-color:color-mix(in srgb, var(--green) 30%, var(--br));
+  }
+  .fc-scenario-worst{
+    background:color-mix(in srgb, var(--red) 10%, var(--s2));
+    border-color:color-mix(in srgb, var(--red) 30%, var(--br));
+  }
+  .fc-scen-label{
+    font-size:10px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:6px;
+  }
+  .fc-scen-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:28px; font-weight:800; line-height:1; color:var(--t);
+  }
+  .fc-scenario-likely .fc-scen-val{ color:var(--orange); }
+  .fc-scenario-best   .fc-scen-val{ color:var(--green); }
+  .fc-scenario-worst  .fc-scen-val{ color:var(--red); }
+  .fc-scen-sub{ font-size:10px; color:var(--m); margin-top:4px; }
+
+  .fc-breakdown{
+    display:flex; flex-direction:column; gap:4px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 14px; margin-bottom:14px;
+  }
+  .fc-bd-row{
+    display:flex; justify-content:space-between;
+    font-size:12px; color:var(--m);
+    padding:3px 0;
+  }
+  .fc-bd-emphasis{
+    border-top:1px solid var(--br);
+    padding-top:8px; margin-top:4px;
+    font-size:14px; font-weight:700; color:var(--t);
+  }
+  .fc-bd-emphasis .fc-bd-val{ color:var(--orange); }
+  .fc-bd-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700; color:var(--t);
+  }
+
+  .fc-section{ margin-top:14px; }
+  .fc-section-title{
+    font-size:11px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--m);
+    margin-bottom:8px;
+  }
+  .fc-deal-list{
+    border:1px solid var(--br); border-radius:8px; overflow:hidden;
+  }
+  .fc-deal-row{
+    display:grid; grid-template-columns:2fr 1.2fr 60px 90px 90px;
+    gap:8px; align-items:center;
+    padding:8px 12px; font-size:12px;
+    border-bottom:1px solid color-mix(in srgb, var(--br) 50%, transparent);
+    cursor:pointer; transition:background .12s;
+  }
+  .fc-deal-row:hover{ background:var(--s2); }
+  .fc-deal-row:last-child{ border-bottom:none; }
+  .fc-deal-row.fc-deal-head{
+    background:var(--s2); cursor:default;
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m);
+  }
+  .fc-deal-row.fc-deal-head:hover{ background:var(--s2); }
+  .fc-deal-name{ font-weight:600; color:var(--t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fc-deal-stage{ color:var(--m); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fc-deal-prob{ text-align:right; color:var(--m); }
+  .fc-deal-value{ text-align:right; color:var(--t); font-variant-numeric:tabular-nums; }
+  .fc-deal-expected{ text-align:right; color:var(--orange); font-weight:700; font-variant-numeric:tabular-nums; }
+  .fc-deal-row.fc-risk{
+    background:color-mix(in srgb, var(--red) 6%, transparent);
+  }
+  .fc-deal-row.fc-risk:hover{
+    background:color-mix(in srgb, var(--red) 12%, transparent);
+  }
+
+  .fc-empty{ text-align:center; padding:32px 16px; }
+  .fc-empty-icon{ font-size:32px; margin-bottom:8px; }
+  .fc-empty-title{ font-size:14px; font-weight:700; color:var(--t); margin-bottom:4px; }
+  .fc-empty-sub{ font-size:12px; color:var(--m); max-width:380px; margin:0 auto; }
+
+  @media (max-width:600px){
+    .fc-deal-row{ grid-template-columns:1.5fr 60px 80px; }
+    .fc-deal-row > :nth-child(2),
+    .fc-deal-row > :nth-child(4){ display:none; }
+    .fc-deal-row.fc-deal-head > :nth-child(2),
+    .fc-deal-row.fc-deal-head > :nth-child(4){ display:none; }
+  }
+  /* ══ END PIPELINE FORECAST ══ */
   /* ════ Compact CRM header (Pipeline page-breathe redesign 2026-05-05) ════
      Single row with three slots: label · search/filters · actions.
      Header padding/font scales with the existing data-density attribute
@@ -9936,6 +10112,39 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- Lead Source ROI panel — instant read on which sources actually
+           generate revenue. Computed live off window._leads — no backend
+           call. Re-renders on leadsChanged. -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Insights</div>
+            <div class="panel-title">Lead Source ROI</div>
+          </div>
+          <div style="font-size:11px;color:var(--m);">All-time · live</div>
+        </div>
+        <div class="panel-body" id="leadSourceROIPanel">
+          <div class="empty"><div class="empty-icon">📊</div>Loading source breakdown…</div>
+        </div>
+      </div>
+
+      <!-- Pipeline Forecast — weighted expected revenue + best/worst case
+           scenarios + top weighted deals + at-risk callouts. Each open
+           lead's jobValue × stage probability = expected $. Click any
+           deal row to jump straight into the card detail modal. -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Forecast</div>
+            <div class="panel-title">Pipeline Forecast</div>
+          </div>
+          <div style="font-size:11px;color:var(--m);">Weighted by stage probability</div>
+        </div>
+        <div class="panel-body" id="forecastPanel">
+          <div class="empty"><div class="empty-icon">📈</div>Loading forecast…</div>
+        </div>
+      </div>
+
       <!-- Generator container — shows template picker + date range -->
       <div id="reportGeneratorContainer"></div>
 
@@ -12403,6 +12612,21 @@ function goTo(name, params = {}) {
         window.NBDReports.init();
       }
     });
+    // Lead Source ROI panel — instant render off the live lead cache.
+    // Init only once; afterward it self-updates on the leadsChanged event.
+    if (window.LeadSourceROI && !window.LeadSourceROI._inited) {
+      window.LeadSourceROI.init('leadSourceROIPanel');
+      window.LeadSourceROI._inited = true;
+    } else if (window.LeadSourceROI) {
+      window.LeadSourceROI.render('leadSourceROIPanel');
+    }
+    // Pipeline Forecast — same init-once-then-live-update pattern.
+    if (window.Forecasting && !window.Forecasting._inited) {
+      window.Forecasting.init('forecastPanel');
+      window.Forecasting._inited = true;
+    } else if (window.Forecasting) {
+      window.Forecasting.render('forecastPanel');
+    }
   }
   // ── AI tool iframes — lazy-load on first open ──
   // Each AI tool page is embedded as an iframe inside its view.
@@ -13539,11 +13763,11 @@ async function executePullPropertyIntel() {
     // Geocode address first
     const geo = await geocode(addr);
     if (!geo) throw new Error('Could not geocode address');
-    
-    // TODO: Call actual property data APIs based on selections
-    // For now, simulate with existing fetchPropertyIntel
+
+    // Per-source metering not yet wired — see js/property-intel.js for
+    // the same note. Single aggregate pull until paid sources land.
     await fetchPropertyIntelModal(geo, addr);
-    
+
     // Close modals
     closePropertyIntelConfirmModal();
     
@@ -16086,7 +16310,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=19"></script>
+<script defer src="js/crm.js?v=20"></script>
 <script defer src="js/tasks.js?v=3"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
@@ -16125,6 +16349,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
 <script defer src="js/prospects.js?v=4"></script>
+<script defer src="js/lead-source-roi.js?v=1"></script>
+<script defer src="js/forecasting.js?v=1"></script>
 <script defer src="js/theme-overlays.js?v=1"></script>
 <script defer src="js/theme-sounds.js?v=1"></script>
 <script defer src="js/theme-achievements.js?v=1"></script>

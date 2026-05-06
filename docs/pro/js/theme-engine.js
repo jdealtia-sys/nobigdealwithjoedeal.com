@@ -4381,6 +4381,10 @@
 
   const ThemeEngine = {
     init() {
+      // Hydrate unlocks from localStorage so a user who unlocked themes on
+      // a previous session sees them immediately (Firestore hydration runs
+      // async when auth resolves; localStorage covers the gap).
+      this.hydrateUnlocks();
       const saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME;
       this.apply(saved, false);
     },
@@ -4483,8 +4487,39 @@
 
     unlock(themeKey) {
       if (!window._themeUnlocks) window._themeUnlocks = new Set();
+      if (window._themeUnlocks.has(themeKey)) return; // already unlocked
       window._themeUnlocks.add(themeKey);
-      // TODO: Sync to Firestore
+      // Persist to localStorage immediately so reload retains the unlock,
+      // and sync to Firestore in the background so the unlock follows the
+      // user across devices. Best-effort — failure to write doesn't block
+      // the user from using the theme they just unlocked.
+      try {
+        const arr = [...window._themeUnlocks];
+        localStorage.setItem('nbd_theme_unlocks', JSON.stringify(arr));
+      } catch (e) {}
+      try {
+        const uid = window._user?.uid;
+        if (uid && window._db && typeof window.setDoc === 'function' && typeof window.doc === 'function') {
+          window.setDoc(
+            window.doc(window._db, 'userSettings', uid),
+            { themeUnlocks: [...window._themeUnlocks] },
+            { merge: true }
+          ).catch(err => console.warn('Theme unlock Firestore sync failed:', err.message));
+        }
+      } catch (e) {}
+    },
+
+    // Hydrate the in-memory unlock set from localStorage on boot. Firestore
+    // hydration happens asynchronously elsewhere when auth resolves.
+    hydrateUnlocks() {
+      if (window._themeUnlocks && window._themeUnlocks.size > 0) return;
+      try {
+        const raw = localStorage.getItem('nbd_theme_unlocks');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          window._themeUnlocks = new Set(Array.isArray(arr) ? arr : []);
+        }
+      } catch (e) {}
     },
 
     previewCSS(themeKey) {

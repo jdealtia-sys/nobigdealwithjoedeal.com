@@ -599,8 +599,18 @@ async function executePullPropertyIntel() {
     const geo = await geocode(addr);
     if (!geo) throw new Error('Could not geocode address');
     
-    // TODO: Call actual property data APIs based on selections
-    // For now, simulate with existing fetchPropertyIntel
+    // Per-checkbox-driven property API calls aren't wired up yet — the
+    // current backend has a single property-intel endpoint that returns
+    // everything at once (free public data + Nominatim). Until per-source
+    // metering exists (e.g. Estated, ATTOM, BatchSkipTracing all priced
+    // separately), the checkbox UI is informational only — we run the
+    // single fetchPropertyIntelModal() pull and ignore the per-source
+    // selections. The cost displayed below is therefore the AGGREGATE
+    // cost of the pull, not per-source.
+    //
+    // Future: when paid sources are added, replace this single call with
+    // a Promise.allSettled over the selected sources, and bill per-source
+    // via Stripe metered usage.
     await fetchPropertyIntelModal(geo, addr);
     
     // Close modals
