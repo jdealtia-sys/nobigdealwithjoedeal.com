@@ -131,6 +131,13 @@
         const id = `task:${lead.id}:${t.id}`;
         items.push({
           id,
+          // Wave 82: leadId is the gate for the W48/W68/W76 inline
+          // action-row block in renderItem (`if (n.leadId && ...)`).
+          // Every push-shape that ties to a real lead MUST include
+          // leadId or the action buttons silently won't render —
+          // a regression that hid the share/preview/snooze trio
+          // on every bell row from W48 onward until this fix.
+          leadId:  lead.id,
           type:    isOverdue ? 'overdue-task' : 'task-today',
           severity: isOverdue ? 'high' : 'medium',
           icon:    isOverdue ? '🔴' : '⏰',
@@ -157,6 +164,11 @@
       const id = `estimate:${est.id}`;
       items.push({
         id,
+        // W82: estimate items also need leadId so the rep can hit
+        // 📞 / 💬 / 📧 / 🔍 / 💤 inline on a stale-estimate alert.
+        // Use est.leadId directly (always set on estimate docs)
+        // even if `lead` resolution failed in the cache.
+        leadId:  est.leadId,
         type:    'stale-estimate',
         severity: 'medium',
         icon:    '📄',
@@ -180,6 +192,7 @@
       const id = `stale-lead:${lead.id}`;
       items.push({
         id,
+        leadId:  lead.id, // W82: gate for the W48/W68 action row
         type:    'stale-lead',
         severity: 'low',
         icon:    '💤',
@@ -223,6 +236,7 @@
       const id = `snooze-expired:${lead.id}`;
       items.push({
         id,
+        leadId:   lead.id, // W82: gate for the W48/W68 action row
         type:     'snooze-expired',
         severity: 'medium',
         icon:     '⏰',
