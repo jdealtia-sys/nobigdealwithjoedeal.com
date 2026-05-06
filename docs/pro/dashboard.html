@@ -1472,7 +1472,7 @@
     try {
       const editId = data.id;
       delete data.id;
-      
+
       // LITE PLAN: enforce 25-lead limit on new leads
       if ((!editId || editId.startsWith('d-')) && window._userPlan === 'lite') {
         const currentCount = (window._leads || []).length;
@@ -1481,6 +1481,30 @@
           return null;
         }
       }
+
+      // Wave 15: dedup guard — only on new leads (not edits). Surfaces
+      // matching existing leads before we write so reps can open the
+      // dupe instead of creating a second one. Skipped if the dedup
+      // module hasn't loaded yet (degrades gracefully).
+      let _duplicateOf = null;
+      if ((!editId || editId.startsWith('d-')) && window.LeadDedup) {
+        try {
+          const result = await window.LeadDedup.checkAndPrompt(data, window._leads || []);
+          if (!result.proceed) {
+            if (result.openLeadId) {
+              // Rep chose to open the existing lead — navigate there.
+              window.location.href = `/pro/customer.html?id=${encodeURIComponent(result.openLeadId)}`;
+            }
+            return null;
+          }
+          if (result.duplicateOf) _duplicateOf = result.duplicateOf;
+        } catch (dedupErr) {
+          console.warn('[lead-dedup] check failed; proceeding without dedup:', dedupErr);
+        }
+      }
+      // Stamp duplicateOf on the payload so it persists in Firestore
+      // for audit / future cleanup. Falsy values won't get written.
+      if (_duplicateOf) data.duplicateOf = _duplicateOf;
 
       // NEW LEAD: Geocode address and create map pin
       if (!editId || editId.startsWith('d-')) {
@@ -16392,6 +16416,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/crm.js?v=22"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
+<script defer src="js/lead-dedup.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
 <script defer src="js/ui.js?v=4"></script>
 <script defer src="js/demo.js?v=3"></script>
