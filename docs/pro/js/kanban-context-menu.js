@@ -158,6 +158,16 @@
           onSelect: () => window.PortalLinkHelpers.smsForLead(lead),
         });
       }
+      // Wave 43: email variant. Only renders when the lead has an
+      // email on file — same dead-option-prevention rule the SMS
+      // variant uses for phones.
+      if (lead.email) {
+        items.push({
+          icon: '📧',
+          label: 'Email portal link',
+          onSelect: () => window.PortalLinkHelpers.emailForLead(lead),
+        });
+      }
     }
     // Wave 35: Snooze. Available when LeadSnooze module is loaded.
     // Toggles between "Snooze" (when not snoozed) and "Unsnooze"

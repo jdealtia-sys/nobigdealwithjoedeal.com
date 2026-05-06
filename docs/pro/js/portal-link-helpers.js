@@ -156,10 +156,58 @@
     }
   }
 
+  // ─── Email ──────────────────────────────────────────────────────
+  // Wave 43: mailto: composer with prefilled subject + body. Same
+  // shape as smsForLead but on the email channel. Common ask: rep
+  // wants to email the portal link to a homeowner who prefers
+  // email over text, or who's sharing with their spouse.
+  //
+  // mailto: line breaks: per RFC 6068 use %0D%0A (CRLF). encodeURI
+  // doesn't escape %0A but encodeURIComponent does, so we
+  // pre-encode the body manually as a multi-line plaintext.
+  async function emailForLead(leadOrId) {
+    const lead = leadFromIdOrObj(leadOrId);
+    if (!lead || !lead.id) {
+      _toast('No customer selected', 'error');
+      return;
+    }
+    const email = String(lead.email || '').trim();
+    if (!email) {
+      _toast('No email on this customer', 'error');
+      return;
+    }
+    try {
+      const url = await resolveUrl(lead.id);
+      const firstName = String(lead.firstName || '').trim();
+      const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
+      const subject = 'Your project portal — photos, status, and next steps';
+      const body =
+`${greeting}
+
+Here's your project portal — photos from your inspection / install, status updates, and what's coming next:
+
+${url}
+
+Bookmark it; the link stays live as we work through the project.
+
+— No Big Deal Home Solutions`;
+      const mailUrl =
+        'mailto:' + encodeURIComponent(email) +
+        '?subject=' + encodeURIComponent(subject) +
+        '&body=' + encodeURIComponent(body);
+      window.location.href = mailUrl;
+      _toast(firstName ? `Opening email to ${firstName}…` : 'Opening email…', 'success');
+    } catch (e) {
+      console.warn('[PortalLinkHelpers.emailForLead] failed', e);
+      _toast('Couldn\'t prepare email: ' + (e.message || 'unknown'), 'error');
+    }
+  }
+
   window.PortalLinkHelpers = {
     __sentinel: 'nbd-portal-link-helpers-v1',
     resolveUrl,
     copyForLead,
     smsForLead,
+    emailForLead,
   };
 })();
