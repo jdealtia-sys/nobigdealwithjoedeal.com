@@ -71,6 +71,30 @@
     // "needs attention" signal until the snooze expires.
     if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return null;
 
+    // Wave 96: hot-but-cold. The customer is engaged (W92 tier ≥
+    // Hot/Responded — viewed AND fresh share OR multi-view) but
+    // the rep hasn't taken action in 24h+. Highest-priority
+    // "needs attention" signal — engaged customers go cold fast
+    // when the rep doesn't follow up. We check this BEFORE the
+    // other reasons so the returned reason names the actual
+    // root cause rather than a downstream symptom (e.g.,
+    // stale-stage will eventually fire too, but "hot-but-cold"
+    // is more actionable).
+    if (window.CustomerEngagementScore
+        && typeof window.CustomerEngagementScore.computeTier === 'function') {
+      const tierInfo = window.CustomerEngagementScore.computeTier(lead, estimates);
+      const tier = tierInfo ? tierInfo.tier : 0;
+      // Tier 3 = Hot, Tier 4 = Responded. Both are "engaged
+      // customers" — the rep should be acting on them.
+      if (tier >= 3) {
+        const lastTouch = toMillis(lead.updatedAt) || toMillis(lead.lastSharedAt) || toMillis(lead.createdAt);
+        const sinceTouchMs = lastTouch ? (now - lastTouch) : Infinity;
+        if (sinceTouchMs >= 24 * 60 * 60 * 1000) {
+          return 'hot-but-cold';
+        }
+      }
+    }
+
     // 1) Stale stage
     if (daysInStage(lead) >= STAGE_AGE_DAYS) return 'stale-stage';
 
