@@ -303,6 +303,159 @@
     }
   }
 
+  // ─── Bulk snooze ────────────────────────────────────────────────
+  // Wave 37: lets the rep select N kanban cards via the existing
+  // bulk toolbar and snooze them all to the same date in one batch
+  // commit. Real "snooze all my fall leads till spring" workflow.
+  function openBulkSnoozeModal(leadIds) {
+    closeSnoozeModal();
+    if (!Array.isArray(leadIds) || leadIds.length === 0) {
+      _toast('No leads selected', 'error');
+      return;
+    }
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-snooze-overlay';
+    overlay.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99996;
+      display:flex; align-items:center; justify-content:center; padding:20px;
+      font-family:'Barlow',-apple-system,system-ui,sans-serif;`;
+
+    const presets = buildPresets();
+    overlay.innerHTML = `
+      <div style="
+        background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
+        border:1px solid var(--br,#2a3344); border-radius:12px;
+        padding:22px; max-width:380px; width:100%;
+        box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <span style="font-size:24px;">💤</span>
+          <h2 style="font-size:17px; margin:0;">Snooze ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'}</h2>
+        </div>
+        <p style="font-size:12px; color:var(--m,#9aa3b2); margin:0 0 14px; line-height:1.5;">
+          All selected leads will hide from the kanban + Hot Leads + Needs Attention until the snooze date.
+        </p>
+        <div id="nbd-bulk-snooze-presets" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+          ${presets.map((p, i) => `
+            <button data-bsnooze-i="${i}" type="button" style="
+              text-align:left; padding:10px 13px; border-radius:8px;
+              background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+              border:1px solid var(--br,#2a3344);
+              font: inherit; font-size:13px; font-weight:600;
+              cursor:pointer; -webkit-tap-highlight-color:transparent;
+              display:flex; justify-content:space-between; align-items:center;">
+              <span>${escapeHtml(p.label)}</span>
+              <span style="font-size:10px; color:var(--m,#9aa3b2); font-weight:500;">
+                ${escapeHtml(p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))}
+              </span>
+            </button>
+          `).join('')}
+        </div>
+        <div style="border-top:1px solid var(--br,#2a3344); padding-top:12px; margin-bottom:14px;">
+          <label style="display:block; font-size:11px; color:var(--m,#9aa3b2); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">
+            Or pick a date
+          </label>
+          <div style="display:flex; gap:8px;">
+            <input type="date" id="nbd-bulk-snooze-custom" style="
+              flex:1; background:var(--s2,#0f1419); color:var(--t,#e8eaf0);
+              border:1px solid var(--br,#2a3344); border-radius:6px;
+              padding:8px 10px; font: inherit; font-size:13px;
+              color-scheme:dark;">
+            <button id="nbd-bulk-snooze-custom-go" type="button" style="
+              background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
+              color:#fff; border:none; padding:8px 16px; border-radius:6px;
+              font: inherit; font-size:12px; font-weight:700;
+              cursor:pointer; -webkit-tap-highlight-color:transparent;">Go</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end;">
+          <button id="nbd-bulk-snooze-cancel" type="button" style="
+            background:transparent; color:var(--m,#9aa3b2);
+            border:1px solid var(--br,#2a3344); padding:8px 16px;
+            border-radius:7px; font: inherit; font-size:12px; font-weight:600;
+            cursor:pointer; -webkit-tap-highlight-color:transparent;">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const customEl = overlay.querySelector('#nbd-bulk-snooze-custom');
+    if (customEl) {
+      const oneWeek = _addDays(7);
+      customEl.value = `${oneWeek.getFullYear()}-${String(oneWeek.getMonth() + 1).padStart(2, '0')}-${String(oneWeek.getDate()).padStart(2, '0')}`;
+    }
+
+    overlay.querySelectorAll('[data-bsnooze-i]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const i = parseInt(btn.getAttribute('data-bsnooze-i'), 10);
+        const p = presets[i];
+        if (!p) return;
+        await _doBulkSnooze(leadIds, p.date, p.label);
+      });
+      btn.addEventListener('mouseover', () => { btn.style.background = 'var(--s,#1a1f2a)'; });
+      btn.addEventListener('mouseout',  () => { btn.style.background = 'var(--s2,#0f1419)'; });
+    });
+    overlay.querySelector('#nbd-bulk-snooze-custom-go').addEventListener('click', async () => {
+      const v = customEl ? customEl.value : '';
+      if (!v) { _toast('Pick a date first', 'error'); return; }
+      const d = _morningOfDay(new Date(v + 'T00:00:00'));
+      if (isNaN(d) || d.getTime() <= Date.now()) {
+        _toast('Pick a future date', 'error');
+        return;
+      }
+      await _doBulkSnooze(leadIds, d, formatSnoozeLabel(d));
+    });
+    overlay.querySelector('#nbd-bulk-snooze-cancel').addEventListener('click', closeSnoozeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeSnoozeModal(); });
+  }
+
+  async function _doBulkSnooze(leadIds, date, label) {
+    closeSnoozeModal();
+    if (!window.writeBatch || !window.db || !window.doc) {
+      _toast('Bulk snooze unavailable — Firestore not loaded', 'error');
+      return;
+    }
+    try {
+      // Chunk for the 500-op writeBatch limit; same shape as
+      // commitBulkLeadOp in crm.js.
+      const CHUNK = 450;
+      const updatedAt = window.serverTimestamp ? window.serverTimestamp() : new Date();
+      for (let i = 0; i < leadIds.length; i += CHUNK) {
+        const slice = leadIds.slice(i, i + CHUNK);
+        const batch = window.writeBatch(window.db);
+        for (const id of slice) {
+          batch.update(window.doc(window.db, 'leads', id), {
+            snoozedUntil: date,
+            updatedAt,
+          });
+        }
+        await batch.commit();
+      }
+
+      // Optimistic local cache patch + render so the kanban hides
+      // the freshly-snoozed cards immediately. Mirror logic from
+      // single-snooze: patch _leads + _currentLead.
+      const idSet = new Set(leadIds);
+      if (Array.isArray(window._leads)) {
+        window._leads = window._leads.map(l =>
+          (l && idSet.has(l.id)) ? { ...l, snoozedUntil: date } : l);
+      }
+      if (window._currentLead && idSet.has(window._currentLead.id)) {
+        window._currentLead = { ...window._currentLead, snoozedUntil: date };
+      }
+      try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'bulk-snooze' } })); } catch (_) {}
+      if (typeof window.renderLeads === 'function') {
+        try { window.renderLeads(window._leads, window._filteredLeads); } catch (_) {}
+      }
+      // Best-effort exit from bulk mode now that the action's done.
+      if (typeof window.clearBulkSelection === 'function') window.clearBulkSelection();
+      if (typeof window.toggleBulkMode === 'function' && window._bulkMode) window.toggleBulkMode();
+
+      _toast(`Snoozed ${leadIds.length} lead${leadIds.length === 1 ? '' : 's'} until ${label}`, 'success');
+    } catch (e) {
+      console.error('[bulk snooze] failed', e);
+      _toast('Bulk snooze failed: ' + (e.message || 'unknown'), 'error');
+    }
+  }
+
   // ─── Show-snoozed toggle wiring ─────────────────────────────────
   // The kanban header has a Snoozed button that toggles localStorage
   // flag nbd_crm_show_snoozed. We listen for clicks via a window
@@ -359,6 +512,7 @@
     unsnooze,
     prompt: openSnoozeModal,
     promptUnsnooze: _doUnsnooze,
+    bulkPrompt: openBulkSnoozeModal,
     closeModal: closeSnoozeModal,
     toggleShowSnoozed,
     updateSnoozedToggle,

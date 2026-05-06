@@ -2219,6 +2219,19 @@ async function bulkAssignJobType() {
   return bulkAssignField('jobType', value, 'Job Type');
 }
 
+// Wave 37: bulk-snooze. Hands selected lead IDs to LeadSnooze.bulkPrompt
+// which handles the modal + writeBatch commit + cache patch + clear-
+// bulk-selection. We just gather + delegate.
+async function bulkSnoozeLeads() {
+  const selSet = getBulkSelected();
+  if (selSet.size === 0) { showToast('No cards selected', 'error'); return; }
+  if (!window.LeadSnooze || typeof window.LeadSnooze.bulkPrompt !== 'function') {
+    showToast('Snooze module not loaded — refresh and try again', 'error');
+    return;
+  }
+  window.LeadSnooze.bulkPrompt(Array.from(selSet));
+}
+
 // Chunk a single Firestore writeBatch op across an arbitrary list of
 // lead ids. Each chunk is committed independently — a network blip
 // on chunk 2 leaves chunks 0-1 committed and the toast surfaces a
@@ -2507,6 +2520,8 @@ window.bulkAssignDamage  = bulkAssignDamage;
 // Wave 32: extended bulk-edit fields.
 window.bulkAssignSource  = bulkAssignSource;
 window.bulkAssignJobType = bulkAssignJobType;
+// Wave 37: bulk snooze via the toolbar.
+window.bulkSnoozeLeads   = bulkSnoozeLeads;
 window.selectAllVisibleLeads = selectAllVisibleLeads;
 window.updateBulkToolbar = updateBulkToolbar;
 window.refreshTrashBadge = refreshTrashBadge;

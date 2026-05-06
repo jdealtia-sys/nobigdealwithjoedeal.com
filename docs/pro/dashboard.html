@@ -40,7 +40,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=25" as="script">
+<link rel="preload" href="js/crm.js?v=26" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -9680,6 +9680,10 @@ function switchScTab(tab, btn) {
           <option value="finance">Finance</option>
         </select>
         <button class="btn btn-ghost" onclick="bulkAssignJobType()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <!-- Wave 37: bulk snooze. Opens LeadSnooze.bulkPrompt which
+             handles preset/custom date selection + writeBatch commit
+             + cache patch + auto-exit bulk mode. -->
+        <button class="btn btn-ghost" onclick="bulkSnoozeLeads()" style="font-size:11px;padding:5px 10px;color:#cab8ff;">💤 Snooze...</button>
         <button class="btn btn-ghost" onclick="bulkDelete()" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
         <button class="btn btn-ghost" onclick="clearBulkSelection()" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
       </div>
@@ -16651,7 +16655,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=25"></script>
+<script defer src="js/crm.js?v=26"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
