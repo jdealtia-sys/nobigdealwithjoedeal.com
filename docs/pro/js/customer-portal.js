@@ -211,16 +211,40 @@
    * Build the standalone HTML page for the customer portal
    */
   function buildPortalHTML(lead, photos, estimates, tasks, notes) {
-    const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner';
+    // Wave 86: CRITICAL XSS fix. Every interpolated rep-controlled
+    // field below was previously unescaped. The portal HTML this
+    // function builds is uploaded to Firebase Storage and served
+    // to homeowners — a malicious or compromised rep, or an
+    // injection from data import / OCR / direct Firestore write,
+    // could ship arbitrary <script>/<img onerror=...>/etc into
+    // the homeowner's browser. Sister function generatePhotoPortal
+    // already used esc(); this was the asymmetric oversight.
+    //
+    // Same shape as generatePhotoPortal:esc + escapeHtml in the
+    // rep dashboard modules. Escapes &, <, >, ", '.
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
+    const name = esc(((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner');
     const stageKey = lead._stageKey || lead.stage || 'new';
-    const stageInfo = STAGE_DISPLAY[stageKey] || { label: lead.stage || 'In Progress', progress: 50, icon: '🔨' };
-    const addr = lead.address || '';
+    // W86: stageInfo.label may fall through to lead.stage when the
+    // key isn't in STAGE_DISPLAY — escape at construction so every
+    // downstream interpolation is already-safe.
+    const rawStageInfo = STAGE_DISPLAY[stageKey] || { label: lead.stage || 'In Progress', progress: 50, icon: '🔨' };
+    const stageInfo = { label: esc(rawStageInfo.label), progress: rawStageInfo.progress, icon: rawStageInfo.icon };
+    const addr = esc(lead.address || '');
     const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // Build photo gallery
+    // W86: photo url + name escaped. The lightbox onclick
+    // hardcodes its toggle logic and doesn't interpolate user
+    // data, so it's safe as-is — the prior risk was the unescaped
+    // `alt` (could break attribute boundary) and `src` (could
+    // contain javascript: scheme).
     const photoHTML = photos.length > 0 ? photos.map(p => `
       <div style="border-radius:8px;overflow:hidden;aspect-ratio:1;background:#f0f0f0;">
-        <img src="${p.url}" alt="${p.name || 'Project photo'}"
+        <img src="${esc(p.url)}" alt="${esc(p.name || 'Project photo')}"
              style="width:100%;height:100%;object-fit:cover;cursor:pointer;"
              onclick="this.style.position=this.style.position==='fixed'?'':'fixed';this.style.top='0';this.style.left='0';this.style.width=this.style.width==='100vw'?'100%':'100vw';this.style.height=this.style.height==='100vh'?'100%':'100vh';this.style.zIndex=this.style.zIndex==='9999'?'':'9999';this.style.objectFit='contain';this.style.background='rgba(0,0,0,0.9)';">
       </div>
@@ -231,10 +255,12 @@
     const pendingTasks = tasks.filter(t => !t.done);
 
     // Build milestone timeline
+    // W86: pre-escape labels at construction time. formatTimestamp
+    // returns a date string (safe) but task titles are rep-controlled.
     const milestones = [];
     if (lead.createdAt) milestones.push({ date: formatTimestamp(lead.createdAt), label: 'Project started', icon: '🚀' });
     completedTasks.forEach(t => {
-      milestones.push({ date: formatTimestamp(t.completedAt || t.createdAt), label: t.title || t.text || 'Task completed', icon: '✅' });
+      milestones.push({ date: formatTimestamp(t.completedAt || t.createdAt), label: esc(t.title || t.text || 'Task completed'), icon: '✅' });
     });
     if (stageInfo.progress >= 60) milestones.push({ date: '', label: 'Contract signed', icon: '✍️' });
     if (stageInfo.progress >= 85) milestones.push({ date: '', label: 'Crew scheduled', icon: '👷' });
@@ -315,12 +341,12 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
       </div>
       <div class="info-item">
         <div class="info-label">Project Type</div>
-        <div class="info-value">${(lead.jobType || 'Exterior').charAt(0).toUpperCase() + (lead.jobType || 'exterior').slice(1)}</div>
+        <div class="info-value">${esc((lead.jobType || 'Exterior').charAt(0).toUpperCase() + (lead.jobType || 'exterior').slice(1))}</div>
       </div>
-      ${lead.damageType ? `<div class="info-item"><div class="info-label">Damage Type</div><div class="info-value">${lead.damageType}</div></div>` : ''}
-      ${lead.insCarrier ? `<div class="info-item"><div class="info-label">Insurance</div><div class="info-value">${lead.insCarrier}</div></div>` : ''}
-      ${lead.scheduledDate ? `<div class="info-item"><div class="info-label">Scheduled Date</div><div class="info-value">${lead.scheduledDate}</div></div>` : ''}
-      ${lead.crew ? `<div class="info-item"><div class="info-label">Crew</div><div class="info-value">${lead.crew}</div></div>` : ''}
+      ${lead.damageType ? `<div class="info-item"><div class="info-label">Damage Type</div><div class="info-value">${esc(lead.damageType)}</div></div>` : ''}
+      ${lead.insCarrier ? `<div class="info-item"><div class="info-label">Insurance</div><div class="info-value">${esc(lead.insCarrier)}</div></div>` : ''}
+      ${lead.scheduledDate ? `<div class="info-item"><div class="info-label">Scheduled Date</div><div class="info-value">${esc(lead.scheduledDate)}</div></div>` : ''}
+      ${lead.crew ? `<div class="info-item"><div class="info-label">Crew</div><div class="info-value">${esc(lead.crew)}</div></div>` : ''}
     </div>
   </div>` : ''}
 
@@ -355,7 +381,7 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
     ${pendingTasks.map(t => `
       <div class="step">
         <div class="step-dot"></div>
-        <span>${t.title || t.text || 'Pending task'}</span>
+        <span>${esc(t.title || t.text || 'Pending task')}</span>
       </div>
     `).join('')}
   </div>` : ''}
