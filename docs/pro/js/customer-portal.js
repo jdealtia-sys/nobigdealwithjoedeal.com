@@ -95,22 +95,33 @@
       } catch(e) { console.warn('Portal: estimates load failed', e.message); }
 
       // Load notes/activity
+      // Wave 89: scope to current user. Subcollection ownership is
+      // implicit via parent-doc Firestore rules, but in a multi-rep
+      // company a single lead can have notes/tasks from different
+      // writers (manager handoff notes, adjuster strategy notes,
+      // rep-internal reminders, etc.). Without the userId filter
+      // the portal generator would aggregate all of them. Notes
+      // aren't currently rendered to the homeowner but tasks are
+      // (pendingTasks + milestones), and a future feature might
+      // surface notes — defense-in-depth keeps the data narrow.
       let notes = [];
       try {
         const noteSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'leads', leadId, 'notes')
+          window.collection(window.db, 'leads', leadId, 'notes'),
+          window.where('userId', '==', window._user.uid)
         ));
         notes = noteSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { /* subcollection may not exist */ }
+      } catch(e) { /* subcollection may not exist or have no userId field on legacy docs */ }
 
       // Load tasks
       let tasks = [];
       try {
         const taskSnap = await window.getDocs(window.query(
-          window.collection(window.db, 'leads', leadId, 'tasks')
+          window.collection(window.db, 'leads', leadId, 'tasks'),
+          window.where('userId', '==', window._user.uid)
         ));
         tasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { /* subcollection may not exist */ }
+      } catch(e) { /* subcollection may not exist or have no userId field on legacy docs */ }
 
       // Generate the portal HTML
       const html = buildPortalHTML(lead, photos, estimates, tasks, notes);
