@@ -154,6 +154,66 @@
       return;
     }
 
+    // Wave 51: inline reshare buttons on lead search results.
+    // Same color-coded 📞/💬/📧 trio used by Hot Leads (W47),
+    // Almost There (W46), bell rows (W48), and the activity feed
+    // (W49). Cmd+K is the fifth and final priority surface — once
+    // this lands the share trio is universal across every place
+    // a rep can encounter a lead in the app.
+    const renderLeadActions = (l) => {
+      const phoneDigits = String(l.phone || '').replace(/\D+/g, '');
+      const email = String(l.email || '').trim();
+      const buttons = [];
+      if (phoneDigits) {
+        buttons.push(`
+          <a class="cmd-action" href="tel:${escapeHtml(phoneDigits)}"
+            title="Call ${escapeHtml(l.phone)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:24px; height:24px; border-radius:5px;
+              background:rgba(16,185,129,0.14); color:#10b981;
+              text-decoration:none; font-size:11px;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onclick="event.stopPropagation();"
+            onmouseover="this.style.transform='scale(1.10)'"
+            onmouseout="this.style.transform=''"
+          >📞</a>`);
+        buttons.push(`
+          <button class="cmd-action" type="button"
+            data-action="sms" data-lead-id="${escapeHtml(l.id)}"
+            title="Text portal link to ${escapeHtml(l.phone)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:24px; height:24px; border-radius:5px;
+              background:rgba(59,130,246,0.14); color:#3b82f6;
+              border:none; font-size:11px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.10)'"
+            onmouseout="this.style.transform=''"
+          >💬</button>`);
+      }
+      if (email) {
+        buttons.push(`
+          <button class="cmd-action" type="button"
+            data-action="email" data-lead-id="${escapeHtml(l.id)}"
+            title="Email portal link to ${escapeHtml(email)}"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:24px; height:24px; border-radius:5px;
+              background:rgba(139,92,246,0.14); color:#8b5cf6;
+              border:none; font-size:11px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.10)'"
+            onmouseout="this.style.transform=''"
+          >📧</button>`);
+      }
+      if (buttons.length === 0) return '';
+      return `<div style="display:flex; gap:3px; flex-shrink:0; align-items:center; margin-right:6px;">${buttons.join('')}</div>`;
+    };
+
     const renderLeadRow = (hit, idx) => {
       const l = hit.lead;
       const name = leadName(l);
@@ -165,6 +225,7 @@
             <div class="cmd-title">${highlight(name, query)}</div>
             <div class="cmd-subtitle">${highlight(sub || '', query)}</div>
           </div>
+          ${renderLeadActions(l)}
           ${l.customerId ? `<span class="cmd-badge recent">${escapeHtml(l.customerId)}</span>` : ''}
         </div>`;
     };
@@ -199,9 +260,38 @@
     }
     container.innerHTML = html;
 
+    // Wave 51: inline action button handlers. Wired BEFORE the row
+    // click handlers so stopPropagation on the buttons takes effect
+    // before the parent .cmd-item click would otherwise activate
+    // the selection. SMS + Email delegate to PortalLinkHelpers
+    // (W42) which fires the W44 lastSharedAt tracking on success.
+    container.querySelectorAll('.cmd-action[data-action]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-lead-id');
+        if (!id) return;
+        const lead = (Array.isArray(window._leads) ? window._leads : [])
+          .find(l => l && l.id === id);
+        if (!lead) return;
+        if (action === 'sms' && window.PortalLinkHelpers) {
+          window.PortalLinkHelpers.smsForLead(lead);
+        } else if (action === 'email' && window.PortalLinkHelpers) {
+          window.PortalLinkHelpers.emailForLead(lead);
+        }
+        // Close the palette so the rep can see whatever surface
+        // the action handed off to (SMS composer, mail client).
+        closePalette();
+      });
+    });
+
     // Wire click handlers (delegation would also work).
     container.querySelectorAll('.cmd-item').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (ev) => {
+        // If the click originated on an action button, it already
+        // stopped propagation — but defensive check in case a child
+        // element of the button slipped through.
+        if (ev.target && ev.target.closest && ev.target.closest('.cmd-action')) return;
         const i = parseInt(el.getAttribute('data-cmd-index'), 10);
         activate(i);
       });
