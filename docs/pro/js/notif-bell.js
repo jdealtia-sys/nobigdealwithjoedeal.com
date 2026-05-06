@@ -249,6 +249,56 @@
       });
     });
 
+    // ── Wave 95: fresh-viewing engagement signal ──
+    // Closes the engagement loop. W76 fires when a snooze
+    // expires; W95 fires when a customer actively views the
+    // portal in the last 6 hours. The rep gets a heads-up
+    // RIGHT when the customer is engaged and most likely to
+    // pick up the phone.
+    //
+    // Self-clearing 6-hour window so the bell doesn't accumulate
+    // every view in history. After 6h, the W92 viewed badge on
+    // the kanban card still shows the engagement state for
+    // long-tail context — the bell signal is just for the
+    // fresh-window action prompt.
+    //
+    // Skipped when:
+    //   - Estimate already responded (signed/declined)
+    //   - Lead in terminal stage
+    //   - No estimates at all
+    const FRESH_VIEW_WINDOW_MS = 6 * 60 * 60 * 1000;
+    estimates.forEach(est => {
+      if (!est || est.respondedAt) return;
+      const viewedAt = toDate(est.viewedAt);
+      if (!viewedAt) return;
+      const ageMs = now.getTime() - viewedAt.getTime();
+      if (ageMs <= 0 || ageMs > FRESH_VIEW_WINDOW_MS) return;
+      // Resolve the parent lead. Skip when terminal stage —
+      // a "viewing your estimate" signal on a closed deal is
+      // just noise.
+      const lead = leads.find(l => l && l.id === est.leadId);
+      if (!lead) return;
+      const stage = (lead.stage || '').toLowerCase();
+      if (stage === 'closed' || stage === 'lost' || stage === 'complete') return;
+
+      const amount = Number(est.total || est.grandTotal || est.amount || 0);
+      const id = `fresh-view:${est.id}`;
+      items.push({
+        id,
+        leadId:   lead.id, // W82: gate for the W48/W68 action row
+        type:     'fresh-view',
+        // High severity so the rep sees this BEFORE stale
+        // signals — the customer is engaged right now.
+        severity: 'high',
+        icon:     '🔥',
+        title:    'Customer viewing your estimate',
+        text:     leadName(lead),
+        sub:      (amount > 0 ? `$${amount.toLocaleString()} · ` : '') + 'opened ' + relativeTime(viewedAt),
+        ts:       viewedAt,
+        href:     `/pro/customer.html?id=${encodeURIComponent(lead.id)}`,
+      });
+    });
+
     // Sort: severity first (high → medium → low), then most recent ts first.
     const sevOrder = { high: 0, medium: 1, low: 2 };
     items.sort((a, b) => {
