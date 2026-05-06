@@ -116,7 +116,11 @@
     const estimates = Array.isArray(window._estimates) ? window._estimates : [];
 
     // ── Overdue + due-today tasks ──
+    // Wave 35: skip task signals on snoozed leads — the rep
+    // explicitly deferred this lead, no point pinging them about
+    // its tasks until the snooze expires.
     leads.forEach(lead => {
+      if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return;
       const tasks = taskCache[lead.id] || [];
       tasks.forEach(t => {
         if (t.done) return;
@@ -167,6 +171,8 @@
     // ── Stale active leads (no activity in 7+ days) ──
     const leadStaleCutoff = new Date(now.getTime() - STALE_LEAD_DAYS * 24 * 60 * 60 * 1000);
     leads.forEach(lead => {
+      // Wave 35: skip stale-stage signal on snoozed leads.
+      if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return;
       const stage = (lead.stage || '').toLowerCase();
       if (!ACTIVE_LEAD_STAGES.has(stage)) return;
       const lastActivity = toDate(lead.updatedAt) || toDate(lead.createdAt);

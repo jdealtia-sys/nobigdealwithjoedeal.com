@@ -67,6 +67,9 @@
     if (lead.isProspect) return null;
     const sk = stageKey(lead);
     if (TERMINAL_STAGES.has(sk)) return null;
+    // Wave 35: respect rep snooze. Snoozed leads don't generate a
+    // "needs attention" signal until the snooze expires.
+    if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return null;
 
     // 1) Stale stage
     if (daysInStage(lead) >= STAGE_AGE_DAYS) return 'stale-stage';

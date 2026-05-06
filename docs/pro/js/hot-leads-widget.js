@@ -98,6 +98,8 @@
       // Recently touched? Skip.
       const lastEst = lastEstimateActivityMs(lead.id, estimates);
       if (lastEst > recentCutoff) return false;
+      // Wave 35: skip leads the rep has explicitly snoozed for later.
+      if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) return false;
       // No score, no signal — skip.
       if (typeof lead === 'undefined') return false;
       return true;
