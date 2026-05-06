@@ -306,6 +306,70 @@
             onmouseout="this.style.transform=''"
           >📧</button>`);
       }
+      // Wave 69: portal preview action — always available, no
+      // contact gate. Brings the activity feed to feature parity
+      // with the W68 bell and the home widgets. Especially useful
+      // here: the feed event reads "customer viewed estimate" or
+      // "customer signed" — hit 🔍 to peek at the same state the
+      // customer saw before responding.
+      if (window.PortalLinkHelpers
+          && typeof window.PortalLinkHelpers.previewForLead === 'function') {
+        buttons.push(`
+          <button class="af-action" type="button"
+            data-action="preview" data-lead-id="${escapeHtml(lead.id)}"
+            title="Preview the portal — see what the customer is looking at"
+            style="
+              display:flex; align-items:center; justify-content:center;
+              width:26px; height:26px; border-radius:5px;
+              background:rgba(245,158,11,0.14); color:#f59e0b;
+              border:none; font-size:12px; cursor:pointer;
+              -webkit-tap-highlight-color:transparent;
+              transition:transform .12s;"
+            onmouseover="this.style.transform='scale(1.08)'"
+            onmouseout="this.style.transform=''"
+          >🔍</button>`);
+      }
+      // Wave 69: state-aware snooze/unsnooze. Same reasoning as
+      // W68 bell — activity feed shows customer-side events even
+      // on snoozed leads (W39 keeps viewed/responded events but
+      // suppresses rep-side task/stage events), so we honor the
+      // actual lead state. Snoozed → ⏰ unsnooze; fresh → 💤.
+      if (window.LeadSnooze) {
+        const isLeadSnoozed = window.LeadSnooze.isSnoozed(lead);
+        if (isLeadSnoozed) {
+          const untilLabel = window.LeadSnooze.formatSnoozeLabel(
+            window.LeadSnooze.snoozedUntilDate(lead));
+          buttons.push(`
+            <button class="af-action" type="button"
+              data-action="unsnooze" data-lead-id="${escapeHtml(lead.id)}"
+              title="Unsnooze (was until ${escapeHtml(untilLabel)})"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(155,109,255,0.14); color:#cab8ff;
+                border:none; font-size:12px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >⏰</button>`);
+        } else {
+          buttons.push(`
+            <button class="af-action" type="button"
+              data-action="snooze" data-lead-id="${escapeHtml(lead.id)}"
+              title="Snooze this lead"
+              style="
+                display:flex; align-items:center; justify-content:center;
+                width:26px; height:26px; border-radius:5px;
+                background:rgba(155,109,255,0.10); color:#a890e8;
+                border:none; font-size:12px; cursor:pointer;
+                -webkit-tap-highlight-color:transparent;
+                transition:transform .12s;"
+              onmouseover="this.style.transform='scale(1.08)'"
+              onmouseout="this.style.transform=''"
+            >💤</button>`);
+        }
+      }
       if (buttons.length === 0) return '';
       return `<div style="display:flex; gap:3px; flex-shrink:0; align-items:center;">${buttons.join('')}</div>`;
     }
@@ -347,6 +411,23 @@
           window.PortalLinkHelpers.smsForLead(lead);
         } else if (action === 'email' && window.PortalLinkHelpers) {
           window.PortalLinkHelpers.emailForLead(lead);
+        } else if (action === 'preview' && window.PortalLinkHelpers) {
+          // Wave 69: preview opens W56 iframe modal at z-index
+          // 99997 over the activity feed. Don't navigate to the
+          // customer page — keep the feed visible underneath.
+          window.PortalLinkHelpers.previewForLead(lead);
+        } else if (action === 'snooze' && window.LeadSnooze) {
+          // Wave 69: snooze prompts the W35 preset modal. After
+          // dismiss, nbd:data-refreshed re-renders the feed and
+          // rep-side events on this lead drop out (W39 filter)
+          // while the existing customer-side events stay.
+          const fullName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim();
+          window.LeadSnooze.prompt(lead.id, fullName);
+        } else if (action === 'unsnooze' && window.LeadSnooze) {
+          // Wave 69: unsnooze + re-render so the button flips
+          // ⏰ → 💤 in place without waiting for the next
+          // nbd:data-refreshed cycle.
+          window.LeadSnooze.promptUnsnooze(lead.id).then(() => render());
         }
       });
     });
