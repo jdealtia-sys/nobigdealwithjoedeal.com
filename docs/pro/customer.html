@@ -952,6 +952,14 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         title="Open email composer with the portal link pre-filled to the customer">
         📧 Email Portal Link
       </button>
+      <!-- Wave 56: portal preview iframe — see exactly what the
+           homeowner will see before sharing. Quality assurance
+           UX so reps catch missing photos / wrong status before
+           the link goes out. -->
+      <button class="btn" id="quickPreviewPortalBtn" onclick="window.quickPreviewPortalLink && window.quickPreviewPortalLink()"
+        title="Open the portal in a preview window — see what the customer will see">
+        🔍 Preview Portal
+      </button>
       <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
@@ -6670,6 +6678,34 @@ window.quickCopyPortalLink = async function () {
     if (typeof openGallerySharePanel === 'function') {
       try { openGallerySharePanel(); } catch (_) {}
     }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.style.opacity = '';
+      button.style.cursor = '';
+      if (restoreLabel != null) button.innerHTML = restoreLabel;
+    }
+  }
+};
+
+// Wave 56: open the portal in an iframe modal so the rep can
+// preview exactly what the customer will see before sharing.
+// Delegates to PortalLinkHelpers.previewForLead.
+window.quickPreviewPortalLink = async function () {
+  const button = document.getElementById('quickPreviewPortalBtn');
+  const restoreLabel = button ? button.innerHTML : null;
+  if (button) {
+    button.disabled = true;
+    button.style.opacity = '0.7';
+    button.style.cursor = 'wait';
+    button.innerHTML = '⏳ Loading…';
+  }
+  try {
+    if (!window.PortalLinkHelpers) {
+      if (typeof showToast === 'function') showToast('Portal helpers not loaded', 'error');
+      return;
+    }
+    await window.PortalLinkHelpers.previewForLead(window._currentLead || { id: window._customerId });
   } finally {
     if (button) {
       button.disabled = false;
