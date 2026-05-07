@@ -609,28 +609,68 @@
       });
     }
     loadLeads().then(() => {
-      // Retry renderLeads in case crm.js (deferred) hasn't loaded yet
-      function retryRender() {
-        if (typeof renderLeads === 'function' && window._leads?.length) {
-          renderLeads(window._leads);
+      // ── Wave 120: stuck-skeleton reliability fix ────────────────────
+      // Previously this gated render on `window._leads?.length` — which
+      // meant any user with ZERO leads (brand-new accounts, or leads
+      // filtered out by stage/sales_rep) would NEVER escape the kanban
+      // skeleton. Combined with the 3-step nested setTimeout, that
+      // produced the ~50% "stuck on loading" bug.
+      //
+      // New behaviour:
+      //   1. Render path no longer requires leads to exist — an empty
+      //      array is a valid state (we render the empty kanban cleanly).
+      //   2. Retry loop polls every 250ms for up to 30s. Each tick
+      //      checks if renderLeads is now available; first hit wins.
+      //   3. If the 30s window elapses without renderLeads arriving,
+      //      we fall back to a plain "Couldn't load — refresh" state
+      //      instead of leaving the user on a forever-skeleton.
+      function _attemptRender() {
+        if (typeof renderLeads !== 'function') return false;
+        // window._leads may be undefined if loadLeads catch-path never
+        // assigned it; coalesce to [] so renderLeads never throws.
+        const leads = Array.isArray(window._leads) ? window._leads : [];
+        try {
+          renderLeads(leads);
           if (typeof restoreCrmSearch === 'function') restoreCrmSearch();
-          if (typeof updatePipeline === 'function') updatePipeline(window._leads);
+          if (typeof updatePipeline === 'function') updatePipeline(leads);
           if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
           if (typeof refreshTrashBadge === 'function') refreshTrashBadge();
           if (typeof renderKPIRow === 'function') renderKPIRow();
           if (window.NBDWidgets) window.NBDWidgets.render();
-          return true;
+        } catch (renderErr) {
+          console.warn('[render-retry] renderLeads threw:', renderErr.message);
+          return false;
         }
-        return false;
+        return true;
       }
-      // Try immediately, then retry at 1s, 2s, 4s until crm.js loads
-      if (!retryRender()) {
-        setTimeout(() => { if (!retryRender()) {
-          setTimeout(() => { if (!retryRender()) {
-            setTimeout(retryRender, 4000);
-          }}, 2000);
-        }}, 1000);
+      function _renderFallback() {
+        const board = document.getElementById('kanbanBoard');
+        if (!board) return;
+        board.innerHTML =
+          '<div style="grid-column:1/-1;padding:40px 20px;text-align:center;color:var(--m, #888);">' +
+          '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>' +
+          '<div style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--t, #fff);">Couldn\'t finish loading the CRM.</div>' +
+          '<div style="font-size:13px;margin-bottom:18px;">Your data is safe — this is usually a slow connection during cold start.</div>' +
+          '<button type="button" onclick="window.location.reload()" style="padding:10px 22px;border-radius:6px;background:var(--orange, #c8541a);color:#fff;border:none;cursor:pointer;font:inherit;font-size:14px;">Reload</button>' +
+          '</div>';
       }
+      // First attempt fires synchronously after loadLeads resolves.
+      if (_attemptRender()) return;
+      // Poll loop — 250ms × 120 ticks = 30s window.
+      let _ticks = 0;
+      const _MAX_TICKS = 120;
+      const _retryHandle = setInterval(() => {
+        _ticks++;
+        if (_attemptRender()) {
+          clearInterval(_retryHandle);
+          return;
+        }
+        if (_ticks >= _MAX_TICKS) {
+          clearInterval(_retryHandle);
+          console.error('[render-retry] renderLeads never became available after 30s');
+          _renderFallback();
+        }
+      }, 250);
     });
     loadEstimates(); loadPins();
     // B3: wire the live estimates listener so signature webhook
@@ -1039,6 +1079,17 @@
 
   // ── LEADS ──────────────────────────────────────
   async function loadLeads() {
+    // Wave 120: clear any stale retry timer from a prior loadLeads
+    // call. Without this, a setTimeout-scheduled retry from the
+    // previous load could fire mid-way through a fresh load — the
+    // retry would see stale window._user state from before bfcache
+    // restore + auth resettling, hit the 1-second wait + bail path
+    // below, and call renderLeads([]) right when fresh data was
+    // about to render. (One source of the 50% reload-stuck bug.)
+    if (window._loadLeadsRetryTimer) {
+      try { clearTimeout(window._loadLeadsRetryTimer); } catch (_) {}
+      window._loadLeadsRetryTimer = null;
+    }
     // Update health indicator to loading
     const healthBadge = document.getElementById('crmHealthBadge');
     if (healthBadge) {
@@ -1194,7 +1245,10 @@
         if (attempt <= 3) {
           const delay = 600 * attempt; // 600ms, 1.2s, 1.8s
           console.warn(`loadLeads cold-start retry ${attempt}/3 in ${delay}ms`);
-          setTimeout(() => {
+          // Wave 120: track the timer handle so a fresh loadLeads call
+          // can cancel a stale retry before scheduling new work.
+          window._loadLeadsRetryTimer = setTimeout(() => {
+            window._loadLeadsRetryTimer = null;
             // Bail if a successful load happened in the meantime.
             if (window._leadsLoaded) return;
             try { loadLeads(); } catch (_) {}
@@ -1215,22 +1269,30 @@
         window._photoCache[p.leadId].push(p);
       });
     } catch(e) { window._photoCache = {}; }
-    if (typeof renderLeads === 'function') {
-      renderLeads(window._leads); 
-      restoreCrmSearch();
-      updatePipeline(window._leads);
-      calculateWeeklyStats();
-    } else {
-      console.warn('⚠️ renderLeads not loaded yet - crm.js may not be loaded');
-      // Retry after crm.js loads
-      setTimeout(() => {
-        if (typeof renderLeads === 'function') {
-          renderLeads(window._leads);
-          restoreCrmSearch();
-          updatePipeline(window._leads);
-          calculateWeeklyStats();
-        }
-      }, 500);
+    // Wave 120: replace one-shot 500ms retry with a polling loop so
+    // a slow crm.js load doesn't leave the kanban skeleton up forever.
+    // The OUTER loadLeads().then() block at line ~611 also runs a
+    // 30s polling loop; this inner block is the fast path when crm.js
+    // is already there. We coalesce window._leads to [] so a transient
+    // failure that left it undefined doesn't render-throw.
+    function _innerRender() {
+      if (typeof renderLeads !== 'function') return false;
+      const leads = Array.isArray(window._leads) ? window._leads : [];
+      try {
+        renderLeads(leads);
+        if (typeof restoreCrmSearch === 'function') restoreCrmSearch();
+        if (typeof updatePipeline === 'function') updatePipeline(leads);
+        if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
+        return true;
+      } catch (e) {
+        console.warn('[loadLeads] inner render threw:', e.message);
+        return false;
+      }
+    }
+    if (!_innerRender()) {
+      console.warn('⚠️ renderLeads not loaded yet — outer poll loop will pick it up');
+      // The outer loadLeads().then() block runs its own 30s poll loop.
+      // Don't double-poll here — single source of truth for the retry.
     }
     // Fire follow-up notifications after leads are fresh
     setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
