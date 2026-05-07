@@ -38,6 +38,12 @@
 const FLAT_USER_COLLECTIONS = [
   { name: 'leads' },
   { name: 'estimates' },
+  // Wave 144: insurance supplements ride on the same owner-scope
+  // rule shape as estimates. Each supplement carries
+  // { userId, leadId, parentEstimateId, version, ... } and is
+  // saved via EstimateSupplement.saveToFirestore() from the
+  // customer-page +Supplement button.
+  { name: 'supplements' },
   { name: 'photos' },
   { name: 'pins' },
   { name: 'tasks' },
