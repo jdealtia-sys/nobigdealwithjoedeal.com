@@ -166,6 +166,22 @@ if (typeof window.R === 'undefined' || !window.R) {
 }
 
 function startNewEstimate() {
+  // W145: V2 Builder is now the default — every "+ New Estimate"
+  // call site routes here unconditionally instead of the
+  // showEstimateTypeSelector picker. The picker is preserved as
+  // window.showEstimateTypeSelector for the rare case a rep wants
+  // to choose, and Classic stays accessible via the secondary
+  // ghost button on the estimates view (which calls
+  // startNewEstimateOriginal directly). Closes the parallel-engine
+  // drift risk documented in the April 2026 audit by ensuring all
+  // new estimates flow through the consolidated config in
+  // estimate-config.js + estimate-builder-v2.js.
+  if (typeof window.openEstimateV2Builder === 'function') {
+    window.openEstimateV2Builder();
+    return;
+  }
+  // Defense-in-depth fallback: if V2 isn't loaded yet (mid-deploy
+  // SW cache miss), surface the picker so the rep isn't blocked.
   showEstimateTypeSelector();
 }
 
