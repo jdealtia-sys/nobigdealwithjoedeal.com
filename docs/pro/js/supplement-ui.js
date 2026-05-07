@@ -353,6 +353,15 @@
       const id = await window.EstimateSupplement.saveToFirestore(_currentSupplement);
       if (id) {
         _toast('Supplement #' + _currentSupplement.version + ' saved ✓', 'success');
+        // W159 HIGH #5: dispatch nbd:data-refreshed so the customer-
+        // page timeline + kanban score badge + Lead Intelligence
+        // breakdown all pick up the new supplement signal without a
+        // manual reload. Same pattern as quick-capture.js W130.
+        try {
+          window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
+            detail: { source: 'supplement', supplementId: id, leadId: _currentSupplement.leadId }
+          }));
+        } catch (_) {}
         _close();
       } else {
         _toast('Save failed — check console.', 'error');
@@ -434,6 +443,12 @@
     if (typeof MutationObserver === 'function') {
       const obs = new MutationObserver(() => { attachButtons(); });
       obs.observe(document.body, { childList: true, subtree: true });
+      // W159 HIGH #10: disconnect on pagehide so a bfcache restore
+      // doesn't run a stale observer + the new one in parallel.
+      window.addEventListener('pagehide', () => {
+        try { obs.disconnect(); } catch (_) {}
+        try { window.removeEventListener('nbd:data-refreshed', attachButtons); } catch (_) {}
+      }, { once: true });
     }
     // Also re-attach on data refresh events.
     window.addEventListener('nbd:data-refreshed', attachButtons);

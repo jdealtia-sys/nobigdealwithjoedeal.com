@@ -2455,12 +2455,16 @@
 
     // Reverse geocode if no address
     if (!address && opts.lat && opts.lng) {
+      // W159 HIGH #8: same .catch() fix as d2d-tracker.js — see
+      // sister comment there for rationale.
       reverseGeocode(opts.lat, opts.lng).then(addr => {
         if (addr) {
           currentKnockEntry.address = addr;
           const addrInput = document.getElementById('d2d-qk-address');
           if (addrInput) addrInput.value = addr;
         }
+      }).catch(err => {
+        console.warn('[D2D] reverseGeocode failed:', err && err.message || err);
       });
     }
 

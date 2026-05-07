@@ -626,6 +626,25 @@ exports.uploadHomeownerPhoto = onRequest(
       // W134: counter increment moved INTO the W134 reservation
       // transaction above; no longer a second write here.
 
+      // W159 CRITICAL fix: also stamp lastUploadAt + bump
+      // unreadHomeownerUploads on the LEAD doc. Previously the
+      // transaction wrote lastUploadAt to the portal_tokens doc
+      // (which is correct for the token's own audit trail), but
+      // lead-score.js _scoreHot reads lead.lastUploadAt and the
+      // recency scorer reads it too. Without this write, the
+      // "recent-upload" hot signal (+4 pts) NEVER fired and the
+      // recency boost a fresh upload should give was zero. Same
+      // pattern as W123's lead.lastHomeownerMessageAt write.
+      try {
+        await db.doc(`leads/${tok.leadId}`).set({
+          lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
+          unreadHomeownerUploads: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } catch (leadErr) {
+        logger.warn('[uploadHomeownerPhoto] lead doc bump failed', { msg: leadErr.message });
+      }
+
       // Notification to the rep — surfaces in the W48 bell as a
       // high-priority "homeowner uploaded a photo" signal.
       try {
@@ -842,9 +861,18 @@ exports.requestCallback = onRequest(
 
       // Bump the lead's updatedAt so stale-lead bell branches don't
       // fire on a lead that just had a fresh customer signal.
+      // W159 CRITICAL fix: also write lastCallbackAt to the lead
+      // doc. Previously the transaction wrote it only to the
+      // portal_tokens doc — but lead-score.js _scoreHot reads
+      // lead.lastCallbackAt to award the "callback-requested" hot
+      // signal (+5 pts). Without this write the signal was
+      // permanently silent. Same wrong-target bug pattern as
+      // lastUploadAt above.
       try {
         await db.doc(`leads/${tok.leadId}`).set({
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
+          unreadHomeownerCallbacks: admin.firestore.FieldValue.increment(1),
         }, { merge: true });
       } catch (_) { /* non-critical */ }
 

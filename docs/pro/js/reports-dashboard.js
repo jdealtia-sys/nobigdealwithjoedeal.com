@@ -235,6 +235,26 @@
   function _bootstrap() {
     render();
     window.addEventListener('nbd:data-refreshed', render);
+    // W159 HIGH #6: also re-render whenever the rep navigates TO
+    // the Reports view. The original setTimeout(1500/4500) timers
+    // fire while the rep is still on the CRM view; if loadEstimates
+    // hasn't completed by then, the panel renders "no data" and
+    // never refreshes for the rest of the session because the next
+    // nbd:data-refreshed event already fired before the rep
+    // navigated. This hash-listener catches the actual view-change.
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash && window.location.hash.indexOf('reports') !== -1) {
+        // Give loadEstimates a beat to finish if it's still pending.
+        setTimeout(render, 250);
+      }
+    });
+    // W159 HIGH #9: remove the data-refreshed listener on pagehide
+    // so a bfcache restore doesn't accumulate render subscriptions
+    // (each restore previously added another one, causing N×
+    // re-renders on every subsequent data event).
+    window.addEventListener('pagehide', () => {
+      try { window.removeEventListener('nbd:data-refreshed', render); } catch (_) {}
+    }, { once: true });
     setTimeout(render, 1500);
     setTimeout(render, 4500);
   }

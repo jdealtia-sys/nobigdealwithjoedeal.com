@@ -184,9 +184,14 @@
   // Listen for data refreshes from anywhere in the app — leads,
   // tasks, voice captures, portal events all dispatch this event.
   window.addEventListener('nbd:data-refreshed', () => {
-    // Defer slightly so the kanban renderer (which W136 uses to
-    // populate _leadScoreLastSeen) finishes before we read the cache.
-    setTimeout(_check, 200);
+    // W159 HIGH #7: defer 2s to align with W136's debounced
+    // localStorage flush (crm.js _scheduleLeadScorePersist uses a
+    // 1500ms timer). The previous 200ms wait was consistently
+    // shorter than the persist debounce, so _readLastSeen() would
+    // return the PRIOR-render score map, missing the actual
+    // crossing event. Now the read happens after the new score is
+    // persisted to localStorage.
+    setTimeout(_check, 2000);
   });
 
   // Also run a delayed initial check so a homeowner action that

@@ -98,7 +98,20 @@
     document.addEventListener('keydown', _check, true);
     window.addEventListener('focus', _check);
     // Periodic safety check — covers any modal toggle path I missed.
-    setInterval(_check, 1500);
+    // W159 CRITICAL fix: track the interval id + disconnect the
+    // MutationObserver on pagehide so a bfcache restore doesn't
+    // accumulate intervals. Previously every page navigation
+    // started a new interval without clearing the old one — on
+    // bfcache restore, two intervals ran in parallel checking a
+    // potentially stale DOM state. If a modal had been open when
+    // the user left, the stale interval's _check evaluated against
+    // the now-detached DOM and could leave the FAB stack
+    // permanently hidden.
+    const intervalId = setInterval(_check, 1500);
+    window.addEventListener('pagehide', () => {
+      try { clearInterval(intervalId); } catch (_) {}
+      try { obs.disconnect(); } catch (_) {}
+    }, { once: true });
   }
 
   if (document.readyState === 'loading') {

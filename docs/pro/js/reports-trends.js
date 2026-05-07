@@ -264,6 +264,18 @@
   function _bootstrap() {
     render();
     window.addEventListener('nbd:data-refreshed', render);
+    // W159 HIGH #6: re-render on hashchange when navigating to
+    // Reports. Same fix as reports-dashboard.js — see comment there.
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash && window.location.hash.indexOf('reports') !== -1) {
+        setTimeout(render, 250);
+      }
+    });
+    // W159 HIGH #9: pagehide cleanup so bfcache restore doesn't
+    // accumulate listeners.
+    window.addEventListener('pagehide', () => {
+      try { window.removeEventListener('nbd:data-refreshed', render); } catch (_) {}
+    }, { once: true });
     setTimeout(render, 1500);
     setTimeout(render, 4500);
   }

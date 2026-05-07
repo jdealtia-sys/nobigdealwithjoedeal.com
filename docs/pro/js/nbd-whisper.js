@@ -232,8 +232,14 @@
       // Fallback to the W128 chained path if `dictate` callable is
       // unavailable. Lets the FAB keep working through a deploy
       // window where the new function isn't deployed yet.
+      // W159 CRITICAL fix: `return await` so a rejection from the
+      // fallback propagates back through the outer await in
+      // _processBlob's try/catch. Previously `return _dictateFallback(...)`
+      // returned the unawaited promise, detaching its rejection from
+      // the caller's catch — voice would silently hang with the
+      // "Transcribing…" toast stuck and the FAB in idle state.
       console.warn('[NBDWhisper] dictate callable failed, falling back:', e.message);
-      return _dictateFallback(blob, opts);
+      return await _dictateFallback(blob, opts);
     }
   }
 
