@@ -1776,3 +1776,188 @@ decisions.
   then we resume the arc. The wave-numbering integrity (every PR
   numbered chronologically in commit/PR titles) makes the audit
   trail clean even when arcs interleave.
+
+
+# Twelfth push — Waves 142-148 (Estimate v2 finish arc + address autofill)
+
+This push closed the Estimate v2 finish arc — the sequel to the
+August "Rock 2" config-unification work. An agent audit of the V2
+modal surfaced four major gaps blocking the rep workflow: dead
+customer/claim inputs, hardcoded tier + county, dormant supplement
+engine with no UI, and Classic still defaulted as the primary
+builder despite V2 having near-feature-parity. The arc closes all
+of them and adds the customer-engagement loop the BoldSign-only
+viewedAt path was missing.
+
+## Estimate v2 finish — six waves
+
+- **W142 — Customer/Claim/Tier/County inputs** (PR #268). The
+  unblock wave. The V2 builder's `state.customer.{name, email,
+  phone, address}` could only be populated via prefillFromLead;
+  `syncCustomerInputs()` referenced DOM IDs that didn't exist in
+  the modal HTML — the function was a no-op. "Send for Signature"
+  gated on customer.name + .email being non-empty, so signing
+  failed for every standalone estimate. `state.tier` was hardcoded
+  to 'better' with no UI control; `state.county` was hardcoded to
+  'hamilton-oh' with wrong permit cost + tax for any non-Hamilton
+  job. W142 added the four input groups (Tier button row, County
+  dropdown, Customer section, Insurance Claim section) plus the
+  `set-tier` action handler and `data-customer` / `data-claim` /
+  `data-state` branches in the existing input delegator. From this
+  wave on, every standalone estimate produces a valid PDF and
+  Send-for-Signature works.
+
+- **W143 — Per-SQ mode add-on controls** (PR #269). Surfaces 4 fields
+  the per-SQ engine has supported all along but the UI never exposed:
+  Chimney Flashing (+$425), Skylight Flashing (+$350), Valley Metal
+  LF ($8.50/LF), Gutters LF ($8.50/LF). Without this wave, a rep
+  building a per-SQ retail quote couldn't enable chimney flashing at
+  all. New 'Add-Ons' section in the left pane with two checkboxes +
+  two number inputs. `updateMeasurement` now treats hasChimneyFlash
+  + hasSkylightFlash as bool fields. perSqInput in finalize() passes
+  all four fields through to calculateAllTiers so retail-quote tier
+  comparison includes them.
+
+- **W144 — Supplement UI entry point** (PR #270). The dormant-engine
+  unlock. estimate-supplement.js was a 632-line Firestore-ready
+  module: createSupplement, addItem, addFromCatalog,
+  modifyItemQuantity, attachPhoto, calculateDelta,
+  formatSupplementLetter, saveToFirestore, loadForEstimate. With one
+  gap: no UI button anywhere called any of it. supplement-ui.js
+  ships the missing wrapper — auto-attaches a "+ Supplement" button
+  to every customer-page estimate row via MutationObserver, opens a
+  full-screen modal with reason input + catalog search + live delta
+  + Preview Letter (NBDDocViewer) + Save. New /supplements/{id}
+  Firestore rule (admin-SDK-only writes) was missing — every prior
+  saveToFirestore call had silently 403'd. Added 'supplements' to
+  FLAT_USER_COLLECTIONS in functions/integrations/user-owned.js so
+  the registry-coverage smoke test passes.
+
+- **W145 — V2 → primary, Classic demoted, BETA badge dropped**
+  (PR #271). Closes the parallel-engine drift risk documented in
+  the April 2026 estimate-engines audit. dashboard.html estimates
+  view now renders ONE primary "+ New Estimate" button (orange)
+  calling openEstimateV2Builder, plus a small ghost "Classic" link
+  for the rare rep who specifically wants the legacy 4-step path.
+  startNewEstimate() in estimates.js now calls
+  window.openEstimateV2Builder() directly instead of
+  showEstimateTypeSelector. All four "+ New Estimate" buttons
+  elsewhere in dashboard.html (home view, empty-state, etc) inherit
+  this routing automatically. V2 reads from estimate-config.js, so
+  every new estimate now flows through the consolidated config —
+  drift surface is gone for the default path.
+
+- **W146 — Customer engagement: viewedAt write + view-link**
+  (PR #272). The missing engagement loop. Wave 91 shipped the
+  engagement-tier signal that reads viewedAt from estimates;
+  W57+W58 shipped the almost-there-widget that ranks leads by
+  viewedAt freshness. But the V2 builder had NO way to write
+  viewedAt — only the BoldSign signature flow set it. Reps shipping
+  V2 estimates without BoldSign saw the engagement signal stay
+  silent forever. W146 closes the loop with a lightweight preview
+  path: new getEstimateForView Cloud Function (token-authed via
+  existing portal_tokens, cross-tenant guarded) stamps viewedAt /
+  lastViewedAt / viewCount and drops a 'estimate_viewed' activity
+  log entry on the lead; new docs/pro/estimate-view.html standalone
+  viewer renders the redacted estimate; new "🔗 Share view link"
+  button on customer-page estimate rows mints (or reuses) a portal
+  token + copies the URL via Web Share API → clipboard → prompt
+  fallback. Combined with W135 lead intel + W139 hot-lead alert,
+  a homeowner viewing an estimate now bumps the lead score and
+  fires the threshold-crossing toast if the cumulative signal pushes
+  the lead over 80.
+
+- **W147 — Estimate analytics summary band** (PR #273). Reads the
+  data already in Firestore (tier, status, grandTotal, sentAt,
+  viewedAt, signedAt) and renders a compact stat band at the top
+  of the Estimates view: total + status breakdown, close rate, avg
+  ticket per signed estimate, view→sign conversion, median time-
+  to-sign, signed tier mix (proportional bar), and top-3 signed
+  leaderboard. No schema changes. Module:
+  docs/pro/js/estimate-analytics.js. Auto-refreshes on every
+  nbd:data-refreshed event so a fresh loadEstimates or W146 view
+  bump reflects without reload.
+
+- **W148 — Estimate v2 finish arc bookend** (this entry).
+
+## P0 mid-arc
+
+- **W141 — Address autofill USPS mailing format** (PR #264, shipped
+  during the eleventh push but logically belongs here). User flagged
+  that addresses came back as "1054, Klondyke Road, Goshen" instead
+  of "1054 Klondyke Rd, Goshen, OH 45122". Root cause: selectAcItem
+  was splitting Nominatim's display_name on commas instead of using
+  the structured addressdetails response. Fix: formatMailingAddress()
+  helper using house_number + suffix-abbreviated road + city +
+  ISO3166-2-lvl4 state code + postcode. Exported as
+  window.formatMailingAddress so estimates, contracts, BoldSign
+  envelopes can use the same formatter.
+
+## Architecture notes for the twelfth push
+
+- **The audit-then-ship pattern.** Before opening the Estimate v2
+  arc I dispatched a code-explorer agent against the existing V2
+  modal + supplement engine + estimate-finalization to produce a
+  punch list. The agent surfaced the dead syncCustomerInputs IDs
+  and the dormant supplement engine — both subtle issues a generic
+  "build estimate v2" plan would have missed. Pattern: when picking
+  up an arc that has prior work, spend one agent call mapping
+  what's actually built first. Cheaper than discovering the gaps
+  one wave at a time.
+
+- **Engine-first → UI-second pays off here.** estimate-supplement.js
+  was a complete engine with no UI for months. W144 was a single
+  UI wave that turned it from dead code into a real feature. Same
+  pattern applied to W146: the viewedAt FIELD existed in Firestore
+  and the read paths (W91 tier, W57 widget, W135 lead score) all
+  knew how to consume it. The write path was the only gap. One
+  Cloud Function + one HTML page + one button activated the entire
+  read pipeline retroactively. Pattern: when the data model is
+  already shaped right, the wave that connects the missing edge
+  unlocks features across the system at once.
+
+- **TOCTOU-safe reservation → I/O pattern, applied four times in
+  the arc.** W134 introduced the pattern (db.runTransaction
+  reserves a quota slot inside the transaction, slow I/O happens
+  outside). W144's saveToFirestore used the same pattern via the
+  existing saveToFirestore helper. W146's getEstimateForView
+  doesn't have a daily quota but does have the cross-tenant guard
+  (estimate.leadId === token.leadId) inside the read path. Pattern:
+  every endpoint that touches multiple docs gets the reservation-
+  then-side-effect shape so racy concurrent calls can't violate
+  invariants.
+
+- **Defense-in-depth fallbacks for engine availability** — applied
+  again in W145's startNewEstimate. If openEstimateV2Builder isn't
+  loaded yet (mid-deploy SW cache miss), fall back to the
+  showEstimateTypeSelector picker so reps aren't blocked. Same
+  pattern as W129's chained-fallback in nbd-whisper.js, W136's
+  defensive guard around NBDLeadScore, W138's sort fallback when
+  the score engine isn't present. Critical for SaaS where deploys
+  aren't atomic across all clients.
+
+- **Read-the-data analytics is cheaper than write-new-data
+  analytics.** W147's stat band reads from window._estimates +
+  the existing schema fields. No new Firestore writes, no new
+  collection, no migration. Total wave cost: ~190 lines of
+  client-side compute + render. The data was always there;
+  we just hadn't surfaced it. Pattern for future analytics waves:
+  check what's already in the docs before designing a metrics
+  pipeline.
+
+- **The customer-engagement loop is the highest-leverage feature
+  of the arc.** W146 (viewedAt write) is logically small but it
+  flips W91 + W57 + W58 + W135 + W139 from "silent for V2 estimates"
+  to "fully functional." Five surfaces became more useful from one
+  edge fix. The compounding effect of feeding existing pipelines is
+  often higher ROI than building new ones.
+
+- **The +Supplement, 🔗 Share, +Tasks pattern.** Three buttons on
+  every customer-page estimate row — supplements (W144), share
+  view link (W146), warranty cert (existing). Each is a one-tap
+  jump into a focused workflow. The customer page is becoming the
+  hub for everything that happens to a lead, with the rep
+  navigating outward to specific tools rather than back-and-forth
+  through global menus. Aligns with the W128/W130/W132 voice FAB
+  stack pattern: most-frequent-action lowest, less-frequent
+  outward — one tap from any context.
