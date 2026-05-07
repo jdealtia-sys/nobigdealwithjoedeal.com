@@ -932,7 +932,13 @@
           thanksEl.style.display = 'block';
           if (json.tier === 'high') {
             // 4-5 stars → nudge to Google review.
-            const reviewUrl = json.googleReviewUrl;
+            // W134 defense-in-depth: validate URL scheme on the client too.
+            // Server-side `submitCustomerRating` already enforces https?://,
+            // but a defensive check here means any future server bug or
+            // direct-invocation can't pivot to a `javascript:` href.
+            const _rawUrl = json.googleReviewUrl;
+            const reviewUrl = (typeof _rawUrl === 'string'
+              && /^https?:\/\//i.test(_rawUrl.trim())) ? _rawUrl.trim() : null;
             thanksEl.innerHTML =
               '<div style="font-size:15px;font-weight:600;color:#5eead4;margin-bottom:8px;">🎉 Thank you!</div>' +
               '<div style="color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:' + (reviewUrl ? '12px' : '0') + ';">' +

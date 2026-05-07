@@ -656,17 +656,26 @@
       }
       // First attempt fires synchronously after loadLeads resolves.
       if (_attemptRender()) return;
-      // Poll loop — 250ms × 120 ticks = 30s window.
+      // W134 fix: track the poll handle on window so a second
+      // loadLeads call (e.g. visibilitychange or auth re-fire) can
+      // clearInterval it instead of double-running the poll. Same
+      // class of bug as the W120 _loadLeadsRetryTimer fix, but for
+      // the 30s render-retry interval.
+      if (window._renderRetryHandle) {
+        try { clearInterval(window._renderRetryHandle); } catch (_) {}
+      }
       let _ticks = 0;
       const _MAX_TICKS = 120;
-      const _retryHandle = setInterval(() => {
+      window._renderRetryHandle = setInterval(() => {
         _ticks++;
         if (_attemptRender()) {
-          clearInterval(_retryHandle);
+          clearInterval(window._renderRetryHandle);
+          window._renderRetryHandle = null;
           return;
         }
         if (_ticks >= _MAX_TICKS) {
-          clearInterval(_retryHandle);
+          clearInterval(window._renderRetryHandle);
+          window._renderRetryHandle = null;
           console.error('[render-retry] renderLeads never became available after 30s');
           _renderFallback();
         }
@@ -1089,6 +1098,15 @@
     if (window._loadLeadsRetryTimer) {
       try { clearTimeout(window._loadLeadsRetryTimer); } catch (_) {}
       window._loadLeadsRetryTimer = null;
+    }
+    // Wave 134: same cleanup for the W120 30s render-retry interval —
+    // a stale poll from a prior loadLeads call could call renderLeads
+    // mid-fresh-load and stomp on the new data with old leads. The
+    // .then() block below installs a fresh _renderRetryHandle on
+    // every call; clearing here ensures only one is ever live.
+    if (window._renderRetryHandle) {
+      try { clearInterval(window._renderRetryHandle); } catch (_) {}
+      window._renderRetryHandle = null;
     }
     // Update health indicator to loading
     const healthBadge = document.getElementById('crmHealthBadge');

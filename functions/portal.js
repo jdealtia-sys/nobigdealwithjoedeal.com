@@ -440,7 +440,14 @@ exports.getHomeownerPortalView = onRequest(
         canRate: progressKey === 'complete',
         submitted: typeof lead.customerRating === 'number' && lead.customerRating > 0,
         stars: typeof lead.customerRating === 'number' ? lead.customerRating : null,
-        googleReviewUrl: rep.googleReviewUrl || null,
+        // W134 CRITICAL fix: enforce https?:// scheme so a rep with a
+        // misconfigured (or malicious) googleReviewUrl can't inject a
+        // javascript: URL into the portal's <a href>. esc() in the
+        // portal HTML doesn't strip schemes — only escapes characters.
+        googleReviewUrl: (typeof rep.googleReviewUrl === 'string'
+          && /^https?:\/\//i.test(rep.googleReviewUrl.trim()))
+          ? rep.googleReviewUrl.trim().slice(0, 500)
+          : null,
       },
     };
 
@@ -505,6 +512,14 @@ exports.uploadHomeownerPhoto = onRequest(
       res.status(400).json({ error: 'dataUrl required' });
       return;
     }
+    // W134 hardening: pre-check the literal `;base64,` separator before
+    // running the greedy regex. Without this, a multi-megabyte string
+    // missing the separator would force the regex engine to backtrack
+    // across the whole payload (potential ReDoS vector).
+    if (!dataUrl.includes(';base64,')) {
+      res.status(400).json({ error: 'Invalid image format. Use JPEG/PNG/WebP.' });
+      return;
+    }
     // Parse the data URL: expect data:image/jpeg;base64,XXXX
     const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
     if (!m) {
@@ -513,7 +528,8 @@ exports.uploadHomeownerPhoto = onRequest(
     }
     const mimeType = m[1];
     const b64 = m[2];
-    // 8MB hard cap on the encoded payload (~6MB binary).
+    // 8MB hard cap on the base64 string. Decoded binary will be ~6MB
+    // (base64 inflates 3:4) which is the actual storage byte count.
     if (b64.length > 8 * 1024 * 1024) {
       res.status(413).json({ error: 'Photo too large. Max 8MB.' });
       return;
@@ -522,23 +538,50 @@ exports.uploadHomeownerPhoto = onRequest(
 
     const db = admin.firestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
-    const tokSnap = await tokRef.get();
-    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
-    const tok = tokSnap.data();
-    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This link has expired.' });
-      return;
-    }
 
-    // Per-token daily quota (10 photos / 24h). Stored on the token
-    // doc itself as a small counter — no extra collection needed.
+    // W134 CRITICAL fix: TOCTOU race. Previously we read the token,
+    // checked `todayUploads >= 10` outside any transaction, then did
+    // the slow Storage upload, then incremented. Two concurrent
+    // requests with the same token at todayUploads=9 both passed the
+    // check, both uploaded, and both incremented — total uploads = 11
+    // instead of 10. With 20 concurrent requests, all 20 slipped
+    // through. Now we atomically reserve the quota slot inside a
+    // Firestore transaction, then do the I/O outside. If I/O fails
+    // after the slot is reserved, the user is short one slot for the
+    // day — acceptable trade-off for actual quota enforcement.
     const todayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
     const uploadsField = `uploadsByDay.${todayKey}`;
-    const todayUploads = (tok.uploadsByDay && tok.uploadsByDay[todayKey]) || 0;
-    if (todayUploads >= 10) {
-      res.status(429).json({ error: 'Daily upload limit reached (10). Try again tomorrow.' });
+    let reservation;
+    try {
+      reservation = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(tokRef);
+        if (!snap.exists) {
+          const e = new Error('not-found'); e._http = 404; e._msg = 'Invalid link'; throw e;
+        }
+        const data = snap.data();
+        if (data.expiresAt && data.expiresAt.toMillis && data.expiresAt.toMillis() < Date.now()) {
+          const e = new Error('expired'); e._http = 410; e._msg = 'This link has expired.'; throw e;
+        }
+        const cur = (data.uploadsByDay && data.uploadsByDay[todayKey]) || 0;
+        if (cur >= 10) {
+          const e = new Error('quota'); e._http = 429; e._msg = 'Daily upload limit reached (10). Try again tomorrow.'; throw e;
+        }
+        tx.update(tokRef, {
+          [uploadsField]: admin.firestore.FieldValue.increment(1),
+          lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
+      });
+    } catch (err) {
+      if (err && err._http) {
+        res.status(err._http).json({ error: err._msg });
+        return;
+      }
+      logger.error('[uploadHomeownerPhoto] reservation failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not start upload. Try again.' });
       return;
     }
+    const tok = reservation;
 
     try {
       // Storage upload
@@ -548,13 +591,21 @@ exports.uploadHomeownerPhoto = onRequest(
       const path = `homeowner-uploads/${tok.ownerUid}/${tok.leadId}/${ts}.${ext}`;
       const file = admin.storage().bucket().file(path);
       await file.save(buffer, { contentType: mimeType, resumable: false });
-      // Make the file readable by the rep via signed URL or via
-      // Storage rules (rep reads their own homeowner-uploads). For
-      // simplicity here we use a long-lived signed URL — the rep's
-      // dashboard fetches it directly without auth handshake.
+      // W134 hardening: shorter signed-URL expiry. Previously
+      // '03-09-2491' (~466 years) made every uploaded photo
+      // effectively permanent — even after the photo doc was deleted
+      // from Firestore, the Storage URL stayed accessible. Now 7 days,
+      // which is the per-request max; the rep's dashboard re-signs on
+      // demand via the existing `signImageUrl` function (M2 hardened
+      // path). For now we still bake a signed URL into the photo doc
+      // so the existing rep gallery query keeps working without code
+      // changes — but with a 7-day TTL the photos auto-expire from
+      // public access, and a future wave will move all rep gallery
+      // reads through `signImageUrl` on demand.
+      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
       const [url] = await file.getSignedUrl({
         action: 'read',
-        expires: '03-09-2491', // far future — practically permanent
+        expires: expiresAt,
       });
 
       // Photo doc — rep owns it (userId = ownerUid) so the existing
@@ -572,11 +623,8 @@ exports.uploadHomeownerPhoto = onRequest(
         sharedWithHomeowner: true, // visible back to them in the gallery
       });
 
-      // Bump token counter atomically.
-      await tokRef.update({
-        [uploadsField]: admin.firestore.FieldValue.increment(1),
-        lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // W134: counter increment moved INTO the W134 reservation
+      // transaction above; no longer a second write here.
 
       // Notification to the rep — surfaces in the W48 bell as a
       // high-priority "homeowner uploaded a photo" signal.
@@ -600,7 +648,7 @@ exports.uploadHomeownerPhoto = onRequest(
         ok: true,
         photoId: photoRef.id,
         url,
-        remainingToday: 10 - (todayUploads + 1),
+        remainingToday: 10 - (tok.todayCount + 1),
       });
     } catch (err) {
       logger.error('[uploadHomeownerPhoto] failed', { msg: err.message });
@@ -666,21 +714,40 @@ exports.requestCallback = onRequest(
 
     const db = admin.firestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
-    const tokSnap = await tokRef.get();
-    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
-    const tok = tokSnap.data();
-    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This link has expired.' });
-      return;
-    }
 
-    // Per-token daily quota — small cap so a confused homeowner
-    // doesn't accidentally spam 30 requests in one tap-fest.
+    // W134 CRITICAL fix: TOCTOU race on per-token daily quota — same
+    // pattern as uploadHomeownerPhoto. Atomically reserve the slot
+    // inside a transaction; if reservation succeeds, do the writes.
     const todayKey = new Date().toISOString().slice(0, 10);
     const callbacksField = `callbacksByDay.${todayKey}`;
-    const todayCount = (tok.callbacksByDay && tok.callbacksByDay[todayKey]) || 0;
-    if (todayCount >= 3) {
-      res.status(429).json({ error: 'You\'ve sent a few requests already today — your rep will be in touch.' });
+    let tok;
+    try {
+      tok = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(tokRef);
+        if (!snap.exists) {
+          const e = new Error('not-found'); e._http = 404; e._msg = 'Invalid link'; throw e;
+        }
+        const data = snap.data();
+        if (data.expiresAt && data.expiresAt.toMillis && data.expiresAt.toMillis() < Date.now()) {
+          const e = new Error('expired'); e._http = 410; e._msg = 'This link has expired.'; throw e;
+        }
+        const cur = (data.callbacksByDay && data.callbacksByDay[todayKey]) || 0;
+        if (cur >= 3) {
+          const e = new Error('quota'); e._http = 429; e._msg = 'You\'ve sent a few requests already today — your rep will be in touch.'; throw e;
+        }
+        tx.update(tokRef, {
+          [callbacksField]: admin.firestore.FieldValue.increment(1),
+          lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
+      });
+    } catch (err) {
+      if (err && err._http) {
+        res.status(err._http).json({ error: err._msg });
+        return;
+      }
+      logger.error('[requestCallback] reservation failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save request. Try again.' });
       return;
     }
 
@@ -781,11 +848,8 @@ exports.requestCallback = onRequest(
         }, { merge: true });
       } catch (_) { /* non-critical */ }
 
-      // Bump token counter atomically.
-      await tokRef.update({
-        [callbacksField]: admin.firestore.FieldValue.increment(1),
-        lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // W134: counter increment moved INTO the W134 reservation
+      // transaction above; no longer a second write here.
 
       // Server-side notification doc (future bell-stream wiring).
       try {
@@ -809,7 +873,7 @@ exports.requestCallback = onRequest(
         taskId: taskRef.id,
         dueDate,
         slotLabel: label,
-        remainingToday: 3 - (todayCount + 1),
+        remainingToday: 3 - (tok.todayCount + 1),
       });
     } catch (err) {
       logger.error('[requestCallback] failed', { msg: err.message });
@@ -886,26 +950,40 @@ exports.submitCustomerRating = onRequest(
     }
 
     const leadRef = db.doc(`leads/${tok.leadId}`);
-    const leadSnap = await leadRef.get();
-    if (!leadSnap.exists) { res.status(404).json({ error: 'Lead not found' }); return; }
-    const lead = leadSnap.data();
 
-    // Write-once: a rating is permanent. The portal client should
-    // never let this through, but server is authoritative.
-    if (typeof lead.customerRating === 'number' && lead.customerRating > 0) {
-      res.status(409).json({ error: 'You\'ve already rated this job. Thank you!' });
+    // W134 fix: write-once atomicity. The previous read-then-update
+    // was racy — two concurrent submissions could both pass the
+    // `customerRating > 0` check and both write. Now we atomically
+    // verify the lead exists, that customerRating is unset, and then
+    // stamp it inside a single transaction.
+    try {
+      await db.runTransaction(async (tx) => {
+        const leadSnap = await tx.get(leadRef);
+        if (!leadSnap.exists) {
+          const e = new Error('not-found'); e._http = 404; e._msg = 'Lead not found'; throw e;
+        }
+        const lead = leadSnap.data();
+        if (typeof lead.customerRating === 'number' && lead.customerRating > 0) {
+          const e = new Error('already-rated'); e._http = 409; e._msg = 'You\'ve already rated this job. Thank you!'; throw e;
+        }
+        tx.update(leadRef, {
+          customerRating: starsNum,
+          customerRatingComment: safeComment || null,
+          customerRatingAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      if (err && err._http) {
+        res.status(err._http).json({ error: err._msg });
+        return;
+      }
+      logger.error('[submitCustomerRating] write-once transaction failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save rating. Try again.' });
       return;
     }
 
     try {
-      // Stamp the lead with the rating.
-      await leadRef.update({
-        customerRating: starsNum,
-        customerRatingComment: safeComment || null,
-        customerRatingAt: admin.firestore.FieldValue.serverTimestamp(),
-        // Keep updatedAt fresh so stale-lead bell signals don't fire.
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
 
       // Activity log for the customer page timeline.
       try {
@@ -966,12 +1044,20 @@ exports.submitCustomerRating = onRequest(
       // For 4-5 star raters, return the Google review URL so the
       // portal can nudge them to leave a public review. Resolve
       // from the rep's user doc — same field surfaced in the view.
+      // W134 CRITICAL fix: enforce https:// scheme. Previously a rep
+      // who set googleReviewUrl to `javascript:alert(...)` would have
+      // that value flow into the portal's <a href> via esc() (which
+      // only HTML-escapes — does NOT strip dangerous schemes). XSS
+      // pivot. The whitelist below ensures only http(s) URLs survive.
       let googleReviewUrl = null;
       if (starsNum >= 4) {
         try {
           const repSnap = await db.doc(`users/${tok.ownerUid}`).get();
           if (repSnap.exists) {
-            googleReviewUrl = repSnap.data().googleReviewUrl || null;
+            const raw = repSnap.data().googleReviewUrl;
+            if (typeof raw === 'string' && /^https?:\/\//i.test(raw.trim())) {
+              googleReviewUrl = raw.trim().slice(0, 500); // also bound length
+            }
           }
         } catch (_) { /* non-critical */ }
       }
@@ -1037,20 +1123,40 @@ exports.sendPortalMessage = onRequest(
 
     const db = admin.firestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
-    const tokSnap = await tokRef.get();
-    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
-    const tok = tokSnap.data();
-    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This link has expired.' });
-      return;
-    }
 
-    // Per-token daily quota.
+    // W134 CRITICAL fix: TOCTOU race on per-token daily quota — same
+    // pattern as uploadHomeownerPhoto + requestCallback. Atomically
+    // reserve the slot inside a transaction.
     const todayKey = new Date().toISOString().slice(0, 10);
     const msgsField = `messagesByDay.${todayKey}`;
-    const todayCount = (tok.messagesByDay && tok.messagesByDay[todayKey]) || 0;
-    if (todayCount >= 30) {
-      res.status(429).json({ error: 'Daily message limit reached (30). Try again tomorrow or call your rep directly.' });
+    let tok;
+    try {
+      tok = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(tokRef);
+        if (!snap.exists) {
+          const e = new Error('not-found'); e._http = 404; e._msg = 'Invalid link'; throw e;
+        }
+        const data = snap.data();
+        if (data.expiresAt && data.expiresAt.toMillis && data.expiresAt.toMillis() < Date.now()) {
+          const e = new Error('expired'); e._http = 410; e._msg = 'This link has expired.'; throw e;
+        }
+        const cur = (data.messagesByDay && data.messagesByDay[todayKey]) || 0;
+        if (cur >= 30) {
+          const e = new Error('quota'); e._http = 429; e._msg = 'Daily message limit reached (30). Try again tomorrow or call your rep directly.'; throw e;
+        }
+        tx.update(tokRef, {
+          [msgsField]: admin.firestore.FieldValue.increment(1),
+          lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
+      });
+    } catch (err) {
+      if (err && err._http) {
+        res.status(err._http).json({ error: err._msg });
+        return;
+      }
+      logger.error('[sendPortalMessage] reservation failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not send message. Try again.' });
       return;
     }
 
@@ -1090,11 +1196,8 @@ exports.sendPortalMessage = onRequest(
         }, { merge: true });
       } catch (_) { /* non-critical */ }
 
-      // Bump token counter.
-      await tokRef.update({
-        [msgsField]: admin.firestore.FieldValue.increment(1),
-        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // W134: counter increment moved INTO the W134 reservation
+      // transaction above; no longer a second write here.
 
       // Server-side notification doc.
       try {
@@ -1114,7 +1217,7 @@ exports.sendPortalMessage = onRequest(
       res.status(200).json({
         ok: true,
         messageId: msgRef.id,
-        remainingToday: 30 - (todayCount + 1),
+        remainingToday: 30 - (tok.todayCount + 1),
       });
     } catch (err) {
       logger.error('[sendPortalMessage] failed', { msg: err.message });
