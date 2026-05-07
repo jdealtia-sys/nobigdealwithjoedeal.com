@@ -69,8 +69,18 @@
   by injecting window.__NBD_APP_CHECK_KEY earlier. Keep it in sync
   across dashboard.html, customer.html, and any other page that
   talks to the Firebase SDK.
+
+  W159 P2: TEMPORARILY DISABLED to test the App-Check-blocks-mobile
+  hypothesis. Every mobile device shows yellow "Loading..." health
+  badge, 0 leads. Suspect ReCAPTCHA Enterprise token issuance hangs
+  or fails on mobile (iOS Safari ITP, Android battery throttling,
+  reCAPTCHA mobile bot scoring), which blocks every Firebase SDK
+  call waiting for an attestation token. Both nbd-auth.js (line 254)
+  and dashboard.html (line 344) skip initializeAppCheck when the key
+  is empty, so clearing it bypasses the gate cleanly. Restore by
+  pasting the original key back: "6LcuaMosAAAAAIaR0UKNVKdg2N_h2zFUj63gQKQE"
 -->
-<script>window.__NBD_APP_CHECK_KEY = "6LcuaMosAAAAAIaR0UKNVKdg2N_h2zFUj63gQKQE";</script>
+<script>window.__NBD_APP_CHECK_KEY = "";</script>
 <!--
   Sentry (client-side): DSN now lives in js/sentry-config.js so login,
   register, customer, and any other pro page can share the same
