@@ -2870,6 +2870,12 @@ window.promoteProspect = async function(leadId) {
 };
 
 // Expose CRM functions to window for onclick handlers
+// renderLeads + updatePipeline are also called bare from the
+// dashboard.html <script type="module"> watchdog; explicit
+// window assignment makes the cross-context lookup unambiguous
+// instead of relying on classic-script auto-attach.
+window.renderLeads = renderLeads;
+window.updatePipeline = updatePipeline;
 window.openLeadModal = openLeadModal;
 window.closeLeadModal = closeLeadModal;
 window.saveLead = saveLead;

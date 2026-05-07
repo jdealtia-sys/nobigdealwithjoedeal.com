@@ -44,7 +44,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=29" as="script">
+<link rel="preload" href="js/crm.js?v=30" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -630,6 +630,18 @@
       //      instead of leaving the user on a forever-skeleton.
       function _attemptRender() {
         if (typeof renderLeads !== 'function') return false;
+        // If the kanban container has no stage columns, rebuild them
+        // before rendering — otherwise renderLeads has no `#kbody-{key}`
+        // targets and silently produces an empty board (the symptom
+        // observed in the W158 "blank kanban" report). buildKanbanColumns
+        // can no-op if it ran earlier and was wiped, or if the auth-time
+        // call at line ~609 raced the DOM.
+        const _board = document.getElementById('kanbanBoard');
+        if (_board && !_board.querySelector('.kanban-col') &&
+            typeof window.buildKanbanColumns === 'function') {
+          try { window.buildKanbanColumns(window._currentViewKey || 'insurance'); }
+          catch (e) { console.warn('[render-retry] buildKanbanColumns threw:', e.message); }
+        }
         // window._leads may be undefined if loadLeads catch-path never
         // assigned it; coalesce to [] so renderLeads never throws.
         const leads = Array.isArray(window._leads) ? window._leads : [];
@@ -1299,6 +1311,15 @@
     // failure that left it undefined doesn't render-throw.
     function _innerRender() {
       if (typeof renderLeads !== 'function') return false;
+      // Same kanban-column rebuild guard as the outer _attemptRender —
+      // see the W158 comment there. Without this the fast-path render
+      // can paint into a board that has no columns.
+      const _board = document.getElementById('kanbanBoard');
+      if (_board && !_board.querySelector('.kanban-col') &&
+          typeof window.buildKanbanColumns === 'function') {
+        try { window.buildKanbanColumns(window._currentViewKey || 'insurance'); }
+        catch (e) { console.warn('[loadLeads] buildKanbanColumns threw:', e.message); }
+      }
       const leads = Array.isArray(window._leads) ? window._leads : [];
       try {
         renderLeads(leads);
@@ -17645,7 +17666,7 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
      doc-viewer must come BEFORE crm/widgets since those
      reference NBDBilling and NBDDocGen at call-time. -->
 <script defer src="js/claude-proxy.js?v=3"></script>
-<script defer src="js/crm.js?v=29"></script>
+<script defer src="js/crm.js?v=30"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
