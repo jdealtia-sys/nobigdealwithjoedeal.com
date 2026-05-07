@@ -95,8 +95,13 @@
     if (document.getElementById(MODAL_ID)) return;
     const modal = _buildModal();
     document.body.appendChild(modal);
-    // ESC closes (when not recording — guard against accidental loss)
     document.addEventListener('keydown', _escHandler);
+    // W134 fix: if the page navigates away while the modal is open
+    // (mobile gesture, browser back button, link click, etc.), the
+    // keydown listener used to leak — close() was the only path that
+    // removed it. pagehide guarantees cleanup regardless of how the
+    // page goes away. {once:true} so it self-removes after firing.
+    window.addEventListener('pagehide', close, { once: true });
   }
 
   function close() {
@@ -105,12 +110,19 @@
     const modal = document.getElementById(MODAL_ID);
     if (modal) modal.remove();
     document.removeEventListener('keydown', _escHandler);
+    window.removeEventListener('pagehide', close);
     _currentResult = null;
     _isProcessing = false;
   }
 
+  // W134 HIGH fix: previously gated on `!_isRecording` — meaning if
+  // _stopRecorder() silently failed mid-recording, the user was
+  // permanently locked in the modal: the close button is disabled
+  // during recording AND the ESC key was blocked. Now ESC always
+  // closes; close() itself calls _stopRecorder() if needed before
+  // tearing down the modal. Same escape guarantee as nbd-whisper.js.
   function _escHandler(e) {
-    if (e.key === 'Escape' && !_isRecording) close();
+    if (e.key === 'Escape') close();
   }
 
   function _buildModal() {

@@ -227,7 +227,15 @@ exports.dictate = onCall(
     const mimeType = typeof request.data?.mimeType === 'string'
       ? request.data.mimeType : 'audio/webm';
     const mode = ALLOWED_MODES.has(request.data?.mode) ? request.data.mode : 'clean';
-    const todayLocal = typeof request.data?.todayLocal === 'string'
+    // W134 fix: validate todayLocal as YYYY-MM-DD before letting it
+    // anywhere near the Claude system prompt. Previously the value
+    // was concatenated directly into the prompt text — a malicious
+    // (or buggy) caller could smuggle prompt-injection text via the
+    // todayLocal field. Strict regex match: 10 chars exactly, all
+    // digits + dashes in the right positions. Anything else gets
+    // dropped to null and the prompt falls back to the no-hint path.
+    const todayLocal = (typeof request.data?.todayLocal === 'string'
+      && /^\d{4}-\d{2}-\d{2}$/.test(request.data.todayLocal))
       ? request.data.todayLocal : null;
 
     if (!audioB64 || audioB64.length < 100) {
