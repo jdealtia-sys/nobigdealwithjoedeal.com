@@ -1406,3 +1406,171 @@ system feels broken" friction users had been living with.
   sees fresh code on the very next view. That bridge meant the
   P0 fix didn't require a "please hard-refresh" announcement —
   the system self-heals on first contact with the patch.
+
+
+# Tenth push — Waves 127-132 (Whisper arc + final cache P0)
+
+This push closed out one more reliability P0 (W127 — the actual
+root cause of the user's "every other reload stuck" toggle bug)
+then built the entire NBD Whisper arc requested earlier in the
+session. By the end of the push, NBD Pro has the full Whispr Flow
++ Granola voice toolkit: dictate-into-input via hold-to-talk,
+plus a Quick Capture scratchpad with smart routing, plus a
+searchable inbox of past captures.
+
+## W127 P0 — the real reason "every other refresh" was stuck
+
+The W124 P0 in the ninth push fixed the Service Worker's
+stale-while-revalidate bug — but the user came back with "still
+every other one or so." Investigation surfaced two compounding
+bugs in `firebase.json` that defeated the W124 fix:
+
+1. The rule `"source": "/sw.js"` was supposed to set
+   `Cache-Control: no-cache` on the Service Worker, but the
+   actual SW lives at `/pro/sw.js` (registered with scope
+   `/pro/`). The literal `/sw.js` rule never matched. Firebase
+   Hosting fell through to the catch-all `"source": "**"` rule
+   with `max-age=300`. Result: the SW itself was cached at edge
+   + browser for 5 minutes per request — meaning every SW deploy
+   (including W124's network-first switch) took 5+ minutes per
+   CDN edge to start propagating, and during that window users
+   kept hitting the OLD SW with stale-while-revalidate behavior.
+
+2. All JS/CSS files had `Cache-Control: max-age=300`. Even with
+   W124's network-first SW, the browser's HTTP cache layer is
+   independent — the SW's `fetch(request)` call is subject to
+   browser HTTP cache rules, so an unexpired cache entry would
+   short-circuit the network call. "Network-first" became
+   effectively cache-first within the 5-minute window, defeating
+   W124's intent.
+
+Why "every other" specifically: stale-while-revalidate AND
+HTTP-cache-with-TTL both work the same way — each load's
+background refresh updates the cache for the next load. Toggling
+pattern emerges from the gap between when stale gets served and
+when its background refresh completes.
+
+Fixes shipped together:
+- `/pro/sw.js` rule with `no-cache, must-revalidate` so the SW
+  is never cached at edge
+- All JS/CSS changed from `max-age=300` to `max-age=0,
+  must-revalidate` — ETag-based revalidation on every request,
+  browser uses cache only when content is verified unchanged
+- SW `fetch(request, { cache: 'reload' })` so the SW's own
+  fetches always bypass the browser HTTP cache layer
+- SW cache versions bumped v17 → v18 to nuke any straggler
+  caches on first activate
+
+## NBD Whisper arc — the full Whispr-Flow analog
+
+Five waves that took the existing voice infrastructure (Deepgram
+Nova-3 + Claude Haiku via the AI arc) and turned it into a
+dictate-anywhere + scratchpad surface.
+
+- **W128 — Dictate-anywhere core.** Floating 🎤 mic button
+  (bottom-right), tap-to-toggle, MediaRecorder lifecycle with
+  live waveform + 0:00 timer overlay during recording. Pipeline:
+  audio → `transcribeVoiceMemo` callable → `callClaude` with a
+  cleanup prompt → cleaned text inserted at cursor position of
+  focused input (or copyable floating tooltip if nothing focused).
+  Module: `docs/pro/js/nbd-whisper.js`.
+
+- **W129 — Unified `dictate` Cloud Function.** Replaced W128's
+  chained client-side path with a single Cloud Function that
+  combines transcribe + AI-process server-side. Three modes:
+  `clean` (cleanup only), `summarize` (overview + actionItems +
+  entities + category), `extract-tasks` (structured tasks ready
+  to commit). One round-trip instead of two. Cleanup prompt is
+  versioned with the function — server-side iteration without
+  client redeploys. Module: `functions/dictate.js`.
+
+- **W130 — Quick Capture scratchpad.** Different surface from
+  W128's dictate-into-input FAB. Floating 🎙 button (above the
+  W128 mic), tap → full-screen modal with big record button,
+  5-min cap, live waveform. After processing, structured summary
+  lands with overview + action items + entity chips + category
+  badge. Four routing options: save capture / save & link to
+  lead / make N tasks on a lead / discard. Lead picker reads
+  the in-memory `window._leads` cache. Module:
+  `docs/pro/js/quick-capture.js`.
+
+- **W131 — Hold-to-talk hotkey.** The Whispr-Flow ergonomic
+  default. Hold F2 (configurable) → recording starts after a
+  200ms grip threshold (so accidental quick taps don't fire empty
+  50ms recordings). Release → stops + processes + inserts. Auto-
+  repeat events ignored, modifier-pressed F2 passes through to
+  browser/OS, window blur safely cancels mid-hold. Comfort tab
+  toggle + key picker (F2/F3/F4/F8/F9/F10/ScrollLock/Pause).
+
+- **W132 — Quick Capture inbox.** Closes out the arc. Tiny 📋
+  button above the QC FAB → modal with searchable list of past
+  captures. Per-item: re-link to a different lead, archive,
+  expand for full transcript + action items. Reads
+  `users/{uid}/captures/` (already covered by the existing
+  owner-only subcol rule). Module:
+  `docs/pro/js/quick-capture-inbox.js`.
+
+## Architecture notes for the tenth push
+
+- **One pipeline, two mental models** — W128 (dictate INTO an
+  input) and W130 (talk freely + route OUT) share the same
+  Deepgram + Claude pipeline (W129's `dictate` callable) but
+  feel completely different to the user. Different floating
+  buttons, different modal styles (W128 is a tooltip, W130 is
+  full-screen), different default modes (clean vs summarize),
+  different success surfaces (text-in-input vs structured
+  summary card). Same engine, two surfaces — the rep doesn't
+  need to learn that they're the same thing under the hood.
+
+- **Versioned server-side prompts** — W128 had the cleanup
+  prompt inline in the client module. Iterating the prompt
+  required redeploying every page that includes the script and
+  invalidating SW cache. W129 moved it server-side; now a single
+  Cloud Functions deploy updates the prompt instantly for every
+  connected client. Pattern: any prompt that we'd want to
+  iterate weekly belongs server-side from day one.
+
+- **Reusing in-memory caches as a feature surface** — W130's
+  lead picker and W132's lead-name resolution both read
+  `window._leads` directly. No new query, no new state, no new
+  cache to invalidate — the kanban already populates it on
+  every dashboard load (and on `nbd:data-refreshed` events).
+  Modules that need lead context just read it. When the cache
+  is empty (e.g. a fresh tab before kanban hydrates), the
+  picker falls back to a search-by-name input fed by Firestore.
+
+- **The 200ms hold threshold pattern** — small UX details like
+  this make the difference between a tool people use daily and
+  a tool people abandon after one frustrating tap. Without the
+  threshold, every accidental F2 (Windows muscle memory for
+  rename) toasts "Clip too short." With it, only deliberate
+  holds fire. The threshold is also load-bearing for the
+  MediaRecorder + getUserMedia handshake (~80–150ms cold
+  permission) — without it, fast taps would always lose audio.
+
+- **FAB stack pattern for related-but-distinct actions** —
+  W128 (filled mic, low) + W130 (outline mic, mid) + W132
+  (icon outline, high) compose into a small vertical stack in
+  the bottom-right corner. Visual hierarchy mirrors action
+  hierarchy: most-frequent action lowest (closest thumb on
+  mobile), least-frequent highest. Each action is one tap from
+  any page on dashboard.html or customer.html.
+
+- **Network-first wasn't enough — HTTP cache layer was the
+  remaining lie** — the W124 P0 was correct in intent (network-
+  first SW) but didn't account for the browser's HTTP cache
+  intercepting the SW's `fetch()` call. W127 closed that gap
+  with both a `cache: 'reload'` flag in the SW (force-bypass)
+  and a `must-revalidate` Cache-Control on the assets (force-
+  ETag-check). Belt-and-suspenders: either layer alone fixes
+  the symptom, but both together prevent any single mistake
+  in either layer from re-introducing it.
+
+- **The user's report was the diagnosis** — "every other one or
+  so" was a precise enough description that I could rule out
+  random races and zero in on cache alternation patterns.
+  Generic "page won't load" reports take a code-explorer agent
+  + grep marathon to diagnose. Specific frequency descriptions
+  (every-other, only-after-X-seconds, only-on-bfcache-restore)
+  point straight at the underlying state machine. Train users
+  to describe the pattern and the bug usually identifies itself.
