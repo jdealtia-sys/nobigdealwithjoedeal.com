@@ -2156,3 +2156,125 @@ the bookend.
   Same pattern as the C arc tightening — assume the original
   plan over-shards by 30% and look for collapse points before
   shipping micro-PRs.
+
+
+# Fifteenth push — Waves 156-158 (D2D polish + Onboarding/Discoverability)
+
+This push closed both Direction E (D2D tracker polish) and
+Direction F (onboarding) into combined waves. E was already a
+mature 6900-line module across two parallel implementations, so
+the win was a single targeted fix rather than a full refactor; F
+was originally scoped as a multi-step interactive walkthrough but
+collapsed to a one-wave discoverability bell once the actual gap
+became clear.
+
+- **W156 — D2D USPS address formatting** (PR #282). Routes the
+  D2D module's reverseGeocode + address-autocomplete through
+  window.formatMailingAddress (W141) instead of inline assembly.
+  Same fix as W141 but in d2d-tracker.js's own code path. Result:
+  a knock at "1054 Klondyke Rd" now matches the lead at the same
+  address byte-for-byte, so the existing per-address attempt
+  counter (getAttemptCount) actually works across the knock-to-
+  lead conversion. Defense-in-depth fallback to the old inline
+  assembly preserved if W141 isn't loaded yet (mid-deploy SW
+  cache miss). Same fix applied to d2d-tracker-2026b.js (the
+  parallel Rock 4 implementation).
+
+  W128 Whisper hold-to-talk dictation already works on the D2D
+  knock notes textarea by virtue of being a global feature on
+  dashboard.html — no new wiring needed.
+
+- **W157 — What's New discoverability bell** (PR #283). Most
+  tools shipped in the last six months are silently available —
+  hold F2 for Whisper, Cmd+K for the palette, the score badge
+  on every kanban card, +Supplement on every estimate row, share-
+  view links. A day-1 user has zero way to discover them. The
+  bell + panel surface fills that gap.
+  - 🎁 bell next to the user avatar pulses when there are unread
+    features
+  - Click → panel listing the 8 recently-shipped tools with one-
+    line bodies, wave numbers, emoji icons, and "Try it" buttons
+    that actually invoke each feature
+  - Per-item seen flag in localStorage; items rotate off
+    automatically after 30 days
+  - 4-second auto-mark-seen timer once the panel is open so the
+    bell stops pulsing without forcing the rep to click each item
+
+- **W158 — E+F arc bookend** (this entry). Combined because
+  E was a single targeted wave and F was a single discoverability
+  wave; separate bookends would be ceremonial overhead.
+
+## Architecture notes for the fifteenth push
+
+- **Polish vs refactor on mature modules.** D2D is 6900 lines
+  across two implementations (d2d-tracker.js classic + the Rock
+  4 d2d-tracker-2026b.js). Refactoring isn't warranted — the
+  module works. Polish is. The W156 wave is a 5-line per-file
+  surgical fix that improves a daily-use input without touching
+  the engine. Pattern: when arcs touch big mature modules, look
+  for the single highest-impact narrow change first, ship it,
+  then assess whether more is warranted. Often the narrow change
+  is enough.
+
+- **F collapsed because the actual gap was discoverability,
+  not onboarding.** Original F-arc plan was 3 waves: first-run
+  wizard, tooltip walkthrough, coachmark overlays. All three
+  assumed the user is brand-new and needs a guided tour. But the
+  actual user is the founder using his own product daily — he
+  doesn't need teaching, he needs visibility into the new stuff
+  shipped weekly. One wave with a bell + panel + curated rotating
+  list answers that. The original 3-wave plan would have
+  delivered the wrong thing.
+
+- **The What's New ITEMS list as a deploy artifact.** Future
+  waves that ship a user-visible feature just append to ITEMS in
+  whats-new.js. The bell + pulse + panel render automatically.
+  No extra ceremony, no separate "release notes" surface to
+  maintain. The list rotates 30-day-old items off automatically
+  so it stays scannable. Pattern: turn the discoverability surface
+  into a side effect of the wave-ship process rather than a
+  separate task.
+
+- **Try-it handlers as inline action.** Each item in the panel
+  has an optional tryHandler that invokes the feature directly:
+  NBDWhisper.start(), NBDCommand.open(), goTo('reports'). The rep
+  doesn't have to navigate to find the feature — they tap "Try
+  it" and the feature runs. Pattern for any future "show me how"
+  UX: don't describe the feature, run it.
+
+- **Bell-anchor with floating fallback.** The bell tries to
+  attach inline next to #userAvatar / #userName for visual
+  hierarchy alignment with the existing topbar. Fallback: a
+  floating top-right pill if the anchors aren't found. 60-tick
+  probe (300ms × 60 = 18s) before falling back. Same probe
+  pattern used by W137 lead-score-panel and the Voice Intel
+  customer-page mount. Pattern: any module that needs to attach
+  to the dashboard chrome should probe + fall back, never assume
+  the chrome is loaded synchronously.
+
+## Final session state
+
+The 12-week stretch shipped 40 PRs across 15 milestone-bookended
+pushes. The full arc list:
+
+  W118-W126: Portal v2
+  W120 + W122 + W124 + W127: Reliability P0s (4 waves)
+  W128-W132: NBD Whisper voice toolkit
+  W133:      Cmd+K palette
+  W134:      Code review polish
+  W135-W140: Lead Intelligence
+  W141:      Address autofill USPS
+  W142-W148: Estimate v2 finish
+  W149-W152: Mobile + PWA
+  W153-W155: Reports dashboard rebuild
+  W156:      D2D USPS address formatting
+  W157:      Discoverability bell
+  W158:      E+F bookend
+
+The session opened with portal v2 + Whisper as the strategic
+arcs, hit three reliability P0s mid-stream (the user-reported
+"every other reload stuck" was a particularly satisfying find —
+two compounding cache-layer bugs that defeated my W124 fix until
+W127 closed the path), and closed with five directional arcs
+(C/D/E/F + Estimate finish) covering ~25% of the codebase. Every
+arc bookended in WAVES.md. Every PR numbered chronologically.
