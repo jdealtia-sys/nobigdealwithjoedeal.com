@@ -575,6 +575,42 @@
       '</div>'
     );
 
+    // ── Wave 121: Customer rating card (only on completed jobs) ──
+    // Two states:
+    //   1. Already rated → show a small "You rated this 5★" recap card
+    //   2. Can rate (job complete + not yet rated) → show the rater
+    // Hidden entirely on jobs that aren't complete yet.
+    const ratingInfo = view.rating || {};
+    if (ratingInfo.canRate && !ratingInfo.submitted) {
+      parts.push(
+        '<div class="card" id="cr-card" style="border:1px solid var(--accent, #c8541a);background:rgba(200,84,26,0.05);">' +
+          '<div class="card-label">⭐ How did we do?</div>' +
+          '<div class="card-title">Rate your experience</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Your rep would love to hear how the project went. It only takes a tap.</p>' +
+          '<div id="cr-stars" style="display:flex;justify-content:space-between;gap:6px;margin-bottom:14px;">' +
+            [1,2,3,4,5].map(n =>
+              '<button type="button" class="cr-star" data-stars="' + n + '" aria-label="' + n + ' stars" style="flex:1;padding:14px 0;border-radius:8px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:#888;font-size:24px;cursor:pointer;transition:all 120ms ease;-webkit-tap-highlight-color:transparent;">☆</button>'
+            ).join('') +
+          '</div>' +
+          '<textarea id="cr-comment" rows="2" maxlength="500" placeholder="Tell us a bit more (optional)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:10px;display:none;"></textarea>' +
+          '<button id="cr-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;display:none;">Send rating</button>' +
+          '<div id="cr-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
+          '<div id="cr-thanks" style="display:none;margin-top:8px;padding:14px;border-radius:8px;background:rgba(46,204,138,0.08);border:1px solid rgba(46,204,138,0.45);"></div>' +
+        '</div>'
+      );
+    } else if (ratingInfo.submitted) {
+      const stars = Number(ratingInfo.stars) || 0;
+      parts.push(
+        '<div class="card" style="border:1px solid var(--br, #2a3344);">' +
+          '<div class="card-label">⭐ Your rating</div>' +
+          '<div style="font-size:24px;letter-spacing:4px;color:#fbbf24;">' +
+            '★'.repeat(stars) + '<span style="color:#444;">' + '☆'.repeat(5 - stars) + '</span>' +
+          '</div>' +
+          '<div style="color:var(--muted);font-size:13px;margin-top:8px;">Thanks for rating ' + esc(repName.split(' ')[0]) + '!</div>' +
+        '</div>'
+      );
+    }
+
     // ── Wave 119: Request a callback card ──
     // Companion to the call-now button: lets the homeowner pick a
     // time-window that works for them instead of playing phone tag.
@@ -614,6 +650,135 @@
     wireUploadCard();
     // Wave 119: wire up the callback request card.
     wireCallbackCard();
+    // Wave 121: wire up the rating card (no-op if not rendered).
+    wireRatingCard(view);
+  }
+
+  // ─── Wave 121: Customer rating ─────────────────────────────────
+  // 1-5 star pick → optional comment → submit → conditional follow-up
+  // (Google review nudge for 4-5★, "rep will reach out" for 1-3★).
+  function wireRatingCard(view) {
+    const starsWrap = document.getElementById('cr-stars');
+    const sendBtn = document.getElementById('cr-send');
+    const commentEl = document.getElementById('cr-comment');
+    const statusEl = document.getElementById('cr-status');
+    const thanksEl = document.getElementById('cr-thanks');
+    if (!starsWrap || !sendBtn) return; // card wasn't rendered
+
+    let chosenStars = 0;
+
+    function paintStars(filled) {
+      Array.from(starsWrap.querySelectorAll('.cr-star')).forEach(b => {
+        const n = Number(b.dataset.stars) || 0;
+        const isFilled = n <= filled;
+        b.textContent = isFilled ? '★' : '☆';
+        b.style.color = isFilled ? '#fbbf24' : '#888';
+        b.style.borderColor = isFilled ? '#fbbf24' : 'var(--br, #2a3344)';
+        b.style.background = isFilled ? 'rgba(251,191,36,0.08)' : 'var(--bg, #0a1424)';
+      });
+    }
+
+    Array.from(starsWrap.querySelectorAll('.cr-star')).forEach(b => {
+      b.addEventListener('click', () => {
+        chosenStars = Number(b.dataset.stars) || 0;
+        paintStars(chosenStars);
+        // Reveal comment + submit on first pick.
+        if (commentEl) commentEl.style.display = 'block';
+        sendBtn.style.display = 'block';
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        sendBtn.textContent = chosenStars >= 4 ? 'Send my rating' : 'Send feedback';
+      });
+      // Hover-preview for desktop.
+      b.addEventListener('mouseenter', () => {
+        if (chosenStars > 0) return;
+        paintStars(Number(b.dataset.stars) || 0);
+      });
+      b.addEventListener('mouseleave', () => {
+        if (chosenStars > 0) paintStars(chosenStars);
+        else paintStars(0);
+      });
+    });
+
+    function setStatus(msg, kind) {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      statusEl.textContent = msg;
+      if (kind === 'error') {
+        statusEl.style.background = 'rgba(239,68,68,0.12)';
+        statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
+      } else {
+        statusEl.style.background = 'rgba(255,255,255,0.06)';
+        statusEl.style.color = 'var(--muted, #888)';
+        statusEl.style.border = '1px solid var(--br, #2a3344)';
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      if (chosenStars < 1 || chosenStars > 5) {
+        setStatus('Pick a star rating first.', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/submitCustomerRating', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: TOKEN,
+            stars: chosenStars,
+            comment: commentEl ? commentEl.value : '',
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(json.error || 'Could not save rating. Try again.', 'error');
+          sendBtn.disabled = false;
+          sendBtn.textContent = chosenStars >= 4 ? 'Send my rating' : 'Send feedback';
+          return;
+        }
+
+        // Hide the rater controls; show the thank-you tier copy.
+        Array.from(starsWrap.querySelectorAll('.cr-star')).forEach(b => {
+          b.disabled = true; b.style.cursor = 'default';
+        });
+        if (commentEl) commentEl.disabled = true;
+        sendBtn.style.display = 'none';
+        if (statusEl) statusEl.style.display = 'none';
+
+        if (thanksEl) {
+          thanksEl.style.display = 'block';
+          if (json.tier === 'high') {
+            // 4-5 stars → nudge to Google review.
+            const reviewUrl = json.googleReviewUrl;
+            thanksEl.innerHTML =
+              '<div style="font-size:15px;font-weight:600;color:#5eead4;margin-bottom:8px;">🎉 Thank you!</div>' +
+              '<div style="color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:' + (reviewUrl ? '12px' : '0') + ';">' +
+              'It means the world that we earned ' + chosenStars + ' stars. ' +
+              (reviewUrl ? 'A public Google review helps other homeowners find us — tap below if you have a sec.' : '&mdash; ' + esc(repName.split(' ')[0]) + ' will be in touch.') +
+              '</div>' +
+              (reviewUrl
+                ? '<a href="' + esc(reviewUrl) + '" target="_blank" rel="noopener" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">⭐ Leave a Google review</a>'
+                : '');
+          } else {
+            // 1-3 stars → recovery message.
+            thanksEl.style.background = 'rgba(251,191,36,0.08)';
+            thanksEl.style.borderColor = 'rgba(251,191,36,0.45)';
+            thanksEl.innerHTML =
+              '<div style="font-size:15px;font-weight:600;color:#fbbf24;margin-bottom:8px;">Thank you for the honest feedback.</div>' +
+              '<div style="color:var(--muted);font-size:13px;line-height:1.5;">' +
+              'We take this seriously. ' + esc(repName.split(' ')[0]) + ' will reach out within 24 hours to make this right.' +
+              '</div>';
+          }
+        }
+      } catch (err) {
+        setStatus('Network error: ' + (err.message || 'try again'), 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = chosenStars >= 4 ? 'Send my rating' : 'Send feedback';
+      }
+    });
   }
 
   // ─── Wave 119: Request a callback ─────────────────────────────────
