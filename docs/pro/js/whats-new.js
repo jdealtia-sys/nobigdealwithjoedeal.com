@@ -38,9 +38,9 @@
     {
       id: 'ai-followup-draft-2026-05',
       icon: '✉️',
-      title: 'AI Follow-Up Draft',
-      body: 'Every customer page now shows a Claude-written SMS draft tailored to that lead\'s stage and signals. Tap "Open in Messages" to send, "Copy" for the clipboard, or "Regenerate" for a different angle. Cached per day so re-opening doesn\'t burn a fresh API call.',
-      wave: 'W162',
+      title: 'AI Follow-Up Drafts (SMS / Email / Voicemail)',
+      body: 'Every customer page now shows Claude-written follow-ups tailored to that lead\'s stage and signals. Switch tabs between SMS (320 chars), Email (subject + body), and Voicemail (15-25 second read-aloud script). Each channel cached per day so re-opens don\'t burn API calls.',
+      wave: 'W162-W163',
       shippedAt: '2026-05-06',
     },
     {
