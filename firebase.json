@@ -21,9 +21,10 @@
     ],
     "headers": [
       {
+        "_comment": "Wave 127 P0: JS/CSS must-revalidate on every request via ETag. Previously max-age=300 meant the browser HTTP cache served stale assets for 5 minutes after each deploy — even with the W124 network-first Service Worker, the SW's fetch() would hit browser HTTP cache and get stale code. Symptom: 'every other reload stuck on loading' because each load's background HTTP-cache update set up the NEXT load to work, then a deploy could break it again. New: max-age=0 + must-revalidate makes the browser send If-None-Match (ETag) on every request. 99% of the time the file is unchanged and the server returns 304 Not Modified (~5KB total, ~50ms). When it does change (deploy), the user gets fresh content immediately. CDN libraries on unpkg/cdnjs are still cache-first via the SW because they're version-pinned in the URL path itself.",
         "source": "**/*.@(js|css)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=300" },
+          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
           { "key": "X-Content-Type-Options", "value": "nosniff" },
           { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
         ]
@@ -48,6 +49,13 @@
       {
         "_comment": "Sources below use canonical (no-.html) form because cleanUrls:true rewrites incoming /foo.html requests to /foo BEFORE header matching. Sources of the form '/path.html' never match; canonical '/path' matches both forms. Last-match wins for headers (verified prod: /admin/login → no-store from /admin/** rule), so these path-specific rules correctly override the '**' default above.",
         "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "_comment": "Wave 127 P0: the actual Service Worker lives at /pro/sw.js (registered with scope /pro/), but the rule above only matches /sw.js. Result: prod was serving the SW with the default max-age=300 — meaning Cloudflare + browser cached the SW for 5 minutes, blocking SW updates from reaching users for that window. Previous deploys' SW updates (W124, etc.) were stuck in cache. This rule fixes the SW path explicitly. The SW itself MUST never be cached for any meaningful duration — its job is to detect updates, and if the update-detection path is cached, every fix to the SW takes 5+ minutes to propagate per CDN edge.",
+        "source": "/pro/sw.js",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
         ]
