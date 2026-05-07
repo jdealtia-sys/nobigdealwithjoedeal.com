@@ -60,9 +60,14 @@
   }
   function _isDismissed() {
     const s = _readState();
-    if (!s.dismissedAt) return false;
-    const ageMs = Date.now() - s.dismissedAt;
-    return ageMs < DISMISS_DAYS * 86_400_000;
+    // W160 cleanup: check both rejection-style dismissals (Android
+    // "Not now" or post-prompt cancel) AND iOS Safari "Got it"
+    // acknowledgments. They're conceptually different — "Not now"
+    // is "I don't want this", "Got it" is "I read the
+    // instructions" — but for re-prompt suppression they have the
+    // same semantics: don't nag for 7 days.
+    const recent = (ts) => ts && (Date.now() - ts) < DISMISS_DAYS * 86_400_000;
+    return recent(s.dismissedAt) || recent(s.iosAcknowledgedAt);
   }
   function _isIOS() {
     const ua = window.navigator.userAgent || '';
@@ -157,8 +162,15 @@
       cta: 'Got it',
     });
     if (!document.getElementById('nbd-pwa-install-btn')) return;
+    // W160 cleanup: write `iosAcknowledgedAt` instead of
+    // `dismissedAt`. Tapping "Got it" on iOS is an
+    // acknowledgment of the install instructions, not a
+    // rejection of the install. Both flags suppress the
+    // re-prompt for 7 days (see _isDismissed) but the
+    // separation lets us tell which path the user took if we
+    // ever want different cooldowns or analytics on the two.
     document.getElementById('nbd-pwa-install-btn').addEventListener('click', () => {
-      _writeState({ dismissedAt: Date.now() });
+      _writeState({ iosAcknowledgedAt: Date.now() });
       _hideBanner();
     });
   }
@@ -208,7 +220,7 @@
     isInstalled: _isInstalled,
     forceShow: () => {
       // For testing / a Settings tab "Reset install prompt" button.
-      _writeState({ dismissedAt: 0, installedAt: 0 });
+      _writeState({ dismissedAt: 0, installedAt: 0, iosAcknowledgedAt: 0 });
       if (_deferredPrompt) _showAndroidPrompt();
       else if (_isIOS()) _showIOSPrompt();
     },

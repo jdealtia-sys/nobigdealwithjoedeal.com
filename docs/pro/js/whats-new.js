@@ -104,7 +104,7 @@
       icon: '📊',
       title: 'Reports dashboard rebuild',
       body: 'KPI tiles with period-over-period deltas, conversion funnel, revenue trend sparkline, and top performers leaderboards. All on the Reports view.',
-      wave: 'W153-W155',
+      wave: 'W153-W154',
       shippedAt: '2026-05-06',
       tryLabel: 'Open Reports',
       tryHandler: () => { if (typeof window.goTo === 'function') window.goTo('reports'); },

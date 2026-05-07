@@ -559,7 +559,8 @@ ${signBlock}
   }
 
   // ═════════════════════════════════════════════════════════
-  // Firestore persistence — wired by W144 supplement-ui.js
+  // Firestore persistence (live — wired by W144 supplement-ui.js,
+  // hardened in W159 with serverTimestamp + activity-log entry)
   // ═════════════════════════════════════════════════════════
 
   /**

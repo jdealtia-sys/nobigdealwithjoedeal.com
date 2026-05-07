@@ -158,20 +158,29 @@
       .sort((a, b) => b.total - a.total)
       .slice(0, ROW_LIMIT);
 
-    // Most-engaged leads — last 30 days, by lead.engagementScore +
-    // estimate viewCount + W123 unreadHomeownerMessages.
+    // Most-engaged leads — last 30 days. Composite of estimate
+    // viewCount (W146) + W123 unread homeowner messages + recent
+    // homeowner uploads/messages.
+    //
+    // W160 cleanup: the previous version also added
+    // `Number(l.engagementScore || 0)` but that field is computed
+    // in-memory by W92 customer-engagement-score.js / NBDLeadScore
+    // (W135) and never persisted to Firestore. The read was always
+    // 0 — pure dead code. Removed; the composite below uses only
+    // genuinely-persisted signals.
     const cutoff = Date.now() - 30 * 86_400_000;
     const engaged = leads
       .map(l => {
         const lastActivityMs = _toMillis(l.updatedAt) || _toMillis(l.createdAt);
         if (lastActivityMs < cutoff) return null;
         let score = 0;
-        score += Number(l.engagementScore || 0);
         const leadEsts = ests.filter(e => e.leadId === l.id);
         score += leadEsts.reduce((s, e) => s + (Number(e.viewCount || 0) * 5), 0);
         score += Number(l.unreadHomeownerMessages || 0) * 8;
         if (l.lastHomeownerMessageAt) score += 6;
         if (l.lastUploadAt) score += 4;
+        // W159 also wrote lastCallbackAt to the lead doc — fold it in.
+        if (l.lastCallbackAt) score += 5;
         if (score === 0) return null;
         return { lead: l, score };
       })

@@ -29,19 +29,20 @@
     'nbd-qci-fab',              // W132
   ];
 
+  // Modals that, when present in the DOM, hide the bottom-right
+  // FAB stack so the floating buttons don't cover modal content.
+  // Only full-screen overlays go here — toasts, dropdowns, the
+  // W139 lead-alert toast stack do NOT block (they're non-modal
+  // and sit next to the FABs, not over them).
   const BLOCKING_MODAL_IDS = [
     'nbd-qc-modal',             // W130 Quick Capture full-screen
     'nbd-qci-modal',            // W132 Capture inbox modal
     'nbd-cmd-modal',            // W133 Cmd+K palette
     'nbd-supplement-modal',     // W144 supplement builder
-    'nbd-lead-alert-stack',     // W139 hot-lead toast stack — DOESN'T block, see below
     'estV2Modal',               // V2 estimate builder
     'nbd-picker-modal',         // appearance picker
   ];
-
-  // The lead-alert stack lists itself but should NOT trigger hide
-  // (the stack is non-modal — it sits next to the FABs). Filter it.
-  const _BLOCK_SET = new Set(BLOCKING_MODAL_IDS.filter(id => id !== 'nbd-lead-alert-stack'));
+  const _BLOCK_SET = new Set(BLOCKING_MODAL_IDS);
 
   function _isModalActive() {
     for (const id of _BLOCK_SET) {

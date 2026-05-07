@@ -1,35 +1,45 @@
 /**
  * nbd-whisper.js — NBD Pro's "dictate everywhere" engine (W128)
  *
- * The Whispr-Flow analog requested by the user: tap a floating mic
- * button (or in the future: hold F2), talk, AI-cleaned text drops
- * into whatever input is currently focused. If no input is focused,
- * the result floats as a copyable tooltip.
+ * The Whispr-Flow analog: tap the floating mic button OR hold F2
+ * (default hotkey, configurable in Comfort tab), talk, AI-cleaned
+ * text drops into whatever input is currently focused. If no input
+ * is focused, the result floats as a copyable tooltip.
  *
- * Pipeline:
+ * Pipeline (current as of W129):
  *   1. MediaRecorder captures audio (up to 60s, opus/webm preferred)
- *   2. base64 → transcribeVoiceMemo callable (Deepgram Nova-3,
- *      smart_format + punctuate). leadId omitted so we don't leak
- *      dictation transcripts into a lead's activity log.
- *   3. callClaude with a tight cleanup prompt — strip filler words
- *      ("um", "uh", "like"), keep voice + content intact, normalize
- *      punctuation, ~30 token output limit overhead.
- *   4. Insert at cursor position of focused input, OR show a copyable
- *      tooltip if nothing is focused.
+ *   2. base64 → `dictate` Cloud Function (W129) — combines Deepgram
+ *      Nova-3 transcription + Claude Haiku 4.5 cleanup in one
+ *      round-trip. Three modes: 'clean' (default), 'summarize',
+ *      'extract-tasks'. todayLocal hint passed for date resolution.
+ *   3. Fallback path (only if `dictate` callable is unavailable —
+ *      mid-deploy SW cache miss): chain transcribeVoiceMemo +
+ *      callClaude client-side, same shape as W128's original.
+ *   4. Insert cleaned text at cursor position of focused input, OR
+ *      show a copyable tooltip if nothing is focused.
  *
  * Public surface:
  *   window.NBDWhisper.dictateInto(targetEl, options)
  *   window.NBDWhisper.attachFloatingButton()
+ *   window.NBDWhisper.attachHotkey()                 // W131
+ *   window.NBDWhisper.setHotkey(keyName)             // W131
+ *   window.NBDWhisper.setHotkeyEnabled(bool)         // W131
  *   window.NBDWhisper.start({ skipCleanup: bool })
  *   window.NBDWhisper.stop()
  *   window.NBDWhisper.isRecording
+ *   window.NBDWhisper.hotkey, .hotkeyDisabled        // getters
  *
  * Disabled when MediaRecorder isn't supported (very old browsers).
  *
- * Wave 128 ships click-to-toggle. Wave 131 will add hold-to-talk
- * via a global hotkey. Wave 130 will add the Quick Capture modal
- * (dedicated 5-minute scratchpad with summarize + extract-tasks
- * routing, separate from the dictate-into-input flow).
+ * Wave history (now all shipped):
+ *   - W128: click-to-toggle FAB + dictate-into-input
+ *   - W129: unified `dictate` Cloud Function
+ *   - W130: Quick Capture modal (separate quick-capture.js)
+ *   - W131: hold-to-talk hotkey via global keydown listener
+ *   - W132: Quick Capture inbox (separate quick-capture-inbox.js)
+ *   - W134: post-review polish (catch on _initPromise etc)
+ *   - W149: FAB safe-area-inset + 44px touch target
+ *   - W159: _dictateFallback `await` fix (was an unhandled rejection)
  */
 
 (function () {
@@ -529,7 +539,7 @@
   }
 
   // ─── Public API for explicit dictate-into call sites ────────────
-  // (used in W131's hotkey wiring + future Quick Capture in W130)
+  // (used in W131's hotkey wiring + W130's Quick Capture modal)
   function dictateInto(targetEl, opts) {
     opts = opts || {};
     if (targetEl && targetEl.matches && targetEl.matches(FOCUSABLE_SELECTOR)) {
