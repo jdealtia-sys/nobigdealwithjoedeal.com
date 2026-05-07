@@ -29,7 +29,17 @@
       rawSqft: 0, pitch: 8, waste: 1.17,
       ridgeLf: 0, eaveLf: 0, rakeLf: 0, hipLf: 0, valleyLf: 0, wallLf: 0,
       pipes: 0, chimneys: 0, skylights: 0, stories: 1,
-      tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false
+      tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false,
+      // Wave 143: per-SQ mode add-ons. The engine
+      // (estimate-builder-v2.js calculatePerSq) reads these directly.
+      // hasChimneyFlash / hasSkylightFlash gate the $425/$350
+      // flat add-ons (config-locked); valleyMetalLf and guttersLf
+      // multiply by $8.50/LF. Previously had no UI controls so the
+      // rep couldn't enable them in per-SQ mode at all.
+      hasChimneyFlash: false,
+      hasSkylightFlash: false,
+      valleyMetalLf: 0,
+      guttersLf: 0
     },
     scope: [],                // Array of { code, overrides } entries
     customer: { name: '', address: '', phone: '', email: '' },
@@ -492,6 +502,30 @@
             <input type="checkbox" id="v2cutup" data-field="cutUpRoof">
           </div>
 
+          <!-- Wave 143: per-SQ mode add-ons. Drive the
+               estimate-builder-v2.js calculatePerSq() add-on prices
+               ($425 chimney flash, $350 skylight flash, $8.50/LF
+               valley metal, $8.50/LF gutters). In line-item mode
+               these become catalog selections instead — the engine
+               handles both paths from the same state shape. -->
+          <div class="v2-section">Add-Ons</div>
+          <div class="v2-field inline">
+            <label>Chimney Flashing (+$425)</label>
+            <input type="checkbox" id="v2chimneyFlash" data-field="hasChimneyFlash">
+          </div>
+          <div class="v2-field inline">
+            <label>Skylight Flashing (+$350)</label>
+            <input type="checkbox" id="v2skylightFlash" data-field="hasSkylightFlash">
+          </div>
+          <div class="v2-field">
+            <label>Valley Metal LF (@ $8.50)</label>
+            <input type="number" id="v2valleyMetalLf" placeholder="0" min="0" data-field="valleyMetalLf">
+          </div>
+          <div class="v2-field">
+            <label>Gutters LF (@ $8.50)</label>
+            <input type="number" id="v2guttersLf" placeholder="0" min="0" data-field="guttersLf">
+          </div>
+
           <div class="v2-section">Presets</div>
           <div class="v2-preset-btns">
             <button type="button" data-action="load-preset" data-arg="standard-reroof">Standard Reroof</button>
@@ -810,7 +844,14 @@
   }
 
   function updateMeasurement(key, value) {
-    if (key === 'cutUpRoof') {
+    // W143: hasChimneyFlash + hasSkylightFlash are checkbox booleans
+    // (same shape as cutUpRoof). Listing them explicitly here is
+    // clearer than checking `typeof value === 'boolean'` because the
+    // delegated handler casts to bool only when ev.target.type
+    // === 'checkbox' — unifying the cast point here means the engine
+    // never sees a stringly-typed bool from a third-party caller.
+    const BOOL_FIELDS = new Set(['cutUpRoof', 'hasChimneyFlash', 'hasSkylightFlash']);
+    if (BOOL_FIELDS.has(key)) {
       state.measurements[key] = !!value;
     } else {
       state.measurements[key] = Number(value) || 0;
@@ -1590,17 +1631,27 @@
     // customer a meaningful good/better/best choice on the quote.
     if (format === 'retail-quote') {
       const perSqInput = {
-        rawSqft:         state.measurements.rawSqft,
-        pitch:           state.measurements.pitch,
-        cutUpRoof:       state.measurements.cutUpRoof,
-        ridgeLf:         state.measurements.ridgeLf,
-        eaveLf:          state.measurements.eaveLf,
-        hipLf:           state.measurements.hipLf,
-        pipes:           state.measurements.pipes,
-        tearOffLayers:   state.measurements.tearOffLayers,
-        county:          state.county,
-        city:            state.county,  // permit lookup uses city or county
-        mode:            state.jobMode
+        rawSqft:          state.measurements.rawSqft,
+        pitch:            state.measurements.pitch,
+        cutUpRoof:        state.measurements.cutUpRoof,
+        ridgeLf:          state.measurements.ridgeLf,
+        eaveLf:           state.measurements.eaveLf,
+        hipLf:            state.measurements.hipLf,
+        pipes:            state.measurements.pipes,
+        tearOffLayers:    state.measurements.tearOffLayers,
+        // W143: pass-through the four per-SQ add-on fields the
+        // engine has supported all along but the UI never exposed.
+        // Without these, retail-quote tier comparison silently
+        // omitted chimney/skylight flashing and valley/gutter
+        // line items even when the rep entered them. Now they
+        // flow into all three Good/Better/Best tier calcs.
+        hasChimneyFlash:  state.measurements.hasChimneyFlash,
+        hasSkylightFlash: state.measurements.hasSkylightFlash,
+        valleyMetalLf:    state.measurements.valleyMetalLf,
+        guttersLf:        state.measurements.guttersLf,
+        county:           state.county,
+        city:             state.county,  // permit lookup uses city or county
+        mode:             state.jobMode
       };
       if (window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.calculateAllTiers === 'function') {
         meta.tiers = window.EstimateBuilderV2.calculateAllTiers(perSqInput);
