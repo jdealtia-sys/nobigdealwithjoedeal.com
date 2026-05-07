@@ -36,6 +36,14 @@
   // shipped (for the 30-day rotation).
   const ITEMS = [
     {
+      id: 'ai-followup-draft-2026-05',
+      icon: '✉️',
+      title: 'AI Follow-Up Draft',
+      body: 'Every customer page now shows a Claude-written SMS draft tailored to that lead\'s stage and signals. Tap "Open in Messages" to send, "Copy" for the clipboard, or "Regenerate" for a different angle. Cached per day so re-opening doesn\'t burn a fresh API call.',
+      wave: 'W162',
+      shippedAt: '2026-05-06',
+    },
+    {
       id: 'daily-brief-2026-05',
       icon: '☀️',
       title: 'Daily Morning Brief',
