@@ -10825,6 +10825,14 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- Wave 154: revenue trend sparkline + top performers.
+           Renders into #reportsTrendsPanel via reports-trends.js. -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div id="reportsTrendsPanel">
+          <div class="empty"><div class="empty-icon">📈</div>Loading trends…</div>
+        </div>
+      </div>
+
       <!-- Lead Source ROI panel — instant read on which sources actually
            generate revenue. Computed live off window._leads — no backend
            call. Re-renders on leadsChanged. -->
@@ -17710,6 +17718,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- W153: Reports view performance dashboard — KPI tiles +
      period-over-period comparison + conversion funnel. -->
 <script defer src="js/reports-dashboard.js?v=1"></script>
+<!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
+<script defer src="js/reports-trends.js?v=1"></script>
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
