@@ -2078,3 +2078,81 @@ day one but no client UI had ever surfaced.
   The wave-number gap (W153 unused, jumped to W152 bookend) is
   cleaner than ceremony for its own sake. Future arcs: assume
   the plan over-counts by 30% and look for collapse points.
+
+
+# Fourteenth push — Waves 153-155 (Analytics dashboard rebuild)
+
+This push rebuilt the Reports view from "Generate visual report
+templates" into an at-a-glance performance dashboard the rep can
+read in 5 seconds before any meeting. Two waves of new panels +
+the bookend.
+
+- **W153 — Performance dashboard: KPI tiles + period comparison +
+  conversion funnel** (PR #279). New top panel on the Reports
+  view: Revenue / Avg ticket / Leads added / Close rate, each
+  with a delta badge vs the previous period. Period selector
+  (7d / 30d / 90d / YTD, persisted to localStorage). 5-stage
+  conversion funnel (Leads → Inspected → Estimate Sent → Viewed
+  → Signed) with proportional bars + per-stage conversion %.
+  Pure compute on window._leads + window._estimates — no extra
+  Firestore reads. The funnel's Viewed step is powered by the
+  W146 `viewedAt` write path, closing the engagement-loop signal
+  loop introduced in the twelfth push.
+
+- **W154 — Revenue trend sparkline + top performers**
+  (PR #280). Two more sections: a 12-week revenue sparkline (SVG,
+  no chart library, latest week dot highlighted, WoW delta badge
+  on ±1%) plus three side-by-side leaderboards — Top Customers
+  by lifetime signed revenue, Top Sources by signed revenue ×
+  lead.source field, Most Engaged Leads (30d) by composite score
+  (W92 engagement + W146 viewCount + W123 unread messages +
+  recent uploads). Same in-memory compute as W153.
+
+- **W155 — Analytics arc bookend** (this entry).
+
+## Architecture notes for the fourteenth push
+
+- **Compute on what's already in memory.** Both W153 + W154 are
+  pure derivations off window._leads + window._estimates +
+  window._photos. The Reports view doesn't initiate a single new
+  Firestore query — every panel reads from the same snapshot the
+  rest of the app already loaded. Pattern for analytics: the data
+  pipeline you need to build is usually shorter than you think,
+  because the read path is already in place for other features.
+
+- **The W146 viewedAt loop pays off across surfaces.** W146
+  fixed the missing write of viewedAt for V2 estimates not sent
+  via BoldSign. That ONE wave now drives:
+    - W57 almost-there-widget (existing)
+    - W92 engagement-tier signal (existing)
+    - W135 Lead Intelligence score's recency + hot signals
+    - W139 hot-lead threshold-crossing alert
+    - W153 funnel "Viewed" stage (new)
+    - W154 most-engaged leaderboard (new)
+  Six surfaces from one edge fix. Pattern: the cheapest waves are
+  the ones that complete an existing pipeline rather than build a
+  new one — the multiplier on downstream value is enormous.
+
+- **Sparklines are SVG, not a chart library.** W154's 12-week
+  trend is ~25 lines of inline SVG with computed path strings.
+  No Chart.js, no Recharts, no D3. Total weight: zero new bytes
+  of dependency. Pattern for visualization in NBD Pro: any chart
+  you can describe with `<path d="...">` is cheaper to write than
+  to import. Reserve charting libraries for crosstabs / cohort
+  heatmaps / anything genuinely interactive.
+
+- **Period selector via localStorage** is a 4-line pattern.
+  `_readPeriod()` / `_writePeriod(key)` + a `data-period` click
+  handler on the chip row + re-render. Same shape would work for
+  any view's "default to last X days" preference. The reps tend
+  to look at the same time window over and over (Joe spot-checks
+  30d, weekly meetings show 7d, end-of-month does YTD) — the
+  preference persists invisibly so they never have to re-pick.
+
+- **Tightening D arc to 3 waves.** Original plan was 4 waves
+  (W153-W156). After shipping W153+W154 the remaining work was
+  just the bookend — no need for a separate wave for the
+  cohort/leaderboard split that the original plan over-counted.
+  Same pattern as the C arc tightening — assume the original
+  plan over-shards by 30% and look for collapse points before
+  shipping micro-PRs.
