@@ -1123,6 +1123,94 @@ exports.sendPortalMessage = onRequest(
   }
 );
 
+// ── replyToPortalMessage — rep-side reply (uid-authed callable) ──
+// Wave 125: completes the two-way thread. The rep replies from the
+// customer page; we write the doc with source: 'rep', mark all
+// unread homeowner messages as readByRecipient (so the unread
+// counter on the lead clears), and bump lastRepMessageAt.
+exports.replyToPortalMessage = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+    await callableRateLimit(request, 'replyToPortalMessage', 60, 60_000);
+
+    const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
+    const text = typeof request.data?.text === 'string' ? request.data.text.trim() : '';
+    if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
+    if (!text) throw new HttpsError('invalid-argument', 'text required');
+    const safeText = text.slice(0, 2000);
+
+    const db = admin.firestore();
+    const leadRef = db.doc(`leads/${leadId}`);
+    const leadSnap = await leadRef.get();
+    if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
+    const lead = leadSnap.data();
+    const isAdmin = request.auth.token.role === 'admin';
+    if (lead.userId !== uid && !isAdmin) {
+      throw new HttpsError('permission-denied', 'Not your lead');
+    }
+
+    const msgRef = await db.collection(`leads/${leadId}/portal_messages`).add({
+      leadId,
+      ownerUid: lead.userId,
+      source: 'rep',
+      text: safeText,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      readBySender: true,
+      readByRecipient: false,
+    });
+
+    // Mark all unread homeowner messages as read-by-recipient since
+    // the rep is now actively responding (implicit acknowledgement).
+    try {
+      const unreadSnap = await db.collection(`leads/${leadId}/portal_messages`)
+        .where('source', '==', 'homeowner')
+        .where('readByRecipient', '==', false)
+        .limit(100)
+        .get();
+      if (!unreadSnap.empty) {
+        const batch = db.batch();
+        unreadSnap.forEach(d => batch.update(d.ref, { readByRecipient: true }));
+        await batch.commit();
+      }
+    } catch (e) {
+      logger.warn('[replyToPortalMessage] mark-read failed', { msg: e.message });
+    }
+
+    // Bump lead.updatedAt + clear unread counter.
+    try {
+      await leadRef.set({
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastRepMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        unreadHomeownerMessages: 0,
+      }, { merge: true });
+    } catch (_) { /* non-critical */ }
+
+    // Activity log entry.
+    try {
+      await db.collection(`leads/${leadId}/activity`).add({
+        userId: lead.userId,
+        type: 'portal_message_out',
+        label: 'Reply to homeowner',
+        messageId: msgRef.id,
+        textPreview: safeText.slice(0, 120),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn('[replyToPortalMessage] activity create failed', { msg: e.message });
+    }
+
+    return { success: true, messageId: msgRef.id };
+  }
+);
+
 // ── getPortalMessages — homeowner fetches the thread ──────────
 // Token-authed, returns the latest 50 messages for the lead with
 // rep messages + their own. Sets readByRecipient=true on rep
