@@ -575,6 +575,29 @@
       '</div>'
     );
 
+    // ── Wave 119: Request a callback card ──
+    // Companion to the call-now button: lets the homeowner pick a
+    // time-window that works for them instead of playing phone tag.
+    // Lands as a task on the lead so it surfaces in the rep's bell.
+    parts.push(
+      '<div class="card" id="cb-card">' +
+        '<div class="card-label">📞 Or — Request a Callback</div>' +
+        '<div class="card-title">Pick a time that works</div>' +
+        '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Busy now? Tell your rep when to call. They\'ll get the request right away.</p>' +
+        '<div id="cb-slots" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
+          '<button type="button" class="cb-slot" data-slot="today">Today</button>' +
+          '<button type="button" class="cb-slot" data-slot="tomorrow-morning">Tomorrow morning</button>' +
+          '<button type="button" class="cb-slot" data-slot="tomorrow-afternoon">Tomorrow afternoon</button>' +
+          '<button type="button" class="cb-slot" data-slot="tomorrow-evening">Tomorrow evening</button>' +
+          '<button type="button" class="cb-slot" data-slot="weekend">This weekend</button>' +
+          '<button type="button" class="cb-slot" data-slot="anytime">Anytime this week</button>' +
+        '</div>' +
+        '<textarea id="cb-note" rows="2" maxlength="280" placeholder="What\'s the best way to reach you? (optional)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:10px;"></textarea>' +
+        '<button id="cb-send" type="button" class="btn" disabled style="width:100%;padding:13px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Pick a time first</button>' +
+        '<div id="cb-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
+      '</div>'
+    );
+
     // ── Expiry note ──
     if (view.tokenInfo && view.tokenInfo.daysRemaining != null) {
       const d = view.tokenInfo.daysRemaining;
@@ -589,6 +612,101 @@
 
     // Wave 118: wire up the customer photo upload card.
     wireUploadCard();
+    // Wave 119: wire up the callback request card.
+    wireCallbackCard();
+  }
+
+  // ─── Wave 119: Request a callback ─────────────────────────────────
+  // Time-slot picker → POST to requestCallback Cloud Function with
+  // the portal token. Server creates a task on the lead so the rep
+  // sees it in their bell + customer page activity log.
+  function wireCallbackCard() {
+    const slotsWrap = document.getElementById('cb-slots');
+    const sendBtn = document.getElementById('cb-send');
+    const noteEl = document.getElementById('cb-note');
+    const statusEl = document.getElementById('cb-status');
+    if (!slotsWrap || !sendBtn) return;
+
+    let chosenSlot = null;
+
+    // Style the slot chips inline so we don't need a separate CSS bundle.
+    Array.from(slotsWrap.querySelectorAll('.cb-slot')).forEach(b => {
+      b.style.cssText =
+        'padding:9px 14px;border-radius:999px;border:1px solid var(--br, #2a3344);' +
+        'background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;' +
+        'cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 120ms ease;';
+      b.addEventListener('click', () => selectSlot(b));
+    });
+
+    function selectSlot(btn) {
+      chosenSlot = btn.dataset.slot || null;
+      Array.from(slotsWrap.querySelectorAll('.cb-slot')).forEach(b => {
+        const isActive = b === btn;
+        b.style.background = isActive ? 'var(--accent, #c8541a)' : 'var(--bg, #0a1424)';
+        b.style.borderColor = isActive ? 'var(--accent, #c8541a)' : 'var(--br, #2a3344)';
+        b.style.color = isActive ? '#fff' : 'inherit';
+      });
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = '1';
+      sendBtn.textContent = 'Send callback request';
+    }
+
+    function setStatus(msg, kind) {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      statusEl.textContent = msg;
+      if (kind === 'error') {
+        statusEl.style.background = 'rgba(239,68,68,0.12)';
+        statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.45)';
+      } else if (kind === 'success') {
+        statusEl.style.background = 'rgba(46,204,138,0.12)';
+        statusEl.style.color = '#5eead4';
+        statusEl.style.border = '1px solid rgba(46,204,138,0.45)';
+      } else {
+        statusEl.style.background = 'rgba(255,255,255,0.06)';
+        statusEl.style.color = 'var(--muted, #888)';
+        statusEl.style.border = '1px solid var(--br, #2a3344)';
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      if (!chosenSlot) {
+        setStatus('Pick a time first.', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/requestCallback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: TOKEN,
+            slot: chosenSlot,
+            note: noteEl ? noteEl.value : '',
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(json.error || 'Could not send request. Try again.', 'error');
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Send callback request';
+          return;
+        }
+        setStatus('✓ Got it! ' + esc(repName) + ' will reach out.', 'success');
+        // Lock the form so they don't double-send.
+        Array.from(slotsWrap.querySelectorAll('.cb-slot')).forEach(b => {
+          b.disabled = true; b.style.cursor = 'default'; b.style.opacity = '0.6';
+        });
+        if (noteEl) noteEl.disabled = true;
+        sendBtn.style.display = 'none';
+      } catch (err) {
+        setStatus('Network error: ' + (err.message || 'try again'), 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send callback request';
+      }
+    });
   }
 
   // ─── Wave 118: Customer photo upload ─────────────────────────────
