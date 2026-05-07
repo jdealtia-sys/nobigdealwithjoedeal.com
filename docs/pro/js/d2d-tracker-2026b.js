@@ -485,11 +485,20 @@
       // or returns useless data, but the exception was being swallowed.
       if (!resp.ok) { console.warn('Reverse geocode HTTP', resp.status); return ''; }
       const data = await resp.json();
+      // Wave 156: route through window.formatMailingAddress (W141) so
+      // D2D knock addresses match the USPS-formatted strings the rest
+      // of the system uses. Same fix applied to d2d-tracker.js. See
+      // sister comment there for full rationale.
+      if (typeof window.formatMailingAddress === 'function') {
+        const formatted = window.formatMailingAddress(data);
+        if (formatted) return formatted;
+      }
       if (data.address) {
-        const num = data.address.house_number || '';
-        const road = data.address.road || '';
-        const city = data.address.city || data.address.town || data.address.village || '';
-        const st = data.address.state || '';
+        const a = data.address;
+        const num = a.house_number || '';
+        const road = a.road || a.street || '';
+        const city = a.city || a.town || a.village || a.hamlet || '';
+        const st = a.state || '';
         return `${num} ${road}${city ? ', ' + city : ''}${st ? ', ' + st : ''}`.trim();
       }
     } catch (e) { console.warn('Geocode failed:', e); }
