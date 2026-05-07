@@ -15220,6 +15220,34 @@ function nbdComfortSet(kind, value) {
 }
 window.nbdComfortSet = nbdComfortSet;
 
+// Wave 131: hold-to-talk hotkey toggle + key picker. Stored on
+// localStorage via the NBDWhisper public API so the FAB tooltip,
+// the hotkey listener, and this tab all share state.
+function nbdComfortSetWhisperHotkey(enabled) {
+  if (window.NBDWhisper && window.NBDWhisper.setHotkeyEnabled) {
+    window.NBDWhisper.setHotkeyEnabled(!!enabled);
+  } else {
+    // NBDWhisper not loaded yet — just stash the flag for it to pick up.
+    try {
+      if (enabled) localStorage.removeItem('nbd_whisper_hotkey_disabled');
+      else localStorage.setItem('nbd_whisper_hotkey_disabled', '1');
+    } catch (_) {}
+  }
+  // Reveal/hide the key picker.
+  const cfg = document.getElementById('npm-whisper-hotkey-config');
+  if (cfg) cfg.style.display = enabled ? 'block' : 'none';
+}
+window.nbdComfortSetWhisperHotkey = nbdComfortSetWhisperHotkey;
+
+function nbdComfortSetWhisperKey(keyName) {
+  if (window.NBDWhisper && window.NBDWhisper.setHotkey) {
+    window.NBDWhisper.setHotkey(keyName);
+  } else {
+    try { localStorage.setItem('nbd_whisper_hotkey', keyName); } catch (_) {}
+  }
+}
+window.nbdComfortSetWhisperKey = nbdComfortSetWhisperKey;
+
 // Reflect current state in the comfort tab's buttons + toggles
 // so opening the picker shows the right active item.
 function nbdComfortRefresh() {
@@ -15259,6 +15287,21 @@ function nbdComfortRefresh() {
   const autoTheme = (function(){ try { return localStorage.getItem('nbd_auto_theme') === '1'; } catch (_) { return false; } })();
   const autoEl = document.getElementById('npm-auto-theme');
   if (autoEl) autoEl.checked = autoTheme;
+  // W131: reflect hold-to-talk hotkey state + chosen key.
+  const whisperEnabled = (function(){
+    try { return localStorage.getItem('nbd_whisper_hotkey_disabled') !== '1'; }
+    catch (_) { return true; }
+  })();
+  const whisperKey = (function(){
+    try { return localStorage.getItem('nbd_whisper_hotkey') || 'F2'; }
+    catch (_) { return 'F2'; }
+  })();
+  const whisperToggle = document.getElementById('npm-whisper-hotkey');
+  const whisperCfg = document.getElementById('npm-whisper-hotkey-config');
+  const whisperKeyEl = document.getElementById('npm-whisper-hotkey-key');
+  if (whisperToggle) whisperToggle.checked = whisperEnabled;
+  if (whisperCfg) whisperCfg.style.display = whisperEnabled ? 'block' : 'none';
+  if (whisperKeyEl) whisperKeyEl.value = whisperKey;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -17164,6 +17207,31 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
               </div>
               <input type="checkbox" id="npm-auto-theme" onchange="nbdComfortSet('autoTheme', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
+            <!-- Wave 131: Hold-to-talk hotkey toggle.
+                 Defaults to F2. Customizable via the input below.
+                 When enabled, hold the key anywhere on the page to
+                 dictate; release to insert the AI-cleaned text into
+                 whatever input is focused. -->
+            <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
+              <div>
+                <div style="font-weight:600; color:var(--t);">🎤 Hold-to-talk hotkey</div>
+                <div style="font-size:10px; color:var(--m); margin-top:2px;">Hold a key anywhere to dictate. Release to insert.</div>
+              </div>
+              <input type="checkbox" id="npm-whisper-hotkey" onchange="nbdComfortSetWhisperHotkey(this.checked)" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+            </label>
+            <div id="npm-whisper-hotkey-config" style="display:none; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px;">
+              <div style="font-size:10px; color:var(--m); margin-bottom:6px;">Hotkey (function keys recommended):</div>
+              <select id="npm-whisper-hotkey-key" onchange="nbdComfortSetWhisperKey(this.value)" style="width:100%; padding:7px 10px; background:var(--bg); color:var(--t); border:1px solid var(--br); border-radius:5px; font-family:inherit; font-size:12px; cursor:pointer;">
+                <option value="F2">F2 (default)</option>
+                <option value="F3">F3</option>
+                <option value="F4">F4</option>
+                <option value="F8">F8</option>
+                <option value="F9">F9</option>
+                <option value="F10">F10</option>
+                <option value="ScrollLock">Scroll Lock</option>
+                <option value="Pause">Pause/Break</option>
+              </select>
+            </div>
           </div>
 
         </div>
