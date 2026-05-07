@@ -39,8 +39,8 @@
       id: 'ai-followup-draft-2026-05',
       icon: '✉️',
       title: 'AI Follow-Up Drafts (SMS / Email / Voicemail)',
-      body: 'Every customer page now shows Claude-written follow-ups tailored to that lead\'s stage and signals. Switch tabs between SMS (320 chars), Email (subject + body), and Voicemail (15-25 second read-aloud script). Each channel cached per day so re-opens don\'t burn API calls.',
-      wave: 'W162-W163',
+      body: 'Every customer page now shows Claude-written follow-ups tailored to that lead\'s stage and signals. Switch tabs between SMS (320 chars), Email (subject + body), and Voicemail (15-25 second read-aloud script). Tapping the send button auto-logs the outbound to the communications timeline + bumps lastContactedAt so smart-followup stops nagging the lead. Each channel cached per day so re-opens don\'t burn API calls.',
+      wave: 'W162-W164',
       shippedAt: '2026-05-06',
     },
     {

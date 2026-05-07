@@ -1,10 +1,16 @@
 /**
- * ai-followup-draft.js — Wave 162 + Wave 163 (multi-channel drafts)
+ * ai-followup-draft.js — Wave 162 + Wave 163 + Wave 164
  *
  * Pre-writes a personalized follow-up the rep can copy or send in
  * one tap from the customer page. Where W113 SmartFollowup tells
- * the rep WHAT to do next, this panel tells the rep WHAT TO SAY —
- * pre-filled, in their voice, ready to send.
+ * the rep WHAT to do next, this panel tells the rep WHAT TO SAY.
+ *
+ * W164 closes the activity-tracking loop: clicking the primary
+ * send action calls `window.logCommunication()` which writes a
+ * `communications` doc + bumps `lead.lastContactedAt`, so the
+ * outbound shows up in the timeline, smart-followup stops nagging
+ * the lead, lead-score recency rises, and the Daily Brief drops it
+ * from tomorrow's list.
  *
  *   ┌────────────────────────────────────────────────────────────┐
  *   │ ✉  Suggested follow-up                          [×]       │
@@ -551,6 +557,17 @@
           host.innerHTML = '';
           return;
         }
+        if (action === 'open') {
+          // W164: log the outbound send BEFORE navigation. We
+          // don't preventDefault — the sms: / mailto: handler
+          // still fires after this synchronous call returns. The
+          // log call itself is async but we don't await — fire
+          // and forget so navigation feels instant.
+          _logSend(opts.lead, channelId, draft);
+          _flashLogged(el);
+          // Let the anchor's default behavior handle navigation.
+          return;
+        }
         if (action === 'copy') {
           e.preventDefault();
           await _copyToClipboard(draft);
@@ -562,6 +579,10 @@
         if (action === 'speak') {
           e.preventDefault();
           _speak(draft);
+          // W164: speaking the voicemail script counts as the
+          // rep "left a voicemail" intent — log it.
+          _logSend(opts.lead, channelId, draft);
+          _flashLogged(el);
           return;
         }
         if (action === 'regen') {
@@ -587,6 +608,38 @@
         }
       });
     });
+  }
+
+  // ─── W164: log outbound follow-up sends ──────────────────────
+  // Fire-and-forget into customer.html's inline logCommunication
+  // helper (writes communications doc + updates lastContactedAt).
+  // Voicemail tags as type='call' with subtype='voicemail' since
+  // the rep dialed the number. Defensive: if the helper isn't
+  // loaded the send still happens, just isn't tracked.
+  function _logSend(lead, channelId, draft) {
+    try {
+      if (typeof window.logCommunication !== 'function') return;
+      if (!lead || !lead.id) return;
+      let type = channelId;
+      const extra = { source: 'ai-followup-draft', channel: channelId };
+      if (channelId === 'voicemail') { type = 'call'; extra.subtype = 'voicemail'; }
+      window.logCommunication(lead.id, type, String(draft || '').slice(0, 500), extra);
+    } catch (e) {
+      console.warn('[followup-draft] logCommunication failed:', e && e.message);
+    }
+  }
+  // Brief "✓ Sent + logged" flash on the button so the rep knows
+  // NBD captured it. Restore-on-timeout guards against rep clicking
+  // Regenerate mid-flash.
+  function _flashLogged(el) {
+    if (!el) return;
+    const orig = el.textContent;
+    try { el.textContent = '✓ Sent + logged'; } catch (_) { return; }
+    setTimeout(() => {
+      try {
+        if (el.isConnected && el.textContent === '✓ Sent + logged') el.textContent = orig;
+      } catch (_) {}
+    }, 1400);
   }
 
   async function _copyToClipboard(text) {

@@ -7086,10 +7086,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- W137: Customer-page score chip + breakdown panel -->
 <script defer src="js/lead-score-panel.js?v=1"></script>
 <script defer src="js/customer-smart-followup-panel.js?v=1"></script>
-<!-- W162+W163: AI follow-up draft — pre-writes a personalized SMS,
+<!-- W162-W164: AI follow-up draft — pre-writes a personalized SMS,
      email, or voicemail script the rep can copy/send/speak in one
-     tap. Cached per (lead, day, channel). -->
-<script defer src="js/ai-followup-draft.js?v=2"></script>
+     tap. Auto-logs sends to communications collection (W164). -->
+<script defer src="js/ai-followup-draft.js?v=3"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
