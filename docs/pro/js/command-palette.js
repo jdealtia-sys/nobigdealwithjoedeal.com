@@ -80,7 +80,13 @@
         if (typeof window._signOut === 'function' && window.auth) {
           window._signOut(window.auth);
         } else if (typeof window.signOut === 'function') {
-          try { window.signOut(); } catch (_) {}
+          try { window.signOut(); }
+          catch (e) {
+            console.error('[command-palette] signOut failed:', e);
+            if (typeof window.showToast === 'function') {
+              window.showToast('Sign-out failed — try refreshing the page.', 'error');
+            }
+          }
         }
       } },
   ];
@@ -220,14 +226,16 @@
       score,
       run: () => {
         if (typeof window.openCardDetail === 'function') {
-          try { window.openCardDetail(lead.id); return; } catch (_) {}
+          try { window.openCardDetail(lead.id); return; }
+          catch (e) { console.warn('[command-palette] openCardDetail failed (will fallback to goTo):', e); }
         }
         if (typeof window.goTo === 'function') {
           window.goTo('crm');
           // Try to open the lead detail modal after a beat.
           setTimeout(() => {
             if (typeof window.openCardDetail === 'function') {
-              try { window.openCardDetail(lead.id); } catch (_) {}
+              try { window.openCardDetail(lead.id); }
+              catch (e) { console.error('[command-palette] openCardDetail retry also failed:', e); }
             }
           }, 200);
         }

@@ -169,7 +169,8 @@
       _toast(`${file.name} uploaded`, 'success');
       // Refresh the documents list if that loader is exposed.
       if (typeof window.loadSignedDocs === 'function') {
-        try { window.loadSignedDocs(); } catch (e) {}
+        try { window.loadSignedDocs(); }
+        catch (e) { console.warn('[customer-dnd] loadSignedDocs refresh failed:', e); }
       }
       return true;
     } catch (e) {

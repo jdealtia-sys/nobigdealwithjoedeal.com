@@ -6394,14 +6394,10 @@ body {
   #kbody-final_payment .k-card{border-left-color:#0d9488;}
   #kbody-closed .k-card{border-left-color:#22C55E;}
   #kbody-lost .k-card{border-left-color:var(--m);opacity:.75;}
-  /* Legacy compat — keep old IDs working during transition */
-  #kbody-New .k-card{border-left-color:#374151;}
-  #kbody-Inspected .k-card{border-left-color:#2d5a8e;}
-  #kbody-Estimate\ Sent .k-card{border-left-color:var(--gold);}
-  #kbody-Approved .k-card{border-left-color:#7c3aed;}
-  #kbody-In\ Progress .k-card{border-left-color:#16a34a;}
-  #kbody-Complete .k-card{border-left-color:#22C55E;}
-  #kbody-Lost .k-card{border-left-color:var(--m);opacity:.75;}
+  /* Legacy compat selectors removed (W159 sweep): the kbody-* IDs in
+     today's DOM are snake_case stage keys; the capitalized legacy
+     IDs (kbody-New, kbody-Estimate Sent, …) never exist anymore so
+     these rules were dead. */
   .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.18);transform:translateY(-2px);}
   :root[data-mode="light"] .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.10);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}

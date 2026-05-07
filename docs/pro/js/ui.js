@@ -390,7 +390,11 @@ function showKanbanSkeleton() {
   // legacy labels only if the new system isn't initialised yet.
   const stages = (Array.isArray(window._stageKeys) && window._stageKeys.length)
     ? window._stageKeys
-    : ['New', 'Inspected', 'Estimate Sent', 'Approved', 'In Progress', 'Complete', 'Lost'];
+    // Fallback to the new VIEW_SIMPLE stage keys (snake_case) used
+    // by buildKanbanColumns when no view-specific keys are exposed
+    // yet. The legacy capitalized labels were dead since the
+    // crm-stages migration — kbody-{StageKey} IDs are lowercase.
+    : ['new', 'inspected', 'estimate_submitted', 'contract_signed', 'install_in_progress', 'closed', 'lost'];
 
   stages.forEach(stage => {
     const body = document.getElementById('kbody-' + stage);
