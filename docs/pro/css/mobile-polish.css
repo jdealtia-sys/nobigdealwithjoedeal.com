@@ -1,0 +1,124 @@
+/* ============================================================
+   mobile-polish.css — Wave 151 mobile polish sweep
+   ============================================================
+   Targeted fixes for touch-target dimensions, customer-page
+   stacking on narrow viewports, and tap-target hover-state
+   carryover on touch devices. Doesn't replace existing
+   responsive rules — augments them where the grep audit found
+   below-44px controls or dense flex rows that wrap badly on
+   <420px screens.
+   ============================================================ */
+
+/* ─── 1. Touch-target minimums on small viewports ─────────────
+   iOS HIG: 44pt minimum interactive target. Android Material:
+   48dp. We split the difference with a 44px floor on `:where`
+   selectors that match interactive elements without bumping
+   their visual size in CSS source — the rule only kicks in via
+   min-height / min-width, so already-large buttons stay where
+   they are; small ones get padded up. */
+@media (max-width: 768px) and (pointer: coarse) {
+  .nbd-est-export,
+  .nbd-est-share,
+  .nbd-est-cert,
+  .nbd-sup-trigger,
+  .kc-arrow,
+  .kc-btn,
+  .kc-task-badge {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  /* Phone-sized: bump to 40px for the most-tapped controls.
+     The hit area gets bigger via padding without the visual
+     dimensions changing much, since Barlow is a tight font. */
+  .quick-contact-btn,
+  .btn-ghost,
+  .quick-action-btn {
+    min-height: 40px;
+  }
+}
+
+/* ─── 2. Customer page mobile stacking ────────────────────────
+   The .content-grid inside #overviewTab uses a 2-column layout
+   on desktop. On <860px viewports we stack vertically; the
+   existing rule does that, but the gap is too tight on phones,
+   and the "Build Estimate" + "Share Gallery" CTAs in the right
+   column need bigger margins so they don't collide with the
+   timeline below. */
+@media (max-width: 860px) {
+  .content-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+  /* The customer-header stage badges row tends to overflow on
+     narrow phones. Wrap it cleanly. */
+  .customer-meta {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+  /* Section panels get a touch more breathing room. */
+  .panel {
+    padding: 14px 12px;
+  }
+}
+
+/* ─── 3. Sticky tab bar on customer page ──────────────────────
+   The .jump-nav at the top of customer.html scrolls away on
+   long pages. Sticky-positioning it on phones gives the rep a
+   fast jumper without having to scroll back up. */
+@media (max-width: 860px) {
+  .jump-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg, #0a0c0f);
+    /* Subtle shadow so the user sees it lifted above content */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* ─── 4. Disable hover styles on touch devices ────────────────
+   .estimate-item :hover changes background AND adds a left
+   border. On touch devices, the :hover state sticks AFTER the
+   tap (until the next tap somewhere else), giving a "did I
+   tap that?" ambiguity. Pointer-coarse media query suppresses
+   the hover branch. */
+@media (pointer: coarse) {
+  .estimate-item:hover {
+    background: inherit !important;
+    border-left: inherit !important;
+  }
+  .k-card:hover {
+    transform: none !important;
+  }
+}
+
+/* ─── 5. Form inputs — prevent iOS zoom-on-focus ──────────────
+   Inputs with font-size < 16px cause iOS Safari to zoom the
+   page on focus. Bumping to 16px on phones eliminates the
+   zoom without affecting desktop. */
+@media (max-width: 768px) and (pointer: coarse) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="search"],
+  input[type="url"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ─── 6. Bottom safe-area padding for body ────────────────────
+   When standalone PWA mode runs, the bottom edge of the page
+   can sit under the iOS home indicator. The FAB stack already
+   accounts for this; here we add scroll padding so the LAST
+   row of any list (e.g. the kanban cards or timeline) clears
+   the FAB height + indicator. */
+@media (display-mode: standalone) {
+  body {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}

@@ -37,6 +37,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="var(--bg)">
 <link rel="manifest" href="/pro/manifest.json">
+<!-- W151: mobile polish sweep — touch-target floors, customer
+     page stacking, sticky jump nav, hover-on-touch suppression,
+     iOS zoom-on-focus prevention, standalone safe-area padding. -->
+<link rel="stylesheet" href="/pro/css/mobile-polish.css?v=1">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
@@ -17901,5 +17905,8 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 <!-- W150: PWA install prompt — beforeinstallprompt for Android +
      manual Add-to-Home-Screen card for iOS. -->
 <script defer src="js/pwa-install.js?v=1"></script>
+<!-- W151: offline banner — shows a yellow strip across the top
+     when navigator.onLine === false. -->
+<script defer src="js/offline-banner.js?v=1"></script>
 <!-- Feature flags (F9) — window.NBDFlags for kill switches + gradual rollout -->
 <script defer src="js/feature-flags.js?v=1"></script>
