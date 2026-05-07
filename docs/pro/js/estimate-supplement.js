@@ -559,12 +559,22 @@ ${signBlock}
   }
 
   // ═════════════════════════════════════════════════════════
-  // Firestore persistence (stub — wires in dashboard)
+  // Firestore persistence — wired by W144 supplement-ui.js
   // ═════════════════════════════════════════════════════════
 
   /**
    * Save a supplement to Firestore. Auto-increments version
    * based on existing supplements for the parent estimate.
+   *
+   * W159 fixes:
+   *   - HIGH #11: switched updatedAt + createdAt from
+   *     `new Date().toISOString()` (client clock) to
+   *     `serverTimestamp()` so time-ordered queries work
+   *     correctly across rep clock skew.
+   *   - HIGH #4: also writes a `leads/{leadId}/activity` doc of
+   *     type 'supplement_created' so the customer-page timeline
+   *     surfaces the supplement and W135 lead-score consumers
+   *     pick up the signal.
    */
   async function saveToFirestore(supplement) {
     if (typeof window.addDoc !== 'function' || !window.db || !window.auth?.currentUser) {
@@ -572,14 +582,50 @@ ${signBlock}
       return null;
     }
     try {
+      const ts = (typeof window.serverTimestamp === 'function')
+        ? window.serverTimestamp()
+        : new Date().toISOString(); // last-resort fallback
       const data = Object.assign({}, supplement, {
         userId: window.auth.currentUser.uid,
-        updatedAt: new Date().toISOString()
+        updatedAt: ts,
+        // W159: stamp createdAt with server time too so the doc has
+        // a sortable canonical timestamp (the supplement object's
+        // own createdAt is still a client ISO string for in-memory
+        // ordering — we keep that for legacy code that reads it).
+        createdAtServer: ts,
       });
       const ref = await window.addDoc(
         window.collection(window.db, 'supplements'),
         data
       );
+
+      // W159 HIGH #4: activity log entry on the lead so the
+      // customer-page timeline surfaces the supplement. Skip
+      // silently if the supplement has no leadId (standalone
+      // supplements aren't a thing today, but defensive).
+      if (supplement.leadId) {
+        try {
+          const totalDelta = supplement.totalDelta
+            || ((supplement.addedItems || []).reduce((s, it) => s + (it.lineTotal || 0), 0)
+              + (supplement.modifications || []).reduce((s, m) => s + (m.delta || 0), 0));
+          await window.addDoc(
+            window.collection(window.db, `leads/${supplement.leadId}/activity`),
+            {
+              userId: window.auth.currentUser.uid,
+              type: 'supplement_created',
+              label: 'Supplement #' + (supplement.version || 1)
+                + (totalDelta ? ' (+$' + Math.round(totalDelta).toLocaleString() + ')' : ''),
+              supplementId: ref.id,
+              parentEstimateId: supplement.parentEstimateId || null,
+              version: supplement.version || 1,
+              reason: (supplement.reason || '').slice(0, 280),
+              createdAt: ts,
+            }
+          );
+        } catch (actErr) {
+          console.warn('[Supplement] activity log write failed:', actErr.message);
+        }
+      }
       return ref.id;
     } catch (e) {
       console.error('[Supplement] Save failed:', e);

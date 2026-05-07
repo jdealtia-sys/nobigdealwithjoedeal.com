@@ -2564,12 +2564,20 @@
 
     // Reverse geocode if no address
     if (!address && opts.lat && opts.lng) {
+      // W159 HIGH #8: add .catch() so a Nominatim failure doesn't
+      // bubble as an unhandled promise rejection. The address field
+      // already shows empty when geocoding fails — the rep types
+      // it manually — but the unhandled rejection surfaces in the
+      // browser console + Sentry as scary noise. Quiet the
+      // rejection at this layer; reverseGeocode itself logs errors.
       reverseGeocode(opts.lat, opts.lng).then(addr => {
         if (addr) {
           currentKnockEntry.address = addr;
           const addrInput = document.getElementById('d2d-qk-address');
           if (addrInput) addrInput.value = addr;
         }
+      }).catch(err => {
+        console.warn('[D2D] reverseGeocode failed:', err && err.message || err);
       });
     }
 
