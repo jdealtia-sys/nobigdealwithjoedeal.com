@@ -545,6 +545,23 @@
       );
     }
 
+    // ── Wave 118: Customer photo upload card ──
+    // The portal's biggest close-the-loop opportunity: let the
+    // homeowner upload photos of damage/concerns without waiting
+    // for an inspection. Single drag-drop or tap-to-upload, with
+    // a caption + immediate confirmation.
+    parts.push(
+      '<div class="card" id="cuh-card" style="border:1px dashed var(--accent, #c8541a);background:rgba(200,84,26,0.04);">' +
+        '<div class="card-label">📸 Show Us What You See</div>' +
+        '<div class="card-title">Upload a photo</div>' +
+        '<p style="color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5;">Spotted storm damage? Mid-job concern? Want to show us the finished work? Snap a photo — your rep gets it in seconds.</p>' +
+        '<input id="cuh-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none;">' +
+        '<button id="cuh-pick" type="button" class="btn" style="width:100%;padding:14px;font-size:15px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;">📷 Choose a photo</button>' +
+        '<div id="cuh-preview" style="display:none;margin-top:12px;"></div>' +
+        '<div id="cuh-status" style="display:none;margin-top:10px;padding:10px;border-radius:6px;font-size:13px;"></div>' +
+      '</div>'
+    );
+
     // ── Rep contact card ──
     const phoneHref = view.rep && view.rep.phone ? 'tel:' + view.rep.phone.replace(/\D/g, '') : null;
     parts.push(
@@ -569,6 +586,143 @@
     }
 
     document.getElementById('mainWrap').innerHTML = parts.join('');
+
+    // Wave 118: wire up the customer photo upload card.
+    wireUploadCard();
+  }
+
+  // ─── Wave 118: Customer photo upload ─────────────────────────────
+  // File pick → resize/compress to 1600px max → base64 → POST to
+  // uploadHomeownerPhoto Cloud Function with the portal token.
+  // Success: show thumbnail + confirmation. Failure: friendly error.
+  function wireUploadCard() {
+    const pickBtn = document.getElementById('cuh-pick');
+    const fileInput = document.getElementById('cuh-file');
+    const preview = document.getElementById('cuh-preview');
+    const status = document.getElementById('cuh-status');
+    if (!pickBtn || !fileInput) return;
+
+    pickBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      handleUpload(file);
+    });
+
+    function setStatus(msg, kind) {
+      if (!status) return;
+      status.style.display = 'block';
+      status.textContent = msg;
+      if (kind === 'error') {
+        status.style.background = 'rgba(239,68,68,0.12)';
+        status.style.color = '#fca5a5';
+        status.style.border = '1px solid rgba(239,68,68,0.45)';
+      } else if (kind === 'success') {
+        status.style.background = 'rgba(46,204,138,0.12)';
+        status.style.color = '#5eead4';
+        status.style.border = '1px solid rgba(46,204,138,0.45)';
+      } else {
+        status.style.background = 'rgba(255,255,255,0.06)';
+        status.style.color = 'var(--muted, #888)';
+        status.style.border = '1px solid var(--br, #2a3344)';
+      }
+    }
+
+    // Resize the image client-side so we don't waste bandwidth or
+    // server CPU on full-resolution iPhone photos. 1600px max edge
+    // is plenty for damage assessment + keeps payloads under 1-2MB.
+    function resizeImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = new Image();
+          img.onload = function () {
+            const MAX = 1600;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+              if (w >= h) { h = Math.round(h * (MAX / w)); w = MAX; }
+              else        { w = Math.round(w * (MAX / h)); h = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            // JPEG q=0.85 hits the sweet spot for photos —
+            // visibly clean, well under the 8MB server cap.
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error('Could not read image'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Could not read file'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleUpload(file) {
+      try {
+        if (!/^image\//.test(file.type)) {
+          setStatus('Please pick an image file.', 'error');
+          return;
+        }
+        setStatus('Preparing photo…', 'info');
+        const dataUrl = await resizeImage(file);
+
+        // Show preview thumbnail.
+        preview.style.display = 'block';
+        preview.innerHTML =
+          '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+            '<img src="' + dataUrl + '" style="width:80px;height:80px;object-fit:cover;border-radius:6px;flex-shrink:0;">' +
+            '<div style="flex:1;">' +
+              '<input id="cuh-caption" type="text" placeholder="Optional note (e.g. \'Spot in the back\')" maxlength="280" style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;">' +
+              '<button id="cuh-send" type="button" class="btn" style="margin-top:8px;width:100%;padding:11px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:6px;cursor:pointer;">Send to your rep</button>' +
+            '</div>' +
+          '</div>';
+        setStatus('Add an optional note, then send.', 'info');
+
+        const sendBtn = document.getElementById('cuh-send');
+        sendBtn.addEventListener('click', async () => {
+          const captionEl = document.getElementById('cuh-caption');
+          const caption = captionEl ? captionEl.value : '';
+          sendBtn.disabled = true;
+          sendBtn.textContent = 'Sending…';
+          try {
+            const res = await fetch(FUNCTIONS_BASE + '/uploadHomeownerPhoto', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: TOKEN, dataUrl, caption }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(json.error || 'Upload failed. Try again.', 'error');
+              sendBtn.disabled = false;
+              sendBtn.textContent = 'Send to your rep';
+              return;
+            }
+            setStatus(
+              '✓ Photo sent to your rep.' + (typeof json.remainingToday === 'number'
+                ? ' (' + json.remainingToday + ' more allowed today)' : ''),
+              'success'
+            );
+            // Reset for another upload after a beat so the rep
+            // can send a few in sequence.
+            setTimeout(() => {
+              preview.style.display = 'none';
+              preview.innerHTML = '';
+              fileInput.value = '';
+              setStatus('Got more? Upload another.', 'info');
+            }, 1500);
+          } catch (err) {
+            setStatus('Network error: ' + (err.message || 'try again'), 'error');
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send to your rep';
+          }
+        });
+      } catch (err) {
+        setStatus(err.message || 'Could not prepare photo.', 'error');
+      }
+    }
   }
 
   loadView();
