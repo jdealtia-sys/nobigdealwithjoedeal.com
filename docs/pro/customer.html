@@ -929,6 +929,17 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
              / 👀 Viewed (green) / 🔥 Hot (orange) / ✅ Responded
              (gold). Hidden when score is 0 (no signals). -->
         <span id="engagementChip" style="display:none;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;letter-spacing:.02em;"></span>
+        <!-- Wave 137: unified Lead Intelligence score chip.
+             Combines W92 engagement + W18 stage + recency + W118-W123
+             portal signals + W111 smart-followup + W116 pattern boost
+             into one 0-100 score. Click to expand the breakdown panel
+             (#leadScorePanel below). Hidden until the engine resolves
+             on first render. -->
+        <button id="leadScoreChip" type="button" style="display:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;letter-spacing:.02em;cursor:pointer;border:1px solid;background:transparent;color:inherit;font-family:inherit;display:none;align-items:center;gap:5px;" title="Click to see the score breakdown">
+          <span id="leadScoreDot" style="display:inline-block;width:6px;height:6px;border-radius:50%;"></span>
+          <span id="leadScoreNum">—</span>
+          <span style="font-size:9px;opacity:.7;">SCORE</span>
+        </button>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
@@ -6983,6 +6994,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <script defer src="js/smart-followup.js?v=1"></script>
 <!-- W135: Lead Intelligence — unified 0-100 score engine -->
 <script defer src="js/lead-score.js?v=1"></script>
+<!-- W137: Customer-page score chip + breakdown panel -->
+<script defer src="js/lead-score-panel.js?v=1"></script>
 <script defer src="js/customer-smart-followup-panel.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
