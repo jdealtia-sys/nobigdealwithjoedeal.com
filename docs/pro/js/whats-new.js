@@ -36,6 +36,14 @@
   // shipped (for the 30-day rotation).
   const ITEMS = [
     {
+      id: 'inspection-capture-2026-05',
+      icon: '🏠',
+      title: 'Inspection Capture (mobile-first)',
+      body: 'New "🏠 Inspect" button on every customer page launches a tappable photo-tagging flow. Pick a section (Roof / Gutters / Fascia / Soffit / Chimney / Vents / Flashing / Siding / Windows / Foundation / Interior / General) + severity (None / Minor / Major / Hail / Wind / Other), tap to take a photo, repeat. Photos upload in the background while you keep capturing. Tap Finish to save the bundle as an inspection record the existing report engine can turn into a formal PDF.',
+      wave: 'W168',
+      shippedAt: '2026-05-06',
+    },
+    {
       id: 'weekly-recap-2026-05',
       icon: '📅',
       title: 'Weekly Recap',

@@ -968,6 +968,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
         📄 Export PDF
       </button>
+      <!-- Wave 168: launches the inspection capture flow (mobile-first
+           tagged photo bundle that the existing InspectionReportEngine
+           consumes for formal report generation). -->
+      <button class="btn" onclick="window.NBDInspectionCapture && window.NBDInspectionCapture.start()" title="Start a tagged-photo inspection at this property">
+        🏠 Inspect
+      </button>
       <button class="btn" onclick="openEditCustomerModal()" title="Edit customer information" style="border-color:var(--orange);color:var(--orange);">
         ✏️ Edit Info
       </button>
@@ -7090,6 +7096,11 @@ document.addEventListener('DOMContentLoaded', function() {
      email, or voicemail script the rep can copy/send/speak in one
      tap. Auto-logs sends to communications collection (W164). -->
 <script defer src="js/ai-followup-draft.js?v=3"></script>
+<!-- W168: inspection capture MVP — mobile-first tagged-photo
+     capture flow that produces structured inspection bundles for
+     the W56-era InspectionReportEngine to consume. Triggered via
+     the 🏠 Inspect button in the quick-actions area. -->
+<script defer src="js/inspection-capture.js?v=1"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
