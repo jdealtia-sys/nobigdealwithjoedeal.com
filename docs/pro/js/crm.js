@@ -609,6 +609,28 @@ function renderLeads(leads, filtered){
   }
 }
 
+// W136: per-page localStorage cache of last-seen score per lead so
+// the kanban can render a tiny ↑/↓/─ trend arrow next to the score
+// badge. Initialized lazily on first card render.
+const _leadScoreLastSeen = (function () {
+  try {
+    const raw = localStorage.getItem('nbd_lead_score_last_v1');
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+})();
+function _persistLeadScoreLastSeen() {
+  try { localStorage.setItem('nbd_lead_score_last_v1', JSON.stringify(_leadScoreLastSeen)); }
+  catch (_) { /* quota / private mode — best effort */ }
+}
+let _leadScoreFlushTimer = 0;
+function _scheduleLeadScorePersist() {
+  if (_leadScoreFlushTimer) return;
+  _leadScoreFlushTimer = setTimeout(() => {
+    _leadScoreFlushTimer = 0;
+    _persistLeadScoreLastSeen();
+  }, 1500);
+}
+
 function buildCard(l){
   const nameRaw = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
   const name  = escHtml(nameRaw);
@@ -852,6 +874,53 @@ function buildCard(l){
     engagementBadge = `<span class="kc-tag" style="background:${tier.bg};color:${tier.color};border-color:${tier.border};" title="${escHtml(tier.title || tier.label)}">${tier.icon} ${escHtml(tier.label)}</span>`;
   })();
 
+  // ── Wave 136: Lead Intelligence score badge ──
+  // Single 0-100 priority pill in the top-meta row. Tier color +
+  // optional trend arrow vs. the last score we persisted for this
+  // lead. The number itself is intentionally small and quiet — the
+  // colored dot is the at-a-glance signal; the digits answer
+  // "exactly how hot?" only when the rep zooms in.
+  //
+  // Wave 137 will make this clickable to open the breakdown panel
+  // on the customer page; for now it's purely visual.
+  let leadScoreBadge = '';
+  try {
+    if (window.NBDLeadScore && typeof window.NBDLeadScore.breakdown === 'function') {
+      const b = window.NBDLeadScore.breakdown(l, { estimates: window._estimates || [] });
+      const score = b.score;
+      const color = window.NBDLeadScore.tierColor(score);
+      // Trend arrow vs. previous render. ±2 deadband so the arrow
+      // doesn't flicker on every recency-drift point.
+      const prev = _leadScoreLastSeen[l.id];
+      let trend = '';
+      if (typeof prev === 'number') {
+        const delta = score - prev;
+        if (delta >= 2) trend = '<span style="color:#10b981;font-weight:700;">↑</span>';
+        else if (delta <= -2) trend = '<span style="color:#ef4444;font-weight:700;">↓</span>';
+      }
+      // Persist the new value (debounced to localStorage so we don't
+      // hammer it on every kanban re-render).
+      if (prev !== score) {
+        _leadScoreLastSeen[l.id] = score;
+        _scheduleLeadScorePersist();
+      }
+      const reason = b.topReason || '';
+      const titleAttr = escHtml(`Lead score ${score}/100 (${b.label}). ${reason}`);
+      leadScoreBadge =
+        '<span class="kc-tag" title="' + titleAttr + '" ' +
+          'style="background:' + color + '22;color:' + color + ';' +
+          'border-color:' + color + '88;display:inline-flex;align-items:center;' +
+          'gap:3px;font-variant-numeric:tabular-nums;font-weight:700;">' +
+          '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + color + ';"></span>' +
+          score + (trend ? ' ' + trend : '') +
+        '</span>';
+    }
+  } catch (e) {
+    // Engine threw — silently skip the badge so a single bug doesn't
+    // bring down the whole kanban render.
+    leadScoreBadge = '';
+  }
+
   // ── Wave 75: snoozed-card pills ──
   // Only renders when this lead is snoozed AND the W37 show-snoozed
   // toggle is on (otherwise the lead is filtered out at line 267
@@ -934,7 +1003,7 @@ function buildCard(l){
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${window.LeadScoring?.badge ? window.LeadScoring.badge(l) : ''}${stageAgeBadge}</div>
+      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${leadScoreBadge}${window.LeadScoring?.badge ? window.LeadScoring.badge(l) : ''}${stageAgeBadge}</div>
       <div style="display:flex;gap:4px;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
