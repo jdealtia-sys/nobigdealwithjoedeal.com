@@ -36,6 +36,18 @@
   // shipped (for the 30-day rotation).
   const ITEMS = [
     {
+      id: 'daily-brief-2026-05',
+      icon: '☀️',
+      title: 'Daily Morning Brief',
+      body: 'NBD now opens with a one-sentence AI summary of your day plus today\'s callbacks, hot leads, unread homeowner messages, and last 24h wins. Auto-opens once per day — toggle off in the brief itself.',
+      wave: 'W161',
+      shippedAt: '2026-05-06',
+      tryLabel: 'Open brief',
+      tryHandler: () => {
+        if (window.NBDDailyBrief && window.NBDDailyBrief.open) window.NBDDailyBrief.open();
+      },
+    },
+    {
       id: 'lead-intel-2026-05',
       icon: '🔥',
       title: 'Lead Intelligence score',

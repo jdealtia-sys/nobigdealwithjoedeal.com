@@ -41,6 +41,7 @@
     'nbd-supplement-modal',     // W144 supplement builder
     'estV2Modal',               // V2 estimate builder
     'nbd-picker-modal',         // appearance picker
+    'nbd-daily-brief-modal',    // W161 Daily Morning Brief
   ];
   const _BLOCK_SET = new Set(BLOCKING_MODAL_IDS);
 
