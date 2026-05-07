@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v16', // v16 — controllerchange-based auto-reload + tappable toast (fixes iOS PWA stuck-yellow)
-  cdn: 'nbd-cdn-v16',     // v16 — forces re-fetch of all CDN-cached JS/CSS
+  shell: 'nbd-shell-v17', // v17 — bumped to force fresh fetch of all JS/CSS
+  cdn: 'nbd-cdn-v17',     // v17 — paired bump
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -249,34 +249,59 @@ function isJSorCSS(url) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Cache-first for JS/CSS and Leaflet CDN libs
-// ─────────────────────────────────────────────────────────
+// Wave 124 P0: NETWORK-FIRST for same-origin JS/CSS, with cache
+// fallback only when offline.
+//
+// The previous strategy was stale-while-revalidate — serve cached
+// immediately, refresh in background for NEXT load. That's a fine
+// performance pattern for static assets on a stable codebase, but
+// it CAUSED the user-reported "Ctrl+R doesn't fix it, only
+// Shift+Ctrl+R does" bug:
+//
+//   1. Deploy ships new dashboard.html that calls a new function
+//      from crm.js
+//   2. User reloads with Ctrl+R
+//   3. SW serves NEW dashboard.html (auth-gated, network-first)
+//   4. SW serves OLD crm.js from cache (stale-while-revalidate)
+//   5. New dashboard.html tries to call function that doesn't
+//      exist in old crm.js → silent failure → kanban / map / etc.
+//      stuck on loading
+//   6. Background refresh updates crm.js for NEXT load — but the
+//      current load is already broken
+//   7. User does Shift+Ctrl+R, browser bypasses SW entirely,
+//      everything fetched fresh, page works again
+//
+// New behaviour:
+//   - Same-origin JS/CSS (our app code): network-first, cache only
+//     used when network fails. Guarantees fresh code on every load.
+//   - CDN JS/CSS (Leaflet, etc.): unchanged stale-while-revalidate
+//     via handleCDNRequest, since CDN libs are version-pinned in
+//     the URL itself and never change at the same path.
+//
+// Trade-off: each Ctrl+R now pays a fetch round-trip per JS file.
+// In practice this is ~100-300ms total because HTTP/2 multiplexes
+// + most files are tiny + browser-level Cache-Control still applies
+// on top of the SW cache. The reliability win is enormous.
+//
+// Cache fallback is preserved for genuine offline cases — if the
+// fetch outright fails (network down, server down), we return the
+// cached response so the page can still partially boot.
 async function handleAssetRequest(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
 
-  // Stale-while-revalidate: serve cached immediately, but fetch fresh in background
-  const fetchPromise = fetch(request).then(response => {
+  // Network-first: try to fetch fresh, cache the result, return it.
+  try {
+    const response = await fetch(request);
     if (response.ok) {
-      cache.put(request, response.clone());
+      // Update cache for offline fallback. Clone before consuming.
+      try { cache.put(request, response.clone()); } catch (_) { /* quota */ }
     }
     return response;
-  }).catch(() => null);
-
-  if (cached) {
-    // Serve cached now, update in background for next load
-    fetchPromise; // fire and forget
-    return cached;
-  }
-
-  // No cache — wait for network
-  try {
-    const response = await fetchPromise;
-    if (response) return response;
-    return new Response('Offline — please check connection', { status: 503 });
   } catch (err) {
-    // Never fall back to the dashboard HTML shell — it's auth-gated and
-    // should not be served from cache. Return a generic offline response.
+    // Network failed — try the cache so the page can degrade
+    // rather than hard-crashing on offline.
+    const cached = await cache.match(request);
+    if (cached) return cached;
     return new Response('Offline — please check connection', { status: 503 });
   }
 }
