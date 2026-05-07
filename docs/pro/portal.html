@@ -611,6 +611,23 @@
       );
     }
 
+    // ── Wave 123: Async messaging card (homeowner ↔ rep) ──
+    // Always rendered. Thread loads via getPortalMessages on mount,
+    // refreshes every 30s while the page is visible.
+    parts.push(
+      '<div class="card" id="pm-card">' +
+        '<div class="card-label">💬 Message Your Rep</div>' +
+        '<div class="card-title">Quick questions, anytime</div>' +
+        '<p style="color:var(--muted);margin:0 0 14px;font-size:13px;line-height:1.5;">No phone tag. ' + esc(repName.split(' ')[0]) + ' will see this in their CRM.</p>' +
+        '<div id="pm-thread" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:8px;background:var(--bg, #0a1424);border-radius:8px;border:1px solid var(--br, #2a3344);margin-bottom:12px;">' +
+          '<div id="pm-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:14px 8px;">No messages yet — send the first one.</div>' +
+        '</div>' +
+        '<textarea id="pm-text" rows="2" maxlength="2000" placeholder="Type your message…" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>' +
+        '<button id="pm-send" type="button" class="btn" disabled style="width:100%;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Send</button>' +
+        '<div id="pm-status" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:12px;"></div>' +
+      '</div>'
+    );
+
     // ── Wave 119: Request a callback card ──
     // Companion to the call-now button: lets the homeowner pick a
     // time-window that works for them instead of playing phone tag.
@@ -652,6 +669,169 @@
     wireCallbackCard();
     // Wave 121: wire up the rating card (no-op if not rendered).
     wireRatingCard(view);
+    // Wave 123: wire up the messaging thread + compose.
+    wireMessagingCard();
+  }
+
+  // ─── Wave 123: Async messaging ────────────────────────────────
+  // Loads the thread on mount, polls every 30s while visible, and
+  // posts new messages via sendPortalMessage. The poll handle is
+  // tracked so we can clear it on pagehide / visibilitychange.
+  let _pmPollHandle = null;
+  let _pmLastFetch = 0;
+  function wireMessagingCard() {
+    const threadEl = document.getElementById('pm-thread');
+    const emptyEl = document.getElementById('pm-empty');
+    const textEl = document.getElementById('pm-text');
+    const sendBtn = document.getElementById('pm-send');
+    const statusEl = document.getElementById('pm-status');
+    if (!threadEl || !textEl || !sendBtn) return;
+
+    function escMsg(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtTime(ms) {
+      if (!ms) return '';
+      const d = new Date(ms);
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      const opts = sameDay
+        ? { hour: 'numeric', minute: '2-digit' }
+        : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+      return d.toLocaleString(undefined, opts);
+    }
+    function setStatus(msg, kind) {
+      if (!statusEl) return;
+      if (!msg) { statusEl.style.display = 'none'; return; }
+      statusEl.style.display = 'block';
+      statusEl.textContent = msg;
+      statusEl.style.background = kind === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.06)';
+      statusEl.style.color = kind === 'error' ? '#fca5a5' : 'var(--muted, #888)';
+      statusEl.style.border = kind === 'error' ? '1px solid rgba(239,68,68,0.45)' : '1px solid var(--br, #2a3344)';
+    }
+
+    function renderThread(messages) {
+      if (!Array.isArray(messages) || messages.length === 0) {
+        if (emptyEl) { emptyEl.style.display = 'block'; }
+        // Clear any stale messages from a prior render.
+        Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = 'none';
+      // Replace bubbles entirely on each render — small thread,
+      // simpler than diffing.
+      Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+      const accent = 'var(--accent, #c8541a)';
+      messages.forEach(m => {
+        const bubble = document.createElement('div');
+        bubble.className = 'pm-bubble';
+        const isYou = m.source === 'homeowner';
+        bubble.style.cssText =
+          'max-width:80%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.4;' +
+          'word-wrap:break-word;align-self:' + (isYou ? 'flex-end' : 'flex-start') + ';' +
+          'background:' + (isYou ? accent : 'rgba(255,255,255,0.08)') + ';' +
+          'color:' + (isYou ? '#fff' : 'inherit') + ';' +
+          'border-bottom-' + (isYou ? 'right' : 'left') + '-radius:4px;';
+        bubble.innerHTML =
+          '<div>' + escMsg(m.text) + '</div>' +
+          '<div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:' +
+            (isYou ? 'right' : 'left') + ';">' +
+            (isYou ? 'You' : esc(repName.split(' ')[0])) + ' · ' + escMsg(fmtTime(m.createdAt)) +
+          '</div>';
+        threadEl.appendChild(bubble);
+      });
+      // Auto-scroll to the latest message.
+      threadEl.scrollTop = threadEl.scrollHeight;
+    }
+
+    async function fetchMessages() {
+      _pmLastFetch = Date.now();
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/getPortalMessages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: TOKEN }),
+        });
+        if (!res.ok) {
+          // Silent fail on poll — don't spam status messages.
+          if (res.status === 410 || res.status === 404) {
+            setStatus('Conversation link no longer valid.', 'error');
+          }
+          return;
+        }
+        const json = await res.json().catch(() => ({}));
+        renderThread(json.messages || []);
+      } catch (_) {
+        // Network blip on poll — silent.
+      }
+    }
+
+    // Initial fetch.
+    fetchMessages();
+    // Poll every 30s while page is visible. Pause on hide.
+    function startPoll() {
+      if (_pmPollHandle) return;
+      _pmPollHandle = setInterval(() => {
+        if (document.hidden) return;
+        if (Date.now() - _pmLastFetch < 25_000) return;
+        fetchMessages();
+      }, 30_000);
+    }
+    function stopPoll() {
+      if (_pmPollHandle) {
+        clearInterval(_pmPollHandle);
+        _pmPollHandle = null;
+      }
+    }
+    startPoll();
+    // Refresh on tab refocus — if poll was paused, do an immediate fetch.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - _pmLastFetch > 10_000) {
+        fetchMessages();
+      }
+    });
+    // Cleanup on pagehide so the poll doesn't run for a navigated-away tab.
+    window.addEventListener('pagehide', stopPoll, { once: true });
+
+    // Compose: enable Send only when there's content.
+    textEl.addEventListener('input', () => {
+      const has = textEl.value.trim().length > 0;
+      sendBtn.disabled = !has;
+      sendBtn.style.opacity = has ? '1' : '0.55';
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      const text = textEl.value.trim();
+      if (!text) return;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      setStatus('');
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/sendPortalMessage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: TOKEN, text }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(json.error || 'Could not send. Try again.', 'error');
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Send';
+          return;
+        }
+        textEl.value = '';
+        sendBtn.textContent = 'Send';
+        sendBtn.style.opacity = '0.55';
+        // Optimistic re-fetch to surface the new message immediately.
+        await fetchMessages();
+      } catch (err) {
+        setStatus('Network error: ' + (err.message || 'try again'), 'error');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+      }
+    });
   }
 
   // ─── Wave 121: Customer rating ─────────────────────────────────
