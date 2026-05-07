@@ -19,7 +19,7 @@
 // ── Firebase SDK Imports ──────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // ── Firebase Config (single source of truth) ─────────────
@@ -217,7 +217,27 @@ export const NBDAuth = {
       // Initialize Firebase
       _app = initializeApp(FIREBASE_CONFIG);
       _auth = getAuth(_app);
-      _db = getFirestore(_app);
+      // W159 P0: mobile users (iOS Safari, some Android, corporate
+      // / school WiFi, certain mobile carriers) report a permanently
+      // YELLOW health badge — getDocs(leads) hangs indefinitely
+      // because the default WebChannel transport silently fails on
+      // restrictive networks. experimentalAutoDetectLongPolling tries
+      // WebChannel first and falls back to HTTP long-polling on
+      // failure. Recommended by Firebase team for any app whose users
+      // hit the public internet from varied network conditions.
+      // Must run BEFORE the first getFirestore(app) call on this app —
+      // NBDAuth.init() runs synchronously from dashboard.html's first
+      // module script, before the second module script's
+      // getFirestore(app) at line ~359, so this is the right place.
+      try {
+        _db = initializeFirestore(_app, { experimentalAutoDetectLongPolling: true });
+      } catch (e) {
+        // initializeFirestore throws if Firestore was already
+        // initialized on this app (e.g. a hot-reload). Fall back to
+        // the existing instance so we don't crash the auth gate.
+        console.warn('[nbd-auth] initializeFirestore failed, using existing:', e && e.message);
+        _db = getFirestore(_app);
+      }
 
       // ── App Check (reCAPTCHA v3) ────────────────────────
       // The site key is set by the host page via a top-of-<head>
