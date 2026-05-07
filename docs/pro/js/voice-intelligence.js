@@ -24,7 +24,7 @@
  */
 
 import {
-  collection, query, orderBy, onSnapshot, doc, getDoc
+  collection, query, orderBy, onSnapshot, doc, getDoc, where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {
   ref as storageRef, uploadBytesResumable, getDownloadURL
@@ -167,9 +167,31 @@ export function uploadAudioBlob({
 // array of recording docs (newest first) every time Firestore pushes
 // an update, including transitions between
 // transcribing → analyzing → complete. UI just re-renders.
-export function subscribeToRecordings({ db, leadId, onChange, onError }) {
+//
+// IMPORTANT — query MUST include `where('userId','==', uid)`:
+// firestore.rules:142-150 evaluates `isOwner(resource.data.userId)`
+// per doc. For Firestore to allow a list query, the query has to
+// constrain to docs the rules can prove are readable. Without the
+// where filter, even an EMPTY collection returns "Missing or
+// insufficient permissions" — exactly the error users were hitting
+// on every customer page that hadn't recorded a call yet. (The
+// agent-investigated fix from W120 P0 + the user-reported screenshot
+// of customer.html → Voice Intel: "Could not load recordings:
+// Missing or insufficient permissions.")
+//
+// `uid` is required. The caller (mountVoiceIntel) passes user.uid.
+export function subscribeToRecordings({ db, leadId, uid, onChange, onError }) {
+  if (!uid) {
+    // Fail fast with a typed error instead of silently rejecting
+    // the query — the caller should never invoke this without a uid.
+    const err = new VoiceClientError('client-no-uid',
+      'subscribeToRecordings requires uid for the userId-scoped query.');
+    try { onError && onError(err); } catch (_) {}
+    return () => {};
+  }
   const q = query(
     collection(db, 'leads', leadId, 'recordings'),
+    where('userId', '==', uid),
     orderBy('recordedAt', 'desc')
   );
   return onSnapshot(q,
@@ -703,14 +725,26 @@ function mountVoiceIntel({ leadId, containerEl, auth, db, storage, user }) {
 
   const unsubscribe = subscribeToRecordings({
     db, leadId,
+    // Pass the rep's uid so the query carries the
+    // `where('userId','==', uid)` filter the firestore.rules require.
+    // Without this, Firestore rejects the list query with "Missing or
+    // insufficient permissions" — even on leads that have NO
+    // recordings yet (the empty-state user-reported bug).
+    uid: user.uid,
     onChange: (docs) => {
       // callType the user just picked propagates forward on the
       // next upload — we don't back-fill existing docs from here.
       renderRecordingList(listSlot, docs);
     },
     onError: (err) => {
-      listSlot.innerHTML =
-        '<div class="nbd-voice-err">Could not load recordings: ' + escHtml(err.message || err) + '</div>';
+      // Special-case the most likely permission errors with a
+      // friendlier hint than Firestore's raw message. This panel
+      // is on the customer page that every rep visits daily; a
+      // raw "Missing or insufficient permissions" toast is alarming.
+      const msg = (err && err.code === 'permission-denied')
+        ? 'Voice Intel needs to be enabled for your account. Reach out to support if this persists.'
+        : ('Could not load recordings: ' + escHtml(err.message || err));
+      listSlot.innerHTML = '<div class="nbd-voice-err">' + msg + '</div>';
     }
   });
 
