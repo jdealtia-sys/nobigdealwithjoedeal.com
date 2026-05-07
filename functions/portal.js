@@ -426,7 +426,22 @@ exports.getHomeownerPortalView = onRequest(
         daysRemaining: tok.expiresAt
           ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))
           : null
-      }
+      },
+      // Wave 121: rating gate — surface to the portal whether the
+      // homeowner can rate the job and whether they already have.
+      // The rating card only shows when:
+      //   1. progressKey === 'complete'
+      //   2. lead.customerRating is unset (not already rated)
+      // We emit both bits so the client can render correctly without
+      // a second round-trip. If rep.googleReviewUrl is set on the
+      // user doc, we also surface it so 4-5★ raters get nudged to
+      // leave a public review on Google.
+      rating: {
+        canRate: progressKey === 'complete',
+        submitted: typeof lead.customerRating === 'number' && lead.customerRating > 0,
+        stars: typeof lead.customerRating === 'number' ? lead.customerRating : null,
+        googleReviewUrl: rep.googleReviewUrl || null,
+      },
     };
 
     // Bump use counter (fire-and-forget; don't fail the response).
@@ -799,6 +814,179 @@ exports.requestCallback = onRequest(
     } catch (err) {
       logger.error('[requestCallback] failed', { msg: err.message });
       res.status(500).json({ error: 'Could not save request. Try again.' });
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// Wave 121: submitCustomerRating — homeowner rates the completed
+// job, optional comment, smart routing on outcome.
+// ═══════════════════════════════════════════════════════════════
+//
+// The post-completion feedback loop. When a lead has hit the
+// 'complete' homeowner-progress milestone, we show a 1-5 star
+// rating card on the portal. Customer picks stars + optional
+// comment, server stamps the lead with `customerRating` +
+// `customerRatingComment` + `customerRatingAt`, and routes
+// downstream surfaces:
+//
+//   - Always: activity log entry on leads/{id}/activity
+//   - Always: notification doc for the rep (high priority)
+//   - 4-5 stars: response includes googleReviewUrl so the portal
+//                can nudge the homeowner to leave a public review
+//   - 1-3 stars: drop a "RECOVERY CALL NEEDED" task on the lead
+//                with priority dueDate=today so the rep sees it
+//                in their bell IMMEDIATELY. A negative rating
+//                without recovery is the worst of both worlds:
+//                disappointed customer + rep unaware.
+//
+// Idempotency: ratings are write-once. If lead.customerRating is
+// already set, we reject with 409. The portal already gates this
+// via the `rating.submitted` flag in the view, but the server is
+// authoritative.
+//
+// Limits:
+//   - One rating per lead lifetime (write-once)
+//   - 500-char comment cap
+//   - Star whitelist: 1, 2, 3, 4, 5 only
+exports.submitCustomerRating = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 60,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+
+    if (!(await httpRateLimit(req, res, 'portal-rating:ip', 30, 60_000))) return;
+
+    const { token, stars, comment } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    const starsNum = Number(stars);
+    if (!Number.isInteger(starsNum) || starsNum < 1 || starsNum > 5) {
+      res.status(400).json({ error: 'Stars must be 1-5' });
+      return;
+    }
+    const safeComment = (typeof comment === 'string') ? comment.trim().slice(0, 500) : '';
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    const leadRef = db.doc(`leads/${tok.leadId}`);
+    const leadSnap = await leadRef.get();
+    if (!leadSnap.exists) { res.status(404).json({ error: 'Lead not found' }); return; }
+    const lead = leadSnap.data();
+
+    // Write-once: a rating is permanent. The portal client should
+    // never let this through, but server is authoritative.
+    if (typeof lead.customerRating === 'number' && lead.customerRating > 0) {
+      res.status(409).json({ error: 'You\'ve already rated this job. Thank you!' });
+      return;
+    }
+
+    try {
+      // Stamp the lead with the rating.
+      await leadRef.update({
+        customerRating: starsNum,
+        customerRatingComment: safeComment || null,
+        customerRatingAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Keep updatedAt fresh so stale-lead bell signals don't fire.
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Activity log for the customer page timeline.
+      try {
+        await db.collection(`leads/${tok.leadId}/activity`).add({
+          userId: tok.ownerUid,
+          type: 'customer_rating',
+          label: starsNum + '-star rating from homeowner',
+          stars: starsNum,
+          comment: safeComment || null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (actErr) {
+        logger.warn('[submitCustomerRating] activity create failed', { msg: actErr.message });
+      }
+
+      // Low-rating recovery: drop a high-priority task on the lead
+      // so the rep gets it in their bell as task-today / overdue.
+      if (starsNum <= 3) {
+        try {
+          const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/New_York',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+          }).format(new Date());
+          await db.collection(`leads/${tok.leadId}/tasks`).add({
+            text: '⚠️ RECOVERY CALL — homeowner gave ' + starsNum + '★'
+              + (safeComment ? ' — "' + safeComment.slice(0, 100) + '"' : ''),
+            done: false,
+            dueDate: today, // today in Eastern → bell shows it RIGHT NOW
+            source: 'rating_recovery',
+            stars: starsNum,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (taskErr) {
+          logger.warn('[submitCustomerRating] recovery task failed', { msg: taskErr.message });
+        }
+      }
+
+      // Notification doc for the rep (server-side bell stream).
+      try {
+        const notifTitle = starsNum >= 4
+          ? `⭐ ${starsNum}-star rating from homeowner`
+          : `⚠️ ${starsNum}-star rating — recovery needed`;
+        await db.collection('notifications').add({
+          userId: tok.ownerUid,
+          type: 'customer_rating',
+          leadId: tok.leadId,
+          title: notifTitle,
+          message: safeComment ? '"' + safeComment.slice(0, 80) + '"' : 'No comment provided.',
+          priority: starsNum <= 3 ? 'high' : 'medium',
+          stars: starsNum,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        logger.warn('[submitCustomerRating] notification create failed', { msg: notifErr.message });
+      }
+
+      // For 4-5 star raters, return the Google review URL so the
+      // portal can nudge them to leave a public review. Resolve
+      // from the rep's user doc — same field surfaced in the view.
+      let googleReviewUrl = null;
+      if (starsNum >= 4) {
+        try {
+          const repSnap = await db.doc(`users/${tok.ownerUid}`).get();
+          if (repSnap.exists) {
+            googleReviewUrl = repSnap.data().googleReviewUrl || null;
+          }
+        } catch (_) { /* non-critical */ }
+      }
+
+      res.status(200).json({
+        ok: true,
+        stars: starsNum,
+        googleReviewUrl,
+        // Hint for the portal copy — high vs low determines which
+        // post-submit message the user sees.
+        tier: starsNum >= 4 ? 'high' : 'low',
+      });
+    } catch (err) {
+      logger.error('[submitCustomerRating] failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save rating. Try again.' });
     }
   }
 );
