@@ -162,11 +162,21 @@
     const leads = Array.isArray(window._leads) ? window._leads : [];
     if (leads.length === 0) return [];
     const q = (query || '').trim();
+    // W138: when NBDLeadScore is loaded, sort the empty-query lead
+    // suggestions by W135 unified score instead of just recency.
+    // The rep opens Cmd+K with no query → sees the actually-hot
+    // leads first (homeowner-message-fresh, recent uploads, hot
+    // engagement). Falls back to recency if the engine isn't loaded.
     if (!q) {
-      // No query yet — show 5 most recently updated leads as quick access.
+      const useUnified = !!(window.NBDLeadScore && window.NBDLeadScore.score);
       return leads
         .slice() // shallow copy so we don't mutate the live cache
         .sort((a, b) => {
+          if (useUnified) {
+            const sa = window.NBDLeadScore.score(a) || 0;
+            const sb = window.NBDLeadScore.score(b) || 0;
+            if (sa !== sb) return sb - sa;
+          }
           const ta = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
           const tb = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
           return tb - ta;
@@ -174,15 +184,25 @@
         .slice(0, 5)
         .map(l => _leadToAction(l, 5));
     }
+    // For text queries: combine fuzzy match with W135 score so a
+    // partial-name match on a 🔥 Hot lead beats a partial-name match
+    // on a cold one when both have similar fuzzy scores.
+    const useUnified = !!(window.NBDLeadScore && window.NBDLeadScore.score);
     const scored = [];
     for (const l of leads) {
       const name = ((l.firstName || '') + ' ' + (l.lastName || '')).trim();
       const addr = l.address || '';
-      const s = Math.max(
+      const fuzzy = Math.max(
         _score(q, name, addr),
         _score(q, addr, name)
       );
-      if (s > 0) scored.push({ score: s, lead: l });
+      if (fuzzy <= 0) continue;
+      // Boost: small additive nudge from the W135 score so two
+      // equally-fuzzy-matching leads rank with the hotter one first.
+      // Cap the boost so a hot but-irrelevant lead doesn't outrank
+      // a cold but-perfect-match lead.
+      const boost = useUnified ? Math.min(20, (window.NBDLeadScore.score(l) || 0) / 5) : 0;
+      scored.push({ score: fuzzy + boost, lead: l });
     }
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, RESULTS_LIMIT).map(x => _leadToAction(x.lead, x.score));

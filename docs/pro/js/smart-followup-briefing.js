@@ -48,9 +48,16 @@
   }
 
   // ─── Compute top-5 candidates ────────────────────────────────────
+  // W138: sort by NBDLeadScore (W135) when the engine is loaded —
+  // this gives the briefing the same priority signal as kanban
+  // (W136), customer page (W137), bell (W138). Falls back to the
+  // W111 SmartFollowup score when the engine isn't available so the
+  // briefing keeps working even on older client builds mid-deploy.
   function computeTopCandidates() {
     if (!window.SmartFollowup || typeof window.SmartFollowup.computeSuggestion !== 'function') return [];
     const SF = window.SmartFollowup;
+    const useUnifiedScore = !!(window.NBDLeadScore && window.NBDLeadScore.breakdown);
+    const ctx = { estimates: window._estimates || [] };
     const leads = Array.isArray(window._leads) ? window._leads : [];
     const candidates = [];
     for (const lead of leads) {
@@ -62,7 +69,15 @@
       // Only briefing-worthy: urgent or today, with confidence ≥ 50
       if (sug.priority !== 'urgent' && sug.priority !== 'today') continue;
       if ((sug.confidence || 0) < 50) continue;
-      candidates.push({ lead, sug, score: SF.score(sug) });
+      // W138: prefer the unified W135 score so a lead at 92 with
+      // 'today' priority outranks a lead at 70 with 'urgent' — the
+      // unified score already incorporates priority into its 'smart'
+      // weight, plus pulls in engagement, hot signals, and recency
+      // that priorityRank alone misses.
+      const score = useUnifiedScore
+        ? window.NBDLeadScore.breakdown(lead, ctx).score
+        : SF.score(sug);
+      candidates.push({ lead, sug, score });
     }
     candidates.sort((a, b) => b.score - a.score);
     return candidates.slice(0, TOP_N);
