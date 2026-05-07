@@ -205,6 +205,14 @@ export const NBDAuth = {
       showUpgradeWall: opts.showUpgradeWall !== false,
     };
 
+    // Wave 120: ensure any error inside _initPromise un-hides the page.
+    // The very first line of dashboard.html sets visibility:hidden, and
+    // _showPage() (called inside the success branches below) is the only
+    // path that sets it visible again. If a network glitch or thrown
+    // error inside the auth callback leaves the promise rejected, the
+    // page stays invisible forever — user reads it as "stuck loading."
+    // Stash the inner promise so we can attach a fail-safe .catch() that
+    // forces visibility:visible regardless of what threw.
     _initPromise = new Promise((resolve, reject) => {
       // Initialize Firebase
       _app = initializeApp(FIREBASE_CONFIG);
@@ -476,6 +484,16 @@ export const NBDAuth = {
         if (_options.onReady) _options.onReady(user);
         resolve(user);
       });
+    });
+
+    // Wave 120: fail-safe catch — any unhandled throw inside the auth
+    // promise (App Check init throw, getDoc rejection, etc.) MUST still
+    // un-hide the page. Without this, the page stays at
+    // visibility:hidden forever and the user sees a permanent blank
+    // screen — the "stuck loading" pattern they reported.
+    _initPromise.catch((err) => {
+      console.error('[nbd-auth] init promise rejected:', err);
+      try { _showPage(); } catch (_) {}
     });
 
     return _initPromise;
