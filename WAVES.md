@@ -1961,3 +1961,120 @@ viewedAt path was missing.
   through global menus. Aligns with the W128/W130/W132 voice FAB
   stack pattern: most-frequent-action lowest, less-frequent
   outward — one tap from any context.
+
+
+# Thirteenth push — Waves 149-152 (Mobile polish + PWA install)
+
+This push tightened the mobile experience after a daily-driver
+field rep would actually use it. Three concrete waves of fixes
+plus the PWA install prompt the manifest had been ready for since
+day one but no client UI had ever surfaced.
+
+- **W149 — FAB stack mobile polish** (PR #275). Three FAB-stack
+  fixes: inbox FAB bumped 36→44px (was below iOS HIG 44px touch-
+  target minimum); all 3 FABs now use
+  `calc(Npx + env(safe-area-inset-bottom, 0px))` so they clear the
+  iPhone X+ home indicator + Android gesture bar; new
+  fab-stack-coordinator.js MutationObserver hides the entire stack
+  (opacity=0 + pointerEvents=none + aria-hidden) when any of 6
+  known full-screen modals is open (W130 Quick Capture record,
+  W132 inbox modal, W133 Cmd+K, W144 supplement, V2 estimate
+  builder, picker modal). Lead-alert toast stack (W139)
+  intentionally NOT in the blocking list — it's non-modal and
+  sits next to the FABs. Auto-checks on keydown + focus + 1500ms
+  safety interval.
+
+- **W150 — PWA install prompt** (PR #276). The manifest +
+  service worker have been PWA-eligible for a year but no UI
+  surfaced the install path. New pwa-install.js handles two
+  routes: Android/Edge/Samsung Internet captures
+  `beforeinstallprompt`, defers it, surfaces a centered bottom
+  banner after 2s ("Install NBD Pro" + "Add to your home screen
+  for full-screen mode, push alerts, and faster launches");
+  click triggers `deferredPrompt.prompt()`. iOS Safari (no
+  beforeinstallprompt event) gets a manual instruction card
+  detecting iOS UA + non-standalone display mode — "Tap the
+  Share button below, then Add to Home Screen". Both paths
+  honor a 7-day dismiss flag in localStorage and auto-hide on
+  `appinstalled` event. `window.NBDPwaInstall.forceShow()` is
+  exposed for a future Settings reset button.
+
+- **W151 — Consolidated polish sweep** (PR #277). One wave for
+  what was originally three:
+  * **mobile-polish.css** — global rules under
+    @media (max-width:Npx) AND @media (pointer:coarse) gates so
+    they only apply to actual touch devices on small viewports.
+    Touch-target floors (36→40-44px) on the dense kanban +
+    customer-page action chips. Customer-page .content-grid
+    stacks vertically under 860px with proper 16px gap. The
+    jump-nav becomes sticky on phones. :hover branches
+    suppressed on (pointer:coarse) so the "did I tap that?"
+    stuck-hover state on touch devices disappears. Form inputs
+    bumped to font-size:16px on phones to prevent iOS zoom-on-
+    focus. body padding-bottom = 80px when standalone so the
+    last list row clears the FAB stack + home indicator.
+  * **offline-banner.js** — yellow strip across the top when
+    navigator.onLine === false. Reads still served from cache
+    (W124+W127 SW), writes queue via offline-manager.js. Gives
+    the rep confidence that "save failed" toasts are network-
+    related, not data-related. Auto-hides on reconnection.
+
+- **W152 — Mobile arc bookend** (this entry).
+
+## Architecture notes for the thirteenth push
+
+- **Pointer-coarse + viewport queries together.** Every mobile
+  rule in mobile-polish.css is double-gated:
+  `@media (max-width:Npx) and (pointer:coarse)`. The viewport
+  query ensures desktop-narrow windows don't trigger touch-
+  optimized rules; the pointer query ensures iPad-Mini-sized
+  touch devices DO. Either alone misclassifies enough cases
+  (Surface tablets, foldables, large iPads in landscape) that
+  combining them is the only reliable mobile filter.
+
+- **safe-area-inset on every fixed-positioned element.** W149's
+  FABs, W150's install banner, W151's offline banner, the W139
+  hot-lead toast stack, the W127 SW notification — all of them
+  now use `calc(Npx + env(safe-area-inset-bottom, 0px))`. iPhone
+  X+ home indicator, Android gesture bar, Dynamic Island, foldable
+  hinges — all silently clipping fixed UI without insets. Pattern:
+  any fixed element near a screen edge MUST use insets. Going
+  forward this is the default, not an enhancement.
+
+- **MutationObserver as the modal-coordinator pattern.** W149's
+  FAB hider can't depend on every modal in the codebase calling
+  a registration helper — there are too many of them, written by
+  too many waves over the past year. MutationObserver watches the
+  body element for direct child additions and class/style
+  changes; the coordinator's BLOCKING_MODAL_IDS list is the
+  single source of truth and modals stay decoupled from it. Same
+  pattern would apply if we ever needed e.g. a global "darken
+  background while a modal is open" effect.
+
+- **Mobile polish is mostly CSS, not JS.** Three of the four
+  W151 fixes (touch targets, stacking, sticky nav, hover
+  suppression, iOS zoom prevention) are pure CSS via media
+  queries. Only the offline banner needed JS because it has to
+  react to a JavaScript event (online/offline). Lesson: when
+  picking up a mobile arc, audit the CSS first — most "mobile
+  feels broken" issues turn out to be missing media queries
+  rather than missing logic.
+
+- **The PWA install path is two events, not one.** Wave 150
+  needed both the beforeinstallprompt branch AND the iOS Safari
+  manual-instruction branch because Safari's PWA story is
+  intentionally different from Chromium's. Pattern: every cross-
+  platform UX decision needs to budget for 2-3 implementation
+  paths even if the user-facing experience converges. The
+  manifest is shared infrastructure; the install UI needs to
+  fork by platform-feature-detection.
+
+- **Arc-tightening when the original plan over-shards.** Original
+  C-arc plan was 6 waves (W149-W154). After shipping W149+W150
+  the remaining work fit cleanly into a single W151 polish sweep
+  + W152 bookend — half the planned waves. Pattern: when an arc
+  starts feeling artificially padded, bundle the leftover work
+  into one focused wave rather than ship a string of micro-PRs.
+  The wave-number gap (W153 unused, jumped to W152 bookend) is
+  cleaner than ceremony for its own sake. Future arcs: assume
+  the plan over-counts by 30% and look for collapse points.
