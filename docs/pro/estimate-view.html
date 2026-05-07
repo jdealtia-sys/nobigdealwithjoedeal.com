@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c0f">
+<meta name="robots" content="noindex, nofollow">
+<title>Your Estimate — No Big Deal</title>
+<!--
+  Wave 146: customer-facing estimate preview.
+  - URL shape: /pro/estimate-view.html?token=TOK&estimateId=EST
+  - Calls getEstimateForView (token-authed) which validates the
+    portal token, checks the estimate belongs to the same lead,
+    stamps viewedAt + bumps viewCount, and returns a redacted
+    estimate doc.
+  - The page renders the customer-facing format (no internal
+    margin, no cost basis) using a minimal inline renderer. We
+    deliberately don't load the full estimate-finalization.js
+    bundle here to keep the customer payload small + fast on
+    cellular.
+-->
+<link rel="preconnect" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Barlow', 'Helvetica Neue', system-ui, sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .ev-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 18px 64px;
+  }
+  .ev-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 18px;
+    border-bottom: 3px solid #c8541a;
+    margin-bottom: 26px;
+  }
+  .ev-brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .ev-brand span { color: #c8541a; }
+  .ev-badge {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #c8541a;
+    border: 1px solid #c8541a;
+    padding: 2px 9px;
+    border-radius: 2px;
+  }
+  .ev-doc-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #111;
+    text-align: right;
+  }
+  .ev-doc-meta { font-size: 12px; color: #666; text-align: right; margin-top: 4px; }
+  .ev-section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #111;
+    margin: 26px 0 12px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #c8541a;
+  }
+  .ev-customer {
+    background: #fff;
+    border: 1px solid #d4d4cf;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .ev-customer dt {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 2px;
+  }
+  .ev-customer dd { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  .ev-tier-card {
+    background: #fff;
+    border: 1px solid #d4d4cf;
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .ev-tier-card.featured {
+    border: 2px solid #c8541a;
+    box-shadow: 0 6px 20px rgba(200, 84, 26, 0.18);
+  }
+  .ev-tier-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #111;
+  }
+  .ev-tier-total {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    color: #c8541a;
+    margin-top: 6px;
+  }
+  .ev-line-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+    background: #fff;
+    border: 1px solid #d4d4cf;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .ev-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #ececea;
+    font-size: 14px;
+  }
+  .ev-line:last-child { border-bottom: none; }
+  .ev-line-name { flex: 1; }
+  .ev-line-qty { color: #777; font-size: 12px; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+  .ev-line-amt { font-weight: 600; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+  .ev-grand {
+    background: #c8541a;
+    color: #fff;
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ev-grand-lbl {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .ev-grand-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 38px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .ev-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 22px 0;
+  }
+  .ev-cta-row a {
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+    background: #c8541a;
+    color: #fff;
+    text-decoration: none;
+    padding: 14px 18px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-size: 15px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ev-cta-row a.ghost {
+    background: #fff;
+    color: #c8541a;
+    border: 1px solid #c8541a;
+  }
+  .ev-error, .ev-loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+    font-size: 14px;
+  }
+  .ev-error { color: #b91c1c; }
+  .ev-foot {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #d4d4cf;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+  }
+  /* Dark theme — opt-in via prefers-color-scheme since this is a
+     customer-facing page and most homeowners view on phones in
+     bright daylight. The light theme above is the primary surface. */
+  @media (prefers-color-scheme: dark) {
+    body { background: #0a0c0f; color: #e8eaf0; }
+    .ev-customer, .ev-tier-card, .ev-line-list { background: #13171d; border-color: #2a2f35; }
+    .ev-line { border-color: #2a2f35; }
+    .ev-customer dt { color: #888; }
+    .ev-tier-name, .ev-doc-title { color: #fff; }
+    .ev-line-qty { color: #aaa; }
+    .ev-foot { color: #888; border-color: #2a2f35; }
+  }
+</style>
+</head>
+<body>
+<main class="ev-shell" id="evRoot">
+  <div class="ev-loading">Loading your estimate…</div>
+</main>
+<script>
+(function () {
+  'use strict';
+  const FUNCTIONS_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+  const params = new URLSearchParams(window.location.search);
+  const token = (params.get('token') || '').trim();
+  const estimateId = (params.get('estimateId') || params.get('id') || '').trim();
+  const root = document.getElementById('evRoot');
+
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function money(n) {
+    const v = Number(n);
+    if (!isFinite(v)) return '$0';
+    return '$' + Math.round(v).toLocaleString();
+  }
+  function showError(msg) {
+    root.innerHTML = '<div class="ev-error">' + escHtml(msg) + '</div>';
+  }
+
+  if (!token || !estimateId) {
+    showError('This link is missing required information. Please ask your rep to resend.');
+    return;
+  }
+
+  fetch(FUNCTIONS_BASE + '/getEstimateForView', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token, estimateId: estimateId }),
+  })
+    .then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (j) {
+          throw new Error(j.error || 'Could not load estimate.');
+        });
+      }
+      return res.json();
+    })
+    .then(function (data) { renderEstimate(data.estimate || {}); })
+    .catch(function (err) { showError(err.message || 'Could not load estimate. The link may have expired.'); });
+
+  function renderEstimate(est) {
+    const tierName = est.tierName ||
+      (est.tier === 'best' ? 'Best — Lifetime' :
+       est.tier === 'better' ? 'Better — 30-Year Architectural' :
+       est.tier === 'good' ? 'Good — Builder Grade' : 'Estimate');
+    const total = est.grandTotal || est.total || 0;
+    const lines = Array.isArray(est.lines) ? est.lines : [];
+    const tiers = est.tiers || null;
+
+    let html = '';
+    html += '<div class="ev-header">';
+    html +=   '<div>';
+    html +=     '<div class="ev-brand"><span>NBD</span> · No Big Deal</div>';
+    html +=     '<div class="ev-badge">Roofing &amp; Restoration</div>';
+    html +=   '</div>';
+    html +=   '<div>';
+    html +=     '<div class="ev-doc-title">Estimate</div>';
+    html +=     '<div class="ev-doc-meta">' + escHtml(est.number || '') + '</div>';
+    html +=   '</div>';
+    html += '</div>';
+
+    if (est.owner || est.addr) {
+      html += '<div class="ev-customer">';
+      if (est.owner) html += '<dt>Prepared for</dt><dd>' + escHtml(est.owner) + '</dd>';
+      if (est.addr)  html += '<dt>Property</dt><dd>' + escHtml(est.addr) + '</dd>';
+      html += '</div>';
+    }
+
+    // Tier comparison cards if the estimate carries a tiers object
+    if (tiers && (tiers.good || tiers.better || tiers.best)) {
+      html += '<div class="ev-section-title">Choose your tier</div>';
+      ['good', 'better', 'best'].forEach(function (k) {
+        const t = tiers[k];
+        if (!t) return;
+        const featured = (k === est.tier);
+        const tName = k === 'best' ? 'Best' : k === 'better' ? 'Better' : 'Good';
+        html += '<div class="ev-tier-card' + (featured ? ' featured' : '') + '">';
+        html +=   '<div class="ev-tier-name">' + tName + '</div>';
+        html +=   '<div class="ev-tier-total">' + money(t.grandTotal || t.total || 0) + '</div>';
+        html += '</div>';
+      });
+    } else {
+      // Single-tier line-item view
+      html += '<div class="ev-section-title">Scope of work</div>';
+      if (lines.length) {
+        html += '<ul class="ev-line-list">';
+        lines.forEach(function (l) {
+          html += '<li class="ev-line">';
+          html +=   '<span class="ev-line-name">' + escHtml(l.name || l.description || l.code || 'Line item') + '</span>';
+          if (l.quantity != null) {
+            html += '<span class="ev-line-qty">' + escHtml(String(l.quantity)) + ' ' + escHtml(l.unit || '') + '</span>';
+          }
+          html +=   '<span class="ev-line-amt">' + money(l.lineTotal || l.amount || 0) + '</span>';
+          html += '</li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<p style="color:#666;font-style:italic;">Detailed line items will be reviewed in person.</p>';
+      }
+    }
+
+    html += '<div class="ev-grand">';
+    html +=   '<span class="ev-grand-lbl">Project Total</span>';
+    html +=   '<span class="ev-grand-val">' + money(total) + '</span>';
+    html += '</div>';
+
+    html += '<div class="ev-cta-row">';
+    html +=   '<a class="ghost" href="javascript:void(0)" onclick="window.print();return false;">Print / Save PDF</a>';
+    html +=   '<a href="javascript:history.back()">Back</a>';
+    html += '</div>';
+
+    html += '<div class="ev-foot">';
+    html +=   'This estimate is good for 30 days from the date issued. ';
+    html +=   'Questions? Reply to your rep&#39;s message or call them directly.';
+    html += '</div>';
+
+    root.innerHTML = html;
+  }
+})();
+</script>
+</body>
+</html>

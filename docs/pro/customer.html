@@ -3711,6 +3711,7 @@ async function loadEstimates(leadId) {
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
             <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
+            <button class="nbd-est-share" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(46,204,138,0.45);border-radius:4px;padding:4px 8px;font-size:10px;color:#5eead4;cursor:pointer;font-family:inherit;" title="Copy customer view link">🔗</button>
             <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--orange);cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
           </div>
         </div>
@@ -3724,6 +3725,9 @@ async function loadEstimates(leadId) {
     });
     estListEl.querySelectorAll('.nbd-est-export').forEach(btn => {
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); exportCustomerEstimate(btn.dataset.estId); });
+    });
+    estListEl.querySelectorAll('.nbd-est-share').forEach(btn => {
+      btn.addEventListener('click', (ev) => { ev.stopPropagation(); shareEstimateViewLink(btn.dataset.estId); });
     });
     estListEl.querySelectorAll('.nbd-est-cert').forEach(btn => {
       btn.addEventListener('click', (ev) => { ev.stopPropagation(); generateCertFromEstimate(btn.dataset.estId); });
@@ -3744,6 +3748,89 @@ async function loadEstimates(leadId) {
     console.error('Error loading estimates:', e);
   }
 }
+
+// ── W146: Share estimate view link ────────────────────────────────────────
+// Mints a portal token (or reuses an active one in localStorage) and
+// builds the customer-facing URL: /pro/estimate-view.html?token=…&estimateId=…
+// The viewer page calls getEstimateForView (W146) which validates the
+// token, stamps `viewedAt` + bumps `viewCount` on the estimate doc,
+// and returns the redacted estimate for client-side render.
+//
+// The same token can be reused across multiple estimates that belong
+// to the lead (the function checks lead-id match) so reps don't pile
+// up tokens.
+window.shareEstimateViewLink = async function(estId) {
+  const leadId = window._customerId;
+  if (!leadId || !estId) {
+    if (typeof showToast === 'function') showToast('Missing estimate or lead context.', 'error');
+    return;
+  }
+  // Check localStorage for a recently-minted token for this lead.
+  // Tokens last 30 days by default; we also stash the expiry so we
+  // skip stale ones without a round-trip to Firestore.
+  const cacheKey = 'nbd_view_token_' + leadId;
+  let token = null;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      if (cached.token && cached.expiresAt && cached.expiresAt > Date.now() + 60_000) {
+        token = cached.token;
+      }
+    }
+  } catch (_) { /* fall through to mint */ }
+
+  if (!token) {
+    // Mint a new token via the existing createPortalToken callable
+    // (already used by W118 portal flow + W144 supplements).
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = mod.getFunctions();
+        window._httpsCallable = mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'createPortalToken');
+      const result = await fn({ leadId, ttlDays: 30 });
+      token = result?.data?.token;
+      const expiresAt = result?.data?.expiresAt;
+      if (token && expiresAt) {
+        try { localStorage.setItem(cacheKey, JSON.stringify({ token, expiresAt })); } catch (_) {}
+      }
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not mint share link: ' + (e.message || 'try again'), 'error');
+      return;
+    }
+  }
+  if (!token) {
+    if (typeof showToast === 'function') showToast('Could not mint share link.', 'error');
+    return;
+  }
+
+  const url = window.location.origin + '/pro/estimate-view.html'
+    + '?token=' + encodeURIComponent(token)
+    + '&estimateId=' + encodeURIComponent(estId);
+
+  // Try the modern Web Share API first (mobile, opens native share
+  // sheet straight to SMS/Messenger/email). Fall back to clipboard
+  // copy for desktop. Final fallback: prompt() for legacy browsers.
+  if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+    try {
+      await navigator.share({
+        title: 'Your estimate from No Big Deal',
+        text: 'Here’s your estimate. Tap the link to review:',
+        url,
+      });
+      return;
+    } catch (_) { /* user cancelled; fall through to clipboard */ }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    if (typeof showToast === 'function') showToast('Customer view link copied ✓', 'success');
+  } catch (_) {
+    // Last resort prompt — user can manually copy.
+    try { window.prompt('Copy this link:', url); } catch (_) {}
+  }
+};
 
 // ── GENERATE WARRANTY CERT FROM CUSTOMER ESTIMATE ─────────────────────────
 window.generateCertFromEstimate = function(estId) {
