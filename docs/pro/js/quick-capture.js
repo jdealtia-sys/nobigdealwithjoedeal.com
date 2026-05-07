@@ -78,13 +78,20 @@
     btn.title = 'Quick Capture (W130) — talk for up to 5 min, get a structured summary';
     btn.setAttribute('aria-label', 'Open Quick Capture');
     btn.style.cssText =
-      'position:fixed;bottom:84px;right:20px;z-index:9999;' +
-      'width:44px;height:44px;border-radius:50%;border:none;' +
+      // W149: same safe-area-inset treatment as the W128 main mic.
+      // Stack sits above the W128 FAB (54+10 = 64px clearance), but
+      // the size bumps to 48px so the touch target stays above the
+      // iOS HIG 44px minimum without collision.
+      'position:fixed;' +
+      'bottom:calc(84px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(23px + env(safe-area-inset-right, 0px));' +
+      'z-index:9999;' +
+      'width:48px;height:48px;border-radius:50%;border:none;' +
       'background:#1a1f2e;color:var(--orange, #c8541a);font-size:18px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer;' +
       'border:1.5px solid var(--orange, #c8541a);' +
       'display:flex;align-items:center;justify-content:center;' +
-      '-webkit-tap-highlight-color:transparent;';
+      '-webkit-tap-highlight-color:transparent;transition:opacity 160ms ease;';
     btn.innerHTML = '🎙';
     btn.addEventListener('click', open);
     document.body.appendChild(btn);

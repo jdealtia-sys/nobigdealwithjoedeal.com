@@ -1,0 +1,114 @@
+/**
+ * fab-stack-coordinator.js — Wave 149
+ *
+ * Hides the bottom-right FAB stack (W128 mic, W130 quick-capture,
+ * W132 inbox) whenever a full-screen modal is open. Without this,
+ * the FABs floated on top of W130's record modal, the W144
+ * supplement modal, the W146 estimate viewer, etc — covering
+ * content + giving the rep a stale set of tap targets that don't
+ * make sense in the current context.
+ *
+ * Detection strategy: a MutationObserver watches document.body
+ * for known modal IDs being added/removed (the same set the
+ * keyboard ESC handlers in those modules use). When ANY of them
+ * is present + visible, the FAB stack opacity drops + pointer-
+ * events disable. When all are absent, FABs return.
+ *
+ * The list of "blocking modals" is intentionally narrow — random
+ * dropdowns, toasts, and small banners do NOT hide the FABs. Only
+ * full-screen overlays that take focus.
+ */
+(function () {
+  'use strict';
+  if (window.NBDFabStackCoordinator
+      && window.NBDFabStackCoordinator.__sentinel === 'nbd-fab-coord-v1') return;
+
+  const FAB_IDS = [
+    'nbd-whisper-fab',          // W128
+    'nbd-qc-fab',               // W130
+    'nbd-qci-fab',              // W132
+  ];
+
+  const BLOCKING_MODAL_IDS = [
+    'nbd-qc-modal',             // W130 Quick Capture full-screen
+    'nbd-qci-modal',            // W132 Capture inbox modal
+    'nbd-cmd-modal',            // W133 Cmd+K palette
+    'nbd-supplement-modal',     // W144 supplement builder
+    'nbd-lead-alert-stack',     // W139 hot-lead toast stack — DOESN'T block, see below
+    'estV2Modal',               // V2 estimate builder
+    'nbd-picker-modal',         // appearance picker
+  ];
+
+  // The lead-alert stack lists itself but should NOT trigger hide
+  // (the stack is non-modal — it sits next to the FABs). Filter it.
+  const _BLOCK_SET = new Set(BLOCKING_MODAL_IDS.filter(id => id !== 'nbd-lead-alert-stack'));
+
+  function _isModalActive() {
+    for (const id of _BLOCK_SET) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const style = el.style;
+      // The estV2Modal toggles via a `.open` class; others toggle display.
+      if (id === 'estV2Modal') {
+        if (el.classList && el.classList.contains('open')) return true;
+        continue;
+      }
+      // Display-toggle modals: visible when display !== 'none' (or
+      // missing → defaults to flex/block per the modal's CSS rule).
+      if (style.display === 'none') continue;
+      // Some modals only exist in DOM when open; mere presence = open.
+      return true;
+    }
+    return false;
+  }
+
+  function _applyHidden(hide) {
+    FAB_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (hide) {
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+        el.setAttribute('aria-hidden', 'true');
+      } else {
+        el.style.opacity = '';
+        el.style.pointerEvents = '';
+        el.removeAttribute('aria-hidden');
+      }
+    });
+  }
+
+  function _check() {
+    _applyHidden(_isModalActive());
+  }
+
+  function _bootstrap() {
+    _check();
+    if (typeof MutationObserver !== 'function') return;
+    const obs = new MutationObserver(() => { _check(); });
+    obs.observe(document.body, {
+      childList: true,
+      subtree: false,         // only direct body children matter
+      attributes: true,       // class+style toggles
+      attributeFilter: ['class', 'style'],
+    });
+    // Also recheck on any keydown/click — a modal that toggled via
+    // a child mutation might not have triggered the observer. Cheap
+    // belt-and-suspenders.
+    document.addEventListener('keydown', _check, true);
+    window.addEventListener('focus', _check);
+    // Periodic safety check — covers any modal toggle path I missed.
+    setInterval(_check, 1500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bootstrap, { once: true });
+  } else {
+    setTimeout(_bootstrap, 0);
+  }
+
+  window.NBDFabStackCoordinator = {
+    __sentinel: 'nbd-fab-coord-v1',
+    check: _check,
+  };
+})();
