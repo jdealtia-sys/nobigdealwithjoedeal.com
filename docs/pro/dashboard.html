@@ -14724,9 +14724,16 @@ function renderAcDrop(inputId, results, onSelect) {
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   drop.innerHTML = results.map((r,i) => {
-    const parts = String(r.display_name || '').split(',');
-    const main  = parts.slice(0,2).join(',').trim();
-    const sub   = parts.slice(2,4).join(',').trim();
+    // Wave 141: render the proper USPS mailing address as the
+    // primary line. Sub-line shows county (where applicable) — the
+    // disambiguator the rep cares about when two streets share the
+    // same name in different towns. Fallback to display_name slice
+    // for offline / non-US edge cases.
+    const formatted = (typeof formatMailingAddress === 'function')
+      ? formatMailingAddress(r) : '';
+    const main = formatted || String(r.display_name || '').split(',').slice(0,2).join(',').trim();
+    const a = r.address || {};
+    const sub = a.county ? a.county : String(r.display_name || '').split(',').slice(2,4).join(',').trim();
     return `<div class="ac-item nbd-ac-item" data-label="${esc(main)}" data-idx="${i}"><b>${esc(main)}</b>${sub ? `<br><span style="color:var(--m);font-size:10px;">${esc(sub)}</span>` : ''}</div>`;
   }).join('');
   drop.querySelectorAll('.nbd-ac-item').forEach(el => {
@@ -14743,6 +14750,140 @@ function renderAcDrop(inputId, results, onSelect) {
   window._acResults[inputId] = results;
 }
 
+// Wave 141: USPS-standard road-suffix abbreviations + state name →
+// 2-letter code mapping. Used by formatMailingAddress() below to
+// produce a USPS-compliant single-line label like
+// "1054 Klondyke Rd, Goshen, OH 45122" instead of the old
+// comma-spliced "1054, Klondyke Road, Goshen".
+//
+// Source list mirrors USPS Pub 28 Appendix C — only the suffixes
+// nominatim is realistically going to surface in the US (the full
+// pub has 200+ variants we'd never see). Comparison is case-
+// insensitive on the LAST whitespace-delimited token of road.
+const _USPS_SUFFIX = Object.freeze({
+  alley: 'Aly', avenue: 'Ave', boulevard: 'Blvd', branch: 'Br',
+  bridge: 'Br', center: 'Ctr', circle: 'Cir', cliff: 'Clf',
+  commons: 'Cmns', common: 'Cmn', corner: 'Cor', court: 'Ct',
+  cove: 'Cv', creek: 'Crk', crossing: 'Xing', cross: 'Xrd',
+  dale: 'Dl', divide: 'Dv', drive: 'Dr', estate: 'Est',
+  expressway: 'Expy', extension: 'Ext', fall: 'Fall', fork: 'Frk',
+  fort: 'Ft', freeway: 'Fwy', garden: 'Gdn', glen: 'Gln',
+  green: 'Grn', grove: 'Grv', harbor: 'Hbr', haven: 'Hvn',
+  heights: 'Hts', highway: 'Hwy', hill: 'Hl', hills: 'Hls',
+  hollow: 'Holw', island: 'Is', junction: 'Jct', key: 'Ky',
+  knoll: 'Knl', lake: 'Lk', land: 'Land', landing: 'Lndg',
+  lane: 'Ln', light: 'Lgt', loaf: 'Lf', locks: 'Lcks',
+  lodge: 'Ldg', loop: 'Loop', mall: 'Mall', manor: 'Mnr',
+  meadow: 'Mdw', meadows: 'Mdws', mews: 'Mews', mill: 'Ml',
+  mission: 'Msn', motorway: 'Mtwy', mount: 'Mt', mountain: 'Mtn',
+  neck: 'Nck', orchard: 'Orch', overpass: 'Opas', park: 'Park',
+  parkway: 'Pkwy', pass: 'Pass', passage: 'Psge', path: 'Path',
+  pike: 'Pike', pine: 'Pne', place: 'Pl', plain: 'Pln',
+  plaza: 'Plz', point: 'Pt', port: 'Prt', prairie: 'Pr',
+  radial: 'Radl', ramp: 'Ramp', ranch: 'Rnch', rapids: 'Rpds',
+  rest: 'Rst', ridge: 'Rdg', river: 'Riv', road: 'Rd',
+  route: 'Rte', row: 'Row', run: 'Run', shoal: 'Shl',
+  shore: 'Shr', skyway: 'Skwy', spring: 'Spg', square: 'Sq',
+  station: 'Sta', stream: 'Strm', street: 'St', summit: 'Smt',
+  terrace: 'Ter', throughway: 'Trwy', trace: 'Trce', track: 'Trak',
+  trafficway: 'Trfy', trail: 'Trl', tunnel: 'Tunl', turnpike: 'Tpke',
+  underpass: 'Upas', union: 'Un', valley: 'Vly', via: 'Via',
+  viaduct: 'Via', view: 'Vw', village: 'Vlg', ville: 'Vl',
+  vista: 'Vis', walk: 'Walk', way: 'Way', well: 'Wl',
+});
+const _STATE_2L = Object.freeze({
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR',
+  california: 'CA', colorado: 'CO', connecticut: 'CT', delaware: 'DE',
+  'district of columbia': 'DC', florida: 'FL', georgia: 'GA', hawaii: 'HI',
+  idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
+  kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME',
+  maryland: 'MD', massachusetts: 'MA', michigan: 'MI', minnesota: 'MN',
+  mississippi: 'MS', missouri: 'MO', montana: 'MT', nebraska: 'NE',
+  nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM',
+  'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH',
+  oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI',
+  'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX',
+  utah: 'UT', vermont: 'VT', virginia: 'VA', washington: 'WA',
+  'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+  // Territories that USPS handles
+  'puerto rico': 'PR', 'us virgin islands': 'VI', guam: 'GU',
+  'american samoa': 'AS', 'northern mariana islands': 'MP',
+});
+
+function _abbreviateRoadSuffix(road) {
+  const s = String(road || '').trim();
+  if (!s) return '';
+  // Tokenize on whitespace; abbreviate only the LAST token if it
+  // matches a known suffix. "Klondyke Road" → "Klondyke Rd";
+  // "St James Court" → "St James Ct" (first "St" untouched, last
+  // "Court" → "Ct"). Doesn't touch directional suffixes (N/S/E/W).
+  const tokens = s.split(/\s+/);
+  if (tokens.length < 2) return s;
+  const last = tokens[tokens.length - 1].toLowerCase().replace(/[.,]/g, '');
+  if (_USPS_SUFFIX[last]) {
+    tokens[tokens.length - 1] = _USPS_SUFFIX[last];
+  }
+  return tokens.join(' ');
+}
+
+function _state2letter(state, addrObj) {
+  // Prefer Nominatim's ISO3166-2-lvl4 field (e.g. "US-OH") if present —
+  // it's always 2 chars and never ambiguous.
+  const iso = addrObj && addrObj['ISO3166-2-lvl4'];
+  if (typeof iso === 'string' && /^US-[A-Z]{2}$/.test(iso)) {
+    return iso.slice(3);
+  }
+  const s = String(state || '').trim().toLowerCase();
+  if (_STATE_2L[s]) return _STATE_2L[s];
+  // If it's already 2 chars, accept it (some Nominatim responses
+  // already return abbreviated state).
+  if (/^[A-Z]{2}$/.test(state)) return state;
+  return state || '';
+}
+
+/**
+ * Wave 141: format a Nominatim search result into a USPS-compliant
+ * single-line mailing address.
+ *
+ *   formatMailingAddress({ display_name, address: { house_number,
+ *     road, city, town, village, state, "ISO3166-2-lvl4", postcode } })
+ *   → "1054 Klondyke Rd, Goshen, OH 45122"
+ *
+ * Falls back to a tidied display_name slice when structured fields
+ * are missing (offline / non-US results / nominatim variants).
+ */
+function formatMailingAddress(r) {
+  if (!r) return '';
+  const a = r.address || {};
+  const houseNum = a.house_number || '';
+  const road = _abbreviateRoadSuffix(a.road || a.street || a.pedestrian || a.path || '');
+  const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.municipality || '';
+  const stateCode = _state2letter(a.state, a);
+  const zip = a.postcode || '';
+
+  const street = [houseNum, road].filter(Boolean).join(' ').trim();
+  const cityState = [
+    city,
+    [stateCode, zip].filter(Boolean).join(' ').trim(),
+  ].filter(Boolean).join(', ').trim();
+
+  if (street && cityState) return street + ', ' + cityState;
+  if (street) return street;
+  if (cityState) return cityState;
+
+  // Last-resort fallback: clean up display_name. Strip ", United
+  // States" and the county field (which Nominatim usually places
+  // between city and state).
+  let dn = String(r.display_name || '').trim();
+  dn = dn.replace(/,\s*United States\s*$/i, '');
+  // Drop any "X County" segment.
+  dn = dn.replace(/,\s*[A-Z][a-z]+ County\s*,/g, ',');
+  // Collapse multi-comma sequences.
+  dn = dn.replace(/\s*,\s*,\s*/g, ', ').trim();
+  return dn;
+}
+window.formatMailingAddress = formatMailingAddress;
+
 function selectAcItem(inputId, idx) {
   const input = document.getElementById(inputId);
   const drop  = document.getElementById('ac-' + inputId);
@@ -14750,8 +14891,14 @@ function selectAcItem(inputId, idx) {
   const r = results[idx];
   if(!r || !input) return;
 
-  const parts = r.display_name.split(',');
-  const label = parts.slice(0,3).join(',').trim();
+  // Wave 141: produce a proper USPS-style mailing address using the
+  // structured nominatim addressdetails — house_number + road
+  // (suffix-abbreviated) + city + 2-letter state + ZIP. Replaces the
+  // old `display_name.split(',').slice(0,3)` which produced
+  // "1054, Klondyke Road, Goshen" (wrong on every count: comma
+  // after house number, full road name instead of "Rd", missing
+  // ZIP, state spelled out, county included).
+  const label = formatMailingAddress(r) || r.display_name || '';
   input.value = label;
   drop.style.display = 'none';
 
