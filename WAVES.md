@@ -1574,3 +1574,205 @@ dictate-anywhere + scratchpad surface.
   (every-other, only-after-X-seconds, only-on-bfcache-restore)
   point straight at the underlying state machine. Train users
   to describe the pattern and the bug usually identifies itself.
+
+
+# Eleventh push — Waves 133-141 (Cmd+K, post-review polish, Lead Intelligence arc, address fix)
+
+This push opened with the Cmd+K keyboard-first navigation surface
+(W133 — completing the voice + keyboard ergonomic story alongside
+the Whisper arc) and a parallel-agent code review pass that
+surfaced 3 CRITICAL + 4 HIGH issues from the W118-W133 stretch
+(W134). The bulk of the work was the Lead Intelligence arc
+(W135-W140) — a unified 0-100 priority engine that combines every
+signal NBD already collects into ONE score, surfaced consistently
+across kanban, customer page, bell, command palette, briefing,
+and a new threshold-crossing alert. A user-reported address
+autofill bug also got fixed mid-arc (W141).
+
+## Cmd+K command palette
+
+- **W133 — Cmd+K palette.** The keyboard-first sequel to Whisper.
+  Hit ⌘K (Mac) / Ctrl+K (Windows/Linux) — or `/` when no input is
+  focused — to open a fuzzy-search overlay. Three sources: recent
+  items (last 8 from localStorage), 22 built-in actions
+  (navigation + voice + actions like New Lead / Sign Out), and
+  fuzzy-matched leads from the in-memory cache. Two keystrokes
+  from anywhere on the page to anywhere in the app. Module:
+  `docs/pro/js/command-palette.js` (~430 lines).
+
+## Post-review polish
+
+- **W134 — 3 CRITICAL + 4 HIGH from agent review.** Parallel
+  `security-reviewer` + `code-reviewer` agents against the
+  W118-W133 stretch surfaced:
+  1. TOCTOU race on per-token daily quotas across 3 portal
+     endpoints (uploadHomeownerPhoto, requestCallback,
+     sendPortalMessage). Burst of 10+ concurrent requests bypassed
+     daily caps. Fix: wrap counter check + increment in
+     `db.runTransaction`.
+  2. submitCustomerRating write-once not atomic. Fix:
+     transaction-scoped read + verify + write.
+  3. `googleReviewUrl` could carry `javascript:` scheme — esc()
+     in the portal HTML escapes characters but doesn't strip
+     schemes. XSS pivot. Fix: enforce `^https?://` regex
+     server-side + defense-in-depth client check.
+  4. Base64 regex ReDoS risk on multi-MB input. Fix: pre-check
+     `;base64,` substring before regex.
+  5. `todayLocal` direct concat into Claude system prompt
+     (prompt injection vector). Fix: strict
+     `/^\d{4}-\d{2}-\d{2}$/` regex match.
+  6. Signed URL expiry of `03-09-2491` made photo URLs
+     practically permanent. Fix: 7-day TTL.
+  7. `_renderRetryHandle` setInterval untracked → second
+     loadLeads could double-run. Fix: hoist to window, clear
+     alongside `_loadLeadsRetryTimer`.
+  8. Quick Capture ESC lockout — modal couldn't be escaped if
+     `_stopRecorder()` threw. Fix: ESC always closes.
+  9. Quick Capture keydown listener leak on navigation. Fix:
+     `pagehide → close` with `{once: true}` backstop.
+
+## Lead Intelligence arc
+
+The strategic feature of the push. Combines every signal NBD
+already collects into ONE 0-100 score per lead, surfaced
+consistently across every place the rep makes "what to do next"
+decisions.
+
+- **W135 — Engine.** Module: `docs/pro/js/lead-score.js`. Six
+  weighted signal sources:
+    Engagement   (0-30) — W92 customer-engagement-score tier
+    Stage        (0-25) — gravity map: estimate-sent + signed peak
+    Recency      (0-20) — exp decay, half-life ~2.8 days
+    Hot signals  (0-15) — unread message (W123), recent upload
+                            (W118), callback request (W119), low
+                            rating (W121)
+    Smart-followup (0-15) — W111 priority × confidence
+    Pattern boost (0-5)  — W116 personal-adjustment delta
+  Total clamps to 0-100. Tier ladder: 🔥 80+ / 🌡 60+ / 💧 40+
+  / 💤 20+ / 🪦 0+. Also returns a `topReason` field with the
+  single most-motivating signal — the rep sees the WHY at a glance.
+
+- **W136 — Kanban card score badge + trend arrow.** Tiny pill in
+  the top-meta row: tier-color dot, 0-100 score, ↑/↓ trend
+  arrow vs. last seen for this lead (±2 deadband to prevent
+  flicker, persisted to localStorage with a 1.5s debounce).
+  Tooltip shows the topReason. Clickable in W137.
+
+- **W137 — Customer-page score chip + breakdown panel.**
+  `lead-score-panel.js`. Score chip in the customer header
+  (matching tier color), clicks to expand a breakdown panel
+  showing each signal's contribution as a horizontal bar +
+  active signal tags + smart-followup AI suggestion. Auto-
+  refreshes on every `nbd:data-refreshed` event.
+
+- **W138 — Cross-surface sort consistency.** Bell, Cmd+K palette,
+  and morning briefing all now sort by W135 score:
+    - Bell: items inherit their lead's score; sorted within
+      severity tier so a 'medium' bell row tied to a 🔥 Hot lead
+      bubbles up above a 'medium' on a cold lead
+    - Briefing: Top 5 sorted by unified score (was W111
+      SmartFollowup score)
+    - Cmd+K: empty query → top leads by score; text query →
+      fuzzy match + small additive score boost
+
+- **W139 — Threshold-crossing alert.** `lead-score-alert.js`.
+  One-shot toast when a lead's score crosses INTO Hot (≥80)
+  since last seen. Listens on `nbd:data-refreshed` events,
+  reuses W136's localStorage cache for the comparison. 6h
+  cooldown per lead so a bouncing score doesn't spam the rep.
+  Toast click → opens that lead's customer page.
+
+- **W140 — Arc bookend** (this entry).
+
+## P0 mid-arc
+
+- **W141 — Address autofill USPS mailing format.** User-reported
+  daily friction: address autocomplete returned
+  `1054, Klondyke Road, Goshen` instead of
+  `1054 Klondyke Rd, Goshen, OH 45122`. Wrong on every count:
+  comma after house number, full road name, missing ZIP, state
+  spelled out, county included. Root cause: `selectAcItem` was
+  splitting Nominatim's `display_name` on commas instead of
+  using the structured `addressdetails` response. Fix:
+  `formatMailingAddress()` helper that uses the structured
+  fields with USPS Pub 28 suffix abbreviations (~80 mappings)
+  + state-name → 2-letter code (50 states + DC + territories).
+  Exported as `window.formatMailingAddress` so estimates,
+  contracts, BoldSign envelopes can use the same formatter for
+  consistency.
+
+## Architecture notes for the eleventh push
+
+- **One signal vocabulary, every surface.** The Lead Intelligence
+  arc deliberately reused signal IDs across W136 kanban, W137
+  customer page, W138 bell/Cmd+K/briefing, W139 alert. The rep
+  sees the same `🔥 87 ↑` pattern, the same colors, the same
+  tier names everywhere. When something is hot in the kanban
+  it's hot in the bell, hot in the briefing, hot in the palette
+  results. No surface-specific scoring tweaks — the engine is
+  the single source of truth and consumers render it.
+
+- **Stateless engine, stateful caches at the consumer layer.**
+  `NBDLeadScore` itself is pure — no caching, no Firestore writes,
+  no background scheduler. Each consumer that needs trend
+  detection or threshold-crossing logic (W136 trend arrow, W139
+  alert) keeps its own localStorage cache of last-seen scores.
+  Both consumers share the same key (`nbd_lead_score_last_v1`)
+  so the storage doesn't duplicate, but neither owns the engine.
+  Lets us iterate the scoring math without breaking trend logic.
+
+- **Defense-in-depth on URL handling.** W134's `googleReviewUrl`
+  fix landed both server-side (regex enforcement in two places)
+  AND client-side (defense-in-depth check before injecting into
+  `<a href>`). Either layer alone closes the XSS pivot, but both
+  together prevent a future server bug or direct-invocation
+  pivot from re-introducing it. Same belt-and-suspenders pattern
+  W127 used for the SW cache (`cache: 'reload'` flag + Hosting
+  `must-revalidate` headers — either alone bypasses HTTP cache,
+  but both together prevent any single mistake in either layer).
+
+- **TOCTOU pattern: reservation transaction + post-write I/O.**
+  W134's quota fix uses Firestore transactions to atomically
+  reserve a quota slot, then does the slow I/O (Storage upload,
+  message create) outside the transaction. If the I/O fails after
+  reservation, the user is short one slot for the day —
+  acceptable trade-off for actual quota enforcement under burst
+  load. The alternative (reserve-rollback if I/O fails) is more
+  complex and rarely worth it for daily quotas where being
+  short one slot is invisible to the user.
+
+- **Code review as a separate session phase.** The W134 polish
+  wave was driven entirely by parallel agent passes
+  (security-reviewer + code-reviewer) against a tight scope (just
+  the W118-W133 diffs, not the whole codebase). 3 CRITICAL + 4
+  HIGH issues caught — at least the CRITICAL TOCTOU + URL
+  injection ones I would NOT have hand-scanned for after writing
+  the code. Pattern: ship a feature stretch, then do a focused
+  agent review, then a polish wave. Cheaper than a generic
+  "code-review-everything" sweep and finds more real bugs because
+  the scope is narrow enough for the agent to actually read the
+  code carefully.
+
+- **Backwards-compat fallbacks for engine availability.** Every
+  consumer of `NBDLeadScore` (W136 badge, W137 panel, W138 sorts,
+  W139 alert) checks `if (window.NBDLeadScore && ...)` before
+  using it. The kanban badge falls back to no badge; the bell
+  falls back to severity-only sort; the briefing falls back to
+  W111's score; the alert silently doesn't fire. This means a
+  half-deployed state where lead-score.js hasn't reached a user's
+  cache yet doesn't break any of the surfaces — they just lose
+  the score-based features until the engine arrives. Same pattern
+  W129 used for the chained-fallback in nbd-whisper.js. Critical
+  for SaaS where deploys aren't atomic across all clients.
+
+- **The user-report → fix loop happened twice in this push.**
+  Once for "every other reload stuck" (W127, deferred from the
+  previous push) and once for "address autofill weird" (W141).
+  Both fixes shipped within minutes of the report and addressed
+  daily friction the user had been living with. Lead intelligence
+  arc waves shipped between the bug reports without losing
+  track. Pattern: bug reports during feature work get treated as
+  P0 wave-inserts, get their own wave number, ship immediately,
+  then we resume the arc. The wave-numbering integrity (every PR
+  numbered chronologically in commit/PR titles) makes the audit
+  trail clean even when arcs interleave.
