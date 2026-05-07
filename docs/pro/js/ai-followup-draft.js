@@ -1,60 +1,30 @@
 /**
- * ai-followup-draft.js — Wave 162 + Wave 163 + Wave 164
+ * ai-followup-draft.js — Wave 162 + Wave 163 + Wave 164 + Wave 169
  *
- * Pre-writes a personalized follow-up the rep can copy or send in
- * one tap from the customer page. Where W113 SmartFollowup tells
- * the rep WHAT to do next, this panel tells the rep WHAT TO SAY.
+ * Customer-page panel that pre-writes a personalized follow-up the
+ * rep can copy/send/speak in one tap. W113 SmartFollowup tells the
+ * rep WHAT to do; this panel tells them WHAT TO SAY.
  *
- * W164 closes the activity-tracking loop: clicking the primary
- * send action calls `window.logCommunication()` which writes a
- * `communications` doc + bumps `lead.lastContactedAt`, so the
- * outbound shows up in the timeline, smart-followup stops nagging
- * the lead, lead-score recency rises, and the Daily Brief drops it
- * from tomorrow's list.
+ * Channels (W163): SMS (320c, sms:), Email (~800c, mailto: with
+ * Subject parsed via regex), Voicemail (50-90w, Web Speech TTS).
+ * Each channel has its own system prompt, max chars, action button.
+ * Caching per (leadId, calendarDay, channel) — only the first
+ * visit to each channel that day costs a generation. Last-selected
+ * channel persists in localStorage so re-opens default sensibly.
  *
- *   ┌────────────────────────────────────────────────────────────┐
- *   │ ✉  Suggested follow-up                          [×]       │
- *   │ ┌─SMS─┬─Email─┬─Voicemail─┐                                │
- *   │ │ ⬤   │       │           │                                │
- *   │ └─────┴───────┴───────────┘                                │
- *   │ ──────────────────────────────────────────────────────── │
- *   │ Hey Sarah — quick check on the estimate I sent Tuesday.   │
- *   │ Any questions before you sign? Happy to hop on a call.    │
- *   │                                                            │
- *   │  [💬 Open in Messages]   [📋 Copy]   [↻ Regenerate]       │
- *   └────────────────────────────────────────────────────────────┘
+ * W164 closes the activity-tracking loop: send actions call
+ * window.logCommunication() → writes communications doc + bumps
+ * lead.lastContactedAt → smart-followup stops nagging + lead-score
+ * recency rises + Daily Brief drops the lead tomorrow.
  *
- * Wave 163 adds Email + Voicemail channels alongside the W162 SMS
- * baseline. Each channel has its own system prompt + length budget +
- * action buttons:
- *   - SMS:        320 chars, 2 sentences, casual          → sms: link
- *   - Email:      ~500 chars, subject + body, warmer prof → mailto:
- *   - Voicemail:  50-90 words, friendly script            → speak via TTS
+ * W169 audit fixes: prompt-injection sanitize on every lead-derived
+ * fact in the Claude prompt; phone/email validate before sms:/mailto:
+ * to block query-injection + BCC-injection; init guard so bfcache
+ * restore doesn't double-attach the data-refreshed listener.
  *
- * Caching is per (leadId, calendarDay, channel) so switching tabs
- * doesn't burn fresh API calls — only the first visit to each
- * channel that day costs a generation. The rep's last-selected
- * channel persists in localStorage so re-opening a customer page
- * defaults to whatever they used last (most reps live in one
- * channel).
- *
- * Failure modes:
- *   - Claude unavailable → deterministic template fallback that
- *     still incorporates lead signals
- *   - No phone on file → SMS open + Voicemail TTS disabled
- *   - No email on file → Email open disabled
- *   - Lead has no name → "Hey there"
- *   - Lead navigation mid-async → bail before stomping new
- *     lead's panel
- *
- * Path-gated to customer.html (single-lead surface).
- *
- * Public API:
- *   window.NBDFollowupDraft.update()
- *   window.NBDFollowupDraft.setChannel('sms'|'email'|'voicemail')
- *   window.NBDFollowupDraft.regenerate()
- *   window.NBDFollowupDraft.copy()
- *   window.NBDFollowupDraft.dismiss()
+ * Path-gated to customer.html. Public API: NBDFollowupDraft.update()
+ * / setChannel('sms'|'email'|'voicemail') / regenerate() / copy() /
+ * dismiss().
  */
 (function () {
   'use strict';
@@ -67,10 +37,9 @@
   const PANEL_ID = 'aiFollowupDraftPanel';
 
   // ─── Channel definitions ─────────────────────────────────────
-  // Per-channel: id, label, system prompt, max chars, format hints
-  // for fallback + cap, action button kit. The system prompt is
-  // intentionally explicit about format because Claude tends to
-  // drift toward boilerplate without firm constraints.
+  // Per-channel: id, label, system prompt, max chars, action kit.
+  // System prompts are explicit about format — Claude drifts to
+  // boilerplate without firm constraints.
   const CHANNELS = {
     sms: {
       id: 'sms',
@@ -251,6 +220,24 @@
     return Math.floor((Date.now() - ms) / 86_400_000);
   }
 
+  // ─── W169 audit: input sanitization for prompts + URLs ──────
+  // Strip newlines, drop injection-prone chars, truncate so a
+  // tampered lead field can't reshape the Claude prompt.
+  function _sanFact(s, max) {
+    return String(s == null ? '' : s)
+      .replace(/[\r\n]+/g, ' ').replace(/[`<>]/g, '')
+      .replace(/\s+/g, ' ').trim().slice(0, max || 80);
+  }
+  // Reject phone strings with embedded ?/&/spaces-of-symbols that
+  // could survive encodeURIComponent + override sms: query.
+  function _validPhone(p) {
+    return /^\+?[\d\s\-().]{7,20}$/.test(String(p || '').trim());
+  }
+  // Reject mailto: input that could BCC-inject (multiple @, etc).
+  function _validEmail(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
+  }
+
   // ─── Build prompt context ─────────────────────────────────────
   function _buildContext(lead) {
     const ctx = {
@@ -291,20 +278,23 @@
   }
 
   function _factsList(ctx) {
+    // W169 audit: sanitize every field that comes from user-controlled
+    // sources (lead docs, stage labels). Numeric counters + booleans
+    // we trust because they're computed locally from typed fields.
     const facts = [];
-    facts.push('First name: ' + ctx.firstName);
-    if (ctx.stage) facts.push('Pipeline context: ' + ctx.stage);
+    facts.push('First name: ' + _sanFact(ctx.firstName, 60));
+    if (ctx.stage) facts.push('Pipeline context: ' + _sanFact(ctx.stage, 80));
     if (ctx.callbackRequested) facts.push('They requested a callback in the last 48h');
-    if (ctx.unread > 0) facts.push('They sent ' + ctx.unread + ' unread message' + (ctx.unread === 1 ? '' : 's'));
+    if (ctx.unread > 0) facts.push('They sent ' + Number(ctx.unread) + ' unread message' + (ctx.unread === 1 ? '' : 's'));
     if (ctx.uploadedPhoto) facts.push('They uploaded a photo in the last 48h');
     if (ctx.estimateSentDays != null && ctx.estimateSentDays <= 30) {
-      facts.push('Estimate sent ' + ctx.estimateSentDays + ' day'
+      facts.push('Estimate sent ' + Number(ctx.estimateSentDays) + ' day'
         + (ctx.estimateSentDays === 1 ? '' : 's') + ' ago'
-        + (ctx.estimateViewCount ? ' (viewed ' + ctx.estimateViewCount + ' times)' : '')
+        + (ctx.estimateViewCount ? ' (viewed ' + Number(ctx.estimateViewCount) + ' times)' : '')
         + (ctx.estimateSigned ? ', signed' : ', not yet signed'));
     }
     if (ctx.lastContactDays != null && ctx.lastContactDays > 0) {
-      facts.push('Last rep-side contact: ' + ctx.lastContactDays + ' day'
+      facts.push('Last rep-side contact: ' + Number(ctx.lastContactDays) + ' day'
         + (ctx.lastContactDays === 1 ? '' : 's') + ' ago');
     }
     if (ctx.hot) facts.push('Lead score is in the Hot tier (≥80/100)');
@@ -484,20 +474,24 @@
 
     let primaryHtml = '';
     if (ch.id === 'sms') {
-      const href = phone && draft ? 'sms:' + phone + '?body=' + encodeURIComponent(draft) : '';
+      // W169: validate phone before sms: URI to block query injection.
+      const validPhone = _validPhone(lead.phone) ? phone : '';
+      const href = validPhone && draft ? 'sms:' + validPhone + '?body=' + encodeURIComponent(draft) : '';
       primaryHtml = href
         ? '<a data-fd-action="open" href="' + _esc(href) + '" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:#a855f7;color:#fff;text-decoration:none;font:inherit;font-size:12px;font-weight:700;">💬 Open in Messages</a>'
-        : '<span title="No phone on file" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:rgba(148,163,184,0.15);color:#94a3b8;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed;">💬 Open in Messages</span>';
+        : '<span title="No valid phone on file" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:rgba(148,163,184,0.15);color:#94a3b8;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed;">💬 Open in Messages</span>';
     } else if (ch.id === 'email') {
+      // W169: validate email before mailto: to block BCC injection.
+      const validEmail = _validEmail(email) ? email : '';
       const split = _splitEmail(draft);
-      const href = email && draft
-        ? 'mailto:' + encodeURIComponent(email)
+      const href = validEmail && draft
+        ? 'mailto:' + encodeURIComponent(validEmail)
             + '?subject=' + encodeURIComponent(split.subject)
             + '&body=' + encodeURIComponent(split.body)
         : '';
       primaryHtml = href
         ? '<a data-fd-action="open" href="' + _esc(href) + '" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:#a855f7;color:#fff;text-decoration:none;font:inherit;font-size:12px;font-weight:700;">📧 Open in Mail</a>'
-        : '<span title="No email on file" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:rgba(148,163,184,0.15);color:#94a3b8;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed;">📧 Open in Mail</span>';
+        : '<span title="No valid email on file" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:rgba(148,163,184,0.15);color:#94a3b8;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed;">📧 Open in Mail</span>';
     } else if (ch.id === 'voicemail') {
       const ttsAvailable = typeof window.speechSynthesis !== 'undefined';
       primaryHtml = ttsAvailable
@@ -756,8 +750,14 @@
   }
 
   // ─── Init ─────────────────────────────────────────────────────
+  // W169 fix: guard against duplicate listener registration on
+  // bfcache restore / re-fire DOMContentLoaded — without the flag,
+  // each duplicate would kick off another concurrent Claude call.
+  let _initialized = false;
   function _init() {
     if (!_onCustomerPage()) return;
+    if (_initialized) return;
+    _initialized = true;
     setTimeout(update, 1500);
     document.addEventListener('nbd:data-refreshed', update);
   }

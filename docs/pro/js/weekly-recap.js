@@ -80,6 +80,13 @@
 
   // ISO-week key (YYYY-Www). Mondays-of-the-week define a unique
   // week regardless of crossing year boundaries.
+  //
+  // W169 audit fix: the Math.round formula could return 0 for
+  // dates near the year boundary that ISO 8601 actually counts as
+  // week 52/53 of the prior year. A weekNo=0 key never matches
+  // the stored value so the modal would re-pop every weekend in
+  // that window. The fix is the standard "if weekNo<1 use prior
+  // year's last week" pattern from the canonical ISO snippet.
   function _weekKey(date) {
     const d = new Date(date || Date.now());
     d.setHours(0, 0, 0, 0);
@@ -87,8 +94,28 @@
     // edge cases land in the right year.
     d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
     const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = 1 + Math.round(((d.getTime() - yearStart.getTime()) / 86_400_000 - 3 + ((yearStart.getDay() + 6) % 7)) / 7);
-    return d.getFullYear() + '-W' + String(weekNo).padStart(2, '0');
+    let weekNo = 1 + Math.round(((d.getTime() - yearStart.getTime()) / 86_400_000 - 3 + ((yearStart.getDay() + 6) % 7)) / 7);
+    let year = d.getFullYear();
+    // Edge case: dates in early Jan that ISO calls week 52/53 of
+    // the prior year. Re-anchor to Dec 31 of the prior year.
+    if (weekNo < 1) {
+      const prior = new Date(year - 1, 11, 31);
+      return _weekKey(prior);
+    }
+    // Edge case: dates in late Dec that ISO calls week 1 of the
+    // next year (when Jan 1 falls Mon-Wed). Detect by checking
+    // whether the Thursday-shifted date crossed back into next
+    // year — `year` already accounts for that — but the unrounded
+    // formula can produce 53 in years that only have 52 ISO weeks.
+    if (weekNo > 52) {
+      // Check whether year actually has 53 ISO weeks: it does iff
+      // Jan 1 is a Thursday OR Jan 1 is Wed in a leap year.
+      const jan1 = new Date(year, 0, 1).getDay();
+      const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+      const has53 = (jan1 === 4) || (isLeap && jan1 === 3);
+      if (!has53) { weekNo = 1; year = year + 1; }
+    }
+    return year + '-W' + String(weekNo).padStart(2, '0');
   }
   function _shownThisWeek() {
     return _readState().lastShownWeek === _weekKey();
@@ -118,6 +145,16 @@
     const n = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
     return n || lead.address || lead.email || 'Lead';
   }
+  // ─── W169 audit: prompt-injection sanitization ───────────────
+  function _sanFact(s, max) {
+    return String(s == null ? '' : s)
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[`<>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, max || 80);
+  }
+
   function _money(n) {
     if (typeof n !== 'number' || !isFinite(n)) return '$0';
     if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'M';
@@ -246,7 +283,11 @@
     if (data.reviewsRequested) facts.push(data.reviewsRequested + ' review request' + (data.reviewsRequested === 1 ? '' : 's') + ' sent');
     if (data.coldCount) facts.push(data.coldCount + ' lead' + (data.coldCount === 1 ? '' : 's') + ' went cold (no contact in 7+ days)');
     if (data.pendingCallbacks) facts.push(data.pendingCallbacks + ' callback' + (data.pendingCallbacks === 1 ? '' : 's') + ' still pending');
-    if (data.topDeal) facts.push('Top deal: ' + _name(((window._leads || []).find(l => l && l.id === data.topDeal.est.leadId) || {})) + ' at ' + _money(data.topDeal.value));
+    if (data.topDeal) {
+      // W169: sanitize the lead name before embedding in the prompt.
+      const dealLead = (window._leads || []).find(l => l && l.id === data.topDeal.est.leadId) || {};
+      facts.push('Top deal: ' + _sanFact(_name(dealLead), 60) + ' at ' + _money(data.topDeal.value));
+    }
     if (!facts.length) facts.push('No closes or new leads logged this week');
 
     const prompt = "You are a balanced field-rep coach. Given the rep's weekly facts, write ONE 2-sentence summary (max 40 words) that names the wins, names the work to carry forward, and closes with a forward-looking nudge. No greetings, no lists. Just the summary.\n\nFacts:\n- " + facts.join('\n- ') + '\n\nSummary:';

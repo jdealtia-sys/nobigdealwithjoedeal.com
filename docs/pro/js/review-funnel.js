@@ -51,6 +51,17 @@
   const PANEL_ID = 'reviewFunnelPanel';
   const SWEET_SPOT_MIN_DAYS = 2;
   const SWEET_SPOT_MAX_DAYS = 21;
+  // W169 audit: hard cap on bulk send. Without this, a script that
+  // overrode window.confirm to return true (browser extension,
+  // injected ad, prior XSS) could trigger a spam blast to every
+  // closed customer. The cap enforces a defense-in-depth limit
+  // even if the confirm prompt is bypassed.
+  const BULK_SEND_HARD_CAP = 15;
+  // Phone validation pattern. Rejects strings with embedded ?/&
+  // that could survive encodeURIComponent + override sms: query.
+  function _validPhone(p) {
+    return /^\+?[\d\s\-().]{7,20}$/.test(String(p || '').trim());
+  }
   // Leads whose stage flipped to one of these are eligible for
   // a review request once the timing window opens. Mirrors the
   // legacy review-engine list + a few stage variants the rep's
@@ -139,7 +150,11 @@
   // ─── Render ───────────────────────────────────────────────────
   function _renderRow(entry) {
     const lead = entry.lead;
-    const phone = String(lead.phone || '').replace(/\D+/g, '');
+    // W169 audit: validate phone before exposing the SMS button.
+    // ReviewEngine.sendReviewRequestSMS itself constructs sms:
+    // URLs from lead.phone, so an unvalidated value would still
+    // cause issues even though we strip non-digits here.
+    const phone = _validPhone(lead.phone) ? String(lead.phone).replace(/\D+/g, '') : '';
     const email = String(lead.email || '').trim();
     const sub = entry.days === 0
       ? 'Job just completed'
@@ -239,26 +254,46 @@
   }
 
   // ─── Bulk send ────────────────────────────────────────────────
+  // W169 audit fixes:
+  //   1. Filter to leads with VALIDATED phones (was just truthy
+  //      replace, which let "(000)" → "000" through)
+  //   2. Rename phones → eligibleWithPhone (it's an array of
+  //      lead objects, not phone strings — old name was a trap)
+  //   3. Hard cap at BULK_SEND_HARD_CAP (15) — if the array is
+  //      bigger we slice, even if window.confirm was bypassed.
+  //      Defense-in-depth against confirm-override XSS / extensions.
+  //   4. Skip the 600ms delay AFTER the last iteration — the old
+  //      version waited 600ms after the final send for nothing,
+  //      keeping the UI frozen for an extra cycle.
   async function _sendAllSMS(eligible) {
-    const phones = eligible
+    let eligibleWithPhone = eligible
       .map(e => e.lead)
-      .filter(l => String(l.phone || '').replace(/\D+/g, ''));
-    if (!phones.length) {
+      .filter(l => _validPhone(l && l.phone));
+    if (!eligibleWithPhone.length) {
       if (typeof window.showToast === 'function') {
-        window.showToast('No phone numbers on file for these leads', 'error');
+        window.showToast('No valid phone numbers on file for these leads', 'error');
       }
       return;
     }
     if (typeof window.confirm === 'function') {
-      const yes = window.confirm('Send SMS review requests to ' + phones.length + ' customers? Each will open in your messaging app one at a time.');
+      const yes = window.confirm('Send SMS review requests to ' + eligibleWithPhone.length + ' customers? Each will open in your messaging app one at a time.');
       if (!yes) return;
     }
-    // Fire each with a 600ms gap so the OS messaging app can
-    // handle them in sequence. Without the gap, only the last
-    // sms: launch typically surfaces (the OS coalesces the
-    // intent fires).
-    for (let i = 0; i < phones.length; i++) {
-      const lead = phones[i];
+    // Hard cap regardless of confirm result — defense-in-depth
+    // against window.confirm being overridden to always return true.
+    if (eligibleWithPhone.length > BULK_SEND_HARD_CAP) {
+      console.warn('[review-funnel] bulk send capped from',
+        eligibleWithPhone.length, 'to', BULK_SEND_HARD_CAP);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Capped at ' + BULK_SEND_HARD_CAP + ' sends — handle the rest one-by-one', 'info');
+      }
+      eligibleWithPhone = eligibleWithPhone.slice(0, BULK_SEND_HARD_CAP);
+    }
+    // Fire each with a 600ms gap BETWEEN sends (not after the
+    // final one) so the OS messaging app can handle them in
+    // sequence without the trailing wasted wait.
+    for (let i = 0; i < eligibleWithPhone.length; i++) {
+      const lead = eligibleWithPhone[i];
       try {
         if (window.ReviewEngine && typeof window.ReviewEngine.sendReviewRequestSMS === 'function') {
           window.ReviewEngine.sendReviewRequestSMS(lead.id);
@@ -266,7 +301,10 @@
       } catch (e) {
         console.warn('[review-funnel] bulk send failed for', lead.id, e && e.message);
       }
-      await new Promise(r => setTimeout(r, 600));
+      // Only delay BEFORE the next iteration — skip after the last.
+      if (i < eligibleWithPhone.length - 1) {
+        await new Promise(r => setTimeout(r, 600));
+      }
     }
   }
 

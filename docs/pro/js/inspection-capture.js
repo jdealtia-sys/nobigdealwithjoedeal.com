@@ -62,6 +62,7 @@
     'Chimney', 'Vents', 'Flashing', 'Siding',
     'Windows', 'Foundation', 'Interior', 'General',
   ];
+  const SECTION_SET = new Set(SECTIONS);
   const SEVERITIES = [
     { id: 'none',  label: 'None',  color: '#94a3b8' },
     { id: 'minor', label: 'Minor', color: '#fcd34d' },
@@ -71,6 +72,17 @@
     { id: 'other', label: 'Other', color: '#60a5fa' },
   ];
   const SEVERITY_BY_ID = SEVERITIES.reduce((m, s) => { m[s.id] = s; return m; }, {});
+
+  // W169 audit fix: validate select.value against the allowlist
+  // before storing into _session — a DOM-tampering or rogue-extension
+  // path could otherwise inject arbitrary section/severity strings
+  // that flow into Firestore tags + the inspections doc.
+  function _validSection(s) {
+    return SECTION_SET.has(s) ? s : SECTIONS[0];
+  }
+  function _validSeverity(s) {
+    return SEVERITY_BY_ID[s] ? s : 'none';
+  }
 
   // ─── Path gate ────────────────────────────────────────────────
   function _onCustomerPage() {
@@ -246,12 +258,12 @@
 
     if (sectionSel) {
       sectionSel.addEventListener('change', () => {
-        _session.section = sectionSel.value;
+        _session.section = _validSection(sectionSel.value);
       });
     }
     if (severitySel) {
       severitySel.addEventListener('change', () => {
-        _session.severity = severitySel.value;
+        _session.severity = _validSeverity(severitySel.value);
       });
     }
     if (captureBtn && fileInput) {
@@ -462,23 +474,46 @@
     });
     // Bump lead.lastInspectionAt + .inspectionCount so the
     // customer page can surface "Last inspected 3 days ago" badges.
+    //
+    // W169 audit fix: use Firestore `increment(1)` instead of
+    // reading window._currentLead.inspectionCount + writing the
+    // sum. The old approach was both racy (two concurrent inspection
+    // finishes computed from the same base, dropping one increment)
+    // AND a privilege-escalation vector (anyone who could write
+    // window._currentLead.inspectionCount could poison the persisted
+    // counter via the next finish). `increment` is a server-side
+    // atomic operation that ignores the client-side cached value.
     try {
       if (updateDoc && doc) {
+        const inc = (typeof window.increment === 'function') ? window.increment(1) : 1;
         await updateDoc(doc(db, 'leads', record.leadId), {
           lastInspectionAt: serverTimestamp(),
-          inspectionCount: (window._currentLead && Number(window._currentLead.inspectionCount || 0) + 1) || 1,
+          inspectionCount: inc,
         });
       }
     } catch (_) {}
   }
 
   // ─── Open / close ─────────────────────────────────────────────
+  // W169 audit fix: track the active ESC handler at module scope
+  // so _close() can remove it regardless of how the modal closes
+  // (X button, backdrop click, programmatic _close from _finish).
+  // The previous version only removed it INSIDE the handler when
+  // ESC was actually pressed, leaking a listener every time the
+  // rep closed via any other path. After a few open/close cycles
+  // there were N stale listeners, all dispatching closeBtn.click()
+  // on a button that may no longer be in the DOM.
+  let _escHandler = null;
   function _close() {
     const m = document.getElementById(MODAL_ID);
     if (!m) return;
     m.style.transition = 'opacity 160ms ease';
     m.style.opacity = '0';
     setTimeout(() => { try { m.remove(); } catch (_) {} }, 170);
+    if (_escHandler) {
+      try { document.removeEventListener('keydown', _escHandler, true); } catch (_) {}
+      _escHandler = null;
+    }
     _session = null;
     _uploading = false;
   }
@@ -550,13 +585,12 @@
       }
       _close();
     };
-    function onKey(e) {
-      if (e.key === 'Escape' && closeBtn) {
-        closeBtn.click();
-        document.removeEventListener('keydown', onKey, true);
-      }
-    }
-    document.addEventListener('keydown', onKey, true);
+    // W169: assign to module-scope _escHandler so _close can remove it
+    // when the modal closes by any path (not just an actual ESC press).
+    _escHandler = function (e) {
+      if (e.key === 'Escape' && closeBtn) closeBtn.click();
+    };
+    document.addEventListener('keydown', _escHandler, true);
 
     _wireBody(modal);
   }

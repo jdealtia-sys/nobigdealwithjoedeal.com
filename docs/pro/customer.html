@@ -2580,7 +2580,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -2613,6 +2613,11 @@ window.updateDoc = updateDoc;
 window.writeBatch = writeBatch;
 window.arrayUnion = arrayUnion;
 window.arrayRemove = arrayRemove;
+// W169: expose Firestore `increment` sentinel so inspection-capture
+// (and any future module) can write atomic counters instead of
+// reading client-cached values + writing back, which is racy and
+// also lets a tampered window._currentLead poison the stored count.
+window.increment = increment;
 window.addDoc = addDoc;
     window.deleteDoc = deleteDoc;
 window.collection = collection;
@@ -7095,12 +7100,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- W162-W164: AI follow-up draft — pre-writes a personalized SMS,
      email, or voicemail script the rep can copy/send/speak in one
      tap. Auto-logs sends to communications collection (W164). -->
-<script defer src="js/ai-followup-draft.js?v=3"></script>
+<script defer src="js/ai-followup-draft.js?v=4"></script>
 <!-- W168: inspection capture MVP — mobile-first tagged-photo
      capture flow that produces structured inspection bundles for
      the W56-era InspectionReportEngine to consume. Triggered via
      the 🏠 Inspect button in the quick-actions area. -->
-<script defer src="js/inspection-capture.js?v=1"></script>
+<script defer src="js/inspection-capture.js?v=2"></script>
 <script src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas

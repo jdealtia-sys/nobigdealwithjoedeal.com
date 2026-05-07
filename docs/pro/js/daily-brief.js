@@ -284,8 +284,13 @@
       facts.push(data.uploads.length + ' new homeowner photo' + (data.uploads.length === 1 ? '' : 's'));
     }
     if (data.hot.length) {
+      // W169 audit: sanitize lead-derived fields before embedding
+      // in the Claude user prompt. _name pulls firstName/lastName/
+      // address — all rep-or-homeowner-controlled inputs.
       facts.push(data.hot.length + ' hot lead' + (data.hot.length === 1 ? '' : 's')
-        + ' (top: ' + _name(data.hot[0].lead) + ' at ' + data.hot[0].score + '/100 — ' + (data.hot[0].topReason || 'high score') + ')');
+        + ' (top: ' + _sanFact(_name(data.hot[0].lead), 60)
+        + ' at ' + Number(data.hot[0].score) + '/100 — '
+        + _sanFact(data.hot[0].topReason || 'high score', 60) + ')');
     }
     if (data.signedYesterday) {
       facts.push(data.signedYesterday + ' estimate' + (data.signedYesterday === 1 ? '' : 's')
@@ -367,10 +372,15 @@
     const safe = _esc(label);
     const safeSub = _esc(sub || '');
     const leadId = lead && lead.id;
-    const phone = String((lead && lead.phone) || '').replace(/\D+/g, '');
-    // Only show the quick-send button on rows that have a phone +
-    // an action type. Hot/unread/callback/upload rows qualify; the
-    // "yesterday's wins" row (no lead) does not.
+    // W169 audit: validate the raw phone string against an allowlist
+    // pattern BEFORE building the sms: URL — without this, a phone
+    // field containing extra ?/& could survive encodeURIComponent
+    // and override the body parameter on some OS sms: handlers.
+    const phoneValid = lead && _validPhone(lead.phone);
+    const phone = phoneValid ? String(lead.phone).replace(/\D+/g, '') : '';
+    // Only show the quick-send button on rows that have a valid
+    // phone + an action type. Hot/unread/callback/upload rows
+    // qualify; the "yesterday's wins" row (no lead) does not.
     const sendBtnHtml = (leadId && phone && actionType)
       ? (function () {
           const body = _quickDraft(lead, actionType);
@@ -455,6 +465,25 @@
       html = '<div style="color:#94a3b8;font-size:13px;padding:20px 4px;text-align:center;line-height:1.5;">No urgent signals — good morning to prospect or work warm leads.</div>';
     }
     return html;
+  }
+
+  // ─── W169 audit: prompt-injection sanitization ───────────────
+  // Lead fields written via the rep, the homeowner portal, or import
+  // pipelines are not fully trusted as Claude prompt input. Strip
+  // newlines, squash whitespace, drop characters common in injection
+  // payloads, hard-cap length.
+  function _sanFact(s, max) {
+    return String(s == null ? '' : s)
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[`<>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, max || 80);
+  }
+  // Reject phone strings with embedded ?/& that could survive
+  // encodeURIComponent and confuse the OS sms: handler.
+  function _validPhone(p) {
+    return /^\+?[\d\s\-().]{7,20}$/.test(String(p || '').trim());
   }
 
   function _ago(ms) {
@@ -663,16 +692,33 @@
     // re-pop the modal on top of itself.
     _markShown();
 
-    _opening = false;
+    // W169 audit: capture the modal node we just created so the
+    // async opener writeback below targets THIS modal even if the
+    // rep closed + re-opened it during the Claude round-trip. The
+    // old code just queried by ID, which would clobber the new
+    // modal's opener with stale text from the prior invocation.
+    const myModal = modal;
 
     // ─── AI opener (async, fills in after Claude responds) ────
     try {
       const opener = await _aiOpener(data);
-      const slot = document.getElementById('nbd-db-opener');
-      if (slot) slot.textContent = opener;
+      // Only write back if MY modal is still the one in the DOM.
+      // If the rep closed + re-opened, the new modal's `_opening`
+      // race already kicked off a fresh _aiOpener call; let that
+      // one handle the slot. We deliberately don't release
+      // _opening until here so a fast double-tap can't fire two
+      // concurrent generations against the same modal.
+      if (document.getElementById(MODAL_ID) === myModal) {
+        const slot = myModal.querySelector('#nbd-db-opener');
+        if (slot) slot.textContent = opener;
+      }
     } catch (e) {
-      const slot = document.getElementById('nbd-db-opener');
-      if (slot) slot.textContent = _fallbackOpener(data);
+      if (document.getElementById(MODAL_ID) === myModal) {
+        const slot = myModal.querySelector('#nbd-db-opener');
+        if (slot) slot.textContent = _fallbackOpener(data);
+      }
+    } finally {
+      _opening = false;
     }
   }
 
