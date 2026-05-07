@@ -332,11 +332,40 @@
       });
     });
 
-    // Sort: severity first (high → medium → low), then most recent ts first.
+    // Wave 138: enrich each item with the lead's W135 unified score
+    // before sorting. Items tied to a leadId inherit that lead's
+    // score so the bell tracks the same priority signal as the
+    // kanban badge (W136), customer-page panel (W137), and Cmd+K
+    // (W138). Items without a leadId (e.g. global system messages)
+    // get score 0 and fall to the bottom within their severity tier.
+    const _scoreCache = new Map();
+    function _scoreFor(leadId) {
+      if (!leadId) return 0;
+      if (_scoreCache.has(leadId)) return _scoreCache.get(leadId);
+      let s = 0;
+      try {
+        const lead = (window._leads || []).find(l => l && l.id === leadId);
+        if (lead && window.NBDLeadScore && window.NBDLeadScore.score) {
+          s = window.NBDLeadScore.score(lead) || 0;
+        }
+      } catch (_) {}
+      _scoreCache.set(leadId, s);
+      return s;
+    }
+    items.forEach(it => { it._leadScore = _scoreFor(it.leadId); });
+
+    // Sort: severity first (high → medium → low), then by W135 lead
+    // score descending, then most recent ts first as final
+    // tiebreaker. This means a 'medium'-severity bell row tied to
+    // a 🔥 Hot lead doesn't outrank a 'high'-severity row, but two
+    // medium rows are now ordered by which lead the rep should
+    // actually call first.
     const sevOrder = { high: 0, medium: 1, low: 2 };
     items.sort((a, b) => {
       const s = (sevOrder[a.severity] ?? 3) - (sevOrder[b.severity] ?? 3);
       if (s !== 0) return s;
+      const sc = (b._leadScore || 0) - (a._leadScore || 0);
+      if (sc !== 0) return sc;
       return (b.ts?.getTime?.() || 0) - (a.ts?.getTime?.() || 0);
     });
     return items;
