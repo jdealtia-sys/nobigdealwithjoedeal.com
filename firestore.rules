@@ -150,6 +150,23 @@ service cloud.firestore {
         allow write: if false;  // admin SDK only
       }
 
+      // ── PORTAL MESSAGES (homeowner ↔ rep async chat) ──
+      // Wave 123: bidirectional messaging surface. The homeowner
+      // sends via the portal token-authed Cloud Function
+      // (sendPortalMessage); the rep sends via a uid-authed callable
+      // (replyToPortalMessage). Both write through admin SDK so
+      // shape forgery is impossible — clients never write here.
+      //
+      // Reads: lead owner (rep) for the customer-page thread view,
+      // or admin. Homeowner reads via getPortalMessages Cloud
+      // Function with token auth (no Firebase user, so no rule
+      // applies on that path — it goes through admin SDK).
+      match /portal_messages/{messageId} {
+        allow read: if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write: if false; // admin SDK only
+      }
+
       // ── DOCUMENTS attached to a lead ──────────────────
       // Generated proposals/contracts/invoices/etc. that the rep
       // attaches to a customer record. Same auth shape as notes/tasks

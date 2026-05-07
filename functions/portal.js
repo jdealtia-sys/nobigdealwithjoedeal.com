@@ -990,3 +990,212 @@ exports.submitCustomerRating = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// Wave 123: sendPortalMessage + getPortalMessages
+// Async messaging from the homeowner side of the portal.
+// ═══════════════════════════════════════════════════════════════
+//
+// The "talk to your rep without phone tag" lane. Homeowner can
+// send a question, file an "I'll be home Saturday morning if you
+// want to swing by" note, or follow up on a quote — without
+// having to call. Server stores under leads/{id}/portal_messages
+// (admin SDK only writes), and the rep sees it as a notification
+// + activity entry.
+//
+// W123 ships the homeowner-send direction. The rep-reply
+// direction (replyToPortalMessage callable + portal thread fetch)
+// follows in W124.
+//
+// Limits:
+//   - 30 messages per token per day (anti-spam)
+//   - 2000-char per message
+//   - Per-IP rate limit shared with portal endpoints
+exports.sendPortalMessage = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 60,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    if (!(await httpRateLimit(req, res, 'portal-msg:ip', 60, 60_000))) return;
+
+    const { token, text } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    if (typeof text !== 'string' || !text.trim()) {
+      res.status(400).json({ error: 'Message text is required' });
+      return;
+    }
+    const safeText = text.trim().slice(0, 2000);
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    // Per-token daily quota.
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const msgsField = `messagesByDay.${todayKey}`;
+    const todayCount = (tok.messagesByDay && tok.messagesByDay[todayKey]) || 0;
+    if (todayCount >= 30) {
+      res.status(429).json({ error: 'Daily message limit reached (30). Try again tomorrow or call your rep directly.' });
+      return;
+    }
+
+    try {
+      const msgRef = await db.collection(`leads/${tok.leadId}/portal_messages`).add({
+        leadId: tok.leadId,
+        ownerUid: tok.ownerUid,
+        source: 'homeowner',
+        text: safeText,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        readBySender: true,
+        readByRecipient: false,
+      });
+
+      // Activity log entry — surfaces on the customer page timeline.
+      try {
+        await db.collection(`leads/${tok.leadId}/activity`).add({
+          userId: tok.ownerUid,
+          type: 'portal_message_in',
+          label: 'Message from homeowner',
+          messageId: msgRef.id,
+          textPreview: safeText.slice(0, 120),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (actErr) {
+        logger.warn('[sendPortalMessage] activity create failed', { msg: actErr.message });
+      }
+
+      // Bump lead.updatedAt + lastHomeownerMessageAt so the
+      // customer page bell badge can highlight unread messages
+      // and stale-lead bell signals don't fire on a fresh signal.
+      try {
+        await db.doc(`leads/${tok.leadId}`).set({
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastHomeownerMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+          unreadHomeownerMessages: admin.firestore.FieldValue.increment(1),
+        }, { merge: true });
+      } catch (_) { /* non-critical */ }
+
+      // Bump token counter.
+      await tokRef.update({
+        [msgsField]: admin.firestore.FieldValue.increment(1),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Server-side notification doc.
+      try {
+        await db.collection('notifications').add({
+          userId: tok.ownerUid,
+          type: 'portal_message',
+          leadId: tok.leadId,
+          messageId: msgRef.id,
+          title: 'New message from homeowner',
+          message: safeText.slice(0, 100),
+          priority: 'high',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (_) { /* non-critical */ }
+
+      res.status(200).json({
+        ok: true,
+        messageId: msgRef.id,
+        remainingToday: 30 - (todayCount + 1),
+      });
+    } catch (err) {
+      logger.error('[sendPortalMessage] failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not send message. Try again.' });
+    }
+  }
+);
+
+// ── getPortalMessages — homeowner fetches the thread ──────────
+// Token-authed, returns the latest 50 messages for the lead with
+// rep messages + their own. Sets readByRecipient=true on rep
+// messages the homeowner is now seeing (since they're seeing them).
+exports.getPortalMessages = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 80,
+    timeoutSeconds: 10,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    if (!(await httpRateLimit(req, res, 'portal-msg-get:ip', 120, 60_000))) return;
+
+    const { token } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    try {
+      const snap = await db.collection(`leads/${tok.leadId}/portal_messages`)
+        .orderBy('createdAt', 'desc')
+        .limit(50)
+        .get();
+
+      const messages = [];
+      const repMessageRefs = [];
+      snap.forEach(d => {
+        const data = d.data();
+        messages.push({
+          id: d.id,
+          source: data.source,
+          text: data.text,
+          createdAt: data.createdAt?.toMillis?.() || null,
+          readByRecipient: !!data.readByRecipient,
+        });
+        // If a rep message is unread by the homeowner, queue it
+        // for the read-stamp batch update below.
+        if (data.source === 'rep' && data.readByRecipient !== true) {
+          repMessageRefs.push(d.ref);
+        }
+      });
+
+      // Mark unread rep messages as read by the homeowner. Best-effort.
+      if (repMessageRefs.length > 0) {
+        try {
+          const batch = db.batch();
+          repMessageRefs.forEach(ref => batch.update(ref, { readByRecipient: true }));
+          await batch.commit();
+        } catch (_) { /* non-critical */ }
+      }
+
+      // Reverse so client gets oldest-first (natural conversation order).
+      messages.reverse();
+
+      res.status(200).json({ messages });
+    } catch (err) {
+      logger.error('[getPortalMessages] failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not load messages.' });
+    }
+  }
+);
