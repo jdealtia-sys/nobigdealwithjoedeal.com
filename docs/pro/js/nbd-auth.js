@@ -217,20 +217,21 @@ export const NBDAuth = {
       // Initialize Firebase
       _app = initializeApp(FIREBASE_CONFIG);
       _auth = getAuth(_app);
-      // W159 P0: mobile users (iOS Safari, some Android, corporate
-      // / school WiFi, certain mobile carriers) report a permanently
-      // YELLOW health badge — getDocs(leads) hangs indefinitely
-      // because the default WebChannel transport silently fails on
-      // restrictive networks. experimentalAutoDetectLongPolling tries
-      // WebChannel first and falls back to HTTP long-polling on
-      // failure. Recommended by Firebase team for any app whose users
-      // hit the public internet from varied network conditions.
+      // W159 P1: experimentalAutoDetectLongPolling didn't unblock the
+      // user's mobile devices — health badge still pinned yellow.
+      // experimentalForceLongPolling skips the WebChannel handshake
+      // entirely and always uses HTTP long-polling, which works on
+      // any network that can do plain HTTPS POST. Slightly higher
+      // latency in steady state, but reliable across iOS Safari
+      // background-tab throttling, Android battery optimisations,
+      // restrictive corporate / school WiFi, and mobile-carrier MITM
+      // proxies that drop long-lived sockets.
       // Must run BEFORE the first getFirestore(app) call on this app —
       // NBDAuth.init() runs synchronously from dashboard.html's first
       // module script, before the second module script's
       // getFirestore(app) at line ~359, so this is the right place.
       try {
-        _db = initializeFirestore(_app, { experimentalAutoDetectLongPolling: true });
+        _db = initializeFirestore(_app, { experimentalForceLongPolling: true });
       } catch (e) {
         // initializeFirestore throws if Firestore was already
         // initialized on this app (e.g. a hot-reload). Fall back to
