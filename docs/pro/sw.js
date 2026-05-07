@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v17', // v17 — bumped to force fresh fetch of all JS/CSS
-  cdn: 'nbd-cdn-v17',     // v17 — paired bump
+  shell: 'nbd-shell-v18', // v18 — W127 — paired with firebase.json must-revalidate cache headers
+  cdn: 'nbd-cdn-v18',     // v18 — paired bump
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -289,16 +289,23 @@ function isJSorCSS(url) {
 async function handleAssetRequest(request, cacheName) {
   const cache = await caches.open(cacheName);
 
-  // Network-first: try to fetch fresh, cache the result, return it.
+  // Wave 127 belt-and-suspenders: pass `cache: 'reload'` on our own
+  // fetch so the browser's HTTP cache layer doesn't short-circuit
+  // this with a stale response (max-age=300 from the previous
+  // firebase.json). Combined with W127's must-revalidate header
+  // change, both layers (HTTP cache + SW cache) are now coherent:
+  // the browser revalidates via ETag, the SW always asks for fresh.
+  // 'reload' = force network, but DOES populate HTTP cache for
+  // subsequent same-origin <script> loads on the same page.
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: 'reload' });
     if (response.ok) {
-      // Update cache for offline fallback. Clone before consuming.
+      // Update SW cache for offline fallback. Clone before consuming.
       try { cache.put(request, response.clone()); } catch (_) { /* quota */ }
     }
     return response;
   } catch (err) {
-    // Network failed — try the cache so the page can degrade
+    // Network failed — try the SW cache so the page can degrade
     // rather than hard-crashing on offline.
     const cached = await cache.match(request);
     if (cached) return cached;
