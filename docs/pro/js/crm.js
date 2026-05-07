@@ -3022,3 +3022,33 @@ window.sendFollowUpSMS = function(leadId) {
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };
 
+// W159 P0: belt-and-suspenders kanban-column eager init.
+// onAuthStateChanged calls buildKanbanColumns deep inside an async
+// chain. On slow auth, transient module-load errors, or any path
+// that doesn't reach loadLeads().then(), the user sees a fully blank
+// kanban — no skeleton, no columns, no error. This block runs as
+// soon as crm.js loads (defer = after DOM parse), guaranteeing the
+// kanban container has columns regardless of auth/leads timing.
+(function _eagerKanbanInit() {
+  function _go() {
+    const board = document.getElementById('kanbanBoard');
+    if (!board) return;
+    if (board.querySelector('.kanban-col')) return;
+    if (typeof window.buildKanbanColumns !== 'function') return;
+    try {
+      const view = (typeof localStorage !== 'undefined' && localStorage.getItem('nbd_kanban_view'))
+                   || window._currentViewKey || 'insurance';
+      window.buildKanbanColumns(view);
+    } catch (e) { console.warn('[eager-kanban-init] failed:', e && e.message); }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _go, { once: true });
+  } else {
+    _go();
+  }
+  // Final retry in case window.buildKanbanColumns wasn't ready when
+  // we first ran (defer order vs <script type=module> in dashboard.html).
+  setTimeout(_go, 0);
+  setTimeout(_go, 250);
+})();
+

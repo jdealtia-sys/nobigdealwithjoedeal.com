@@ -380,8 +380,18 @@ window.toggleShortcutsPanel = toggleShortcutsPanel;
 
 // Show skeleton loading state in kanban
 function showKanbanSkeleton() {
-  const stages = ['New', 'Inspected', 'Estimate Sent', 'Approved', 'In Progress', 'Complete', 'Lost'];
-  
+  // W159: previously hardcoded the legacy capitalized labels
+  // ('New','Inspected',...). After the W?? stage-key migration the
+  // DOM became `kbody-{lowercase_key}` (e.g. `kbody-new`,
+  // `kbody-contacted`, `kbody-prospect`). Every getElementById here
+  // returned null and the skeleton never showed — leaving the user
+  // on a blank kanban during loadLeads. Use the current view's
+  // stage keys (set by buildKanbanColumns), falling back to the
+  // legacy labels only if the new system isn't initialised yet.
+  const stages = (Array.isArray(window._stageKeys) && window._stageKeys.length)
+    ? window._stageKeys
+    : ['New', 'Inspected', 'Estimate Sent', 'Approved', 'In Progress', 'Complete', 'Lost'];
+
   stages.forEach(stage => {
     const body = document.getElementById('kbody-' + stage);
     if (!body) return;
