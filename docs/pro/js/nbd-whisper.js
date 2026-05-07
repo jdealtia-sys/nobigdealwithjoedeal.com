@@ -196,31 +196,66 @@
     return btoa(bin);
   }
 
-  async function _transcribe(blob) {
+  // ── W129: unified `dictate` callable (transcribe + clean in one
+  // round-trip). Saves a network hop vs. the W128 implementation
+  // that chained transcribeVoiceMemo + callClaude. Also moves the
+  // cleanup prompt server-side so it's versioned with the function.
+  // Falls back to the old chained path if `dictate` is unavailable
+  // (e.g. mid-deploy or an older client cached pre-W129 code).
+  async function _ensureCallable() {
     if (!window._functions || !window._httpsCallable) {
       const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
       window._functions = mod.getFunctions();
       window._httpsCallable = mod.httpsCallable;
     }
+  }
+
+  async function _dictate(blob, opts) {
+    opts = opts || {};
+    await _ensureCallable();
+    const audioBase64 = await _blobToBase64(blob);
+    // Send the rep's local date as a hint so the server-side
+    // summarize/extract-tasks prompts can resolve "tomorrow" correctly.
+    const todayLocal = new Date().toLocaleDateString('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    try {
+      const fn = window._httpsCallable(window._functions, 'dictate');
+      const res = await fn({
+        audioBase64,
+        mimeType: blob.type || 'audio/webm',
+        mode: opts.mode || 'clean',
+        todayLocal,
+      });
+      return res.data || {};
+    } catch (e) {
+      // Fallback to the W128 chained path if `dictate` callable is
+      // unavailable. Lets the FAB keep working through a deploy
+      // window where the new function isn't deployed yet.
+      console.warn('[NBDWhisper] dictate callable failed, falling back:', e.message);
+      return _dictateFallback(blob, opts);
+    }
+  }
+
+  async function _dictateFallback(blob, opts) {
+    await _ensureCallable();
     const fn = window._httpsCallable(window._functions, 'transcribeVoiceMemo');
     const audioBase64 = await _blobToBase64(blob);
     const res = await fn({
       audioBase64,
       mimeType: blob.type || 'audio/webm',
-      // leadId: null on purpose — dictation isn't lead-attached, so
-      // we don't want it bleeding into a lead's activity log.
       leadId: null,
     });
-    return res.data || {};
+    const transcript = (res.data && res.data.transcript || '').trim();
+    if (!transcript || (opts.mode || 'clean') !== 'clean') {
+      return { transcript, cleaned: transcript };
+    }
+    const cleaned = await _cleanWithClaude(transcript);
+    return { transcript, cleaned };
   }
 
   async function _cleanWithClaude(transcript) {
-    if (typeof window.callClaude !== 'function') {
-      // No Claude proxy available — return raw transcript with a
-      // light cleanup pass (basic capitalization + period at end).
-      return _localCleanup(transcript);
-    }
-    // Claude prompt is short on purpose — Haiku is plenty for this.
+    if (typeof window.callClaude !== 'function') return _localCleanup(transcript);
     const system = 'You are a copy editor. Take the user\'s spoken transcript and return ONLY the cleaned text, with these rules:\n'
       + '1. Strip filler words like "um", "uh", "like", "you know", "I mean", "sort of", "kind of".\n'
       + '2. Add proper punctuation and capitalization.\n'
@@ -238,7 +273,7 @@
       const txt = (result && result.content && result.content[0] && result.content[0].text) || '';
       return txt.trim() || _localCleanup(transcript);
     } catch (e) {
-      console.warn('[NBDWhisper] Claude cleanup failed, returning raw transcript:', e.message);
+      console.warn('[NBDWhisper] Claude cleanup fallback failed:', e.message);
       return _localCleanup(transcript);
     }
   }
@@ -253,19 +288,22 @@
     return t;
   }
 
-  async function _processBlob(blob) {
+  async function _processBlob(blob, opts) {
+    opts = opts || {};
     if (_busyClaude) return;
     _busyClaude = true;
     toast('Transcribing…', 'info');
     try {
-      const result = await _transcribe(blob);
-      const transcript = (result.transcript || '').trim();
-      if (!transcript) {
+      // W129: single round-trip via `dictate` callable. Server does
+      // transcribe + cleanup in one shot. Fallback path inside
+      // _dictate handles the rare case where the new callable
+      // isn't deployed yet.
+      const result = await _dictate(blob, { mode: opts.mode || 'clean' });
+      const cleaned = (result.cleaned || result.transcript || '').trim();
+      if (!cleaned) {
         toast('No speech detected.', 'error');
         return;
       }
-      toast('Cleaning up…', 'info');
-      const cleaned = await _cleanWithClaude(transcript);
       _insertOrShow(cleaned);
     } catch (e) {
       toast('Dictation failed: ' + (e.message || 'try again'), 'error');
