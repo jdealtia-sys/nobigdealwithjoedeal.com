@@ -36,6 +36,18 @@
   // shipped (for the 30-day rotation).
   const ITEMS = [
     {
+      id: 'weekly-recap-2026-05',
+      icon: '📅',
+      title: 'Weekly Recap',
+      body: 'Friday afternoon bookend to the Daily Brief. Auto-opens once per week (Fri 3-7pm or weekend mornings) with a 2-sentence AI summary, key stats (signed/closed/added/reviews), top deal of the week, and "carry into next week" cold leads + pending callbacks. Toggle off auto-open in the modal footer if you prefer to drive it manually.',
+      wave: 'W167',
+      shippedAt: '2026-05-06',
+      tryLabel: 'Open recap',
+      tryHandler: () => {
+        if (window.NBDWeeklyRecap && window.NBDWeeklyRecap.open) window.NBDWeeklyRecap.open();
+      },
+    },
+    {
       id: 'review-funnel-2026-05',
       icon: '⭐',
       title: 'Review funnel inbox',
