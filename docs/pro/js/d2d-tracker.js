@@ -498,11 +498,27 @@
       // or returns useless data, but the exception was being swallowed.
       if (!resp.ok) { console.warn('Reverse geocode HTTP', resp.status); return ''; }
       const data = await resp.json();
+      // Wave 156: route through window.formatMailingAddress (W141) so
+      // every D2D knock gets a USPS-compliant address string. The
+      // previous inline assembly produced "1054 Klondyke Road, Goshen,
+      // Ohio" — full road name, full state name, no ZIP, no county
+      // disambiguation. The shared formatter does suffix abbreviation
+      // (Road → Rd), 2-letter state codes, county-stripping, and
+      // ZIP inclusion — same address text reps now see in the
+      // dashboard autofill, ensuring lead.address matches knock.address
+      // exactly when the same property is touched twice.
+      if (typeof window.formatMailingAddress === 'function') {
+        const formatted = window.formatMailingAddress(data);
+        if (formatted) return formatted;
+      }
+      // Fallback path if W141 isn't loaded (mid-deploy SW cache miss):
+      // assemble the address inline same as before, but tighter.
       if (data.address) {
-        const num = data.address.house_number || '';
-        const road = data.address.road || '';
-        const city = data.address.city || data.address.town || data.address.village || '';
-        const st = data.address.state || '';
+        const a = data.address;
+        const num = a.house_number || '';
+        const road = a.road || a.street || '';
+        const city = a.city || a.town || a.village || a.hamlet || '';
+        const st = a.state || '';
         return `${num} ${road}${city ? ', ' + city : ''}${st ? ', ' + st : ''}`.trim();
       }
     } catch (e) { console.warn('Geocode failed:', e); }
@@ -559,7 +575,16 @@
         dropdown.querySelectorAll('.d2d-ac-item').forEach((el, i) => {
           el.onclick = () => {
             const match = allMatches[i];
-            input.value = match.display_name?.split(',').slice(0, 3).join(',').trim() || match.display_name;
+            // Wave 156: route through W141 formatter for USPS-correct
+            // formatting. Local knock entries (already formatted) are
+            // pre-marked with .local — we keep their display_name as-is.
+            // Remote nominatim hits get the proper formatter pass.
+            if (!match.local && typeof window.formatMailingAddress === 'function') {
+              const formatted = window.formatMailingAddress(match);
+              input.value = formatted || match.display_name;
+            } else {
+              input.value = match.display_name?.split(',').slice(0, 3).join(',').trim() || match.display_name;
+            }
             if (currentKnockEntry) {
               currentKnockEntry.lat = parseFloat(match.lat) || null;
               currentKnockEntry.lng = parseFloat(match.lon) || null;
