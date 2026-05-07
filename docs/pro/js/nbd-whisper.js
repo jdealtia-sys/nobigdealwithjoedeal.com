@@ -483,12 +483,19 @@
     btn.title = 'Dictate (W128) — tap to start, tap again to stop';
     btn.setAttribute('aria-label', 'Dictate into focused input');
     btn.style.cssText =
-      'position:fixed;bottom:20px;right:20px;z-index:9999;' +
+      // W149: bottom uses calc + safe-area-inset-bottom so the FAB
+      // clears the iOS home indicator on iPhone X+ and the gesture
+      // bar on Android. Without this, the button sat ~10px below
+      // the home indicator on a notched phone, making it tap-occluded.
+      'position:fixed;' +
+      'bottom:calc(20px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(20px + env(safe-area-inset-right, 0px));' +
+      'z-index:9999;' +
       'width:54px;height:54px;border-radius:50%;border:none;' +
       'background:var(--orange, #c8541a);color:#fff;font-size:22px;' +
       'box-shadow:0 6px 20px rgba(200,84,26,0.4);cursor:pointer;' +
       'display:flex;align-items:center;justify-content:center;' +
-      '-webkit-tap-highlight-color:transparent;transition:transform 120ms ease, box-shadow 120ms ease;';
+      '-webkit-tap-highlight-color:transparent;transition:transform 120ms ease, box-shadow 120ms ease, opacity 160ms ease;';
     btn.innerHTML = '🎤';
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); /* keep input focused */ });
     btn.addEventListener('click', () => {

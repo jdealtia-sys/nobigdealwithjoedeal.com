@@ -59,13 +59,20 @@
     btn.title = 'Capture inbox — past voice captures';
     btn.setAttribute('aria-label', 'Open Quick Capture inbox');
     btn.style.cssText =
-      'position:fixed;bottom:138px;right:20px;z-index:9999;' +
-      'width:36px;height:36px;border-radius:50%;border:none;' +
+      // W149: inbox FAB previously was 36x36 — below the iOS HIG
+      // 44px touch-target minimum. Bumped to 44px and given the
+      // safe-area-inset treatment so the entire FAB stack respects
+      // device chrome on notched phones / Android gesture bars.
+      'position:fixed;' +
+      'bottom:calc(142px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(25px + env(safe-area-inset-right, 0px));' +
+      'z-index:9999;' +
+      'width:44px;height:44px;border-radius:50%;border:none;' +
       'background:#0f1729;color:#94a3b8;font-size:14px;' +
       'box-shadow:0 4px 12px rgba(0,0,0,0.35);cursor:pointer;' +
       'border:1px solid #2a3344;' +
       'display:flex;align-items:center;justify-content:center;' +
-      '-webkit-tap-highlight-color:transparent;';
+      '-webkit-tap-highlight-color:transparent;transition:opacity 160ms ease;';
     btn.innerHTML = '📋';
     btn.addEventListener('click', open);
     document.body.appendChild(btn);
