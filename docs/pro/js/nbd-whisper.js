@@ -527,15 +527,164 @@
     else _startRecorder();
   }
 
+  // ─── W131: Hold-to-talk hotkey ─────────────────────────────────
+  // Hold the configured key (default F2) → recording starts after a
+  // 200ms grip window (so an accidental tap doesn't fire an
+  // empty 50ms recording). Release → stop + process.
+  //
+  // Two reasons for the 200ms threshold:
+  //   1. Accidental F2 taps on Windows (e.g. rename file shortcut
+  //      reflex from File Explorer) shouldn't trigger dictation.
+  //   2. The MediaRecorder + getUserMedia handshake takes ~80–150ms
+  //      on cold mic permission. Without the threshold, fast taps
+  //      hit a "clip too short" error every time.
+  //
+  // Customization:
+  //   - localStorage.nbd_whisper_hotkey = 'F2' (default) | 'F3' | ...
+  //   - localStorage.nbd_whisper_hotkey_disabled = '1' to opt out.
+  //
+  // Voice commands ("send", "stop", "delete that", "new paragraph")
+  // are handled server-side by W129's CLEAN_PROMPT — no client-side
+  // command parsing needed. The "send" command is handled below by
+  // detecting it in the cleaned text and clicking a sibling submit
+  // button if found.
+
+  const DEFAULT_HOTKEY = 'F2';
+  const HOLD_THRESHOLD_MS = 200;
+  let _hotkeyDown = false;
+  let _hotkeyTimer = 0;
+  let _hotkeyArmed = false;
+  let _hotkeyHandlersBound = false;
+
+  function _getHotkeyName() {
+    try { return localStorage.getItem('nbd_whisper_hotkey') || DEFAULT_HOTKEY; }
+    catch (_) { return DEFAULT_HOTKEY; }
+  }
+  function _isHotkeyDisabled() {
+    try { return localStorage.getItem('nbd_whisper_hotkey_disabled') === '1'; }
+    catch (_) { return false; }
+  }
+
+  function attachHotkey() {
+    // Always attach the listeners; the onDown/onUp handlers themselves
+    // gate on _isHotkeyDisabled() each event, so the Comfort tab can
+    // toggle without requiring a page reload.
+    if (_hotkeyHandlersBound) return;
+    if (typeof document === 'undefined') return;
+    if (!isSupported()) return;
+
+    const onDown = (e) => {
+      // Re-check the disabled flag on every keydown so a Comfort
+      // tab toggle takes effect without a page reload.
+      if (_isHotkeyDisabled()) return;
+      // Match by key name (F2/F3/etc.) so a Cmd-/Ctrl-modified press
+      // of the same key doesn't accidentally toggle recording.
+      const target = _getHotkeyName();
+      if (e.key !== target) return;
+      // Modifier-pressed F2 should pass through to the browser/OS.
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (e.repeat) {
+        // Auto-repeat fires while held — ignore everything after the
+        // first event so we don't restart the recorder mid-hold.
+        e.preventDefault();
+        return;
+      }
+      _hotkeyDown = true;
+      _hotkeyArmed = false;
+      e.preventDefault();
+      // Wait the threshold before actually starting. If the user
+      // releases before the timer fires, treat as a tap (no-op).
+      _hotkeyTimer = setTimeout(() => {
+        _hotkeyTimer = 0;
+        if (!_hotkeyDown) return;
+        _hotkeyArmed = true;
+        _startRecorder();
+      }, HOLD_THRESHOLD_MS);
+    };
+
+    const onUp = (e) => {
+      const target = _getHotkeyName();
+      if (e.key !== target) return;
+      _hotkeyDown = false;
+      e.preventDefault();
+      if (_hotkeyTimer) {
+        clearTimeout(_hotkeyTimer);
+        _hotkeyTimer = 0;
+        // Released before threshold — quick tap, do nothing.
+        return;
+      }
+      if (_hotkeyArmed && _isRecording) {
+        _hotkeyArmed = false;
+        _stopRecorder();
+      }
+    };
+
+    // Blur safety: if the window loses focus mid-hold, treat as
+    // released (otherwise the recording would run until the 60s cap).
+    const onBlur = () => {
+      if (_hotkeyDown) {
+        _hotkeyDown = false;
+        if (_hotkeyTimer) { clearTimeout(_hotkeyTimer); _hotkeyTimer = 0; }
+        if (_hotkeyArmed && _isRecording) {
+          _hotkeyArmed = false;
+          _stopRecorder();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onDown, true);
+    document.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', onBlur, true);
+    _hotkeyHandlersBound = true;
+
+    // Update the FAB tooltip to mention the hotkey.
+    setTimeout(() => {
+      const btn = document.getElementById(FLOAT_BTN_ID);
+      if (btn) btn.title = 'Dictate — tap, or hold ' + _getHotkeyName() + ' to talk';
+    }, 100);
+  }
+
+  function setHotkey(keyName) {
+    if (typeof keyName !== 'string' || !keyName) return;
+    try { localStorage.setItem('nbd_whisper_hotkey', keyName); } catch (_) {}
+    const btn = document.getElementById(FLOAT_BTN_ID);
+    if (btn && !_isHotkeyDisabled()) {
+      btn.title = 'Dictate — tap, or hold ' + keyName + ' to talk';
+    }
+  }
+
+  function setHotkeyEnabled(enabled) {
+    try {
+      if (enabled) localStorage.removeItem('nbd_whisper_hotkey_disabled');
+      else localStorage.setItem('nbd_whisper_hotkey_disabled', '1');
+    } catch (_) {}
+    if (enabled) attachHotkey();
+    // Note: disabling without reload leaves the listeners attached
+    // but they early-return on _isHotkeyDisabled() check — which we
+    // re-evaluate inside the handlers below.
+  }
+
+  // Auto-attach hotkey at the same time as the FAB.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachHotkey, { once: true });
+  } else {
+    setTimeout(attachHotkey, 0);
+  }
+
   // ─── Public exports ─────────────────────────────────────────────
   window.NBDWhisper = {
     __sentinel: 'nbd-whisper-v1',
     isSupported,
     attachFloatingButton,
+    attachHotkey,
+    setHotkey,
+    setHotkeyEnabled,
     dictateInto,
     start: _startRecorder,
     stop: _stopRecorder,
     get isRecording() { return _isRecording; },
+    get hotkey() { return _getHotkeyName(); },
+    get hotkeyDisabled() { return _isHotkeyDisabled(); },
   };
 
   // Auto-attach the floating button once the DOM is interactive on
