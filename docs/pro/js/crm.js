@@ -3035,20 +3035,27 @@ window.sendFollowUpSMS = function(leadId) {
     if (!board) return;
     if (board.querySelector('.kanban-col')) return;
     if (typeof window.buildKanbanColumns !== 'function') return;
+    let saved = null;
     try {
-      const view = (typeof localStorage !== 'undefined' && localStorage.getItem('nbd_kanban_view'))
-                   || window._currentViewKey || 'insurance';
-      window.buildKanbanColumns(view);
-    } catch (e) { console.warn('[eager-kanban-init] failed:', e && e.message); }
+      saved = (typeof localStorage !== 'undefined') ? localStorage.getItem('nbd_kanban_view') : null;
+    } catch (_) { saved = null; }
+    const tries = [saved, window._currentViewKey, 'insurance'].filter(Boolean);
+    for (const view of tries) {
+      try { window.buildKanbanColumns(view); } catch (e) {
+        console.warn('[eager-kanban-init] view', view, 'threw:', e && e.message);
+      }
+      if (board.querySelector('.kanban-col')) return; // success
+    }
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _go, { once: true });
   } else {
     _go();
   }
-  // Final retry in case window.buildKanbanColumns wasn't ready when
+  // Final retries in case window.buildKanbanColumns wasn't ready when
   // we first ran (defer order vs <script type=module> in dashboard.html).
   setTimeout(_go, 0);
   setTimeout(_go, 250);
+  setTimeout(_go, 1000);
 })();
 
