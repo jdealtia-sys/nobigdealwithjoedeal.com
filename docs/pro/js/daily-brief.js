@@ -1,5 +1,5 @@
 /**
- * daily-brief.js — Wave 161 (Daily Morning Brief — anchor surface)
+ * daily-brief.js — Wave 161 + Wave 165
  *
  * Opens the "first thing the rep sees each morning" surface. Pulls
  * from data already in memory (no new fetches) and aggregates the
@@ -85,6 +85,50 @@
   }
   function _markShown() {
     _writeState({ lastShownDate: _todayKey() });
+  }
+
+  // ─── W165: standalone communications logger ──────────────────
+  // Mirror of customer.html's inline logCommunication helper, used
+  // when the brief's quick-send fires on a page that doesn't have
+  // the inline version (e.g. dashboard.html). Writes a comm doc +
+  // bumps lead.lastContactedAt + lastContactType. Fire-and-forget;
+  // failures are logged but never block the sms: navigation.
+  async function _logCommDirect(leadId, type, content, extra) {
+    extra = extra || {};
+    try {
+      if (!leadId) return;
+      const db = window.db;
+      const auth = window.auth;
+      const addDoc = window.addDoc;
+      const collection = window.collection;
+      const updateDoc = window.updateDoc;
+      const doc = window.doc;
+      const serverTimestamp = window.serverTimestamp;
+      if (!db || !auth || !addDoc || !collection || !updateDoc || !doc || !serverTimestamp) {
+        console.warn('[daily-brief] firebase globals missing — comm not logged');
+        return;
+      }
+      const uid = auth.currentUser && auth.currentUser.uid;
+      if (!uid) return;
+      await addDoc(collection(db, 'communications'), {
+        leadId,
+        userId: uid,
+        type,
+        direction: extra.direction || 'outbound',
+        content: content || '',
+        timestamp: serverTimestamp(),
+        source: extra.source || 'daily-brief',
+        ...(extra.actionType ? { actionType: extra.actionType } : {}),
+      });
+      try {
+        await updateDoc(doc(db, 'leads', leadId), {
+          lastContactedAt: serverTimestamp(),
+          lastContactType: type,
+        });
+      } catch (_) {}
+    } catch (e) {
+      console.warn('[daily-brief] _logCommDirect failed:', e && e.message);
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────
@@ -296,15 +340,58 @@
   }
 
   // ─── Modal render ─────────────────────────────────────────────
-  function _renderRow(emoji, label, sub, leadId) {
+  // W165: each row supports an inline "quick send" button so the rep
+  // can fire off an SMS from the brief without navigating to the
+  // customer page first. The deterministic SMS body is action-type
+  // aware (callback vs unread vs upload vs hot lead) so a brief-row
+  // send still feels relevant. AI-generated drafts live on the
+  // customer page (W162-W163) — keeping this surface deterministic
+  // skips the API round-trip and lets the brief stay snappy.
+  function _quickDraft(lead, actionType) {
+    const name = String((lead && lead.firstName) || '').trim() || 'there';
+    if (actionType === 'callback') {
+      return 'Hey ' + name + ' — saw your callback request. When works best to chat?';
+    }
+    if (actionType === 'unread') {
+      return 'Hey ' + name + ' — got your message, replying now. Want me to call instead?';
+    }
+    if (actionType === 'upload') {
+      return 'Hey ' + name + ' — got the photo, taking a look now. I\'ll be in touch shortly.';
+    }
+    if (actionType === 'hot') {
+      return 'Hey ' + name + ' — quick check-in on your project. Got a minute to chat?';
+    }
+    return 'Hey ' + name + ' — wanted to circle back on your project.';
+  }
+  function _renderRow(emoji, label, sub, lead, actionType) {
     const safe = _esc(label);
     const safeSub = _esc(sub || '');
+    const leadId = lead && lead.id;
+    const phone = String((lead && lead.phone) || '').replace(/\D+/g, '');
+    // Only show the quick-send button on rows that have a phone +
+    // an action type. Hot/unread/callback/upload rows qualify; the
+    // "yesterday's wins" row (no lead) does not.
+    const sendBtnHtml = (leadId && phone && actionType)
+      ? (function () {
+          const body = _quickDraft(lead, actionType);
+          const href = 'sms:' + phone + '?body=' + encodeURIComponent(body);
+          return '<a class="nbd-db-send" href="' + _esc(href) + '" ' +
+            'data-leadid="' + _esc(leadId) + '" ' +
+            'data-action-type="' + _esc(actionType) + '" ' +
+            'title="Quick SMS reply" aria-label="Send SMS" ' +
+            'style="display:inline-flex;align-items:center;justify-content:center;' +
+            'width:30px;height:30px;border-radius:6px;flex-shrink:0;' +
+            'background:rgba(200,84,26,0.18);color:#fcd34d;text-decoration:none;' +
+            'font-size:14px;line-height:1;cursor:pointer;transition:background 120ms ease;">💬</a>';
+        }())
+      : '';
     return '<div class="nbd-db-row"' + (leadId ? ' data-leadid="' + _esc(leadId) + '"' : '') + ' style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:' + (leadId ? 'pointer' : 'default') + ';transition:background 120ms ease;">' +
       '<span style="font-size:18px;line-height:1;flex-shrink:0;">' + emoji + '</span>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-weight:600;color:#e2e8f0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + safe + '</div>' +
         (sub ? '<div style="color:#94a3b8;font-size:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + safeSub + '</div>' : '') +
       '</div>' +
+      sendBtnHtml +
       (leadId ? '<span style="color:#64748b;font-size:14px;flex-shrink:0;">›</span>' : '') +
     '</div>';
   }
@@ -324,7 +411,7 @@
     if (data.callbacks.length) {
       const rows = data.callbacks.map(c => {
         const ago = _ago(c.ts);
-        return _renderRow('📞', _name(c.lead), 'Callback requested ' + ago, c.lead.id);
+        return _renderRow('📞', _name(c.lead), 'Callback requested ' + ago, c.lead, 'callback');
       }).join('');
       html += _renderSection('Callbacks (last 48h)', rows);
     }
@@ -333,7 +420,7 @@
     if (data.unread.length) {
       const rows = data.unread.map(u => {
         return _renderRow('💬', _name(u.lead),
-          u.count + ' unread message' + (u.count === 1 ? '' : 's'), u.lead.id);
+          u.count + ' unread message' + (u.count === 1 ? '' : 's'), u.lead, 'unread');
       }).join('');
       html += _renderSection('Unread messages', rows);
     }
@@ -342,7 +429,7 @@
     if (data.uploads.length) {
       const rows = data.uploads.map(u => {
         const ago = _ago(u.ts);
-        return _renderRow('📷', _name(u.lead), 'Uploaded a photo ' + ago, u.lead.id);
+        return _renderRow('📷', _name(u.lead), 'Uploaded a photo ' + ago, u.lead, 'upload');
       }).join('');
       html += _renderSection('New homeowner photos', rows);
     }
@@ -351,17 +438,17 @@
     if (data.hot.length) {
       const rows = data.hot.map(r => {
         return _renderRow('🔥', _name(r.lead),
-          r.score + '/100 — ' + (r.topReason || 'high score'), r.lead.id);
+          r.score + '/100 — ' + (r.topReason || 'high score'), r.lead, 'hot');
       }).join('');
       html += _renderSection('Hot leads needing attention', rows);
     }
 
-    // Yesterday's wins (encouragement)
+    // Yesterday's wins (encouragement) — no quick-send button.
     if (data.signedYesterday) {
       html += _renderSection('Last 24 hours',
         _renderRow('💰',
           data.signedYesterday + ' estimate' + (data.signedYesterday === 1 ? '' : 's') + ' signed',
-          _money(data.signedYesterdayTotal) + ' in pipeline', null));
+          _money(data.signedYesterdayTotal) + ' in pipeline', null, null));
     }
 
     if (!html) {
@@ -497,9 +584,60 @@
     }
 
     // Row click → open that lead's customer page.
+    // W165: but if the inner ".nbd-db-send" anchor was clicked,
+    // intercept it to log the outbound SMS (W164-style) BEFORE the
+    // sms: link navigates away. We don't preventDefault — the
+    // sms: handler still fires after this synchronous call returns,
+    // so the rep's messaging app opens with the body pre-filled.
     const body = modal.querySelector('#nbd-db-body');
     if (body) {
       body.addEventListener('click', (e) => {
+        const sendBtn = e.target && e.target.closest && e.target.closest('.nbd-db-send');
+        if (sendBtn) {
+          e.stopPropagation(); // don't bubble to the row-nav handler
+          const sendLeadId = sendBtn.getAttribute('data-leadid');
+          const actionType = sendBtn.getAttribute('data-action-type');
+          // Pull lead from in-memory store + reconstruct draft so
+          // logCommunication's content matches what the rep is
+          // about to send. The href already encodes the body, but
+          // localStorage parsing the href is messier than re-deriving.
+          const leads = Array.isArray(window._leads) ? window._leads : [];
+          const lead = leads.find(l => l && l.id === sendLeadId);
+          if (lead) {
+            try {
+              const content = _quickDraft(lead, actionType);
+              const extra = {
+                source: 'daily-brief-quick-send',
+                actionType,
+                direction: 'outbound',
+              };
+              // Prefer the inline helper if loaded (customer.html
+              // path). Fall back to direct Firestore via the
+              // dashboard's exposed modular SDK globals.
+              if (typeof window.logCommunication === 'function') {
+                window.logCommunication(sendLeadId, 'sms', content, extra);
+              } else {
+                _logCommDirect(sendLeadId, 'sms', content, extra);
+              }
+              // Brief inline ack — flash the button to ✓ then back.
+              const orig = sendBtn.textContent;
+              sendBtn.textContent = '✓';
+              sendBtn.style.background = 'rgba(34,197,94,0.22)';
+              sendBtn.style.color = '#86efac';
+              setTimeout(() => {
+                if (sendBtn.isConnected) {
+                  sendBtn.textContent = orig;
+                  sendBtn.style.background = '';
+                  sendBtn.style.color = '';
+                }
+              }, 1400);
+            } catch (err) {
+              console.warn('[daily-brief] quick-send log failed:', err);
+            }
+          }
+          // Let the anchor's sms: navigation proceed.
+          return;
+        }
         const row = e.target && e.target.closest && e.target.closest('.nbd-db-row[data-leadid]');
         if (!row) return;
         const id = row.getAttribute('data-leadid');
