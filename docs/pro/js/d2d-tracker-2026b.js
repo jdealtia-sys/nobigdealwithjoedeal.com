@@ -1199,12 +1199,16 @@
         else sourceEl.value = 'Door-to-Door';
       }
 
-      // Set stage based on disposition
+      // Set stage based on disposition. Values must match the lStage
+      // <select> options in dashboard.html (snake_case stage keys —
+      // see crm-stages.js). Previously assigned 'Inspection' /
+      // 'Contacted' / 'New' which don't match any option, so the
+      // select silently stayed on the placeholder.
       const stageEl = document.getElementById('lStage');
       if (stageEl) {
-        if (knock.disposition === 'appointment') stageEl.value = 'Inspection';
-        else if (knock.disposition === 'interested') stageEl.value = 'Contacted';
-        else stageEl.value = 'New';
+        if (knock.disposition === 'appointment') stageEl.value = 'inspected';
+        else if (knock.disposition === 'interested') stageEl.value = 'contacted';
+        else stageEl.value = 'new';
       }
 
       // Set job type for insurance dispositions

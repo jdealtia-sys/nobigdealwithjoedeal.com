@@ -306,7 +306,7 @@ async function saveQuickLead() {
       phone: phone || '',
       damageType: damage,
       source: source,
-      stage: 'New',
+      stage: 'new',
       firstName: '',
       lastName: '',
       email: '',

@@ -25,6 +25,39 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+// W159 sweep: every widget below was filtering by legacy capitalized
+// stage names (l.stage === 'New' etc.) that no longer exist after the
+// crm-stages migration to snake_case keys. Helper returns the canonical
+// lowercase key for a lead via the cached _stageKey crm.js sets, with
+// window.normalizeStage as a fallback for any lead that hydrated before
+// the cache was populated.
+function _normStage(l) {
+  if (!l) return '';
+  if (l._stageKey) return l._stageKey;
+  if (typeof window.normalizeStage === 'function') {
+    try { return window.normalizeStage(l.stage || ''); } catch (_) {}
+  }
+  return String(l.stage || '').toLowerCase();
+}
+// Lowercase-key buckets matching the legacy 5-stage funnel labels
+// used across the Pipeline-Value, Stage-Funnel, and Close-Board
+// widgets. Multiple keys per bucket because the new schema splits
+// each legacy bucket across insurance/cash/finance tracks.
+const _STAGE_BUCKETS = {
+  'New':         new Set(['new']),
+  'Contacted':   new Set(['contacted', 'inspected', 'claim_filed', 'adjuster_meeting_scheduled', 'adjuster_inspection_done', 'scope_received']),
+  'Est. Sent':   new Set(['estimate_submitted', 'estimate_sent_cash', 'supplement_requested', 'supplement_approved', 'prequal_sent', 'loan_approved']),
+  'Negotiating': new Set(['negotiating']),
+  'Won':         new Set(['contract_signed', 'install_in_progress', 'install_complete', 'closed']),
+};
+function _bucketOf(l) {
+  const k = _normStage(l);
+  for (const [bucket, keys] of Object.entries(_STAGE_BUCKETS)) {
+    if (keys.has(k)) return bucket;
+  }
+  return null;
+}
+
 // ── WIDGET REGISTRY ─────────────────────────────────────────────
 const WIDGETS = [
 
@@ -37,7 +70,8 @@ const WIDGETS = [
       leads.forEach(l => {
         const val = parseFloat(l.estValue || l.value || 0);
         total += val;
-        if(stages[l.stage] !== undefined) stages[l.stage] += val;
+        const bucket = _bucketOf(l);
+        if (bucket && stages[bucket] !== undefined) stages[bucket] += val;
       });
       const stageBar = Object.entries(stages).filter(([,v])=>v>0).map(([s,v])=>{
         const pct = total > 0 ? (v/total*100) : 0;
@@ -116,7 +150,7 @@ const WIDGETS = [
     render(el){
       const leads = window._leads || [];
       const stages = ['New','Contacted','Est. Sent','Negotiating','Won'];
-      const counts = stages.map(s => leads.filter(l => l.stage === s).length);
+      const counts = stages.map(s => leads.filter(l => _bucketOf(l) === s).length);
       const max = Math.max(...counts, 1);
       el.innerHTML = `<div class="w-funnel">` + stages.map((s, i) => {
         const pct = 40 + (1 - i/(stages.length-1)) * 60;
@@ -136,7 +170,7 @@ const WIDGETS = [
       el.innerHTML = leads.map(l => {
         const ago = _timeAgo(l.updatedAt || l.createdAt);
         return `<div class="w-activity-row">
-          <div class="w-activity-dot" style="background:${l.stage==='Won'?'var(--green)':l.stage==='Lost'?'#EF4444':'var(--orange)'}"></div>
+          <div class="w-activity-dot" style="background:${(()=>{const b=_bucketOf(l);const s=_normStage(l);return b==='Won'?'var(--green)':s==='lost'?'#EF4444':'var(--orange)';})()}"></div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;font-size:11px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name||l.address||'Lead')}</div>
             <div style="font-size:10px;color:var(--m);">${esc(l.stage)} • ${esc(ago)}</div>
@@ -149,7 +183,8 @@ const WIDGETS = [
     render(el){
       const now = Date.now();
       const stale = (window._leads || []).filter(l => {
-        if(l.stage==='Won'||l.stage==='Lost') return false;
+        const b = _bucketOf(l);
+        if (b === 'Won' || _normStage(l) === 'lost') return false;
         const last = _toMs(l.updatedAt||l.createdAt);
         return last > 0 && (now - last) > 7*24*60*60*1000;
       }).sort((a,b) => _toMs(a.updatedAt||a.createdAt) - _toMs(b.updatedAt||b.createdAt)).slice(0,5);
@@ -163,7 +198,10 @@ const WIDGETS = [
 
   {id:'close-board', name:'Close Board', icon:'🎯', cat:'Pipeline & Sales', size:'md',
     render(el){
-      const leads = (window._leads || []).filter(l => l.stage === 'Negotiating' || l.stage === 'Est. Sent');
+      const leads = (window._leads || []).filter(l => {
+        const b = _bucketOf(l);
+        return b === 'Negotiating' || b === 'Est. Sent';
+      });
       const total = leads.reduce((s,l) => s + parseFloat(l.estValue||l.value||0), 0);
       el.innerHTML = `
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
