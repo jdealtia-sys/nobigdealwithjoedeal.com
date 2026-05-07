@@ -36,6 +36,24 @@
   // shipped (for the 30-day rotation).
   const ITEMS = [
     {
+      id: 'review-funnel-2026-05',
+      icon: '⭐',
+      title: 'Review funnel inbox',
+      body: 'New panel on Reports surfaces closed jobs in the 2-21 day "review sweet spot" — fresh enough that the wow factor lands but not so old the customer has moved on. One tap sends an SMS or email request reusing the existing review engine. "Send all SMS" fires them in sequence with a small gap so your messaging app can handle each one.',
+      wave: 'W166',
+      shippedAt: '2026-05-06',
+      tryLabel: 'Open Reports',
+      tryHandler: () => { if (typeof window.goTo === 'function') window.goTo('reports'); },
+    },
+    {
+      id: 'daily-brief-quick-send-2026-05',
+      icon: '💬',
+      title: 'Quick-send from the Daily Brief',
+      body: 'Each row in the Daily Brief now has an inline 💬 button that sends a context-aware SMS in one tap — no need to navigate to the customer page first. Auto-logs the outbound to the timeline and bumps lastContactedAt so smart-followup stops nagging.',
+      wave: 'W165',
+      shippedAt: '2026-05-06',
+    },
+    {
       id: 'ai-followup-draft-2026-05',
       icon: '✉️',
       title: 'AI Follow-Up Drafts (SMS / Email / Voicemail)',

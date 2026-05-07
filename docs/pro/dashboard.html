@@ -10833,6 +10833,15 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
+      <!-- Wave 166: review-funnel inbox — closed jobs aged 2-21 days
+           with no review request sent yet, one tap to send via
+           SMS / email reusing ReviewEngine. -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div id="reviewFunnelPanel">
+          <div class="empty"><div class="empty-icon">⭐</div>Loading review funnel…</div>
+        </div>
+      </div>
+
       <!-- Lead Source ROI panel — instant read on which sources actually
            generate revenue. Computed live off window._leads — no backend
            call. Re-renders on leadsChanged. -->
@@ -17720,6 +17729,9 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/reports-dashboard.js?v=1"></script>
 <!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
 <script defer src="js/reports-trends.js?v=1"></script>
+<!-- W166: review funnel inbox — surfaces closed jobs in the 2-21 day
+     sweet spot with one-tap SMS/email send buttons. -->
+<script defer src="js/review-funnel.js?v=1"></script>
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
