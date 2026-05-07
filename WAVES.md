@@ -1223,3 +1223,186 @@ Arc surface coverage:
   small fraction of session time but removed entire classes of
   future regression. Closing the audit is the discipline that
   makes the next round of reviews shorter + sharper.
+
+
+# Ninth push — Waves 118-126 (portal v2 + reliability P0s)
+
+This push had two threads running in parallel: building out the
+homeowner-portal into a real two-way conversation surface (was a
+read-only progress page with a sign button before), and chasing
+down the "everything feels stuck on loading" reliability bug the
+user reported mid-arc. Three P0 fixes shipped — each one was a
+silent blocker that almost certainly drove a chunk of the "the
+system feels broken" friction users had been living with.
+
+## Portal v2 — homeowner becomes an active participant
+
+- **W118 — Customer photo upload** (PR #244). The portal's biggest
+  close-the-loop opportunity: homeowner can snap a storm-damage
+  photo, mid-job concern, or finished-work shot directly from
+  their phone via the portal link. 30-second tap-and-send
+  collapses the rep-side workflow that used to require a
+  scheduled inspection visit. Client-side resize to 1600px max
+  edge / JPEG q=0.85 keeps payloads under 1-2MB on cellular.
+  8MB hard cap, 10/day per-token quota, JPEG/PNG/WebP whitelist.
+  Lands in the same `photos` collection the customer page
+  gallery already reads, so no rep-side wiring change.
+
+- **W119 — Request a callback button** (PR #245). Companion to
+  the call-now button: instead of phone tag, the homeowner picks
+  a time-slot chip ("today" / "tomorrow morning" / "this
+  weekend" / "anytime this week") with an optional note, and
+  the request lands as a real task on the lead with a concrete
+  Eastern-time `dueDate`. Surfaces in the rep's bell via the
+  existing `task-today` / `overdue-task` branches in
+  notif-bell.js. No new bell wiring needed — the data model
+  shape is the same as a manually-created task. 3/day per-token
+  quota anti-spam.
+
+- **W121 — Customer rating after job complete** (PR #247). The
+  post-completion feedback loop with smart funnel routing:
+  4-5★ raters get nudged to a Google review (if `rep.googleReviewUrl`
+  is set), 1-3★ raters get an amber recovery message ("we'll
+  reach out within 24 hours") AND a high-priority "RECOVERY
+  CALL" task lands on the lead with `dueDate=today` so the rep
+  sees it immediately. Write-once on `lead.customerRating`.
+  This converts unhappy customers into recovery sales BEFORE
+  they post a public 1-star somewhere — the single biggest
+  growth lever for D2D + insurance roofing.
+
+- **W123 — Async messaging, homeowner side** (PR #249). The
+  free-form back-channel that doesn't fit into a slot. New
+  `leads/{id}/portal_messages` subcollection (admin-SDK only
+  writes), `sendPortalMessage` + `getPortalMessages` Cloud
+  Functions, portal thread-bubble UI with 30s polling that
+  pauses on `document.hidden` + resumes on focus. Activity log
+  + notification + lead.unreadHomeownerMessages counter on the
+  rep side.
+
+- **W125 — Async messaging, rep side** (PR #251). Closes the
+  two-way thread. New "Messages" tab on customer.html with an
+  unread badge in the tab label, live updates via onSnapshot
+  (no polling on the rep side — they get instant push as the
+  homeowner sends), reply textarea + `replyToPortalMessage`
+  callable. Sending a reply implicitly marks all unread
+  homeowner messages as read-by-recipient (rep is acknowledging
+  by responding) and resets the unread counter to zero.
+
+## Reliability P0 fixes (the "nothing loads" bug)
+
+- **W120 P0 — Page-load race conditions** (PR #246). Four real
+  bugs killed in one commit:
+  1. Outer `renderLeads` retry was gated on `window._leads?.length`,
+     meaning new users with zero leads (or sales_reps filtered to
+     empty) NEVER escaped the kanban skeleton. Replaced with a
+     30s polling loop that succeeds the moment renderLeads is
+     defined, regardless of lead count. After 30s we show a
+     "Couldn't finish loading — Reload" fallback instead of an
+     infinite skeleton.
+  2. Inner `loadLeads` renderLeads retry was a one-shot 500ms
+     setTimeout. If crm.js was still loading, the retry never
+     fired again. Removed; outer 30s poll is the single source.
+  3. `setTimeout(loadLeads)` cold-start retry was untracked, so
+     a stale retry could fire during a fresh load and call
+     `renderLeads([])` mid-fetch. Now we track the timer handle
+     and clearTimeout it at the top of every loadLeads() call.
+  4. `_initPromise` in nbd-auth.js had no `.catch()`. The first
+     line of dashboard.html sets `visibility:hidden`, and
+     `_showPage()` is the only path that un-hides it. Without
+     a catch, any unhandled rejection inside the auth callback
+     left the page invisible forever — the user reads it as
+     "stuck loading" but it's actually invisible-with-an-error.
+
+- **W122 P0 — Voice Intel "Missing or insufficient permissions"**
+  (PR #248). Every customer page that hadn't recorded a call yet
+  showed the alarming permission error in the Voice Intel panel.
+  Root cause: `firestore.rules:142-150` evaluates
+  `isOwner(resource.data.userId)` per-doc; for LIST queries,
+  Firestore requires a `where()` filter constraining the query
+  to docs the rule can prove are readable. The client query had
+  no `where('userId','==', uid)` filter, so even an empty
+  collection was rejected. Added the filter, required uid as a
+  parameter to `subscribeToRecordings()`, friendlier
+  permission-denied messaging.
+
+- **W124 P0 — Service worker stale-cache** (PR #250). The
+  actual root cause of the "Ctrl+R doesn't fix it, only
+  Shift+Ctrl+R does" symptom the user described AFTER W120
+  deployed. The SW's `handleAssetRequest` used
+  stale-while-revalidate for ALL same-origin JS/CSS — every
+  Ctrl+R served the OLD cached crm.js / nbd-auth.js / etc.
+  while the HTML was fresh. New HTML calling new functions =
+  silent failure = stuck. Switched to network-first for
+  same-origin JS/CSS (cache only as offline fallback), bumped
+  cache versions v16 → v17 to nuke existing stale caches.
+  Existing controllerchange auto-reload handles the deploy
+  transition without user action. CDN libraries unchanged
+  (version-pinned in URL, cache-first remains correct).
+
+## Architecture notes for the ninth push
+
+- **Same close-the-loop pattern, three different surfaces** —
+  W118 photos, W119 callbacks, W123 messaging all follow the
+  same shape: a portal token-authed Cloud Function takes a
+  homeowner action, drops a real artifact (photo / task /
+  message) into the lead, mirrors to the activity log,
+  optionally creates a notification. The rep sees the same
+  artifact through their existing surfaces (kanban, bell,
+  customer page) — no new rep-side wiring needed. Each new
+  homeowner-action wave is just "what's the data shape that
+  lands on the lead, and how does it surface in the existing
+  funnel?"
+
+- **Smart funnel routing on rating** — W121's tiered response
+  (4-5★ → Google nudge, 1-3★ → recovery task) is the most
+  ROI-positive feature of the arc. The cost is one IF branch on
+  the server; the win is the difference between growing
+  reputation and bleeding reputation. Important pattern: the
+  rating UI itself is identical for both outcomes — the routing
+  happens server-side based on the score, so a rep can't game
+  it and a homeowner doesn't see the funnel logic.
+
+- **Stale-while-revalidate is the wrong default for SPA assets**
+  — W124's lesson. SWR is right for content (images, articles,
+  static data) but wrong for code where the HTML and JS files
+  must be in lockstep across deploys. Network-first with
+  cache-as-fallback is the reliable choice; the perceived
+  performance cost is small with HTTP/2 multiplexing. CDN
+  libraries can stay cache-first because their URLs are
+  version-pinned — the cache key IS the version, so different
+  versions = different cache entries by construction.
+
+- **Three P0s in one push, all silent blockers** — W120
+  (skeleton-stuck), W122 (permission-error spam), W124 (SW
+  stale-cache) were all "the page doesn't work" bugs that
+  users were learning to live with via reload-spam. None
+  surfaced an error message that pointed at the root cause.
+  Pattern lesson: a silent failure that "almost works" is
+  worse than a hard failure with a stack trace, because
+  users lose hours/days/weeks of productivity rather than
+  filing a single bug. The fix-arc here was directly driven
+  by user feedback in real time — W120 fixed the in-app race
+  conditions I could find via static analysis, the user came
+  back with "still broken on Ctrl+R" which pointed straight
+  at the SW (W124), the screenshot they sent of the Voice
+  Intel panel pointed at W122. Listening + targeted fixes
+  beat speculative refactors.
+
+- **Wave-numbering integrity through pivots** — when the user
+  flagged the P0 mid-stream, I bumped the planned wave numbers
+  forward (W120 was originally going to be customer rating,
+  became page-load reliability; rating became W121). Keeping
+  the wave numbers strictly chronological in commit/PR titles
+  preserves a clean audit trail in `git log` — every PR is
+  numbered in the order it actually shipped, not the order it
+  was originally planned.
+
+- **Auto-deploy bridge via SW controllerchange** — the existing
+  controllerchange listener in dashboard.html means W124's SW
+  fix takes effect on the next reload after deploy without the
+  user doing anything. The new sw.js installs in background,
+  activates with `skipWaiting + clients.claim`, fires
+  controllerchange, the dashboard auto-reloads, and the user
+  sees fresh code on the very next view. That bridge meant the
+  P0 fix didn't require a "please hard-refresh" announcement —
+  the system self-heals on first contact with the patch.
