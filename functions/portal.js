@@ -593,3 +593,212 @@ exports.uploadHomeownerPhoto = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// Wave 119: requestCallback — homeowner picks a time-window,
+// rep sees a task on the lead.
+// ═══════════════════════════════════════════════════════════════
+//
+// Companion to the call-now button. The customer taps a time-slot
+// chip ("today", "tomorrow morning", "this weekend", etc.) plus an
+// optional note, and we drop a real task on the lead so the rep
+// sees it in their bell + customer page activity log without any
+// extra rep-side wiring.
+//
+// Time-slot resolution is server-side and uses Eastern time — same
+// timezone fix W104 applied to the scheduled push functions. We
+// resolve the slot to a concrete `dueDate` (YYYY-MM-DD) so the
+// existing notif-bell `task-today` / `overdue-task` branches pick
+// it up identically to a manually-created task.
+//
+// Limits:
+//   - 3 callback requests per token per day (defends against
+//     a stuck homeowner spamming "call me now")
+//   - 280-char note cap, slot whitelist
+//   - Per-IP rate limit shared with portal upload
+exports.requestCallback = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 60,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+
+    if (!(await httpRateLimit(req, res, 'portal-callback:ip', 30, 60_000))) return;
+
+    const { token, slot, note } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    const ALLOWED_SLOTS = new Set([
+      'today',
+      'tomorrow-morning',
+      'tomorrow-afternoon',
+      'tomorrow-evening',
+      'weekend',
+      'anytime',
+    ]);
+    if (typeof slot !== 'string' || !ALLOWED_SLOTS.has(slot)) {
+      res.status(400).json({ error: 'Invalid time slot' });
+      return;
+    }
+    const safeNote = (typeof note === 'string') ? note.trim().slice(0, 280) : '';
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    // Per-token daily quota — small cap so a confused homeowner
+    // doesn't accidentally spam 30 requests in one tap-fest.
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const callbacksField = `callbacksByDay.${todayKey}`;
+    const todayCount = (tok.callbacksByDay && tok.callbacksByDay[todayKey]) || 0;
+    if (todayCount >= 3) {
+      res.status(429).json({ error: 'You\'ve sent a few requests already today — your rep will be in touch.' });
+      return;
+    }
+
+    // Resolve the slot to a concrete due date in Eastern time.
+    // We work with the raw YYYY-MM-DD from Intl so it doesn't drift
+    // off the date locally vs server-side.
+    const easternDate = (offset) => {
+      // offset = 0 today, 1 tomorrow, 2 day-after, etc.
+      const d = new Date(Date.now() + offset * 86_400_000);
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      });
+      return fmt.format(d); // 'YYYY-MM-DD'
+    };
+    // Saturday lookahead — find the next Saturday in Eastern time.
+    const nextSaturday = () => {
+      for (let i = 0; i <= 7; i++) {
+        const d = new Date(Date.now() + i * 86_400_000);
+        const wd = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York', weekday: 'short',
+        }).format(d);
+        if (wd === 'Sat') return easternDate(i);
+      }
+      return easternDate(6); // fallback
+    };
+
+    let dueDate;
+    let label;
+    switch (slot) {
+      case 'today':
+        dueDate = easternDate(0);
+        label = 'today';
+        break;
+      case 'tomorrow-morning':
+        dueDate = easternDate(1);
+        label = 'tomorrow morning';
+        break;
+      case 'tomorrow-afternoon':
+        dueDate = easternDate(1);
+        label = 'tomorrow afternoon';
+        break;
+      case 'tomorrow-evening':
+        dueDate = easternDate(1);
+        label = 'tomorrow evening';
+        break;
+      case 'weekend':
+        dueDate = nextSaturday();
+        label = 'this weekend';
+        break;
+      case 'anytime':
+      default:
+        dueDate = easternDate(2); // 2 days out so it stays in active queue
+        label = 'anytime this week';
+        break;
+    }
+
+    const taskText = '📞 CALLBACK REQUESTED — ' + label
+      + (safeNote ? ' — "' + safeNote + '"' : '');
+
+    try {
+      // Drop a task on the lead — surfaces in the rep's notif-bell
+      // via the existing task-today / overdue-task branches.
+      const taskRef = await db.collection(`leads/${tok.leadId}/tasks`).add({
+        text: taskText,
+        done: false,
+        dueDate,
+        // Marker fields so downstream surfaces (customer page, rep
+        // bell) can recognize this isn't a self-created task.
+        source: 'homeowner_callback',
+        slot,
+        slotLabel: label,
+        homeownerNote: safeNote || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Activity log entry — surfaces on the customer page timeline.
+      try {
+        await db.collection(`leads/${tok.leadId}/activity`).add({
+          userId: tok.ownerUid,
+          type: 'callback_request',
+          label: 'Callback requested',
+          slot,
+          slotLabel: label,
+          note: safeNote || null,
+          dueDate,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (actErr) {
+        logger.warn('[requestCallback] activity create failed', { msg: actErr.message });
+      }
+
+      // Bump the lead's updatedAt so stale-lead bell branches don't
+      // fire on a lead that just had a fresh customer signal.
+      try {
+        await db.doc(`leads/${tok.leadId}`).set({
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } catch (_) { /* non-critical */ }
+
+      // Bump token counter atomically.
+      await tokRef.update({
+        [callbacksField]: admin.firestore.FieldValue.increment(1),
+        lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Server-side notification doc (future bell-stream wiring).
+      try {
+        await db.collection('notifications').add({
+          userId: tok.ownerUid,
+          type: 'homeowner_callback',
+          leadId: tok.leadId,
+          taskId: taskRef.id,
+          title: 'Homeowner requested a callback',
+          message: 'Best time: ' + label + (safeNote ? ' — "' + safeNote.slice(0, 60) + '"' : ''),
+          priority: 'high',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (notifErr) {
+        logger.warn('[requestCallback] notification create failed', { msg: notifErr.message });
+      }
+
+      res.status(200).json({
+        ok: true,
+        taskId: taskRef.id,
+        dueDate,
+        slotLabel: label,
+        remainingToday: 3 - (todayCount + 1),
+      });
+    } catch (err) {
+      logger.error('[requestCallback] failed', { msg: err.message });
+      res.status(500).json({ error: 'Could not save request. Try again.' });
+    }
+  }
+);
