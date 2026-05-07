@@ -381,6 +381,34 @@
             <button id="v2jobCash" type="button" data-action="set-job-mode" data-arg="cash">Cash</button>
           </div>
 
+          <!-- Wave 142: Tier selector. Drives the Good/Better/Best
+               per-SQ rate ($545/$595/$660) AND the catalog-mode
+               material grade. Was hardcoded in state.tier='better'
+               with no UI to change — meaning reps couldn't switch
+               tiers from inside the modal at all. -->
+          <div class="v2-section">Tier</div>
+          <div class="v2-tabs" id="v2tierTabs">
+            <button id="v2tierGood"   type="button" data-action="set-tier" data-arg="good">Good</button>
+            <button id="v2tierBetter" type="button" class="active" data-action="set-tier" data-arg="better">Better</button>
+            <button id="v2tierBest"   type="button" data-action="set-tier" data-arg="best">Best</button>
+          </div>
+
+          <!-- Wave 142: County / jurisdiction selector. Drives permit
+               cost AND sales tax. Was hardcoded to hamilton-oh —
+               wrong for any job in Butler/Warren/Clermont/KY. -->
+          <div class="v2-field">
+            <label>County / Jurisdiction</label>
+            <select id="v2county" data-state="county">
+              <option value="hamilton-oh">Hamilton County, OH</option>
+              <option value="butler-oh">Butler County, OH</option>
+              <option value="warren-oh">Warren County, OH</option>
+              <option value="clermont-oh">Clermont County, OH</option>
+              <option value="kenton-ky">Kenton County, KY</option>
+              <option value="boone-ky">Boone County, KY</option>
+              <option value="campbell-ky">Campbell County, KY</option>
+            </select>
+          </div>
+
           <div class="v2-section">Measurements</div>
 
           <!-- Auto-measure: hits HOVER/EagleView/Nearmap via the
@@ -485,6 +513,58 @@
 
         <!-- RIGHT: Selected scope + total + export -->
         <div class="v2-pane right">
+
+          <!-- Wave 142: Customer + Claim inputs. Previously
+               state.customer / state.claim could ONLY be populated
+               via prefillFromLead — meaning a standalone estimate
+               (no linked lead) had no way to enter customer info, the
+               PDF was blank on every customer field, and Send-for-
+               Signature failed at the "name + email required" gate.
+               These inputs use data-customer / data-claim attributes
+               to drive a delegated input handler that writes back to
+               state in real time. syncCustomerInputs() reads from
+               state and writes to these IDs on lead-prefill or
+               draft-restore. -->
+          <div class="v2-section">Customer</div>
+          <div class="v2-field">
+            <label>Name</label>
+            <input type="text" id="v2custName" data-customer="name" placeholder="Sarah Smith" autocomplete="name">
+          </div>
+          <div class="v2-field">
+            <label>Email</label>
+            <input type="email" id="v2custEmail" data-customer="email" placeholder="sarah@example.com" autocomplete="email">
+          </div>
+          <div class="v2-field">
+            <label>Phone</label>
+            <input type="tel" id="v2custPhone" data-customer="phone" placeholder="(859) 555-0100" autocomplete="tel">
+          </div>
+          <div class="v2-field">
+            <label>Property Address</label>
+            <input type="text" id="v2custAddress" data-customer="address" placeholder="123 Main St, Goshen, OH 45122" autocomplete="street-address">
+          </div>
+
+          <!-- Claim inputs only matter for insurance jobs but the
+               state shape carries them regardless; rendering the
+               whole block keeps the UI consistent (the rep can
+               leave these blank for a cash job). -->
+          <div class="v2-section">Insurance Claim</div>
+          <div class="v2-field">
+            <label>Carrier</label>
+            <input type="text" id="v2claimCarrier" data-claim="carrier" placeholder="State Farm">
+          </div>
+          <div class="v2-field">
+            <label>Claim Number</label>
+            <input type="text" id="v2claimNumber" data-claim="number" placeholder="04-1234-A">
+          </div>
+          <div class="v2-field">
+            <label>Adjuster</label>
+            <input type="text" id="v2claimAdjuster" data-claim="adjuster" placeholder="Mike Johnson">
+          </div>
+          <div class="v2-field">
+            <label>Deductible</label>
+            <input type="number" id="v2claimDeductible" data-claim="deductible" placeholder="2500" min="0" step="50">
+          </div>
+
           <div class="v2-section">Selected Scope</div>
           <div id="v2scopeList">
             <div class="v2-empty">No items selected yet.<br>Pick from catalog or use a preset.</div>
@@ -593,6 +673,23 @@
         case 'set-job-mode':
           if (arg) setJobMode(arg);
           break;
+        case 'set-tier':
+          // W142: change Good/Better/Best tier from inside the modal.
+          // Updates state, repaints the active button, recalculates
+          // grand total. catalog-mode tier feeds resolveEstimate;
+          // per-SQ mode tier picks the locked rate from
+          // estimate-config.js TIER_RATES.
+          if (arg && (arg === 'good' || arg === 'better' || arg === 'best')) {
+            state.tier = arg;
+            ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
+              const b = document.getElementById(id);
+              if (b) b.classList.toggle('active',
+                id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
+            });
+            render();
+            scheduleDraftSave();
+          }
+          break;
         case 'load-preset':
           if (arg) loadPreset(arg);
           break;
@@ -646,6 +743,41 @@
       // Search input → setSearch
       if (el.dataset.action === 'search') {
         setSearch(el.value);
+        return;
+      }
+      // W142: customer/claim/top-level state inputs
+      if (el.dataset.customer) {
+        state.customer = state.customer || {};
+        state.customer[el.dataset.customer] = el.value;
+        // If the customer's property address is being typed and the
+        // separate "auto-measure" address input is empty, mirror it
+        // so the rep doesn't have to type the address twice.
+        if (el.dataset.customer === 'address') {
+          const measureAddr = document.getElementById('v2measureAddr');
+          if (measureAddr && !measureAddr.value) measureAddr.value = el.value;
+        }
+        scheduleDraftSave();
+        return;
+      }
+      if (el.dataset.claim) {
+        state.claim = state.claim || {};
+        const key = el.dataset.claim;
+        // Deductible coerces to number; other claim fields stay strings.
+        state.claim[key] = (key === 'deductible')
+          ? (Number(el.value) || 0)
+          : el.value;
+        scheduleDraftSave();
+        return;
+      }
+      if (el.dataset.state) {
+        const key = el.dataset.state;
+        // Only the keys we explicitly support — defense against a
+        // future field that accidentally writes to e.g. state.scope.
+        if (key === 'county') {
+          state.county = el.value;
+          render();
+          scheduleDraftSave();
+        }
         return;
       }
       // Measurement field → updateMeasurement
@@ -1805,18 +1937,40 @@
     return true;
   }
   function syncCustomerInputs() {
+    // W142: sync ALL of state.customer + state.claim + state.tier
+    // + state.county to their inputs. Previously only the four
+    // customer fields were synced, AND those DOM IDs didn't exist
+    // anywhere in the modal (the inputs were never rendered).
+    // Wave 142 added all the missing inputs; this function now
+    // populates the full set on prefillFromLead / restoreDraft /
+    // any external state mutation.
     const fields = {
-      v2custName:    state.customer.name,
-      v2custEmail:   state.customer.email,
-      v2custPhone:   state.customer.phone,
-      v2custAddress: state.customer.address
+      v2custName:        state.customer && state.customer.name,
+      v2custEmail:       state.customer && state.customer.email,
+      v2custPhone:       state.customer && state.customer.phone,
+      v2custAddress:     state.customer && state.customer.address,
+      v2claimCarrier:    state.claim && state.claim.carrier,
+      v2claimNumber:     state.claim && state.claim.number,
+      v2claimAdjuster:   state.claim && state.claim.adjuster,
+      v2claimDeductible: state.claim && state.claim.deductible,
+      v2county:          state.county
     };
     for (const id of Object.keys(fields)) {
       const el = document.getElementById(id);
       if (el && fields[id] != null) el.value = fields[id];
     }
+    // Tier — buttons, not an input. Toggle .active class.
+    const tier = state.tier || 'better';
+    ['good', 'better', 'best'].forEach(t => {
+      const b = document.getElementById('v2tier' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (b) b.classList.toggle('active', t === tier);
+    });
+    // Mirror the customer address into the auto-measure input when
+    // the rep hasn't typed there yet — saves typing the address twice.
     const addrEl = document.getElementById('v2measureAddr');
-    if (addrEl && !addrEl.value && state.customer.address) addrEl.value = state.customer.address;
+    if (addrEl && !addrEl.value && state.customer && state.customer.address) {
+      addrEl.value = state.customer.address;
+    }
   }
 
   function open(opts) {
@@ -1839,6 +1993,13 @@
           window.showToast('Restored unsaved draft', 'info');
         }
       }
+      // W142: always sync the new Customer/Claim/Tier/County inputs
+      // on open so the rep sees the current in-memory state even
+      // when there's no lead AND no draft to restore. Without this,
+      // a fresh-no-lead open shows the modal's hardcoded HTML
+      // defaults regardless of what state was preserved across
+      // previous opens.
+      syncCustomerInputs();
       render();
     });
   }
