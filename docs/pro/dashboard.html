@@ -9648,14 +9648,21 @@ function switchScTab(tab, btn) {
           <div class="page-sub">All roofing estimates</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <!-- Classic button: go straight into the 4-step wizard.
-               Bypasses showEstimateTypeSelector because the user
-               already picked from this landing page. -->
-          <button class="btn" onclick="startNewEstimateOriginal()" title="Classic 4-step builder with Good/Better/Best tiers">＋ Classic</button>
-          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="V2 builder with 270 line items, presets, and per-item qty overrides">
-            ✨ V2 Builder
-            <span style="font-size:8px;background:#fff;color:var(--orange);padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.1em;">BETA</span>
-          </button>
+          <!-- W145: V2 Builder is now the primary path. Classic
+               4-step wizard demoted to a small ghost button for
+               reps who specifically want the older flow. The BETA
+               label is dropped — the V2 builder has shipped W142
+               (Customer/Claim/Tier/County), W143 (per-SQ add-ons),
+               W144 (supplements), so it now covers every workflow
+               the Classic builder did, plus the 270-item catalog,
+               presets, county/tier selectors, BoldSign signing, and
+               draft autosave. The drift risk noted in the April
+               2026 estimate-engines audit is closed by promoting V2
+               to default — every new estimate goes through the
+               consolidated config (estimate-config.js) instead of
+               the parallel Classic constants. -->
+          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="Build a new estimate with the V2 builder (270 line items, presets, tier comparison, BoldSign signing)">＋ New Estimate</button>
+          <button class="btn btn-ghost" onclick="startNewEstimateOriginal()" title="Classic 4-step wizard (legacy — V2 has full feature parity)" style="font-size:11px;padding:6px 12px;color:var(--m);">Classic</button>
         </div>
       </div>
       <div id="estListWrap"><div class="empty">
