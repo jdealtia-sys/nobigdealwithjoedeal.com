@@ -1390,3 +1390,134 @@ exports.getPortalMessages = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// Wave 146: getEstimateForView — token-authed homeowner preview
+// ═══════════════════════════════════════════════════════════════
+//
+// The lightweight preview path for estimates. Distinct from the
+// BoldSign signature flow (which is heavyweight + requires
+// envelope creation). Lets the rep send a "preview link" the
+// customer can click to see the estimate inside a branded HTML
+// shell without committing to sign.
+//
+// Side effect: stamps `viewedAt` (and bumps a `viewCount` +
+// `lastViewedAt`) on the estimate doc. This is the missing write
+// path that Wave 91's engagement-tier signal + the W57+W58
+// almost-there-widget have been waiting for. Without it, the
+// "estimate viewed" tier never fires for a V2 estimate that's
+// shared via this link rather than a BoldSign envelope.
+//
+// Auth: portal_tokens entry validates the lead context. The
+// estimate must belong to the same lead as the token.
+exports.getEstimateForView = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 50,
+    concurrency: 80,
+    timeoutSeconds: 15,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    if (!(await httpRateLimit(req, res, 'estimate-view:ip', 60, 60_000))) return;
+
+    const { token, estimateId } = req.body || {};
+    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    if (typeof estimateId !== 'string' || !estimateId || estimateId.length > 64) {
+      res.status(400).json({ error: 'Invalid estimate ID' });
+      return;
+    }
+
+    const db = admin.firestore();
+    const tokRef = db.doc(`portal_tokens/${token}`);
+    const tokSnap = await tokRef.get();
+    if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+    const tok = tokSnap.data();
+    if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+      res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+
+    const estRef = db.doc(`estimates/${estimateId}`);
+    const estSnap = await estRef.get();
+    if (!estSnap.exists) { res.status(404).json({ error: 'Estimate not found.' }); return; }
+    const est = estSnap.data();
+
+    // Cross-tenant defense: the estimate must belong to the same
+    // lead the token grants access to. A homeowner with a valid
+    // token for lead A cannot fish for estimates on lead B by
+    // guessing IDs.
+    if (est.leadId !== tok.leadId) {
+      logger.warn('[getEstimateForView] cross-lead access blocked', {
+        token: token.slice(0, 8) + '...',
+        tokLeadId: tok.leadId,
+        estLeadId: est.leadId,
+      });
+      res.status(403).json({ error: 'Estimate not available for this link.' });
+      return;
+    }
+
+    // Stamp viewedAt + bump counters. viewedAt only sets on the
+    // FIRST view so the W92 engagement tier doesn't churn, but
+    // viewCount + lastViewedAt update on every view to power the
+    // W57 almost-there-widget's "viewed 3x today" multi-view signal.
+    try {
+      const update = {
+        lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
+        viewCount: admin.firestore.FieldValue.increment(1),
+        lastViewedVia: 'token-link',
+      };
+      if (!est.viewedAt) {
+        update.viewedAt = admin.firestore.FieldValue.serverTimestamp();
+      }
+      await estRef.update(update);
+    } catch (e) {
+      logger.warn('[getEstimateForView] viewedAt update failed', { msg: e.message });
+    }
+
+    // Activity log entry on the lead so the rep's customer-page
+    // timeline shows "Homeowner viewed estimate" — surfaces in the
+    // bell + briefing + Lead Intelligence score (W135 hot signals).
+    try {
+      await db.collection(`leads/${tok.leadId}/activity`).add({
+        userId: tok.ownerUid,
+        type: 'estimate_viewed',
+        label: 'Homeowner viewed estimate',
+        estimateId,
+        viewedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn('[getEstimateForView] activity log failed', { msg: e.message });
+    }
+
+    // Return a redacted view of the estimate. We strip internal
+    // fields (margin, costBasis, internalNotes) that the homeowner
+    // shouldn't see; the formatRetailQuote on the client side will
+    // render only the consumer-facing surface.
+    const safeEstimate = {
+      id: estSnap.id,
+      tier:        est.tier || null,
+      mode:        est.mode || null,
+      grandTotal:  est.grandTotal || est.total || null,
+      total:       est.total || est.grandTotal || null,
+      lines:       Array.isArray(est.lines) ? est.lines : [],
+      tierName:    est.tierName || null,
+      addr:        est.addr || est.address || null,
+      owner:       est.owner || null,
+      createdAt:   est.createdAt?.toDate?.()?.toISOString() || null,
+      number:      est.number || null,
+      meas:        est.meas || est.measurements || null,
+      // Allow the formatter to render tier comparison if the doc
+      // already carries the tiers payload (per-SQ retail quotes do).
+      tiers:       est.tiers || null,
+    };
+
+    res.status(200).json({ estimate: safeEstimate });
+  }
+);

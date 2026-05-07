@@ -46,6 +46,10 @@ const NO_CACHE_HTML = new Set([
   // isn't sensitive, but we don't want a cached shell outliving a
   // security patch, so treat it the same as other pro pages.
   '/pro/portal.html',
+  // Wave 146: customer-facing estimate preview. Same risk profile
+  // as portal.html — public-by-token HTML shell that we don't
+  // want a cached pre-fix copy of outliving a security patch.
+  '/pro/estimate-view.html',
 ]);
 
 function isAuthGatedHTML(url) {
