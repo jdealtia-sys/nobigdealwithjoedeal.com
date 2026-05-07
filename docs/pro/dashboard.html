@@ -9646,6 +9646,13 @@ function switchScTab(tab, btn) {
           </div>
           <div class="page-title">Estimates</div>
           <div class="page-sub">All roofing estimates</div>
+          <!-- Wave 147: estimate analytics summary band. Reads from
+               window._estimates after loadEstimates() resolves and
+               summarizes: count by status, close rate by tier, avg
+               ticket, view→sign conversion, viewed-but-not-signed
+               funnel. NBDEstimateAnalytics module fills #estStats
+               on data refresh; hidden until estimates load. -->
+          <div id="estStats" style="display:none;margin-top:10px;"></div>
         </div>
         <div style="display:flex;gap:8px;">
           <!-- W145: V2 Builder is now the primary path. Classic
@@ -17685,6 +17692,8 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <!-- W144: Supplement UI entry point — wires the engine to a + Supplement
      button on every customer-page estimate row. -->
 <script defer src="js/supplement-ui.js?v=1"></script>
+<!-- W147: Estimate analytics summary band on the Estimates view. -->
+<script defer src="js/estimate-analytics.js?v=1"></script>
 <script defer src="js/estimate-v2-ui.js?v=11"></script>
 <script defer src="js/product-library.js?v=2"></script>
 <script defer src="js/theme-engine.js?v=2"></script>
