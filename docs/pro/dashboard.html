@@ -18,6 +18,42 @@
   }
 })();
 </script>
+<!-- v159.5: pre-module diagnostic trap.
+     Runs before any other script so window.onerror + unhandledrejection
+     fire BEFORE the type="module" blocks evaluate. Without this, a
+     parse-time or top-level throw in the Firebase init module dies
+     silently and the diagnostic banner can only report symptoms.
+     window.__nbdMark(name) is a tiny phase-stamper called at strategic
+     points in both module blocks; the banner renders the last few
+     phases + the first captured error so the user can ground-truth
+     exactly where init dies. -->
+<script>
+window.__nbdLoadErrors = [];
+window.__nbdPhases = [];
+window.__nbdMark = function(name) {
+  try {
+    window.__nbdPhases.push(name);
+    if (window.__nbdPhases.length > 24) window.__nbdPhases.shift();
+  } catch (_) {}
+};
+window.addEventListener('error', function(e) {
+  try {
+    var msg = (e && (e.message || (e.error && e.error.message))) || 'unknown';
+    var src = (e && e.filename) || '';
+    var line = (e && e.lineno) || '';
+    var entry = (src ? String(src).split('/').pop() + ':' + line + ' ' : '') + msg;
+    if (window.__nbdLoadErrors.length < 8) window.__nbdLoadErrors.push(entry);
+  } catch (_) {}
+}, true);
+window.addEventListener('unhandledrejection', function(e) {
+  try {
+    var r = e && e.reason;
+    var msg = (r && (r.message || r.code || (typeof r === 'string' ? r : null))) || 'rejection';
+    if (window.__nbdLoadErrors.length < 8) window.__nbdLoadErrors.push('REJ: ' + msg);
+  } catch (_) {}
+});
+window.__nbdMark('pre-module');
+</script>
 <!-- Rock 4 Phase 2: theme system extracted to css/theme-system.css.
      Same content (80 themes + trial-banner CSS) the inline <style id="theme-system">
      used to carry. Customer/vault/login already loaded the file; dashboard now joins. -->
@@ -101,7 +137,9 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module">
+  window.__nbdMark && window.__nbdMark('m1:start');
   import { NBDAuth } from '/pro/js/nbd-auth.js';
+  window.__nbdMark && window.__nbdMark('m1:imports');
   // Dashboard does its own heavy Firebase init below — NBDAuth just provides
   // the access gate and exposes window.NBDAuth for plan badges / feature checks
   window._nbdAuth = NBDAuth.init({
@@ -149,11 +187,13 @@
   });
 </script>
 <script type="module">
+  window.__nbdMark && window.__nbdMark('m2:start');
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  window.__nbdMark && window.__nbdMark('m2:fbImports');
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
@@ -164,6 +204,7 @@
     normalizeStage, stageLabel, stageColor, resolveColumn,
     stageOptionsForType, inferJobType, JOB_TYPES, tagClass as _tagClass
   } from './js/crm-stages.js';
+  window.__nbdMark && window.__nbdMark('m2:stagesImport');
 
   // Legacy compat — default to insurance pipeline view
   const _currentViewKey = localStorage.getItem('nbd_kanban_view') || 'insurance';
@@ -324,7 +365,24 @@
   };
 
   document.documentElement.style.visibility="hidden";
-  const app     = initializeApp(firebaseConfig);
+  window.__nbdMark && window.__nbdMark('m2:beforeApp');
+  // v159.6: Singleton-aware app init.
+  // nbd-auth.js (the FIRST module on this page) already calls
+  // initializeApp(FIREBASE_CONFIG) and exposes the result on
+  // window._firebaseApp. Calling initializeApp a second time with
+  // the same default name is supposed to be safe (Firebase compares
+  // configs via deepEqual), but on mobile the diagnostic v159.5
+  // suggests this module may be dying somewhere in this synchronous
+  // setup region. Reusing the already-initialized instance removes
+  // any duplicate-app risk and — equally important — guarantees we
+  // share the SAME long-polling-enabled Firestore instance that
+  // nbd-auth.js created via initializeFirestore(_app, {
+  // experimentalForceLongPolling: true }). Without this share, our
+  // getFirestore(app) below would silently get the default
+  // WebChannel transport, which is the very thing PR #289 was
+  // trying to avoid.
+  const app     = window._firebaseApp || initializeApp(firebaseConfig);
+  window.__nbdMark && window.__nbdMark(window._firebaseApp ? 'm2:app:reused' : 'm2:app:fresh');
 
   // ─── App Check (C-4) ──────────────────────────────────────
   // Functions declare `enforceAppCheck: true` but previously nothing
@@ -355,12 +413,23 @@
     console.warn('App Check not configured. Set window.__NBD_APP_CHECK_KEY via the meta tag in dashboard.html <head>. Callable functions with enforceAppCheck: true WILL reject these requests in production.');
   }
 
-  const auth    = getAuth(app);
-  const db      = getFirestore(app);
+  // v159.6: Reuse the already-initialized auth + db from nbd-auth.js.
+  // getAuth(app) and getFirestore(app) on a Firebase app instance are
+  // singletons by design (they return the same instance every call),
+  // but going through window._auth / window._db makes the dependency
+  // explicit AND surfaces a useful 'reused vs fresh' marker in the
+  // diagnostic banner — if the user sees 'm2:auth:fresh' on mobile we
+  // know nbd-auth.js never finished its setup, which narrows the
+  // failure to module 1's promise chain rather than module 2.
+  const auth    = window._auth || getAuth(app);
+  window.__nbdMark && window.__nbdMark(window._auth ? 'm2:auth:reused' : 'm2:auth:fresh');
+  const db      = window._db || getFirestore(app);
+  window.__nbdMark && window.__nbdMark(window._db ? 'm2:db:reused' : 'm2:db:fresh');
   const storage = getStorage(app);
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
   window.db = db;
+  window.__nbdMark && window.__nbdMark('m2:windowDb');
   // _db mirror — invoice-pipeline.js and a handful of other modules
   // were written against this name before the codebase settled on
   // window.db. Expose both so existing call sites keep working.
@@ -418,7 +487,9 @@
     console.warn('Unhandled promise rejection:', e.reason);
   });
 
+  window.__nbdMark && window.__nbdMark('m2:beforeOnAuth');
   onAuthStateChanged(auth, async user => {
+    window.__nbdMark && window.__nbdMark(user ? 'm2:authCb:user' : 'm2:authCb:null');
     if (!user) { window.location.replace("/pro/login.html"); return; }
     
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
@@ -489,6 +560,7 @@
       }, 2000);
     }
     window._user = user;
+    window.__nbdMark && window.__nbdMark('m2:userSet');
     // Load custom claims for role-based access (Enterprise)
     // Claims include: companyId, role, plan, subscriptionStatus
     try {
@@ -17977,8 +18049,14 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      opacity when leads finally load. -->
 <script>
 (function _mobileDiagnostic() {
-  const VERSION = 'v159.4';
+  const VERSION = 'v159.6';
   let banner;
+  function _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
   function _statusLine() {
     const loaded = !!window._leadsLoaded;
     const count = (window._leads && window._leads.length) || 0;
@@ -17994,13 +18072,19 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
     const sw = ('serviceWorker' in navigator) ? 'sw-supported' : 'no-sw';
     const auth = window._user ? 'authed' : 'no-auth';
     const dbReady = window.db ? 'db-ready' : 'no-db';
-    return { loaded, count, ua, online, uid, errText, retry, pwa, sw, auth, dbReady };
+    // v159.5: phase trail + first captured load error. The trail tells
+    // us how far the module pipeline got before stalling; the error
+    // tells us why. Without these the banner only reports symptoms.
+    const phases = (window.__nbdPhases || []).slice(-8).join(' › ');
+    const firstErr = (window.__nbdLoadErrors && window.__nbdLoadErrors[0]) || null;
+    const errCount = (window.__nbdLoadErrors && window.__nbdLoadErrors.length) || 0;
+    return { loaded, count, ua, online, uid, errText, retry, pwa, sw, auth, dbReady, phases, firstErr, errCount };
   }
   function _ensureBanner() {
     if (banner) return banner;
     banner = document.createElement('div');
     banner.id = 'nbd-load-diag';
-    banner.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,0);left:0;right:0;z-index:2147483647;background:#1a1a1a;color:#fff;padding:8px 10px;font:11px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,.6);border-top:2px solid #f80;max-height:40vh;overflow-y:auto;';
+    banner.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,0);left:0;right:0;z-index:2147483647;background:#1a1a1a;color:#fff;padding:8px 10px;font:11px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,.6);border-top:2px solid #f80;max-height:50vh;overflow-y:auto;';
     document.body.appendChild(banner);
     return banner;
   }
@@ -18015,15 +18099,25 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
       b.style.opacity = '1';
       b.style.borderTopColor = s.loaded ? '#fb0' : '#f80';
     }
+    const phaseLine = s.phases
+      ? '<div style="opacity:.9;font-size:10px;color:#9cf;margin-top:3px;word-break:break-all;">phase: ' + _esc(s.phases) + '</div>'
+      : '<div style="opacity:.9;font-size:10px;color:#fb6;margin-top:3px;">phase: (none — pre-module trap missed)</div>';
+    const errLine = s.firstErr
+      ? '<div style="color:#fb6;margin-top:3px;word-break:break-word;">⚠ ' + _esc(s.firstErr)
+        + (s.errCount > 1 ? ' <span style="opacity:.7;">(+' + (s.errCount - 1) + ' more)</span>' : '')
+        + '</div>'
+      : '';
     b.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:700;font-size:12px;margin-bottom:2px;">NBD diag ' + VERSION +
             ' · ' + (s.loaded ? '✅ leadsLoaded=' + s.count : '⏳ NOT loaded') + '</div>' +
-          '<div>err: ' + s.errText + '</div>' +
+          '<div>err: ' + _esc(s.errText) + '</div>' +
+          errLine +
           '<div style="opacity:.85;">retry: ' + s.retry + ' · ' + s.online + ' · ' + s.pwa +
             ' · ' + s.auth + ' · ' + s.dbReady + ' · uid: ' + s.uid + '</div>' +
-          '<div style="opacity:.65;font-size:10px;word-break:break-all;margin-top:2px;">' + s.ua + '</div>' +
+          phaseLine +
+          '<div style="opacity:.65;font-size:10px;word-break:break-all;margin-top:2px;">' + _esc(s.ua) + '</div>' +
         '</div>' +
         '<button id="nbd-load-diag-close" aria-label="Dismiss" style="background:none;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:4px;padding:1px 7px;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;">×</button>' +
       '</div>';

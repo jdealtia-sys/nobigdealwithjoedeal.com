@@ -512,8 +512,23 @@ export const NBDAuth = {
     // un-hide the page. Without this, the page stays at
     // visibility:hidden forever and the user sees a permanent blank
     // screen — the "stuck loading" pattern they reported.
+    //
+    // v159.6: also push the rejection reason to window.__nbdLoadErrors
+    // so it surfaces in the dashboard's diagnostic banner. Up to v159.5
+    // this rejection only logged to console — invisible to users on
+    // mobile without a dev-tools attachment, which is the only place
+    // we've been able to reproduce the bug. The user-visible banner is
+    // currently our only ground-truth channel.
     _initPromise.catch((err) => {
       console.error('[nbd-auth] init promise rejected:', err);
+      try {
+        if (typeof window !== 'undefined' && window.__nbdLoadErrors) {
+          var msg = (err && (err.message || err.code)) || String(err);
+          if (window.__nbdLoadErrors.length < 8) {
+            window.__nbdLoadErrors.push('NBDAuth-reject: ' + msg);
+          }
+        }
+      } catch (_) {}
       try { _showPage(); } catch (_) {}
     });
 
