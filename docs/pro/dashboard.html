@@ -366,8 +366,23 @@ window.__nbdMark('pre-module');
 
   document.documentElement.style.visibility="hidden";
   window.__nbdMark && window.__nbdMark('m2:beforeApp');
-  const app     = initializeApp(firebaseConfig);
-  window.__nbdMark && window.__nbdMark('m2:app');
+  // v159.6: Singleton-aware app init.
+  // nbd-auth.js (the FIRST module on this page) already calls
+  // initializeApp(FIREBASE_CONFIG) and exposes the result on
+  // window._firebaseApp. Calling initializeApp a second time with
+  // the same default name is supposed to be safe (Firebase compares
+  // configs via deepEqual), but on mobile the diagnostic v159.5
+  // suggests this module may be dying somewhere in this synchronous
+  // setup region. Reusing the already-initialized instance removes
+  // any duplicate-app risk and — equally important — guarantees we
+  // share the SAME long-polling-enabled Firestore instance that
+  // nbd-auth.js created via initializeFirestore(_app, {
+  // experimentalForceLongPolling: true }). Without this share, our
+  // getFirestore(app) below would silently get the default
+  // WebChannel transport, which is the very thing PR #289 was
+  // trying to avoid.
+  const app     = window._firebaseApp || initializeApp(firebaseConfig);
+  window.__nbdMark && window.__nbdMark(window._firebaseApp ? 'm2:app:reused' : 'm2:app:fresh');
 
   // ─── App Check (C-4) ──────────────────────────────────────
   // Functions declare `enforceAppCheck: true` but previously nothing
@@ -398,10 +413,18 @@ window.__nbdMark('pre-module');
     console.warn('App Check not configured. Set window.__NBD_APP_CHECK_KEY via the meta tag in dashboard.html <head>. Callable functions with enforceAppCheck: true WILL reject these requests in production.');
   }
 
-  const auth    = getAuth(app);
-  window.__nbdMark && window.__nbdMark('m2:auth');
-  const db      = getFirestore(app);
-  window.__nbdMark && window.__nbdMark('m2:db');
+  // v159.6: Reuse the already-initialized auth + db from nbd-auth.js.
+  // getAuth(app) and getFirestore(app) on a Firebase app instance are
+  // singletons by design (they return the same instance every call),
+  // but going through window._auth / window._db makes the dependency
+  // explicit AND surfaces a useful 'reused vs fresh' marker in the
+  // diagnostic banner — if the user sees 'm2:auth:fresh' on mobile we
+  // know nbd-auth.js never finished its setup, which narrows the
+  // failure to module 1's promise chain rather than module 2.
+  const auth    = window._auth || getAuth(app);
+  window.__nbdMark && window.__nbdMark(window._auth ? 'm2:auth:reused' : 'm2:auth:fresh');
+  const db      = window._db || getFirestore(app);
+  window.__nbdMark && window.__nbdMark(window._db ? 'm2:db:reused' : 'm2:db:fresh');
   const storage = getStorage(app);
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
@@ -18026,7 +18049,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      opacity when leads finally load. -->
 <script>
 (function _mobileDiagnostic() {
-  const VERSION = 'v159.5';
+  const VERSION = 'v159.6';
   let banner;
   function _esc(s) {
     return String(s == null ? '' : s)
