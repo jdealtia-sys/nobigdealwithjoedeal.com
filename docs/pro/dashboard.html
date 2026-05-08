@@ -206,14 +206,29 @@ window.__nbdMark('pre-module');
   } from './js/crm-stages.js';
   window.__nbdMark && window.__nbdMark('m2:stagesImport');
 
-  // Legacy compat — default to insurance pipeline view
-  const _currentViewKey = localStorage.getItem('nbd_kanban_view') || 'insurance';
-  const _currentViewStages = KANBAN_VIEWS[_currentViewKey]?.stages || VIEW_INSURANCE;
-
-  // Legacy STAGES array — now derived from current view's stage labels
-  const STAGES = _currentViewStages.map(k => STAGE_META[k]?.label || k);
-  let _dragId = null;
-  let _filteredLeads = null;
+  // v159.7: wrap synchronous setup in try/catch so a throw here doesn't
+  // silently kill the module before window.db gets assigned. We've been
+  // burned multiple times by this exact pattern — a deep-null reference
+  // or an iOS Safari API quirk in this region kills init invisibly.
+  // Errors land in window.__nbdLoadErrors so the banner shows them.
+  let _currentViewKey, _currentViewStages, STAGES, _dragId = null, _filteredLeads = null;
+  try {
+    // Legacy compat — default to insurance pipeline view
+    _currentViewKey = (function(){
+      try { return localStorage.getItem('nbd_kanban_view') || 'insurance'; }
+      catch(e) { return 'insurance'; } // private mode / disabled storage
+    })();
+    _currentViewStages = (KANBAN_VIEWS && KANBAN_VIEWS[_currentViewKey] && KANBAN_VIEWS[_currentViewKey].stages) || VIEW_INSURANCE;
+    // Legacy STAGES array — now derived from current view's stage labels
+    STAGES = _currentViewStages.map(k => (STAGE_META && STAGE_META[k] && STAGE_META[k].label) || k);
+    window.__nbdMark && window.__nbdMark('m2:stagesSetup');
+  } catch (e) {
+    if (window.__nbdLoadErrors) window.__nbdLoadErrors.push('m2:stagesSetup-throw: ' + (e.message || e));
+    // Fall back to safe defaults so the module can continue.
+    _currentViewKey = 'insurance';
+    _currentViewStages = VIEW_INSURANCE || [];
+    STAGES = (_currentViewStages || []).slice();
+  }
 
   // Expose stage system to window for non-module scripts (crm.js, etc.)
   window.STAGES = STAGES;
@@ -364,7 +379,16 @@ window.__nbdMark('pre-module');
     appId: "1:717435841570:web:c2338e11052c96fde02e7b"
   };
 
-  document.documentElement.style.visibility="hidden";
+  // v159.7: stop hiding the page during init.
+  // Up through v159.6 we set visibility:hidden here, relying on either
+  // _showPage() in nbd-auth.js or the catch handler to restore it. On
+  // mobile this has been failing — the hide DOES land but the show
+  // never fires because module 1's promise hangs. Removing the hide is
+  // a deliberate trade-off: the page may flash unauth content for a
+  // few hundred ms, but at least it never gets stuck on a permanently
+  // invisible page if module init dies. The diagnostic banner is the
+  // only ground-truth we have right now and it must be visible.
+  // (Original line: document.documentElement.style.visibility="hidden";)
   window.__nbdMark && window.__nbdMark('m2:beforeApp');
   // v159.6: Singleton-aware app init.
   // nbd-auth.js (the FIRST module on this page) already calls
@@ -18049,8 +18073,51 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      opacity when leads finally load. -->
 <script>
 (function _mobileDiagnostic() {
-  const VERSION = 'v159.6';
+  const VERSION = 'v159.7';
   let banner;
+  // v159.7: self-recovery + active probe handlers. Both are safe to
+  // call without affecting any working state — the user only triggers
+  // them by tapping the button.
+  window.__nbdHardReset = async function _nbdHardReset() {
+    try {
+      // Unregister every service worker scoped to this origin.
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+      }
+      // Wipe every cache (SW caches, image caches, etc.).
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+      }
+    } catch (e) { /* non-fatal */ }
+    // Append ?nosw=1 so the next load also bypasses the SW kill switch
+    // (the page-bottom swBootstrap honours this by refusing to register).
+    var u = new URL(location.href);
+    u.searchParams.set('nosw', '1');
+    location.replace(u.toString());
+  };
+  window.__nbdGstaticTest = async function _nbdGstaticTest() {
+    var btn = document.getElementById('nbd-load-diag-gstatic');
+    if (btn) btn.textContent = 'testing…';
+    var url = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    var t0 = Date.now();
+    try {
+      var res = await fetch(url, { cache: 'no-store', mode: 'cors' });
+      var ms = Date.now() - t0;
+      var msg = 'gstatic ' + res.status + ' in ' + ms + 'ms';
+      if (window.__nbdLoadErrors && window.__nbdLoadErrors.length < 8) {
+        window.__nbdLoadErrors.push(msg);
+      }
+      if (btn) btn.textContent = 'gstatic: ' + res.status + ' (' + ms + 'ms)';
+    } catch (e) {
+      var msg2 = 'gstatic FAIL: ' + (e && e.message || e);
+      if (window.__nbdLoadErrors && window.__nbdLoadErrors.length < 8) {
+        window.__nbdLoadErrors.push(msg2);
+      }
+      if (btn) btn.textContent = 'gstatic BLOCKED';
+    }
+  };
   function _esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -18107,6 +18174,19 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
         + (s.errCount > 1 ? ' <span style="opacity:.7;">(+' + (s.errCount - 1) + ' more)</span>' : '')
         + '</div>'
       : '';
+    // v159.7: self-recovery row. Two big tap targets so the user can
+    // (a) hard-reset SW + caches and reload with ?nosw=1, and
+    // (b) actively probe gstatic.com to find out if Firebase modules
+    // can even be fetched. Both are silent unless tapped.
+    const actionRow =
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
+        '<button onclick="window.__nbdHardReset && window.__nbdHardReset()" ' +
+          'style="background:#c33;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
+          '↻ Hard Reset (SW + caches)</button>' +
+        '<button id="nbd-load-diag-gstatic" onclick="window.__nbdGstaticTest && window.__nbdGstaticTest()" ' +
+          'style="background:#246;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
+          'Test gstatic fetch</button>' +
+      '</div>';
     b.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
         '<div style="flex:1;min-width:0;">' +
@@ -18117,6 +18197,7 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
           '<div style="opacity:.85;">retry: ' + s.retry + ' · ' + s.online + ' · ' + s.pwa +
             ' · ' + s.auth + ' · ' + s.dbReady + ' · uid: ' + s.uid + '</div>' +
           phaseLine +
+          actionRow +
           '<div style="opacity:.65;font-size:10px;word-break:break-all;margin-top:2px;">' + _esc(s.ua) + '</div>' +
         '</div>' +
         '<button id="nbd-load-diag-close" aria-label="Dismiss" style="background:none;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:4px;padding:1px 7px;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;">×</button>' +
