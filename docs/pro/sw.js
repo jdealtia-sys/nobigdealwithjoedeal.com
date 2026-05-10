@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v19', // v19 — bumped to force-evict installed PWAs after the v159 mobile pipeline fixes (#294/#297/#298/#299). The byte-change here is what triggers the SW install→skipWaiting→clients.claim chain that fires the controllerchange listener at dashboard.html:18022 and force-reloads the page with the new HTML/CSS.
-  cdn: 'nbd-cdn-v19',     // v19 — paired bump
+  shell: 'nbd-shell-v20', // v20 — landscape fullscreen fix: lock body/view overflow + scroll-snap on kanban + extended scrollLeft=0 fire window (rAF/50/200/500/1000ms). Forces installed PWAs to pick up the fix without a manual reinstall.
+  cdn: 'nbd-cdn-v20',     // v20 — paired bump
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

@@ -7079,6 +7079,49 @@ body {
   /* FAB still visible in fullscreen so the rep can still add a lead */
   body.kanban-fullscreen #addLeadFab{ z-index:1001; }
 
+  /* ─── Lock body / view scrolling in fullscreen mode ────────────
+     User-tested 50222fb on a real iPhone PWA: horizontal kanban
+     scroll "felt broken" — sometimes ignored swipes, sometimes
+     bounced back to the previous column, and tap-to-fullscreen
+     left the leftmost NEW LEAD column half-clipped despite the
+     triple-fire scrollLeft=0 in toggleKanbanFullscreen.
+
+     Both symptoms have the same root cause: body, .view, and
+     .view-scroll all carry overflow-y:auto on mobile (lines 5631,
+     3522, 3523). When the kanban — a child of .view — has
+     overflow-x:auto, iOS gesture-routing can't reliably distinguish
+     horizontal pan-x from a near-horizontal swipe that should drop
+     to body pan-y. The user's swipe gets eaten by an ancestor's
+     overflow context. AND iOS sometimes restores the body's scroll
+     position across the layout reflow into position:fixed, which
+     drags scrollLeft along with it.
+
+     Fix: while .kanban-fullscreen is on body, hard-lock every
+     ancestor scroll context. The kanban is position:fixed inset:0
+     so it doesn't need them anyway. overscroll-behavior:contain
+     stops iOS rubber-banding. Now the kanban is the ONE element
+     iOS will route horizontal swipes to. */
+  body.kanban-fullscreen,
+  body.kanban-fullscreen .view,
+  body.kanban-fullscreen .view.active,
+  body.kanban-fullscreen .view-scroll{
+    overflow:hidden!important;
+    overscroll-behavior:contain!important;
+    touch-action:none!important;
+  }
+  body.kanban-fullscreen #kanbanBoard{
+    overscroll-behavior-x:contain!important;
+    /* Gentle horizontal snap so a tap-to-fullscreen lands on column 1
+       and a flick reliably rests on a column boundary instead of
+       half-way between two. proximity (not mandatory) keeps free-pan
+       responsive when reps are scanning across the pipeline. */
+    scroll-snap-type:x proximity;
+    scroll-padding-left:16px;
+  }
+  body.kanban-fullscreen .kanban-col{
+    scroll-snap-align:start;
+  }
+
   /* Floating exit button (only shown in fullscreen mode) */
   #kanbanFullscreenExit{
     display:none; position:fixed; top:14px; right:14px; z-index:1000;
@@ -15837,31 +15880,31 @@ function toggleSidebarCollapse() {
 window.toggleSidebarCollapse = toggleSidebarCollapse;
 
 function toggleKanbanFullscreen() {
+  // Snap the kanban scroll BEFORE flipping the body class so iOS doesn't
+  // get a chance to preserve the old scrollLeft across the layout
+  // reflow into position:fixed. Then snap again on the next frame and
+  // again at 50/200/500/1000ms — the layout reflow on iOS PWAs can take
+  // longer than 200ms in landscape under memory pressure, and the
+  // user reported that the leftmost NEW column was still half-clipped
+  // even after the triple-fire from #297. Belt-and-suspenders.
+  const board = document.getElementById('kanbanBoard');
+  const snap = () => {
+    if (!board) return;
+    try { board.scrollTo({ left: 0, top: 0, behavior: 'instant' }); }
+    catch (_) { board.scrollLeft = 0; }
+  };
+  // Pre-flip snap.
+  if (!document.body.classList.contains('kanban-fullscreen')) snap();
   const fullscreen = document.body.classList.toggle('kanban-fullscreen');
-  // Sync the icon button's active state when present
   const btn = document.getElementById('kanbanFullscreenBtn');
   if (btn) btn.classList.toggle('active', fullscreen);
-  // On entering fullscreen, snap the board to scrollLeft:0 so the user
-  // sees column 1 (NEW). Without this the previous horizontal scroll
-  // position is retained, which on a 844px landscape iPhone leaves the
-  // leftmost column half-clipped — the "half the screen is cut out"
-  // complaint. iOS Safari occasionally ignores a single scrollLeft
-  // assignment when it lands during the same frame as a touch-scroll
-  // momentum animation OR before the body.kanban-fullscreen rules have
-  // finished reflowing #kanbanBoard's height/padding. Fire it three
-  // times: rAF, 50ms, and 200ms — whichever lands after layout settles
-  // takes effect. Belt-and-suspenders is cheap; a stuck scroll is
-  // unusable for the rep.
   if (fullscreen) {
-    const snap = () => {
-      const board = document.getElementById('kanbanBoard');
-      if (!board) return;
-      try { board.scrollTo({ left: 0, top: 0, behavior: 'instant' }); }
-      catch (_) { board.scrollLeft = 0; }
-    };
+    // Post-flip snaps across a 1s window.
     requestAnimationFrame(snap);
     setTimeout(snap, 50);
     setTimeout(snap, 200);
+    setTimeout(snap, 500);
+    setTimeout(snap, 1000);
   }
 }
 window.toggleKanbanFullscreen = toggleKanbanFullscreen;
