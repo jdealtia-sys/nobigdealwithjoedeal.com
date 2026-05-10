@@ -7131,7 +7131,17 @@ body {
      regardless of intrinsic widths. align-items:stretch makes each row
      span the full width. The children themselves stay horizontal flex
      containers so their inner buttons / chips still lay out side-by-side
-     within their own row. */
+     within their own row.
+
+     Follow-up: stacking exposed a second issue — .crm-hdr-actions has
+     ~12 buttons (sidebar toggle, fullscreen, tools, trash, sample,
+     NEEDS ATTENTION, STALE SHARES, SHOW PROSPECTS, SNOOZED, HOT FIRST,
+     BULK, CSV, ADD). When wrapped vertically they ate 3 rows of viewport
+     before the kanban could even start. Convert that row into a single
+     horizontal-scroll strip on phones so all buttons stay reachable via
+     swipe but cost only ONE row of vertical space. Same trick for
+     .crm-hdr-search (search + type filter + view switcher) — that's
+     8+ controls that benefit from the same treatment. */
   @media (max-width:768px){
     .crm-header{
       flex-direction:column!important;
@@ -7141,8 +7151,25 @@ body {
       gap:6px;
     }
     .crm-hdr-label   { width:100%!important; justify-content:space-between; }
-    .crm-hdr-search  { width:100%!important; min-width:0; flex-wrap:wrap; }
-    .crm-hdr-actions { width:100%!important; justify-content:flex-start; flex-wrap:wrap; }
+    .crm-hdr-search  {
+      width:100%!important; min-width:0;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      -webkit-overflow-scrolling:touch!important;
+      scrollbar-width:none!important;
+    }
+    .crm-hdr-search::-webkit-scrollbar{ display:none!important; }
+    .crm-hdr-search > *{ flex-shrink:0!important; }
+    .crm-hdr-actions {
+      width:100%!important;
+      justify-content:flex-start;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      -webkit-overflow-scrolling:touch!important;
+      scrollbar-width:none!important;
+    }
+    .crm-hdr-actions::-webkit-scrollbar{ display:none!important; }
+    .crm-hdr-actions > *{ flex-shrink:0!important; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
   }
 
