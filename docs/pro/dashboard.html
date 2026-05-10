@@ -7117,21 +7117,59 @@ body {
   body.crm-scrolling .crm-hdr-stat,
   body.crm-scrolling .crm-hdr-btn-label{ display:none!important; }
 
-  /* Mobile — let the header rows wrap to two lines and tighten everything.
-     The unconditional .crm-header rule above pins flex-wrap:nowrap to keep
-     the desktop one-row layout. Without an explicit override here, that
-     rule wins by source order on phones too — so the .crm-hdr-label /
-     .crm-hdr-search / .crm-hdr-actions cluster all three on a single row,
-     squeezed against each other. The right-hand action group renders as
-     a dense panel beside the title that LOOKS like a stuck-open dropdown
-     on portrait phones (it isn't — it's just the inline header packed
-     into ~40% width). flex-wrap:wrap !important here lets each section
-     reflow onto its own row, matching the width:100% rules below. */
+  /* Mobile — stack the header sections vertically.
+
+     Previous attempt (flex-wrap:wrap !important) didn't actually wrap on
+     phones because flex-wrap only triggers when the children's intrinsic
+     widths exceed the parent — and with .crm-hdr-label being just
+     "Pipeline · 20 customers · …" text it was narrow enough that all
+     three sections still squeezed onto one row. The actions cluster
+     ended up jammed against the title and looked like a stuck-open
+     dropdown panel beside the page label.
+
+     Hard fix: force flex-direction:column so the three children stack
+     regardless of intrinsic widths. align-items:stretch makes each row
+     span the full width. The children themselves stay horizontal flex
+     containers so their inner buttons / chips still lay out side-by-side
+     within their own row.
+
+     Follow-up: stacking exposed a second issue — .crm-hdr-actions has
+     ~12 buttons (sidebar toggle, fullscreen, tools, trash, sample,
+     NEEDS ATTENTION, STALE SHARES, SHOW PROSPECTS, SNOOZED, HOT FIRST,
+     BULK, CSV, ADD). When wrapped vertically they ate 3 rows of viewport
+     before the kanban could even start. Convert that row into a single
+     horizontal-scroll strip on phones so all buttons stay reachable via
+     swipe but cost only ONE row of vertical space. Same trick for
+     .crm-hdr-search (search + type filter + view switcher) — that's
+     8+ controls that benefit from the same treatment. */
   @media (max-width:768px){
-    .crm-header{ padding:6px 10px; gap:5px; flex-wrap:wrap!important; }
-    .crm-hdr-label{ width:100%; justify-content:space-between; }
-    .crm-hdr-search{ width:100%; min-width:0; }
-    .crm-hdr-actions{ width:100%; justify-content:flex-start; flex-wrap:wrap; }
+    .crm-header{
+      flex-direction:column!important;
+      align-items:stretch!important;
+      flex-wrap:wrap!important;
+      padding:6px 10px;
+      gap:6px;
+    }
+    .crm-hdr-label   { width:100%!important; justify-content:space-between; }
+    .crm-hdr-search  {
+      width:100%!important; min-width:0;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      -webkit-overflow-scrolling:touch!important;
+      scrollbar-width:none!important;
+    }
+    .crm-hdr-search::-webkit-scrollbar{ display:none!important; }
+    .crm-hdr-search > *{ flex-shrink:0!important; }
+    .crm-hdr-actions {
+      width:100%!important;
+      justify-content:flex-start;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      -webkit-overflow-scrolling:touch!important;
+      scrollbar-width:none!important;
+    }
+    .crm-hdr-actions::-webkit-scrollbar{ display:none!important; }
+    .crm-hdr-actions > *{ flex-shrink:0!important; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
   }
 
@@ -15797,15 +15835,24 @@ function toggleKanbanFullscreen() {
   // On entering fullscreen, snap the board to scrollLeft:0 so the user
   // sees column 1 (NEW). Without this the previous horizontal scroll
   // position is retained, which on a 844px landscape iPhone leaves the
-  // leftmost column half-clipped and three later columns dominating the
-  // screen — the "half the screen is cut out" complaint. Done in the
-  // next frame so the layout has already reflowed under the new
-  // body.kanban-fullscreen rules before the scroll lands.
+  // leftmost column half-clipped — the "half the screen is cut out"
+  // complaint. iOS Safari occasionally ignores a single scrollLeft
+  // assignment when it lands during the same frame as a touch-scroll
+  // momentum animation OR before the body.kanban-fullscreen rules have
+  // finished reflowing #kanbanBoard's height/padding. Fire it three
+  // times: rAF, 50ms, and 200ms — whichever lands after layout settles
+  // takes effect. Belt-and-suspenders is cheap; a stuck scroll is
+  // unusable for the rep.
   if (fullscreen) {
-    requestAnimationFrame(() => {
+    const snap = () => {
       const board = document.getElementById('kanbanBoard');
-      if (board) board.scrollLeft = 0;
-    });
+      if (!board) return;
+      try { board.scrollTo({ left: 0, top: 0, behavior: 'instant' }); }
+      catch (_) { board.scrollLeft = 0; }
+    };
+    requestAnimationFrame(snap);
+    setTimeout(snap, 50);
+    setTimeout(snap, 200);
   }
 }
 window.toggleKanbanFullscreen = toggleKanbanFullscreen;
