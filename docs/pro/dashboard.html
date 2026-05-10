@@ -7170,6 +7170,15 @@ body {
     }
     .crm-hdr-actions::-webkit-scrollbar{ display:none!important; }
     .crm-hdr-actions > *{ flex-shrink:0!important; }
+    /* CRITICAL: line 5665 sets `.crm-header .btn { flex:1 }` for the
+       desktop layout — that makes each .btn distribute the parent width
+       equally with flex-grow:1 + flex-basis:0%. The horizontal-scroll
+       strip never engaged on phones because the buttons compressed to
+       fit the viewport instead of overflowing. flex:0 0 auto here pins
+       each button to its natural content width so the strip actually
+       overflows and becomes swipeable. */
+    .crm-hdr-actions > .btn,
+    .crm-hdr-search > .btn{ flex:0 0 auto!important; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
   }
 
