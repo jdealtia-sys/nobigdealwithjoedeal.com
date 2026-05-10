@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v18', // v18 — W127 — paired with firebase.json must-revalidate cache headers
-  cdn: 'nbd-cdn-v18',     // v18 — paired bump
+  shell: 'nbd-shell-v19', // v19 — bumped to force-evict installed PWAs after the v159 mobile pipeline fixes (#294/#297/#298/#299). The byte-change here is what triggers the SW install→skipWaiting→clients.claim chain that fires the controllerchange listener at dashboard.html:18022 and force-reloads the page with the new HTML/CSS.
+  cdn: 'nbd-cdn-v19',     // v19 — paired bump
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
